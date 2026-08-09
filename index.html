@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0a0a0b" />
+    <title>Otty</title>
+    <script>
+      // 首帧前定主题，避免加载时闪一下另一套配色。
+      // 键名与 src/theme/storage.ts 的 THEME_MODE_KEY 一致，改一处要同步改另一处。
+      (function () {
+        var mode = "dark";
+        try {
+          var saved = localStorage.getItem("otty.theme.v1");
+          mode = saved === "light" || saved === "dark"
+            ? saved
+            : window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+        } catch (error) {
+          // 存储不可用时退回暗色
+        }
+        document.documentElement.dataset.theme = mode;
+        document.querySelector('meta[name="theme-color"]').content =
+          mode === "light" ? "#fafafa" : "#0a0a0b";
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

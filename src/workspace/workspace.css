@@ -1,0 +1,127 @@
+.app-shell {
+  position: relative;
+  display: grid;
+  width: 100%;
+  height: 100%;
+  grid-template-columns: 208px minmax(0, 1fr);
+  background: var(--canvas);
+}
+
+/* 折叠时侧栏整体不渲染，栅格必须同步收成单列：
+   否则 .workbench 会落回第一条固定轨道，终端被压成十几列。
+   这里不做宽度过渡——动画期间 ResizeObserver 会连发 resize，PTY 跟着抖。 */
+.app-shell.is-collapsed { grid-template-columns: minmax(0, 1fr); }
+
+/* 用量面板占右侧固定一列。同样不加宽度过渡，理由同上。 */
+.app-shell.has-usage { grid-template-columns: 208px minmax(0, 1fr) 272px; }
+.app-shell.is-collapsed.has-usage { grid-template-columns: minmax(0, 1fr) 272px; }
+
+/* 终端舞台：满幅铺开，只在顶部留一行路径。 */
+
+.workbench {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  grid-template-rows: 30px minmax(0, 1fr);
+}
+
+.stage-caption {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  padding: 0 44px;
+  user-select: none;
+}
+
+/* 浮层相对触发器居中展开，不被按钮宽度拉扁。 */
+.stage-switcher .popover--project {
+  right: auto;
+  left: 50%;
+  width: max-content;
+  min-width: 236px;
+  max-width: 340px;
+  transform: translateX(-50%);
+}
+
+.reveal-handle {
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  z-index: 8;
+}
+
+.terminal-stage {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.empty-stage {
+  display: grid;
+  height: 100%;
+  place-content: center;
+  justify-items: center;
+  gap: 14px;
+  color: var(--text-faint);
+}
+
+.empty-stage button {
+  padding: 7px 15px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  background: transparent;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color var(--duration) var(--ease), color var(--duration) var(--ease);
+}
+
+.empty-stage button:hover { border-color: var(--border-strong); color: var(--text); }
+
+/* 浮层 */
+
+.failure-toast {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 6;
+  display: grid;
+  max-width: 380px;
+  align-items: center;
+  gap: 10px;
+  grid-template-columns: 15px minmax(0, 1fr) 22px;
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-lg);
+  font-size: 12px;
+}
+
+.failure-toast > svg { color: var(--danger); }
+.failure-toast p { margin: 0; color: var(--text-muted); overflow-wrap: anywhere; }
+
+.failure-toast button {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border: 0;
+  border-radius: 4px;
+  color: var(--text-faint);
+  background: transparent;
+  cursor: pointer;
+}
+
+.failure-toast button:hover { color: var(--text); background: var(--surface-hover); }
+
+@media (max-width: 900px) {
+  .app-shell:not(.is-collapsed) { grid-template-columns: 184px minmax(0, 1fr); }
+  .app-shell:not(.is-collapsed).has-usage {
+    grid-template-columns: 184px minmax(0, 1fr) 240px;
+  }
+  .app-shell.is-collapsed.has-usage { grid-template-columns: minmax(0, 1fr) 240px; }
+}

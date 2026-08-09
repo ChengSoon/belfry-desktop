@@ -1,0 +1,216 @@
+roadmap: otty-desktop
+created: 2026-08-09
+
+items:
+  - slug: cross-platform-terminal-vertical-slice
+    description: 同一代码库在 macOS 启动默认 Unix Shell、在 Windows 启动 PowerShell，并完成输入输出、缩放和退出
+    depends_on: []
+    status: in-progress
+    feature: 2026-08-09-cross-platform-terminal-vertical-slice
+    minimal_loop: false
+    notes: 必须在 macOS 和 Windows 两端通过，单平台成功不算完成
+
+  - slug: project-agent-workspace-vertical-slice
+    description: 打开本地项目，检测 Codex 与 Claude Code，并在项目目录启动可切换的 Agent 或 Shell 标签
+    depends_on: []
+    status: in-progress
+    feature: 2026-08-09-project-agent-workspace-vertical-slice
+    minimal_loop: true
+    notes: 与终端垂直切片并行复用已落地 PTY 契约；进程状态不冒充后续 hooks 生命周期
+
+  - slug: shell-profiles-cross-platform
+    description: 检测并启动 macOS zsh、bash、fish 与 Windows PowerShell、CMD、WSL、Git Bash Profile
+    depends_on: [cross-platform-terminal-vertical-slice]
+    status: planned
+    feature: null
+    minimal_loop: false
+    notes: null
+
+  - slug: terminal-interaction-compatibility
+    description: 完成两端 ANSI、Unicode、IME、选择、剪贴板、搜索和链接交互
+    depends_on: [cross-platform-terminal-vertical-slice]
+    status: planned
+    feature: null
+    minimal_loop: false
+    notes: null
+
+  - slug: workspace-tabs-panes
+    description: 实现共享窗口、标签、递归分屏和焦点模型及平台等价交互
+    depends_on: [project-agent-workspace-vertical-slice]
+    status: planned
+    feature: null
+    minimal_loop: false
+    notes: null
+
+  - slug: settings-config-themes
+    description: 实现共享 TOML 配置、设置页、字体、主题和平台覆盖
+    depends_on: [cross-platform-terminal-vertical-slice]
+    status: planned
+    feature: null
+    minimal_loop: false
+    notes: null
+
+  - slug: session-persistence-restore
+    description: 持久化并恢复两端窗口、标签、Pane 和进程上下文
+    depends_on: [workspace-tabs-panes, settings-config-themes]
+    status: planned
+    feature: null
+    minimal_loop: false
+    notes: null
+
+  - slug: agent-integration-foundation
+    description: 建立跨平台 Agent Adapter、状态协议、检测和 hooks 安装框架
+    depends_on: [project-agent-workspace-vertical-slice, workspace-tabs-panes, session-persistence-restore]
+    status: planned
+    feature: null
+    minimal_loop: false
+    notes: null
+
+  - slug: codex-agent-adapter
+    description: 接入 macOS 和 Windows 的 Codex hooks、状态和恢复能力
+    depends_on: [agent-integration-foundation]
+    status: planned
+    feature: null
+    minimal_loop: false
+    notes: null
+
+  - slug: agent-status-notifications
+    description: 展示 Agent 徽标、macOS 通知和 Dock 状态、Windows 通知和 Taskbar 状态
+    depends_on: [agent-integration-foundation, codex-agent-adapter]
+    status: planned
+    feature: null
+    minimal_loop: false
+    notes: null
+
+  - slug: prompt-composer-queue
+    description: 实现共享多行 Composer、附件上下文和 Prompt Queue
+    depends_on: [workspace-tabs-panes, agent-integration-foundation]
+    status: planned
+    feature: null
+    minimal_loop: false
+    notes: null
+
+  - slug: agent-history-resume
+    description: 保存 Agent 生命周期和日志并按平台恢复可恢复会话
+    depends_on: [session-persistence-restore, agent-integration-foundation, codex-agent-adapter]
+    status: planned
+    feature: null
+    minimal_loop: false
+    notes: null
+
+  - slug: open-quickly-command-palette
+    description: 搜索窗口、标签、Agent、命令和项目并使用平台等价快捷键
+    depends_on: [workspace-tabs-panes, session-persistence-restore, agent-integration-foundation]
+    status: planned
+    feature: null
+    minimal_loop: false
+    notes: null
+
+  - slug: claude-agent-adapter
+    description: 接入 macOS 和 Windows 的 Claude Code hooks 与恢复能力
+    depends_on: [agent-integration-foundation]
+    status: planned
+    feature: null
+    minimal_loop: false
+    notes: null
+
+  - slug: opencode-agent-adapter
+    description: 接入 macOS 和 Windows 的 OpenCode plugin 事件与恢复能力
+    depends_on: [agent-integration-foundation]
+    status: planned
+    feature: null
+    minimal_loop: false
+    notes: null
+
+  - slug: ssh-remote-integration
+    description: 在两端支持 SSH、远程环境、terminfo、远程文件和 Git
+    depends_on: [shell-profiles-cross-platform, terminal-interaction-compatibility, session-persistence-restore]
+    status: planned
+    feature: null
+    minimal_loop: false
+    notes: null
+
+  - slug: file-editor-preview-panes
+    description: 实现共享文件浏览、编辑以及 Markdown 等内容预览
+    depends_on: [workspace-tabs-panes, settings-config-themes]
+    status: planned
+    feature: null
+    minimal_loop: false
+    notes: null
+
+  - slug: git-details-panel
+    description: 实现两端本地和远程 Git 状态、Diff、分支、提交与同步操作
+    depends_on: [ssh-remote-integration, file-editor-preview-panes]
+    status: planned
+    feature: null
+    minimal_loop: false
+    notes: null
+
+  - slug: recipes-workspace-replay
+    description: 保存并安全重放跨平台命令、Agent 和工作区布局
+    depends_on: [workspace-tabs-panes, settings-config-themes, session-persistence-restore, agent-integration-foundation]
+    status: planned
+    feature: null
+    minimal_loop: false
+    notes: null
+
+  - slug: control-cli-core
+    description: 实现共享 otty CLI 协议以及 macOS Unix Socket 和 Windows Named Pipe transport
+    depends_on: [workspace-tabs-panes, agent-integration-foundation]
+    status: planned
+    feature: null
+    minimal_loop: false
+    notes: null
+
+  - slug: frecency-open-recent
+    description: 实现两端目录学习、jump 和最近项目导航
+    depends_on: [session-persistence-restore, open-quickly-command-palette, control-cli-core]
+    status: planned
+    feature: null
+    minimal_loop: false
+    notes: null
+
+  - slug: import-export-parity
+    description: 实现两端配置、主题、Recipe 和主流终端格式的兼容导入导出
+    depends_on: [settings-config-themes, recipes-workspace-replay]
+    status: planned
+    feature: null
+    minimal_loop: false
+    notes: null
+
+  - slug: desktop-native-integrations
+    description: 完成 macOS AppKit、Dock、Keychain、Finder 与 Windows Taskbar、Credential Manager、Explorer 集成
+    depends_on: [settings-config-themes, agent-status-notifications, control-cli-core]
+    status: planned
+    feature: null
+    minimal_loop: false
+    notes: null
+
+  - slug: desktop-packaging-release
+    description: 完成 macOS 签名公证和 Universal 发布，以及 Windows 签名、x64 和 ARM64 安装包
+    depends_on: [desktop-native-integrations, import-export-parity]
+    status: planned
+    feature: null
+    minimal_loop: false
+    notes: null
+
+  - slug: cross-platform-parity-hardening
+    description: 完成 macOS 和 Windows 功能对照、无障碍、性能、稳定性和升级验收
+    depends_on:
+      - shell-profiles-cross-platform
+      - terminal-interaction-compatibility
+      - agent-status-notifications
+      - prompt-composer-queue
+      - agent-history-resume
+      - open-quickly-command-palette
+      - claude-agent-adapter
+      - opencode-agent-adapter
+      - ssh-remote-integration
+      - git-details-panel
+      - recipes-workspace-replay
+      - frecency-open-recent
+      - desktop-packaging-release
+    status: planned
+    feature: null
+    minimal_loop: false
+    notes: 最终跨平台整合验收

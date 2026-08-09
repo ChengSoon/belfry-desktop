@@ -1,0 +1,116 @@
+feature: 2026-08-09-project-agent-workspace-vertical-slice
+created: 2026-08-09
+
+steps:
+  - action: 结构微重构：拆出终端控制器与 native launch 解析，保持现有单 Shell 行为不变
+    exit_signal: 现有前端与 Rust 测试、生产构建通过，Terminal hook 和 PtyBackend 对外契约不变
+    status: done
+
+  - action: 项目与 Launcher 名词骨架：建立共享类型、ProjectService 与 Tauri commands
+    exit_signal: 当前目录和指定目录可规范化为 ProjectWorkspace，非法目录返回结构化错误
+    status: done
+
+  - action: Agent 探测与固定启动节点：实现 Codex/Claude 可用性和安全 Launch Profile
+    exit_signal: 已安装工具报告 executable/version 并从项目 cwd 启动，缺失工具返回可观察原因
+    status: done
+
+  - action: 工作台静态结构与状态编排：建立项目栏、Launcher、平面标签栏和终端工作面
+    exit_signal: 项目、Agent 可用性和多个标签可在静态/模拟状态下完整操作且键盘可达
+    status: done
+
+  - action: 多 Session 联调与持久化：接入真实终端、Recent Projects、切项目清理和结构化错误
+    exit_signal: 多个真实会话独立运行，标签切换不重建，切项目有界清理，最近项目最多保留 6 条
+    status: done
+
+  - action: 验证与视觉收尾：覆盖验收场景、双端构建边界、可访问性和桌面端 smoke
+    exit_signal: 定向测试、前端构建、Rust 测试及当前平台桌面视觉/交互证据齐全，Windows 未验证项明确记录
+    status: done
+
+checks:
+  - item: ProjectWorkspace 包含稳定 id、名称、规范化 rootPath 与 rootUri
+    source: 名词契约
+    status: pending
+  - item: AgentKind 只允许 codex 与 claude，AgentAvailability 明确可用性、路径、版本和原因
+    source: 名词契约
+    status: pending
+  - item: LaunchProfileId 只允许 system-default、agent:codex、agent:claude
+    source: 名词契约
+    status: pending
+  - item: AgentTerminalTab 绑定项目与独立 Terminal Session，只表达进程阶段
+    source: 名词契约
+    status: pending
+  - item: ProjectService.open 失败不替换当前项目或关闭现有会话
+    source: 流程级约束
+    status: pending
+  - item: Agent 探测失败不阻塞 Shell 降级路径
+    source: 流程级约束
+    status: pending
+  - item: executable 由 Rust 固定 AgentKind 注册表解析，前端不传任意命令
+    source: 流程级约束
+    status: pending
+  - item: 每个标签独占 sequence、Channel 和关闭生命周期，切换不重建
+    source: 流程级约束
+    status: pending
+  - item: Recent Projects 最多 6 条且不保存 Prompt、终端输出或环境变量
+    source: 流程级约束
+    status: pending
+  - item: 应用根视图挂载 Project Workspace shell
+    source: 挂载点
+    status: pending
+  - item: Tauri 注册 project_open 与 agent_detect commands
+    source: 挂载点
+    status: pending
+  - item: Terminal 注册 agent:codex 与 agent:claude profiles
+    source: 挂载点
+    status: pending
+  - item: 浏览器持久化使用 otty.recent-projects.v1
+    source: 挂载点
+    status: pending
+  - item: 不修改 Codex/Claude 配置或安装 hooks
+    source: 范围守护
+    status: pending
+  - item: 不引入 SQLite、云同步、Prompt Queue、Git、SSH、Recipe 或文件编辑能力
+    source: 范围守护
+    status: pending
+  - item: 不实现递归分屏、多窗口或跨项目同时运行
+    source: 范围守护
+    status: pending
+  - item: IPC 不接受任意 executable、参数数组或用户 shell 字符串
+    source: 范围守护
+    status: pending
+  - item: 打开应用后当前目录成为项目并出现可交互 Shell 标签
+    source: 验收场景
+    status: pending
+  - item: 有效项目目录规范化且 Shell cwd 正确
+    source: 验收场景
+    status: pending
+  - item: 无效项目路径保留旧项目与会话并显示结构化错误
+    source: 验收场景
+    status: pending
+  - item: 已安装 Codex/Claude 显示版本且能在项目目录启动
+    source: 验收场景
+    status: pending
+  - item: 缺失 Agent 禁用并显示原因且不影响其他 Launcher
+    source: 验收场景
+    status: pending
+  - item: 用户命令环境可找到但 GUI PATH 缺失的 Agent 仍可检测
+    source: 验收场景
+    status: pending
+  - item: 多标签独立运行且切换不退出或重建
+    source: 验收场景
+    status: pending
+  - item: 关闭标签只关闭对应 Terminal Session
+    source: 验收场景
+    status: pending
+  - item: 切换项目清理旧会话并为新项目建立 Shell 标签
+    source: 验收场景
+    status: pending
+  - item: Agent 启动失败显示结构化错误且应用可继续操作
+    source: 验收场景
+    status: pending
+  - item: 最近项目最多恢复 6 条且不恢复进程或敏感内容
+    source: 验收场景
+    status: pending
+  - item: 项目表单、Launcher、标签和关闭按钮键盘可达且状态不只靠颜色
+    source: 验收场景
+    status: pending

@@ -1,0 +1,123 @@
+import { AlertTriangle, PanelLeftOpen, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { TerminalViewport, type TerminalSnapshot } from "./components/TerminalViewport";
+import "./workspace/workspace.css";
+import { UsagePanel } from "./usage/components/UsagePanel";
+import { ProjectSwitcher } from "./workspace/components/ProjectSwitcher";
+import { Sidebar } from "./workspace/components/Sidebar";
+import type { WorkspaceTab } from "./workspace/contracts";
+import { failureLabel } from "./workspace/errors";
+import { useProjectWorkspace } from "./workspace/useProjectWorkspace";
+
+export default function App() {
+  const workspace = useProjectWorkspace();
+  const [collapsed, setCollapsed] = useState(false);
+  const [usageOpen, setUsageOpen] = useState(false);
+
+  // ⌘B / ⌘U 走捕获阶段，避免按键先被 xterm 吞进 shell。
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey)) return;
+      const key = event.key.toLowerCase();
+      if (key !== "b" && key !== "u") return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (key === "b") setCollapsed((value) => !value);
+      else setUsageOpen((value) => !value);
+    };
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, []);
+
+  return (
+    <main
+      className={`app-shell${collapsed ? " is-collapsed" : ""}${usageOpen ? " has-usage" : ""}`}
+    >
+      {collapsed ? null : (
+        <Sidebar
+          activeId={workspace.activeTabId}
+          agents={workspace.agents}
+          onActivate={workspace.setActiveTabId}
+          onClose={workspace.closeTab}
+          onCollapse={() => setCollapsed(true)}
+          onLaunch={workspace.launch}
+          onRefresh={workspace.redetectAgents}
+          onToggleUsage={() => setUsageOpen((value) => !value)}
+          tabs={workspace.tabs}
+          usageOpen={usageOpen}
+        />
+      )}
+
+      <section className="workbench">
+        {collapsed ? (
+          <button
+            className="icon-button icon-button--sm reveal-handle"
+            onClick={() => setCollapsed(false)}
+            title="展开侧栏 ⌘B"
+            type="button"
+          >
+            <PanelLeftOpen aria-hidden="true" size={14} />
+          </button>
+        ) : null}
+        <div className="stage-caption">
+          <ProjectSwitcher
+            onOpen={workspace.selectProject}
+            opening={workspace.opening}
+            project={workspace.activeProject}
+            recentProjects={workspace.recentProjects}
+          />
+        </div>
+        <div className="terminal-stage">
+          {workspace.tabs.map((tab) => (
+            <SessionTerminal
+              active={tab.id === workspace.activeTabId}
+              key={tab.id}
+              onSnapshot={workspace.updateTab}
+              tab={tab}
+            />
+          ))}
+          {workspace.tabs.length === 0 ? <EmptyStage onLaunch={() => workspace.launch("shell")} /> : null}
+        </div>
+      </section>
+
+      {usageOpen ? (
+        <UsagePanel onClose={() => setUsageOpen(false)} project={workspace.activeProject} />
+      ) : null}
+
+      {workspace.failure ? (
+        <div className="failure-toast" role="alert">
+          <AlertTriangle aria-hidden="true" size={15} />
+          <p>{failureLabel(workspace.failure)}</p>
+          <button onClick={workspace.dismissFailure} title="关闭错误提示" type="button">
+            <X size={13} />
+          </button>
+        </div>
+      ) : null}
+    </main>
+  );
+}
+
+function SessionTerminal({
+  active,
+  tab,
+  onSnapshot,
+}: {
+  active: boolean;
+  tab: WorkspaceTab;
+  onSnapshot: (id: string, snapshot: TerminalSnapshot) => void;
+}) {
+  const launch = useMemo(
+    () => ({ profileId: tab.profileId, cwd: tab.project.rootUri }),
+    [tab.profileId, tab.project.rootUri],
+  );
+  const report = useCallback((snapshot: TerminalSnapshot) => onSnapshot(tab.id, snapshot), [onSnapshot, tab.id]);
+  return <TerminalViewport active={active} launch={launch} onSnapshot={report} />;
+}
+
+function EmptyStage({ onLaunch }: { onLaunch: () => void }) {
+  return (
+    <div className="empty-stage">
+      <button onClick={onLaunch} type="button">打开 Shell</button>
+    </div>
+  );
+}

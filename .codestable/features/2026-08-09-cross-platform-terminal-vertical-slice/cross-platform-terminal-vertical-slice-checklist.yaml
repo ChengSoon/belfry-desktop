@@ -1,0 +1,117 @@
+feature: 2026-08-09-cross-platform-terminal-vertical-slice
+created: 2026-08-09
+
+steps:
+  - action: 工程与编排骨架：建立共享 UI、Terminal Runtime 和双平台构建入口，跑通空状态流
+    exit_signal: macOS 与 Windows 构建入口存在，creating 到 running 到 exited 的 stub 流程可观察
+    status: done
+
+  - action: 公共名词与 conformance harness：实现 Session、事件、错误和 PtyBackend 契约
+    exit_signal: 同一组契约测试可作用于任意 PtyBackend，参数和错误语义与 design 一致
+    status: done
+
+  - action: macOS PTY 节点：接通系统默认 Unix Shell 的创建、输入、缩放和关闭
+    exit_signal: macOS 真实终端 smoke 覆盖输入输出、缩放、主动退出和进程清理
+    status: done
+
+  - action: Windows PTY 节点：接通系统 powershell.exe 的创建、输入、缩放和关闭
+    exit_signal: Windows target 编译通过，ConPTY 路径具备同一 conformance 入口；真实 Windows smoke 留在最终双平台验收
+    status: done
+
+  - action: xterm.js 数据流与交互：接通有序输出 Channel、键盘输入和尺寸同步
+    exit_signal: macOS 打包应用可见终端连续交互且输出有序，Windows 共享前端与 target 编译通过；Windows 可见交互留在最终验收
+    status: done
+
+  - action: 生命周期与错误收口：实现 spawn 失败、退出、重试、超时终止和孤儿进程清理
+    exit_signal: 关键失败路径返回约定 AppError，成功 Session 只发一次 exit，关闭后无孤儿 Shell
+    status: done
+
+  - action: 双平台验收与性能证据：执行完整 smoke、1 MiB 输出和输入回显测量
+    exit_signal: 全部验收场景在 macOS 和 Windows 上有运行证据，或明确记录尚未满足的阻塞
+    status: pending
+
+checks:
+  - item: TerminalSession、TerminalOutputChunk、TerminalExit 和 AppError 字段与 design 契约一致
+    source: 名词契约
+    status: pending
+  - item: PtyBackend 提供 spawn、write、resize、signal、close 且不向 UI 暴露 native handle
+    source: 名词契约
+    status: pending
+  - item: macOS 默认 Shell 使用可执行 SHELL 并回退到 /bin/zsh
+    source: 名词契约
+    status: pending
+  - item: Windows 默认 Shell 使用系统 powershell.exe
+    source: 名词契约
+    status: pending
+  - item: Shared UI 通过 Terminal Runtime 调用 backend，不按操作系统分叉业务组件
+    source: 编排骨架
+    status: pending
+  - item: Rust 是 Session 生命周期权威，UI 只维护投影
+    source: 编排骨架
+    status: pending
+  - item: 同一 Session 输出 sequence 严格递增且终端字节不写入日志
+    source: 流程级约束
+    status: pending
+  - item: write、resize、close 按顺序处理且 close 后返回 PROCESS_EXITED
+    source: 流程级约束
+    status: pending
+  - item: Resize 去抖后最后一次尺寸必定送达 backend
+    source: 流程级约束
+    status: pending
+  - item: 成功 Session 最终且只产生一次 TerminalExit
+    source: 流程级约束
+    status: pending
+  - item: 关闭等待最多 2 秒，超时终止且不遗留孤儿 Shell
+    source: 流程级约束
+    status: pending
+  - item: Tauri command 注册表包含 terminal create、write、resize、close
+    source: 挂载点
+    status: pending
+  - item: Tauri capability 只允许主 WebView 调用 terminal commands
+    source: 挂载点
+    status: pending
+  - item: 应用根视图挂载唯一 Terminal Surface
+    source: 挂载点
+    status: pending
+  - item: 编译目标只注册对应平台 PtyBackend
+    source: 挂载点
+    status: pending
+  - item: 应用退出钩子清理所有 Terminal Session
+    source: 挂载点
+    status: pending
+  - item: 不出现标签、分屏、多窗口、设置页和主题选择能力
+    source: 范围守护
+    status: pending
+  - item: 不实现完整 Shell Profile、Agent、SSH、文件、Git、Recipe 或控制 CLI
+    source: 范围守护
+    status: pending
+  - item: 不注册管理员或提权会话能力
+    source: 范围守护
+    status: pending
+  - item: macOS 执行 printf __OTTY_OK__ 后原样显示标记
+    source: 验收场景
+    status: pending
+  - item: Windows 执行 Write-Output __OTTY_OK__ 后原样显示标记
+    source: 验收场景
+    status: pending
+  - item: 连续 ASCII 输入不重复且顺序一致
+    source: 验收场景
+    status: pending
+  - item: 窗口尺寸变化后 xterm 与 PTY 最终 cols/rows 一致
+    source: 验收场景
+    status: pending
+  - item: 连续 1 MiB 输出不丢失、不乱序且应用保持可响应
+    source: 验收场景
+    status: pending
+  - item: Shell 主动退出后显示退出码且 write 返回 PROCESS_EXITED
+    source: 验收场景
+    status: pending
+  - item: 不存在的 Shell 返回可观察错误并允许重试
+    source: 验收场景
+    status: pending
+  - item: macOS 与 Windows backend 通过同一 conformance suite
+    source: 验收场景
+    status: pending
+  - item: macOS 与 Windows 都有真实运行 smoke，交叉编译或 mock 不替代运行证据
+    source: 验收场景
+    status: pending

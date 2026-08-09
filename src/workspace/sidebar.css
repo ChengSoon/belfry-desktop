@@ -1,0 +1,257 @@
+.sidebar {
+  display: grid;
+  min-width: 0;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.sidebar-top {
+  padding: 10px 10px 4px;
+}
+
+/* 项目切换 */
+
+.project-trigger {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  text-align: left;
+  background: transparent;
+  cursor: pointer;
+  transition: background var(--duration) var(--ease);
+}
+
+.project-trigger:hover { background: var(--surface-hover); }
+
+.project-trigger__name {
+  overflow: hidden;
+  flex: 1;
+  font-size: 13px;
+  font-weight: 550;
+  letter-spacing: -0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-trigger > svg { flex: 0 0 auto; color: var(--text-faint); }
+
+/* 会话列表 */
+
+.sidebar-sessions {
+  display: grid;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+  padding: 6px 10px 0;
+}
+
+.sessions-head {
+  display: flex;
+  height: 26px;
+  align-items: center;
+  justify-content: space-between;
+  padding-left: 8px;
+  color: var(--text-faint);
+  font-size: 11px;
+}
+
+.session-list {
+  display: grid;
+  min-height: 0;
+  align-content: start;
+  gap: 1px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.session-row {
+  display: grid;
+  height: 28px;
+  align-items: center;
+  grid-template-columns: minmax(0, 1fr) 22px;
+  border-radius: var(--radius-sm);
+  transition: background var(--duration) var(--ease);
+}
+
+.session-row:hover { background: var(--surface-hover); }
+.session-row.is-active { background: var(--accent-soft); }
+
+.session-row__main {
+  display: flex;
+  min-width: 0;
+  height: 100%;
+  align-items: center;
+  gap: 8px;
+  padding: 0 2px 0 8px;
+  border: 0;
+  color: var(--text-muted);
+  background: transparent;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.session-row__main > svg { flex: 0 0 auto; }
+
+.session-row__main > span {
+  overflow: hidden;
+  flex: 1;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-row.is-active .session-row__main { color: var(--text); font-weight: 500; }
+
+.session-row__close {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border: 0;
+  border-radius: 4px;
+  color: var(--text-faint);
+  background: transparent;
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity var(--duration) var(--ease), color var(--duration) var(--ease);
+}
+
+.session-row:hover .session-row__close,
+.session-row__close:focus-visible { opacity: 1; }
+.session-row__close:hover { color: var(--danger); }
+
+/* 页脚 */
+
+.sidebar-foot {
+  display: flex;
+  height: 40px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+}
+
+.sidebar-foot__actions { display: flex; align-items: center; gap: 2px; }
+
+.sidebar-foot__actions button[aria-pressed="true"] {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* 浮层 */
+
+.popover-host { position: relative; }
+
+.popover {
+  position: absolute;
+  z-index: 20;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-md);
+}
+
+.popover--project {
+  top: calc(100% + 4px);
+  right: 0;
+  left: 0;
+  display: grid;
+  min-width: 216px;
+  gap: 4px;
+  padding: 6px;
+}
+
+.popover--menu {
+  top: calc(100% + 4px);
+  right: 0;
+  display: grid;
+  min-width: 156px;
+  gap: 1px;
+  padding: 5px;
+}
+
+.popover--menu button,
+.popover-list button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  text-align: left;
+  background: transparent;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background var(--duration) var(--ease);
+}
+
+.popover--menu button > svg { flex: 0 0 auto; color: var(--text-muted); }
+.popover--menu button > span { flex: 1; }
+.popover--menu button > i { color: var(--text-faint); font-size: 10px; font-style: normal; }
+
+.popover--menu button:hover:not(:disabled),
+.popover-list button:hover { background: var(--surface-hover); }
+.popover--menu button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.popover-refresh {
+  margin-top: 3px;
+  border-top: 1px solid var(--border) !important;
+  border-radius: 0 !important;
+  padding-top: 8px !important;
+  color: var(--text-muted) !important;
+}
+
+.popover-list {
+  display: grid;
+  max-height: 220px;
+  gap: 1px;
+  overflow-y: auto;
+}
+
+.popover-list button { justify-content: space-between; }
+.popover-list button > svg { flex: 0 0 auto; color: var(--accent); }
+
+.popover-list__text { display: grid; min-width: 0; gap: 2px; }
+
+.popover-list__text strong,
+.popover-list__text small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.popover-list__text strong { font-size: 12px; font-weight: 500; }
+.popover-list__text small { color: var(--text-faint); font-family: var(--font-mono); font-size: 10px; }
+
+.popover-browse {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 9px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  text-align: left;
+  background: transparent;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background var(--duration) var(--ease);
+}
+
+/* 有最近项目时补一条分隔线，把"浏览"和列表分开。 */
+.popover-list + .popover-browse {
+  margin-top: 3px;
+  border-top: 1px solid var(--border);
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  padding-top: 9px;
+}
+
+.popover-browse > svg { flex: 0 0 auto; color: var(--text-muted); }
+.popover-browse:hover:not(:disabled) { background: var(--surface-hover); }
+.popover-browse:hover:not(:disabled) > svg { color: var(--accent); }
+.popover-browse:disabled { opacity: 0.45; cursor: default; }
