@@ -2,6 +2,7 @@ import { AlertTriangle, PanelLeftOpen, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { TerminalViewport, type TerminalSnapshot } from "./components/TerminalViewport";
 import "./workspace/workspace.css";
+import { ICON } from "./theme/sizing";
 import { UsagePanel } from "./usage/components/UsagePanel";
 import { ProjectSwitcher } from "./workspace/components/ProjectSwitcher";
 import { Sidebar } from "./workspace/components/Sidebar";
@@ -66,7 +67,7 @@ export default function App() {
             title="展开侧栏 ⌘B"
             type="button"
           >
-            <PanelLeftOpen aria-hidden="true" size={14} />
+            <PanelLeftOpen aria-hidden="true" size={ICON.md} />
           </button>
         ) : null}
         <div className="stage-caption">
@@ -96,10 +97,10 @@ export default function App() {
 
       {workspace.failure ? (
         <div className="failure-toast" role="alert">
-          <AlertTriangle aria-hidden="true" size={15} />
+          <AlertTriangle aria-hidden="true" size={ICON.lg} />
           <p>{failureLabel(workspace.failure)}</p>
           <button onClick={workspace.dismissFailure} title="关闭错误提示" type="button">
-            <X size={13} />
+            <X size={ICON.sm} />
           </button>
         </div>
       ) : null}

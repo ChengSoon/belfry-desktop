@@ -1,30 +1,36 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
-import { SIDEBAR_WIDTH_MAX, SIDEBAR_WIDTH_MIN, sidebarWidthFromKey } from "../sidebarWidth";
+import { panelWidthDelta, panelWidthFromKey, type PanelWidthSpec } from "./panelWidth";
+import "./panel.css";
 
-interface SidebarResizeHandleProps {
+interface PanelResizeHandleProps {
+  spec: PanelWidthSpec;
+  label: string;
   width: number;
   onResize: (width: number) => void;
   onCommit: () => void;
   onReset: () => void;
 }
 
-export function SidebarResizeHandle({
+export function PanelResizeHandle({
+  spec,
+  label,
   width,
   onResize,
   onCommit,
   onReset,
-}: SidebarResizeHandleProps) {
-  const handlers = useResizeHandle(width, onResize, onCommit);
+}: PanelResizeHandleProps) {
+  const handlers = useResizeHandle(spec, width, onResize, onCommit);
 
   return (
     <div
-      aria-label="调整侧栏宽度"
+      aria-label={label}
       aria-orientation="vertical"
-      aria-valuemax={SIDEBAR_WIDTH_MAX}
-      aria-valuemin={SIDEBAR_WIDTH_MIN}
+      aria-valuemax={spec.max}
+      aria-valuemin={spec.min}
       aria-valuenow={width}
       aria-valuetext={`${width} 像素`}
-      className={`sidebar-resize-handle${handlers.dragging ? " is-dragging" : ""}`}
+      className={`panel-resize-handle${handlers.dragging ? " is-dragging" : ""}`}
+      data-edge={spec.edge}
       onDoubleClick={onReset}
       onKeyDown={handlers.resizeWithKeyboard}
       onPointerCancel={handlers.finishDrag}
@@ -33,12 +39,13 @@ export function SidebarResizeHandle({
       onPointerUp={handlers.finishDrag}
       role="separator"
       tabIndex={0}
-      title="拖动调整侧栏宽度；双击复位"
+      title={`拖动${label}；双击复位`}
     />
   );
 }
 
 function useResizeHandle(
+  spec: PanelWidthSpec,
   width: number,
   onResize: (width: number) => void,
   onCommit: () => void,
@@ -48,8 +55,8 @@ function useResizeHandle(
 
   useEffect(() => {
     if (!dragging) return;
-    document.body.classList.add("is-resizing-sidebar");
-    return () => document.body.classList.remove("is-resizing-sidebar");
+    document.body.classList.add("is-resizing-panel");
+    return () => document.body.classList.remove("is-resizing-panel");
   }, [dragging]);
 
   const startDrag = (event: PointerEvent<HTMLDivElement>) => {
@@ -62,7 +69,8 @@ function useResizeHandle(
   const resize = (event: PointerEvent<HTMLDivElement>) => {
     if (!origin.current) return;
     event.preventDefault();
-    onResize(origin.current.width + event.clientX - origin.current.pointerX);
+    const delta = panelWidthDelta(spec, event.clientX - origin.current.pointerX);
+    onResize(origin.current.width + delta);
   };
 
   const finishDrag = (event: PointerEvent<HTMLDivElement>) => {
@@ -76,7 +84,7 @@ function useResizeHandle(
   };
 
   const resizeWithKeyboard = (event: KeyboardEvent<HTMLDivElement>) => {
-    const nextWidth = sidebarWidthFromKey(event.key, width);
+    const nextWidth = panelWidthFromKey(spec, event.key, width);
     if (nextWidth === null) return;
     event.preventDefault();
     onResize(nextWidth);

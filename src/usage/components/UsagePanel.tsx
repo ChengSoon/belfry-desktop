@@ -1,9 +1,14 @@
 import { AlertTriangle, Gauge, RefreshCcw, X } from "lucide-react";
+import type { CSSProperties } from "react";
+import { PanelResizeHandle } from "../../panel/PanelResizeHandle";
+import { usePanelWidth } from "../../panel/usePanelWidth";
+import { ICON } from "../../theme/sizing";
 import type { ProjectWorkspace } from "../../workspace/contracts";
 import { failureLabel } from "../../workspace/errors";
 import { USAGE_WINDOWS, type ModelUsage, type UsageReport } from "../contracts";
 import { agentLabel, formatExact, formatRelative, formatTokens, totalTokens } from "../format";
 import { useUsageReport } from "../useUsageReport";
+import { USAGE_WIDTH } from "../usageWidth";
 import { QuotaBar } from "./QuotaBar";
 import "../usage.css";
 
@@ -14,11 +19,13 @@ interface UsagePanelProps {
 
 export function UsagePanel({ project, onClose }: UsagePanelProps) {
   const usage = useUsageReport({ enabled: true, projectRoot: project?.rootPath ?? null });
+  const { commitWidth, resetWidth, setWidth, width } = usePanelWidth(USAGE_WIDTH);
+  const panelStyle = { "--usage-width": `${width}px` } as CSSProperties;
 
   return (
-    <section className="usage-panel" aria-label="额度用量">
+    <section className="usage-panel" aria-label="额度用量" style={panelStyle}>
       <header className="usage-head">
-        <Gauge aria-hidden="true" size={14} />
+        <Gauge aria-hidden="true" size={ICON.md} />
         <h2>额度用量</h2>
         <button
           className="icon-button icon-button--sm"
@@ -27,10 +34,10 @@ export function UsagePanel({ project, onClose }: UsagePanelProps) {
           title="重新扫描会话日志"
           type="button"
         >
-          <RefreshCcw aria-hidden="true" size={13} />
+          <RefreshCcw aria-hidden="true" size={ICON.sm} />
         </button>
         <button className="icon-button icon-button--sm" onClick={onClose} title="关闭" type="button">
-          <X aria-hidden="true" size={14} />
+          <X aria-hidden="true" size={ICON.md} />
         </button>
       </header>
 
@@ -62,7 +69,7 @@ export function UsagePanel({ project, onClose }: UsagePanelProps) {
 
       {usage.failure ? (
         <p className="usage-error" role="alert">
-          <AlertTriangle aria-hidden="true" size={13} />
+          <AlertTriangle aria-hidden="true" size={ICON.sm} />
           {failureLabel(usage.failure)}
         </p>
       ) : null}
@@ -71,6 +78,15 @@ export function UsagePanel({ project, onClose }: UsagePanelProps) {
         {usage.report ? <UsageContent report={usage.report} /> : null}
         {!usage.report && usage.loading ? <p className="usage-hint">正在扫描会话日志…</p> : null}
       </div>
+
+      <PanelResizeHandle
+        label="调整额度面板宽度"
+        onCommit={commitWidth}
+        onReset={resetWidth}
+        onResize={setWidth}
+        spec={USAGE_WIDTH}
+        width={width}
+      />
     </section>
   );
 }

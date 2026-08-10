@@ -1,4 +1,5 @@
 import { Moon, Sun } from "lucide-react";
+import { ICON } from "./sizing";
 import { useTheme } from "./ThemeProvider";
 
 export function ThemeToggle() {
@@ -6,7 +7,7 @@ export function ThemeToggle() {
   const label = mode === "light" ? "切换到暗色主题" : "切换到亮色主题";
   return (
     <button aria-label={label} className="icon-button" onClick={toggle} title={label} type="button">
-      {mode === "light" ? <Moon aria-hidden="true" size={15} /> : <Sun aria-hidden="true" size={15} />}
+      {mode === "light" ? <Moon aria-hidden="true" size={ICON.lg} /> : <Sun aria-hidden="true" size={ICON.lg} />}
     </button>
   );
 }

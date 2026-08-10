@@ -1,51 +1,12 @@
 .sidebar {
   position: relative;
   display: grid;
-  width: var(--sidebar-width, 208px);
-  min-width: 168px;
-  max-width: 360px;
+  width: var(--sidebar-width, 228px);
+  min-width: 184px;
+  max-width: 392px;
   grid-template-rows: minmax(0, 1fr) auto;
   border-right: 1px solid var(--border);
-  background: var(--surface);
-}
-
-.sidebar-resize-handle {
-  position: absolute;
-  z-index: 8;
-  top: 0;
-  right: -4px;
-  width: 8px;
-  height: 100%;
-  border: 0;
-  background: transparent;
-  cursor: col-resize;
-  touch-action: none;
-}
-
-.sidebar-resize-handle::after {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 3px;
-  width: 2px;
-  background: transparent;
-  content: "";
-  transition: background var(--duration) var(--ease), box-shadow var(--duration) var(--ease);
-}
-
-.sidebar-resize-handle:hover::after,
-.sidebar-resize-handle:focus-visible::after,
-.sidebar-resize-handle.is-dragging::after {
-  background: var(--accent);
-  box-shadow: 0 0 8px var(--accent-soft);
-}
-
-.sidebar-resize-handle:focus-visible { outline: none; }
-
-body.is-resizing-sidebar,
-body.is-resizing-sidebar * {
-  cursor: col-resize !important;
-  user-select: none !important;
+  background: var(--sidebar);
 }
 
 /* 项目切换器（在舞台标题行，不在侧栏）：宽度按内容走，整体居中。 */
@@ -67,8 +28,8 @@ body.is-resizing-sidebar * {
 
 .project-trigger__name {
   flex: 0 0 auto;
-  font-size: 12px;
-  font-weight: 550;
+  font-size: var(--fs-md);
+  font-weight: 400;
   letter-spacing: -0.01em;
 }
 
@@ -77,7 +38,7 @@ body.is-resizing-sidebar * {
   min-width: 0;
   color: var(--text-faint);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--fs-sm);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -93,33 +54,37 @@ body.is-resizing-sidebar * {
   padding: 6px 10px 0;
 }
 
+/* 「会话」是整栏唯一的分区标签，靠字距拉开与下面分组名的距离——两者同字号同灰度，
+   不加字距就分不出谁是标签、谁是内容。 */
 .sessions-head {
   display: flex;
-  height: 26px;
+  height: 30px;
   align-items: center;
   justify-content: space-between;
   padding-left: 8px;
   color: var(--text-faint);
-  font-size: 11px;
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  letter-spacing: 0.08em;
 }
 
 .session-list {
   display: grid;
   min-height: 0;
   align-content: start;
-  gap: 1px;
+  gap: 2px;
   overflow-y: auto;
   scrollbar-width: thin;
 }
 
 /* 按项目分组：只有一个项目时也保留标题，避免开第二个项目时布局跳动。 */
-.session-group { display: grid; gap: 1px; }
+.session-group { display: grid; gap: 2px; }
 .session-group + .session-group { margin-top: 10px; }
 
 .session-group__head {
   display: flex;
   width: 100%;
-  height: 22px;
+  height: 26px;
   align-items: center;
   gap: 5px;
   padding: 0 8px 0 4px;
@@ -127,14 +92,13 @@ body.is-resizing-sidebar * {
   border-radius: var(--radius-sm);
   color: var(--text-faint);
   background: transparent;
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.02em;
+  font-size: var(--fs-xs);
+  font-weight: 400;
   cursor: pointer;
   transition: color var(--duration) var(--ease), background var(--duration) var(--ease);
 }
 
-.session-group__head:hover { color: var(--text-muted); background: var(--surface-hover); }
+.session-group__head:hover { color: var(--text-muted); background: var(--sidebar-hover); }
 
 .session-group__head > span {
   overflow: hidden;
@@ -173,27 +137,37 @@ body.is-resizing-sidebar * {
 
 .session-row {
   display: grid;
-  height: 28px;
+  height: 36px;
   align-items: center;
   grid-template-columns: minmax(0, 1fr) 22px;
   border-radius: var(--radius-sm);
   transition: background var(--duration) var(--ease);
 }
 
-.session-row:hover { background: var(--surface-hover); }
-.session-row.is-active { background: var(--accent-soft); }
+.session-row:hover { background: var(--sidebar-hover); }
 
+/* 活动态是"浮起的卡片"而不是一块填充色：底色已经沉过一档，这里给纯白 + 一圈描边，
+   对比来自明度差。描边走 box-shadow 而非 border——border 会把 36px 的行撑到 38px，
+   activate 时整列往下跳。 */
+.session-row.is-active {
+  background: var(--sidebar-active);
+  box-shadow: var(--sidebar-active-shadow);
+}
+
+.session-row.is-active:hover { background: var(--sidebar-active); }
+
+/* 会话名使用正文档位；活动态靠颜色和卡片层次强调，不额外加粗。 */
 .session-row__main {
   display: flex;
   min-width: 0;
   height: 100%;
   align-items: center;
-  gap: 8px;
-  padding: 0 2px 0 8px;
+  gap: 9px;
+  padding: 0 2px 0 9px;
   border: 0;
   color: var(--text-muted);
   background: transparent;
-  font-size: 12px;
+  font-size: var(--fs-md);
   cursor: pointer;
 }
 
@@ -207,12 +181,12 @@ body.is-resizing-sidebar * {
   white-space: nowrap;
 }
 
-.session-row.is-active .session-row__main { color: var(--text); font-weight: 500; }
+.session-row.is-active .session-row__main { color: var(--text); font-weight: 400; }
 
 .session-row__close {
   display: grid;
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   place-items: center;
   border: 0;
   border-radius: 4px;
@@ -231,13 +205,16 @@ body.is-resizing-sidebar * {
 
 .sidebar-foot {
   display: flex;
-  height: 40px;
+  height: 44px;
   align-items: center;
   justify-content: space-between;
   padding: 0 12px;
 }
 
 .sidebar-foot__actions { display: flex; align-items: center; gap: 2px; }
+
+/* 页脚按钮也坐在沉下去的底色上，全局 --surface-hover 在这里几乎不可见。 */
+.sidebar-foot .icon-button:hover:not(:disabled) { background: var(--sidebar-hover); }
 
 .sidebar-foot__actions button[aria-pressed="true"] {
   color: var(--accent);
@@ -262,7 +239,7 @@ body.is-resizing-sidebar * {
   right: 0;
   left: 0;
   display: grid;
-  min-width: 216px;
+  min-width: 238px;
   gap: 4px;
   padding: 6px;
 }
@@ -271,7 +248,7 @@ body.is-resizing-sidebar * {
   top: calc(100% + 4px);
   right: 0;
   display: grid;
-  min-width: 156px;
+  min-width: 172px;
   gap: 1px;
   padding: 5px;
 }
@@ -287,14 +264,14 @@ body.is-resizing-sidebar * {
   color: var(--text);
   text-align: left;
   background: transparent;
-  font-size: 12px;
+  font-size: var(--fs-md);
   cursor: pointer;
   transition: background var(--duration) var(--ease);
 }
 
 .popover--menu button > svg { flex: 0 0 auto; color: var(--text-muted); }
 .popover--menu button > span { flex: 1; }
-.popover--menu button > i { color: var(--text-faint); font-size: 10px; font-style: normal; }
+.popover--menu button > i { color: var(--text-faint); font-size: var(--fs-xs); font-style: normal; }
 
 .popover--menu button:hover:not(:disabled),
 .popover-list button:hover { background: var(--surface-hover); }
@@ -310,7 +287,7 @@ body.is-resizing-sidebar * {
 
 .popover-list {
   display: grid;
-  max-height: 220px;
+  max-height: 242px;
   gap: 1px;
   overflow-y: auto;
 }
@@ -327,8 +304,8 @@ body.is-resizing-sidebar * {
   white-space: nowrap;
 }
 
-.popover-list__text strong { font-size: 12px; font-weight: 500; }
-.popover-list__text small { color: var(--text-faint); font-family: var(--font-mono); font-size: 10px; }
+.popover-list__text strong { font-size: var(--fs-md); font-weight: 500; }
+.popover-list__text small { color: var(--text-faint); font-family: var(--font-mono); font-size: var(--fs-xs); }
 
 .popover-browse {
   display: flex;
@@ -341,7 +318,7 @@ body.is-resizing-sidebar * {
   color: var(--text);
   text-align: left;
   background: transparent;
-  font-size: 12px;
+  font-size: var(--fs-md);
   cursor: pointer;
   transition: background var(--duration) var(--ease);
 }

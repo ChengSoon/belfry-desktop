@@ -29,10 +29,10 @@ items:
   - slug: terminal-interaction-compatibility
     description: 完成两端 ANSI、Unicode、IME、选择、剪贴板、搜索和链接交互
     depends_on: [cross-platform-terminal-vertical-slice]
-    status: planned
-    feature: null
+    status: in-progress
+    feature: 2026-08-10-terminal-interaction-compatibility
     minimal_loop: false
-    notes: null
+    notes: 2026-08-10 依赖例外——获准在前置 cross-platform-terminal-vertical-slice 仍为 in-progress 时并行开工，因其卡点是缺 Windows 验收证据而非缺实现；例外只覆盖 design 与 implement，本条自身验收仍需 Windows 真机证据。详见主文档观察项。
 
   - slug: workspace-tabs-panes
     description: 实现共享窗口、标签、递归分屏和焦点模型及平台等价交互

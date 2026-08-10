@@ -1,4 +1,5 @@
 import type { ProjectWorkspace, RecentProject } from "./contracts";
+import { pathKey } from "./path";
 
 export const RECENT_PROJECTS_KEY = "otty.recent-projects.v1";
 export const RECENT_PROJECTS_LIMIT = 6;
@@ -34,8 +35,9 @@ function deduplicateByRootPath(projects: RecentProject[]) {
   const roots = new Set<string>();
   return projects
     .filter((project) => {
-      if (roots.has(project.rootPath)) return false;
-      roots.add(project.rootPath);
+      const key = pathKey(project.rootPath);
+      if (roots.has(key)) return false;
+      roots.add(key);
       return true;
     })
     .slice(0, RECENT_PROJECTS_LIMIT);

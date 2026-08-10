@@ -1,8 +1,9 @@
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { Check, ChevronsUpDown, FolderOpen } from "lucide-react";
 import { useState } from "react";
+import { ICON } from "../../theme/sizing";
 import type { ProjectWorkspace, RecentProject } from "../contracts";
-import { shortPath } from "../path";
+import { normalizePath, pathKey, shortPath } from "../path";
 import { useDismiss } from "../useDismiss";
 
 interface ProjectSwitcherProps {
@@ -31,10 +32,13 @@ export function ProjectSwitcher({ project, recentProjects, opening, onOpen }: Pr
       directory: true,
       multiple: false,
       title: "选择项目目录",
-      defaultPath: project?.rootPath,
+      // 文件对话框不认 `\\?\` 前缀，传进去会被静默忽略、退回默认位置。
+      defaultPath: project ? normalizePath(project.rootPath) : undefined,
     });
     if (typeof selected === "string") pick(selected);
   };
+
+  const currentKey = project ? pathKey(project.rootPath) : null;
 
   return (
     <div className="popover-host stage-switcher" ref={ref}>
@@ -42,12 +46,12 @@ export function ProjectSwitcher({ project, recentProjects, opening, onOpen }: Pr
         aria-expanded={open}
         className="project-trigger"
         onClick={() => setOpen((value) => !value)}
-        title={project ? `${project.rootPath}（点击切换当前会话的项目）` : "选择项目"}
+        title={project ? `${normalizePath(project.rootPath)}（点击切换当前会话的项目）` : "选择项目"}
         type="button"
       >
         <span className="project-trigger__name">{project?.name ?? "选择项目"}</span>
         <span className="project-trigger__path">{shortPath(project?.rootPath) || "正在定位…"}</span>
-        <ChevronsUpDown aria-hidden="true" size={12} />
+        <ChevronsUpDown aria-hidden="true" size={ICON.xs} />
       </button>
 
       {open ? (
@@ -60,13 +64,13 @@ export function ProjectSwitcher({ project, recentProjects, opening, onOpen }: Pr
                     <strong>{item.name}</strong>
                     <small>{shortPath(item.rootPath)}</small>
                   </span>
-                  {item.rootPath === project?.rootPath ? <Check aria-hidden="true" size={13} /> : null}
+                  {pathKey(item.rootPath) === currentKey ? <Check aria-hidden="true" size={ICON.sm} /> : null}
                 </button>
               ))}
             </div>
           ) : null}
           <button className="popover-browse" disabled={opening} onClick={() => void browse()} type="button">
-            <FolderOpen aria-hidden="true" size={14} />
+            <FolderOpen aria-hidden="true" size={ICON.md} />
             <span>浏览目录…</span>
           </button>
         </div>

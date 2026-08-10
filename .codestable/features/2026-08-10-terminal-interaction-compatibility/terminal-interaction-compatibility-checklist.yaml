@@ -1,0 +1,155 @@
+feature: 2026-08-10-terminal-interaction-compatibility
+created: 2026-08-10
+
+steps:
+  - action: 微重构（只搬不改行为）：把 xterm 构造与 addon 装配从 terminalController 搬到 xtermFactory
+    exit_signal: 编译绿灯且现有测试全绿，TerminalHandle 对外签名零 diff，除 import 外无逻辑行 diff
+    status: pending
+
+  - action: addon 装配：接入 search、web-links、unicode11、webgl 四个 addon 与 GPU 回退分支
+    exit_signal: 四个 addon 在会话中生效，人为触发上下文丢失后自动回落默认渲染且会话不退出
+    status: pending
+
+  - action: 搜索交互：实现 SearchController、搜索浮层 UI 与键位唤起
+    exit_signal: 可搜索回滚内容、逐条跳转并回绕，显示命中序号与总数，Esc 关闭后焦点回终端
+    status: pending
+
+  - action: 剪贴板与右键菜单：实现 ClipboardBridge、平台键位表与终端右键浮层
+    exit_signal: 当前平台下复制粘贴可用，无选区复制透传按键，右键菜单四项可操作
+    status: pending
+
+  - action: 主题与样式收尾：搜索高亮配色接入亮暗两套主题，浮层样式与现有令牌对齐
+    exit_signal: 亮暗两套主题下命中高亮与当前命中可区分，切换主题不重挂终端
+    status: pending
+
+  - action: 验收覆盖：跑通验收契约全部场景，标注 Windows 待真机验证项
+    exit_signal: macOS 侧场景有可观察证据，Windows 专属项明确记录为未验证阻塞而非默认通过
+    status: pending
+
+checks:
+  - item: TerminalHandle 扩展后含 search、copySelection、paste、hasSelection，且 applyTheme 与 dispose 签名不变
+    source: 名词契约
+    status: pending
+  - item: copySelection 在无选区时返回 false 而不抛错，调用方据此决定是否透传按键
+    source: 名词契约
+    status: pending
+  - item: SearchController 暴露 open、close、find、subscribe，SearchState 含 open、keyword、current、total
+    source: 名词契约
+    status: pending
+  - item: ClipboardBridge 隔离 Tauri plugin 调用，读取失败抛出 AppError 语义的错误
+    source: 名词契约
+    status: pending
+  - item: xtermTheme 新增搜索高亮两色（当前命中与其余命中），亮暗两套均有定义
+    source: 名词契约
+    status: pending
+  - item: addon 装配段包含 Fit、Search、WebLinks、Unicode11 四个必装 addon
+    source: 编排骨架
+    status: pending
+  - item: WebglAddon 用 try/catch 包裹并订阅 onContextLoss，失败即 dispose 回落默认渲染
+    source: 编排骨架
+    status: pending
+  - item: 粘贴复用既有 writeQueue，不新建独立写入路径
+    source: 编排骨架
+    status: pending
+  - item: 搜索键位接入 App.tsx 既有捕获阶段 keydown 表，不另起全局监听器
+    source: 编排骨架
+    status: pending
+  - item: 右键菜单由宿主元素 contextmenu 事件触发并阻止默认菜单
+    source: 编排骨架
+    status: pending
+  - item: 剪贴板与渲染失败经 onError 上报，不改变 TerminalPhase，会话仍为 running
+    source: 流程级约束
+    status: pending
+  - item: 键位表未命中的组合一律不 preventDefault，保证中断信号透传
+    source: 流程级约束
+    status: pending
+  - item: 粘贴内容与键盘输入共用同一 writeQueue 串行，不并发写入
+    source: 流程级约束
+    status: pending
+  - item: dispose 摘除新增的 keydown 与 contextmenu 监听及全部 addon，重复调用不抛
+    source: 流程级约束
+    status: pending
+  - item: GPU 渲染回退单向，一旦回落默认渲染本次会话不再重试
+    source: 流程级约束
+    status: pending
+  - item: GPU 回退留下可见痕迹，且不写入终端字节流以免污染输出
+    source: 流程级约束
+    status: pending
+  - item: src-tauri/capabilities/default.json 的 permissions 含 clipboard-manager 读写项
+    source: 挂载点
+    status: pending
+  - item: src-tauri/src/lib.rs 的 tauri::Builder 链上注册 clipboard 插件
+    source: 挂载点
+    status: pending
+  - item: package.json 含四个 @xterm/addon-* 依赖与 clipboard plugin 的 JS 包
+    source: 挂载点
+    status: pending
+  - item: src/App.tsx 的 keydown 表新增搜索键位
+    source: 挂载点
+    status: pending
+  - item: 不扩展 shell profile，AgentKind 与 LaunchProfileId 枚举值保持不变
+    source: 范围守护
+    status: pending
+  - item: 本 feature 不产生 src-tauri/src/terminal/launch.rs 的改动，未为 shell 追加 login 参数
+    source: 范围守护
+    status: pending
+  - item: 不新增与标签切换联动的 focus 逻辑，聚焦缺陷留给独立 issue
+    source: 范围守护
+    status: pending
+  - item: 不引入设置页或配置文件，字体、字号、scrollback 仍只出现在 xterm 构造处
+    source: 范围守护
+    status: pending
+  - item: 不做 OSC 7 与 OSC 133 shell integration，相关关键字零命中
+    source: 范围守护
+    status: pending
+  - item: 不引入 addon-serialize 与滚屏持久化
+    source: 范围守护
+    status: pending
+  - item: 不重复实现 TERM 与 COLORTERM 注入，沿用 launch.rs 既有实现
+    source: 范围守护
+    status: pending
+  - item: 输出 200 行后唤起搜索，输入已存在字符串命中高亮并显示命中序号与总数
+    source: 验收场景
+    status: pending
+  - item: 连按下一个越过最后一条后回绕到第一条，序号回到 1
+    source: 验收场景
+    status: pending
+  - item: 输出中的 https 链接呈可点击态，点击后由系统默认浏览器打开
+    source: 验收场景
+    status: pending
+  - item: 中文与 emoji 混排不重叠不错位，光标列位与视觉一致
+    source: 验收场景
+    status: pending
+  - item: 选中文本执行复制后，系统剪贴板内容等于所选文本
+    source: 验收场景
+    status: pending
+  - item: 粘贴多行文本后内容按原顺序进入 shell，与逐字输入结果一致
+    source: 验收场景
+    status: pending
+  - item: 终端画布右键弹出自定义菜单，含复制、粘贴、全选、搜索四项
+    source: 验收场景
+    status: pending
+  - item: 无选区时执行复制不写剪贴板、不报错，按键透传给 shell
+    source: 验收场景
+    status: pending
+  - item: 搜索关键字不存在时显示零命中，不抛错且终端仍可输入
+    source: 验收场景
+    status: pending
+  - item: 搜索浮层打开时按 Esc 关闭浮层，焦点回到终端
+    source: 验收场景
+    status: pending
+  - item: 空剪贴板执行粘贴时无字节写入，会话保持 running
+    source: 验收场景
+    status: pending
+  - item: GPU 上下文丢失后自动回落默认渲染，终端内容继续正确刷新且会话不退出
+    source: 验收场景
+    status: pending
+  - item: 剪贴板读取被系统拒绝时呈现可读错误，TerminalPhase 仍为 running
+    source: 验收场景
+    status: pending
+  - item: Windows 下 Ctrl+C 透传为中断信号，前台进程收到 SIGINT，不被复制逻辑吞掉
+    source: 验收场景
+    status: pending
+  - item: 复制、粘贴、右键菜单、GPU 回退与 Ctrl+C 中断的 Windows 侧有真机运行证据，不由 macOS 结果或交叉编译替代
+    source: 验收场景
+    status: pending

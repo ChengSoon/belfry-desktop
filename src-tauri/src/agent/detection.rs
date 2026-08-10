@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use crate::resource::canonicalize;
 use crate::terminal::AppError;
 
 use super::contracts::{AgentAvailability, AgentKind};
@@ -40,7 +41,8 @@ fn detect_agent(kind: AgentKind) -> AgentAvailability {
 fn find_agent(kind: AgentKind) -> Option<PathBuf> {
     find_in_path(kind.command_name())
         .or_else(|| find_in_user_environment(kind))
-        .and_then(|path| path.canonicalize().ok().or(Some(path)))
+        // 解析失败就保留原路径：能找到文件就已经可执行，规范化只是锦上添花。
+        .and_then(|path| canonicalize(&path).ok().or(Some(path)))
 }
 
 fn find_in_path(command: &str) -> Option<PathBuf> {
@@ -117,18 +119,25 @@ fn version_command(executable: &Path) -> Command {
 
 #[cfg(target_os = "windows")]
 fn version_command(executable: &Path) -> Command {
+    use std::os::windows::process::CommandExt;
+    /// 不给子进程分配控制台。否则 GUI 进程每探测一次就闪一个黑框。
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
     let is_script = executable
         .extension()
         .and_then(|value| value.to_str())
         .map(|value| matches!(value.to_ascii_lowercase().as_str(), "cmd" | "bat"))
         .unwrap_or(false);
-    if is_script {
+    let mut command = if is_script {
+        // .cmd/.bat 不是可执行映像，必须由 cmd.exe 解释。
         let mut command = Command::new("cmd.exe");
         command.args(["/d", "/c"]).arg(executable);
         command
     } else {
         Command::new(executable)
-    }
+    };
+    command.creation_flags(CREATE_NO_WINDOW);
+    command
 }
 
 #[cfg(test)]

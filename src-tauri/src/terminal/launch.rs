@@ -4,7 +4,7 @@ use std::path::Path;
 use portable_pty::CommandBuilder;
 
 use crate::agent::{AgentKind, resolve_agent};
-use crate::resource::{file_uri_to_path, path_to_file_uri};
+use crate::resource::{canonicalize, file_uri_to_path, path_to_file_uri};
 
 use super::contracts::{AppError, LaunchProfileId, Platform};
 
@@ -33,8 +33,18 @@ fn resolve_shell_launch(
     let command = configured_command(&shell, cwd, env);
     Ok(ResolvedLaunch {
         command,
-        display_name: shell,
+        // 展示用的是可执行文件名：解析结果是绝对路径，整条打出来在标签页里没有信息量。
+        display_name: shell_display_name(&shell),
     })
+}
+
+fn shell_display_name(shell: &str) -> String {
+    Path::new(shell)
+        .file_name()
+        .and_then(|value| value.to_str())
+        .filter(|value| !value.is_empty())
+        .unwrap_or(shell)
+        .to_string()
 }
 
 fn resolve_agent_launch(
@@ -57,6 +67,10 @@ fn configured_command(
 ) -> CommandBuilder {
     let mut command = CommandBuilder::new(executable);
     command.cwd(cwd);
+    // Agent 的 TUI 靠 TERM 判断能力，GUI 进程的环境里通常没有它，得自己补。
+    // 放在调用方变量之前，让请求里的同名值覆盖默认。
+    command.env("TERM", "xterm-256color");
+    command.env("COLORTERM", "truecolor");
     for (key, value) in env {
         command.env(key, value);
     }
@@ -91,8 +105,11 @@ pub(super) fn resolve_cwd(uri: Option<&str>) -> Result<std::path::PathBuf, AppEr
         Some(value) => file_uri_to_path(value),
         None => std::env::current_dir().map_err(|error| AppError::io(error.to_string())),
     }?;
-    let canonical = path.canonicalize().map_err(|error| {
-        AppError::not_found(format!("terminal working directory was not found: {error}"))
+    let canonical = canonicalize(&path).map_err(|error| {
+        AppError::not_found(format!(
+            "terminal working directory was not found: {} ({error})",
+            path.display()
+        ))
     })?;
     canonical
         .is_dir()
@@ -126,14 +143,35 @@ pub(super) fn resolve_default_shell() -> Result<String, AppError> {
         .ok_or_else(|| AppError::not_found("default macOS shell was not found"))
 }
 
+/// Windows 默认 shell。
+///
+/// 给绝对路径而不是裸名：`CreateProcessW` 一旦拿到 `lpApplicationName` 就不再走 PATH 搜索，
+/// 而 GUI 进程继承的 PATH 未必包含 System32（被用户改坏或被启动器裁剪都会发生）。
+/// 依次尝试 PowerShell、`%ComSpec%`、cmd.exe，全都不在才报错。
 #[cfg(target_os = "windows")]
 pub(super) fn resolve_default_shell() -> Result<String, AppError> {
-    Ok("powershell.exe".to_string())
+    let system_root = std::env::var("SystemRoot").unwrap_or_else(|_| "C:\\Windows".to_string());
+    let candidates = [
+        format!("{system_root}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"),
+        std::env::var("ComSpec").unwrap_or_default(),
+        format!("{system_root}\\System32\\cmd.exe"),
+    ];
+    candidates
+        .into_iter()
+        .find(|path| !path.is_empty() && Path::new(path).is_file())
+        .ok_or_else(|| AppError::not_found("default Windows shell was not found"))
 }
 
 pub(super) fn map_spawn_error(shell: &str, error: impl std::fmt::Display) -> AppError {
     let message = format!("failed to start {shell}: {error}");
-    if error.to_string().contains("No such file") {
+    // 不能匹配错误文案：Windows 上它是本地化的（中文系统会给"系统找不到指定的文件"）。
+    // `io::Error` 的 Display 始终附带 `(os error N)`，按错误码判定才跨平台稳定。
+    // 2 = ENOENT / ERROR_FILE_NOT_FOUND，3 = ERROR_PATH_NOT_FOUND。
+    let text = error.to_string();
+    let missing = text.contains("(os error 2)")
+        || (cfg!(windows) && text.contains("(os error 3)"))
+        || text.contains("No such file");
+    if missing {
         AppError::not_found(message)
     } else {
         AppError::io(message)

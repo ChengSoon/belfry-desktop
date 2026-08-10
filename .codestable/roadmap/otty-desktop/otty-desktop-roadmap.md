@@ -3,7 +3,7 @@ doc_type: roadmap
 slug: otty-desktop
 status: active
 created: 2026-08-09
-last_reviewed: 2026-08-09
+last_reviewed: 2026-08-10
 tags: [macos, windows, terminal, ai-agent, tauri, cross-platform]
 related_requirements: []
 related_architecture: []
@@ -272,7 +272,11 @@ TerminalRuntime.create({ profile_id: LaunchProfileId, cwd: ProjectWorkspace.root
 - macOS 和 Windows 的 Agent hooks 安装路径、恢复命令与权限需要逐 Adapter 验证，不允许用单平台假设填充另一端。
 - Windows-only roadmap `otty-windows` 已暂停，所有条目保持 planned，不再启动 feature。
 - `cross-platform-terminal-vertical-slice` 已有 macOS 运行证据但仍缺 Windows 真机证据；项目级 Agent 切片可并行开发，二者的 Windows 验收都不能由交叉编译替代。
+- **依赖例外（2026-08-10 记录）**：`terminal-interaction-compatibility` 获准在前置 `cross-platform-terminal-vertical-slice` 仍为 `in-progress` 时并行开工。依据是前置卡点属于「缺验收证据」而非「缺实现」——其 7 个 step 中前 6 步（工程骨架、契约与 conformance harness、macOS PTY、Windows PTY、xterm 数据流、生命周期与错误收口）均已 done，只余第 7 步「双平台验收与性能证据」因缺 Windows 真机环境挂起。`depends_on` 保持不变，前置条目不得因此被标记为 `done`。**例外只覆盖 design 与 implement，不覆盖验收**：该条自身的 Ctrl+Shift+C/V 键位、ConPTY 下 TERM 生效等验收项同样需要 Windows 真机证据。
+- **Windows 真机验收是横向阻塞，需独立排期**：它当前同时卡住 `cross-platform-terminal-vertical-slice` 的收尾验收、`project-agent-workspace-vertical-slice` 的验收，以及未来 `terminal-interaction-compatibility` 的验收。不应挂在任一单条子 feature 名下推进。
+- **两个 in-progress 切片均未走过验收**：`cross-platform-terminal-vertical-slice` 与 `project-agent-workspace-vertical-slice` 的 checklist 中 `checks` 全部仍为 `pending`，其中后者 6 个 step 已全部 done、只差验收动作。这意味着两个切片是否真正满足各自 design 的契约当前是未知数，而非已知为真。后续条目复用其契约（PTY 生命周期、Session 语义、Launch Profile）时应意识到这一点。
 
 ## 8. 变更日志
 
 - 2026-08-09：根据产品反馈新增 `project-agent-workspace-vertical-slice`，把最小闭环从“普通终端可运行”调整为“项目中可启动 Codex/Claude/Shell 多会话”；新增项目与早期 Agent Launcher 共享契约，后续 Workspace 与 Agent Adapter 依赖该早期模型演进。
+- 2026-08-10：记录 `terminal-interaction-compatibility` 的依赖例外，允许其在前置 `cross-platform-terminal-vertical-slice` 仍为 `in-progress` 时并行开工（例外只覆盖 design 与 implement，不覆盖验收）；同时记录 Windows 真机验收为需独立排期的横向阻塞，以及两个 in-progress 切片尚未走过验收的事实。本次未改动依赖拓扑、条目集合、接口契约与任何条目 `status`。

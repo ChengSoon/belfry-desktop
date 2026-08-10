@@ -1,0 +1,43 @@
+/* 可拖拽面板的宽度把手 */
+
+.panel-resize-handle {
+  position: absolute;
+  z-index: 8;
+  top: 0;
+  width: 8px;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+/* data-edge 是面板贴住的窗口一侧，把手落在相对的那条边上。 */
+.panel-resize-handle[data-edge="left"] { right: -4px; }
+.panel-resize-handle[data-edge="right"] { left: -4px; }
+
+.panel-resize-handle::after {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 2px;
+  background: transparent;
+  content: "";
+  transition: background var(--duration) var(--ease), box-shadow var(--duration) var(--ease);
+}
+
+.panel-resize-handle:hover::after,
+.panel-resize-handle:focus-visible::after,
+.panel-resize-handle.is-dragging::after {
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent-soft);
+}
+
+.panel-resize-handle:focus-visible { outline: none; }
+
+body.is-resizing-panel,
+body.is-resizing-panel * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}

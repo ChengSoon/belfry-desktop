@@ -11,6 +11,7 @@ use std::path::{Path, PathBuf};
 use serde_json::Value;
 
 use crate::agent::AgentKind;
+use crate::resource::strip_verbatim_prefix;
 
 use super::aggregate::UsageAccumulator;
 use super::contracts::TokenTotals;
@@ -121,15 +122,27 @@ pub(super) fn matches_project(cwd: Option<&str>, project_root: Option<&str>) -> 
     let Some(cwd) = cwd else {
         return false;
     };
-    let root = root.trim_end_matches(['/', '\\']);
+    // 两端来源不同：root 来自前端选中的项目，cwd 来自 Agent 自己写的日志。
+    // 同一个目录在两边的写法可能差在分隔符、盘符大小写或 verbatim 前缀上，先归一再比。
+    let root = normalize_for_compare(root);
+    let cwd = normalize_for_compare(cwd);
+    let root = root.trim_end_matches('/');
     if !cwd.starts_with(root) {
         return false;
     }
     // 前缀相等之外，只接受目录边界，避免 /work/otty 命中 /work/otty-backup。
-    matches!(
-        cwd[root.len()..].chars().next(),
-        None | Some('/') | Some('\\')
-    )
+    matches!(cwd[root.len()..].chars().next(), None | Some('/'))
+}
+
+/// 路径比较用的归一形式：剥掉 Windows 的 `\\?\` verbatim 前缀、统一成正斜杠。
+/// Windows 文件系统大小写不敏感，`D:\Work` 与 `d:\work` 是同一个目录，所以那里额外折叠大小写。
+fn normalize_for_compare(path: &str) -> String {
+    let normalized = strip_verbatim_prefix(path.trim()).replace('\\', "/");
+    if cfg!(windows) {
+        normalized.to_lowercase()
+    } else {
+        normalized
+    }
 }
 
 #[cfg(test)]
@@ -177,5 +190,34 @@ mod tests {
         assert!(matches_project(None, None));
         // 有过滤条件但记录没有 cwd：无法归属，排除
         assert!(!matches_project(None, Some("/work/otty")));
+    }
+
+    /// 项目根来自前端选中的目录，cwd 来自 Agent 日志，两边的写法经常对不上。
+    #[test]
+    fn project_filter_tolerates_separator_and_prefix_differences() {
+        // Agent 日志写正斜杠，项目根是反斜杠
+        assert!(matches_project(
+            Some("D:/work/otty/src-tauri"),
+            Some(r"D:\work\otty")
+        ));
+        // 历史 localStorage 里可能还留着 verbatim 前缀
+        assert!(matches_project(
+            Some(r"D:\work\otty"),
+            Some(r"\\?\D:\work\otty")
+        ));
+        // 边界判定不能因为归一化而放松
+        assert!(!matches_project(
+            Some(r"D:\work\otty-backup"),
+            Some(r"D:\work\otty")
+        ));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn project_filter_ignores_case_on_windows() {
+        assert!(matches_project(
+            Some(r"d:\work\otty\src"),
+            Some(r"D:\Work\Otty")
+        ));
     }
 }

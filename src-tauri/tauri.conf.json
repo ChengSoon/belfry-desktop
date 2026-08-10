@@ -28,6 +28,7 @@
   },
   "bundle": {
     "active": true,
+    "icon": ["icons/icon.icns"],
     "targets": "all",
     "macOS": {
       "minimumSystemVersion": "14.0"

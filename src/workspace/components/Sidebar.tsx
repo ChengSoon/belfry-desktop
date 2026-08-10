@@ -1,11 +1,14 @@
 import { Bot, ChevronRight, Gauge, PanelLeftClose, Sparkles, SquareTerminal, X } from "lucide-react";
 import type { CSSProperties } from "react";
+import { PanelResizeHandle } from "../../panel/PanelResizeHandle";
+import { usePanelWidth } from "../../panel/usePanelWidth";
+import { ICON } from "../../theme/sizing";
 import { ThemeToggle } from "../../theme/ThemeToggle";
 import type { AgentAvailability, WorkspaceTab, WorkspaceTabKind } from "../contracts";
+import { shortPath } from "../path";
+import { SIDEBAR_WIDTH } from "../sidebarWidth";
 import { groupTabsByProject, type ProjectGroup } from "../tabs";
-import { useSidebarWidth } from "../useSidebarWidth";
 import { NewSessionMenu } from "./NewSessionMenu";
-import { SidebarResizeHandle } from "./SidebarResizeHandle";
 import "../sidebar.css";
 
 interface SidebarProps {
@@ -38,7 +41,7 @@ export function Sidebar({
   usageOpen,
 }: SidebarProps) {
   const groups = groupTabsByProject(tabs);
-  const { commitWidth, resetWidth, setWidth, width } = useSidebarWidth();
+  const { commitWidth, resetWidth, setWidth, width } = usePanelWidth(SIDEBAR_WIDTH);
   const sidebarStyle = { "--sidebar-width": `${width}px` } as CSSProperties;
 
   return (
@@ -73,17 +76,19 @@ export function Sidebar({
             title="额度用量 ⌘U"
             type="button"
           >
-            <Gauge aria-hidden="true" size={14} />
+            <Gauge aria-hidden="true" size={ICON.md} />
           </button>
           <button className="icon-button icon-button--sm" onClick={onCollapse} title="收起侧栏 ⌘B" type="button">
-            <PanelLeftClose aria-hidden="true" size={14} />
+            <PanelLeftClose aria-hidden="true" size={ICON.md} />
           </button>
         </div>
       </div>
-      <SidebarResizeHandle
+      <PanelResizeHandle
+        label="调整侧栏宽度"
         onCommit={commitWidth}
         onReset={resetWidth}
         onResize={setWidth}
+        spec={SIDEBAR_WIDTH}
         width={width}
       />
     </aside>
@@ -115,10 +120,10 @@ function SessionGroup({
         aria-label={`${group.project.name}，${group.tabs.length} 个会话`}
         className="session-group__head"
         onClick={() => onToggleFold(group.project.id)}
-        title={group.project.rootPath}
+        title={shortPath(group.project.rootPath)}
         type="button"
       >
-        <ChevronRight aria-hidden="true" className="session-group__chevron" size={12} />
+        <ChevronRight aria-hidden="true" className="session-group__chevron" size={ICON.xs} />
         <span>{group.project.name}</span>
         {folded ? <i className="session-group__count" aria-hidden="true">{group.tabs.length}</i> : null}
         {hidesActive ? <i className="session-group__active-dot" aria-hidden="true" /> : null}
@@ -157,7 +162,7 @@ function SessionRow({
         title={tab.error ?? tab.title}
         type="button"
       >
-        <Icon aria-hidden="true" size={13} />
+        <Icon aria-hidden="true" size={ICON.sm} />
         <span>{tab.title}</span>
         {tab.phase === "running" ? null : (
           <i className={`status-dot status-dot--${tab.phase}`} aria-label={phaseText(tab.phase)} />
@@ -169,7 +174,7 @@ function SessionRow({
         title={`关闭 ${tab.title}`}
         type="button"
       >
-        <X aria-hidden="true" size={12} />
+        <X aria-hidden="true" size={ICON.xs} />
       </button>
     </div>
   );

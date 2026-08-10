@@ -164,6 +164,15 @@ function createResizeObserver(
   return observer;
 }
 
+/* 字体清单只在 styles.css 的 --font-mono 里维护一份，这里读出来喂给 xterm。
+   xterm 只接受字符串，拿不到就退回一个能跑的最小栈。 */
+function monoFontFamily() {
+  const fromCss = getComputedStyle(document.documentElement)
+    .getPropertyValue("--font-mono")
+    .trim();
+  return fromCss || 'ui-monospace, "SFMono-Regular", Consolas, monospace';
+}
+
 function createXterm() {
   // 配色不在这里写死：挂载后由 useTerminalSession 立即注入当前主题的调色板。
   return new Terminal({
@@ -171,8 +180,10 @@ function createXterm() {
     convertEol: false,
     cursorBlink: true,
     cursorStyle: "bar",
-    fontFamily: '"JetBrains Mono", "SFMono-Regular", Consolas, monospace',
+    fontFamily: monoFontFamily(),
     fontSize: 13,
+    fontWeight: 400,
+    fontWeightBold: 500,
     lineHeight: 1.35,
     scrollback: 1000,
   });

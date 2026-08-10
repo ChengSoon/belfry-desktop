@@ -1,13 +1,13 @@
 use std::path::{Path, PathBuf};
 
-use crate::resource::path_to_file_uri;
+use crate::resource::{canonicalize, path_to_file_uri};
 use crate::terminal::AppError;
 
 use super::contracts::ProjectWorkspace;
 
 pub fn open_project(path: Option<&str>) -> Result<ProjectWorkspace, AppError> {
     let requested = requested_path(path)?;
-    let canonical = requested.canonicalize().map_err(|error| {
+    let canonical = canonicalize(&requested).map_err(|error| {
         AppError::not_found(format!(
             "project directory was not found: {} ({error})",
             requested.display()

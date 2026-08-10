@@ -1,5 +1,6 @@
 import { Bot, Plus, RefreshCcw, Sparkles, SquareTerminal } from "lucide-react";
 import { useState } from "react";
+import { ICON } from "../../theme/sizing";
 import type { AgentAvailability, WorkspaceTabKind } from "../contracts";
 import { useDismiss } from "../useDismiss";
 
@@ -27,13 +28,13 @@ export function NewSessionMenu({ agents, onLaunch, onRefresh }: NewSessionMenuPr
         title="新建会话"
         type="button"
       >
-        <Plus aria-hidden="true" size={14} />
+        <Plus aria-hidden="true" size={ICON.md} />
       </button>
 
       {open ? (
         <div className="popover popover--menu" role="menu" aria-label="新建会话">
           <button onClick={() => start("shell")} role="menuitem" type="button">
-            <SquareTerminal aria-hidden="true" size={14} />
+            <SquareTerminal aria-hidden="true" size={ICON.md} />
             <span>Shell</span>
           </button>
           {agents.map((agent) => {
@@ -48,7 +49,7 @@ export function NewSessionMenu({ agents, onLaunch, onRefresh }: NewSessionMenuPr
                 title={agent.available ? agent.version ?? label : agent.reason ?? `${label} 不可用`}
                 type="button"
               >
-                <Icon aria-hidden="true" size={14} />
+                <Icon aria-hidden="true" size={ICON.md} />
                 <span>{label}</span>
                 {agent.available ? null : <i>未就绪</i>}
               </button>
@@ -60,7 +61,7 @@ export function NewSessionMenu({ agents, onLaunch, onRefresh }: NewSessionMenuPr
             role="menuitem"
             type="button"
           >
-            <RefreshCcw aria-hidden="true" size={13} />
+            <RefreshCcw aria-hidden="true" size={ICON.sm} />
             <span>重新检测</span>
           </button>
         </div>

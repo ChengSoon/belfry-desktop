@@ -1,7 +1,57 @@
+/* 中文字体随包分发，不依赖系统安装：Windows 上原先落到微软雅黑，小字号笔画细、发灰。
+   产物由 scripts/build-fonts.py 子集化生成，许可见 public/fonts/。
+   只打包 400/500 两档字重——配合下面的 font-synthesis: none，
+   600/700 的声明不会变粗而是保持常规，所以全站字重必须收敛到这两档。
+
+   两个 face 都用 unicode-range 圈到中日韩区段，只接管中文；西文交给系统字体。
+   这不能靠把系统字体排在前面实现：macOS 的 -apple-system 自带一套 CJK 回退，
+   会先命中苹方，排在它后面的 HarmonyOS 永远轮不到，两个平台的中文就不一致了。
+   划了 range 之后顺序反过来才对——HarmonyOS 放最前，西文码点不匹配自动跳过。 */
+@font-face {
+  font-family: "HarmonyOS Sans SC";
+  src: url("/fonts/HarmonyOSSansSC-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+  unicode-range: U+2E80-2EFF, U+3000-303F, U+3200-33FF, U+4E00-9FFF, U+F900-FAFF, U+FE30-FE4F,
+    U+FF00-FFEF;
+}
+
+@font-face {
+  font-family: "HarmonyOS Sans SC";
+  src: url("/fonts/HarmonyOSSansSC-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: block;
+  unicode-range: U+2E80-2EFF, U+3000-303F, U+3200-33FF, U+4E00-9FFF, U+F900-FAFF, U+FE30-FE4F,
+    U+FF00-FFEF;
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("/fonts/JetBrainsMono-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+
 :root {
-  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Text",
+  /* HarmonyOS 排最前但只吃中文（见上面的 unicode-range），西文落到系统字体：
+     HarmonyOS 的拉丁字形偏宽偏大，同字号下比系统字体重一档，"Shell 01" 这种
+     短标签在窄侧栏里显得挤。 */
+  --font-sans: "HarmonyOS Sans SC", -apple-system, BlinkMacSystemFont, "SF Pro Text",
     "Segoe UI Variable Text", "Segoe UI", system-ui, "PingFang SC", "Microsoft YaHei", sans-serif;
-  --font-mono: "JetBrains Mono", "SFMono-Regular", "Cascadia Code", Consolas, monospace;
+  --font-mono: ui-monospace, "SFMono-Regular", "SF Mono", "Cascadia Mono", Consolas,
+    "JetBrains Mono", monospace;
+
+  /* 三档正文 + 一档展示。要整体缩放只需改这四个值，不必再翻各模块的 CSS。 */
+  --fs-xs: 10px;
+  --fs-sm: 11px;
+  --fs-md: 12px;
+  --fs-display: 18px;
+  --lh-normal: 1.5;
+  --lh-relaxed: 1.6;
+
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
@@ -10,9 +60,10 @@
 
   color-scheme: dark;
   font-family: var(--font-sans);
+  font-size: var(--fs-md);
+
+  /* 不做合成字重/斜体：缺哪一档就该暴露出来，而不是让浏览器糊一个假的。 */
   font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
 }
 
 /* 灰阶承担全部层级，彩色只出现在强调色与三个状态色上。 */
@@ -38,6 +89,14 @@
   --shadow-md: 0 10px 30px rgb(0 0 0 / 45%);
   --shadow-lg: 0 24px 60px rgb(0 0 0 / 55%);
   --scrollbar: #34353c;
+
+  /* 侧栏底色与活动会话：暗色下越上层越亮，侧栏浮在画布上，活动项再浮一层。
+     亮色是反的（见下面的 light 块）——所以这两个值不能用同一个方向的偏移推出来，
+     各给各的。活动项不用强调色填充：一栏里同时开三四个会话时，彩色块会互相打架。 */
+  --sidebar: #0f1012;
+  --sidebar-active: #16171a;
+  --sidebar-active-shadow: 0 0 0 1px var(--border-strong);
+  --sidebar-hover: rgb(255 255 255 / 6%);
 }
 
 [data-theme="light"] {
@@ -61,6 +120,14 @@
   --shadow-md: 0 10px 30px rgb(15 20 40 / 8%);
   --shadow-lg: 0 24px 60px rgb(15 20 40 / 12%);
   --scrollbar: #c9cbd1;
+
+  /* 亮色下侧栏要比画布(--canvas #fafafa)沉一档，活动项才有纯白可以浮上来；
+     暗色是反的。--canvas 不能拿来当侧栏底色：它和 xtermTheme 的 background 绑死，
+     动一个就得动另一个。 */
+  --sidebar: #f1f1f2;
+  --sidebar-active: #fff;
+  --sidebar-active-shadow: 0 0 0 1px var(--border), 0 1px 2px rgb(15 20 40 / 6%);
+  --sidebar-hover: rgb(15 20 40 / 5%);
 }
 
 * { box-sizing: border-box; }
@@ -84,6 +151,10 @@ input { font: inherit; }
 
 button { color: inherit; }
 
+/* 只打包了 400/500，strong 的默认 700 在 font-synthesis: none 下不会变粗，
+   反而丢掉强调。统一压到 500，与其它强调文本同档。 */
+strong { font-weight: 500; }
+
 button:focus-visible,
 input:focus-visible {
   outline: 2px solid var(--accent);
@@ -100,8 +171,8 @@ input:focus-visible {
 
 .icon-button {
   display: inline-grid;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   flex: 0 0 auto;
   place-items: center;
   border: 0;
@@ -114,12 +185,12 @@ input:focus-visible {
 
 .icon-button:hover:not(:disabled) { color: var(--text); background: var(--surface-hover); }
 .icon-button:disabled { opacity: 0.35; cursor: default; }
-.icon-button--sm { width: 24px; height: 24px; color: var(--text-faint); }
+.icon-button--sm { width: 26px; height: 26px; color: var(--text-faint); }
 
 .eyebrow {
   margin: 0 0 12px;
   color: var(--text-faint);
-  font-size: 11px;
+  font-size: var(--fs-sm);
   font-weight: 500;
   letter-spacing: 0.04em;
 }
