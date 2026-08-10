@@ -7,12 +7,20 @@ import { ProjectSwitcher } from "./workspace/components/ProjectSwitcher";
 import { Sidebar } from "./workspace/components/Sidebar";
 import type { WorkspaceTab } from "./workspace/contracts";
 import { failureLabel } from "./workspace/errors";
+import { useFoldedProjects } from "./workspace/useFoldedProjects";
 import { useProjectWorkspace } from "./workspace/useProjectWorkspace";
 
 export default function App() {
   const workspace = useProjectWorkspace();
+  const { foldedProjects, toggleFold, unfold } = useFoldedProjects();
   const [collapsed, setCollapsed] = useState(false);
   const [usageOpen, setUsageOpen] = useState(false);
+
+  // 新会话继承 activeProject，那组要是折叠着就会开出一个侧栏里看不见的会话。
+  const launch = useCallback((kind: Parameters<typeof workspace.launch>[0]) => {
+    if (workspace.activeProject) unfold(workspace.activeProject.id);
+    void workspace.launch(kind);
+  }, [unfold, workspace.activeProject, workspace.launch]);
 
   // ⌘B / ⌘U 走捕获阶段，避免按键先被 xterm 吞进 shell。
   useEffect(() => {
@@ -37,11 +45,13 @@ export default function App() {
         <Sidebar
           activeId={workspace.activeTabId}
           agents={workspace.agents}
+          foldedProjects={foldedProjects}
           onActivate={workspace.setActiveTabId}
           onClose={workspace.closeTab}
           onCollapse={() => setCollapsed(true)}
-          onLaunch={workspace.launch}
+          onLaunch={launch}
           onRefresh={workspace.redetectAgents}
+          onToggleFold={toggleFold}
           onToggleUsage={() => setUsageOpen((value) => !value)}
           tabs={workspace.tabs}
           usageOpen={usageOpen}
@@ -76,7 +86,7 @@ export default function App() {
               tab={tab}
             />
           ))}
-          {workspace.tabs.length === 0 ? <EmptyStage onLaunch={() => workspace.launch("shell")} /> : null}
+          {workspace.tabs.length === 0 ? <EmptyStage onLaunch={() => launch("shell")} /> : null}
         </div>
       </section>
 

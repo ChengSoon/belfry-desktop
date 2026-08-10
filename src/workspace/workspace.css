@@ -3,7 +3,7 @@
   display: grid;
   width: 100%;
   height: 100%;
-  grid-template-columns: 208px minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr);
   background: var(--canvas);
 }
 
@@ -13,7 +13,7 @@
 .app-shell.is-collapsed { grid-template-columns: minmax(0, 1fr); }
 
 /* 用量面板占右侧固定一列。同样不加宽度过渡，理由同上。 */
-.app-shell.has-usage { grid-template-columns: 208px minmax(0, 1fr) 272px; }
+.app-shell.has-usage { grid-template-columns: auto minmax(0, 1fr) 272px; }
 .app-shell.is-collapsed.has-usage { grid-template-columns: minmax(0, 1fr) 272px; }
 
 /* 终端舞台：满幅铺开，只在顶部留一行路径。 */
@@ -119,9 +119,8 @@
 .failure-toast button:hover { color: var(--text); background: var(--surface-hover); }
 
 @media (max-width: 900px) {
-  .app-shell:not(.is-collapsed) { grid-template-columns: 184px minmax(0, 1fr); }
   .app-shell:not(.is-collapsed).has-usage {
-    grid-template-columns: 184px minmax(0, 1fr) 240px;
+    grid-template-columns: auto minmax(0, 1fr) 240px;
   }
   .app-shell.is-collapsed.has-usage { grid-template-columns: minmax(0, 1fr) 240px; }
 }

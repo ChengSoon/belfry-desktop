@@ -1,18 +1,23 @@
-import { Bot, Gauge, PanelLeftClose, Sparkles, SquareTerminal, X } from "lucide-react";
+import { Bot, ChevronRight, Gauge, PanelLeftClose, Sparkles, SquareTerminal, X } from "lucide-react";
+import type { CSSProperties } from "react";
 import { ThemeToggle } from "../../theme/ThemeToggle";
 import type { AgentAvailability, WorkspaceTab, WorkspaceTabKind } from "../contracts";
-import { groupTabsByProject } from "../tabs";
+import { groupTabsByProject, type ProjectGroup } from "../tabs";
+import { useSidebarWidth } from "../useSidebarWidth";
 import { NewSessionMenu } from "./NewSessionMenu";
+import { SidebarResizeHandle } from "./SidebarResizeHandle";
 import "../sidebar.css";
 
 interface SidebarProps {
   agents: AgentAvailability[];
   tabs: WorkspaceTab[];
   activeId: string | null;
+  foldedProjects: ReadonlySet<string>;
   onLaunch: (kind: WorkspaceTabKind) => void;
   onRefresh: () => Promise<void>;
   onActivate: (id: string) => void;
   onClose: (id: string) => void;
+  onToggleFold: (projectId: string) => void;
   onCollapse: () => void;
   onToggleUsage: () => void;
   usageOpen: boolean;
@@ -22,18 +27,22 @@ export function Sidebar({
   agents,
   tabs,
   activeId,
+  foldedProjects,
   onLaunch,
   onRefresh,
   onActivate,
   onClose,
+  onToggleFold,
   onCollapse,
   onToggleUsage,
   usageOpen,
 }: SidebarProps) {
   const groups = groupTabsByProject(tabs);
+  const { commitWidth, resetWidth, setWidth, width } = useSidebarWidth();
+  const sidebarStyle = { "--sidebar-width": `${width}px` } as CSSProperties;
 
   return (
-    <aside className="sidebar" aria-label="会话">
+    <aside className="sidebar" aria-label="会话" style={sidebarStyle}>
       <div className="sidebar-sessions">
         <div className="sessions-head">
           <span>会话</span>
@@ -41,20 +50,15 @@ export function Sidebar({
         </div>
         <nav className="session-list" aria-label="会话列表">
           {groups.map((group) => (
-            <div className="session-group" key={group.project.id}>
-              <div className="session-group__head" title={group.project.rootPath}>
-                {group.project.name}
-              </div>
-              {group.tabs.map((tab) => (
-                <SessionRow
-                  active={tab.id === activeId}
-                  key={tab.id}
-                  onActivate={onActivate}
-                  onClose={onClose}
-                  tab={tab}
-                />
-              ))}
-            </div>
+            <SessionGroup
+              activeId={activeId}
+              folded={foldedProjects.has(group.project.id)}
+              group={group}
+              key={group.project.id}
+              onActivate={onActivate}
+              onClose={onClose}
+              onToggleFold={onToggleFold}
+            />
           ))}
         </nav>
       </div>
@@ -76,7 +80,59 @@ export function Sidebar({
           </button>
         </div>
       </div>
+      <SidebarResizeHandle
+        onCommit={commitWidth}
+        onReset={resetWidth}
+        onResize={setWidth}
+        width={width}
+      />
     </aside>
+  );
+}
+
+function SessionGroup({
+  group,
+  folded,
+  activeId,
+  onActivate,
+  onClose,
+  onToggleFold,
+}: {
+  group: ProjectGroup;
+  folded: boolean;
+  activeId: string | null;
+  onActivate: (id: string) => void;
+  onClose: (id: string) => void;
+  onToggleFold: (projectId: string) => void;
+}) {
+  // 折叠时活动会话被藏起来了，标题上留个点，不然看不出这组里有正在跑的东西。
+  const hidesActive = folded && group.tabs.some((tab) => tab.id === activeId);
+
+  return (
+    <div className={`session-group${folded ? " is-folded" : ""}`}>
+      <button
+        aria-expanded={!folded}
+        aria-label={`${group.project.name}，${group.tabs.length} 个会话`}
+        className="session-group__head"
+        onClick={() => onToggleFold(group.project.id)}
+        title={group.project.rootPath}
+        type="button"
+      >
+        <ChevronRight aria-hidden="true" className="session-group__chevron" size={12} />
+        <span>{group.project.name}</span>
+        {folded ? <i className="session-group__count" aria-hidden="true">{group.tabs.length}</i> : null}
+        {hidesActive ? <i className="session-group__active-dot" aria-hidden="true" /> : null}
+      </button>
+      {folded ? null : group.tabs.map((tab) => (
+        <SessionRow
+          active={tab.id === activeId}
+          key={tab.id}
+          onActivate={onActivate}
+          onClose={onClose}
+          tab={tab}
+        />
+      ))}
+    </div>
   );
 }
 
