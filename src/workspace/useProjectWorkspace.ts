@@ -12,7 +12,7 @@ import type {
 } from "./contracts";
 import { toAppFailure } from "./errors";
 import { loadRecentProjects, rememberProject, saveRecentProjects } from "./storage";
-import { createWorkspaceTab, nextActiveTab, nextOrdinal } from "./tabs";
+import { applySnapshot, createWorkspaceTab, nextActiveTab, nextOrdinal } from "./tabs";
 
 export function useProjectWorkspace() {
   const initialProjectPath = useRef(loadRecentProjects()[0]?.rootPath ?? null);
@@ -46,7 +46,8 @@ export function useProjectWorkspace() {
       if (version !== requestVersion.current) return;
       if (activeTabId) {
         setTabs((current) => current.map((tab) => (
-          tab.id === activeTabId ? { ...tab, project: workspace, error: null } : tab
+          // PTY 要重启，旧的活动状态跟着作废，否则新会话起来前一直挂着上一个的点。
+          tab.id === activeTabId ? { ...tab, project: workspace, activity: "idle", error: null } : tab
         )));
       } else {
         const tab = createWorkspaceTab(workspace, "shell", 1);
@@ -115,10 +116,9 @@ export function useProjectWorkspace() {
   }, [activeTabId]);
 
   const updateTab = useCallback((id: string, snapshot: TerminalSnapshot) => {
-    setTabs((current) => current.map((tab) => {
-      if (tab.id !== id || (tab.phase === snapshot.phase && tab.error === snapshot.error)) return tab;
-      return { ...tab, phase: snapshot.phase, error: snapshot.error };
-    }));
+    setTabs((current) => current.map((tab) => (
+      tab.id === id ? applySnapshot(tab, snapshot) : tab
+    )));
   }, []);
 
   const redetectAgents = useCallback(async () => {

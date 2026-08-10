@@ -14,6 +14,8 @@
       {
         "label": "main",
         "title": "Otty",
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
         "width": 1080,
         "height": 700,
         "minWidth": 720,

@@ -16,6 +16,19 @@
 .app-shell.has-usage { grid-template-columns: auto minmax(0, 1fr) auto; }
 .app-shell.is-collapsed.has-usage { grid-template-columns: minmax(0, 1fr) auto; }
 
+/* Overlay 标题栏把顶部那条交给了 webview，系统不再代拖窗口，得自己声明拖拽区。
+   横跨整窗，所以侧栏折叠、用量面板开合都不用跟着改。里面是空的——顶部这条本来就
+   只有交通灯，不会挡住任何可点的东西。--titlebar-inset 为 0 时（Windows/Linux）
+   高度归零，等于不存在。 */
+.titlebar-drag {
+  position: absolute;
+  z-index: 5;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: var(--titlebar-inset);
+}
+
 /* 终端舞台：满幅铺开，只在顶部留一行路径。 */
 
 .workbench {
@@ -23,7 +36,7 @@
   display: grid;
   min-width: 0;
   min-height: 0;
-  grid-template-rows: 34px minmax(0, 1fr);
+  grid-template-rows: calc(34px + var(--titlebar-inset)) minmax(0, 1fr);
 }
 
 .stage-caption {
@@ -31,7 +44,7 @@
   min-width: 0;
   align-items: center;
   justify-content: center;
-  padding: 0 44px;
+  padding: var(--titlebar-inset) 44px 0;
   user-select: none;
 }
 
@@ -45,9 +58,10 @@
   transform: translateX(-50%);
 }
 
+/* 侧栏折叠后交通灯落在终端这一列上，把手要躲到它下面去，不能再贴着窗口顶角。 */
 .reveal-handle {
   position: absolute;
-  top: 6px;
+  top: calc(6px + var(--titlebar-inset));
   left: 8px;
   z-index: 8;
 }

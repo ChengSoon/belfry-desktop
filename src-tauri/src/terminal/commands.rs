@@ -1,7 +1,7 @@
 use tauri::{State, ipc::Channel};
 
 use super::contracts::{
-    AppError, CreateTerminalRequest, TerminalEvent, TerminalSession, TerminalSize,
+    AppError, CreateTerminalRequest, TerminalEvent, TerminalPalette, TerminalSession, TerminalSize,
 };
 use super::runtime::TerminalRuntime;
 
@@ -31,6 +31,15 @@ pub fn terminal_resize(
     rows: u16,
 ) -> Result<(), AppError> {
     runtime.resize(&session_id, TerminalSize { cols, rows })
+}
+
+#[tauri::command]
+pub fn terminal_set_palette(
+    runtime: State<'_, TerminalRuntime>,
+    session_id: String,
+    palette: TerminalPalette,
+) -> Result<(), AppError> {
+    runtime.set_palette(&session_id, &palette)
 }
 
 #[tauri::command]

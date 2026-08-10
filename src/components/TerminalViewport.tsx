@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef } from "react";
 import "@xterm/xterm/css/xterm.css";
 import "../terminal/terminal.css";
-import type { TerminalLaunch, TerminalPhase } from "../terminal/contracts";
+import type { SessionActivity, TerminalLaunch, TerminalPhase } from "../terminal/contracts";
 import { useTerminalSession } from "../terminal/useTerminalSession";
 
 export interface TerminalSnapshot {
   phase: TerminalPhase;
   error: string | null;
+  lastInput: string | null;
+  activity: SessionActivity;
 }
 
 interface TerminalViewportProps {
@@ -22,8 +24,13 @@ export function TerminalViewport({ active, launch, onSnapshot }: TerminalViewpor
   const dormant = session.phase === "exited" || session.phase === "error";
 
   useEffect(() => {
-    onSnapshot({ phase: session.phase, error: session.error });
-  }, [onSnapshot, session.error, session.phase]);
+    onSnapshot({
+      phase: session.phase,
+      error: session.error,
+      lastInput: session.lastInput,
+      activity: session.activity,
+    });
+  }, [onSnapshot, session.activity, session.error, session.lastInput, session.phase]);
 
   return (
     <section className={`terminal-workspace${active ? " is-active" : ""}`} aria-hidden={!active}>

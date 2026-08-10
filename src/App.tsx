@@ -42,6 +42,9 @@ export default function App() {
     <main
       className={`app-shell${collapsed ? " is-collapsed" : ""}${usageOpen ? " has-usage" : ""}`}
     >
+      {/* 顶部让给系统窗控按钮的那一条，同时充当窗口拖拽区，见 workspace.css。 */}
+      <div className="titlebar-drag" data-tauri-drag-region />
+
       {collapsed ? null : (
         <Sidebar
           activeId={workspace.activeTabId}

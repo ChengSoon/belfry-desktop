@@ -5,9 +5,12 @@ use std::time::{Duration, Instant};
 
 use super::backend::{PtyBackend, TerminalEventSink};
 use super::contracts::{
-    AppError, CreateTerminalRequest, Elevation, Platform, TerminalEvent, TerminalSize,
+    AppError, CreateTerminalRequest, Elevation, Platform, TerminalEvent, TerminalPalette,
+    TerminalSize,
 };
 use super::native::NativePtyBackend;
+#[cfg(target_os = "macos")]
+use super::native_test_commands::color_query_command;
 use super::native_test_commands::{
     large_output_command, latency_command, shell_exit_command, shell_marker_command,
     working_directory_command,
@@ -148,6 +151,36 @@ fn native_backend_uses_requested_project_cwd() {
     backend.close(&session.id).unwrap();
 }
 
+/// 只在 macOS 上跑：这里验证的是"过滤器 → PTY writer → 子进程"这段接线，
+/// 和平台无关。Windows 上真正的未知数是 ConPTY 会不会把查询透传出来，
+/// 那件事只能在真机上验。
+#[cfg(target_os = "macos")]
+#[test]
+fn native_backend_answers_color_queries_from_the_reader_thread() {
+    let backend = NativePtyBackend::default();
+    let sink = Arc::new(RecordingSink::default());
+    let mut request = default_request();
+    request.palette = Some(TerminalPalette {
+        foreground: "#26272b".to_string(),
+        background: "#fafafa".to_string(),
+    });
+    let session = backend.spawn(request, sink.clone()).unwrap();
+    backend
+        .write(&session.id, color_query_command().as_bytes())
+        .unwrap();
+    // 子进程从 stdin 读回来的，就是 reader 线程写进 PTY 的那条应答。
+    assert!(wait_for_text(
+        &sink,
+        "__OTTY_BG__fafa/fafa/fafa",
+        Duration::from_secs(5)
+    ));
+    // 查询不能同时漏给前端：xterm.js 会再答一遍，多出来的那份会变成子进程的键盘输入。
+    let events = sink.events.lock().unwrap();
+    assert_eq!(marker_position(&output_bytes(&events), b"\x1b]11;?"), None);
+    drop(events);
+    backend.close(&session.id).unwrap();
+}
+
 fn default_request() -> CreateTerminalRequest {
     CreateTerminalRequest {
         platform: Platform::current(),
@@ -158,6 +191,7 @@ fn default_request() -> CreateTerminalRequest {
         cols: 100,
         rows: 30,
         elevation: Elevation::Normal,
+        palette: None,
     }
 }
 

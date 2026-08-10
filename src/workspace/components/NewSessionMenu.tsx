@@ -1,8 +1,9 @@
-import { Bot, Plus, RefreshCcw, Sparkles, SquareTerminal } from "lucide-react";
+import { Plus, RefreshCcw, SquareTerminal } from "lucide-react";
 import { useState } from "react";
 import { ICON } from "../../theme/sizing";
 import type { AgentAvailability, WorkspaceTabKind } from "../contracts";
 import { useDismiss } from "../useDismiss";
+import { ClaudeIcon, CodexIcon } from "./AgentIcons";
 
 interface NewSessionMenuProps {
   agents: AgentAvailability[];
@@ -39,7 +40,7 @@ export function NewSessionMenu({ agents, onLaunch, onRefresh }: NewSessionMenuPr
           </button>
           {agents.map((agent) => {
             const label = agent.kind === "codex" ? "Codex" : "Claude";
-            const Icon = agent.kind === "codex" ? Bot : Sparkles;
+            const Icon = agent.kind === "codex" ? CodexIcon : ClaudeIcon;
             return (
               <button
                 disabled={!agent.available}

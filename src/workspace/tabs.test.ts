@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { createWorkspaceTab, groupTabsByProject, nextActiveTab, nextOrdinal } from "./tabs";
+import type { SessionActivity } from "../terminal/contracts";
+import { applySnapshot, createWorkspaceTab, groupTabsByProject, nextActiveTab, nextOrdinal } from "./tabs";
 
 const project = { id: "p1", name: "demo", rootPath: "/demo", rootUri: "file:///demo" };
 const other = { id: "p2", name: "other", rootPath: "/other", rootUri: "file:///other" };
@@ -22,6 +23,66 @@ describe("workspace tabs", () => {
       id,
     }));
     expect(nextActiveTab(tabs, "b").activeId).toBe("c");
+  });
+});
+
+describe("snapshot merge", () => {
+  const base = { ...createWorkspaceTab(project, "shell", 1), id: "t1" };
+  const snapshot = (lastInput: string | null, activity: SessionActivity = "idle") => ({
+    phase: "running" as const,
+    error: null,
+    lastInput,
+    activity,
+  });
+
+  it("renames the session from the latest informative input", () => {
+    const named = applySnapshot(base, snapshot("帮我修复登录超时"));
+    expect(named.title).toBe("帮我修复登录超时");
+    expect(named.titleHint).toBe("帮我修复登录超时");
+
+    // 「始终跟随最新一条」：下一条够格的输入接着顶掉上一条。
+    expect(applySnapshot(named, snapshot("再加个测试")).title).toBe("再加个测试");
+  });
+
+  it("keeps the previous name when the input carries no information", () => {
+    const named = applySnapshot(base, snapshot("pnpm dev"));
+    expect(applySnapshot(named, snapshot("ls")).title).toBe("pnpm dev");
+    expect(applySnapshot(base, snapshot("ls")).title).toBe("Shell 01");
+  });
+
+  it("keeps the untruncated original as the tooltip hint", () => {
+    const long = "帮我把这个项目里所有的接口都补上错误处理和重试逻辑";
+    const named = applySnapshot(base, snapshot(long));
+    expect(named.title.endsWith("…")).toBe(true);
+    expect(named.titleHint).toBe(long);
+  });
+
+  it("returns the same object when nothing changed", () => {
+    const named = applySnapshot(base, snapshot("pnpm dev"));
+    // phase 每次输出都会上报一遍，这里不短路就会让整条侧栏跟着重渲染。
+    expect(applySnapshot(named, snapshot("pnpm dev"))).toBe(named);
+  });
+
+  it("does not disturb the title when only phase changes", () => {
+    const named = applySnapshot(base, snapshot("pnpm dev"));
+    const exited = applySnapshot(named, {
+      phase: "exited",
+      error: null,
+      lastInput: "pnpm dev",
+      activity: "idle",
+    });
+    expect(exited.phase).toBe("exited");
+    expect(exited.title).toBe("pnpm dev");
+    expect(exited.titleHint).toBe("pnpm dev");
+  });
+
+  it("carries activity through without touching the title", () => {
+    const named = applySnapshot(base, snapshot("pnpm dev"));
+    const busy = applySnapshot(named, snapshot("pnpm dev", "talking"));
+    expect(busy.activity).toBe("talking");
+    expect(busy.title).toBe("pnpm dev");
+    // 状态一秒可能翻好几次，没变就必须返回原对象，否则整条侧栏跟着重渲染。
+    expect(applySnapshot(busy, snapshot("pnpm dev", "talking"))).toBe(busy);
   });
 });
 

@@ -3,6 +3,8 @@ node_modules/
 dist/
 src-tauri/target/
 src-tauri/gen/schemas/
+# build.rs 按目标架构挑出来的那份 conpty，构建产物不入库。
+src-tauri/vendor/conpty/active/
 *.tsbuildinfo
 *.log
 tmp/

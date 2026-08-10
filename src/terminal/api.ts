@@ -2,6 +2,7 @@ import { invoke, type Channel } from "@tauri-apps/api/core";
 import type {
   CreateTerminalRequest,
   TerminalEvent,
+  TerminalPalette,
   TerminalSession,
 } from "./contracts";
 
@@ -21,6 +22,10 @@ export function writeTerminal(sessionId: string, bytes: Uint8Array) {
 
 export function resizeTerminal(sessionId: string, cols: number, rows: number) {
   return invoke<void>("terminal_resize", { sessionId, cols, rows });
+}
+
+export function setTerminalPalette(sessionId: string, palette: TerminalPalette) {
+  return invoke<void>("terminal_set_palette", { sessionId, palette });
 }
 
 export function closeTerminal(sessionId: string) {

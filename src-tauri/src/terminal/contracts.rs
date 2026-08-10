@@ -123,6 +123,18 @@ pub struct CreateTerminalRequest {
     pub cols: u16,
     pub rows: u16,
     pub elevation: Elevation,
+    /// 当前主题的默认前景 / 背景色，用来应答子进程的 OSC 10/11 查询。
+    /// 缺省时不应答，退回让 xterm.js 自己答。
+    #[serde(default)]
+    pub palette: Option<TerminalPalette>,
+}
+
+/// `#rrggbb` 形式的一对颜色。解析推迟到 PTY 层，坏值只让应答失效，不该拦下整个会话。
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TerminalPalette {
+    pub foreground: String,
+    pub background: String,
 }
 
 impl CreateTerminalRequest {

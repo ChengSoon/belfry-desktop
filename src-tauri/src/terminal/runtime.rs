@@ -4,7 +4,7 @@ use tauri::ipc::Channel;
 
 use super::backend::{PtyBackend, TerminalEventSink};
 use super::contracts::{
-    AppError, CreateTerminalRequest, TerminalEvent, TerminalSession, TerminalSize,
+    AppError, CreateTerminalRequest, TerminalEvent, TerminalPalette, TerminalSession, TerminalSize,
 };
 use super::native::NativePtyBackend;
 
@@ -33,6 +33,14 @@ impl TerminalRuntime {
 
     pub fn resize(&self, session_id: &str, size: TerminalSize) -> Result<(), AppError> {
         self.backend.resize(session_id, size)
+    }
+
+    pub fn set_palette(
+        &self,
+        session_id: &str,
+        palette: &TerminalPalette,
+    ) -> Result<(), AppError> {
+        self.backend.set_palette(session_id, palette)
     }
 
     pub fn close(&self, session_id: &str) -> Result<(), AppError> {

@@ -1,37 +1,57 @@
 import { Channel } from "@tauri-apps/api/core";
 import { FitAddon } from "@xterm/addon-fit";
-import { Terminal, type ITheme } from "@xterm/xterm";
-import { closeTerminal, createTerminal, resizeTerminal, writeTerminal } from "./api";
+import { Terminal } from "@xterm/xterm";
+import type { TerminalTheme } from "../theme/xtermTheme";
+import { watchActivity } from "./activity";
+import {
+  closeTerminal,
+  createTerminal,
+  resizeTerminal,
+  setTerminalPalette,
+  writeTerminal,
+} from "./api";
 import {
   createTerminalRequest,
+  type SessionActivity,
   type TerminalEvent,
   type TerminalLaunch,
+  type TerminalPalette,
   type TerminalPhase,
   type TerminalSession,
 } from "./contracts";
+import { emptyInputLine, feedInputLine, muteInputLine } from "./inputLine";
+import { looksLikePasswordPrompt } from "./passwordPrompt";
 import { acceptSequence } from "./sequence";
 
 /** 低于此宽度视为布局瞬态，不下发 resize。约等于 10 列等宽字符。 */
 const MIN_HOST_WIDTH = 80;
 
+/** 探测密码提示时只解码输出块的尾部：TUI 全屏刷新一次能吐几十 KB，而提示总在块尾。 */
+const PROMPT_TAIL_BYTES = 200;
+
 export interface MountCallbacks {
   onPhase: (phase: TerminalPhase) => void;
   onError: (error: string | null) => void;
   onSession: (session: TerminalSession | null) => void;
+  /** 用户提交的一行原始输入，供上层提炼会话名。 */
+  onInput: (line: string) => void;
+  /** 会话在生成 / 等按键 / 闲着，供侧栏显示。只有 Agent 会话会翻。 */
+  onActivity: (activity: SessionActivity) => void;
 }
 
 export interface TerminalHandle {
   /** 换肤走这里，不要重新挂载：重挂会连带杀掉底层 PTY 会话。 */
-  applyTheme: (theme: ITheme) => void;
+  applyTheme: (theme: TerminalTheme) => void;
   dispose: () => void;
 }
 
 export function mountTerminal(
   host: HTMLDivElement,
   launch: TerminalLaunch,
+  theme: TerminalTheme,
   callbacks: MountCallbacks,
 ): TerminalHandle {
-  const terminal = createXterm();
+  const terminal = createXterm(theme);
   const fit = new FitAddon();
   terminal.loadAddon(fit);
   terminal.open(host);
@@ -39,17 +59,28 @@ export function mountTerminal(
   callbacks.onPhase("creating");
   callbacks.onError(null);
   callbacks.onSession(null);
+  // 重启（generation++）会重挂到同一个 tab 上，不清一次就带着上个 PTY 的状态点起步。
+  callbacks.onActivity("idle");
 
   let disposed = false;
   let current: TerminalSession | null = null;
   let expectedSequence = 0;
   let writeQueue = Promise.resolve();
+  let inputLine = emptyInputLine();
+  // Shell 会话不猜状态：它没有"对话"这回事，而 cat 一个含 `1. Yes` 的文件必然误报。
+  let activity = launch.profileId.startsWith("agent:")
+    ? watchActivity(terminal, callbacks.onActivity)
+    : null;
   const exitedSessions = new Set<string>();
   const channel = new Channel<TerminalEvent>();
   channel.onmessage = (event) => {
     if (disposed) return;
     try {
       expectedSequence = handleTerminalEvent(terminal, callbacks, event, expectedSequence);
+      // 停在密码提示上就静默采集，否则 sudo 密码会被当成最新一条输入写进会话名。
+      if (event.kind === "output" && looksLikePasswordPrompt(decodeTail(event.bytes))) {
+        inputLine = muteInputLine(inputLine);
+      }
     } catch (error) {
       callbacks.onError(errorMessage(error));
       callbacks.onPhase("error");
@@ -58,6 +89,10 @@ export function mountTerminal(
     if (event.kind === "exit") {
       exitedSessions.add(event.sessionId);
       current = null;
+      // 进程没了就停止猜：最后一屏还停在 spinner 上，再扫一次会把状态永久钉在"正在对话"。
+      activity?.dispose();
+      activity = null;
+      callbacks.onActivity("idle");
     }
   };
 
@@ -65,12 +100,15 @@ export function mountTerminal(
     if (!current) return;
     const currentId = current.id;
     const bytes = new TextEncoder().encode(data);
+    const fed = feedInputLine(inputLine, data);
+    inputLine = fed.state;
+    for (const line of fed.submitted) callbacks.onInput(line);
     writeQueue = writeQueue
       .then(() => writeTerminal(currentId, bytes))
       .catch((error) => callbacks.onError(errorMessage(error)));
   });
   const observer = createResizeObserver(host, terminal, fit, () => current, callbacks);
-  void startSession(terminal, fit, channel, launch, callbacks).then((value) => {
+  void startSession(terminal, fit, channel, launch, theme, callbacks).then((value) => {
     if (disposed) {
       if (value) void closeTerminal(value.id).catch(() => undefined);
       return;
@@ -84,17 +122,24 @@ export function mountTerminal(
   });
 
   return {
-    applyTheme: (theme) => {
-      terminal.options.theme = theme;
+    applyTheme: (next) => {
+      terminal.options.theme = next;
+      // PTY 层也得跟着换：换肤之后再启动的程序会重新查一次背景色。
+      if (current) void setTerminalPalette(current.id, toPalette(next)).catch(() => undefined);
     },
     dispose: () => {
       disposed = true;
       observer.disconnect();
       input.dispose();
+      activity?.dispose();
       if (current) void closeTerminal(current.id).catch(() => undefined);
       terminal.dispose();
     },
   };
+}
+
+function toPalette(theme: TerminalTheme): TerminalPalette {
+  return { foreground: theme.foreground, background: theme.background };
 }
 
 async function startSession(
@@ -102,12 +147,13 @@ async function startSession(
   fit: FitAddon,
   channel: Channel<TerminalEvent>,
   launch: TerminalLaunch,
+  theme: TerminalTheme,
   callbacks: MountCallbacks,
 ) {
   try {
     fit.fit();
     return await createTerminal(
-      createTerminalRequest(terminal.cols, terminal.rows, launch),
+      createTerminalRequest(terminal.cols, terminal.rows, launch, toPalette(theme)),
       channel,
     );
   } catch (error) {
@@ -132,6 +178,14 @@ function handleTerminalEvent(
   callbacks.onSession(null);
   terminal.write(`\r\n\x1b[90m[process exited ${event.exitCode}]\x1b[0m\r\n`);
   return expectedSequence;
+}
+
+const tailDecoder = new TextDecoder();
+
+/** 截断处的多字节序列会解成 U+FFFD，不影响提示词匹配。 */
+function decodeTail(bytes: number[]) {
+  const tail = bytes.length > PROMPT_TAIL_BYTES ? bytes.slice(-PROMPT_TAIL_BYTES) : bytes;
+  return tailDecoder.decode(new Uint8Array(tail));
 }
 
 function createResizeObserver(
@@ -173,19 +227,21 @@ function monoFontFamily() {
   return fromCss || 'ui-monospace, "SFMono-Regular", Consolas, monospace';
 }
 
-function createXterm() {
-  // 配色不在这里写死：挂载后由 useTerminalSession 立即注入当前主题的调色板。
+function createXterm(theme: TerminalTheme) {
+  // 配色必须在构造时就位：会话创建请求要带上背景色，而它在挂载的同一个同步块里就发出去了。
   return new Terminal({
     allowTransparency: false,
     convertEol: false,
     cursorBlink: true,
     cursorStyle: "bar",
+    cursorWidth: 4,
     fontFamily: monoFontFamily(),
     fontSize: 13,
     fontWeight: 400,
     fontWeightBold: 500,
     lineHeight: 1.35,
     scrollback: 1000,
+    theme,
   });
 }
 

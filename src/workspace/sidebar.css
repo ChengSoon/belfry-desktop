@@ -1,3 +1,5 @@
+/* padding 而不是 margin：底色要一路铺到窗口顶边盖住交通灯那一条，
+   留白只能在背景里面开（--titlebar-inset 的由来见 styles.css）。 */
 .sidebar {
   position: relative;
   display: grid;
@@ -5,6 +7,7 @@
   min-width: 184px;
   max-width: 392px;
   grid-template-rows: minmax(0, 1fr) auto;
+  padding-top: var(--titlebar-inset);
   border-right: 1px solid var(--border);
   background: var(--sidebar);
 }
@@ -86,17 +89,21 @@
   width: 100%;
   height: 26px;
   align-items: center;
+  /* 组头和第一条会话之间比会话之间松一档，不然标题读起来像黏在第一条上的前缀。 */
+  margin-bottom: 2px;
   gap: 5px;
   padding: 0 8px 0 4px;
   border: 0;
   border-radius: var(--radius-sm);
   color: var(--text-faint);
   background: transparent;
-  font-size: var(--fs-xs);
+  font-size: var(--fs-md);
   font-weight: 400;
   cursor: pointer;
   transition: color var(--duration) var(--ease), background var(--duration) var(--ease);
 }
+
+.session-group.is-folded .session-group__head { margin-bottom: 0; }
 
 .session-group__head:hover { color: var(--text-muted); background: var(--sidebar-hover); }
 
@@ -123,7 +130,9 @@
 
 .session-group.is-folded .session-group__chevron { transform: rotate(0deg); }
 
-.session-group__active-dot {
+/* 折叠时组里一条会话都看不见，这个点是唯一线索：
+   琥珀 = 有人等你按键，accent = 活动会话在这组。同时成立时只画琥珀，标题右侧塞不下两个点。 */
+.session-group__dot {
   width: 5px;
   height: 5px;
   flex: 0 0 auto;
@@ -131,15 +140,18 @@
   background: var(--accent);
 }
 
+.session-group__dot--awaiting { background: var(--warning); animation: pulse 1.4s var(--ease) infinite; }
+
 @media (prefers-reduced-motion: reduce) {
   .session-group__chevron { transition: none; }
+  .session-group__dot--awaiting { animation: none; }
 }
 
 .session-row {
   display: grid;
-  height: 36px;
+  height: 32px;
   align-items: center;
-  grid-template-columns: minmax(0, 1fr) 22px;
+  grid-template-columns: minmax(0, 1fr) 24px;
   border-radius: var(--radius-sm);
   transition: background var(--duration) var(--ease);
 }
@@ -171,7 +183,9 @@
   cursor: pointer;
 }
 
-.session-row__main > svg { flex: 0 0 auto; }
+/* 图标退到最淡的一档：一栏里六行图标，和会话名同灰度时先看到的是那排方框而不是名字。
+   活动行的图标跟着名字提亮，让"选中"这件事整行一起表达。 */
+.session-row__main > svg { flex: 0 0 auto; color: var(--text-faint); }
 
 .session-row__main > span {
   overflow: hidden;
@@ -182,11 +196,36 @@
 }
 
 .session-row.is-active .session-row__main { color: var(--text); font-weight: 400; }
+.session-row.is-active .session-row__main > svg { color: var(--text-muted); }
+
+/* 进程没了的会话整行褪一档：一个 6px 的灰点撑不住"这条已经死了"，
+   而列表里活的和死的混排时，先要能一眼扫掉死的。褪的是整行不是单独的字，
+   图标和名字一起退才像一个整体。 */
+.session-row.is-dim .session-row__main { color: var(--text-faint); }
+.session-row.is-dim .session-row__main > svg { opacity: 0.55; }
+
+/* 状态点和关闭键叠在同一格里，hover 时互换：
+   两者都是行尾配件，各占一列会让会话名凭空少掉 22px，而它们从不需要同时出现。
+   位置固定还有个好处——有没有点，会话名的截断位置都一样，一栏读下来右边缘是齐的。 */
+.session-row__tail {
+  display: grid;
+  width: 24px;
+  height: 100%;
+  place-items: center;
+}
+
+.session-row__tail > * { grid-area: 1 / 1; }
+
+/* 点画在关闭键下面（DOM 在前），点击永远落在关闭键上；再钉一道 pointer-events 兜底。 */
+.session-row__tail > i {
+  pointer-events: none;
+  transition: opacity var(--duration) var(--ease);
+}
 
 .session-row__close {
   display: grid;
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   place-items: center;
   border: 0;
   border-radius: 4px;
@@ -199,6 +238,15 @@
 
 .session-row:hover .session-row__close,
 .session-row__close:focus-visible { opacity: 1; }
+
+/* 呼吸中的点得连 animation 一起停掉才藏得住：animation 改的 opacity 盖过普通声明，
+   只写 opacity: 0 的话 pulse 会一直把它拉回来。 */
+.session-row:hover .session-row__tail > i,
+.session-row__tail:has(.session-row__close:focus-visible) > i {
+  animation: none;
+  opacity: 0;
+}
+
 .session-row__close:hover { color: var(--danger); }
 
 /* 页脚 */

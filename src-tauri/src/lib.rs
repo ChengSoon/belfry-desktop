@@ -22,6 +22,7 @@ pub fn run() {
             commands::terminal_create,
             commands::terminal_write,
             commands::terminal_resize,
+            commands::terminal_set_palette,
             commands::terminal_close,
         ])
         .build(tauri::generate_context!())

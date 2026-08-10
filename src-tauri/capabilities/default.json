@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "Permissions for the main OTTY terminal window",
   "windows": ["main"],
-  "permissions": ["core:default", "dialog:allow-open"]
+  "permissions": ["core:default", "core:window:allow-start-dragging", "dialog:allow-open"]
 }

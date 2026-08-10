@@ -1,4 +1,4 @@
-import { Bot, ChevronRight, Gauge, PanelLeftClose, Sparkles, SquareTerminal, X } from "lucide-react";
+import { ChevronRight, Gauge, PanelLeftClose, SquareTerminal, X } from "lucide-react";
 import type { CSSProperties } from "react";
 import { PanelResizeHandle } from "../../panel/PanelResizeHandle";
 import { usePanelWidth } from "../../panel/usePanelWidth";
@@ -8,6 +8,7 @@ import type { AgentAvailability, WorkspaceTab, WorkspaceTabKind } from "../contr
 import { shortPath } from "../path";
 import { SIDEBAR_WIDTH } from "../sidebarWidth";
 import { groupTabsByProject, type ProjectGroup } from "../tabs";
+import { ClaudeIcon, CodexIcon } from "./AgentIcons";
 import { NewSessionMenu } from "./NewSessionMenu";
 import "../sidebar.css";
 
@@ -110,14 +111,14 @@ function SessionGroup({
   onClose: (id: string) => void;
   onToggleFold: (projectId: string) => void;
 }) {
-  // 折叠时活动会话被藏起来了，标题上留个点，不然看不出这组里有正在跑的东西。
-  const hidesActive = folded && group.tabs.some((tab) => tab.id === activeId);
+  // 折叠时组里的会话全藏起来了，标题上留个点，不然看不出这组里有正在跑的东西。
+  const dot = folded ? foldedDot(group.tabs, activeId) : null;
 
   return (
     <div className={`session-group${folded ? " is-folded" : ""}`}>
       <button
         aria-expanded={!folded}
-        aria-label={`${group.project.name}，${group.tabs.length} 个会话`}
+        aria-label={`${group.project.name}，${group.tabs.length} 个会话${dot === "awaiting" ? "，有会话等待选择" : ""}`}
         className="session-group__head"
         onClick={() => onToggleFold(group.project.id)}
         title={shortPath(group.project.rootPath)}
@@ -126,7 +127,7 @@ function SessionGroup({
         <ChevronRight aria-hidden="true" className="session-group__chevron" size={ICON.xs} />
         <span>{group.project.name}</span>
         {folded ? <i className="session-group__count" aria-hidden="true">{group.tabs.length}</i> : null}
-        {hidesActive ? <i className="session-group__active-dot" aria-hidden="true" /> : null}
+        {dot ? <i className={`session-group__dot session-group__dot--${dot}`} aria-hidden="true" /> : null}
       </button>
       {folded ? null : group.tabs.map((tab) => (
         <SessionRow
@@ -152,32 +153,62 @@ function SessionRow({
   onActivate: (id: string) => void;
   onClose: (id: string) => void;
 }) {
-  const Icon = tab.kind === "shell" ? SquareTerminal : tab.kind === "codex" ? Bot : Sparkles;
+  const Icon = tab.kind === "shell" ? SquareTerminal : tab.kind === "codex" ? CodexIcon : ClaudeIcon;
+  // 只有 exited 褪色。error 也是"进程没了"，但它要你去看，褪成灰会把行尾那个红点的分量抵掉。
+  const dim = tab.phase === "exited";
   return (
-    <div className={`session-row${active ? " is-active" : ""}`}>
+    <div className={`session-row${active ? " is-active" : ""}${dim ? " is-dim" : ""}`}>
       <button
         aria-current={active}
+        aria-label={`${tab.title}，${statusText(tab)}`}
         className="session-row__main"
         onClick={() => onActivate(tab.id)}
-        title={tab.error ?? tab.title}
+        title={tab.error ?? tab.titleHint ?? tab.title}
         type="button"
       >
         <Icon aria-hidden="true" size={ICON.sm} />
         <span>{tab.title}</span>
-        {tab.phase === "running" ? null : (
-          <i className={`status-dot status-dot--${tab.phase}`} aria-label={phaseText(tab.phase)} />
-        )}
       </button>
-      <button
-        className="session-row__close"
-        onClick={() => onClose(tab.id)}
-        title={`关闭 ${tab.title}`}
-        type="button"
-      >
-        <X aria-hidden="true" size={ICON.xs} />
-      </button>
+      <div className="session-row__tail">
+        <SessionDot tab={tab} />
+        <button
+          className="session-row__close"
+          onClick={() => onClose(tab.id)}
+          title={`关闭 ${tab.title}`}
+          type="button"
+        >
+          <X aria-hidden="true" size={ICON.xs} />
+        </button>
+      </div>
     </div>
   );
+}
+
+/**
+ * 一条会话最多一个点：进程不正常时报 phase，正常跑着时报它在干什么。
+ * 跑得好好的又没在忙就不显示——列表安静下来，剩下的点才有分量。
+ * exited 同样不显示：整行已经褪成灰的了（.is-dim），再点一个灰点是同一件事说两遍。
+ */
+function SessionDot({ tab }: { tab: WorkspaceTab }) {
+  if (tab.phase === "exited") return null;
+  if (tab.phase !== "running") {
+    return <i className={`status-dot status-dot--${tab.phase}`} aria-hidden="true" />;
+  }
+  if (tab.activity === "idle") return null;
+  return <i className={`activity-dot activity-dot--${tab.activity}`} aria-hidden="true" />;
+}
+
+/** 点是画给眼睛看的，状态文字挂在会话按钮的 aria-label 上——读屏一次就把名字和状态都念完。 */
+function statusText(tab: WorkspaceTab) {
+  if (tab.phase !== "running" || tab.activity === "idle") return phaseText(tab.phase);
+  return activityText(tab.activity);
+}
+
+/** 等你按键的组优先标出来：那是唯一需要立刻动手的状态，盖过"活动会话在这组"。 */
+function foldedDot(tabs: WorkspaceTab[], activeId: string | null) {
+  if (tabs.some((tab) => tab.phase === "running" && tab.activity === "awaiting-choice")) return "awaiting";
+  if (tabs.some((tab) => tab.id === activeId)) return "active";
+  return null;
 }
 
 function phaseText(phase: WorkspaceTab["phase"]) {
@@ -188,4 +219,8 @@ function phaseText(phase: WorkspaceTab["phase"]) {
     exited: "已退出",
     error: "错误",
   }[phase];
+}
+
+function activityText(activity: Exclude<WorkspaceTab["activity"], "idle">) {
+  return { talking: "正在对话", "awaiting-choice": "等待选择" }[activity];
 }

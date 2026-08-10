@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::{collections::HashSet, sync::Mutex};
 
 use super::contracts::{
-    AppError, CreateTerminalRequest, TerminalEvent, TerminalSession, TerminalSize,
+    AppError, CreateTerminalRequest, TerminalEvent, TerminalPalette, TerminalSession, TerminalSize,
 };
 
 #[cfg(test)]
@@ -22,6 +22,7 @@ pub trait PtyBackend: Send + Sync {
     ) -> Result<TerminalSession, AppError>;
     fn write(&self, session_id: &str, bytes: &[u8]) -> Result<(), AppError>;
     fn resize(&self, session_id: &str, size: TerminalSize) -> Result<(), AppError>;
+    fn set_palette(&self, session_id: &str, palette: &TerminalPalette) -> Result<(), AppError>;
     fn close(&self, session_id: &str) -> Result<(), AppError>;
     fn close_all(&self);
 }
@@ -66,6 +67,10 @@ impl PtyBackend for StubBackend {
 
     fn resize(&self, session_id: &str, size: TerminalSize) -> Result<(), AppError> {
         size.validate()?;
+        self.require_session(session_id)
+    }
+
+    fn set_palette(&self, session_id: &str, _palette: &TerminalPalette) -> Result<(), AppError> {
         self.require_session(session_id)
     }
 
@@ -119,6 +124,7 @@ mod tests {
             cols: 120,
             rows: 36,
             elevation: Elevation::Normal,
+            palette: None,
         }
     }
 

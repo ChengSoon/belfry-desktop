@@ -1,5 +1,7 @@
 /* 额度用量面板 */
 
+/* padding-top 同侧栏：面板底色要顶到窗口边，留白开在背景里面。
+   这一列离交通灯很远，让开只是为了三列的顶部内容对齐在同一条线上。 */
 .usage-panel {
   position: relative;
   display: grid;
@@ -8,6 +10,7 @@
   max-width: 512px;
   min-height: 0;
   grid-template-rows: auto auto auto minmax(0, 1fr);
+  padding-top: var(--titlebar-inset);
   border-left: 1px solid var(--border);
   background: var(--surface);
 }

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{Arc, Condvar, Mutex};
+use std::sync::{Arc, Condvar, Mutex, RwLock};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -9,13 +9,14 @@ use portable_pty::{ChildKiller, MasterPty, PtySize, native_pty_system};
 
 use super::backend::{PtyBackend, TerminalEventSink};
 use super::contracts::{
-    AppError, CreateTerminalRequest, TerminalEvent, TerminalExitReason, TerminalSession,
-    TerminalSize, TerminalStatus,
+    AppError, CreateTerminalRequest, TerminalEvent, TerminalExitReason, TerminalPalette,
+    TerminalSession, TerminalSize, TerminalStatus,
 };
 use super::launch::{
     map_spawn_error, path_to_resource_uri, resolve_cwd, resolve_launch, validate_platform,
 };
 use super::native_lifecycle::{reap, spawn_exit_monitor, wait_until};
+use super::osc::{OscColorFilter, Palette};
 
 const OUTPUT_CHUNK_SIZE: usize = 64 * 1024;
 /// 交互式关闭：断开 PTY 后给进程自行收尾的时间，等待发生在后台线程。
@@ -40,6 +41,8 @@ pub(super) struct NativeSession {
     pub(super) reader_done: (Mutex<bool>, Condvar),
     /// 防止重复 close 拉起多个回收线程。
     closing: AtomicBool,
+    /// reader 线程读它来应答 OSC 10/11；换肤时由 set_palette 改写。
+    palette: RwLock<Option<Palette>>,
 }
 
 impl PtyBackend for NativePtyBackend {
@@ -82,6 +85,8 @@ impl PtyBackend for NativePtyBackend {
             exit_reason: Mutex::new(TerminalExitReason::Normal),
             reader_done: (Mutex::new(false), Condvar::new()),
             closing: AtomicBool::new(false),
+            // 颜色坏了不该拦下会话：解析失败就当没给，退回让 xterm.js 自己答。
+            palette: RwLock::new(request.palette.as_ref().and_then(to_palette)),
         });
         self.sessions
             .lock()
@@ -122,6 +127,17 @@ impl PtyBackend for NativePtyBackend {
         master
             .resize(to_pty_size(size.cols, size.rows))
             .map_err(|error| AppError::io(error.to_string()))
+    }
+
+    /// 换肤后已经跑起来的程序不会重新查色，但常驻 shell 里的下一个程序会。
+    /// 这里不像 spawn 那样容忍坏值：单独一条命令失败没有副作用，静默吞掉只会让问题更难查。
+    fn set_palette(&self, session_id: &str, palette: &TerminalPalette) -> Result<(), AppError> {
+        let parsed = to_palette(palette).ok_or_else(|| {
+            AppError::invalid_argument("terminal palette must be a pair of #rrggbb colors")
+        })?;
+        let session = self.session(session_id)?;
+        *session.palette.write().unwrap() = Some(parsed);
+        Ok(())
     }
 
     /// 立即返回：断开 PTY 让进程收到 SIGHUP，宽限与强杀交给后台线程。
@@ -177,18 +193,45 @@ impl NativePtyBackend {
     }
 }
 
+impl NativeSession {
+    /// reader 线程回写 OSC 应答。会话已经断开就悄悄丢掉：这条路径上没有能上报错误的对端，
+    /// 而且丢掉一条查不到答案的应答，后果只是子进程回落到它自己的默认色。
+    fn reply(&self, bytes: &[u8]) {
+        let mut writer = self.writer.lock().unwrap();
+        let Some(writer) = writer.as_mut() else {
+            return;
+        };
+        let _ = writer.write_all(bytes);
+        let _ = writer.flush();
+    }
+}
+
 fn spawn_reader(session_id: String, mut reader: Box<dyn Read + Send>, session: Arc<NativeSession>) {
     thread::spawn(move || {
         let mut buffer = vec![0_u8; OUTPUT_CHUNK_SIZE];
+        let mut filter = OscColorFilter::default();
         loop {
             match reader.read(&mut buffer) {
                 Ok(0) => {
+                    // 扣在过滤器里的残字节不能跟着 EOF 一起丢掉。
+                    let held = filter.flush();
+                    if !held.is_empty() {
+                        let _ = send_output(&session_id, &session, held, false);
+                    }
                     let _ = send_output(&session_id, &session, Vec::new(), true);
                     break;
                 }
                 Ok(count) => {
-                    if send_output(&session_id, &session, buffer[..count].to_vec(), false).is_err()
-                    {
+                    let palette = *session.palette.read().unwrap();
+                    let filtered = filter.feed(&buffer[..count], palette);
+                    if !filtered.reply.is_empty() {
+                        session.reply(&filtered.reply);
+                    }
+                    // 整块都是查询时跳过：前端按 sequence 严格校验，少发一次比发个空事件干净。
+                    if filtered.forward.is_empty() {
+                        continue;
+                    }
+                    if send_output(&session_id, &session, filtered.forward, false).is_err() {
                         *session.exit_reason.lock().unwrap() = TerminalExitReason::IoFailed;
                         let _ = session.killer.lock().unwrap().kill();
                         break;
@@ -206,6 +249,10 @@ fn spawn_reader(session_id: String, mut reader: Box<dyn Read + Send>, session: A
         *done = true;
         session.reader_done.1.notify_all();
     });
+}
+
+fn to_palette(palette: &TerminalPalette) -> Option<Palette> {
+    Palette::parse(&palette.foreground, &palette.background)
 }
 
 fn send_output(

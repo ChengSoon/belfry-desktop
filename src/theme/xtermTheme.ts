@@ -2,13 +2,20 @@ import type { ITheme } from "@xterm/xterm";
 import type { ThemeMode } from "./contracts";
 
 /**
+ * background / foreground 收窄成必填：PTY 层要拿它们去应答子进程的 OSC 10/11 颜色查询，
+ * 少一个就只能不答，可选类型会把这个约束藏起来。
+ */
+export type TerminalTheme = ITheme & { background: string; foreground: string };
+
+/**
  * xterm 读不到 CSS 变量，这里维护一份与 styles.css 令牌对齐的调色板。
  * background 必须与 --canvas 完全一致：终端直接铺在画布上，差一档就会看到色缝。
  */
-const DARK: ITheme = {
+const DARK: TerminalTheme = {
   background: "#0a0a0b",
   foreground: "#e4e4e7",
-  cursor: "#6e8bff",
+  // 方块光标：取前景色实心铺满，光标下的字符反相成背景色，跟系统终端一致。
+  cursor: "#e4e4e7",
   cursorAccent: "#0a0a0b",
   selectionBackground: "rgba(110, 139, 255, 0.28)",
   black: "#26272b",
@@ -29,10 +36,10 @@ const DARK: ITheme = {
   brightWhite: "#f4f4f6",
 };
 
-const LIGHT: ITheme = {
+const LIGHT: TerminalTheme = {
   background: "#fafafa",
   foreground: "#26272b",
-  cursor: "#3b5bdb",
+  cursor: "#26272b",
   cursorAccent: "#fafafa",
   selectionBackground: "rgba(59, 91, 219, 0.18)",
   black: "#26272b",
@@ -55,6 +62,6 @@ const LIGHT: ITheme = {
   brightWhite: "#17181b",
 };
 
-export function xtermTheme(mode: ThemeMode): ITheme {
+export function xtermTheme(mode: ThemeMode): TerminalTheme {
   return mode === "light" ? LIGHT : DARK;
 }

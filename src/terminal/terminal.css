@@ -35,6 +35,15 @@
   scrollbar-width: thin;
 }
 
+/* 竖条光标的高度在 xterm 里等于整个字符格（fontSize × lineHeight），没有选项能调。
+   它是 .xterm-cursor-bar 上的 inset box-shadow 画出来的，所以裁掉底部 1px 让它比格子略短，
+   收一收光标和下一行之间的压迫感。用 clip-path 而不是换成背景渐变：
+   闪烁动画走的是 box-shadow: none，改画法会让 cursorBlink 失效。
+   1.35 的行高在 13px 字号下留了约 2px 下沿空白，裁掉 1px 不会切到字形。 */
+.terminal-canvas .xterm-cursor.xterm-cursor-bar {
+  clip-path: inset(0 0 1px 0);
+}
+
 /* 会话异常时才提示，正常运行不占视觉。 */
 .terminal-alert {
   position: absolute;

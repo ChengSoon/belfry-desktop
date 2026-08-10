@@ -1,4 +1,6 @@
+import type { TerminalSnapshot } from "../components/TerminalViewport";
 import type { ProjectWorkspace, WorkspaceTab, WorkspaceTabKind } from "./contracts";
+import { toSessionTitle } from "./sessionTitle";
 
 export interface ProjectGroup {
   project: ProjectWorkspace;
@@ -15,9 +17,34 @@ export function createWorkspaceTab(
     project,
     kind,
     title: tabTitle(kind, ordinal),
+    titleHint: null,
     profileId: kind === "shell" ? "system-default" : `agent:${kind}`,
     phase: "idle",
+    activity: "idle",
     error: null,
+  };
+}
+
+/**
+ * 把终端快照合进会话：phase/error/activity 直接覆盖，标题只在这条输入够格时才换。
+ * 全程没变就返回原对象，避免 phase 抖动时白白重渲染整条侧栏。
+ */
+export function applySnapshot(tab: WorkspaceTab, snapshot: TerminalSnapshot): WorkspaceTab {
+  // toSessionTitle 返回 null = 这条输入不配当名字（ls、y/n 之类），保留上一个。
+  const title = (snapshot.lastInput && toSessionTitle(snapshot.lastInput)) || tab.title;
+  if (
+    tab.phase === snapshot.phase
+    && tab.error === snapshot.error
+    && tab.activity === snapshot.activity
+    && title === tab.title
+  ) return tab;
+  return {
+    ...tab,
+    phase: snapshot.phase,
+    activity: snapshot.activity,
+    error: snapshot.error,
+    title,
+    titleHint: title === tab.title ? tab.titleHint : snapshot.lastInput,
   };
 }
 

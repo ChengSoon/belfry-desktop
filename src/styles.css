@@ -58,6 +58,14 @@
   --ease: cubic-bezier(0.2, 0, 0, 1);
   --duration: 140ms;
 
+  /* 窗口顶部让给系统窗控按钮的高度。Windows/Linux 是原生标题栏，webview 从它下面开始，
+     不用让；只有 macOS 的 Overlay 模式把 webview 铺到窗口顶边（见 tauri.conf.json）。
+     换成 Overlay 是为了消掉原生标题栏底色与侧栏底色之间那条横向色阶：标题栏横跨整窗
+     只能有一个颜色，而它下面左边是侧栏、右边是终端，两者底色本就不同，必然对不上。
+     去掉标题栏后每一列的底色自己顶到窗口边，接缝不复存在。
+     28px 是 macOS 标准标题栏高度；交通灯直径 12pt 居中其中。 */
+  --titlebar-inset: 0px;
+
   color-scheme: dark;
   font-family: var(--font-sans);
   font-size: var(--fs-md);
@@ -129,6 +137,9 @@
   --sidebar-active-shadow: 0 0 0 1px var(--border), 0 1px 2px rgb(15 20 40 / 6%);
   --sidebar-hover: rgb(15 20 40 / 5%);
 }
+
+/* 平台标记由 index.html 的首帧脚本写在 <html> 上，和 data-theme 同一处。 */
+[data-platform="macos"] { --titlebar-inset: 28px; }
 
 * { box-sizing: border-box; }
 
@@ -207,10 +218,25 @@ input:focus-visible {
 .status-dot--running { background: var(--success); }
 .status-dot--error { background: var(--danger); }
 
+/* 会话在干什么（与 status-dot 互斥：那个报进程，这个报进程里的事）。
+   琥珀 = 等你按键，是唯一需要立刻动手的状态；accent = 正在生成。
+   两者同速呼吸，不叠第三档速度——减弱动态效果开着时动画全关，只剩颜色能区分。 */
+.activity-dot {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  animation: pulse 1.4s var(--ease) infinite;
+}
+
+.activity-dot--talking { background: var(--accent); }
+.activity-dot--awaiting-choice { background: var(--warning); }
+
 @keyframes pulse {
   50% { opacity: 0.3; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .status-dot--creating { animation: none; }
+  .status-dot--creating,
+  .activity-dot { animation: none; }
 }

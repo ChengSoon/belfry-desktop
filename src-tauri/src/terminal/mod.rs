@@ -8,6 +8,7 @@ mod native_lifecycle;
 mod native_test_commands;
 #[cfg(test)]
 mod native_tests;
+mod osc;
 mod runtime;
 
 pub(crate) use contracts::AppError;

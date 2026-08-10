@@ -1,4 +1,4 @@
-import type { LaunchProfileId, TerminalPhase } from "../terminal/contracts";
+import type { LaunchProfileId, SessionActivity, TerminalPhase } from "../terminal/contracts";
 
 export type AgentKind = "codex" | "claude";
 export type WorkspaceTabKind = "shell" | AgentKind;
@@ -24,8 +24,12 @@ export interface WorkspaceTab {
   project: ProjectWorkspace;
   kind: WorkspaceTabKind;
   title: string;
+  /** 命名所依据的完整输入原文，未截断，只给 tooltip 用。 */
+  titleHint: string | null;
   profileId: LaunchProfileId;
   phase: TerminalPhase;
+  /** 与 phase 正交：phase 说进程活着没，activity 说它眼下在干什么。 */
+  activity: SessionActivity;
   error: string | null;
 }
 
