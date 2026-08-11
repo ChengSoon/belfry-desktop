@@ -1,8 +1,19 @@
-import type { ProjectWorkspace, RecentProject } from "./contracts";
+import type {
+  ProjectWorkspace,
+  RecentProject,
+  WorkspaceTab,
+  WorkspaceTabKind,
+} from "./contracts";
 import { pathKey } from "./path";
 
 export const RECENT_PROJECTS_KEY = "belfry.recent-projects.v1";
 export const RECENT_PROJECTS_LIMIT = 6;
+export const WORKSPACE_STATE_KEY = "belfry.workspace.v1";
+
+export interface PersistedWorkspaceState {
+  tabs: WorkspaceTab[];
+  activeTabId: string | null;
+}
 
 export function loadRecentProjects(storage: Pick<Storage, "getItem"> = localStorage) {
   try {
@@ -17,6 +28,75 @@ export function saveRecentProjects(
   storage: Pick<Storage, "setItem"> = localStorage,
 ) {
   storage.setItem(RECENT_PROJECTS_KEY, JSON.stringify(projects.slice(0, RECENT_PROJECTS_LIMIT)));
+}
+
+/**
+ * 会话进程不能跨应用重启存活，这里只恢复足以重新拉起它的稳定信息。
+ * phase/activity/error 一律回到初始态，随后由新 PTY 的快照接管。
+ */
+export function loadWorkspaceState(
+  storage: Pick<Storage, "getItem"> = localStorage,
+): PersistedWorkspaceState | null {
+  try {
+    return parseWorkspaceState(storage.getItem(WORKSPACE_STATE_KEY));
+  } catch {
+    return null;
+  }
+}
+
+export function saveWorkspaceState(
+  tabs: WorkspaceTab[],
+  activeTabId: string | null,
+  storage: Pick<Storage, "setItem"> = localStorage,
+) {
+  try {
+    storage.setItem(WORKSPACE_STATE_KEY, serializeWorkspaceState(tabs, activeTabId));
+  } catch {
+    // localStorage 被禁用时退化为本次运行内有效，不影响终端本身。
+  }
+}
+
+export function serializeWorkspaceState(tabs: WorkspaceTab[], activeTabId: string | null) {
+  return JSON.stringify({
+    tabs: tabs.map(({ id, project, kind, title, titleHint }) => ({
+      id,
+      project,
+      kind,
+      title,
+      titleHint,
+    })),
+    activeTabId: tabs.some((tab) => tab.id === activeTabId) ? activeTabId : tabs[0]?.id ?? null,
+  });
+}
+
+export function parseWorkspaceState(value: string | null): PersistedWorkspaceState | null {
+  if (!value) return null;
+  const parsed: unknown = JSON.parse(value);
+  if (!isRecord(parsed) || !Array.isArray(parsed.tabs)) return null;
+
+  const ids = new Set<string>();
+  const tabs = parsed.tabs.flatMap((value): WorkspaceTab[] => {
+    if (!isPersistedTab(value) || ids.has(value.id)) return [];
+    ids.add(value.id);
+    return [{
+      id: value.id,
+      project: value.project,
+      kind: value.kind,
+      title: value.title,
+      titleHint: value.titleHint,
+      profileId: value.kind === "shell" ? "system-default" : `agent:${value.kind}`,
+      phase: "idle",
+      activity: "idle",
+      error: null,
+    }];
+  });
+  const requestedActiveId = typeof parsed.activeTabId === "string" ? parsed.activeTabId : null;
+  return {
+    tabs,
+    activeTabId: tabs.some((tab) => tab.id === requestedActiveId)
+      ? requestedActiveId
+      : tabs[0]?.id ?? null,
+  };
 }
 
 export function rememberProject(project: ProjectWorkspace, recent: RecentProject[]) {
@@ -47,4 +127,36 @@ function isRecentProject(value: unknown): value is RecentProject {
   if (typeof value !== "object" || !value) return false;
   const item = value as Record<string, unknown>;
   return [item.id, item.name, item.rootPath].every((field) => typeof field === "string");
+}
+
+interface PersistedTab {
+  id: string;
+  project: ProjectWorkspace;
+  kind: WorkspaceTabKind;
+  title: string;
+  titleHint: string | null;
+}
+
+function isPersistedTab(value: unknown): value is PersistedTab {
+  if (!isRecord(value) || !isProjectWorkspace(value.project)) return false;
+  return typeof value.id === "string"
+    && value.id.length > 0
+    && isWorkspaceTabKind(value.kind)
+    && typeof value.title === "string"
+    && value.title.length > 0
+    && (value.titleHint === null || typeof value.titleHint === "string");
+}
+
+function isProjectWorkspace(value: unknown): value is ProjectWorkspace {
+  if (!isRecord(value)) return false;
+  return [value.id, value.name, value.rootPath, value.rootUri]
+    .every((field) => typeof field === "string" && field.length > 0);
+}
+
+function isWorkspaceTabKind(value: unknown): value is WorkspaceTabKind {
+  return value === "shell" || value === "codex" || value === "claude";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }

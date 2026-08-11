@@ -7,7 +7,26 @@ use crate::terminal::AppError;
 use super::contracts::{AgentAvailability, AgentKind};
 
 pub fn detect_agents() -> Vec<AgentAvailability> {
-    AgentKind::ALL.into_iter().map(detect_agent).collect()
+    // 两个 `--version` 都是独立的外部进程，串行只会把冷启动耗时相加。
+    // 保留 AgentKind::ALL 的稳定顺序，避免前端列表在探测完成后跳动。
+    std::thread::scope(|scope| {
+        AgentKind::ALL
+            .into_iter()
+            .map(|kind| (kind, scope.spawn(move || detect_agent(kind))))
+            .map(|(kind, handle)| {
+                handle.join().unwrap_or_else(|_| AgentAvailability {
+                    kind,
+                    available: false,
+                    executable: None,
+                    version: None,
+                    reason: Some(format!(
+                        "检测 {} 时后台任务异常退出",
+                        kind.command_name()
+                    )),
+                })
+            })
+            .collect()
+    })
 }
 
 pub(crate) fn resolve_agent(kind: AgentKind) -> Result<PathBuf, AppError> {

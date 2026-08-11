@@ -36,12 +36,12 @@ pub fn color_query_command() -> &'static str {
 
 #[cfg(target_os = "windows")]
 pub fn shell_marker_command() -> &'static str {
-    "Write-Output __BELFRY_OK__\r"
+    "[Console]::Out.WriteLine('__BELFRY_OK__')\r"
 }
 
 #[cfg(target_os = "windows")]
 pub fn shell_exit_command() -> &'static str {
-    "Write-Output __BELFRY_EXIT__\rexit\r"
+    "[Console]::Out.WriteLine('__BELFRY_EXIT__'); exit\r"
 }
 
 #[cfg(target_os = "windows")]
@@ -51,7 +51,7 @@ pub fn large_output_command() -> String {
 
 #[cfg(target_os = "windows")]
 pub fn latency_command(marker: &str) -> String {
-    format!("Write-Output {marker}\r")
+    format!("[Console]::Out.WriteLine('{marker}')\r")
 }
 
 #[cfg(target_os = "windows")]

@@ -74,7 +74,7 @@ mod tests {
         let current = std::env::current_dir().unwrap();
         let workspace = open_project(current.to_str()).unwrap();
         assert_eq!(
-            current.canonicalize().unwrap().to_string_lossy(),
+            canonicalize(&current).unwrap().to_string_lossy(),
             workspace.root_path
         );
         assert!(workspace.root_uri.starts_with("file://"));

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { TerminalSnapshot } from "../components/TerminalViewport";
 import { detectAgents, openProject } from "./api";
 import type {
@@ -11,20 +11,40 @@ import type {
   WorkspaceTabKind,
 } from "./contracts";
 import { toAppFailure } from "./errors";
-import { loadRecentProjects, rememberProject, saveRecentProjects } from "./storage";
+import {
+  loadRecentProjects,
+  loadWorkspaceState,
+  rememberProject,
+  saveRecentProjects,
+  saveWorkspaceState,
+  serializeWorkspaceState,
+} from "./storage";
 import { applySnapshot, createWorkspaceTab, nextActiveTab, nextOrdinal } from "./tabs";
 
 export function useProjectWorkspace() {
-  const initialProjectPath = useRef(loadRecentProjects()[0]?.rootPath ?? null);
-  const [tabs, setTabs] = useState<WorkspaceTab[]>([]);
-  const [activeTabId, setActiveTabId] = useState<string | null>(null);
+  const restoredWorkspace = useMemo(loadWorkspaceState, []);
+  const initialProjectPath = useRef(
+    restoredWorkspace?.tabs.find((tab) => tab.id === restoredWorkspace.activeTabId)?.project.rootPath
+      ?? loadRecentProjects()[0]?.rootPath
+      ?? null,
+  );
+  const [tabs, setTabs] = useState<WorkspaceTab[]>(() => restoredWorkspace?.tabs ?? []);
+  const [activeTabId, setActiveTabId] = useState<string | null>(
+    () => restoredWorkspace?.activeTabId ?? null,
+  );
   // 没有活动会话时新建会话该开在哪；有活动会话时一律继承它的项目。
-  const [lastProject, setLastProject] = useState<ProjectWorkspace | null>(null);
+  const [lastProject, setLastProject] = useState<ProjectWorkspace | null>(() => (
+    restoredWorkspace?.tabs.find((tab) => tab.id === restoredWorkspace.activeTabId)?.project
+      ?? restoredWorkspace?.tabs[0]?.project
+      ?? null
+  ));
   const [agents, setAgents] = useState<AgentAvailability[]>(pendingAgents());
   const [recentProjects, setRecentProjects] = useState<RecentProject[]>(loadRecentProjects);
   const [failure, setFailure] = useState<AppFailure | null>(null);
   const [opening, setOpening] = useState(true);
+  const [readyToPersist, setReadyToPersist] = useState(restoredWorkspace !== null);
   const requestVersion = useRef(0);
+  const lastPersistedWorkspace = useRef<string | null>(null);
 
   const activeProject = tabs.find((tab) => tab.id === activeTabId)?.project ?? lastProject;
 
@@ -67,6 +87,15 @@ export function useProjectWorkspace() {
     async function bootstrap() {
       const version = ++requestVersion.current;
       try {
+        if (restoredWorkspace) {
+          const restoredProject = restoredWorkspace.tabs.find(
+            (tab) => tab.id === restoredWorkspace.activeTabId,
+          )?.project ?? restoredWorkspace.tabs[0]?.project;
+          if (restoredProject) acceptProject(restoredProject);
+          const detected = await loadAgentState();
+          if (version === requestVersion.current) setAgents(detected);
+          return;
+        }
         const workspace = await openProject(initialProjectPath.current);
         if (version !== requestVersion.current) return;
         const tab = createWorkspaceTab(workspace, "shell", 1);
@@ -78,10 +107,22 @@ export function useProjectWorkspace() {
       } catch (error) {
         if (version === requestVersion.current) setFailure(toAppFailure(error));
       } finally {
-        if (version === requestVersion.current) setOpening(false);
+        if (version === requestVersion.current) {
+          setOpening(false);
+          setReadyToPersist(true);
+        }
       }
     }
-  }, [acceptProject]);
+  }, [acceptProject, restoredWorkspace]);
+
+  // 序列化结果排除了 phase/activity/error，因此终端刷屏不会反复写 localStorage。
+  const serializedWorkspace = serializeWorkspaceState(tabs, activeTabId);
+  useEffect(() => {
+    if (readyToPersist && serializedWorkspace !== lastPersistedWorkspace.current) {
+      saveWorkspaceState(tabs, activeTabId);
+      lastPersistedWorkspace.current = serializedWorkspace;
+    }
+  }, [activeTabId, readyToPersist, serializedWorkspace, tabs]);
 
   const launch = useCallback(async (kind: WorkspaceTabKind) => {
     const availability = kind === "shell" ? null : agents.find((agent) => agent.kind === kind);
