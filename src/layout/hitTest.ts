@@ -1,4 +1,4 @@
-import type { DropTarget, PaneFrame, Rect } from "./contracts";
+import type { DropRegion, DropTarget, PaneFrame, Rect } from "./contracts";
 import { dropEdgeAt } from "./dropZone";
 
 export interface Viewport {
@@ -41,6 +41,32 @@ export function hitTestPanes(
     return { tabId: pane.tabId, edge: dropEdgeAt(box, x - box.left, y - box.top) };
   }
   return null;
+}
+
+/**
+ * 指针当前落在哪个落区。侧栏先问、窗格后问——
+ * hitTestPanes 会把舞台外的坐标贴回最近的窗格，先让侧栏接住才拿得到"拖回去"这个结果。
+ *
+ * ejectable 为假时侧栏不算落区：会话没在分屏里（或分屏就剩它一个）时，
+ * "摘出去"无事可做，那就不该给出可以落下的高亮。
+ */
+export function resolveDropRegion(
+  panes: readonly PaneFrame[],
+  stage: Viewport,
+  sidebar: Viewport | null,
+  clientX: number,
+  clientY: number,
+  ejectable: boolean,
+): DropRegion | null {
+  if (ejectable && sidebar && contains(sidebar, clientX, clientY)) return { kind: "sidebar" };
+  const target = hitTestPanes(panes, stage, clientX, clientY);
+  return target ? { kind: "pane", ...target } : null;
+}
+
+function contains(box: Viewport, x: number, y: number) {
+  return (
+    x >= box.left && x <= box.left + box.width && y >= box.top && y <= box.top + box.height
+  );
 }
 
 function clamp(value: number, min: number, max: number) {

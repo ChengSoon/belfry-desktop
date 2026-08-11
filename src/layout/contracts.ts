@@ -53,3 +53,9 @@ export interface DropTarget {
   tabId: string;
   edge: DropEdge;
 }
+
+/**
+ * 一次拖拽最终落在哪儿。窗格之外还有侧栏这一个落区：
+ * 落回侧栏 = 把这个会话从分屏里摘出去，会话本身不动（PTY 照旧、列表里照旧）。
+ */
+export type DropRegion = ({ kind: "pane" } & DropTarget) | { kind: "sidebar" };

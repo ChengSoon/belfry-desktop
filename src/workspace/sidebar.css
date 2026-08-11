@@ -10,6 +10,13 @@
   padding-top: var(--titlebar-inset);
   border-right: 1px solid var(--border);
   background: var(--sidebar);
+  transition: background var(--duration) var(--ease), border-color var(--duration) var(--ease);
+}
+
+/* 会话拖回列表上方：整条侧栏亮起来，示意松手就把它从舞台摘掉。 */
+.sidebar.is-eject-target {
+  border-right-color: var(--accent);
+  background: var(--accent-soft);
 }
 
 /* 项目切换器（在舞台标题行，不在侧栏）：宽度按内容走，整体居中。 */
@@ -203,6 +210,9 @@
    图标和名字一起退才像一个整体。 */
 .session-row.is-dim .session-row__main { color: var(--text-faint); }
 .session-row.is-dim .session-row__main > svg { opacity: 0.55; }
+
+/* 拖着的那条淡下去，和舞台上那格同一档透明度——两处指的是同一个会话。 */
+.session-row.is-dragging { opacity: 0.45; }
 
 /* 状态点和关闭键叠在同一格里，hover 时互换：
    两者都是行尾配件，各占一列会让会话名凭空少掉 22px，而它们从不需要同时出现。

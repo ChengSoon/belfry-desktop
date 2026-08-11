@@ -41,10 +41,11 @@ export function TerminalStage({
   onSnapshot,
 }: TerminalStageProps) {
   const indicator = useMemo(() => {
-    if (!drag?.target) return null;
+    if (drag?.target?.kind !== "pane") return null;
     const pane = rects.get(drag.target.tabId);
     return pane ? composeDropIndicator(pane, drag.target.edge) : null;
   }, [drag?.target, rects]);
+  const edge = drag?.target?.kind === "pane" ? drag.target.edge : null;
 
   return (
     <div className="terminal-stage" ref={stageRef}>
@@ -58,6 +59,7 @@ export function TerminalStage({
             onClose={onClosePane}
             onDragStart={onDragStart}
             onFocus={onFocus}
+            onStage={rect !== undefined}
             rect={rect ?? OFFSCREEN}
             split={split && rect !== undefined}
             tab={tab}
@@ -76,7 +78,7 @@ export function TerminalStage({
         />
       ))}
 
-      {indicator ? <DropIndicator edge={drag!.target!.edge} rect={indicator} /> : null}
+      {indicator && edge ? <DropIndicator edge={edge} rect={indicator} /> : null}
     </div>
   );
 }

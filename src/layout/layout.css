@@ -24,7 +24,8 @@
   padding: 0 3px 3px;
 }
 
-.terminal-pane.is-split .terminal-pane__body {
+/* 边框接在标题栏下沿：有把手就得有这一圈，否则标题栏浮在半空、底下没有承接。 */
+.terminal-pane.is-onstage .terminal-pane__body {
   border: 1px solid var(--border);
   border-top: none;
   border-radius: 0 0 var(--radius-sm) var(--radius-sm);
@@ -36,11 +37,12 @@
   padding: 4px 8px 6px;
 }
 
-.terminal-pane.is-split.is-focused .terminal-pane__body {
+.terminal-pane.is-onstage.is-focused .terminal-pane__body {
   border-color: var(--border-strong);
 }
 
-/* 窗格标题栏 = 拖拽把手。单窗格时不渲染，界面维持原来的干净样子。 */
+/* 标题栏 = 拖拽把手。任何在舞台上的窗格都有——单窗格时它是唯一的拖拽入口。
+   离屏挂着的会话整格藏掉（is-onstage 未加），把手不在其列。 */
 .terminal-pane__bar {
   display: flex;
   align-items: center;

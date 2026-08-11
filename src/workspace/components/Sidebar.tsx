@@ -1,5 +1,5 @@
 import { ChevronRight, Gauge, PanelLeftClose, SquareTerminal, X } from "lucide-react";
-import type { CSSProperties, PointerEvent } from "react";
+import type { CSSProperties, PointerEvent, Ref } from "react";
 import { PanelResizeHandle } from "../../panel/PanelResizeHandle";
 import { usePanelWidth } from "../../panel/usePanelWidth";
 import { ICON } from "../../theme/sizing";
@@ -30,6 +30,10 @@ interface SidebarProps {
   onCollapse: () => void;
   onToggleUsage: () => void;
   usageOpen: boolean;
+  /** 命中测试要拿侧栏的真实矩形，才能判断会话被拖回了列表。 */
+  ref?: Ref<HTMLElement>;
+  /** 当前拖拽正悬在侧栏上：松手就把这个会话从舞台摘掉。 */
+  ejecting?: boolean;
 }
 
 export function Sidebar({
@@ -37,6 +41,7 @@ export function Sidebar({
   tabs,
   activeId,
   draggingId,
+  ejecting = false,
   foldedProjects,
   onLaunch,
   onRefresh,
@@ -47,6 +52,7 @@ export function Sidebar({
   onToggleFold,
   onCollapse,
   onToggleUsage,
+  ref,
   usageOpen,
 }: SidebarProps) {
   const groups = groupTabsByProject(tabs);
@@ -54,7 +60,12 @@ export function Sidebar({
   const sidebarStyle = { "--sidebar-width": `${width}px` } as CSSProperties;
 
   return (
-    <aside className="sidebar" aria-label="会话" style={sidebarStyle}>
+    <aside
+      className={`sidebar${ejecting ? " is-eject-target" : ""}`}
+      aria-label="会话"
+      ref={ref}
+      style={sidebarStyle}
+    >
       <div className="sidebar-sessions">
         <div className="sessions-head">
           <span>会话</span>

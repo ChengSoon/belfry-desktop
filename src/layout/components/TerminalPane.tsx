@@ -9,7 +9,12 @@ interface TerminalPaneProps {
   tab: WorkspaceTab;
   rect: Rect;
   focused: boolean;
-  /** 只有一个窗格时不显示标题栏和关闭按钮——那就是普通的单终端视图。 */
+  /**
+   * 会话是否真的落在舞台上。离屏挂着的会话整格都不该露脸——
+   * visibility:hidden 只盖住了终端本身（.terminal-workspace），标题栏在它外面。
+   */
+  onStage: boolean;
+  /** 分屏中：每格之间留间隙，并给出"移出分屏"的关闭按钮。 */
   split: boolean;
   dragging: boolean;
   onFocus: (tabId: string) => void;
@@ -26,6 +31,7 @@ export function TerminalPane({
   tab,
   rect,
   focused,
+  onStage,
   split,
   dragging,
   onFocus,
@@ -43,25 +49,27 @@ export function TerminalPane({
 
   return (
     <div
-      className={`terminal-pane${focused ? " is-focused" : ""}${split ? " is-split" : ""}${dragging ? " is-dragging" : ""}`}
+      className={`terminal-pane${focused ? " is-focused" : ""}${onStage ? " is-onstage" : ""}${split ? " is-split" : ""}${dragging ? " is-dragging" : ""}`}
       // 捕获阶段接管：xterm 会吞掉冒泡上来的 pointerdown，点了不切焦点。
       onPointerDownCapture={() => onFocus(tab.id)}
       style={style}
     >
-      {split ? (
+      {onStage ? (
         <div className="terminal-pane__bar" onPointerDown={(event) => onDragStart(tab.id, event)}>
           <Icon aria-hidden="true" size={ICON.xs} />
           <span className="terminal-pane__title">{tab.title}</span>
-          <button
-            className="terminal-pane__close"
-            // 关闭按钮在拖拽把手里，不拦住就会先起一个手势。
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={() => onClose(tab.id)}
-            title={`从分屏移出 ${tab.title}`}
-            type="button"
-          >
-            <X aria-hidden="true" size={ICON.xs} />
-          </button>
+          {split ? (
+            <button
+              className="terminal-pane__close"
+              // 关闭按钮在拖拽把手里，不拦住就会先起一个手势。
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={() => onClose(tab.id)}
+              title={`从分屏移出 ${tab.title}`}
+              type="button"
+            >
+              <X aria-hidden="true" size={ICON.xs} />
+            </button>
+          ) : null}
         </div>
       ) : null}
       <div className="terminal-pane__body">{children}</div>

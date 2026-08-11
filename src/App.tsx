@@ -19,8 +19,14 @@ export default function App() {
   const [collapsed, setCollapsed] = useState(false);
   const [usageOpen, setUsageOpen] = useState(false);
   const stageRef = useRef<HTMLDivElement>(null);
+  const sidebarRef = useRef<HTMLElement>(null);
   const layout = useSplitLayout(workspace.tabs, workspace.activeTabId, workspace.setActiveTabId);
-  const { drag, startDrag, consumedClick } = useSessionDrag(stageRef, layout.panes, layout.dropTab);
+  const { drag, startDrag, consumedClick } = useSessionDrag(stageRef, sidebarRef, layout.panes, {
+    onDrop: layout.dropTab,
+    onEject: layout.closePane,
+    // 只有分屏里的会话摘得动：没分屏时舞台始终跟着活动会话，摘掉也没地方去。
+    canEject: (tabId) => layout.panes.length > 1 && layout.rects.has(tabId),
+  });
 
   // 新会话继承 activeProject，那组要是折叠着就会开出一个侧栏里看不见的会话。
   const launch = useCallback((kind: Parameters<typeof workspace.launch>[0]) => {
@@ -54,6 +60,7 @@ export default function App() {
           activeId={workspace.activeTabId}
           agents={workspace.agents}
           draggingId={drag?.tabId ?? null}
+          ejecting={drag?.target?.kind === "sidebar"}
           foldedProjects={foldedProjects}
           onActivate={layout.activateTab}
           onClose={workspace.closeTab}
@@ -64,6 +71,7 @@ export default function App() {
           onRefresh={workspace.redetectAgents}
           onToggleFold={toggleFold}
           onToggleUsage={() => setUsageOpen((value) => !value)}
+          ref={sidebarRef}
           tabs={workspace.tabs}
           usageOpen={usageOpen}
         />
