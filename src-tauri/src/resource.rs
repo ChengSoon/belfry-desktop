@@ -1,6 +1,6 @@
 //! 路径与 file URI 的互转，以及跨平台的路径规范化。
 //!
-//! Windows 上 `std::fs::canonicalize` 返回 verbatim 形式 `\\?\C:\work\otty`。
+//! Windows 上 `std::fs::canonicalize` 返回 verbatim 形式 `\\?\C:\work\belfry`。
 //! 这个前缀会一路污染下游：`CreateProcessW` 的 `lpCurrentDirectory` 不接受它，
 //! `cmd.exe` 不认它，文件对话框的 `defaultPath` 不认它，UI 上显示出来也是噪声。
 //! 所以规范化统一走本模块的 [`canonicalize`]，在最上游就把前缀剥掉。
@@ -119,7 +119,7 @@ mod tests {
 
     #[test]
     fn rejects_a_uri_without_a_usable_path() {
-        assert!(file_uri_to_path("/work/otty").is_err());
+        assert!(file_uri_to_path("/work/belfry").is_err());
         assert!(file_uri_to_path("file://").is_err());
     }
 
@@ -131,8 +131,8 @@ mod tests {
 
     #[test]
     fn windows_drive_paths_round_trip() {
-        assert_eq!(windows_path_to_uri(r"C:\work\otty"), "file:///C:/work/otty");
-        assert_eq!(windows_round_trip(r"C:\work\otty"), r"C:\work\otty");
+        assert_eq!(windows_path_to_uri(r"C:\work\belfry"), "file:///C:/work/belfry");
+        assert_eq!(windows_round_trip(r"C:\work\belfry"), r"C:\work\belfry");
         assert_eq!(windows_round_trip(r"C:\"), r"C:\");
     }
 
@@ -140,11 +140,11 @@ mod tests {
     /// 反解得到 `/?/D:/...`，最终以 os error 123 冒出来。
     #[test]
     fn windows_verbatim_prefix_never_reaches_the_uri() {
-        let uri = windows_path_to_uri(r"\\?\D:\ChengSystem\Project\otty");
-        assert_eq!(uri, "file:///D:/ChengSystem/Project/otty");
+        let uri = windows_path_to_uri(r"\\?\D:\ChengSystem\Project\belfry");
+        assert_eq!(uri, "file:///D:/ChengSystem/Project/belfry");
         assert_eq!(
             windows_uri_body_to_path(uri.strip_prefix("file://").unwrap()),
-            r"D:\ChengSystem\Project\otty"
+            r"D:\ChengSystem\Project\belfry"
         );
     }
 

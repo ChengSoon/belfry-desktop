@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="src-tauri/icons/128x128@2x.png" width="112" alt="Otty" />
+<img src="src-tauri/icons/128x128@2x.png" width="112" alt="Belfry" />
 
-# Otty
+# Belfry
 
 ---
 
@@ -12,12 +12,12 @@
 
 [English](README.en.md) · **简体中文**
 
-[![Open Source](https://img.shields.io/badge/Open%20Source-GitHub-181717?logo=github&logoColor=white)](https://github.com/ChengSoon/otty-desktop)
-[![Release](https://img.shields.io/github/v/release/ChengSoon/otty-desktop?label=Release&color=1f6feb&include_prereleases)](https://github.com/ChengSoon/otty-desktop/releases)
+[![Open Source](https://img.shields.io/badge/Open%20Source-GitHub-181717?logo=github&logoColor=white)](https://github.com/ChengSoon/belfry-desktop)
+[![Release](https://img.shields.io/github/v/release/ChengSoon/belfry-desktop?label=Release&color=1f6feb&include_prereleases)](https://github.com/ChengSoon/belfry-desktop/releases)
 [![License](https://img.shields.io/badge/License-LGPL--3.0-4caf50)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-macOS%20%7C%20Windows-555555)](#下载)
 [![Tauri](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)](https://tauri.app)
-[![Stars](https://img.shields.io/github/stars/ChengSoon/otty-desktop?color=f5a623)](https://github.com/ChengSoon/otty-desktop/stargazers)
+[![Stars](https://img.shields.io/github/stars/ChengSoon/belfry-desktop?color=f5a623)](https://github.com/ChengSoon/belfry-desktop/stargazers)
 
 [下载](#下载) · [快速开始](#快速开始) · [功能](#功能) · [界面](#界面) · [设计取向](#设计取向) · [开发](#开发) · [路线图](#路线图) · [许可证](#许可证)
 
@@ -28,7 +28,7 @@
 
 ## 下载
 
-安装包在 [Releases](https://github.com/ChengSoon/otty-desktop/releases) 页面，四个构建目标：macOS Apple Silicon (`aarch64`)、macOS Intel (`x64`)、Windows、Linux。
+安装包在 [Releases](https://github.com/ChengSoon/belfry-desktop/releases) 页面，四个构建目标：macOS Apple Silicon (`aarch64`)、macOS Intel (`x64`)、Windows、Linux。
 
 二进制没做代码签名：
 
@@ -39,7 +39,7 @@
 
 ## 快速开始
 
-Otty 不自带 Agent，它托管你机器上已经装好的那些。所以先确认至少有一个能用：
+Belfry 不自带 Agent，它托管你机器上已经装好的那些。所以先确认至少有一个能用：
 
 ```bash
 codex --version
@@ -48,12 +48,12 @@ claude --version
 
 然后：
 
-1. 启动 Otty，点顶部的项目选择器，选一个本地目录。
+1. 启动 Belfry，点顶部的项目选择器，选一个本地目录。
 2. 侧栏的新会话菜单里挑 Shell、Codex 或 Claude。检测不到的 Agent 会标灰，鼠标悬停能看到原因。
 3. 同一个项目下可以并排开多个会话，标签自己按你输入的第一句话命名。
 4. `⌘U` 打开用量面板，看 token 花在哪个模型、哪个项目上。
 
-两个 Agent 都没检测到也无妨——Shell 会话不依赖它们，Otty 此时就是个普通终端。
+两个 Agent 都没检测到也无妨——Shell 会话不依赖它们，Belfry 此时就是个普通终端。
 
 ## 功能
 
@@ -99,7 +99,7 @@ claude --version
 
 ## 设计取向
 
-**不代理模型请求。** Otty 不内置推理客户端，不保存模型 API Key，不碰你的 token。它只是启动你本地的 CLI Agent，并读它自己写下的日志。
+**不代理模型请求。** Belfry 不内置推理客户端，不保存模型 API Key，不碰你的 token。它只是启动你本地的 CLI Agent，并读它自己写下的日志。
 
 **Agent 不可用时完整退化为普通终端。** Agent 集成是增强，不是前置条件。检测失败不该让你打不开一个 Shell。
 
@@ -158,7 +158,7 @@ src-tauri/src/        Rust 后端
 
 ## 路线图
 
-已交付的垂直切片之后，按 [`.codestable/roadmap/otty-desktop/`](.codestable/roadmap/otty-desktop/) 的划分推进：
+已交付的垂直切片之后，按 [`.codestable/roadmap/belfry-desktop/`](.codestable/roadmap/belfry-desktop/) 的划分推进：
 
 - **Shared UI** — 分屏、设置、Prompt Composer 与 Queue、Quick Open、文件预览 Pane
 - **Shared Core** — 会话持久化与恢复、Agent Adapter 基座、历史与 resume、Recipe 回放、导入导出
@@ -175,7 +175,7 @@ Issue 和 PR 都欢迎。动手之前建议先开个 issue 对一下方向——
 
 ## 免责声明
 
-Otty 是终端与会话的托管层，不对 Agent 在你机器上执行的命令负责。Agent 的权限就是你 Shell 的权限：给它读写文件、跑构建、装依赖的能力，它就有能力删掉不该删的东西。请在有版本控制的目录里用它，重要操作自己过一眼。
+Belfry 是终端与会话的托管层，不对 Agent 在你机器上执行的命令负责。Agent 的权限就是你 Shell 的权限：给它读写文件、跑构建、装依赖的能力，它就有能力删掉不该删的东西。请在有版本控制的目录里用它，重要操作自己过一眼。
 
 用量面板的数字来自 Agent 自己写的本地日志，只能当参考，不是账单。请以服务商控制台为准。
 

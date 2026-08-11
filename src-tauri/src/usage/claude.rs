@@ -130,7 +130,7 @@ pub(super) fn matches_project(cwd: Option<&str>, project_root: Option<&str>) -> 
     if !cwd.starts_with(root) {
         return false;
     }
-    // 前缀相等之外，只接受目录边界，避免 /work/otty 命中 /work/otty-backup。
+    // 前缀相等之外，只接受目录边界，避免 /work/belfry 命中 /work/belfry-backup。
     matches!(cwd[root.len()..].chars().next(), None | Some('/'))
 }
 
@@ -175,12 +175,12 @@ mod tests {
 
     #[test]
     fn project_filter_accepts_subdirectories_but_not_sibling_prefixes() {
-        assert!(matches_project(Some("/work/otty"), Some("/work/otty")));
-        assert!(matches_project(Some("/work/otty/src-tauri"), Some("/work/otty")));
+        assert!(matches_project(Some("/work/belfry"), Some("/work/belfry")));
+        assert!(matches_project(Some("/work/belfry/src-tauri"), Some("/work/belfry")));
         // 尾斜杠不应改变判定
-        assert!(matches_project(Some("/work/otty/src"), Some("/work/otty/")));
-        assert!(!matches_project(Some("/work/otty-backup"), Some("/work/otty")));
-        assert!(!matches_project(Some("/other"), Some("/work/otty")));
+        assert!(matches_project(Some("/work/belfry/src"), Some("/work/belfry/")));
+        assert!(!matches_project(Some("/work/belfry-backup"), Some("/work/belfry")));
+        assert!(!matches_project(Some("/other"), Some("/work/belfry")));
     }
 
     #[test]
@@ -189,7 +189,7 @@ mod tests {
         assert!(matches_project(Some("/anywhere"), Some("  ")));
         assert!(matches_project(None, None));
         // 有过滤条件但记录没有 cwd：无法归属，排除
-        assert!(!matches_project(None, Some("/work/otty")));
+        assert!(!matches_project(None, Some("/work/belfry")));
     }
 
     /// 项目根来自前端选中的目录，cwd 来自 Agent 日志，两边的写法经常对不上。
@@ -197,18 +197,18 @@ mod tests {
     fn project_filter_tolerates_separator_and_prefix_differences() {
         // Agent 日志写正斜杠，项目根是反斜杠
         assert!(matches_project(
-            Some("D:/work/otty/src-tauri"),
-            Some(r"D:\work\otty")
+            Some("D:/work/belfry/src-tauri"),
+            Some(r"D:\work\belfry")
         ));
         // 历史 localStorage 里可能还留着 verbatim 前缀
         assert!(matches_project(
-            Some(r"D:\work\otty"),
-            Some(r"\\?\D:\work\otty")
+            Some(r"D:\work\belfry"),
+            Some(r"\\?\D:\work\belfry")
         ));
         // 边界判定不能因为归一化而放松
         assert!(!matches_project(
-            Some(r"D:\work\otty-backup"),
-            Some(r"D:\work\otty")
+            Some(r"D:\work\belfry-backup"),
+            Some(r"D:\work\belfry")
         ));
     }
 
@@ -216,8 +216,8 @@ mod tests {
     #[test]
     fn project_filter_ignores_case_on_windows() {
         assert!(matches_project(
-            Some(r"d:\work\otty\src"),
-            Some(r"D:\Work\Otty")
+            Some(r"d:\work\belfry\src"),
+            Some(r"D:\Work\Belfry")
         ));
     }
 }

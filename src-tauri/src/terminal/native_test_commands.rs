@@ -1,16 +1,16 @@
 #[cfg(target_os = "macos")]
 pub fn shell_marker_command() -> &'static str {
-    "printf __OTTY_OK__\r"
+    "printf __BELFRY_OK__\r"
 }
 
 #[cfg(target_os = "macos")]
 pub fn shell_exit_command() -> &'static str {
-    "printf __OTTY_EXIT__\rexit\r"
+    "printf __BELFRY_EXIT__\rexit\r"
 }
 
 #[cfg(target_os = "macos")]
 pub fn large_output_command() -> String {
-    "printf __OTTY_BEGIN__; python3 -c 'import sys;sys.stdout.write(\"0123456789abcdef\"*65536)'; printf __OTTY_END__\r".to_string()
+    "printf __BELFRY_BEGIN__; python3 -c 'import sys;sys.stdout.write(\"0123456789abcdef\"*65536)'; printf __BELFRY_END__\r".to_string()
 }
 
 #[cfg(target_os = "macos")]
@@ -31,22 +31,22 @@ pub fn working_directory_command() -> &'static str {
 pub fn color_query_command() -> &'static str {
     "stty -echo -icanon min 25 time 10; printf '\\033]11;?\\033\\\\'; \
      reply=$(dd bs=25 count=1 2>/dev/null); stty sane; \
-     printf '__OTTY_BG__%s__OTTY_END__\\n' \"${reply#*rgb:}\"\r"
+     printf '__BELFRY_BG__%s__BELFRY_END__\\n' \"${reply#*rgb:}\"\r"
 }
 
 #[cfg(target_os = "windows")]
 pub fn shell_marker_command() -> &'static str {
-    "Write-Output __OTTY_OK__\r"
+    "Write-Output __BELFRY_OK__\r"
 }
 
 #[cfg(target_os = "windows")]
 pub fn shell_exit_command() -> &'static str {
-    "Write-Output __OTTY_EXIT__\rexit\r"
+    "Write-Output __BELFRY_EXIT__\rexit\r"
 }
 
 #[cfg(target_os = "windows")]
 pub fn large_output_command() -> String {
-    "[Console]::Out.Write('__OTTY_BEGIN__'); [Console]::Out.Write('0123456789abcdef' * 65536); [Console]::Out.Write('__OTTY_END__')\r".to_string()
+    "[Console]::Out.Write('__BELFRY_BEGIN__'); [Console]::Out.Write('0123456789abcdef' * 65536); [Console]::Out.Write('__BELFRY_END__')\r".to_string()
 }
 
 #[cfg(target_os = "windows")]

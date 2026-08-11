@@ -83,15 +83,15 @@ mod tests {
 
     #[test]
     fn rejects_a_missing_project_without_fallback() {
-        let result = open_project(Some("/__otty_missing_project__"));
+        let result = open_project(Some("/__belfry_missing_project__"));
         assert!(result.is_err());
     }
 
     #[test]
     fn project_id_is_stable_for_the_same_path() {
         assert_eq!(
-            stable_project_id("/workspace/otty"),
-            stable_project_id("/workspace/otty")
+            stable_project_id("/workspace/belfry"),
+            stable_project_id("/workspace/belfry")
         );
     }
 }

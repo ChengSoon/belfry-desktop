@@ -1,4 +1,4 @@
-roadmap: otty-windows
+roadmap: belfry-windows
 created: 2026-08-09
 
 items:
@@ -147,7 +147,7 @@ items:
     notes: null
 
   - slug: control-cli-core
-    description: 实现 otty CLI 和窗口、标签、Pane 控制协议
+    description: 实现 belfry CLI 和窗口、标签、Pane 控制协议
     depends_on: [workspace-tabs-panes, agent-integration-foundation]
     status: planned
     feature: null

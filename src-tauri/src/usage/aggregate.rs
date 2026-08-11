@@ -201,9 +201,9 @@ mod tests {
     fn aggregates_projects_by_session_cwd() {
         let mut acc = UsageAccumulator::default();
         let root = if cfg!(windows) {
-            "C:\\work\\otty"
+            "C:\\work\\belfry"
         } else {
-            "/work/otty"
+            "/work/belfry"
         };
         acc.record(AgentKind::Claude, "m", tokens(7), None, Some(root));
         acc.record(AgentKind::Claude, "m", tokens(3), None, Some(""));
@@ -211,6 +211,6 @@ mod tests {
         let projects = acc.projects();
         assert_eq!(projects.len(), 1);
         assert_eq!(projects[0].tokens.output, 7);
-        assert_eq!(projects[0].name, "otty");
+        assert_eq!(projects[0].name, "belfry");
     }
 }

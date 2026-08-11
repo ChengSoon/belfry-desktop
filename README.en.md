@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="src-tauri/icons/128x128@2x.png" width="112" alt="Otty" />
+<img src="src-tauri/icons/128x128@2x.png" width="112" alt="Belfry" />
 
-# Otty
+# Belfry
 
 ---
 
@@ -12,12 +12,12 @@ Run Codex and Claude Code through one interface on macOS and Windows, and see wh
 
 **English** · [简体中文](README.md)
 
-[![Open Source](https://img.shields.io/badge/Open%20Source-GitHub-181717?logo=github&logoColor=white)](https://github.com/ChengSoon/otty-desktop)
-[![Release](https://img.shields.io/github/v/release/ChengSoon/otty-desktop?label=Release&color=1f6feb&include_prereleases)](https://github.com/ChengSoon/otty-desktop/releases)
+[![Open Source](https://img.shields.io/badge/Open%20Source-GitHub-181717?logo=github&logoColor=white)](https://github.com/ChengSoon/belfry-desktop)
+[![Release](https://img.shields.io/github/v/release/ChengSoon/belfry-desktop?label=Release&color=1f6feb&include_prereleases)](https://github.com/ChengSoon/belfry-desktop/releases)
 [![License](https://img.shields.io/badge/License-LGPL--3.0-4caf50)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-macOS%20%7C%20Windows-555555)](#download)
 [![Tauri](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)](https://tauri.app)
-[![Stars](https://img.shields.io/github/stars/ChengSoon/otty-desktop?color=f5a623)](https://github.com/ChengSoon/otty-desktop/stargazers)
+[![Stars](https://img.shields.io/github/stars/ChengSoon/belfry-desktop?color=f5a623)](https://github.com/ChengSoon/belfry-desktop/stargazers)
 
 [Download](#download) · [Get started](#get-started) · [Features](#features) · [UI](#ui) · [Principles](#principles) · [Development](#development) · [Roadmap](#roadmap) · [License](#license)
 
@@ -28,7 +28,7 @@ Run Codex and Claude Code through one interface on macOS and Windows, and see wh
 
 ## Download
 
-Installers live on the [Releases](https://github.com/ChengSoon/otty-desktop/releases) page. Four build targets: macOS Apple Silicon (`aarch64`), macOS Intel (`x64`), Windows, Linux.
+Installers live on the [Releases](https://github.com/ChengSoon/belfry-desktop/releases) page. Four build targets: macOS Apple Silicon (`aarch64`), macOS Intel (`x64`), Windows, Linux.
 
 The binaries are unsigned:
 
@@ -39,7 +39,7 @@ Minimum versions: macOS 14, Windows 10 22H2 (Build 19045) / Windows 11.
 
 ## Get started
 
-Otty ships no agents of its own — it hosts the ones already on your machine. So first make sure at least one works:
+Belfry ships no agents of its own — it hosts the ones already on your machine. So first make sure at least one works:
 
 ```bash
 codex --version
@@ -48,12 +48,12 @@ claude --version
 
 Then:
 
-1. Launch Otty, click the project switcher at the top, pick a local directory.
+1. Launch Belfry, click the project switcher at the top, pick a local directory.
 2. Open the new-session menu in the sidebar and choose Shell, Codex, or Claude. Undetected agents are greyed out; hover to see why.
 3. Open as many sessions per project as you want — tabs name themselves after your first prompt.
 4. Hit `⌘U` for the usage panel to see which model and project your tokens went to.
 
-Neither agent detected? Doesn't matter. Shell sessions don't depend on them, and Otty is just a terminal at that point.
+Neither agent detected? Doesn't matter. Shell sessions don't depend on them, and Belfry is just a terminal at that point.
 
 ## Features
 
@@ -96,7 +96,7 @@ Shortcuts: `⌘B` collapses the sidebar, `⌘U` toggles the usage panel. Use `Ct
 
 ## Principles
 
-**No model requests are proxied.** Otty embeds no inference client, stores no model API keys, and never touches your tokens. It launches your local CLI agent and reads the logs that agent writes itself.
+**No model requests are proxied.** Belfry embeds no inference client, stores no model API keys, and never touches your tokens. It launches your local CLI agent and reads the logs that agent writes itself.
 
 **Full degradation to a plain terminal when agents are unavailable.** Agent integration is an enhancement, not a prerequisite. Failed detection should never stop you from opening a shell.
 
@@ -155,7 +155,7 @@ src-tauri/src/        Rust backend
 
 ## Roadmap
 
-Past the delivered vertical slice, work proceeds along the split in [`.codestable/roadmap/otty-desktop/`](.codestable/roadmap/otty-desktop/):
+Past the delivered vertical slice, work proceeds along the split in [`.codestable/roadmap/belfry-desktop/`](.codestable/roadmap/belfry-desktop/):
 
 - **Shared UI** — split panes, settings, prompt composer and queue, quick open, file preview panes
 - **Shared Core** — session persistence and restore, agent adapter foundation, history and resume, recipe replay, import/export
@@ -172,7 +172,7 @@ Before opening a PR, please confirm `pnpm test`, `pnpm build`, and `cargo test` 
 
 ## Disclaimer
 
-Otty is a hosting layer for terminals and sessions. It is not responsible for what an agent executes on your machine. An agent's privileges are your shell's privileges: give it the ability to read and write files, run builds, and install dependencies, and it has the ability to delete things it shouldn't. Use it in version-controlled directories and review consequential operations yourself.
+Belfry is a hosting layer for terminals and sessions. It is not responsible for what an agent executes on your machine. An agent's privileges are your shell's privileges: give it the ability to read and write files, run builds, and install dependencies, and it has the ability to delete things it shouldn't. Use it in version-controlled directories and review consequential operations yourself.
 
 Numbers in the usage panel come from logs the agents write locally. Treat them as an estimate, not a bill — your provider's console is authoritative.
 

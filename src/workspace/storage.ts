@@ -1,7 +1,7 @@
 import type { ProjectWorkspace, RecentProject } from "./contracts";
 import { pathKey } from "./path";
 
-export const RECENT_PROJECTS_KEY = "otty.recent-projects.v1";
+export const RECENT_PROJECTS_KEY = "belfry.recent-projects.v1";
 export const RECENT_PROJECTS_LIMIT = 6;
 
 export function loadRecentProjects(storage: Pick<Storage, "getItem"> = localStorage) {

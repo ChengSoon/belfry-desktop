@@ -2,7 +2,7 @@
 doc_type: feature-design
 feature: 2026-08-09-project-agent-workspace-vertical-slice
 requirement: cross-platform-ai-terminal
-roadmap: otty-desktop
+roadmap: belfry-desktop
 roadmap_item: project-agent-workspace-vertical-slice
 status: approved
 summary: 打开本地项目并在项目目录启动可切换的 Codex、Claude Code 或 Shell 会话
@@ -94,7 +94,7 @@ project_open({ path: "/missing" })
 → AppError { code: NOT_FOUND, retryable: false }
 ```
 
-来源：roadmap `otty-desktop` 第 4.1、4.9 节与现有 Terminal Runtime 契约。
+来源：roadmap `belfry-desktop` 第 4.1、4.9 节与现有 Terminal Runtime 契约。
 
 ### 2.2 编排层
 
@@ -138,7 +138,7 @@ flowchart LR
 1. 应用根视图：Project Workspace shell — 用项目工作台替换单 Terminal Surface。
 2. Tauri command 注册表：`project_open`、`agent_detect` — 新增项目与 Launcher IPC。
 3. Terminal Launch Profile 注册表：`agent:codex`、`agent:claude` — 新增固定 PTY 启动目标。
-4. 浏览器持久化 key：`otty.recent-projects.v1` — 新增 Recent Projects 摘要。
+4. 浏览器持久化 key：`belfry.recent-projects.v1` — 新增 Recent Projects 摘要。
 
 ### 2.4 推进策略
 

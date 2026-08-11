@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "Otty",
+  "productName": "Belfry",
   "version": "0.1.0",
-  "identifier": "io.appmakes.otty.desktop",
+  "identifier": "io.appmakes.belfry.desktop",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://127.0.0.1:1420",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Otty",
+        "title": "Belfry",
         "titleBarStyle": "Overlay",
         "hiddenTitle": true,
         "width": 1080,

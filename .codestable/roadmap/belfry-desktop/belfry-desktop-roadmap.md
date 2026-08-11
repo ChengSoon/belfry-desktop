@@ -1,6 +1,6 @@
 ---
 doc_type: roadmap
-slug: otty-desktop
+slug: belfry-desktop
 status: active
 created: 2026-08-09
 last_reviewed: 2026-08-10
@@ -9,13 +9,13 @@ related_requirements: []
 related_architecture: []
 ---
 
-# OTTY Desktop
+# BELFRY Desktop
 
 ## 1. 背景
 
-OTTY Desktop 是一套同时支持 macOS 和 Windows 的 AI 编程终端。两个平台共享 UI、领域模型、配置协议和主要 Rust 核心，同时通过独立平台适配器提供本地 Shell、窗口、通知、凭证、文件管理器和控制 IPC。
+BELFRY Desktop 是一套同时支持 macOS 和 Windows 的 AI 编程终端。两个平台共享 UI、领域模型、配置协议和主要 Rust 核心，同时通过独立平台适配器提供本地 Shell、窗口、通知、凭证、文件管理器和控制 IPC。
 
-默认体验是托管 Codex、Claude Code、OpenCode 等现有 CLI Agent：OTTY 感知处理、等待输入、完成、失败和中断状态，提供通知、历史、恢复、Prompt Composer 和 Prompt Queue，但不直接调用模型 API。Agent 集成不可用时，产品必须完整退化为普通终端。为了尽早验证产品定位，在完整 Workspace 与 Agent Adapter 之前先交付“项目 + Codex/Claude 启动 + 平面会话标签”的垂直切片，避免长期停留在普通终端形态。
+默认体验是托管 Codex、Claude Code、OpenCode 等现有 CLI Agent：BELFRY 感知处理、等待输入、完成、失败和中断状态，提供通知、历史、恢复、Prompt Composer 和 Prompt Queue，但不直接调用模型 API。Agent 集成不可用时，产品必须完整退化为普通终端。为了尽早验证产品定位，在完整 Workspace 与 Agent Adapter 之前先交付“项目 + Codex/Claude 启动 + 平面会话标签”的垂直切片，避免长期停留在普通终端形态。
 
 技术基线采用 Tauri 2 + Rust + React/TypeScript + xterm.js。最低兼容目标为 macOS 14，以及 Windows 10 22H2 Build 19045 / Windows 11。发布目标覆盖 macOS Apple Silicon/Intel 和 Windows x64/ARM64。
 
@@ -39,12 +39,12 @@ OTTY Desktop 是一套同时支持 macOS 和 Windows 的 AI 编程终端。两�
 - 不静默提权，不自动恢复需要 sudo、Authorization Services 或 UAC 的命令。
 - 不自动执行不可信的外部 Recipe；外部 Recipe 默认逐步确认。
 - 不建设云同步、账号体系、团队协作、插件市场、LSP 和调试器。
-- 当前仓库没有 Mac OTTY 源码，不把已安装的 Mac 二进制视为可复用实现，只作为行为参考。
+- 当前仓库没有 Mac BELFRY 源码，不把已安装的 Mac 二进制视为可复用实现，只作为行为参考。
 
 ## 3. 模块拆分（概设）
 
 ```text
-OTTY Desktop
+BELFRY Desktop
 ├── Shared UI：React、TypeScript、xterm.js 与响应式桌面布局
 ├── Shared Core：Workspace、Agent、Prompt、Recipe、配置与状态
 ├── Terminal Runtime：统一 PtyBackend 与终端字节流
@@ -166,20 +166,20 @@ PromptItem { id: EntityId, agent_session_id: EntityId, content: string,
   cancelled, position: u32 }
 ```
 
-约束：安装计划必须列出平台和修改路径并经用户确认；Adapter 不支持恢复时返回 `UNSUPPORTED`；每个 Agent Session 同时只有一个 dispatching Prompt；OTTY 不上传附件。
+约束：安装计划必须列出平台和修改路径并经用户确认；Adapter 不支持恢复时返回 `UNSUPPORTED`；每个 Agent Session 同时只有一个 dispatching Prompt；BELFRY 不上传附件。
 
 ### 4.6 平台路径与持久化
 
 ```text
 PlatformPaths { config_dir() -> Path; data_dir() -> Path; cache_dir() -> Path;
   log_dir() -> Path; runtime_dir() -> Path }
-macOS config: ~/Library/Application Support/Otty/
-macOS cache:  ~/Library/Caches/Otty/
-Windows config: %APPDATA%\Otty\
-Windows data/cache: %LOCALAPPDATA%\Otty\
+macOS config: ~/Library/Application Support/Belfry/
+macOS cache:  ~/Library/Caches/Belfry/
+Windows config: %APPDATA%\Belfry\
+Windows data/cache: %LOCALAPPDATA%\Belfry\
 ```
 
-共享文件名：`config.toml`、`state.db`、`themes/*.ottytheme`、`recipes/*.ottyrecipe`。配置使用原子替换；SQLite migration 必须事务化；日志不得记录 Prompt 正文、凭证或环境变量值。
+共享文件名：`config.toml`、`state.db`、`themes/*.belfrytheme`、`recipes/*.belfryrecipe`。配置使用原子替换；SQLite migration 必须事务化；日志不得记录 Prompt 正文、凭证或环境变量值。
 
 ### 4.7 本地控制协议
 
@@ -188,7 +188,7 @@ LocalControlTransport { listen() -> ControlListener; request(ControlRequest) -> 
 ControlRequest  { v: 1, id: EntityId, command: string, args: object }
 ControlResponse { v: 1, id: EntityId, ok: bool, result: object | null, error: AppError | null }
 macOS:  Unix Domain Socket，权限 0600
-Windows: \\.\pipe\otty-{user_sid}，ACL 仅当前用户
+Windows: \\.\pipe\belfry-{user_sid}，ACL 仅当前用户
 ```
 
 约束：单请求最大 1 MiB；默认 30 秒超时；管理员实例使用独立 transport；协议命令与参数 schema 在两个平台完全一致。
@@ -267,10 +267,10 @@ TerminalRuntime.create({ profile_id: LaunchProfileId, cwd: ProjectWorkspace.root
 
 - 当前没有 requirement 文档；进入首个 feature-design 前建议用 `cs-req draft` 固化跨平台用户价值和成功标准。
 - 当前 architecture 只有空骨架；实际模块只能在 feature 验收后回写。
-- 已安装 Mac OTTY 1.3.1 可作为行为基线，但当前仓库没有其源码，不能假设可以直接迁移实现。
+- 已安装 Mac BELFRY 1.3.1 可作为行为基线，但当前仓库没有其源码，不能假设可以直接迁移实现。
 - xterm.js 是首发共享渲染器，PtyBackend 与 Terminal Runtime API 必须保持渲染器无关。
 - macOS 和 Windows 的 Agent hooks 安装路径、恢复命令与权限需要逐 Adapter 验证，不允许用单平台假设填充另一端。
-- Windows-only roadmap `otty-windows` 已暂停，所有条目保持 planned，不再启动 feature。
+- Windows-only roadmap `belfry-windows` 已暂停，所有条目保持 planned，不再启动 feature。
 - `cross-platform-terminal-vertical-slice` 已有 macOS 运行证据但仍缺 Windows 真机证据；项目级 Agent 切片可并行开发，二者的 Windows 验收都不能由交叉编译替代。
 - **依赖例外（2026-08-10 记录）**：`terminal-interaction-compatibility` 获准在前置 `cross-platform-terminal-vertical-slice` 仍为 `in-progress` 时并行开工。依据是前置卡点属于「缺验收证据」而非「缺实现」——其 7 个 step 中前 6 步（工程骨架、契约与 conformance harness、macOS PTY、Windows PTY、xterm 数据流、生命周期与错误收口）均已 done，只余第 7 步「双平台验收与性能证据」因缺 Windows 真机环境挂起。`depends_on` 保持不变，前置条目不得因此被标记为 `done`。**例外只覆盖 design 与 implement，不覆盖验收**：该条自身的 Ctrl+Shift+C/V 键位、ConPTY 下 TERM 生效等验收项同样需要 Windows 真机证据。
 - **Windows 真机验收是横向阻塞，需独立排期**：它当前同时卡住 `cross-platform-terminal-vertical-slice` 的收尾验收、`project-agent-workspace-vertical-slice` 的验收，以及未来 `terminal-interaction-compatibility` 的验收。不应挂在任一单条子 feature 名下推进。

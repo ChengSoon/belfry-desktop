@@ -1,4 +1,4 @@
-# OTTY Windows 架构总入口
+# BELFRY Windows 架构总入口
 
 > 状态：骨架（待填充）
 > 创建日期：2026-08-09

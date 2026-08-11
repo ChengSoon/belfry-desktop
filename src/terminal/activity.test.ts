@@ -90,6 +90,6 @@ describe("detectActivity", () => {
   it("falls back to idle on anything it cannot place", () => {
     expect(detectActivity("")).toBe("idle");
     expect(detectActivity("$ ")).toBe("idle");
-    expect(detectActivity(tailOf("~/work/otty-win on  main", "❯ "))).toBe("idle");
+    expect(detectActivity(tailOf("~/work/belfry-win on  main", "❯ "))).toBe("idle");
   });
 });

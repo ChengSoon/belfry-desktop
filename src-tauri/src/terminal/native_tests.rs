@@ -88,8 +88,8 @@ fn native_backend_preserves_one_mebibyte_of_ordered_output() {
         panic!(
             "incomplete payload: bytes={}, begin={:?}, end={:?}",
             bytes.len(),
-            marker_position(&bytes, b"__OTTY_BEGIN__"),
-            marker_position(&bytes, b"__OTTY_END__")
+            marker_position(&bytes, b"__BELFRY_BEGIN__"),
+            marker_position(&bytes, b"__BELFRY_END__")
         );
     }
 
@@ -114,7 +114,7 @@ fn native_backend_input_echo_p95_stays_under_budget() {
 
     let mut samples = Vec::with_capacity(20);
     for index in 0..20 {
-        let marker = format!("__OTTY_LATENCY_{index}__");
+        let marker = format!("__BELFRY_LATENCY_{index}__");
         let started = Instant::now();
         backend
             .write(&session.id, latency_command(&marker).as_bytes())
@@ -171,7 +171,7 @@ fn native_backend_answers_color_queries_from_the_reader_thread() {
     // 子进程从 stdin 读回来的，就是 reader 线程写进 PTY 的那条应答。
     assert!(wait_for_text(
         &sink,
-        "__OTTY_BG__fafa/fafa/fafa",
+        "__BELFRY_BG__fafa/fafa/fafa",
         Duration::from_secs(5)
     ));
     // 查询不能同时漏给前端：xterm.js 会再答一遍，多出来的那份会变成子进程的键盘输入。
@@ -274,8 +274,8 @@ fn assert_sequences_are_ordered(events: &[TerminalEvent]) {
 }
 
 fn complete_payload_range(bytes: &[u8]) -> Option<(usize, usize)> {
-    let begin_marker = b"__OTTY_BEGIN__";
-    let end_marker = b"__OTTY_END__";
+    let begin_marker = b"__BELFRY_BEGIN__";
+    let end_marker = b"__BELFRY_END__";
     let begin = bytes
         .windows(begin_marker.len())
         .rposition(|value| value == begin_marker)?
@@ -295,7 +295,7 @@ fn marker_position(bytes: &[u8], marker: &[u8]) -> Option<usize> {
 fn event_contains_exit_marker(event: &TerminalEvent) -> bool {
     match event {
         TerminalEvent::Output { bytes, .. } => {
-            String::from_utf8_lossy(bytes).contains("__OTTY_EXIT__")
+            String::from_utf8_lossy(bytes).contains("__BELFRY_EXIT__")
         }
         TerminalEvent::Exit { .. } => false,
     }
@@ -304,7 +304,7 @@ fn event_contains_exit_marker(event: &TerminalEvent) -> bool {
 fn event_contains_marker(event: &TerminalEvent) -> bool {
     match event {
         TerminalEvent::Output { bytes, .. } => {
-            String::from_utf8_lossy(bytes).contains("__OTTY_OK__")
+            String::from_utf8_lossy(bytes).contains("__BELFRY_OK__")
         }
         TerminalEvent::Exit { .. } => false,
     }

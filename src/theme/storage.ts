@@ -1,7 +1,7 @@
 import type { ThemeMode } from "./contracts";
 
 /** 与 index.html 首帧脚本内联的键名保持一致，改这里要同步改那边。 */
-export const THEME_MODE_KEY = "otty.theme.v1";
+export const THEME_MODE_KEY = "belfry.theme.v1";
 
 export function loadThemeMode(storage: Pick<Storage, "getItem"> = localStorage) {
   try {

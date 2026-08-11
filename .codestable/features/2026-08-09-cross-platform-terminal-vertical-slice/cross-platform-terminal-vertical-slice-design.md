@@ -2,7 +2,7 @@
 doc_type: feature-design
 feature: 2026-08-09-cross-platform-terminal-vertical-slice
 requirement: cross-platform-ai-terminal
-roadmap: otty-desktop
+roadmap: belfry-desktop
 roadmap_item: cross-platform-terminal-vertical-slice
 status: approved
 summary: 同一代码库在 macOS 和 Windows 启动本地 Shell，并跑通终端输入输出、缩放和退出
@@ -25,7 +25,7 @@ tags: [terminal, pty, macos, windows, tauri, xterm]
 
 ### 需求摘要
 
-为需要在 macOS 和 Windows 使用同一种 OTTY 工作流的开发者，建立第一个可运行产品闭环：打开应用后自动启动一个本地 Shell，能够输入命令、按顺序看到输出、调整终端尺寸并关闭会话。成功必须由两端真实运行证据共同证明，单平台成功不算完成。
+为需要在 macOS 和 Windows 使用同一种 BELFRY 工作流的开发者，建立第一个可运行产品闭环：打开应用后自动启动一个本地 Shell，能够输入命令、按顺序看到输出、调整终端尺寸并关闭会话。成功必须由两端真实运行证据共同证明，单平台成功不算完成。
 
 ### 明确不做
 
@@ -122,7 +122,7 @@ TerminalSurfaceState = idle | creating | running | exited | error(AppError)
 输出：AppError { code: INVALID_ARGUMENT, retryable: false }
 ```
 
-来源：`.codestable/roadmap/otty-desktop/otty-desktop-roadmap.md` 第 4.1、4.2 节。
+来源：`.codestable/roadmap/belfry-desktop/belfry-desktop-roadmap.md` 第 4.1、4.2 节。
 
 ### 2.2 编排层
 
@@ -211,8 +211,8 @@ sequenceDiagram
 
 ### 关键场景清单
 
-1. macOS 启动应用 → 自动进入可交互默认 Unix Shell，执行 `printf __OTTY_OK__` 后原样显示标记。
-2. Windows 启动应用 → 自动进入可交互 `powershell.exe`，执行 `Write-Output __OTTY_OK__` 后原样显示标记。
+1. macOS 启动应用 → 自动进入可交互默认 Unix Shell，执行 `printf __BELFRY_OK__` 后原样显示标记。
+2. Windows 启动应用 → 自动进入可交互 `powershell.exe`，执行 `Write-Output __BELFRY_OK__` 后原样显示标记。
 3. 在任一平台连续输入普通 ASCII 命令 → Shell 收到的字节与输入顺序一致，界面不重复字符。
 4. 改变窗口尺寸 → xterm cols/rows 与 PTY 最终尺寸一致，中间重复尺寸不会产生额外 backend 更新。
 5. 产生连续 1 MiB 有序输出 → UI 最终字节总量和顺序与源输出一致，应用保持可响应。

@@ -315,10 +315,10 @@ mod tests {
         let mut accumulator = UsageAccumulator::default();
         let mut scan = FileScan::new(None);
         let lines = [
-            r#"{"timestamp":"2026-08-09T10:00:00Z","type":"turn_context","payload":{"model":"gpt-5.6-sol","cwd":"/work/otty"}}"#,
+            r#"{"timestamp":"2026-08-09T10:00:00Z","type":"turn_context","payload":{"model":"gpt-5.6-sol","cwd":"/work/belfry"}}"#,
             r#"{"timestamp":"2026-08-09T10:01:00Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":1000,"cached_input_tokens":0,"output_tokens":100}}}}"#,
             // 中途换模型：后续增量必须记给新模型
-            r#"{"timestamp":"2026-08-09T10:02:00Z","type":"turn_context","payload":{"model":"gpt-5.6-mini","cwd":"/work/otty"}}"#,
+            r#"{"timestamp":"2026-08-09T10:02:00Z","type":"turn_context","payload":{"model":"gpt-5.6-mini","cwd":"/work/belfry"}}"#,
             r#"{"timestamp":"2026-08-09T10:03:00Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":1500,"cached_input_tokens":0,"output_tokens":160}}}}"#,
         ];
         for line in lines {
@@ -353,7 +353,7 @@ mod tests {
         let mut scan = FileScan::new(None);
         let cutoff = parse_rfc3339("2026-08-09T10:02:00Z");
         let lines = [
-            r#"{"timestamp":"2026-08-09T10:00:00Z","type":"turn_context","payload":{"model":"m","cwd":"/work/otty"}}"#,
+            r#"{"timestamp":"2026-08-09T10:00:00Z","type":"turn_context","payload":{"model":"m","cwd":"/work/belfry"}}"#,
             // 窗口外：不计入，但必须推进基线
             r#"{"timestamp":"2026-08-09T10:01:00Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":8000,"cached_input_tokens":0,"output_tokens":900}}}}"#,
             r#"{"timestamp":"2026-08-09T10:03:00Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":8100,"cached_input_tokens":0,"output_tokens":950}}}}"#,
@@ -374,7 +374,7 @@ mod tests {
         let mut accumulator = UsageAccumulator::default();
         let mut scan = FileScan::new(Some("/work/other"));
         let lines = [
-            r#"{"timestamp":"2026-08-09T10:00:00Z","type":"turn_context","payload":{"model":"m","cwd":"/work/otty"}}"#,
+            r#"{"timestamp":"2026-08-09T10:00:00Z","type":"turn_context","payload":{"model":"m","cwd":"/work/belfry"}}"#,
             r#"{"timestamp":"2026-08-09T10:01:00Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":10,"output_tokens":5}}}}"#,
         ];
         for line in lines {

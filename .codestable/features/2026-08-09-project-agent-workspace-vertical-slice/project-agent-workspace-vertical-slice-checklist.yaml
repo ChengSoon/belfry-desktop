@@ -63,7 +63,7 @@ checks:
   - item: Terminal 注册 agent:codex 与 agent:claude profiles
     source: 挂载点
     status: pending
-  - item: 浏览器持久化使用 otty.recent-projects.v1
+  - item: 浏览器持久化使用 belfry.recent-projects.v1
     source: 挂载点
     status: pending
   - item: 不修改 Codex/Claude 配置或安装 hooks

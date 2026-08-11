@@ -107,7 +107,7 @@ mod tests {
         });
         let scoped = collect(&UsageQuery {
             window_days: None,
-            project_root: Some("/__otty_missing_project__".to_string()),
+            project_root: Some("/__belfry_missing_project__".to_string()),
         });
         // 不存在的项目必然无用量，且全局总量是上界
         assert_eq!(scoped.totals.total(), 0);

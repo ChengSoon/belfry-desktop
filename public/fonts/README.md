@@ -52,10 +52,10 @@ pip3 install fonttools brotli
 python3 scripts/build-fonts.py
 ```
 
-脚本从 `/tmp/otty-fonts/` 读上游源文件，需要先手动准备：
+脚本从 `/tmp/belfry-fonts/` 读上游源文件，需要先手动准备：
 
 ```bash
-mkdir -p /tmp/otty-fonts && cd /tmp/otty-fonts
+mkdir -p /tmp/belfry-fonts && cd /tmp/belfry-fonts
 curl -sLO https://registry.npmjs.org/harmonyos-sans/-/harmonyos-sans-1.0.0.tgz
 tar xzf harmonyos-sans-1.0.0.tgz && unzip -q "package/HarmonyOS Sans.zip" -d unpacked
 curl -sL -o jbmono.tgz https://registry.npmjs.org/@fontsource/jetbrains-mono/-/jetbrains-mono-5.3.0.tgz

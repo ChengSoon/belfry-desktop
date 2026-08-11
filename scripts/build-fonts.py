@@ -18,7 +18,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT_DIR = ROOT / "public" / "fonts"
-SRC_DIR = Path("/tmp/otty-fonts")
+SRC_DIR = Path("/tmp/belfry-fonts")
 
 # 汉字子集取 GB2312（6763 字），覆盖现代中文约 99.7%。界面上出现的只有项目名、
 # 路径、模型名和固定文案，够用；真遇到生僻字会 fallback 到系统字体，可以接受。

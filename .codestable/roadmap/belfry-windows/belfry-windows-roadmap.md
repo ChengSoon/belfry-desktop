@@ -1,6 +1,6 @@
 ---
 doc_type: roadmap
-slug: otty-windows
+slug: belfry-windows
 status: paused
 created: 2026-08-09
 last_reviewed: 2026-08-09
@@ -9,15 +9,15 @@ related_requirements: []
 related_architecture: []
 ---
 
-# OTTY Windows
+# BELFRY Windows
 
-> **已暂停**：2026-08-09 用户纠正目标平台为 macOS + Windows。本文件保留为早期 Windows-only 规划记录，不再作为当前执行来源；后续由 `otty-desktop` roadmap 接替。
+> **已暂停**：2026-08-09 用户纠正目标平台为 macOS + Windows。本文件保留为早期 Windows-only 规划记录，不再作为当前执行来源；后续由 `belfry-desktop` roadmap 接替。
 
 ## 1. 背景
 
-OTTY 当前只有 Mac 版本，需要从零开发 Windows 版本。产品终态覆盖 Mac OTTY 的完整能力，但不逐像素复制 macOS；Windows 版保留同等功能、工作流和配置语义，同时遵循 Windows 的窗口、快捷键、通知、权限和视觉习惯。
+BELFRY 当前只有 Mac 版本，需要从零开发 Windows 版本。产品终态覆盖 Mac BELFRY 的完整能力，但不逐像素复制 macOS；Windows 版保留同等功能、工作流和配置语义，同时遵循 Windows 的窗口、快捷键、通知、权限和视觉习惯。
 
-默认体验是 AI 编程终端：OTTY 托管 Codex、Claude Code、OpenCode 等现有 CLI Agent，通过 hooks 或插件感知生命周期，提供状态、通知、历史、恢复和 Prompt 调度。终端始终是主要工作区域；Agent 集成不可用时必须退化为普通终端。
+默认体验是 AI 编程终端：BELFRY 托管 Codex、Claude Code、OpenCode 等现有 CLI Agent，通过 hooks 或插件感知生命周期，提供状态、通知、历史、恢复和 Prompt 调度。终端始终是主要工作区域；Agent 集成不可用时必须退化为普通终端。
 
 技术基线采用 Tauri 2 + Rust + React/TypeScript。终端进程由 Rust 侧通过 ConPTY 管理，终端内容由 xterm.js 渲染；SQLite 保存运行状态，TOML 保存用户配置，Windows 原生能力通过 Rust 平台桥接提供。最低兼容目标为 Windows 10 22H2 Build 19045，同时支持 Windows 11；Windows 11 可启用 Mica，Windows 10 使用不透明 Fluent 主题降级。
 
@@ -40,12 +40,12 @@ OTTY 当前只有 Mac 版本，需要从零开发 Windows 版本。产品终态�
 - 不静默绕过 UAC，不自动恢复需要管理员权限的命令。
 - 不自动执行不可信的外部 Recipe；外部 Recipe 默认逐步确认。
 - 不建设云同步、账号体系、团队协作、插件市场、语言服务器和调试器。
-- 不在本 roadmap 中重写现有 Mac OTTY，也不承诺两端共用同一套 UI 代码。
+- 不在本 roadmap 中重写现有 Mac BELFRY，也不承诺两端共用同一套 UI 代码。
 
 ## 3. 模块拆分（概设）
 
 ```text
-OTTY Windows
+BELFRY Windows
 ├── Desktop Platform：桌面外壳、窗口和 Windows 系统集成
 ├── Terminal Runtime：ConPTY、Shell Profile、终端 I/O 与渲染桥接
 ├── Workspace Runtime：窗口、标签、Pane、分屏和布局状态
@@ -54,7 +54,7 @@ OTTY Windows
 ├── Prompt Workflow：Composer、Queue、上下文和终端派发
 ├── Content & Git：文件浏览、编辑预览、Git 和远程资源
 ├── Navigation & Recipes：快速导航、Frecency、Recipe 与重放
-└── Control Plane：otty CLI、Named Pipe、单实例和外部控制
+└── Control Plane：belfry CLI、Named Pipe、单实例和外部控制
 ```
 
 ### Desktop Platform
@@ -107,7 +107,7 @@ OTTY Windows
 
 ### Control Plane
 
-- **职责**：提供同用户范围的单实例控制面、Named Pipe 协议和 otty CLI；不向其他用户或网络暴露控制端口。
+- **职责**：提供同用户范围的单实例控制面、Named Pipe 协议和 belfry CLI；不向其他用户或网络暴露控制端口。
 - **承载的子 feature**：control-cli-core, windows-integration-packaging。
 - **触碰的现有代码 / 模块**：全新。
 
@@ -269,7 +269,7 @@ PromptAttachment {
 }
 ```
 
-**约束**：每个 Agent Session 同时只能有一个 `dispatching` 条目；OTTY 只向本地终端写入文本或路径引用，不上传附件；Agent 正在处理时默认排队，用户明确选择“立即发送”才能绕过队列。
+**约束**：每个 Agent Session 同时只能有一个 `dispatching` 条目；BELFRY 只向本地终端写入文本或路径引用，不上传附件；Agent 正在处理时默认排队，用户明确选择“立即发送”才能绕过队列。
 
 ### 4.6 配置与持久化路径
 
@@ -277,24 +277,24 @@ PromptAttachment {
 **形式**：文件协议 + SQLite
 
 ```text
-%APPDATA%\Otty\config.toml
-%APPDATA%\Otty\themes\*.ottytheme
-%APPDATA%\Otty\recipes\*.ottyrecipe
-%LOCALAPPDATA%\Otty\state.db
-%LOCALAPPDATA%\Otty\sessions\
-%LOCALAPPDATA%\Otty\logs\
-%LOCALAPPDATA%\Otty\cache\
+%APPDATA%\Belfry\config.toml
+%APPDATA%\Belfry\themes\*.belfrytheme
+%APPDATA%\Belfry\recipes\*.belfryrecipe
+%LOCALAPPDATA%\Belfry\state.db
+%LOCALAPPDATA%\Belfry\sessions\
+%LOCALAPPDATA%\Belfry\logs\
+%LOCALAPPDATA%\Belfry\cache\
 ```
 
 **约束**：配置写入使用临时文件 + 原子替换；TOML 解析失败时保留原文件并加载最后一次有效快照；SQLite schema migration 必须事务化；日志不得写入 Prompt 正文和环境变量值。
 
 ### 4.7 Control Plane 协议
 
-**方向**：otty CLI / hooks → Control Plane → App Core
+**方向**：belfry CLI / hooks → Control Plane → App Core
 **形式**：Windows Named Pipe 上的 UTF-8 JSON Lines
 
 ```text
-pipe: \\.\pipe\otty-{user_sid}
+pipe: \\.\pipe\belfry-{user_sid}
 
 ControlRequest  { v: 1, id: EntityId, command: string, args: object }
 ControlResponse { v: 1, id: EntityId, ok: bool, result: object | null, error: AppError | null }
@@ -321,7 +321,7 @@ RecipeV1 {
 RecipeStep = open_shell | split | run_command | launch_agent | open_resource
 ```
 
-**约束**：外部 `.ottyrecipe` 默认 `step_by_step`；路径必须经过 Resource URI 解析，不允许字符串拼接 shell 命令；远程资源必须绑定已存在的 SSH Profile。
+**约束**：外部 `.belfryrecipe` 默认 `step_by_step`；路径必须经过 Resource URI 解析，不允许字符串拼接 shell 命令；远程资源必须绑定已存在的 SSH Profile。
 
 ## 5. 子 feature 清单
 
@@ -415,7 +415,7 @@ RecipeStep = open_shell | split | run_command | launch_agent | open_resource
     - 依赖：workspace-tabs-panes, settings-config-themes, session-persistence-restore, agent-integration-foundation，因为 Recipe 引用布局、配置和 Agent 启动能力。
     - 状态：planned
     - 对应 feature：未启动
-19. **control-cli-core** — 实现 otty CLI 和窗口、标签、Pane 控制协议。
+19. **control-cli-core** — 实现 belfry CLI 和窗口、标签、Pane 控制协议。
     - 所属模块：Control Plane
     - 依赖：workspace-tabs-panes, agent-integration-foundation，因为 CLI 控制这些领域对象并接收 Agent hook 状态。
     - 状态：planned
@@ -441,7 +441,7 @@ RecipeStep = open_shell | split | run_command | launch_agent | open_resource
     - 状态：planned
     - 对应 feature：未启动
 
-**最小闭环**：`terminal-vertical-slice` 完成后，可以端到端演示“打开 OTTY → 启动 PowerShell → 输入命令 → 正确渲染 → 调整窗口 → 退出”。
+**最小闭环**：`terminal-vertical-slice` 完成后，可以端到端演示“打开 BELFRY → 启动 PowerShell → 输入命令 → 正确渲染 → 调整窗口 → 退出”。
 
 ## 6. 排期思路
 
@@ -462,7 +462,7 @@ RecipeStep = open_shell | split | run_command | launch_agent | open_resource
 - 当前 architecture 只有空骨架；未来每个 feature 验收后再把实际落地结构回写，不能提前把本 roadmap 当成现状。
 - xterm.js 是首发渲染器，但 Terminal Runtime API 必须保持渲染器无关，方便未来评估原生 DirectWrite 或稳定的 libghostty。
 - Windows 10 已结束常规支持；本项目将 Windows 10 22H2 作为兼容目标，需要单独维护测试环境和视觉降级基线。
-- Mac 配置、主题和 `.ottyrecipe` 的文件级兼容性由 import-export-parity 验证；当前只承诺体验等价。
+- Mac 配置、主题和 `.belfryrecipe` 的文件级兼容性由 import-export-parity 验证；当前只承诺体验等价。
 
 ## 8. 变更日志
 

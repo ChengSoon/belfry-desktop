@@ -1,7 +1,7 @@
 //! 把会话工作目录归拢到所属项目根。
 //!
-//! Agent 常在项目子目录里启动（例如在 `otty-win/src-tauri` 跑 Codex），
-//! 直接按原始 cwd 分组会让 `src-tauri` 和 `otty-win` 并列成两个项目。
+//! Agent 常在项目子目录里启动（例如在 `belfry-win/src-tauri` 跑 Codex），
+//! 直接按原始 cwd 分组会让 `src-tauri` 和 `belfry-win` 并列成两个项目。
 //! 这里向上找最近的带项目标记的祖先目录作为归属，找不到就保留原路径。
 
 use std::collections::HashMap;
@@ -56,7 +56,7 @@ pub fn roll_up(projects: Vec<ProjectUsage>) -> Vec<ProjectUsage> {
 
 /// 归属目录 = 连续带标记链的最外层。
 ///
-/// 不能用"最近的带标记祖先"：子目录常自带清单（`otty-win/src-tauri/Cargo.toml`），
+/// 不能用"最近的带标记祖先"：子目录常自带清单（`belfry-win/src-tauri/Cargo.toml`），
 /// 那样会把子目录判成独立项目。所以先找到最近的带标记目录，再沿父链继续上移，
 /// 直到父目录不再带标记为止。父目录一旦没有标记就停，避免一路归拢到家目录。
 fn resolve_root(path: &str) -> String {
@@ -118,7 +118,7 @@ mod tests {
     }
 
     fn temp_project(tag: &str) -> std::path::PathBuf {
-        let dir = std::env::temp_dir().join(format!("otty-roots-{tag}-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("belfry-roots-{tag}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(dir.join("nested/deeper")).unwrap();
         std::fs::create_dir_all(dir.join(".git")).unwrap();
@@ -145,13 +145,13 @@ mod tests {
         let _ = std::fs::remove_dir_all(&root);
     }
 
-    /// 真实场景：otty-win/package.json + otty-win/src-tauri/Cargo.toml。
+    /// 真实场景：belfry-win/package.json + belfry-win/src-tauri/Cargo.toml。
     /// 子目录自带清单时不能被判成独立项目。
     #[test]
     fn nested_manifests_still_fold_into_the_outer_project() {
-        let dir = std::env::temp_dir().join(format!("otty-roots-nested-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("belfry-roots-nested-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
-        let outer = dir.join("otty-win");
+        let outer = dir.join("belfry-win");
         let inner = outer.join("src-tauri");
         std::fs::create_dir_all(&inner).unwrap();
         std::fs::write(outer.join("package.json"), "{}").unwrap();
@@ -164,7 +164,7 @@ mod tests {
 
         assert_eq!(result.len(), 1, "带清单的子目录仍应并入外层项目");
         assert_eq!(result[0].root_path, outer.to_string_lossy());
-        assert_eq!(result[0].name, "otty-win");
+        assert_eq!(result[0].name, "belfry-win");
         assert_eq!(result[0].tokens.output, 14);
 
         let _ = std::fs::remove_dir_all(&dir);
@@ -173,7 +173,7 @@ mod tests {
     /// 父目录不带标记时必须停住，不能一路归拢到家目录。
     #[test]
     fn rollup_stops_when_the_marker_chain_breaks() {
-        let dir = std::env::temp_dir().join(format!("otty-roots-stop-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("belfry-roots-stop-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         // plain 不带标记，其下两个独立项目不应被合并
         let plain = dir.join("plain");
@@ -211,9 +211,9 @@ mod tests {
 
     #[test]
     fn paths_without_any_marker_keep_their_own_identity() {
-        let result = roll_up(vec![usage("/__otty_no_marker_dir__/work", 2)]);
+        let result = roll_up(vec![usage("/__belfry_no_marker_dir__/work", 2)]);
         assert_eq!(result.len(), 1);
-        assert_eq!(result[0].root_path, "/__otty_no_marker_dir__/work");
+        assert_eq!(result[0].root_path, "/__belfry_no_marker_dir__/work");
         assert_eq!(result[0].tokens.output, 2);
     }
 

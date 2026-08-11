@@ -10,7 +10,7 @@ tags: [macos, icon, tauri]
 
 ## 1. 问题描述
 
-macOS 中的 Otty 应用图标显示为带有大面积白色方形画布的小图标，主体尺寸明显小于同位置的其他应用图标。
+macOS 中的 Belfry 应用图标显示为带有大面积白色方形画布的小图标，主体尺寸明显小于同位置的其他应用图标。
 
 ## 2. 根因
 
@@ -20,13 +20,13 @@ macOS 中的 Otty 应用图标显示为带有大面积白色方形画布的小�
 
 ## 3. 修复方案
 
-- 将 macOS 主图标改为透明外围背景，保留 Otty 图形和圆角面板，主体覆盖率调整为约 81%。
+- 将 macOS 主图标改为透明外围背景，保留 Belfry 图形和圆角面板，主体覆盖率调整为约 81%。
 - 重新生成包含 16px 至 1024px 全部分辨率层的 `icon.icns`。
 - 在 Tauri bundle 配置中显式声明 `icons/icon.icns`。
 
 ## 4. 改动文件清单
 
-- `src-tauri/icons/otty-logo-source.png`
+- `src-tauri/icons/belfry-logo-source.png`
 - `src-tauri/icons/icon.icns`
 - `src-tauri/tauri.conf.json`
 
@@ -35,11 +35,11 @@ macOS 中的 Otty 应用图标显示为带有大面积白色方形画布的小�
 - Tauri 配置通过 JSON 解析。
 - `icon.icns` 可由 `iconutil` 正常解包，10 个尺寸层均存在透明通道，四角 alpha 均为 0。
 - 主体覆盖率在主要尺寸层稳定为约 81% × 82%。
-- 跳过无关前端预构建后，`pnpm tauri build --bundles app --config '{"build":{"beforeBuildCommand":""}}'` 成功生成 `Otty.app`。
+- 跳过无关前端预构建后，`pnpm tauri build --bundles app --config '{"build":{"beforeBuildCommand":""}}'` 成功生成 `Belfry.app`。
 - 最终 `Info.plist` 中 `CFBundleIconFile=icon.icns`，包内图标与仓库图标 SHA-256 完全一致。
 - 完整默认构建仍被工作区中与本问题无关的侧栏模块缺失阻断；本次未修改该部分代码。
 - 当前环境的 Quick Look 缩略图服务未返回，已终止本次预览进程；需在 Finder / Dock 中进行最终人工视觉确认。
 
 ## 6. 遗留事项
 
-- 在 macOS Finder 或 Dock 中打开新构建的 `Otty.app`，确认系统图标缓存刷新后的视觉尺寸。
+- 在 macOS Finder 或 Dock 中打开新构建的 `Belfry.app`，确认系统图标缓存刷新后的视觉尺寸。

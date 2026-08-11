@@ -1,5 +1,5 @@
 [package]
-name = "otty-desktop"
+name = "belfry-desktop"
 version = "0.1.0"
 description = "Cross-platform AI terminal workspace"
 authors = ["appmakes"]
@@ -7,7 +7,7 @@ edition = "2024"
 rust-version = "1.85"
 
 [lib]
-name = "otty_desktop_lib"
+name = "belfry_desktop_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

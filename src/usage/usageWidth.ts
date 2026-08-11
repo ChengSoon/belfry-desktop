@@ -6,7 +6,7 @@ export const USAGE_WIDTH: PanelWidthSpec = {
   compactWidth: 264,
   defaultWidth: 296,
   edge: "right",
-  key: "otty.usage-width.v2",
+  key: "belfry.usage-width.v2",
   max: 512,
   min: 252,
   step: 12,

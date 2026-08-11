@@ -88,10 +88,10 @@ checks:
   - item: 不注册管理员或提权会话能力
     source: 范围守护
     status: pending
-  - item: macOS 执行 printf __OTTY_OK__ 后原样显示标记
+  - item: macOS 执行 printf __BELFRY_OK__ 后原样显示标记
     source: 验收场景
     status: pending
-  - item: Windows 执行 Write-Output __OTTY_OK__ 后原样显示标记
+  - item: Windows 执行 Write-Output __BELFRY_OK__ 后原样显示标记
     source: 验收场景
     status: pending
   - item: 连续 ASCII 输入不重复且顺序一致

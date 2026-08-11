@@ -46,7 +46,7 @@ impl PtyBackend for StubBackend {
         sink.send(TerminalEvent::Output {
             session_id: id.clone(),
             sequence: 0,
-            bytes: b"OTTY terminal contract ready.\r\n".to_vec(),
+            bytes: b"Belfry terminal contract ready.\r\n".to_vec(),
             eof: false,
         })?;
         Ok(TerminalSession {

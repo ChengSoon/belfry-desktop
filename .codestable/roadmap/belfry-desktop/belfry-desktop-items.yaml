@@ -1,4 +1,4 @@
-roadmap: otty-desktop
+roadmap: belfry-desktop
 created: 2026-08-09
 
 items:
@@ -155,7 +155,7 @@ items:
     notes: null
 
   - slug: control-cli-core
-    description: 实现共享 otty CLI 协议以及 macOS Unix Socket 和 Windows Named Pipe transport
+    description: 实现共享 belfry CLI 协议以及 macOS Unix Socket 和 Windows Named Pipe transport
     depends_on: [workspace-tabs-panes, agent-integration-foundation]
     status: planned
     feature: null

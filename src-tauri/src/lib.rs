@@ -1,4 +1,4 @@
-#![cfg_attr(otty_cross_check, allow(dead_code, unused_imports))]
+#![cfg_attr(belfry_cross_check, allow(dead_code, unused_imports))]
 
 mod agent;
 mod project;
@@ -8,7 +8,7 @@ mod usage;
 
 use terminal::{TerminalRuntime, commands};
 
-#[cfg(not(otty_cross_check))]
+#[cfg(not(belfry_cross_check))]
 pub fn run() {
     use tauri::Manager;
 
@@ -26,7 +26,7 @@ pub fn run() {
             commands::terminal_close,
         ])
         .build(tauri::generate_context!())
-        .expect("failed to build OTTY desktop");
+        .expect("failed to build Belfry desktop");
     app.run(|handle, event| {
         if matches!(
             event,
@@ -37,5 +37,5 @@ pub fn run() {
     });
 }
 
-#[cfg(otty_cross_check)]
+#[cfg(belfry_cross_check)]
 pub fn run() {}

@@ -2,7 +2,7 @@
 doc_type: feature-design
 feature: 2026-08-10-terminal-interaction-compatibility
 requirement: cross-platform-ai-terminal
-roadmap: otty-desktop
+roadmap: belfry-desktop
 roadmap_item: terminal-interaction-compatibility
 status: approved
 summary: 为终端补齐搜索、链接、宽字符、GPU 渲染与剪贴板右键菜单，让 Agent 不可用时的普通终端退化路径真正可用
@@ -28,7 +28,7 @@ tags: [terminal, xterm, clipboard, search, cross-platform]
 
 **做什么**：给终端补上四个 xterm addon（搜索 / 链接 / 宽字符 / GPU 渲染）与一套剪贴板交互（快捷键 + 右键菜单）。
 
-**为谁**：requirement `cross-platform-ai-terminal` 的边界写明「OTTY 托管用户已经安装的 CLI Agent」，且 roadmap 第 18 行要求「Agent 集成不可用时，产品必须完整退化为普通终端」。当前这条退化路径不成立——不能搜索、不能点链接、复制粘贴无保障、CJK 易错位。
+**为谁**：requirement `cross-platform-ai-terminal` 的边界写明「BELFRY 托管用户已经安装的 CLI Agent」，且 roadmap 第 18 行要求「Agent 集成不可用时，产品必须完整退化为普通终端」。当前这条退化路径不成立——不能搜索、不能点链接、复制粘贴无保障、CJK 易错位。
 
 **成功标准**（可验证形式见第 3 节）：
 
@@ -277,7 +277,7 @@ compound 检索：`.codestable/compound/` 当前为空（仅 `.gitkeep`），无
 
 ## 4. 与项目级架构文档的关系
 
-`.codestable/architecture/ARCHITECTURE.md` 当前是空骨架（且标题写作「OTTY Windows 架构总入口」，与跨平台定位不符，属既有问题，本 feature 不改）。
+`.codestable/architecture/ARCHITECTURE.md` 当前是空骨架（且标题写作「BELFRY Windows 架构总入口」，与跨平台定位不符，属既有问题，本 feature 不改）。
 
 预判 acceptance 阶段应提炼回架构的内容：
 

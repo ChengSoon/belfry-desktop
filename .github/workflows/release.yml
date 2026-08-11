@@ -59,7 +59,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: v__VERSION__
-          releaseName: Otty v__VERSION__
+          releaseName: Belfry v__VERSION__
           releaseBody: |
             各平台安装包见下方 Assets。本版提供 macOS 与 Windows，暂无 Linux 版。
 

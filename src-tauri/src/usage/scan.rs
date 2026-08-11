@@ -99,7 +99,7 @@ mod tests {
     use super::*;
 
     fn temp_dir(tag: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("otty-usage-scan-{tag}-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("belfry-usage-scan-{tag}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         dir
@@ -123,7 +123,7 @@ mod tests {
 
     #[test]
     fn missing_directory_yields_no_files() {
-        assert!(collect_jsonl_files(Path::new("/__otty_missing_usage_dir__")).is_empty());
+        assert!(collect_jsonl_files(Path::new("/__belfry_missing_usage_dir__")).is_empty());
     }
 
     #[test]
@@ -160,7 +160,7 @@ mod tests {
     #[test]
     fn reports_unreadable_file_instead_of_panicking() {
         assert!(!for_each_line(
-            Path::new("/__otty_missing_usage_file__.jsonl"),
+            Path::new("/__belfry_missing_usage_file__.jsonl"),
             &["x"],
             |_| {}
         ));

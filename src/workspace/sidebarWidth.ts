@@ -9,7 +9,7 @@ export const SIDEBAR_WIDTH: PanelWidthSpec = {
   compactWidth: 200,
   defaultWidth: 228,
   edge: "left",
-  key: "otty.sidebar-width.v2",
+  key: "belfry.sidebar-width.v2",
   max: 392,
   min: 184,
   step: 12,

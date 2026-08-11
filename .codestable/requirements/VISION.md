@@ -1,4 +1,4 @@
-# OTTY Desktop 能力愿景
+# BELFRY Desktop 能力愿景
 
 ## Draft
 
