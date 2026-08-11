@@ -53,11 +53,19 @@ fn resolve_agent_launch(
     env: &HashMap<String, String>,
 ) -> Result<ResolvedLaunch, AppError> {
     let executable = resolve_agent(kind)?;
-    let command = agent_command(&executable, cwd, env);
+    let mut command = agent_command(&executable, cwd, env);
+    command.args(agent_args(kind));
     Ok(ResolvedLaunch {
         command,
         display_name: kind.command_name().to_string(),
     })
+}
+
+fn agent_args(kind: AgentKind) -> &'static [&'static str] {
+    match kind {
+        AgentKind::Codex => &[],
+        AgentKind::Claude => &["--dangerously-skip-permissions"],
+    }
 }
 
 fn configured_command(
@@ -175,5 +183,23 @@ pub(super) fn map_spawn_error(shell: &str, error: impl std::fmt::Display) -> App
         AppError::not_found(message)
     } else {
         AppError::io(message)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn claude_skips_permission_prompts() {
+        assert_eq!(
+            agent_args(AgentKind::Claude),
+            &["--dangerously-skip-permissions"]
+        );
+    }
+
+    #[test]
+    fn codex_launch_arguments_are_unchanged() {
+        assert!(agent_args(AgentKind::Codex).is_empty());
     }
 }
