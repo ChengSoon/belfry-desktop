@@ -1,4 +1,5 @@
 import { Channel } from "@tauri-apps/api/core";
+import { getCurrentWebview, type DragDropEvent } from "@tauri-apps/api/webview";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { Terminal } from "@xterm/xterm";
@@ -21,6 +22,7 @@ import {
   type TerminalSession,
 } from "./contracts";
 import { emptyInputLine, feedInputLine, muteInputLine } from "./inputLine";
+import { formatDroppedPaths, pointInsideRect } from "./fileDrop";
 import { looksLikePasswordPrompt } from "./passwordPrompt";
 import { acceptSequence } from "./sequence";
 
@@ -56,6 +58,7 @@ export function mountTerminal(
   const fit = new FitAddon();
   terminal.loadAddon(fit);
   terminal.open(host);
+  let disposed = false;
   // Tauri's Windows WebView can consume Ctrl+V as a control character instead of
   // dispatching the native `paste` event. Claude Code runs in raw mode and is
   // particularly affected: it receives ^V, but no clipboard contents. Read the
@@ -78,7 +81,6 @@ export function mountTerminal(
   // 重启（generation++）会重挂到同一个 tab 上，不清一次就带着上个 PTY 的状态点起步。
   callbacks.onActivity("idle");
 
-  let disposed = false;
   let current: TerminalSession | null = null;
   let expectedSequence = 0;
   let writeQueue = Promise.resolve();
@@ -123,6 +125,13 @@ export function mountTerminal(
       .then(() => writeTerminal(currentId, bytes))
       .catch((error) => callbacks.onError(errorMessage(error)));
   });
+  let removeFileDropListener: (() => void) | null = null;
+  void getCurrentWebview().onDragDropEvent((event) => {
+    handleFileDropEvent(event.payload, host, terminal, current);
+  }).then((unlisten) => {
+    if (disposed) unlisten();
+    else removeFileDropListener = unlisten;
+  }).catch(() => undefined);
   const observer = createResizeObserver(host, terminal, fit, () => current, callbacks);
   void startSession(terminal, fit, channel, launch, theme, callbacks).then((value) => {
     if (disposed) {
@@ -145,6 +154,8 @@ export function mountTerminal(
     },
     dispose: () => {
       disposed = true;
+      host.classList.remove("is-file-drag-over");
+      removeFileDropListener?.();
       observer.disconnect();
       input.dispose();
       activity?.dispose();
@@ -153,6 +164,36 @@ export function mountTerminal(
       terminal.dispose();
     },
   };
+}
+
+function handleFileDropEvent(
+  event: DragDropEvent,
+  host: HTMLDivElement,
+  terminal: Terminal,
+  session: TerminalSession | null,
+) {
+  if (event.type === "leave") {
+    host.classList.remove("is-file-drag-over");
+    return;
+  }
+
+  const workspace = host.closest<HTMLElement>(".terminal-workspace");
+  const visible = workspace?.getAttribute("aria-hidden") !== "true";
+  const point = event.position.toLogical(window.devicePixelRatio);
+  const inside = visible && pointInsideRect(point, host.getBoundingClientRect());
+
+  if (event.type === "enter" || event.type === "over") {
+    host.classList.toggle("is-file-drag-over", inside);
+    return;
+  }
+
+  host.classList.remove("is-file-drag-over");
+  if (!inside || !session) return;
+  const text = formatDroppedPaths(event.paths, session);
+  if (!text) return;
+  terminal.focus();
+  // paste() 会遵守应用开启的 bracketed-paste mode，路径只进入输入区，不会自动执行。
+  terminal.paste(text);
 }
 
 async function pasteClipboard(terminal: Terminal) {
@@ -268,6 +309,7 @@ function createXterm(theme: TerminalTheme) {
     fontWeight: 400,
     fontWeightBold: 500,
     lineHeight: 1.35,
+    overviewRuler: { width: 7 },
     scrollback: 1000,
     theme,
   });

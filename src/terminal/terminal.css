@@ -11,12 +11,24 @@
 }
 
 .terminal-canvas {
+  position: relative;
   width: 100%;
   height: 100%;
   min-width: 0;
   min-height: 0;
   padding: 0 14px 10px;
   overflow: hidden;
+}
+
+.terminal-canvas.is-file-drag-over::after {
+  position: absolute;
+  inset: 4px 8px 8px;
+  z-index: 3;
+  border: 1px dashed var(--accent);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  content: "";
+  pointer-events: none;
 }
 
 .terminal-canvas .xterm {
@@ -33,6 +45,12 @@
   background-color: var(--canvas);
   scrollbar-color: var(--scrollbar) transparent;
   scrollbar-width: thin;
+}
+
+/* xterm v6 使用自己的 DOM 滚动条。宽度由 Terminal 的 overviewRuler 选项控制，
+   这里只收紧滑块造型，避免整块实色贴在终端右侧。 */
+.terminal-canvas .xterm-scrollable-element > .scrollbar.vertical > .slider {
+  border-radius: 999px;
 }
 
 /* 竖条光标的高度在 DOM renderer 里等于整个字符格（fontSize × lineHeight），没有选项能调。

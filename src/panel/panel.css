@@ -4,7 +4,7 @@
   position: absolute;
   z-index: 8;
   top: 0;
-  width: 8px;
+  width: 6px;
   height: 100%;
   border: 0;
   background: transparent;
@@ -13,25 +13,26 @@
 }
 
 /* data-edge 是面板贴住的窗口一侧，把手落在相对的那条边上。 */
-.panel-resize-handle[data-edge="left"] { right: -4px; }
-.panel-resize-handle[data-edge="right"] { left: -4px; }
+.panel-resize-handle[data-edge="left"] { right: -3px; }
+.panel-resize-handle[data-edge="right"] { left: -3px; }
 
 .panel-resize-handle::after {
   position: absolute;
   top: 0;
   bottom: 0;
-  left: 3px;
-  width: 2px;
-  background: transparent;
+  left: 2px;
+  width: 1px;
+  background: var(--border-strong);
   content: "";
-  transition: background var(--duration) var(--ease), box-shadow var(--duration) var(--ease);
+  opacity: 0.72;
+  transition: background var(--duration) var(--ease), opacity var(--duration) var(--ease);
 }
 
 .panel-resize-handle:hover::after,
 .panel-resize-handle:focus-visible::after,
 .panel-resize-handle.is-dragging::after {
-  background: var(--accent);
-  box-shadow: 0 0 8px var(--accent-soft);
+  background: var(--text-faint);
+  opacity: 1;
 }
 
 .panel-resize-handle:focus-visible { outline: none; }
