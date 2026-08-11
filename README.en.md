@@ -30,9 +30,9 @@ Run Codex and Claude Code through one interface on macOS and Windows, and see wh
 
 Installers live on the [Releases](https://github.com/ChengSoon/belfry-desktop/releases) page. Four build targets: macOS Apple Silicon (`aarch64`), macOS Intel (`x64`), Windows, Linux.
 
-The binaries are unsigned:
+The macOS builds are ad-hoc signed but not notarized by Apple. The Windows builds are unsigned:
 
-- On macOS, allow the first launch under System Settings → Privacy & Security.
+- On macOS, if Gatekeeper blocks the first launch, right-click the app in Finder and choose Open, or allow it under System Settings → Privacy & Security.
 - On Windows, SmartScreen flags an unknown publisher — choose More info → Run anyway.
 
 Minimum versions: macOS 14, Windows 10 22H2 (Build 19045) / Windows 11.

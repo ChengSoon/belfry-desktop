@@ -30,9 +30,9 @@
 
 安装包在 [Releases](https://github.com/ChengSoon/belfry-desktop/releases) 页面，四个构建目标：macOS Apple Silicon (`aarch64`)、macOS Intel (`x64`)、Windows、Linux。
 
-二进制没做代码签名：
+macOS 产物使用 ad-hoc 签名但未经过 Apple 公证，Windows 产物未签名：
 
-- macOS 首次打开要去「系统设置 → 隐私与安全性」里放行。
+- macOS 首次打开若被 Gatekeeper 拦截，请在 Finder 中右键应用选择「打开」，或去「系统设置 → 隐私与安全性」里放行。
 - Windows 上 SmartScreen 会报「未知发布者」，选「更多信息 → 仍要运行」。
 
 最低系统版本：macOS 14，Windows 10 22H2 (Build 19045) / Windows 11。
