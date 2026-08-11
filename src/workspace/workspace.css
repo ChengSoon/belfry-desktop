@@ -192,3 +192,73 @@
 }
 
 .failure-toast button:hover { color: var(--text); background: var(--surface-hover); }
+
+/* 模态确认框。z-index 压过 popover(20) 和 Windows 自绘标题栏(20)：
+   遮罩必须真的把整窗盖住，露出半个可点的窗控按钮比不盖更糟。 */
+.modal-scrim {
+  position: absolute;
+  z-index: 30;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--scrim);
+}
+
+.modal {
+  display: grid;
+  width: min(360px, 100%);
+  gap: 7px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-lg);
+}
+
+/* 标题与正文同字号，层级交给颜色——和侧栏、浮层里一样的做法。 */
+.modal__title { color: var(--text); font-size: var(--fs-md); }
+.modal__body {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: var(--lh-relaxed);
+  overflow-wrap: anywhere;
+}
+
+.modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 6px;
+}
+
+.modal__actions button {
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  background: transparent;
+  font-size: var(--fs-md);
+  cursor: pointer;
+  transition: border-color var(--duration) var(--ease), color var(--duration) var(--ease),
+    background var(--duration) var(--ease);
+}
+
+.modal__actions button:hover { border-color: var(--border-strong); color: var(--text); }
+
+/* 确认那一侧实心填充：两个按钮长得一样时，人会去读字才敢点。
+   文字用 --accent-contrast——暗色下 --danger 是浅红配深字，亮色下是深红配白字，正好两边都对。
+   选择器必须带上 .modal__actions：单靠 .modal__danger 压不过上面的
+   `.modal__actions button`（class+type 比单个 class 特异性高），填充会被 transparent 吃掉。 */
+.modal__actions .modal__danger {
+  border-color: transparent;
+  color: var(--accent-contrast);
+  background: var(--danger);
+  font-weight: 500;
+}
+
+.modal__actions .modal__danger:hover {
+  border-color: transparent;
+  color: var(--accent-contrast);
+  background: var(--danger-hover);
+}

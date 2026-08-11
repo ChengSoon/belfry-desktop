@@ -1,5 +1,6 @@
 import { AlertTriangle, PanelLeftOpen, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ConfirmDialog } from "./components/ConfirmDialog";
 import { WindowTitlebar } from "./components/WindowTitlebar";
 import "./workspace/workspace.css";
 import { TerminalStage } from "./layout/components/TerminalStage";
@@ -7,6 +8,7 @@ import { useSessionDrag } from "./layout/useSessionDrag";
 import { useSplitLayout } from "./layout/useSplitLayout";
 import { ICON } from "./theme/sizing";
 import { UsagePanel } from "./usage/components/UsagePanel";
+import { closeConfirmBody, needsCloseConfirm } from "./workspace/closeConfirm";
 import { ProjectSwitcher } from "./workspace/components/ProjectSwitcher";
 import { Sidebar } from "./workspace/components/Sidebar";
 import { failureLabel } from "./workspace/errors";
@@ -18,6 +20,7 @@ export default function App() {
   const { foldedProjects, toggleFold, unfold } = useFoldedProjects();
   const [collapsed, setCollapsed] = useState(false);
   const [usageOpen, setUsageOpen] = useState(false);
+  const [pendingCloseId, setPendingCloseId] = useState<string | null>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const sidebarRef = useRef<HTMLElement>(null);
   const layout = useSplitLayout(workspace.tabs, workspace.activeTabId, workspace.setActiveTabId);
@@ -33,6 +36,28 @@ export default function App() {
     if (workspace.activeProject) unfold(workspace.activeProject.id);
     void workspace.launch(kind);
   }, [unfold, workspace.activeProject, workspace.launch]);
+
+  /**
+   * 侧栏那个 X 是真删会话：PTY 被杀，滚屏跟着没，撤不回来。进程还活着就先拦一道，
+   * 已经退出/出错的直接关。分屏窗格上的 X 走的是 layout.closePane（只把窗格
+   * 移出分屏，会话照旧活着），不经过这里，也不该弹框。
+   */
+  const requestClose = useCallback((id: string) => {
+    const tab = workspace.tabs.find((item) => item.id === id);
+    if (tab && needsCloseConfirm(tab)) setPendingCloseId(id);
+    else workspace.closeTab(id);
+  }, [workspace.closeTab, workspace.tabs]);
+
+  const confirmClose = useCallback(() => {
+    if (pendingCloseId) workspace.closeTab(pendingCloseId);
+    setPendingCloseId(null);
+  }, [pendingCloseId, workspace.closeTab]);
+
+  const cancelClose = useCallback(() => setPendingCloseId(null), []);
+
+  // 查一次而不是把 tab 存进 state：弹框开着时这条会话可能已经被别处关掉，
+  // 查不到就自然不渲染，也不会拿着一份过期的 phase 去写文案。
+  const pendingClose = workspace.tabs.find((tab) => tab.id === pendingCloseId) ?? null;
 
   // ⌘B / ⌘U 走捕获阶段，避免按键先被 xterm 吞进 shell。
   useEffect(() => {
@@ -63,7 +88,7 @@ export default function App() {
           ejecting={drag?.target?.kind === "sidebar"}
           foldedProjects={foldedProjects}
           onActivate={layout.activateTab}
-          onClose={workspace.closeTab}
+          onClose={requestClose}
           onCollapse={() => setCollapsed(true)}
           onConsumeClick={consumedClick}
           onDragStart={startDrag}
@@ -125,6 +150,16 @@ export default function App() {
             <X size={ICON.sm} />
           </button>
         </div>
+      ) : null}
+
+      {pendingClose ? (
+        <ConfirmDialog
+          body={closeConfirmBody(pendingClose)}
+          confirmLabel="关闭"
+          onCancel={cancelClose}
+          onConfirm={confirmClose}
+          title={`关闭 ${pendingClose.title}？`}
+        />
       ) : null}
     </main>
   );

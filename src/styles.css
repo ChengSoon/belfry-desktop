@@ -94,9 +94,12 @@
   --success: #4ec78f;
   --warning: #e5b45b;
   --danger: #f0796f;
+  --danger-hover: #f79288;
   --shadow-md: 0 10px 30px rgb(0 0 0 / 45%);
   --shadow-lg: 0 24px 60px rgb(0 0 0 / 55%);
   --scrollbar: #34353c;
+  /* 模态遮罩。暗色下压黑，亮色下用阴影那套蓝黑——纯黑在浅底上显脏。 */
+  --scrim: rgb(0 0 0 / 55%);
 
   /* 侧栏底色与活动会话：暗色下越上层越亮，侧栏浮在画布上，活动项再浮一层。
      亮色是反的（见下面的 light 块）——所以这两个值不能用同一个方向的偏移推出来，
@@ -125,9 +128,11 @@
   --success: #12875a;
   --warning: #a9761a;
   --danger: #cf4034;
+  --danger-hover: #b8342a;
   --shadow-md: 0 10px 30px rgb(15 20 40 / 8%);
   --shadow-lg: 0 24px 60px rgb(15 20 40 / 12%);
   --scrollbar: #c9cbd1;
+  --scrim: rgb(15 20 40 / 28%);
 
   /* 亮色下侧栏要比画布(--canvas #fafafa)沉一档，活动项才有纯白可以浮上来；
      暗色是反的。--canvas 不能拿来当侧栏底色：它和 xtermTheme 的 background 绑死，

@@ -10,7 +10,15 @@
 }
 
 /* 未落在任何窗格里的会话铺满舞台并藏起来（见 terminal.css）：
-   尺寸不变，进出分屏就不会白挨一次 PTY resize。 */
+   尺寸不变，进出分屏就不会白挨一次 PTY resize。
+
+   代价是它整格盖在真正上台的那格之上——同为绝对定位、同样铺满，而且在 DOM 里排在后面。
+   所以整格必须退出命中测试。只在内层 .terminal-workspace 上设 pointer-events: none
+   不够：外层这两层仍然接指针，舞台上的按钮于是被这层透明壳吃掉，
+   进程退出后的「重启」点不动就是这么来的。 */
+.terminal-pane:not(.is-onstage) {
+  pointer-events: none;
+}
 
 .terminal-pane__body {
   position: relative;
@@ -105,15 +113,24 @@
   opacity: 0.45;
 }
 
-/* 分隔条本体是零宽的，靠 ::before 撑出可抓取的热区，视觉上仍是一条细线。 */
+/* 分隔条本体是零宽的：::before 撑出可抓取的热区（始终透明），
+   ::after 只画一条 1px 的线，所以热区再宽也不会让视觉变粗。 */
 .split-divider {
   position: absolute;
   z-index: 6;
 }
 
-.split-divider::before {
+.split-divider::before,
+.split-divider::after {
   content: "";
   position: absolute;
+}
+
+.split-divider::before {
+  background: transparent;
+}
+
+.split-divider::after {
   background: transparent;
   transition: background var(--duration) var(--ease);
 }
@@ -127,6 +144,13 @@
   inset: 0 -3px;
 }
 
+.split-divider--row::after {
+  top: 0;
+  bottom: 0;
+  left: -0.5px;
+  width: 1px;
+}
+
 .split-divider--column {
   height: 0;
   cursor: row-resize;
@@ -136,10 +160,21 @@
   inset: -3px 0;
 }
 
-.split-divider:hover::before,
-.split-divider:focus-visible::before,
-.split-divider.is-dragging::before {
-  background: var(--accent);
+.split-divider--column::after {
+  top: -0.5px;
+  right: 0;
+  left: 0;
+  height: 1px;
+}
+
+.split-divider:hover::after,
+.split-divider:focus-visible::after {
+  background: var(--border-strong);
+}
+
+/* 拖动时才用强调色，且掺进边框色压掉饱和度，不至于跳出来。 */
+.split-divider.is-dragging::after {
+  background: color-mix(in srgb, var(--accent) 45%, var(--border-strong));
 }
 
 .split-divider:focus-visible {

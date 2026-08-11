@@ -12,6 +12,8 @@ import {
   setTerminalPalette,
   writeTerminal,
 } from "./api";
+import { listenForClipboardImagePaste, usesWebClipboardFallback } from "./clipboardPaste";
+import { CodexThemeSync } from "./codexThemeSync";
 import {
   createTerminalRequest,
   type SessionActivity,
@@ -59,6 +61,8 @@ export function mountTerminal(
   terminal.loadAddon(fit);
   terminal.open(host);
   let disposed = false;
+  const useWebClipboard = usesWebClipboardFallback();
+  const codexThemeSync = launch.profileId === "agent:codex" ? new CodexThemeSync(theme) : null;
   // Tauri's Windows WebView can consume Ctrl+V as a control character instead of
   // dispatching the native `paste` event. Claude Code runs in raw mode and is
   // particularly affected: it receives ^V, but no clipboard contents. Read the
@@ -66,12 +70,26 @@ export function mountTerminal(
   // xterm's paste API so bracketed-paste mode is preserved.
   terminal.attachCustomKeyEventHandler((event) => {
     if (event.type !== "keydown" || event.isComposing) return true;
-    if (event.key.toLowerCase() !== "v" || event.altKey || !(event.ctrlKey || event.metaKey)) {
-      return true;
+    if (event.altKey || !(event.ctrlKey || event.metaKey)) return true;
+    const key = event.key.toLowerCase();
+    if (key === "v") {
+      // macOS 的 WKWebView 会把异步 readText() 变成一个可见的 Paste 权限按钮。
+      // 让它走可信的原生 paste 事件；图片载荷会在下面转成终端 Ctrl+V。
+      if (!useWebClipboard) return true;
+      if (typeof navigator.clipboard?.readText !== "function") return true;
+      void pasteClipboard(terminal);
+      return false;
     }
-    if (typeof navigator.clipboard?.readText !== "function") return true;
-    void pasteClipboard(terminal);
-    return false;
+    /* Ctrl+C 在终端里本来就是 SIGINT，但用户按下它时多半只是想复制刚选中的那段。
+       按选区分流：有选区就复制，没选区才把 ^C 发下去——想中断的时候通常没在选东西。
+       复制完清掉选区是关键：否则选区一直在，之后每一次 Ctrl+C 都被判成复制，
+       中断就再也发不出去了。清掉之后紧接着再按一次就是正常的 SIGINT。 */
+    if (key === "c" && terminal.hasSelection()) {
+      if (typeof navigator.clipboard?.writeText !== "function") return true;
+      void copySelection(terminal);
+      return false;
+    }
+    return true;
   });
   const renderer = attachWebglRenderer(terminal);
   fit.fit();
@@ -82,6 +100,9 @@ export function mountTerminal(
   callbacks.onActivity("idle");
 
   let current: TerminalSession | null = null;
+  const removeImagePasteListener = !useWebClipboard && launch.profileId.startsWith("agent:")
+    ? listenForClipboardImagePaste(host, (sequence) => terminal.input(sequence, true))
+    : null;
   let expectedSequence = 0;
   let writeQueue = Promise.resolve();
   let inputLine = emptyInputLine();
@@ -94,7 +115,13 @@ export function mountTerminal(
   channel.onmessage = (event) => {
     if (disposed) return;
     try {
-      expectedSequence = handleTerminalEvent(terminal, callbacks, event, expectedSequence);
+      expectedSequence = handleTerminalEvent(
+        terminal,
+        callbacks,
+        event,
+        expectedSequence,
+        codexThemeSync,
+      );
       // 停在密码提示上就静默采集，否则 sudo 密码会被当成最新一条输入写进会话名。
       if (event.kind === "output" && looksLikePasswordPrompt(decodeTail(event.bytes))) {
         inputLine = muteInputLine(inputLine);
@@ -148,13 +175,18 @@ export function mountTerminal(
 
   return {
     applyTheme: (next) => {
+      codexThemeSync?.setTheme(next);
       terminal.options.theme = next;
       // PTY 层也得跟着换：换肤之后再启动的程序会重新查一次背景色。
       if (current) void setTerminalPalette(current.id, toPalette(next)).catch(() => undefined);
+      if (current && codexThemeSync) {
+        terminal.write("", () => void requestCodexRedraw(current, terminal));
+      }
     },
     dispose: () => {
       disposed = true;
       host.classList.remove("is-file-drag-over");
+      removeImagePasteListener?.();
       removeFileDropListener?.();
       observer.disconnect();
       input.dispose();
@@ -207,6 +239,18 @@ async function pasteClipboard(terminal: Terminal) {
   }
 }
 
+/** 复制成功才清选区：写剪贴板失败时留着选区，用户还能用右键菜单复制。 */
+async function copySelection(terminal: Terminal) {
+  const text = terminal.getSelection();
+  if (!text) return;
+  try {
+    await navigator.clipboard.writeText(text);
+    terminal.clearSelection();
+  } catch {
+    // 同 pasteClipboard：WebView 可能禁掉了剪贴板权限，静默退回原生复制。
+  }
+}
+
 function toPalette(theme: TerminalTheme): TerminalPalette {
   return { foreground: theme.foreground, background: theme.background };
 }
@@ -237,16 +281,32 @@ function handleTerminalEvent(
   callbacks: MountCallbacks,
   event: TerminalEvent,
   expectedSequence: number,
+  codexThemeSync: CodexThemeSync | null,
 ) {
   if (event.kind === "output") {
     const next = acceptSequence(expectedSequence, event.sequence);
-    if (event.bytes.length > 0) terminal.write(new Uint8Array(event.bytes));
+    const bytes = codexThemeSync?.rewrite(event.bytes, event.eof) ?? event.bytes;
+    if (bytes.length > 0) terminal.write(new Uint8Array(bytes));
     return next;
   }
+  const held = codexThemeSync?.flush() ?? [];
+  if (held.length > 0) terminal.write(new Uint8Array(held));
   callbacks.onPhase("exited");
   callbacks.onSession(null);
   terminal.write(`\r\n\x1b[90m[process exited ${event.exitCode}]\x1b[0m\r\n`);
   return expectedSequence;
+}
+
+/** 尺寸恢复后 Codex 会完整重绘，新的输入区背景才能覆盖 xterm 缓冲区里的旧颜色。 */
+async function requestCodexRedraw(session: TerminalSession | null, terminal: Terminal) {
+  if (!session || terminal.cols <= 1) return;
+  const sessionId = session.id;
+  try {
+    await resizeTerminal(sessionId, terminal.cols - 1, terminal.rows);
+    await resizeTerminal(sessionId, terminal.cols, terminal.rows);
+  } catch {
+    // 会话可能恰好退出；主题本身已经切换成功，不把辅助重绘失败升级成错误提示。
+  }
 }
 
 const tailDecoder = new TextDecoder();
@@ -309,7 +369,6 @@ function createXterm(theme: TerminalTheme) {
     fontWeight: 400,
     fontWeightBold: 500,
     lineHeight: 1.35,
-    overviewRuler: { width: 7 },
     scrollback: 1000,
     theme,
   });

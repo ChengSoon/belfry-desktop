@@ -36,21 +36,27 @@
   height: 100%;
 }
 
-/* xterm.css 给 .xterm-viewport 写死了 background-color: #000。
-   v6 里承载主题底色的滚动层只铺 rows × 行高，而 viewport 是 inset: 0 铺满容器，
-   容器高度除不尽行高时底部余量没人盖，露出的黑就是那条线。
-   这里跟着 --canvas 走：与 xtermTheme 的 background 同源，换肤自动同步。
-   保持不透明而不是 transparent——xterm 原注释的意图是让 macOS 滚动条不透明。 */
+/* xterm.css 给 .xterm-viewport 写死了 background-color: #000 和 overflow-y: scroll。
+   v6 的实际滚动由 .xterm-scrollable-element 接管，这个原生滚动条只是遗留外壳：
+   在 WebKit 下会变成终端右侧贯穿全高的一条亮线。保留 viewport 的背景兜底，
+   但把原生滚动条隐藏；滚轮、键盘和缓冲区滚动都不受影响。 */
 .terminal-canvas .xterm-viewport {
   background-color: var(--canvas);
-  scrollbar-color: var(--scrollbar) transparent;
-  scrollbar-width: thin;
+  scrollbar-width: none;
 }
 
-/* xterm v6 使用自己的 DOM 滚动条。宽度由 Terminal 的 overviewRuler 选项控制，
-   这里只收紧滑块造型，避免整块实色贴在终端右侧。 */
-.terminal-canvas .xterm-scrollable-element > .scrollbar.vertical > .slider {
-  border-radius: 999px;
+.terminal-canvas .xterm-viewport::-webkit-scrollbar {
+  display: none;
+}
+
+/* 滑块已在 xtermTheme.ts 里涂成透明（那边有为什么不在这里改颜色的说明）。
+   这里补最后一步：把整条滚动条移出命中测试。看不见的东西还能拖、还能点着跳页，
+   等于在终端右边埋了个隐形控件。
+   滚动本身不经过这些 DOM——滚轮和键盘由 xterm 的 scrollable element 自己接，
+   再调 terminal.scrollLines，滑块只是个被动指示器，摘掉它不影响任何滚动路径。 */
+.terminal-canvas .xterm-scrollable-element > .scrollbar {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 /* 竖条光标的高度在 DOM renderer 里等于整个字符格（fontSize × lineHeight），没有选项能调。
