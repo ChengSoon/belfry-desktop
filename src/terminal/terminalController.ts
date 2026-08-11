@@ -56,6 +56,20 @@ export function mountTerminal(
   const fit = new FitAddon();
   terminal.loadAddon(fit);
   terminal.open(host);
+  // Tauri's Windows WebView can consume Ctrl+V as a control character instead of
+  // dispatching the native `paste` event. Claude Code runs in raw mode and is
+  // particularly affected: it receives ^V, but no clipboard contents. Read the
+  // clipboard while the key gesture still has user activation and feed it through
+  // xterm's paste API so bracketed-paste mode is preserved.
+  terminal.attachCustomKeyEventHandler((event) => {
+    if (event.type !== "keydown" || event.isComposing) return true;
+    if (event.key.toLowerCase() !== "v" || event.altKey || !(event.ctrlKey || event.metaKey)) {
+      return true;
+    }
+    if (typeof navigator.clipboard?.readText !== "function") return true;
+    void pasteClipboard(terminal);
+    return false;
+  });
   const renderer = attachWebglRenderer(terminal);
   fit.fit();
   callbacks.onPhase("creating");
@@ -139,6 +153,17 @@ export function mountTerminal(
       terminal.dispose();
     },
   };
+}
+
+async function pasteClipboard(terminal: Terminal) {
+  try {
+    const clipboard = navigator.clipboard;
+    const text = await clipboard.readText();
+    if (text) terminal.paste(text);
+  } catch {
+    // Clipboard access may be unavailable in a locked-down WebView. In that case
+    // leave the terminal untouched; native context-menu paste remains available.
+  }
 }
 
 function toPalette(theme: TerminalTheme): TerminalPalette {
