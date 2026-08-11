@@ -1,13 +1,14 @@
 import { AlertTriangle, PanelLeftOpen, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { TerminalViewport, type TerminalSnapshot } from "./components/TerminalViewport";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { WindowTitlebar } from "./components/WindowTitlebar";
 import "./workspace/workspace.css";
+import { TerminalStage } from "./layout/components/TerminalStage";
+import { useSessionDrag } from "./layout/useSessionDrag";
+import { useSplitLayout } from "./layout/useSplitLayout";
 import { ICON } from "./theme/sizing";
 import { UsagePanel } from "./usage/components/UsagePanel";
 import { ProjectSwitcher } from "./workspace/components/ProjectSwitcher";
 import { Sidebar } from "./workspace/components/Sidebar";
-import type { WorkspaceTab } from "./workspace/contracts";
 import { failureLabel } from "./workspace/errors";
 import { useFoldedProjects } from "./workspace/useFoldedProjects";
 import { useProjectWorkspace } from "./workspace/useProjectWorkspace";
@@ -17,6 +18,9 @@ export default function App() {
   const { foldedProjects, toggleFold, unfold } = useFoldedProjects();
   const [collapsed, setCollapsed] = useState(false);
   const [usageOpen, setUsageOpen] = useState(false);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const layout = useSplitLayout(workspace.tabs, workspace.activeTabId, workspace.setActiveTabId);
+  const { drag, startDrag, consumedClick } = useSessionDrag(stageRef, layout.panes, layout.dropTab);
 
   // 新会话继承 activeProject，那组要是折叠着就会开出一个侧栏里看不见的会话。
   const launch = useCallback((kind: Parameters<typeof workspace.launch>[0]) => {
@@ -49,10 +53,13 @@ export default function App() {
         <Sidebar
           activeId={workspace.activeTabId}
           agents={workspace.agents}
+          draggingId={drag?.tabId ?? null}
           foldedProjects={foldedProjects}
-          onActivate={workspace.setActiveTabId}
+          onActivate={layout.activateTab}
           onClose={workspace.closeTab}
           onCollapse={() => setCollapsed(true)}
+          onConsumeClick={consumedClick}
+          onDragStart={startDrag}
           onLaunch={launch}
           onRefresh={workspace.redetectAgents}
           onToggleFold={toggleFold}
@@ -81,17 +88,21 @@ export default function App() {
             recentProjects={workspace.recentProjects}
           />
         </div>
-        <div className="terminal-stage">
-          {workspace.tabs.map((tab) => (
-            <SessionTerminal
-              active={tab.id === workspace.activeTabId}
-              key={tab.id}
-              onSnapshot={workspace.updateTab}
-              tab={tab}
-            />
-          ))}
-          {workspace.tabs.length === 0 ? <EmptyStage onLaunch={() => launch("shell")} /> : null}
-        </div>
+        <TerminalStage
+          activeTabId={workspace.activeTabId}
+          dividers={layout.dividers}
+          drag={drag}
+          onClosePane={layout.closePane}
+          onDragStart={startDrag}
+          onFocus={workspace.setActiveTabId}
+          onResize={layout.resizeSplit}
+          onSnapshot={workspace.updateTab}
+          rects={layout.rects}
+          split={layout.split}
+          stageRef={stageRef}
+          tabs={workspace.tabs}
+        />
+        {workspace.tabs.length === 0 ? <EmptyStage onLaunch={() => launch("shell")} /> : null}
       </section>
 
       {usageOpen ? (
@@ -109,23 +120,6 @@ export default function App() {
       ) : null}
     </main>
   );
-}
-
-function SessionTerminal({
-  active,
-  tab,
-  onSnapshot,
-}: {
-  active: boolean;
-  tab: WorkspaceTab;
-  onSnapshot: (id: string, snapshot: TerminalSnapshot) => void;
-}) {
-  const launch = useMemo(
-    () => ({ profileId: tab.profileId, cwd: tab.project.rootUri }),
-    [tab.profileId, tab.project.rootUri],
-  );
-  const report = useCallback((snapshot: TerminalSnapshot) => onSnapshot(tab.id, snapshot), [onSnapshot, tab.id]);
-  return <TerminalViewport active={active} launch={launch} onSnapshot={report} />;
 }
 
 function EmptyStage({ onLaunch }: { onLaunch: () => void }) {

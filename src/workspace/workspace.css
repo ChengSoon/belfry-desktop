@@ -134,8 +134,9 @@
 }
 
 .empty-stage {
+  position: absolute;
+  inset: 0;
   display: grid;
-  height: 100%;
   place-content: center;
   justify-items: center;
   gap: 14px;

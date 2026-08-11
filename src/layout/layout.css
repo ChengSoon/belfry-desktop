@@ -1,0 +1,168 @@
+/* 分屏窗格：位置由布局树算出的百分比矩形给，绝对定位摆放。
+   终端在 React 树里的位置必须恒定（重挂就杀 PTY），所以布局只改坐标不动结构。 */
+.terminal-pane {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* 未落在任何窗格里的会话铺满舞台并藏起来（见 terminal.css）：
+   尺寸不变，进出分屏就不会白挨一次 PTY resize。 */
+
+.terminal-pane__body {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* 分屏后每格给一圈边，不然两个终端的文字直接贴在一起分不出归属。 */
+.terminal-pane.is-split {
+  padding: 0 3px 3px;
+}
+
+.terminal-pane.is-split .terminal-pane__body {
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  overflow: hidden;
+}
+
+/* 单终端时那圈宽留白是刻意的，分屏后每格都留就太挤了，收一收。 */
+.terminal-pane.is-split .terminal-canvas {
+  padding: 4px 8px 6px;
+}
+
+.terminal-pane.is-split.is-focused .terminal-pane__body {
+  border-color: var(--border-strong);
+}
+
+/* 窗格标题栏 = 拖拽把手。单窗格时不渲染，界面维持原来的干净样子。 */
+.terminal-pane__bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 4px 0 8px;
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  color: var(--text-faint);
+  background: var(--surface-raised);
+  font-size: var(--fs-sm);
+  cursor: grab;
+  user-select: none;
+  transition: color var(--duration) var(--ease), border-color var(--duration) var(--ease);
+}
+
+.terminal-pane.is-focused .terminal-pane__bar {
+  color: var(--text-muted);
+  border-color: var(--border-strong);
+}
+
+.terminal-pane__bar:active {
+  cursor: grabbing;
+}
+
+.terminal-pane__title {
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.terminal-pane__close {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: inherit;
+  background: transparent;
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity var(--duration) var(--ease), background var(--duration) var(--ease);
+}
+
+.terminal-pane__bar:hover .terminal-pane__close,
+.terminal-pane__close:focus-visible {
+  opacity: 1;
+}
+
+.terminal-pane__close:hover {
+  background: var(--surface-hover);
+}
+
+/* 拖着的那格淡下去，眼睛好跟住它要去哪。 */
+.terminal-pane.is-dragging {
+  opacity: 0.45;
+}
+
+/* 分隔条本体是零宽的，靠 ::before 撑出可抓取的热区，视觉上仍是一条细线。 */
+.split-divider {
+  position: absolute;
+  z-index: 6;
+}
+
+.split-divider::before {
+  content: "";
+  position: absolute;
+  background: transparent;
+  transition: background var(--duration) var(--ease);
+}
+
+.split-divider--row {
+  width: 0;
+  cursor: col-resize;
+}
+
+.split-divider--row::before {
+  inset: 0 -3px;
+}
+
+.split-divider--column {
+  height: 0;
+  cursor: row-resize;
+}
+
+.split-divider--column::before {
+  inset: -3px 0;
+}
+
+.split-divider:hover::before,
+.split-divider:focus-visible::before,
+.split-divider.is-dragging::before {
+  background: var(--accent);
+}
+
+.split-divider:focus-visible {
+  outline: none;
+}
+
+/* 落点指示：拖拽时铺在目标窗格要让出的那半边上。 */
+.drop-indicator {
+  position: absolute;
+  z-index: 7;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  opacity: 0.18;
+  pointer-events: none;
+  transition: left 90ms var(--ease), top 90ms var(--ease),
+    width 90ms var(--ease), height 90ms var(--ease);
+}
+
+/* 拖拽期间全局禁选，指针扫过 xterm 才不会拖出一片反白。 */
+body.is-dragging-session {
+  cursor: grabbing;
+  user-select: none;
+}
+
+body.is-dragging-session .xterm {
+  pointer-events: none;
+}
