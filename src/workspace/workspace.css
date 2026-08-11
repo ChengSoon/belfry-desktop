@@ -29,6 +29,66 @@
   height: var(--titlebar-inset);
 }
 
+/* Windows 的原生标题栏把应用图标限制在约 16px；无边框窗口改由这里绘制，
+   40px 高度下图标可以保持清晰的 22px，同时仍保留标准宽度的三个窗控按钮。 */
+.window-titlebar { display: none; }
+
+[data-platform="windows"] .titlebar-drag { display: none; }
+
+[data-platform="windows"] .window-titlebar {
+  position: absolute;
+  z-index: 20;
+  top: 0;
+  right: 0;
+  left: 0;
+  display: flex;
+  height: var(--titlebar-inset);
+  align-items: stretch;
+  color: var(--text-muted);
+  background: var(--sidebar);
+  user-select: none;
+}
+
+.window-title,
+.window-titlebar-spacer {
+  display: flex;
+  align-items: center;
+}
+
+.window-title {
+  gap: 9px;
+  padding-left: 10px;
+  color: var(--text);
+  font-size: var(--fs-md);
+  font-weight: 500;
+}
+
+.window-title img {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+}
+
+.window-titlebar-spacer { flex: 1; }
+
+.window-controls { display: flex; }
+
+.window-controls button {
+  display: grid;
+  width: 46px;
+  height: var(--titlebar-inset);
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  color: var(--text-muted);
+  background: transparent;
+  cursor: default;
+}
+
+.window-controls button:hover { color: var(--text); background: var(--surface-hover); }
+.window-controls .window-control-close:hover { color: #fff; background: #c42b1c; }
+
 /* 终端舞台：满幅铺开，只在顶部留一行路径。 */
 
 .workbench {

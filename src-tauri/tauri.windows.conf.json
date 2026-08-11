@@ -1,5 +1,19 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Belfry",
+        "decorations": false,
+        "width": 1080,
+        "height": 700,
+        "minWidth": 720,
+        "minHeight": 480,
+        "resizable": true
+      }
+    ]
+  },
   "bundle": {
     "resources": {
       "vendor/conpty/active/conpty.dll": "conpty.dll",

@@ -28,6 +28,8 @@
         // 判平台不用 Tauri 的 os 插件：那是异步的，赶不上首帧。
         if (navigator.userAgent.indexOf("Mac") !== -1) {
           document.documentElement.dataset.platform = "macos";
+        } else if (navigator.userAgent.indexOf("Windows") !== -1) {
+          document.documentElement.dataset.platform = "windows";
         }
       })();
     </script>

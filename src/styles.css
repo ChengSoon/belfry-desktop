@@ -140,6 +140,7 @@
 
 /* 平台标记由 index.html 的首帧脚本写在 <html> 上，和 data-theme 同一处。 */
 [data-platform="macos"] { --titlebar-inset: 28px; }
+[data-platform="windows"] { --titlebar-inset: 40px; }
 
 * { box-sizing: border-box; }
 

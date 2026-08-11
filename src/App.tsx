@@ -1,6 +1,7 @@
 import { AlertTriangle, PanelLeftOpen, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { TerminalViewport, type TerminalSnapshot } from "./components/TerminalViewport";
+import { WindowTitlebar } from "./components/WindowTitlebar";
 import "./workspace/workspace.css";
 import { ICON } from "./theme/sizing";
 import { UsagePanel } from "./usage/components/UsagePanel";
@@ -42,8 +43,7 @@ export default function App() {
     <main
       className={`app-shell${collapsed ? " is-collapsed" : ""}${usageOpen ? " has-usage" : ""}`}
     >
-      {/* 顶部让给系统窗控按钮的那一条，同时充当窗口拖拽区，见 workspace.css。 */}
-      <div className="titlebar-drag" data-tauri-drag-region />
+      <WindowTitlebar />
 
       {collapsed ? null : (
         <Sidebar
