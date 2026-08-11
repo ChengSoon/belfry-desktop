@@ -1,5 +1,5 @@
 import { ChevronRight, Gauge, PanelLeftClose, SquareTerminal, X } from "lucide-react";
-import type { CSSProperties } from "react";
+import type { CSSProperties, PointerEvent } from "react";
 import { PanelResizeHandle } from "../../panel/PanelResizeHandle";
 import { usePanelWidth } from "../../panel/usePanelWidth";
 import { ICON } from "../../theme/sizing";
@@ -16,11 +16,16 @@ interface SidebarProps {
   agents: AgentAvailability[];
   tabs: WorkspaceTab[];
   activeId: string | null;
+  /** 正被拖着的会话，拖拽期间在列表里淡下去。 */
+  draggingId: string | null;
   foldedProjects: ReadonlySet<string>;
   onLaunch: (kind: WorkspaceTabKind) => void;
   onRefresh: () => Promise<void>;
   onActivate: (id: string) => void;
   onClose: (id: string) => void;
+  onDragStart: (id: string, event: PointerEvent) => void;
+  /** 拖完那下 pointerup 还会带出一次 click，返回 true 表示这次点击该被吞掉。 */
+  onConsumeClick: () => boolean;
   onToggleFold: (projectId: string) => void;
   onCollapse: () => void;
   onToggleUsage: () => void;
@@ -31,11 +36,14 @@ export function Sidebar({
   agents,
   tabs,
   activeId,
+  draggingId,
   foldedProjects,
   onLaunch,
   onRefresh,
   onActivate,
   onClose,
+  onDragStart,
+  onConsumeClick,
   onToggleFold,
   onCollapse,
   onToggleUsage,
@@ -56,11 +64,14 @@ export function Sidebar({
           {groups.map((group) => (
             <SessionGroup
               activeId={activeId}
+              draggingId={draggingId}
               folded={foldedProjects.has(group.project.id)}
               group={group}
               key={group.project.id}
               onActivate={onActivate}
               onClose={onClose}
+              onConsumeClick={onConsumeClick}
+              onDragStart={onDragStart}
               onToggleFold={onToggleFold}
             />
           ))}
@@ -100,15 +111,21 @@ function SessionGroup({
   group,
   folded,
   activeId,
+  draggingId,
   onActivate,
   onClose,
+  onConsumeClick,
+  onDragStart,
   onToggleFold,
 }: {
   group: ProjectGroup;
   folded: boolean;
   activeId: string | null;
+  draggingId: string | null;
   onActivate: (id: string) => void;
   onClose: (id: string) => void;
+  onConsumeClick: () => boolean;
+  onDragStart: (id: string, event: PointerEvent) => void;
   onToggleFold: (projectId: string) => void;
 }) {
   // 折叠时组里的会话全藏起来了，标题上留个点，不然看不出这组里有正在跑的东西。
@@ -132,9 +149,12 @@ function SessionGroup({
       {folded ? null : group.tabs.map((tab) => (
         <SessionRow
           active={tab.id === activeId}
+          dragging={tab.id === draggingId}
           key={tab.id}
           onActivate={onActivate}
           onClose={onClose}
+          onConsumeClick={onConsumeClick}
+          onDragStart={onDragStart}
           tab={tab}
         />
       ))}
@@ -145,24 +165,34 @@ function SessionGroup({
 function SessionRow({
   tab,
   active,
+  dragging,
   onActivate,
   onClose,
+  onConsumeClick,
+  onDragStart,
 }: {
   tab: WorkspaceTab;
   active: boolean;
+  dragging: boolean;
   onActivate: (id: string) => void;
   onClose: (id: string) => void;
+  onConsumeClick: () => boolean;
+  onDragStart: (id: string, event: PointerEvent) => void;
 }) {
   const Icon = tab.kind === "shell" ? SquareTerminal : tab.kind === "codex" ? CodexIcon : ClaudeIcon;
   // 只有 exited 褪色。error 也是"进程没了"，但它要你去看，褪成灰会把行尾那个红点的分量抵掉。
   const dim = tab.phase === "exited";
   return (
-    <div className={`session-row${active ? " is-active" : ""}${dim ? " is-dim" : ""}`}>
+    <div className={`session-row${active ? " is-active" : ""}${dim ? " is-dim" : ""}${dragging ? " is-dragging" : ""}`}>
       <button
         aria-current={active}
         aria-label={`${tab.title}，${statusText(tab)}`}
         className="session-row__main"
-        onClick={() => onActivate(tab.id)}
+        // 拖到终端上分屏；没拖动就是普通的切换点击。
+        onClick={() => {
+          if (!onConsumeClick()) onActivate(tab.id);
+        }}
+        onPointerDown={(event) => onDragStart(tab.id, event)}
         title={tab.error ?? tab.titleHint ?? tab.title}
         type="button"
       >

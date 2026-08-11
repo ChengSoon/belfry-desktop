@@ -1,13 +1,13 @@
+/* 铺满所在窗格。窗格的位置由布局树给，这里只负责填满它。 */
 .terminal-workspace {
   position: absolute;
   inset: 0;
-  visibility: hidden;
-  pointer-events: none;
 }
 
-.terminal-workspace.is-active {
-  visibility: visible;
-  pointer-events: auto;
+/* 没落在任何窗格里的会话藏起来，但照旧挂着——卸载会连带杀掉 PTY。 */
+.terminal-workspace[aria-hidden="true"] {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .terminal-canvas {

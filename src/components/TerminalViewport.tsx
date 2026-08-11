@@ -12,12 +12,13 @@ export interface TerminalSnapshot {
 }
 
 interface TerminalViewportProps {
-  active: boolean;
+  /** 会话是否落在某个窗格里。不可见的会话照旧挂着，PTY 不能断。 */
+  visible: boolean;
   launch: TerminalLaunch;
   onSnapshot: (snapshot: TerminalSnapshot) => void;
 }
 
-export function TerminalViewport({ active, launch, onSnapshot }: TerminalViewportProps) {
+export function TerminalViewport({ visible, launch, onSnapshot }: TerminalViewportProps) {
   const terminalHost = useRef<HTMLDivElement>(null);
   const stableLaunch = useMemo(() => launch, [launch.cwd, launch.profileId]);
   const session = useTerminalSession(terminalHost, stableLaunch);
@@ -33,7 +34,7 @@ export function TerminalViewport({ active, launch, onSnapshot }: TerminalViewpor
   }, [onSnapshot, session.activity, session.error, session.lastInput, session.phase]);
 
   return (
-    <section className={`terminal-workspace${active ? " is-active" : ""}`} aria-hidden={!active}>
+    <section className="terminal-workspace" aria-hidden={!visible}>
       <div className="terminal-canvas" ref={terminalHost} />
       {dormant ? (
         <div className="terminal-alert" role="status">
