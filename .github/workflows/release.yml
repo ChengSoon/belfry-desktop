@@ -13,16 +13,17 @@ jobs:
     permissions:
       contents: write
     strategy:
-      # 一个平台挂掉不该带走其余三个的产物。
+      # 一个平台挂掉不该带走其余两个的产物。
       fail-fast: false
       matrix:
         include:
+          # Linux 暂不出包：agent/detection.rs 与 terminal/launch.rs 里
+          # resolve_default_shell、agent_command 等函数只有 macos / windows
+          # 两份 cfg 实现，Linux 下无定义，编译不过。补齐后再加回矩阵。
           - platform: macos-latest
             target: aarch64-apple-darwin
           - platform: macos-latest
             target: x86_64-apple-darwin
-          - platform: ubuntu-24.04
-            target: ""
           - platform: windows-latest
             target: ""
 
@@ -30,20 +31,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
-
-      # webkit2gtk-4.1 是 Tauri v2 的版本（v1 用 4.0）。
-      # 24.04 里 libappindicator3-dev 已被 libayatana-appindicator3-dev 取代。
-      - name: 安装 Linux 系统依赖
-        if: matrix.platform == 'ubuntu-24.04'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libwebkit2gtk-4.1-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev \
-            libgtk-3-dev \
-            patchelf \
-            xdg-utils
 
       - uses: pnpm/action-setup@v6
 
@@ -74,12 +61,12 @@ jobs:
           tagName: v__VERSION__
           releaseName: Otty v__VERSION__
           releaseBody: |
-            各平台安装包见下方 Assets。
+            各平台安装包见下方 Assets。本版提供 macOS 与 Windows，暂无 Linux 版。
 
             macOS 选 `aarch64`（Apple Silicon）或 `x64`（Intel）。
             二进制未做代码签名，首次打开需在「系统设置 → 隐私与安全性」里放行；
             Windows 上 SmartScreen 会提示"未知发布者"，选「更多信息 → 仍要运行」。
-          # 先落成草稿：四个平台的产物齐了、人工过一眼再发布。
+          # 先落成草稿：三个平台的产物齐了、人工过一眼再发布。
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.target && format('--target {0}', matrix.target) || '' }}
