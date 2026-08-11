@@ -1,5 +1,6 @@
 import { Channel } from "@tauri-apps/api/core";
 import { FitAddon } from "@xterm/addon-fit";
+import { WebglAddon } from "@xterm/addon-webgl";
 import { Terminal } from "@xterm/xterm";
 import type { TerminalTheme } from "../theme/xtermTheme";
 import { watchActivity } from "./activity";
@@ -55,6 +56,7 @@ export function mountTerminal(
   const fit = new FitAddon();
   terminal.loadAddon(fit);
   terminal.open(host);
+  const renderer = attachWebglRenderer(terminal);
   fit.fit();
   callbacks.onPhase("creating");
   callbacks.onError(null);
@@ -133,6 +135,7 @@ export function mountTerminal(
       input.dispose();
       activity?.dispose();
       if (current) void closeTerminal(current.id).catch(() => undefined);
+      renderer?.dispose();
       terminal.dispose();
     },
   };
@@ -243,6 +246,29 @@ function createXterm(theme: TerminalTheme) {
     scrollback: 1000,
     theme,
   });
+}
+
+/* 必须走 WebGL renderer，不是为了性能而是为了画对块字符。
+   默认的 DOM renderer 把每格渲染成一个 span：格子背景铺满整格，字形只占字体的 em 盒，
+   lineHeight 1.35 多出来的那 35% 行距没有字形覆盖，于是格子背景从字形上下露出来。
+   ▀▄█▛▜ 这类块元素本该严丝合缝拼成图形，露出来就断成一条条横缝。
+   Claude Code 的 Clawd 吉祥物给那几格显式设了黑底（clawd_background: rgb(0,0,0)），
+   缝隙露的就是黑块——亮色主题下尤其刺眼。
+   WebGL renderer 对这些码位不走字体，直接按矢量定义铺满整格，无论行高都不留缝。
+
+   拿不到 WebGL 就静默退回 DOM renderer：块字符会难看，但终端本身照常能用，
+   为了画得好看而让会话开不起来是不划算的。 */
+function attachWebglRenderer(terminal: Terminal) {
+  try {
+    const addon = new WebglAddon();
+    // 丢上下文后 addon 自己不会恢复，继续挂着只会得到一块空白画布。
+    // 卸掉它，xterm 自动落回 DOM renderer。
+    addon.onContextLoss(() => addon.dispose());
+    terminal.loadAddon(addon);
+    return addon;
+  } catch {
+    return null;
+  }
 }
 
 export function errorMessage(error: unknown) {

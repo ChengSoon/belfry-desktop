@@ -35,11 +35,15 @@
   scrollbar-width: thin;
 }
 
-/* 竖条光标的高度在 xterm 里等于整个字符格（fontSize × lineHeight），没有选项能调。
+/* 竖条光标的高度在 DOM renderer 里等于整个字符格（fontSize × lineHeight），没有选项能调。
    它是 .xterm-cursor-bar 上的 inset box-shadow 画出来的，所以裁掉底部 1px 让它比格子略短，
    收一收光标和下一行之间的压迫感。用 clip-path 而不是换成背景渐变：
    闪烁动画走的是 box-shadow: none，改画法会让 cursorBlink 失效。
-   1.35 的行高在 13px 字号下留了约 2px 下沿空白，裁掉 1px 不会切到字形。 */
+   1.35 的行高在 13px 字号下留了约 2px 下沿空白，裁掉 1px 不会切到字形。
+
+   WebGL renderer 下光标画在 canvas 上，clip-path 对 canvas 元素无效。
+   这条规则静默落空，不会报错也不会影响性能。若需要 WebGL 下同样的效果，
+   得换成 cursorWidth / cursorStyle 组合调整光标外观。 */
 .terminal-canvas .xterm-cursor.xterm-cursor-bar {
   clip-path: inset(0 0 1px 0);
 }
