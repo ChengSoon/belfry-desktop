@@ -185,3 +185,7 @@ Belfry 是终端与会话的托管层，不对 Agent 在你机器上执行的命
 
 内置字体各自遵循自己的许可：[JetBrains Mono](public/fonts/LICENSE-JetBrains-Mono.txt)（SIL OFL 1.1）、[HarmonyOS Sans](public/fonts/LICENSE-HarmonyOS-Sans.txt)。
 
+## 友情链接
+
+- [LINUX DO](https://linux.do/) — 开发者社区
+

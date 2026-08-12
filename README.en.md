@@ -181,3 +181,7 @@ Numbers in the usage panel come from logs the agents write locally. Treat them a
 [LGPL-3.0](LICENSE). LGPL-3.0 is a set of additional permissions on top of GPL-3.0; the complete terms require reading [GPL-3.0](LICENSE.GPL-3.0) alongside it.
 
 Bundled fonts carry their own licenses: [JetBrains Mono](public/fonts/LICENSE-JetBrains-Mono.txt) (SIL OFL 1.1) and [HarmonyOS Sans](public/fonts/LICENSE-HarmonyOS-Sans.txt).
+
+## Links
+
+- [LINUX DO](https://linux.do/) — developer community
