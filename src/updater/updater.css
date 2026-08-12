@@ -1,0 +1,144 @@
+.modal--updater {
+  width: min(440px, 100%);
+  gap: 14px;
+  padding: 18px;
+}
+
+.updater-dialog__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.updater-dialog__head > div { display: grid; gap: 2px; min-width: 0; }
+.updater-dialog__head p { margin: 0; color: var(--text-faint); font-size: var(--fs-sm); }
+
+.updater-dialog__mark {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.updater-dialog__mark--current { color: var(--success); background: transparent; }
+.updater-dialog__mark--error { color: var(--danger); background: transparent; }
+
+.updater-dialog__message {
+  min-height: 44px;
+  margin: 0;
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  line-height: var(--lh-relaxed);
+  background: var(--surface);
+}
+
+.updater-dialog__message--error { color: var(--danger); }
+
+.updater-dialog__release {
+  display: grid;
+  gap: 7px;
+  min-height: 76px;
+}
+
+.updater-dialog__release > span { color: var(--text-faint); font-size: var(--fs-sm); }
+
+.updater-dialog__release p {
+  max-height: 144px;
+  margin: 0;
+  overflow-y: auto;
+  color: var(--text-muted);
+  line-height: var(--lh-relaxed);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.updater-dialog__download { display: grid; gap: 8px; padding: 5px 0; }
+
+.updater-dialog__progress-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+.updater-dialog__progress-label i {
+  flex: 0 0 auto;
+  color: var(--text-faint);
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+}
+
+.updater-dialog__progress {
+  position: relative;
+  height: 5px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--border);
+}
+
+.updater-dialog__progress > i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 120ms linear;
+}
+
+.updater-dialog__progress.is-indeterminate > i { animation: updater-progress 1.2s var(--ease) infinite; }
+
+.modal__actions .modal__primary {
+  border-color: transparent;
+  color: var(--accent-contrast);
+  background: var(--accent);
+  font-weight: 500;
+}
+
+.modal__actions .modal__primary:hover:not(:disabled) {
+  border-color: transparent;
+  color: var(--accent-contrast);
+  background: var(--accent-hover);
+}
+
+.modal__actions .modal__primary:disabled { opacity: 0.55; cursor: default; }
+
+.updater-trigger { position: relative; }
+.updater-trigger--available { color: var(--accent); background: var(--accent-soft); }
+.updater-trigger--checking > svg,
+.updater-trigger--downloading > svg,
+.updater-trigger--installing > svg { animation: updater-spin 1s linear infinite; }
+
+.updater-trigger > i {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--sidebar);
+}
+
+.updater-spin { animation: updater-spin 1s linear infinite; }
+
+@keyframes updater-spin { to { transform: rotate(360deg); } }
+
+@keyframes updater-progress {
+  from { transform: translateX(-120%); }
+  to { transform: translateX(280%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .updater-spin,
+  .updater-trigger--checking > svg,
+  .updater-trigger--downloading > svg,
+  .updater-trigger--installing > svg,
+  .updater-dialog__progress.is-indeterminate > i { animation: none; }
+}

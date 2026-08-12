@@ -7,6 +7,8 @@ import { TerminalStage } from "./layout/components/TerminalStage";
 import { useSessionDrag } from "./layout/useSessionDrag";
 import { useSplitLayout } from "./layout/useSplitLayout";
 import { ICON } from "./theme/sizing";
+import { UpdateDialog } from "./updater/UpdateDialog";
+import { useAppUpdater } from "./updater/useAppUpdater";
 import { UsagePanel } from "./usage/components/UsagePanel";
 import { closeConfirmBody, needsCloseConfirm } from "./workspace/closeConfirm";
 import { ProjectSwitcher } from "./workspace/components/ProjectSwitcher";
@@ -21,6 +23,7 @@ export default function App() {
   const [collapsed, setCollapsed] = useState(false);
   const [usageOpen, setUsageOpen] = useState(false);
   const [pendingCloseId, setPendingCloseId] = useState<string | null>(null);
+  const updater = useAppUpdater();
   const stageRef = useRef<HTMLDivElement>(null);
   const sidebarRef = useRef<HTMLElement>(null);
   const layout = useSplitLayout(workspace.tabs, workspace.activeTabId, workspace.setActiveTabId);
@@ -96,8 +99,11 @@ export default function App() {
           onRefresh={workspace.redetectAgents}
           onToggleFold={toggleFold}
           onToggleUsage={() => setUsageOpen((value) => !value)}
+          onOpenUpdater={updater.openPanel}
           ref={sidebarRef}
           tabs={workspace.tabs}
+          updaterOpen={updater.open}
+          updaterState={updater.state}
           usageOpen={usageOpen}
         />
       )}
@@ -159,6 +165,15 @@ export default function App() {
           onCancel={cancelClose}
           onConfirm={confirmClose}
           title={`关闭 ${pendingClose.title}？`}
+        />
+      ) : null}
+
+      {updater.open ? (
+        <UpdateDialog
+          onCheck={updater.checkNow}
+          onClose={updater.closePanel}
+          onInstall={updater.install}
+          state={updater.state}
         />
       ) : null}
     </main>

@@ -1,9 +1,10 @@
-import { ChevronRight, Gauge, PanelLeftClose, SquareTerminal, X } from "lucide-react";
+import { ChevronRight, Download, Gauge, PanelLeftClose, SquareTerminal, X } from "lucide-react";
 import type { CSSProperties, PointerEvent, Ref } from "react";
 import { PanelResizeHandle } from "../../panel/PanelResizeHandle";
 import { usePanelWidth } from "../../panel/usePanelWidth";
 import { ICON } from "../../theme/sizing";
 import { ThemeToggle } from "../../theme/ThemeToggle";
+import type { UpdaterState } from "../../updater/contracts";
 import type { AgentAvailability, WorkspaceTab, WorkspaceTabKind } from "../contracts";
 import { shortPath } from "../path";
 import { SIDEBAR_WIDTH } from "../sidebarWidth";
@@ -29,7 +30,10 @@ interface SidebarProps {
   onToggleFold: (projectId: string) => void;
   onCollapse: () => void;
   onToggleUsage: () => void;
+  onOpenUpdater: () => void;
   usageOpen: boolean;
+  updaterOpen: boolean;
+  updaterState: UpdaterState;
   /** 命中测试要拿侧栏的真实矩形，才能判断会话被拖回了列表。 */
   ref?: Ref<HTMLElement>;
   /** 当前拖拽正悬在侧栏上：松手就把这个会话从舞台摘掉。 */
@@ -52,7 +56,10 @@ export function Sidebar({
   onToggleFold,
   onCollapse,
   onToggleUsage,
+  onOpenUpdater,
   ref,
+  updaterOpen,
+  updaterState,
   usageOpen,
 }: SidebarProps) {
   const groups = groupTabsByProject(tabs);
@@ -92,6 +99,19 @@ export function Sidebar({
       <div className="sidebar-foot">
         <ThemeToggle />
         <div className="sidebar-foot__actions">
+          {updaterState.availableVersion ? (
+            <button
+              aria-label={updateButtonLabel(updaterState)}
+              aria-pressed={updaterOpen}
+              className={`icon-button icon-button--sm updater-trigger updater-trigger--${updaterState.status}`}
+              onClick={onOpenUpdater}
+              title={updateButtonLabel(updaterState)}
+              type="button"
+            >
+              <Download aria-hidden="true" size={ICON.md} />
+              {updaterState.status === "available" ? <i aria-hidden="true" /> : null}
+            </button>
+          ) : null}
           <button
             aria-pressed={usageOpen}
             className="icon-button icon-button--sm"
@@ -116,6 +136,12 @@ export function Sidebar({
       />
     </aside>
   );
+}
+
+function updateButtonLabel(state: UpdaterState) {
+  if (state.status === "available") return `发现 Belfry v${state.availableVersion}`;
+  if (state.status === "downloading" || state.status === "installing") return "正在更新 Belfry";
+  return `更新 Belfry v${state.availableVersion}`;
 }
 
 function SessionGroup({

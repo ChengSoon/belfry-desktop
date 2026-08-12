@@ -87,7 +87,13 @@ fn configured_command(
 
 #[cfg(target_os = "macos")]
 fn agent_command(executable: &Path, cwd: &Path, env: &HashMap<String, String>) -> CommandBuilder {
-    configured_command(executable, cwd, env)
+    let mut command = configured_command(executable, cwd, env);
+    if !env.contains_key("PATH") {
+        if let Some(path) = crate::agent::user_command_path() {
+            command.env("PATH", path);
+        }
+    }
+    command
 }
 
 #[cfg(target_os = "windows")]

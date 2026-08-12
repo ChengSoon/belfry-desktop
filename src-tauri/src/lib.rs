@@ -14,6 +14,8 @@ pub fn run() {
 
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(TerminalRuntime::with_platform_backend())
         .invoke_handler(tauri::generate_handler![
             agent::commands::agent_detect,
