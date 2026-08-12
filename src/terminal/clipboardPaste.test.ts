@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   clipboardContainsImage,
   clipboardImagePasteSequence,
+  consumeWebClipboardPaste,
   listenForClipboardImagePaste,
   usesWebClipboardFallback,
 } from "./clipboardPaste";
@@ -13,6 +14,21 @@ describe("usesWebClipboardFallback", () => {
 
   it("lets macOS dispatch the native paste event", () => {
     expect(usesWebClipboardFallback("Macintosh; Intel Mac OS X 14_0")).toBe(false);
+  });
+});
+
+describe("consumeWebClipboardPaste", () => {
+  it("cancels the native paste before using the Clipboard API fallback", () => {
+    const event = {
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn(),
+    } as unknown as KeyboardEvent;
+    const paste = vi.fn();
+
+    expect(consumeWebClipboardPaste(event, paste)).toBe(false);
+    expect(event.preventDefault).toHaveBeenCalledOnce();
+    expect(event.stopPropagation).toHaveBeenCalledOnce();
+    expect(paste).toHaveBeenCalledOnce();
   });
 });
 

@@ -5,6 +5,19 @@ export function usesWebClipboardFallback(userAgent = navigator.userAgent) {
   return userAgent.includes("Windows");
 }
 
+export function consumeWebClipboardPaste(
+  event: KeyboardEvent,
+  paste: () => void,
+) {
+  // Returning false from xterm's custom key handler only skips xterm's key
+  // processing. The WebView default must also be cancelled or its native paste
+  // event will insert the same clipboard text a second time.
+  event.preventDefault();
+  event.stopPropagation();
+  paste();
+  return false;
+}
+
 export function clipboardContainsImage(
   types: readonly string[],
   itemTypes: readonly string[],

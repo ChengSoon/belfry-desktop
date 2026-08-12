@@ -51,13 +51,27 @@ function useResizeHandle(
   onCommit: () => void,
 ) {
   const origin = useRef<{ pointerX: number; width: number } | null>(null);
+  const frame = useRef(0);
+  const pendingWidth = useRef<number | null>(null);
   const [dragging, setDragging] = useState(false);
+
+  const flushResize = () => {
+    if (frame.current) window.cancelAnimationFrame(frame.current);
+    frame.current = 0;
+    if (pendingWidth.current === null) return;
+    onResize(pendingWidth.current);
+    pendingWidth.current = null;
+  };
 
   useEffect(() => {
     if (!dragging) return;
     document.body.classList.add("is-resizing-panel");
     return () => document.body.classList.remove("is-resizing-panel");
   }, [dragging]);
+
+  useEffect(() => () => {
+    if (frame.current) window.cancelAnimationFrame(frame.current);
+  }, []);
 
   const startDrag = (event: PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return;
@@ -70,11 +84,19 @@ function useResizeHandle(
     if (!origin.current) return;
     event.preventDefault();
     const delta = panelWidthDelta(spec, event.clientX - origin.current.pointerX);
-    onResize(origin.current.width + delta);
+    pendingWidth.current = origin.current.width + delta;
+    if (frame.current) return;
+    frame.current = window.requestAnimationFrame(() => {
+      frame.current = 0;
+      if (pendingWidth.current === null) return;
+      onResize(pendingWidth.current);
+      pendingWidth.current = null;
+    });
   };
 
   const finishDrag = (event: PointerEvent<HTMLDivElement>) => {
     if (!origin.current) return;
+    flushResize();
     origin.current = null;
     setDragging(false);
     onCommit();

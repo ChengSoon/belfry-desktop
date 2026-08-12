@@ -12,7 +12,11 @@ import {
   setTerminalPalette,
   writeTerminal,
 } from "./api";
-import { listenForClipboardImagePaste, usesWebClipboardFallback } from "./clipboardPaste";
+import {
+  consumeWebClipboardPaste,
+  listenForClipboardImagePaste,
+  usesWebClipboardFallback,
+} from "./clipboardPaste";
 import { CodexThemeSync } from "./codexThemeSync";
 import {
   createTerminalRequest,
@@ -77,8 +81,7 @@ export function mountTerminal(
       // 让它走可信的原生 paste 事件；图片载荷会在下面转成终端 Ctrl+V。
       if (!useWebClipboard) return true;
       if (typeof navigator.clipboard?.readText !== "function") return true;
-      void pasteClipboard(terminal);
-      return false;
+      return consumeWebClipboardPaste(event, () => void pasteClipboard(terminal));
     }
     /* Ctrl+C 在终端里本来就是 SIGINT，但用户按下它时多半只是想复制刚选中的那段。
        按选区分流：有选区就复制，没选区才把 ^C 发下去——想中断的时候通常没在选东西。
@@ -324,27 +327,40 @@ function createResizeObserver(
   getSession: () => TerminalSession | null,
   callbacks: MountCallbacks,
 ) {
-  let timer = 0;
+  let frame = 0;
+  let resizeTimer = 0;
   let lastSize = `${terminal.cols}x${terminal.rows}`;
   const observer = new ResizeObserver(() => {
-    window.clearTimeout(timer);
-    timer = window.setTimeout(() => {
+    if (frame) return;
+    frame = window.requestAnimationFrame(() => {
+      frame = 0;
       // 容器瞬时坍缩（折叠侧栏、窗口最小化）时 fit 会算出个位数列宽，
       // 一旦推给 PTY，shell 会按这个宽度折行，之后即使布局恢复也留下断行。
       if (host.clientWidth < MIN_HOST_WIDTH) return;
+
+      // 画布尺寸必须跟布局同帧更新，否则拖动侧栏时 WebGL 会短暂拉伸旧画面。
       fit.fit();
-      const session = getSession();
-      const size = `${terminal.cols}x${terminal.rows}`;
-      if (!session || size === lastSize) return;
-      lastSize = size;
-      callbacks.onSession({ ...session, cols: terminal.cols, rows: terminal.rows });
-      void resizeTerminal(session.id, terminal.cols, terminal.rows).catch((error) => {
-        callbacks.onError(errorMessage(error));
-      });
-    }, 50);
+      window.clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(() => {
+        const session = getSession();
+        const size = `${terminal.cols}x${terminal.rows}`;
+        if (!session || size === lastSize) return;
+        lastSize = size;
+        callbacks.onSession({ ...session, cols: terminal.cols, rows: terminal.rows });
+        void resizeTerminal(session.id, terminal.cols, terminal.rows).catch((error) => {
+          callbacks.onError(errorMessage(error));
+        });
+      }, 100);
+    });
   });
   observer.observe(host);
-  return observer;
+  return {
+    disconnect() {
+      observer.disconnect();
+      if (frame) window.cancelAnimationFrame(frame);
+      window.clearTimeout(resizeTimer);
+    },
+  };
 }
 
 /* 字体清单只在 styles.css 的 --font-mono 里维护一份，这里读出来喂给 xterm。

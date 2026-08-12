@@ -18,6 +18,11 @@
     "resources": {
       "vendor/conpty/active/conpty.dll": "conpty.dll",
       "vendor/conpty/active/OpenConsole.exe": "OpenConsole.exe"
+    },
+    "windows": {
+      "nsis": {
+        "installerHooks": "windows/installer-hooks.nsh"
+      }
     }
   }
 }

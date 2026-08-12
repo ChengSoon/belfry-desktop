@@ -1,3 +1,4 @@
+#![cfg_attr(target_os = "windows", allow(linker_messages))]
 #![cfg_attr(belfry_cross_check, allow(dead_code, unused_imports))]
 
 mod agent;
