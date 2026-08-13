@@ -3,6 +3,7 @@ import {
   parseRecentProjects,
   parseWorkspaceState,
   rememberProject,
+  removeRecentProject,
   serializeWorkspaceState,
 } from "./storage";
 import { createWorkspaceTab } from "./tabs";
@@ -34,6 +35,25 @@ describe("recent projects", () => {
     expect(parseRecentProjects(persisted)).toEqual([
       { id: "new-id", name: "demo", rootPath: "/demo" },
     ]);
+  });
+
+  it("removes an entry by id and leaves the rest untouched", () => {
+    const recent = [
+      { id: "p0", name: "zero", rootPath: "/zero" },
+      { id: "p1", name: "one", rootPath: "/one" },
+    ];
+    expect(removeRecentProject(recent, "p0")).toEqual([
+      { id: "p1", name: "one", rootPath: "/one" },
+    ]);
+  });
+
+  it("returns the same list for an unknown id", () => {
+    const recent = [{ id: "p0", name: "zero", rootPath: "/zero" }];
+    expect(removeRecentProject(recent, "missing")).toEqual(recent);
+  });
+
+  it("tolerates an empty list", () => {
+    expect(removeRecentProject([], "p0")).toEqual([]);
   });
 });
 

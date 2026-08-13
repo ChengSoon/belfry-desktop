@@ -1,5 +1,6 @@
 import type { TerminalSnapshot } from "../components/TerminalViewport";
 import type { ProjectWorkspace, WorkspaceTab, WorkspaceTabKind } from "./contracts";
+import { pathKey } from "./path";
 import { toSessionTitle } from "./sessionTitle";
 
 export interface ProjectGroup {
@@ -53,6 +54,22 @@ export function nextActiveTab(tabs: WorkspaceTab[], closingId: string) {
   const remaining = tabs.filter((tab) => tab.id !== closingId);
   const nextIndex = Math.min(Math.max(closingIndex, 0), remaining.length - 1);
   return { remaining, activeId: remaining[nextIndex]?.id ?? null };
+}
+
+/**
+ * 关闭指定目录下的全部会话。活动会话在其中时，活动切到剩余会话的第一个——
+ * 逐个 closeTab 会经 nextActiveTab 把活动切到同目录的下一个会话，它随后也被
+ * 关掉，活动就悬空成一个已删除的 id，切换器会显示"正在定位…"。
+ */
+export function closeTabsForPath(
+  tabs: WorkspaceTab[],
+  activeTabId: string | null,
+  rootPath: string,
+) {
+  const targetKey = pathKey(rootPath);
+  const remaining = tabs.filter((tab) => pathKey(tab.project.rootPath) !== targetKey);
+  const activeSurvives = activeTabId !== null && remaining.some((tab) => tab.id === activeTabId);
+  return { remaining, activeId: activeSurvives ? activeTabId : (remaining[0]?.id ?? null) };
 }
 
 /** 侧栏分组：按项目首次出现的顺序排列，组内保持会话原有顺序。 */

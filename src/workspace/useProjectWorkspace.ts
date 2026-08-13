@@ -11,15 +11,23 @@ import type {
   WorkspaceTabKind,
 } from "./contracts";
 import { toAppFailure } from "./errors";
+import { pathKey } from "./path";
 import {
   loadRecentProjects,
   loadWorkspaceState,
   rememberProject,
+  removeRecentProject as removeRecentProjectEntry,
   saveRecentProjects,
   saveWorkspaceState,
   serializeWorkspaceState,
 } from "./storage";
-import { applySnapshot, createWorkspaceTab, nextActiveTab, nextOrdinal } from "./tabs";
+import {
+  applySnapshot,
+  closeTabsForPath,
+  createWorkspaceTab,
+  nextActiveTab,
+  nextOrdinal,
+} from "./tabs";
 
 export function useProjectWorkspace() {
   const restoredWorkspace = useMemo(loadWorkspaceState, []);
@@ -156,6 +164,40 @@ export function useProjectWorkspace() {
     });
   }, [activeTabId]);
 
+  /**
+   * 删除最近项目：从列表移除记录，并关闭该目录下所有会话（PTY 被杀）。
+   * 用户已通过删除确认框确认，这里不再走 needsCloseConfirm 二次拦截。
+   * 整目录一次函数式更新关闭（closeTabsForPath），避免逐个 closeTab 把活动
+   * 切到同目录的下一个会话、关完后再悬空成一个已删除的 id。
+   * 该目录是唯一有会话的目录时，若最近列表还有其他目录，自动打开最近的一条
+   * 补位，否则切换器会停在"正在定位…"。
+   */
+  const removeRecentProject = useCallback((id: string) => {
+    const target = recentProjects.find((project) => project.id === id);
+    if (!target) return;
+    const targetKey = pathKey(target.rootPath);
+    const next = removeRecentProjectEntry(recentProjects, id);
+    saveRecentProjects(next);
+    setRecentProjects(next);
+    setTabs((current) => {
+      const result = closeTabsForPath(current, activeTabId, target.rootPath);
+      if (result.activeId !== activeTabId) setActiveTabId(result.activeId);
+      return result.remaining;
+    });
+    if (lastProject && pathKey(lastProject.rootPath) === targetKey) setLastProject(null);
+    const otherTabOpen = tabs.some((tab) => pathKey(tab.project.rootPath) !== targetKey);
+    if (!otherTabOpen && next.length > 0) {
+      void openProject(next[0].rootPath)
+        .then((workspace) => {
+          const tab = createWorkspaceTab(workspace, "shell", 1);
+          setTabs([tab]);
+          setActiveTabId(tab.id);
+          acceptProject(workspace);
+        })
+        .catch((error) => setFailure(toAppFailure(error)));
+    }
+  }, [acceptProject, activeTabId, lastProject, recentProjects, tabs]);
+
   const updateTab = useCallback((id: string, snapshot: TerminalSnapshot) => {
     setTabs((current) => current.map((tab) => (
       tab.id === id ? applySnapshot(tab, snapshot) : tab
@@ -180,6 +222,7 @@ export function useProjectWorkspace() {
     selectProject,
     launch,
     closeTab,
+    removeRecentProject,
     updateTab,
     redetectAgents,
     setActiveTabId,
