@@ -104,6 +104,11 @@ export function rememberProject(project: ProjectWorkspace, recent: RecentProject
   return deduplicateByRootPath([entry, ...recent]);
 }
 
+/** 按 id 从最近项目列表移除；不存在时原样返回。 */
+export function removeRecentProject(projects: RecentProject[], id: string) {
+  return projects.filter((project) => project.id !== id);
+}
+
 export function parseRecentProjects(value: string | null): RecentProject[] {
   if (!value) return [];
   const parsed: unknown = JSON.parse(value);

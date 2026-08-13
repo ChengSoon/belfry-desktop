@@ -1,6 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import type { SessionActivity } from "../terminal/contracts";
-import { applySnapshot, createWorkspaceTab, groupTabsByProject, nextActiveTab, nextOrdinal } from "./tabs";
+import {
+  applySnapshot,
+  closeTabsForPath,
+  createWorkspaceTab,
+  groupTabsByProject,
+  nextActiveTab,
+  nextOrdinal,
+} from "./tabs";
 
 const project = { id: "p1", name: "demo", rootPath: "/demo", rootUri: "file:///demo" };
 const other = { id: "p2", name: "other", rootPath: "/other", rootUri: "file:///other" };
@@ -23,6 +30,39 @@ describe("workspace tabs", () => {
       id,
     }));
     expect(nextActiveTab(tabs, "b").activeId).toBe("c");
+  });
+});
+
+describe("closing every session in a directory", () => {
+  const a1 = { ...createWorkspaceTab(project, "shell", 1), id: "a1" };
+  const a2 = { ...createWorkspaceTab(project, "shell", 2), id: "a2" };
+  const b1 = { ...createWorkspaceTab(other, "shell", 3), id: "b1" };
+
+  it("moves the active session to the first survivor when it dies with its directory", () => {
+    // 逐条 closeTab 会把活动切到同目录的 a2，a2 随后也被关掉，活动就悬空了；
+    // 这里必须一次算好，落到其他目录的第一个会话。
+    const result = closeTabsForPath([a1, a2, b1], "a1", "/demo");
+    expect(result.remaining.map((tab) => tab.id)).toEqual(["b1"]);
+    expect(result.activeId).toBe("b1");
+  });
+
+  it("leaves an active session in another directory alone", () => {
+    const result = closeTabsForPath([a1, b1, a2], "b1", "/demo");
+    expect(result.remaining.map((tab) => tab.id)).toEqual(["b1"]);
+    expect(result.activeId).toBe("b1");
+  });
+
+  it("closes to no active session when the directory held every session", () => {
+    const result = closeTabsForPath([a1, a2], "a2", "/demo");
+    expect(result.remaining).toEqual([]);
+    expect(result.activeId).toBeNull();
+  });
+
+  it("matches directories ignoring case and separator spelling", () => {
+    const win = { ...a1, project: { ...project, rootPath: "C:\\Demo\\" } };
+    const result = closeTabsForPath([win], "win", "c:/demo");
+    expect(result.remaining).toEqual([]);
+    expect(result.activeId).toBeNull();
   });
 });
 

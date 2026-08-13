@@ -1,5 +1,5 @@
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
-import { Check, ChevronsUpDown, FolderOpen } from "lucide-react";
+import { Check, ChevronsUpDown, FolderOpen, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { ICON } from "../../theme/sizing";
 import type { ProjectWorkspace, RecentProject } from "../contracts";
@@ -11,13 +11,22 @@ interface ProjectSwitcherProps {
   recentProjects: RecentProject[];
   opening: boolean;
   onOpen: (path: string | null) => Promise<void>;
+  /** 条目悬停时的删除入口；确认框在 App 层渲染。 */
+  onRequestRemove: (project: RecentProject) => void;
 }
 
 /**
  * 舞台标题行控件：显示当前会话的项目归属，点开可换。
  * 换项目会重启当前会话的 PTY——这是 cwd 只能在 spawn 时定的必然结果。
+ * 最近项目条目悬停时右侧出现删除键（移除最近记录并关闭该目录下的会话）。
  */
-export function ProjectSwitcher({ project, recentProjects, opening, onOpen }: ProjectSwitcherProps) {
+export function ProjectSwitcher({
+  project,
+  recentProjects,
+  opening,
+  onOpen,
+  onRequestRemove,
+}: ProjectSwitcherProps) {
   const [open, setOpen] = useState(false);
   const ref = useDismiss<HTMLDivElement>(open, () => setOpen(false));
 
@@ -59,13 +68,28 @@ export function ProjectSwitcher({ project, recentProjects, opening, onOpen }: Pr
           {recentProjects.length > 0 ? (
             <div className="popover-list">
               {recentProjects.map((item) => (
-                <button key={item.id} onClick={() => pick(item.rootPath)} type="button">
-                  <span className="popover-list__text">
-                    <strong>{item.name}</strong>
-                    <small>{shortPath(item.rootPath)}</small>
-                  </span>
-                  {pathKey(item.rootPath) === currentKey ? <Check aria-hidden="true" size={ICON.sm} /> : null}
-                </button>
+                <div className="popover-list__item" key={item.id}>
+                  <button className="popover-list__main" onClick={() => pick(item.rootPath)} type="button">
+                    <span className="popover-list__text">
+                      <strong>{item.name}</strong>
+                      <small>{shortPath(item.rootPath)}</small>
+                    </span>
+                  </button>
+                  <div className="popover-list__tail">
+                    {pathKey(item.rootPath) === currentKey ? (
+                      <Check aria-hidden="true" className="popover-list__check" size={ICON.sm} />
+                    ) : null}
+                    <button
+                      aria-label={`删除 ${item.name} 的最近记录`}
+                      className="popover-list__delete"
+                      onClick={() => onRequestRemove(item)}
+                      title={`删除 ${item.name} 的最近记录`}
+                      type="button"
+                    >
+                      <Trash2 aria-hidden="true" size={ICON.xs} />
+                    </button>
+                  </div>
+                </div>
               ))}
             </div>
           ) : null}

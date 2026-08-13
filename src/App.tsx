@@ -13,7 +13,10 @@ import { UsagePanel } from "./usage/components/UsagePanel";
 import { closeConfirmBody, needsCloseConfirm } from "./workspace/closeConfirm";
 import { ProjectSwitcher } from "./workspace/components/ProjectSwitcher";
 import { Sidebar } from "./workspace/components/Sidebar";
+import type { RecentProject } from "./workspace/contracts";
 import { failureLabel } from "./workspace/errors";
+import { pathKey } from "./workspace/path";
+import { removeRecentConfirmBody } from "./workspace/removeRecentConfirm";
 import { useFoldedProjects } from "./workspace/useFoldedProjects";
 import { useProjectWorkspace } from "./workspace/useProjectWorkspace";
 
@@ -23,6 +26,7 @@ export default function App() {
   const [collapsed, setCollapsed] = useState(false);
   const [usageOpen, setUsageOpen] = useState(false);
   const [pendingCloseId, setPendingCloseId] = useState<string | null>(null);
+  const [pendingRemove, setPendingRemove] = useState<RecentProject | null>(null);
   const updater = useAppUpdater();
   const stageRef = useRef<HTMLDivElement>(null);
   const sidebarRef = useRef<HTMLElement>(null);
@@ -122,6 +126,7 @@ export default function App() {
         <div className="stage-caption">
           <ProjectSwitcher
             onOpen={workspace.selectProject}
+            onRequestRemove={setPendingRemove}
             opening={workspace.opening}
             project={workspace.activeProject}
             recentProjects={workspace.recentProjects}
@@ -165,6 +170,24 @@ export default function App() {
           onCancel={cancelClose}
           onConfirm={confirmClose}
           title={`关闭 ${pendingClose.title}？`}
+        />
+      ) : null}
+
+      {pendingRemove ? (
+        <ConfirmDialog
+          body={removeRecentConfirmBody(
+            pendingRemove,
+            workspace.tabs.filter(
+              (tab) => pathKey(tab.project.rootPath) === pathKey(pendingRemove.rootPath),
+            ).length,
+          )}
+          confirmLabel="删除"
+          onCancel={() => setPendingRemove(null)}
+          onConfirm={() => {
+            workspace.removeRecentProject(pendingRemove.id);
+            setPendingRemove(null);
+          }}
+          title={`删除 ${pendingRemove.name}？`}
         />
       ) : null}
 
