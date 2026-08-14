@@ -2,6 +2,7 @@
 #![cfg_attr(belfry_cross_check, allow(dead_code, unused_imports))]
 
 mod agent;
+mod background;
 mod project;
 mod resource;
 mod terminal;
@@ -20,6 +21,9 @@ pub fn run() {
         .manage(TerminalRuntime::with_platform_backend())
         .invoke_handler(tauri::generate_handler![
             agent::commands::agent_detect,
+            background::commands::background_import,
+            background::commands::background_read,
+            background::commands::background_remove,
             project::commands::project_open,
             usage::commands::usage_report,
             commands::terminal_create,

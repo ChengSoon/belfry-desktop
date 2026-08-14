@@ -39,10 +39,19 @@
 /* xterm.css 给 .xterm-viewport 写死了 background-color: #000 和 overflow-y: scroll。
    v6 的实际滚动由 .xterm-scrollable-element 接管，这个原生滚动条只是遗留外壳：
    在 WebKit 下会变成终端右侧贯穿全高的一条亮线。保留 viewport 的背景兜底，
-   但把原生滚动条隐藏；滚轮、键盘和缓冲区滚动都不受影响。 */
+   但把原生滚动条隐藏；滚轮、键盘和缓冲区滚动都不受影响。
+
+   底色走 --terminal-fill 而不是直接写 --canvas：铺了背景图时这层必须让开，
+   否则它不透明，图会被整片挡住。开关在下面那条根选择器上。 */
 .terminal-canvas .xterm-viewport {
-  background-color: var(--canvas);
+  background-color: var(--terminal-fill, var(--canvas));
   scrollbar-width: none;
+}
+
+/* 这里的 transparent 是 CSS 关键字，合法；xtermTheme.ts 里不能这么写是因为
+   xterm 自己的颜色解析器不认它，两处不是一回事。 */
+:root[data-background="on"] {
+  --terminal-fill: transparent;
 }
 
 .terminal-canvas .xterm-viewport::-webkit-scrollbar {

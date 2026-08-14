@@ -78,3 +78,29 @@ const LIGHT: TerminalTheme = {
 export function xtermTheme(mode: ThemeMode): TerminalTheme {
   return mode === "light" ? LIGHT : DARK;
 }
+
+/**
+ * 背景图开启时用的主题：xterm 不能再自己涂底色，否则图整个被盖住。
+ *
+ * 只把 alpha 归零、**保留 RGB 分量**。xterm 内部会拿 background 与 selectionBackground
+ * 预混出一个不透明的选区色（selectionBackgroundOpaque）去画选区，
+ * 填纯黑的话选区会比平时暗一档、显得突兀；保留画布色则选区观感与不开背景图时
+ * 逐像素一致（实测差异为 0，见 tmp/bg-probe 的对照）。
+ */
+export function withTransparentBackground(theme: TerminalTheme): TerminalTheme {
+  return { ...theme, background: toZeroAlpha(theme.background) };
+}
+
+/**
+ * `#rrggbb` → `rgba(r, g, b, 0)`。
+ *
+ * 不能图省事写 transparent 关键字：xterm 的颜色解析器不认它，会静默退回内置默认色
+ * ——和上面 scrollbarSlider 那三个值踩的是同一个坑。
+ */
+export function toZeroAlpha(hex: string): string {
+  const match = /^#([0-9a-f]{6})$/i.exec(hex.trim());
+  // 走到这儿说明主题里的 background 不是标准六位十六进制。全透明黑至少不会盖住背景图。
+  if (!match) return "rgba(0, 0, 0, 0)";
+  const value = Number.parseInt(match[1], 16);
+  return `rgba(${(value >> 16) & 255}, ${(value >> 8) & 255}, ${value & 255}, 0)`;
+}

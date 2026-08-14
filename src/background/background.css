@@ -1,0 +1,73 @@
+/* 背景层铺满整个窗口，界面的所有面都浮在它之上。
+   挂在 .app-shell 而不是 .terminal-stage：侧栏、标题行、用量面板都要透出同一张图，
+   而且分屏时是一张连续的大图，不会每格重复一遍。整个应用只有这一个节点、一次解码。 */
+.app-background {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  overflow: hidden;
+  opacity: 1;
+  transition: opacity 220ms ease;
+  pointer-events: none;
+}
+
+/* 用 opacity 而不是 display 收起来：display:none 会跳过过渡，
+   开关背景就成了硬切。没有图时 --app-bg-image 是 none，不占解码开销。 */
+:root[data-background="off"] .app-background {
+  opacity: 0;
+}
+
+/* 图片层。
+   blur 会在容器边缘透出底色形成一圈晕，所以按模糊半径往外扩一圈，
+   多出来的部分由这一层自己的 overflow: hidden 裁掉（不能指望 .app-shell，
+   它是 grid 容器，没有也不该有 overflow）。 */
+.app-background::before {
+  position: absolute;
+  inset: calc(var(--app-bg-blur, 0px) * -2);
+  background-image: var(--app-bg-image, none);
+  background-position: center;
+  background-repeat: var(--app-bg-repeat, no-repeat);
+  background-size: var(--app-bg-size, cover);
+  content: "";
+  filter: blur(var(--app-bg-blur, 0px));
+}
+
+/* 遮罩层，压住图片保证正文可读。
+   必须和图片分成两层：同层的话 filter: blur 会把遮罩一起糊掉，
+   压制强度就跟着模糊半径漂移了。
+   底色取 var(--canvas)，深色主题自动叠黑、浅色自动叠白，切主题不用改任何 JS。 */
+.app-background__scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--canvas);
+  opacity: calc(1 - var(--app-bg-opacity, 0.35));
+}
+
+/* 铺了背景图时，界面上原本不透明的几个面要让开，否则图只能在终端区露出来。
+   都是在原色上挂一个 alpha，不改色相——面与面之间的明度层级仍然成立，
+   只是整体透出下面那张图。alpha 值统一由 --app-bg-veil 控制。 */
+:root[data-background="on"] {
+  /* 侧栏和用量面板要压住正文，留得比舞台厚一些；78% 是实测下
+     浅色小字仍然清晰、图案又能明显透出来的位置。 */
+  --app-bg-veil: 78%;
+}
+
+/* 侧栏。:not() 是必需的——拖会话到侧栏上方时 .is-eject-target 要把整条染成
+   强调色，而那条规则的优先级(0,2,0)低于这里的(0,2,1)，不排除掉就会被这层盖住，
+   拖拽反馈直接消失。 */
+:root[data-background="on"] .sidebar:not(.is-eject-target) {
+  background: color-mix(in srgb, var(--sidebar) var(--app-bg-veil), transparent);
+}
+
+/* Windows 的自绘标题栏与侧栏同色同源，一起让开，否则顶上会横一条不透明的实色。
+   macOS 走 Overlay 标题栏，这个节点是 display: none，规则自然落空。 */
+:root[data-background="on"] .window-titlebar {
+  background: color-mix(in srgb, var(--sidebar) var(--app-bg-veil), transparent);
+}
+
+:root[data-background="on"] .usage-panel {
+  background: color-mix(in srgb, var(--surface) var(--app-bg-veil), transparent);
+}
+
+/* 浮层（模态、确认框、toast）刻意不在此列：它们的职责就是把底下的东西压住，
+   半透明会让正文压在图案上读不清。背景图只透过「面」，不透过「浮层」。 */

@@ -1,5 +1,7 @@
 import { AlertTriangle, PanelLeftOpen, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AppBackground } from "./background/AppBackground";
+import { AppearanceDialog } from "./background/components/AppearanceDialog";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { WindowTitlebar } from "./components/WindowTitlebar";
 import "./workspace/workspace.css";
@@ -25,6 +27,7 @@ export default function App() {
   const { foldedProjects, toggleFold, unfold } = useFoldedProjects();
   const [collapsed, setCollapsed] = useState(false);
   const [usageOpen, setUsageOpen] = useState(false);
+  const [appearanceOpen, setAppearanceOpen] = useState(false);
   const [pendingCloseId, setPendingCloseId] = useState<string | null>(null);
   const [pendingRemove, setPendingRemove] = useState<RecentProject | null>(null);
   const updater = useAppUpdater();
@@ -85,6 +88,7 @@ export default function App() {
     <main
       className={`app-shell${collapsed ? " is-collapsed" : ""}${usageOpen ? " has-usage" : ""}`}
     >
+      <AppBackground />
       <WindowTitlebar />
 
       {collapsed ? null : (
@@ -104,6 +108,7 @@ export default function App() {
           onToggleFold={toggleFold}
           onToggleUsage={() => setUsageOpen((value) => !value)}
           onOpenUpdater={updater.openPanel}
+          onOpenAppearance={() => setAppearanceOpen(true)}
           ref={sidebarRef}
           tabs={workspace.tabs}
           updaterOpen={updater.open}
@@ -190,6 +195,8 @@ export default function App() {
           title={`删除 ${pendingRemove.name}？`}
         />
       ) : null}
+
+      {appearanceOpen ? <AppearanceDialog onClose={() => setAppearanceOpen(false)} /> : null}
 
       {updater.open ? (
         <UpdateDialog

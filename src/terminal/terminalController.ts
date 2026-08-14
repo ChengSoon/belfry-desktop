@@ -4,6 +4,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { Terminal } from "@xterm/xterm";
 import type { TerminalTheme } from "../theme/xtermTheme";
+import { withTransparentBackground } from "../theme/xtermTheme";
 import { watchActivity } from "./activity";
 import {
   closeTerminal,
@@ -49,8 +50,14 @@ export interface MountCallbacks {
 }
 
 export interface TerminalHandle {
-  /** 换肤走这里，不要重新挂载：重挂会连带杀掉底层 PTY 会话。 */
-  applyTheme: (theme: TerminalTheme) => void;
+  /**
+   * 换肤走这里，不要重新挂载：重挂会连带杀掉底层 PTY 会话。
+   *
+   * `theme` 始终传**不透明的基准主题**，是否透明由 `transparent` 单独给。
+   * 背景色有三个下游只认 `#rrggbb`——PTY 的 OSC 应答、Codex 的输入区配色、
+   * 以及会话创建请求——把 rgba 混进来会静默失效或直接抛错。
+   */
+  applyTheme: (theme: TerminalTheme, transparent: boolean) => void;
   dispose: () => void;
 }
 
@@ -58,9 +65,10 @@ export function mountTerminal(
   host: HTMLDivElement,
   launch: TerminalLaunch,
   theme: TerminalTheme,
+  transparent: boolean,
   callbacks: MountCallbacks,
 ): TerminalHandle {
-  const terminal = createXterm(theme);
+  const terminal = createXterm(theme, transparent);
   const fit = new FitAddon();
   terminal.loadAddon(fit);
   terminal.open(host);
@@ -177,9 +185,12 @@ export function mountTerminal(
   });
 
   return {
-    applyTheme: (next) => {
+    applyTheme: (next, transparent) => {
+      // 这两处都只认 #rrggbb，喂基准主题：CodexThemeSync 的 parseHex 遇到 rgba 会直接抛，
+      // 而 PTY 那边的解析失败是静默的——OSC 11 查询得不到应答，只在个别 TUI 里表现为配色错乱。
       codexThemeSync?.setTheme(next);
-      terminal.options.theme = next;
+      terminal.options.allowTransparency = transparent;
+      terminal.options.theme = transparent ? withTransparentBackground(next) : next;
       // PTY 层也得跟着换：换肤之后再启动的程序会重新查一次背景色。
       if (current) void setTerminalPalette(current.id, toPalette(next)).catch(() => undefined);
       if (current && codexThemeSync) {
@@ -372,10 +383,12 @@ function monoFontFamily() {
   return fromCss || 'ui-monospace, "SFMono-Regular", Consolas, monospace';
 }
 
-function createXterm(theme: TerminalTheme) {
+function createXterm(theme: TerminalTheme, transparent: boolean) {
   // 配色必须在构造时就位：会话创建请求要带上背景色，而它在挂载的同一个同步块里就发出去了。
   return new Terminal({
-    allowTransparency: false,
+    // 开背景图时必须打开，否则 xterm 会把底色实心涂满、图整个被盖住。
+    // 官方说明它对性能有影响，所以没背景图时照旧关着。
+    allowTransparency: transparent,
     convertEol: false,
     cursorBlink: true,
     cursorStyle: "bar",
@@ -386,7 +399,7 @@ function createXterm(theme: TerminalTheme) {
     fontWeightBold: 500,
     lineHeight: 1.35,
     scrollback: 1000,
-    theme,
+    theme: transparent ? withTransparentBackground(theme) : theme,
   });
 }
 

@@ -1,0 +1,139 @@
+/* 这个框比确认框宽些：里面有预览和三行控件，360px 会挤。 */
+.appearance { width: min(420px, 100%); }
+
+.appearance__field {
+  display: grid;
+  gap: 7px;
+}
+
+.appearance__row {
+  display: grid;
+  grid-template-columns: 60px 1fr 44px;
+  align-items: center;
+  gap: 10px;
+}
+
+.appearance__label {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+/* 数值右对齐并锁住列宽，拖滑块时数字不会把滑轨挤得来回跳。 */
+.appearance__value {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.appearance__preview {
+  position: relative;
+  display: grid;
+  height: 96px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--canvas);
+}
+
+/* 与 background.css 里那两层同源，读的是同一组 --app-bg-* 变量。
+   这里不做 blur 的外扩：预览框小，边缘那点晕反而如实反映了模糊强度。 */
+.appearance__preview-image {
+  position: absolute;
+  inset: 0;
+  background-image: var(--app-bg-image, none);
+  background-position: center;
+  background-repeat: var(--app-bg-repeat, no-repeat);
+  background-size: var(--app-bg-size, cover);
+  filter: blur(var(--app-bg-blur, 0px));
+}
+
+.appearance__preview-scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--canvas);
+  opacity: calc(1 - var(--app-bg-opacity, 0.35));
+}
+
+/* 样例文字压在两层之上，用终端的等宽字体——判断可读性得看真实字形。 */
+.appearance__preview-text {
+  position: relative;
+  padding: 0 10px;
+  color: var(--text);
+  font-size: var(--fs-sm);
+  font-family: var(--font-mono);
+  text-align: center;
+}
+
+.appearance__preview-empty {
+  color: var(--text-faint);
+  font-size: var(--fs-sm);
+}
+
+.appearance__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.appearance__actions button {
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  background: transparent;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  transition: border-color var(--duration) var(--ease), color var(--duration) var(--ease);
+}
+
+.appearance__actions button:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.appearance__actions button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.appearance__error {
+  margin: 0;
+  color: var(--danger);
+  font-size: var(--fs-sm);
+  overflow-wrap: anywhere;
+}
+
+/* 与 .usage-segments 同一套做法，那边是现成的单选样式。 */
+.appearance__segments {
+  display: flex;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--canvas);
+}
+
+.appearance__segments button {
+  flex: 1;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: calc(var(--radius-sm) - 2px);
+  color: var(--text-muted);
+  background: transparent;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  transition: color var(--duration) var(--ease), background var(--duration) var(--ease);
+}
+
+.appearance__segments button:hover { color: var(--text); }
+
+.appearance__segments button.is-active {
+  color: var(--accent-contrast);
+  background: var(--accent);
+}
+
+.appearance__row input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
