@@ -17,7 +17,7 @@ interface ProjectSwitcherProps {
 
 /**
  * 舞台标题行控件：显示当前会话的项目归属，点开可换。
- * 换项目会重启当前会话的 PTY——这是 cwd 只能在 spawn 时定的必然结果。
+ * 换项目会创建一个新的 Shell 会话，当前会话和它的 PTY 保持不变。
  * 最近项目条目悬停时右侧出现删除键（移除最近记录并关闭该目录下的会话）。
  */
 export function ProjectSwitcher({
@@ -55,7 +55,7 @@ export function ProjectSwitcher({
         aria-expanded={open}
         className="project-trigger"
         onClick={() => setOpen((value) => !value)}
-        title={project ? `${normalizePath(project.rootPath)}（点击切换当前会话的项目）` : "选择项目"}
+        title={project ? `${normalizePath(project.rootPath)}（点击在新会话中切换目录）` : "选择项目"}
         type="button"
       >
         <span className="project-trigger__name">{project?.name ?? "选择项目"}</span>
@@ -64,7 +64,7 @@ export function ProjectSwitcher({
       </button>
 
       {open ? (
-        <div className="popover popover--project" role="dialog" aria-label="切换当前会话的项目">
+        <div className="popover popover--project" role="dialog" aria-label="在新会话中切换目录">
           {recentProjects.length > 0 ? (
             <div className="popover-list">
               {recentProjects.map((item) => (

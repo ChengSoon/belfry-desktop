@@ -3,6 +3,7 @@ import type { SessionActivity } from "../terminal/contracts";
 import {
   applySnapshot,
   closeTabsForPath,
+  createProjectSwitchTab,
   createWorkspaceTab,
   groupTabsByProject,
   nextActiveTab,
@@ -30,6 +31,32 @@ describe("workspace tabs", () => {
       id,
     }));
     expect(nextActiveTab(tabs, "b").activeId).toBe("c");
+  });
+
+  it("creates a shell for a project switch without changing the active tab", () => {
+    vi.stubGlobal("crypto", { randomUUID: () => "switched" });
+    const active = { ...createWorkspaceTab(project, "codex", 1), id: "active" };
+    const switched = createProjectSwitchTab([active], other);
+
+    expect(switched).toMatchObject({
+      id: "switched",
+      project: other,
+      kind: "shell",
+      title: "Shell 01",
+    });
+    expect(active.project).toBe(project);
+    vi.unstubAllGlobals();
+  });
+
+  it("continues the global shell sequence when switching projects", () => {
+    vi.stubGlobal("crypto", { randomUUID: () => "switched" });
+    const shell = { ...createWorkspaceTab(project, "shell", 1), id: "shell" };
+    expect(createProjectSwitchTab([shell], other)).toMatchObject({
+      project: other,
+      kind: "shell",
+      title: "Shell 02",
+    });
+    vi.unstubAllGlobals();
   });
 });
 

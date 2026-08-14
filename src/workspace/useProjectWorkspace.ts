@@ -24,6 +24,7 @@ import {
 import {
   applySnapshot,
   closeTabsForPath,
+  createProjectSwitchTab,
   createWorkspaceTab,
   nextActiveTab,
   nextOrdinal,
@@ -62,8 +63,8 @@ export function useProjectWorkspace() {
   }, []);
 
   /**
-   * 选项目 = 改写当前会话的归属。cwd 只能在 spawn 时定，所以改 tab.project 会
-   * 连带重启该会话的 PTY（滚屏和前台进程会丢），这是已确认的语义。
+   * 选项目 = 为目标目录创建一个新会话并激活它。当前会话继续保留，避免改 cwd
+   * 触发 PTY 重启后丢失滚屏和前台进程。
    */
   const selectProject = useCallback(async (path: string | null) => {
     const version = ++requestVersion.current;
@@ -72,23 +73,16 @@ export function useProjectWorkspace() {
     try {
       const workspace = await openProject(path);
       if (version !== requestVersion.current) return;
-      if (activeTabId) {
-        setTabs((current) => current.map((tab) => (
-          // PTY 要重启，旧的活动状态跟着作废，否则新会话起来前一直挂着上一个的点。
-          tab.id === activeTabId ? { ...tab, project: workspace, activity: "idle", error: null } : tab
-        )));
-      } else {
-        const tab = createWorkspaceTab(workspace, "shell", 1);
-        setTabs([tab]);
-        setActiveTabId(tab.id);
-      }
+      const tab = createProjectSwitchTab(tabs, workspace);
+      setTabs((current) => [...current, tab]);
+      setActiveTabId(tab.id);
       acceptProject(workspace);
     } catch (error) {
       if (version === requestVersion.current) setFailure(toAppFailure(error));
     } finally {
       if (version === requestVersion.current) setOpening(false);
     }
-  }, [acceptProject, activeTabId]);
+  }, [acceptProject, tabs]);
 
   useEffect(() => {
     void bootstrap();

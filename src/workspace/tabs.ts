@@ -26,6 +26,14 @@ export function createWorkspaceTab(
   };
 }
 
+/** 切换目录时固定创建 Shell；原 tab 不变，调用方把新 tab 追加到列表。 */
+export function createProjectSwitchTab(
+  tabs: WorkspaceTab[],
+  project: ProjectWorkspace,
+) {
+  return createWorkspaceTab(project, "shell", nextOrdinal(tabs, "shell"));
+}
+
 /**
  * 把终端快照合进会话：phase/error/activity 直接覆盖，标题只在这条输入够格时才换。
  * 全程没变就返回原对象，避免 phase 抖动时白白重渲染整条侧栏。
