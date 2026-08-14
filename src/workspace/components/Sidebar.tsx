@@ -101,19 +101,17 @@ export function Sidebar({
       <div className="sidebar-foot">
         <ThemeToggle />
         <div className="sidebar-foot__actions">
-          {updaterState.availableVersion ? (
-            <button
-              aria-label={updateButtonLabel(updaterState)}
-              aria-pressed={updaterOpen}
-              className={`icon-button icon-button--sm updater-trigger updater-trigger--${updaterState.status}`}
-              onClick={onOpenUpdater}
-              title={updateButtonLabel(updaterState)}
-              type="button"
-            >
-              <Download aria-hidden="true" size={ICON.md} />
-              {updaterState.status === "available" ? <i aria-hidden="true" /> : null}
-            </button>
-          ) : null}
+          <button
+            aria-label={updateButtonLabel(updaterState)}
+            aria-pressed={updaterOpen}
+            className={`icon-button icon-button--sm updater-trigger updater-trigger--${updaterState.status}`}
+            onClick={onOpenUpdater}
+            title={updateButtonLabel(updaterState)}
+            type="button"
+          >
+            <Download aria-hidden="true" size={ICON.md} />
+            {updaterState.status === "available" ? <i aria-hidden="true" /> : null}
+          </button>
           <button
             className="icon-button icon-button--sm"
             onClick={onOpenAppearance}
@@ -151,7 +149,9 @@ export function Sidebar({
 function updateButtonLabel(state: UpdaterState) {
   if (state.status === "available") return `发现 Belfry v${state.availableVersion}`;
   if (state.status === "downloading" || state.status === "installing") return "正在更新 Belfry";
-  return `更新 Belfry v${state.availableVersion}`;
+  if (state.status === "checking") return "正在检查更新";
+  if (state.status === "error") return "检查更新失败，点击重试";
+  return "检查更新";
 }
 
 function SessionGroup({

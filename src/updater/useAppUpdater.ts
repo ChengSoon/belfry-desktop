@@ -8,15 +8,24 @@ import { applyDownloadEvent, EMPTY_DOWNLOAD_PROGRESS } from "./progress";
 const STARTUP_CHECK_DELAY_MS = 1500;
 const UPDATE_TIMEOUT_MS = 20_000;
 const DOWNLOAD_TIMEOUT_MS = 10 * 60_000;
+/** 后台巡检间隔：窗口常开不重启时，光靠启动那一次检查永远收不到新版本。 */
+const PERIODIC_CHECK_MS = 6 * 60 * 60_000;
+/**
+ * 首次检查失败后的退避节奏。刚发版那几十秒 GitHub 的 latest 指针和资产 CDN
+ * 还没就绪，恰好在此时启动就会扑空；不重试的话这一次失败会一直沉默下去。
+ */
+const RETRY_BACKOFF_MS = [15_000, 60_000, 5 * 60_000];
 
 export function useAppUpdater() {
   const [state, setState] = useState<UpdaterState>(INITIAL_UPDATER_STATE);
   const [open, setOpen] = useState(false);
   const updateRef = useRef<Update | null>(null);
   const busyRef = useRef(false);
+  // 巡检要读当前状态又不该因状态变化重建定时器链，所以走 ref。
+  const statusRef = useRef<UpdaterState["status"]>(INITIAL_UPDATER_STATE.status);
 
   const checkNow = useCallback(async (showResult = true) => {
-    if (busyRef.current) return;
+    if (busyRef.current) return false;
     busyRef.current = true;
     setState((value) => ({ ...value, status: "checking", error: null }));
     try {
@@ -30,9 +39,11 @@ export function useAppUpdater() {
         setState((value) => currentState(value.currentVersion));
         if (showResult) setOpen(true);
       }
+      return true;
     } catch (error) {
       setState((value) => errorState(value, error));
       if (showResult) setOpen(true);
+      return false;
     } finally {
       busyRef.current = false;
     }
@@ -58,11 +69,46 @@ export function useAppUpdater() {
   }, []);
 
   useEffect(() => {
+    statusRef.current = state.status;
+  }, [state.status]);
+
+  useEffect(() => {
     void getVersion()
       .then((version) => setState((value) => ({ ...value, currentVersion: version })))
       .catch(() => undefined);
-    const timer = window.setTimeout(() => void checkNow(false), STARTUP_CHECK_DELAY_MS);
+
+    let timer = 0;
+    let attempt = 0;
+    let disposed = false;
+
+    const schedule = (delay: number) => {
+      timer = window.setTimeout(() => void run(), delay);
+    };
+
+    const run = async () => {
+      if (disposed) return;
+      // 正在下载安装、或用户已经收到可用更新的提示，这一轮都不必再拉。
+      if (busyRef.current || statusRef.current === "available") {
+        schedule(PERIODIC_CHECK_MS);
+        return;
+      }
+      const ok = await checkNow(false);
+      if (disposed) return;
+      if (ok) {
+        attempt = 0;
+        schedule(PERIODIC_CHECK_MS);
+        return;
+      }
+      // 退避重试几轮再回到长间隔，避免一次网络抖动就静默到下次重启。
+      const backoff = RETRY_BACKOFF_MS[attempt];
+      attempt += 1;
+      schedule(backoff ?? PERIODIC_CHECK_MS);
+    };
+
+    schedule(STARTUP_CHECK_DELAY_MS);
+
     return () => {
+      disposed = true;
       window.clearTimeout(timer);
       void releaseUpdate(updateRef);
     };
