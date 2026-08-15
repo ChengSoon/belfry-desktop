@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { TerminalSnapshot } from "../components/TerminalViewport";
 import { detectAgents, openProject } from "./api";
+import type { HistorySession } from "../history/contracts";
 import type {
   AgentAvailability,
   AgentKind,
@@ -150,6 +151,41 @@ export function useProjectWorkspace() {
     setActiveTabId(tab.id);
   }, [acceptProject, activeProject, agents, tabs]);
 
+  /**
+   * 从历史会话面板恢复一条会话：优先在会话原目录里新开（目录没了退回当前项目），
+   * 启动参数带上 resumeSessionId，PTY 起来时直接进 resume。
+   */
+  const launchHistorySession = useCallback(async (kind: AgentKind, session: HistorySession) => {
+    let target = activeProject;
+    if (session.cwd) {
+      try {
+        const workspace = await openProject(session.cwd);
+        acceptProject(workspace);
+        target = workspace;
+      } catch {
+        // 原目录已不存在，退回当前活动项目继续。
+      }
+    }
+    if (!target) {
+      try {
+        target = await openProject(null);
+        acceptProject(target);
+      } catch (error) {
+        setFailure(toAppFailure(error));
+        return;
+      }
+    }
+    // id 必须在 updater 外生成：updater 在 StrictMode 下会跑两次，
+    // 每次 randomUUID 不同，setActiveTabId 就会指向一个被丢弃的 id。
+    const id = crypto.randomUUID();
+    // 序号在 updater 内基于最新列表计算：批量打开多条时不会全部叫 "Codex 01"。
+    setTabs((current) => [
+      ...current,
+      { ...createWorkspaceTab(target, kind, nextOrdinal(current, kind), session.id), id },
+    ]);
+    setActiveTabId(id);
+  }, [acceptProject, activeProject]);
+
   const closeTab = useCallback((id: string) => {
     setTabs((current) => {
       const next = nextActiveTab(current, id);
@@ -215,6 +251,7 @@ export function useProjectWorkspace() {
     opening,
     selectProject,
     launch,
+    launchHistorySession,
     closeTab,
     removeRecentProject,
     updateTab,

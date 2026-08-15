@@ -12,6 +12,7 @@ export function createWorkspaceTab(
   project: ProjectWorkspace,
   kind: WorkspaceTabKind,
   ordinal: number,
+  resumeSessionId: string | null = null,
 ): WorkspaceTab {
   return {
     id: crypto.randomUUID(),
@@ -20,6 +21,7 @@ export function createWorkspaceTab(
     title: tabTitle(kind, ordinal),
     titleHint: null,
     profileId: kind === "shell" ? "system-default" : `agent:${kind}`,
+    resumeSessionId,
     phase: "idle",
     activity: "idle",
     error: null,

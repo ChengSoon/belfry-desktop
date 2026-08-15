@@ -27,6 +27,7 @@ export function AppearanceSection() {
             <>
               <div className="appearance__preview-image" />
               <div className="appearance__preview-scrim" />
+              <div className="appearance__preview-veil" />
               <span className="appearance__preview-text">Aa 示例文字 the quick brown fox</span>
             </>
           ) : (

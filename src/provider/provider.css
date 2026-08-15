@@ -30,6 +30,32 @@
 .provider-segments button.is-active { color: var(--accent-contrast); background: var(--accent); }
 .provider-segments button:disabled { cursor: default; }
 
+/* 列表刷新：跟 tab 同排的轻量动作，列表状态异常时不用重开设置就能重拉。
+   用 `.provider-segments button` 双类把 padding/颜色盖回，避免 !important。 */
+.provider-segments button.provider-segments__reload {
+  margin-left: auto;
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  padding: 0;
+  color: var(--text-faint);
+}
+
+.provider-segments button.provider-segments__reload:hover:not(:disabled) { color: var(--text); }
+.provider-segments button.provider-segments__reload:disabled { opacity: 0.5; cursor: default; }
+
+/* 列表区域的辅助文字：加载中 / 数据缺失时的占位，避免列表静默空白。 */
+.provider-hint {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  background: var(--surface-hover);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-relaxed);
+}
+
 .provider-warning {
   display: flex;
   align-items: flex-start;
@@ -145,7 +171,13 @@
 
 .provider-add:hover { border-color: var(--border-strong); color: var(--text); }
 
-.provider-form { display: grid; gap: 7px; }
+.provider-form {
+  display: grid;
+  /* 字段一个一行竖排；输入框太长不好填，宽度限制在合理范围，不随内容区撑满。 */
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  max-width: 640px;
+}
 
 .provider-form__row {
   display: grid;
@@ -188,3 +220,155 @@
 
 /* 删除确认盖在 provider 对话框之上，所以要比它自己的 scrim 再高一层。 */
 .provider-confirm { z-index: 31; }
+
+/* 当前配置文件：只读展示 CLI 配置原文。头排是标题、刷新、路径、格式、复制，
+   下面是代码块。Belfry 只认领路由字段，这里呈现的就是用户文件的完整内容。 */
+.provider-config {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.provider-config__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.provider-config__head h3 {
+  flex: 1;
+  margin: 0;
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.provider-config__reload {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  color: var(--text-faint);
+  background: transparent;
+  cursor: pointer;
+}
+
+.provider-config__reload:hover:not(:disabled) { color: var(--text); background: var(--surface-hover); }
+.provider-config__reload:disabled { opacity: 0.5; cursor: default; }
+
+.provider-config__hint {
+  margin: 0;
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-relaxed);
+}
+
+.provider-config__file {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.provider-config__file-head {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.provider-config__path {
+  overflow: hidden;
+  flex: 1;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.provider-config__badge {
+  flex: none;
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  background: var(--surface-hover);
+  font-size: var(--fs-xs);
+}
+
+.provider-config__copy {
+  flex: none;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  background: transparent;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  transition: color var(--duration) var(--ease), border-color var(--duration) var(--ease);
+}
+
+.provider-config__copy:hover { border-color: var(--border-strong); color: var(--text); }
+
+/* 可编辑的配置文件。等宽字体、随窗口响应的显示高度，用户也可以自己拖高。 */
+.provider-config__editor {
+  width: 100%;
+  min-width: 0;
+  /* 高度跟着窗口走：窗口越高给越多空间看完整配置，避免长 JSON 只露一小截。 */
+  height: clamp(280px, 50vh, 720px);
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  background: var(--canvas);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  line-height: 1.55;
+  resize: vertical;
+  scrollbar-color: var(--scrollbar) transparent;
+}
+
+.provider-config__editor:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.provider-config__save {
+  flex: none;
+  padding: 2px 10px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  color: var(--accent);
+  background: transparent;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  transition: color var(--duration) var(--ease), border-color var(--duration) var(--ease);
+}
+
+.provider-config__save:hover:not(:disabled) {
+  border-color: var(--accent-hover);
+  color: var(--accent-hover);
+}
+
+.provider-config__save:disabled { opacity: 0.55; cursor: default; }
+
+.provider-config__saved {
+  flex: none;
+  color: var(--success);
+  font-size: var(--fs-xs);
+}
+
+.provider-config__empty {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+}

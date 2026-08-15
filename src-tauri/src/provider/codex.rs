@@ -15,8 +15,8 @@ use toml_edit::{DocumentMut, Item, value};
 
 use crate::terminal::AppError;
 
-use super::atomic::write_atomic;
-use super::contracts::ProviderConfig;
+use super::atomic::{read_text_optional, write_atomic};
+use super::contracts::{ConfigFilePreview, ProviderConfig};
 
 /// Belfry 在 config.toml 里的所有权哨兵：只有这个名字的表归我们管，
 /// 用户自己定义的其它 `[model_providers.*]` 一概不碰。
@@ -137,6 +137,38 @@ fn write_config_in(dir: &Path, doc: &DocumentMut) -> Result<(), AppError> {
     write_atomic(&dir.join("config.toml"), &doc.to_string(), true)
 }
 
+/// 保存用户在界面上编辑后的 Codex 配置全文。
+///
+/// 只认 `config.toml` 与 `auth.json` 两个文件；格式先校验再落盘，
+/// 校验失败时原文件一个字都不动。
+pub(super) fn save_config_file(path: &Path, content: &str) -> Result<(), AppError> {
+    let dir = codex_home()?;
+    let config = dir.join("config.toml");
+    let auth = dir.join("auth.json");
+
+    if path == config {
+        content.parse::<DocumentMut>().map_err(|err| {
+            AppError::invalid_argument(format!(
+                "{} 不是合法的 TOML，文件没有改动：{err}",
+                config.display()
+            ))
+        })?;
+        return write_atomic(&config, content, true);
+    }
+    if path == auth {
+        serde_json::from_str::<Value>(content).map_err(|err| {
+            AppError::invalid_argument(format!(
+                "{} 不是合法的 JSON，文件没有改动：{err}",
+                auth.display()
+            ))
+        })?;
+        return write_atomic(&auth, content, true);
+    }
+    Err(AppError::invalid_argument(
+        "只允许修改 Codex 的 config.toml 和 auth.json",
+    ))
+}
+
 /// 切换 Codex 的 provider。两个文件要么一起成，要么一起不动。
 ///
 /// `official_auth` 是 Belfry 库里存的那份 ChatGPT 登录态，会被就地更新。
@@ -237,6 +269,24 @@ pub(super) fn detect_live(doc: &DocumentMut) -> Option<(String, String, String, 
         .filter(|value| !value.trim().is_empty())
         .unwrap_or_else(auth_file_key);
     Some((name, base_url, model, api_key))
+}
+
+/// 当前生效的 Codex 配置文件原文：config.toml（路由）和 auth.json（凭据）。
+/// 两个文件都可能还没建，不存在的跳过。
+pub(super) fn config_files() -> Result<Vec<ConfigFilePreview>, AppError> {
+    let dir = codex_home()?;
+    let mut files = Vec::new();
+    for (name, format) in [("config.toml", "toml"), ("auth.json", "json")] {
+        let path = dir.join(name);
+        if path.exists() {
+            files.push(ConfigFilePreview {
+                path: path.display().to_string(),
+                format: format.to_string(),
+                content: read_text_optional(&path)?,
+            });
+        }
+    }
+    Ok(files)
 }
 
 /// auth.json 里的 API key。ChatGPT 登录态不算 key。

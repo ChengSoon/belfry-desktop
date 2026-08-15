@@ -12,6 +12,15 @@ use std::path::{Path, PathBuf};
 
 use crate::terminal::AppError;
 
+/// 读文件原文。文件不存在时返回空串，而不是报错——全新机器上还没建配置文件是常态。
+pub(super) fn read_text_optional(path: &Path) -> Result<String, AppError> {
+    match fs::read_to_string(path) {
+        Ok(text) => Ok(text),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(String::new()),
+        Err(err) => Err(AppError::io(format!("读不了 {}：{err}", path.display()))),
+    }
+}
+
 /// 目标文件不存在时创建用的权限。存密钥的文件传 `true`。
 pub(super) fn write_atomic(path: &Path, contents: &str, private: bool) -> Result<(), AppError> {
     let parent = path

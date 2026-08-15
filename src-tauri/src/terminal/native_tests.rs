@@ -209,6 +209,7 @@ fn default_request() -> CreateTerminalRequest {
         cwd: None,
         command: None,
         env: HashMap::new(),
+        resume: None,
         cols: 100,
         rows: 30,
         elevation: Elevation::Normal,

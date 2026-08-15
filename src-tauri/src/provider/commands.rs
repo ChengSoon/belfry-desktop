@@ -3,7 +3,7 @@ use tauri::AppHandle;
 use crate::agent::AgentKind;
 use crate::terminal::AppError;
 
-use super::contracts::{ProviderCatalog, ProviderDraft, SwitchOutcome};
+use super::contracts::{ConfigFilePreview, ProviderCatalog, ProviderDraft, SwitchOutcome};
 use super::service;
 
 #[tauri::command]
@@ -37,4 +37,28 @@ pub fn provider_switch(
     id: Option<String>,
 ) -> Result<SwitchOutcome, AppError> {
     service::switch(&app, kind, id)
+}
+
+/// 当前生效的配置文件原文（只读）。Claude Code 是 settings.json；
+/// Codex 是 config.toml + auth.json。
+#[tauri::command]
+pub fn provider_config_preview(kind: AgentKind) -> Result<Vec<ConfigFilePreview>, AppError> {
+    service::config_files(kind)
+}
+
+/// 保存用户在界面上编辑后的配置文件全文。路径白名单与格式校验在服务端，
+/// 校验失败时原文件保持不动。
+#[tauri::command]
+pub fn provider_config_save(
+    kind: AgentKind,
+    path: String,
+    content: String,
+) -> Result<(), AppError> {
+    service::save_config_file(kind, path, content)
+}
+
+/// 配置文件被手动编辑后，把当前生效的 live 配置同步进库并返回新目录。
+#[tauri::command]
+pub fn provider_sync_live(app: AppHandle, kind: AgentKind) -> Result<ProviderCatalog, AppError> {
+    service::sync_live(&app, kind)
 }

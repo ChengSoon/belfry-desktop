@@ -398,6 +398,9 @@ function createXterm(theme: TerminalTheme, transparent: boolean) {
     fontWeight: 400,
     fontWeightBold: 500,
     lineHeight: 1.35,
+    // 自绘滚动条宽度。默认 14px 在窄窗格里太占地方，收到 8px；
+    // 这个值同时控制滚动条与 overview ruler 的宽度（xterm 内部共用）。
+    overviewRuler: { width: 8 },
     scrollback: 1000,
     theme: transparent ? withTransparentBackground(theme) : theme,
   });

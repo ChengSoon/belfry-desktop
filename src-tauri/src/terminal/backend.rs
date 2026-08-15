@@ -121,6 +121,7 @@ mod tests {
             cwd: Some("file:///tmp".to_string()),
             command: None,
             env: HashMap::new(),
+            resume: None,
             cols: 120,
             rows: 36,
             elevation: Elevation::Normal,

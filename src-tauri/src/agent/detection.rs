@@ -101,18 +101,21 @@ fn find_in_path(command: &str) -> Option<PathBuf> {
         .find(|candidate| is_executable(candidate))
 }
 
-#[cfg(target_os = "macos")]
+/// Windows 上命令按 PATHEXT 扩展名解析；其他平台命令就是裸文件名。
+/// 用 `cfg!` 而不是 `#[cfg]` 拆两个版本，这样 macOS 上也能跑 Windows 分支的测试。
 fn command_candidates(directory: &Path, command: &str) -> Vec<PathBuf> {
-    vec![directory.join(command)]
+    if cfg!(target_os = "windows") {
+        COMMAND_EXTENSIONS
+            .iter()
+            .map(|extension| directory.join(format!("{command}.{extension}")))
+            .collect()
+    } else {
+        vec![directory.join(command)]
+    }
 }
 
-#[cfg(target_os = "windows")]
-fn command_candidates(directory: &Path, command: &str) -> Vec<PathBuf> {
-    ["exe", "cmd", "bat", "com"]
-        .into_iter()
-        .map(|extension| directory.join(format!("{command}.{extension}")))
-        .collect()
-}
+/// Windows 命令扩展名，与系统 PATHEXT 的默认集合一致。
+const COMMAND_EXTENSIONS: &[&str] = &["exe", "cmd", "bat", "com"];
 
 #[cfg(target_os = "macos")]
 fn find_in_user_environment(kind: AgentKind) -> Option<PathBuf> {
@@ -166,11 +169,72 @@ fn parse_login_shell_env(output: &[u8]) -> HashMap<String, String> {
 
 #[cfg(target_os = "windows")]
 fn find_in_user_environment(kind: AgentKind) -> Option<PathBuf> {
-    let app_data = std::env::var_os("APPDATA")?;
-    let npm_bin = PathBuf::from(app_data).join("npm");
-    command_candidates(&npm_bin, kind.command_name())
+    user_install_dirs()
         .into_iter()
+        .flat_map(|directory| command_candidates(&directory, kind.command_name()))
         .find(|path| is_executable(path))
+        .or_else(|| where_command(kind.command_name()))
+}
+
+/// Windows 上各包管理器默认的全局 bin 目录。npm 之外还有 pnpm / bun / scoop，
+/// 它们不一定在 GUI 进程继承的 PATH 里，但二进制都落在这些固定位置。
+#[cfg(target_os = "windows")]
+fn user_install_dirs() -> Vec<PathBuf> {
+    let mut dirs = Vec::new();
+    if let Some(app_data) = std::env::var_os("APPDATA") {
+        dirs.push(PathBuf::from(app_data).join("npm"));
+    }
+    if let Some(local_app_data) = std::env::var_os("LOCALAPPDATA") {
+        dirs.push(PathBuf::from(local_app_data).join("pnpm"));
+    }
+    if let Some(home) = std::env::var_os("USERPROFILE") {
+        let home = PathBuf::from(home);
+        dirs.extend([
+            home.join(".local").join("bin"),
+            home.join(".bun").join("bin"),
+            home.join("scoop").join("shims"),
+        ]);
+    }
+    dirs
+}
+
+/// `where.exe` 是 Windows 原生的「查命令」工具，按 PATH + PATHEXT 找全所有候选，
+/// 等价 macOS 分支的 `command -v`，能覆盖不在固定目录里的安装方式。
+/// 结果里混着 npm 生成的无扩展名 shell 脚本，只认带命令扩展名的可执行文件。
+#[cfg(target_os = "windows")]
+fn where_command(command: &str) -> Option<PathBuf> {
+    use std::os::windows::process::CommandExt;
+    /// 不给子进程分配控制台。否则 GUI 进程每探测一次就闪一个黑框。
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
+    let output = Command::new("where.exe")
+        .arg(command)
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .rev()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .map(PathBuf::from)
+        .find(|path| is_executable(path) && has_command_extension(path))
+}
+
+/// 路径是否带 Windows 命令扩展名。where 的结果里 npm 会同时给出无扩展名的
+/// `claude`（Unix shell 脚本，Windows 原生跑不了），必须滤掉。
+#[cfg(target_os = "windows")]
+fn has_command_extension(path: &Path) -> bool {
+    path.extension()
+        .and_then(|value| value.to_str())
+        .map(|extension| {
+            let extension = extension.to_ascii_lowercase();
+            COMMAND_EXTENSIONS.contains(&extension.as_str())
+        })
+        .unwrap_or(false)
 }
 
 #[cfg(unix)]
@@ -240,6 +304,20 @@ mod tests {
         assert_eq!(result.len(), 2);
         assert_eq!(result[0].kind, AgentKind::Codex);
         assert_eq!(result[1].kind, AgentKind::Claude);
+    }
+
+    #[test]
+    fn command_candidates_cover_platform_names() {
+        let names: Vec<String> = command_candidates(Path::new(""), "claude")
+            .into_iter()
+            .map(|path| path.file_name().unwrap().to_string_lossy().to_string())
+            .collect();
+        if cfg!(target_os = "windows") {
+            // 必须覆盖 PATHEXT 默认集合：npm/pnpm 生成的是 claude.cmd，不是裸名。
+            assert_eq!(names, ["claude.exe", "claude.cmd", "claude.bat", "claude.com"]);
+        } else {
+            assert_eq!(names, ["claude"]);
+        }
     }
 
     #[cfg(target_os = "macos")]

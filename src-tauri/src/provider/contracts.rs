@@ -119,6 +119,17 @@ pub struct SwitchOutcome {
     pub effective_immediately: bool,
 }
 
+/// 一个配置文件的只读预览，内容保持文件原样，不做任何改写。
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConfigFilePreview {
+    pub path: String,
+    /// "json" | "toml"。前端按这个贴标签。
+    pub format: String,
+    /// 文件原始文本；文件不存在时为空串。
+    pub content: String,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

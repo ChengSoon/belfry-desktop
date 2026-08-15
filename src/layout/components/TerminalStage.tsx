@@ -104,8 +104,8 @@ function SessionTerminal({
 }) {
   // launch 变了就等于要换 cwd/profile，会重启 PTY——只能跟着这两个字段变。
   const launch = useMemo(
-    () => ({ profileId: tab.profileId, cwd: tab.project.rootUri }),
-    [tab.profileId, tab.project.rootUri],
+    () => ({ profileId: tab.profileId, cwd: tab.project.rootUri, resumeSessionId: tab.resumeSessionId }),
+    [tab.profileId, tab.project.rootUri, tab.resumeSessionId],
   );
   const report = useCallback(
     (snapshot: TerminalSnapshot) => onSnapshot(tab.id, snapshot),

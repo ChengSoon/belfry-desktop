@@ -120,6 +120,9 @@ pub struct CreateTerminalRequest {
     pub command: Option<Vec<String>>,
     #[serde(default)]
     pub env: std::collections::HashMap<String, String>,
+    /// 继续某条历史会话：Codex / Claude 各自 CLI 的 resume 参数。仅 Agent profile 可用。
+    #[serde(default)]
+    pub resume: Option<String>,
     pub cols: u16,
     pub rows: u16,
     pub elevation: Elevation,
@@ -147,6 +150,20 @@ impl CreateTerminalRequest {
         LaunchProfileId::parse(&self.profile_id)?;
         if self.command.is_some() {
             return Err(AppError::unsupported("custom commands are not supported"));
+        }
+        if let Some(resume) = &self.resume {
+            let agent_profile = matches!(
+                LaunchProfileId::parse(&self.profile_id)?,
+                LaunchProfileId::AgentCodex | LaunchProfileId::AgentClaude
+            );
+            if !agent_profile {
+                return Err(AppError::invalid_argument(
+                    "resume requires an agent launch profile",
+                ));
+            }
+            if resume.is_empty() || resume.contains('/') || resume.contains('\\') || resume.contains("..") {
+                return Err(AppError::invalid_argument("resume session id is invalid"));
+            }
         }
         if self.elevation != Elevation::Normal {
             return Err(AppError::unsupported(

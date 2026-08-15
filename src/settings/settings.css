@@ -1,27 +1,47 @@
-/* 设置对话框：左侧分类，右侧内容。比其它 modal 宽——里面要放表单和列表。 */
-.modal--settings {
-  width: min(560px, 100%);
-  gap: 10px;
-}
-
-.settings__body {
+/* 设置视图：整窗铺开，布局沿用 Codex 桌面版设置那种「左侧分类导航，右侧内容」。
+   打开时主界面整片隐藏（保持挂载，PTY 不断），见 workspace.css 的 is-settings 规则。
+   导航栏用侧栏底色，内容区用画布底色，跟主界面的分层保持一致。 */
+.settings-view {
   display: grid;
-  grid-template-columns: 116px minmax(0, 1fr);
-  gap: 14px;
-  /* 给个下限而不是定死高度：定死了内容少的分区会空一大片，
-     而完全不给下限，切换分类时对话框会跳一下。 */
-  min-height: 268px;
+  grid-column: 1 / -1;
+  grid-row: 1 / -1;
+  min-width: 0;
+  min-height: 0;
+  grid-template-columns: 200px minmax(0, 1fr);
+  padding-top: var(--titlebar-inset);
+  background: var(--canvas);
 }
 
-.settings__nav {
+.settings-nav {
   display: grid;
   align-content: start;
+  min-height: 0;
   gap: 2px;
-  padding-right: 12px;
+  overflow-y: auto;
+  padding: 14px 10px;
   border-right: 1px solid var(--border);
+  background: var(--sidebar);
+  scrollbar-color: var(--scrollbar) transparent;
 }
 
-.settings__nav button {
+.settings-nav__head {
+  display: flex;
+  height: 32px;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 8px;
+  padding: 0 9px;
+}
+
+.settings-nav__head strong {
+  flex: 1;
+  color: var(--text);
+  font-size: var(--fs-md);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.settings-nav > button {
   display: flex;
   align-items: center;
   gap: 7px;
@@ -36,15 +56,20 @@
   transition: color var(--duration) var(--ease), background var(--duration) var(--ease);
 }
 
-.settings__nav button:hover:not(:disabled) { color: var(--text); background: var(--surface-hover); }
-.settings__nav button.is-active { color: var(--text); background: var(--surface-hover); }
-.settings__nav button:disabled { opacity: 0.4; cursor: default; }
-.settings__nav button > svg { flex: none; }
+.settings-nav > button:hover:not(:disabled) { color: var(--text); background: var(--surface-hover); }
+.settings-nav > button.is-active { color: var(--text); background: var(--surface-hover); }
+.settings-nav > button:disabled { opacity: 0.4; cursor: default; }
+.settings-nav > button > svg { flex: none; }
 
-.settings__panel {
+/* 内容区。宽度随窗口自适应：窄窗口单列，宽窗口由各分区内部的
+   响应式规则（表单两列、预览加高等）把空间用起来，不再锁死一个固定宽度。 */
+.settings-content {
   display: grid;
   align-content: start;
-  gap: 8px;
   min-width: 0;
+  min-height: 0;
+  gap: 8px;
   overflow-y: auto;
+  padding: 18px 24px;
+  scrollbar-color: var(--scrollbar) transparent;
 }

@@ -8,15 +8,17 @@ import { TerminalStage } from "./layout/components/TerminalStage";
 import { useSessionDrag } from "./layout/useSessionDrag";
 import { useSplitLayout } from "./layout/useSplitLayout";
 import { useActivityNotifications } from "./notify/useActivityNotifications";
-import { SettingsDialog } from "./settings/SettingsDialog";
+import { SettingsPanel } from "./settings/SettingsPanel";
 import { ICON } from "./theme/sizing";
 import { UpdateDialog } from "./updater/UpdateDialog";
 import { useAppUpdater } from "./updater/useAppUpdater";
+import { HistoryPanel } from "./history/components/HistoryPanel";
+import type { HistorySession } from "./history/contracts";
 import { UsagePanel } from "./usage/components/UsagePanel";
 import { closeConfirmBody, needsCloseConfirm } from "./workspace/closeConfirm";
 import { ProjectSwitcher } from "./workspace/components/ProjectSwitcher";
 import { Sidebar } from "./workspace/components/Sidebar";
-import type { RecentProject } from "./workspace/contracts";
+import type { AgentKind, RecentProject } from "./workspace/contracts";
 import { failureLabel } from "./workspace/errors";
 import { pathKey } from "./workspace/path";
 import { removeRecentConfirmBody } from "./workspace/removeRecentConfirm";
@@ -28,6 +30,7 @@ export default function App() {
   const { foldedProjects, toggleFold, unfold } = useFoldedProjects();
   const [collapsed, setCollapsed] = useState(false);
   const [usageOpen, setUsageOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [pendingCloseId, setPendingCloseId] = useState<string | null>(null);
   const [pendingRemove, setPendingRemove] = useState<RecentProject | null>(null);
@@ -51,6 +54,22 @@ export default function App() {
     if (workspace.activeProject) unfold(workspace.activeProject.id);
     void workspace.launch(kind);
   }, [unfold, workspace.activeProject, workspace.launch]);
+
+  // 历史会话与用量面板互斥：两者都占右侧一列，栅格只留了一条轨道。
+  const toggleUsage = useCallback(() => {
+    setHistoryOpen(false);
+    setUsageOpen((value) => !value);
+  }, []);
+
+  const toggleHistory = useCallback(() => {
+    setUsageOpen(false);
+    setHistoryOpen((value) => !value);
+  }, []);
+
+  const resumeHistory = useCallback((kind: AgentKind, session: HistorySession) => {
+    if (workspace.activeProject) unfold(workspace.activeProject.id);
+    void workspace.launchHistorySession(kind, session);
+  }, [unfold, workspace.launchHistorySession, workspace.activeProject]);
 
   /**
    * 侧栏那个 X 是真删会话：PTY 被杀，滚屏跟着没，撤不回来。进程还活着就先拦一道，
@@ -91,7 +110,7 @@ export default function App() {
 
   return (
     <main
-      className={`app-shell${collapsed ? " is-collapsed" : ""}${usageOpen ? " has-usage" : ""}`}
+      className={`app-shell${collapsed ? " is-collapsed" : ""}${usageOpen ? " has-usage" : ""}${historyOpen ? " has-history" : ""}${settingsOpen ? " is-settings" : ""}`}
     >
       <AppBackground />
       <WindowTitlebar />
@@ -111,9 +130,12 @@ export default function App() {
           onLaunch={launch}
           onRefresh={workspace.redetectAgents}
           onToggleFold={toggleFold}
-          onToggleUsage={() => setUsageOpen((value) => !value)}
+          onToggleUsage={toggleUsage}
+          onToggleHistory={toggleHistory}
+          historyOpen={historyOpen}
           onOpenUpdater={updater.openPanel}
           onOpenSettings={() => setSettingsOpen(true)}
+          settingsOpen={settingsOpen}
           ref={sidebarRef}
           tabs={workspace.tabs}
           updaterOpen={updater.open}
@@ -159,8 +181,14 @@ export default function App() {
         {workspace.tabs.length === 0 ? <EmptyStage onLaunch={() => launch("shell")} /> : null}
       </section>
 
+      {settingsOpen ? <SettingsPanel onClose={() => setSettingsOpen(false)} /> : null}
+
       {usageOpen ? (
         <UsagePanel onClose={() => setUsageOpen(false)} project={workspace.activeProject} />
+      ) : null}
+
+      {historyOpen ? (
+        <HistoryPanel onClose={() => setHistoryOpen(false)} onResume={resumeHistory} />
       ) : null}
 
       {workspace.failure ? (
@@ -200,8 +228,6 @@ export default function App() {
           title={`删除 ${pendingRemove.name}？`}
         />
       ) : null}
-
-      {settingsOpen ? <SettingsDialog onClose={() => setSettingsOpen(false)} /> : null}
 
       {updater.open ? (
         <UpdateDialog

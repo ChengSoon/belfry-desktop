@@ -22,7 +22,7 @@ interface TerminalViewModel {
 
 export function useTerminalSession(
   container: RefObject<HTMLDivElement | null>,
-  launch: TerminalLaunch = { profileId: "system-default", cwd: null },
+  launch: TerminalLaunch = { profileId: "system-default", cwd: null, resumeSessionId: null },
 ): TerminalViewModel {
   const { mode } = useTheme();
   // 有图可铺时终端才让底色透出去；图还没加载完就照旧不透明，避免中间闪一下画布色。
@@ -64,7 +64,7 @@ export function useTerminalSession(
       handle.current = null;
       mounted.dispose();
     };
-  }, [container, generation, launch.cwd, launch.profileId]);
+  }, [container, generation, launch.cwd, launch.profileId, launch.resumeSessionId]);
 
   useEffect(() => {
     themeMode.current = mode;

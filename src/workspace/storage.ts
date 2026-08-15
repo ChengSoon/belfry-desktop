@@ -58,12 +58,13 @@ export function saveWorkspaceState(
 
 export function serializeWorkspaceState(tabs: WorkspaceTab[], activeTabId: string | null) {
   return JSON.stringify({
-    tabs: tabs.map(({ id, project, kind, title, titleHint }) => ({
+    tabs: tabs.map(({ id, project, kind, title, titleHint, resumeSessionId }) => ({
       id,
       project,
       kind,
       title,
       titleHint,
+      resumeSessionId,
     })),
     activeTabId: tabs.some((tab) => tab.id === activeTabId) ? activeTabId : tabs[0]?.id ?? null,
   });
@@ -84,6 +85,7 @@ export function parseWorkspaceState(value: string | null): PersistedWorkspaceSta
       kind: value.kind,
       title: value.title,
       titleHint: value.titleHint,
+      resumeSessionId: value.resumeSessionId ?? null,
       profileId: value.kind === "shell" ? "system-default" : `agent:${value.kind}`,
       phase: "idle",
       activity: "idle",
@@ -140,6 +142,8 @@ interface PersistedTab {
   kind: WorkspaceTabKind;
   title: string;
   titleHint: string | null;
+  /** 旧版本存档没有该字段，解析时按 null 处理。 */
+  resumeSessionId: string | null;
 }
 
 function isPersistedTab(value: unknown): value is PersistedTab {
@@ -149,7 +153,11 @@ function isPersistedTab(value: unknown): value is PersistedTab {
     && isWorkspaceTabKind(value.kind)
     && typeof value.title === "string"
     && value.title.length > 0
-    && (value.titleHint === null || typeof value.titleHint === "string");
+    && (value.titleHint === null || typeof value.titleHint === "string")
+    // 旧版本存档没有该字段（undefined 也要放行），解析时按 null 处理。
+    && (value.resumeSessionId === undefined
+      || value.resumeSessionId === null
+      || typeof value.resumeSessionId === "string");
 }
 
 function isProjectWorkspace(value: unknown): value is ProjectWorkspace {

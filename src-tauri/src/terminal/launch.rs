@@ -17,11 +17,12 @@ pub(super) fn resolve_launch(
     profile_id: &str,
     cwd: &Path,
     env: &HashMap<String, String>,
+    resume: Option<&str>,
 ) -> Result<ResolvedLaunch, AppError> {
     match LaunchProfileId::parse(profile_id)? {
         LaunchProfileId::SystemDefault => resolve_shell_launch(cwd, env),
-        LaunchProfileId::AgentCodex => resolve_agent_launch(AgentKind::Codex, cwd, env),
-        LaunchProfileId::AgentClaude => resolve_agent_launch(AgentKind::Claude, cwd, env),
+        LaunchProfileId::AgentCodex => resolve_agent_launch(AgentKind::Codex, cwd, env, resume),
+        LaunchProfileId::AgentClaude => resolve_agent_launch(AgentKind::Claude, cwd, env, resume),
     }
 }
 
@@ -51,21 +52,29 @@ fn resolve_agent_launch(
     kind: AgentKind,
     cwd: &Path,
     env: &HashMap<String, String>,
+    resume: Option<&str>,
 ) -> Result<ResolvedLaunch, AppError> {
     let executable = resolve_agent(kind)?;
     let mut command = agent_command(&executable, cwd, env);
-    command.args(agent_args(kind));
+    command.args(agent_args(kind, resume));
     Ok(ResolvedLaunch {
         command,
         display_name: kind.command_name().to_string(),
     })
 }
 
-fn agent_args(kind: AgentKind) -> &'static [&'static str] {
-    match kind {
-        AgentKind::Codex => &[],
-        AgentKind::Claude => &["--dangerously-skip-permissions"],
+fn agent_args(kind: AgentKind, resume: Option<&str>) -> Vec<String> {
+    let mut args: Vec<String> = match kind {
+        AgentKind::Codex => Vec::new(),
+        AgentKind::Claude => vec!["--dangerously-skip-permissions".to_string()],
+    };
+    if let Some(session_id) = resume {
+        match kind {
+            AgentKind::Codex => args.extend(["resume".to_string(), session_id.to_string()]),
+            AgentKind::Claude => args.extend(["--resume".to_string(), session_id.to_string()]),
+        }
     }
+    args
 }
 
 fn configured_command(
@@ -199,13 +208,29 @@ mod tests {
     #[test]
     fn claude_skips_permission_prompts() {
         assert_eq!(
-            agent_args(AgentKind::Claude),
+            agent_args(AgentKind::Claude, None),
             &["--dangerously-skip-permissions"]
         );
     }
 
     #[test]
     fn codex_launch_arguments_are_unchanged() {
-        assert!(agent_args(AgentKind::Codex).is_empty());
+        assert!(agent_args(AgentKind::Codex, None).is_empty());
+    }
+
+    #[test]
+    fn resume_appends_agent_specific_flags() {
+        assert_eq!(
+            agent_args(AgentKind::Codex, Some("019ff0d5-dbaf-7893-96db-4fbbbfee03a7")),
+            &["resume", "019ff0d5-dbaf-7893-96db-4fbbbfee03a7"]
+        );
+        assert_eq!(
+            agent_args(AgentKind::Claude, Some("cf32a9a3-0a60-427b-8bba-823e36c66d13")),
+            &[
+                "--dangerously-skip-permissions",
+                "--resume",
+                "cf32a9a3-0a60-427b-8bba-823e36c66d13"
+            ]
+        );
     }
 }

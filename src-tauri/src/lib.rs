@@ -3,6 +3,7 @@
 
 mod agent;
 mod background;
+mod history;
 mod project;
 mod provider;
 mod resource;
@@ -29,8 +30,14 @@ pub fn run() {
             project::commands::project_open,
             provider::commands::provider_list,
             provider::commands::provider_remove,
+            provider::commands::provider_config_save,
+            provider::commands::provider_config_preview,
+            provider::commands::provider_sync_live,
             provider::commands::provider_save,
             provider::commands::provider_switch,
+            history::commands::history_list,
+            history::commands::history_delete,
+            history::commands::history_clear,
             usage::commands::usage_report,
             commands::terminal_create,
             commands::terminal_write,

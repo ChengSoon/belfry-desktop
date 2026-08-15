@@ -10,8 +10,10 @@ use crate::agent::AgentKind;
 use crate::terminal::AppError;
 
 use super::contracts::{
-    AgentProviderGroup, ProviderCatalog, ProviderConfig, ProviderDraft, SwitchOutcome,
+    AgentProviderGroup, ConfigFilePreview, ProviderCatalog, ProviderConfig, ProviderDraft,
+    SwitchOutcome,
 };
+use super::atomic::read_text_optional;
 use super::store::StoreFile;
 use super::{claude, codex, envcheck, store};
 
@@ -19,11 +21,58 @@ use super::{claude, codex, envcheck, store};
 const ADOPTED_NAME: &str = "导入的配置";
 
 pub(super) fn catalog(app: &AppHandle) -> Result<ProviderCatalog, AppError> {
-    let mut store = store::load(app)?;
+    let loaded = store::load(app);
+    if let Err(err) = &loaded {
+        probe_dump(app, &format!("store::load 失败：{err:?}"));
+    }
+    let mut store = loaded?;
     if adopt_live(&mut store)? {
         store::save(app, &store)?;
     }
-    Ok(build(&store))
+    let catalog = build(&store);
+    probe_dump(
+        app,
+        &catalog
+            .agents
+            .iter()
+            .map(|group| {
+                format!(
+                    "{:?}={} 条 current={:?}",
+                    group.kind,
+                    group.providers.len(),
+                    group.current_id
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(" | "),
+    );
+    Ok(catalog)
+}
+
+/// 临时排查用：把每次 provider_list 的真实结果记到 /tmp，排完就删。
+/// 光看界面分不清「窗口跑的是旧二进制」「后端返回空」「前端没渲染」这三种情况。
+fn probe_dump(app: &AppHandle, summary: &str) {
+    use std::io::Write;
+    use tauri::Manager;
+    let exe = std::env::current_exe()
+        .map(|path| path.display().to_string())
+        .unwrap_or_else(|_| "?".into());
+    let data_dir = app
+        .path()
+        .app_data_dir()
+        .map(|path| path.display().to_string())
+        .unwrap_or_else(|err| format!("<取不到：{err}>"));
+    if let Ok(mut file) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open("/tmp/belfry-catalog-probe.log")
+    {
+        let _ = writeln!(
+            file,
+            "pid={} exe={exe}\n  data_dir={data_dir}\n  {summary}",
+            std::process::id()
+        );
+    }
 }
 
 pub(super) fn save_provider(
@@ -154,23 +203,132 @@ fn write_live(
     }
 }
 
+/// 当前生效的配置文件原文，供前端展示。
+///
+/// Claude Code 只有 `~/.claude/settings.json`；Codex 有 `config.toml` 和
+/// `auth.json` 两个文件。只读返回原文，不改写任何内容——用户自己的 hooks、
+/// MCP、token 都原样呈现，和 cc-switch 里打开配置文件看到的一样。
+pub(super) fn config_files(kind: AgentKind) -> Result<Vec<ConfigFilePreview>, AppError> {
+    match kind {
+        AgentKind::Claude => {
+            let path = claude::settings_path()?;
+            Ok(vec![ConfigFilePreview {
+                path: path.display().to_string(),
+                format: "json".to_string(),
+                content: read_text_optional(&path)?,
+            }])
+        }
+        AgentKind::Codex => codex::config_files(),
+    }
+}
+
+/// 保存用户在界面上编辑后的配置文件全文。路径白名单和格式校验在各 agent 模块里。
+pub(super) fn save_config_file(
+    kind: AgentKind,
+    path: String,
+    content: String,
+) -> Result<(), AppError> {
+    let path = std::path::PathBuf::from(path);
+    match kind {
+        AgentKind::Claude => claude::save_config_file(&path, &content),
+        AgentKind::Codex => codex::save_config_file(&path, &content),
+    }
+}
+
+/// 把 live 配置文件里当前生效的 provider 同步进 Belfry 的库。
+///
+/// 用户在界面上直接编辑配置文件（`provider_config_save`）后，磁盘文件变了但
+/// 库里的列表没变，列表就显示不出刚配置的 provider。这里检测 live 配置：
+/// base_url 匹配现有条目就更新它并设为当前，否则新建一条。检测不到
+/// （比如用户把 `model_provider` 摘掉切回官方）就不动库里已有内容。
+pub(super) fn sync_live(app: &AppHandle, kind: AgentKind) -> Result<ProviderCatalog, AppError> {
+    let mut store = store::load(app)?;
+    apply_live_to_store(&mut store, kind, detect_live(kind)?);
+    store::save(app, &store)?;
+    Ok(build(&store))
+}
+
+/// 把检测到的 live provider 合进 store：base_url 相同就更新现有条目，
+/// 否则新建，并一律设为当前生效。`None`（切回官方）不动 store。
+fn apply_live_to_store(
+    store: &mut StoreFile,
+    kind: AgentKind,
+    detected: Option<(String, String, String, String)>,
+) {
+    let Some((name, base_url, api_key, model)) = detected else {
+        return;
+    };
+    let matched_id = store
+        .agent(kind)
+        .providers
+        .iter()
+        .find(|item| item.base_url == base_url)
+        .map(|item| item.id.clone());
+    let id = match matched_id {
+        Some(id) => {
+            let entry = store
+                .agent_mut(kind)
+                .providers
+                .iter_mut()
+                .find(|item| item.id == id)
+                .expect("find 与 iter_mut 遍历的是同一个列表");
+            entry.name = name.trim().to_string();
+            entry.api_key = api_key;
+            entry.model = model;
+            id
+        }
+        None => {
+            let config = ProviderConfig {
+                id: ulid::Ulid::generate().to_string(),
+                name: name.trim().to_string(),
+                base_url,
+                api_key,
+                model,
+                created_at: now_millis(),
+            };
+            let id = config.id.clone();
+            store.agent_mut(kind).providers.push(config);
+            id
+        }
+    };
+    store.agent_mut(kind).current_id = Some(id);
+}
+
+
 /// 把 CLI 配置文件里已有的 provider 设置收编成一条可切回的条目。
 ///
-/// 用户装 Belfry 之前多半已经配好了某个中转服务。不做这一步的话，
-/// 他第一次点「切换」就会把原有设置静默覆盖掉，而且没有退路。
-/// 只在某个 agent 一条 provider 都没有时执行，所以不会重复导入。
+/// 两个入口都会走到这里：首次接管（用户装 Belfry 前配好的中转服务，不导入
+/// 的话第一次点切换就会把原有设置静默覆盖掉），以及打开设置时同步用户在
+/// 配置文件里直接写的新 provider（base_url 不在库里就导入并设为当前）。
+/// 只导入、不更新已有条目：库里那份是用户表单里亲手编辑的，不能拿文件盖掉。
 fn adopt_live(store: &mut StoreFile) -> Result<bool, AppError> {
     let mut changed = false;
     for kind in AgentKind::ALL {
-        if !store.agent(kind).providers.is_empty() {
-            continue;
-        }
-        let Some((name, base_url, api_key, model)) = detect_live(kind)? else {
+        // 单个 agent 的配置文件读不动（比如用户正在编辑器里改到一半、或 TOML
+        // 暂时写坏了）不能拖垮整个列表：列表用的是库里已保存的数据，这次收编
+        // 跳过即可，等文件恢复后下次打开设置再同步。
+        let detected = match detect_live(kind) {
+            Ok(detected) => detected,
+            Err(err) => {
+                eprintln!("adopt_live: 跳过 {kind:?}，读配置失败：{err:?}");
+                continue;
+            }
+        };
+        let Some((name, base_url, api_key, model)) = detected else {
             continue;
         };
+        // 库里已有同 base_url 的条目就不动，避免每次打开设置重复导入。
+        if store
+            .agent(kind)
+            .providers
+            .iter()
+            .any(|item| item.base_url == base_url)
+        {
+            continue;
+        }
         let config = ProviderConfig {
             id: ulid::Ulid::generate().to_string(),
-            name,
+            name: name.trim().to_string(),
             base_url,
             api_key,
             model,
@@ -239,4 +397,74 @@ mod tests {
         assert!(catalog.agents.iter().all(|group| group.providers.is_empty()));
         assert!(catalog.agents.iter().all(|group| group.current_id.is_none()));
     }
+
+    #[test]
+    fn applying_a_live_provider_creates_a_new_entry_and_marks_it_current() {
+        let mut store = StoreFile::default();
+
+        apply_live_to_store(
+            &mut store,
+            AgentKind::Codex,
+            Some((
+                "中转".to_string(),
+                "https://relay.example.com".to_string(),
+                "sk-1".to_string(),
+                "gpt-x".to_string(),
+            )),
+        );
+
+        let agent = store.agent(AgentKind::Codex);
+        assert_eq!(agent.providers.len(), 1);
+        assert_eq!(agent.providers[0].base_url, "https://relay.example.com");
+        assert_eq!(agent.providers[0].model, "gpt-x");
+        assert_eq!(
+            agent.current_id.as_deref(),
+            Some(agent.providers[0].id.as_str()),
+            "刚配置的 provider 应直接成为当前生效"
+        );
+    }
+
+    #[test]
+    fn applying_a_live_provider_updates_the_matching_entry() {
+        let mut store = StoreFile::default();
+        apply_live_to_store(
+            &mut store,
+            AgentKind::Codex,
+            Some((
+                "旧名".to_string(),
+                "https://relay.example.com".to_string(),
+                "sk-old".to_string(),
+                String::new(),
+            )),
+        );
+        let old_id = store.agent(AgentKind::Codex).providers[0].id.clone();
+
+        apply_live_to_store(
+            &mut store,
+            AgentKind::Codex,
+            Some((
+                "新名".to_string(),
+                "https://relay.example.com".to_string(),
+                "sk-new".to_string(),
+                "gpt-new".to_string(),
+            )),
+        );
+
+        let agent = store.agent(AgentKind::Codex);
+        assert_eq!(agent.providers.len(), 1, "同一 base_url 不该重复建条目");
+        assert_eq!(agent.providers[0].id, old_id);
+        assert_eq!(agent.providers[0].name, "新名");
+        assert_eq!(agent.providers[0].api_key, "sk-new");
+    }
+
+    #[test]
+    fn applying_none_leaves_the_store_untouched() {
+        let mut store = StoreFile::default();
+
+        apply_live_to_store(&mut store, AgentKind::Claude, None);
+
+        assert!(store.agent(AgentKind::Claude).providers.is_empty());
+        assert!(store.agent(AgentKind::Claude).current_id.is_none());
+    }
 }
+

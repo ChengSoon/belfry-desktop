@@ -29,7 +29,9 @@
 .appearance__preview {
   position: relative;
   display: grid;
-  height: 96px;
+  /* 高度跟着窗口走：设置视图整窗铺开后，固定 96px 会在高窗口下显得空。
+     窗口越高预览越高，但给个上下限，别把小窗口撑爆或在大屏上失形。 */
+  height: clamp(110px, 24vh, 220px);
   place-items: center;
   overflow: hidden;
   border: 1px solid var(--border);
@@ -37,7 +39,7 @@
   background: var(--canvas);
 }
 
-/* 与 background.css 里那两层同源，读的是同一组 --app-bg-* 变量。
+/* 与 background.css 里那几层同源，读的是同一组 --app-bg-* 变量。
    这里不做 blur 的外扩：预览框小，边缘那点晕反而如实反映了模糊强度。 */
 .appearance__preview-image {
   position: absolute;
@@ -56,7 +58,16 @@
   opacity: calc(1 - var(--app-bg-opacity, 0.35));
 }
 
-/* 样例文字压在两层之上，用终端的等宽字体——判断可读性得看真实字形。 */
+/* 终端在 scrim 之上还压了一层与侧栏同档的 veil（见 terminal.css），
+   预览要如实反映这个叠加，否则滑块调出来的效果和实际差一截。 */
+:root[data-background="on"] .appearance__preview-veil {
+  position: absolute;
+  inset: 0;
+  background: var(--canvas);
+  opacity: var(--app-bg-veil, 78%);
+}
+
+/* 样例文字压在几层之上，用终端的等宽字体——判断可读性得看真实字形。 */
 .appearance__preview-text {
   position: relative;
   padding: 0 10px;

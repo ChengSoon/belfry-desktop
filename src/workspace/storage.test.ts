@@ -87,6 +87,19 @@ describe("workspace session persistence", () => {
     });
   });
 
+  it("persists and restores the resumed history session id", () => {
+    const resumed = {
+      ...createWorkspaceTab(project, "codex", 1),
+      id: "codex-1",
+      resumeSessionId: "019ff0d5-dbaf-7893-96db-4fbbbfee03a7",
+    };
+    const restored = parseWorkspaceState(serializeWorkspaceState([resumed], resumed.id));
+    expect(restored?.tabs[0].resumeSessionId).toBe("019ff0d5-dbaf-7893-96db-4fbbbfee03a7");
+    // 普通会话持久化为 null，而不是缺字段。
+    const plain = parseWorkspaceState(serializeWorkspaceState([createWorkspaceTab(project, "shell", 1)], null));
+    expect(plain?.tabs[0].resumeSessionId).toBeNull();
+  });
+
   it("keeps an intentionally empty session list", () => {
     expect(parseWorkspaceState(serializeWorkspaceState([], null))).toEqual({
       tabs: [],

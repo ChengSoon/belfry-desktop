@@ -13,6 +13,8 @@ export type LaunchProfileId = "system-default" | "agent:codex" | "agent:claude";
 export interface TerminalLaunch {
   profileId: LaunchProfileId;
   cwd: string | null;
+  /** 继续某条历史会话：Codex/Claude 的 resume 参数。null 表示普通新会话。 */
+  resumeSessionId: string | null;
 }
 
 /**
@@ -33,6 +35,7 @@ export interface CreateTerminalRequest {
   cwd: string | null;
   command: null;
   env: Record<string, string>;
+  resume: string | null;
   cols: number;
   rows: number;
   elevation: "normal";
@@ -78,6 +81,7 @@ export function createTerminalRequest(
     cwd: launch.cwd,
     command: null,
     env: {},
+    resume: launch.resumeSessionId,
     cols,
     rows,
     elevation: "normal",
@@ -94,7 +98,7 @@ export function createDefaultRequest(
   return createTerminalRequest(
     cols,
     rows,
-    { profileId: "system-default", cwd: null },
+    { profileId: "system-default", cwd: null, resumeSessionId: null },
     palette,
     userAgent,
   );

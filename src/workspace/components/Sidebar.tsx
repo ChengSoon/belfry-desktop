@@ -1,4 +1,4 @@
-import { ChevronRight, Download, Gauge, PanelLeftClose, Settings, SquareTerminal, X } from "lucide-react";
+import { ChevronRight, Download, Gauge, History, PanelLeftClose, Settings, SquareTerminal, X } from "lucide-react";
 import type { CSSProperties, PointerEvent, Ref } from "react";
 import { PanelResizeHandle } from "../../panel/PanelResizeHandle";
 import { usePanelWidth } from "../../panel/usePanelWidth";
@@ -30,9 +30,12 @@ interface SidebarProps {
   onToggleFold: (projectId: string) => void;
   onCollapse: () => void;
   onToggleUsage: () => void;
+  onToggleHistory: () => void;
   onOpenUpdater: () => void;
   onOpenSettings: () => void;
+  settingsOpen: boolean;
   usageOpen: boolean;
+  historyOpen: boolean;
   updaterOpen: boolean;
   updaterState: UpdaterState;
   /** 命中测试要拿侧栏的真实矩形，才能判断会话被拖回了列表。 */
@@ -57,12 +60,15 @@ export function Sidebar({
   onToggleFold,
   onCollapse,
   onToggleUsage,
+  onToggleHistory,
   onOpenUpdater,
   onOpenSettings,
   ref,
+  settingsOpen,
   updaterOpen,
   updaterState,
   usageOpen,
+  historyOpen,
 }: SidebarProps) {
   const groups = groupTabsByProject(tabs);
   const { commitWidth, resetWidth, setWidth, width } = usePanelWidth(SIDEBAR_WIDTH);
@@ -115,6 +121,7 @@ export function Sidebar({
             </button>
           ) : null}
           <button
+            aria-pressed={settingsOpen}
             className="icon-button icon-button--sm"
             onClick={onOpenSettings}
             title="设置"
@@ -130,6 +137,15 @@ export function Sidebar({
             type="button"
           >
             <Gauge aria-hidden="true" size={ICON.md} />
+          </button>
+          <button
+            aria-pressed={historyOpen}
+            className="icon-button icon-button--sm"
+            onClick={onToggleHistory}
+            title="历史会话"
+            type="button"
+          >
+            <History aria-hidden="true" size={ICON.md} />
           </button>
           <button className="icon-button icon-button--sm" onClick={onCollapse} title="收起侧栏 ⌘B" type="button">
             <PanelLeftClose aria-hidden="true" size={ICON.md} />

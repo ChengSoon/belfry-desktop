@@ -69,5 +69,11 @@
   background: color-mix(in srgb, var(--surface) var(--app-bg-veil), transparent);
 }
 
+/* 终端窗格自己的标题条（会话标签那一横条）同样要让开：它横跨整个舞台顶部，
+   不处理的话背景图铺开时顶上会压一条纯白实色，是全窗口最扎眼的一处不均。 */
+:root[data-background="on"] .terminal-pane__bar {
+  background: color-mix(in srgb, var(--surface-raised) var(--app-bg-veil), transparent);
+}
+
 /* 浮层（模态、确认框、toast）刻意不在此列：它们的职责就是把底下的东西压住，
    半透明会让正文压在图案上读不清。背景图只透过「面」，不透过「浮层」。 */

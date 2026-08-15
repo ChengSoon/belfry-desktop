@@ -1,8 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AgentKind, AppFailure } from "../workspace/contracts";
 import { toAppFailure } from "../workspace/errors";
-import { listProviders, removeProvider, saveProvider, switchProvider } from "./api";
+import { listProviders, removeProvider, saveProvider, switchProvider, syncLiveProvider } from "./api";
 import { AGENT_LABEL, type ProviderCatalog, type ProviderDraft } from "./contracts";
+
+/** 临时排查用：把 IPC 的真实返回外发给 tmp/app-probe/catch-catalog.mjs，排完就删。 */
+function probe(payload: unknown) {
+  void fetch("http://127.0.0.1:8899/", {
+    body: JSON.stringify(payload),
+    method: "POST",
+  }).catch(() => {});
+}
 
 export function useProviders(open: boolean) {
   const [catalog, setCatalog] = useState<ProviderCatalog | null>(null);
@@ -18,9 +26,11 @@ export function useProviders(open: boolean) {
     setFailure(null);
     try {
       const result = await task();
+      probe({ stage: "resolved", version, current: requestVersion.current, result });
       if (version !== requestVersion.current) return;
       apply(result);
     } catch (error) {
+      probe({ stage: "threw", version, error: String(error) });
       if (version === requestVersion.current) setFailure(toAppFailure(error));
     } finally {
       if (version === requestVersion.current) setLoading(false);
@@ -61,6 +71,12 @@ export function useProviders(open: boolean) {
     [run],
   );
 
+  /** 配置文件被手动编辑后调用：把 live 配置同步进库，列表跟着更新。 */
+  const syncLive = useCallback(
+    (kind: AgentKind) => run(() => syncLiveProvider(kind), setCatalog),
+    [run],
+  );
+
   return {
     catalog,
     dismissFailure: () => setFailure(null),
@@ -72,5 +88,6 @@ export function useProviders(open: boolean) {
     remove,
     save,
     select,
+    syncLive,
   };
 }

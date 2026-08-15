@@ -20,7 +20,11 @@ interface TerminalViewportProps {
 
 export function TerminalViewport({ visible, launch, onSnapshot }: TerminalViewportProps) {
   const terminalHost = useRef<HTMLDivElement>(null);
-  const stableLaunch = useMemo(() => launch, [launch.cwd, launch.profileId]);
+  // resumeSessionId 与 cwd/profileId 一样会触发 PTY 重启，必须一起参与记忆。
+  const stableLaunch = useMemo(
+    () => launch,
+    [launch.cwd, launch.profileId, launch.resumeSessionId],
+  );
   const session = useTerminalSession(terminalHost, stableLaunch);
   const dormant = session.phase === "exited" || session.phase === "error";
 

@@ -18,15 +18,15 @@ const DARK: TerminalTheme = {
   cursor: "#e4e4e7",
   cursorAccent: "#0a0a0b",
   selectionBackground: "rgba(110, 139, 255, 0.28)",
-  // 滚动条滑块整个藏掉：终端右侧那条灰杠没什么信息量，滚动位置从内容本身就看得出来。
+  // 滚动条滑块走 --scrollbar 同款灰阶（xterm 读不到 CSS 变量，色值写死）：
+  // hover / 拖动时提亮一档，与全局原生滚动条观感一致。
   // 走主题而不是 CSS —— xterm 在运行时把这三个值注入自己的样式表，位置排在我们的 CSS 之后，
   // 且 :hover / .active 两条变体特异度更高，从 CSS 那边压只能靠 !important。
-  // 必须写成零透明度的 rgba，不能用 transparent 关键字：xterm 的颜色解析器不认它，
+  // 必须写成不透明的颜色，不能用 transparent 关键字：xterm 的颜色解析器不认它，
   // 会静默退回内置默认色（前景色 20% 透明度），看起来就像改动没生效。
-  // 滚动能力与滑块无关（见 terminal.css 里 .scrollbar 那条），涂透明不影响滚轮和键盘。
-  scrollbarSliderBackground: "rgba(0, 0, 0, 0)",
-  scrollbarSliderHoverBackground: "rgba(0, 0, 0, 0)",
-  scrollbarSliderActiveBackground: "rgba(0, 0, 0, 0)",
+  scrollbarSliderBackground: "#34353c",
+  scrollbarSliderHoverBackground: "#4a4b53",
+  scrollbarSliderActiveBackground: "#5a5b63",
   black: "#26272b",
   red: "#f0796f",
   green: "#57c99a",
@@ -51,10 +51,10 @@ const LIGHT: TerminalTheme = {
   cursor: "#26272b",
   cursorAccent: "#fafafa",
   selectionBackground: "rgba(59, 91, 219, 0.18)",
-  // 同 DARK：滑块藏掉，理由见上面那段注释。
-  scrollbarSliderBackground: "rgba(0, 0, 0, 0)",
-  scrollbarSliderHoverBackground: "rgba(0, 0, 0, 0)",
-  scrollbarSliderActiveBackground: "rgba(0, 0, 0, 0)",
+  // 同 DARK：滑块走 --scrollbar 同款灰阶，理由见上面那段注释。
+  scrollbarSliderBackground: "#c9cbd1",
+  scrollbarSliderHoverBackground: "#b4b6bc",
+  scrollbarSliderActiveBackground: "#9a9ca3",
   black: "#26272b",
   red: "#c4342a",
   green: "#12875a",

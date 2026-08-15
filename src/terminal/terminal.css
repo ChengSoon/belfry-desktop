@@ -48,25 +48,22 @@
   scrollbar-width: none;
 }
 
-/* 这里的 transparent 是 CSS 关键字，合法；xtermTheme.ts 里不能这么写是因为
-   xterm 自己的颜色解析器不认它，两处不是一回事。 */
+/* 铺了背景图时终端底色让开，但不再完全透明：改走与侧栏同一档的 --app-bg-veil。
+   以前透到底，终端空隙里图片以满强度露出来，而侧栏、标题栏只透 22%——
+   同一张图三种强度，界面就显得花。统一成同一档后，整窗是一层均匀的磨砂底，
+   内容面板浮在上面，不会再有大图斑块。 */
 :root[data-background="on"] {
-  --terminal-fill: transparent;
+  --terminal-fill: color-mix(in srgb, var(--canvas) var(--app-bg-veil), transparent);
 }
 
 .terminal-canvas .xterm-viewport::-webkit-scrollbar {
   display: none;
 }
 
-/* 滑块已在 xtermTheme.ts 里涂成透明（那边有为什么不在这里改颜色的说明）。
-   这里补最后一步：把整条滚动条移出命中测试。看不见的东西还能拖、还能点着跳页，
-   等于在终端右边埋了个隐形控件。
-   滚动本身不经过这些 DOM——滚轮和键盘由 xterm 的 scrollable element 自己接，
-   再调 terminal.scrollLines，滑块只是个被动指示器，摘掉它不影响任何滚动路径。 */
-.terminal-canvas .xterm-scrollable-element > .scrollbar {
-  visibility: hidden;
-  pointer-events: none;
-}
+/* 纵向滚动条由 xterm 自绘（.xterm-scrollable-element > .scrollbar），
+   滑块颜色在 xtermTheme.ts 里按 --scrollbar 维护；滚轮、键盘与拖拽滚动都走它。
+   鼠标在终端区域内时滑块保持可见，移出后按 xterm 默认节奏淡出，
+   内容不满一屏时自动不出现。这里不再隐藏它。 */
 
 /* 竖条光标的高度在 DOM renderer 里等于整个字符格（fontSize × lineHeight），没有选项能调。
    它是 .xterm-cursor-bar 上的 inset box-shadow 画出来的，所以裁掉底部 1px 让它比格子略短，

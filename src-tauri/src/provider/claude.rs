@@ -102,6 +102,27 @@ pub(super) fn write_settings(settings: &Value) -> Result<(), AppError> {
     write_atomic(&path, &text, true)
 }
 
+/// 保存用户在界面上编辑后的 settings.json 全文。
+///
+/// 路径必须是 `settings_path()` 算出来的那个，别的文件一概不碰。
+/// 写之前先校验 JSON：文件里可能住着 hooks，坏了 Claude Code 直接跑不起来。
+pub(super) fn save_config_file(path: &std::path::Path, content: &str) -> Result<(), AppError> {
+    let expected = settings_path()?;
+    if path != expected {
+        return Err(AppError::invalid_argument(format!(
+            "只允许修改 {}，不能动别的文件",
+            expected.display()
+        )));
+    }
+    serde_json::from_str::<Value>(content).map_err(|err| {
+        AppError::invalid_argument(format!(
+            "{} 不是合法的 JSON，文件没有改动：{err}",
+            expected.display()
+        ))
+    })?;
+    write_atomic(&expected, content, true)
+}
+
 /// 从现有配置里认出一份 provider 设置，用于首次接管。
 ///
 /// 用户在装 Belfry 之前多半已经配好了某个中转服务，那份配置必须变成一条

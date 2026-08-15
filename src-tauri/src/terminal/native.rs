@@ -54,7 +54,7 @@ impl PtyBackend for NativePtyBackend {
         request.validate()?;
         validate_platform(request.platform)?;
         let cwd = resolve_cwd(request.cwd.as_deref())?;
-        let launch = resolve_launch(&request.profile_id, &cwd, &request.env)?;
+        let launch = resolve_launch(&request.profile_id, &cwd, &request.env, request.resume.as_deref())?;
         let shell = launch.display_name;
         let pty_system = native_pty_system();
         let pair = pty_system

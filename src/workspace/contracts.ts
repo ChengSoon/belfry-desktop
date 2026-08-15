@@ -27,6 +27,8 @@ export interface WorkspaceTab {
   /** 命名所依据的完整输入原文，未截断，只给 tooltip 用。 */
   titleHint: string | null;
   profileId: LaunchProfileId;
+  /** 新建会话时继承的历史会话 id；普通会话为 null。 */
+  resumeSessionId: string | null;
   phase: TerminalPhase;
   /** 与 phase 正交：phase 说进程活着没，activity 说它眼下在干什么。 */
   activity: SessionActivity;
