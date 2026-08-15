@@ -1,5 +1,5 @@
 import { AlertTriangle, PanelLeftOpen, X } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppBackground } from "./background/AppBackground";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { WindowTitlebar } from "./components/WindowTitlebar";
@@ -7,6 +7,7 @@ import "./workspace/workspace.css";
 import { TerminalStage } from "./layout/components/TerminalStage";
 import { useSessionDrag } from "./layout/useSessionDrag";
 import { useSplitLayout } from "./layout/useSplitLayout";
+import { useActivityNotifications } from "./notify/useActivityNotifications";
 import { SettingsDialog } from "./settings/SettingsDialog";
 import { ICON } from "./theme/sizing";
 import { UpdateDialog } from "./updater/UpdateDialog";
@@ -40,6 +41,10 @@ export default function App() {
     // 只有分屏里的会话摘得动：没分屏时舞台始终跟着活动会话，摘掉也没地方去。
     canEject: (tabId) => layout.panes.length > 1 && layout.rects.has(tabId),
   });
+
+  // 画在舞台上的那几条会话。没分屏时就是活动会话自己；用户看得见的就不必再弹通知。
+  const visibleTabIds = useMemo(() => new Set(layout.rects.keys()), [layout.rects]);
+  useActivityNotifications(workspace.tabs, visibleTabIds);
 
   // 新会话继承 activeProject，那组要是折叠着就会开出一个侧栏里看不见的会话。
   const launch = useCallback((kind: Parameters<typeof workspace.launch>[0]) => {

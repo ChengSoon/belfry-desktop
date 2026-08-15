@@ -69,6 +69,14 @@ Neither agent detected? Doesn't matter. Shell sessions don't depend on them, and
 - Session state separates process lifecycle (creating / running / exited / error) from current behavior (idle / talking / awaiting choice)
 - Tab titles are extracted from your first prompt; the untruncated original stays in the tooltip
 
+**Activity notifications**
+
+- Only two things are worth interrupting you for: the agent finished, or it's stuck on something only you can answer
+- Completion notifications wait 1500 ms before firing. Activity is inferred by scanning screen text, and `talking → idle → awaiting choice` is a common path (the spinner disappears a beat before the permission prompt paints) — firing "finished" in that gap is a pure false positive
+- Nothing pops while you're looking right at that session — you've already seen it
+- State goes in the title, identity in the body: first decide whether to deal with it now, then which session it was
+- Unread counts aggregate into the Dock / taskbar badge and clear when you come back
+
 **Provider switching**
 
 - Switch Codex / Claude Code routing between official endpoints and third-party relays. It rewrites the CLI's own config files, so running `claude` or `codex` outside Belfry picks up the same setting
@@ -150,6 +158,7 @@ src/                  frontend
   terminal/           PTY sessions and xterm control
   provider/           provider switching for the agent CLIs
   settings/           settings dialog (appearance, providers)
+  notify/             activity notifications and badge
   usage/              token usage aggregation and display
   panel/              panel width and dragging
   theme/              theming and terminal palette
