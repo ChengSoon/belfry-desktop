@@ -1,4 +1,4 @@
-import { ChevronRight, Download, Gauge, Palette, PanelLeftClose, SquareTerminal, X } from "lucide-react";
+import { ChevronRight, Download, Gauge, PanelLeftClose, Settings, SquareTerminal, X } from "lucide-react";
 import type { CSSProperties, PointerEvent, Ref } from "react";
 import { PanelResizeHandle } from "../../panel/PanelResizeHandle";
 import { usePanelWidth } from "../../panel/usePanelWidth";
@@ -31,7 +31,7 @@ interface SidebarProps {
   onCollapse: () => void;
   onToggleUsage: () => void;
   onOpenUpdater: () => void;
-  onOpenAppearance: () => void;
+  onOpenSettings: () => void;
   usageOpen: boolean;
   updaterOpen: boolean;
   updaterState: UpdaterState;
@@ -58,7 +58,7 @@ export function Sidebar({
   onCollapse,
   onToggleUsage,
   onOpenUpdater,
-  onOpenAppearance,
+  onOpenSettings,
   ref,
   updaterOpen,
   updaterState,
@@ -116,11 +116,11 @@ export function Sidebar({
           ) : null}
           <button
             className="icon-button icon-button--sm"
-            onClick={onOpenAppearance}
-            title="外观设置"
+            onClick={onOpenSettings}
+            title="设置"
             type="button"
           >
-            <Palette aria-hidden="true" size={ICON.md} />
+            <Settings aria-hidden="true" size={ICON.md} />
           </button>
           <button
             aria-pressed={usageOpen}

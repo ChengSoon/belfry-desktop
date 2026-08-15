@@ -16,11 +16,16 @@ tauri-build = { version = "2.6.3", features = [] }
 [dependencies]
 portable-pty = "0.9.0"
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+# preserve_order：provider 切换只改用户配置里的几个 key，其余逐字不动。
+# 默认的 BTreeMap 会把 settings.json 的键按字母重排，diff 里全是噪声。
+serde_json = { version = "1.0", features = ["preserve_order"] }
 tauri = { version = "2.11.5", features = [] }
 tauri-plugin-dialog = "2.7.2"
 tauri-plugin-process = "2.3.1"
 tauri-plugin-updater = "2.10.1"
+# 同理，Codex 的 config.toml 里有 MCP 定义和项目信任记录，改 provider 不能动它们。
+# toml_edit 保留注释、空行与键序，toml 的 Value 往返会全丢。
+toml_edit = "0.25"
 ulid = { version = "3.0.0", features = ["serde"] }
 
 # canonicalize 的产物要能直接喂给 CreateProcessW / cmd.exe / 文件对话框，

@@ -4,6 +4,7 @@
 mod agent;
 mod background;
 mod project;
+mod provider;
 mod resource;
 mod terminal;
 mod usage;
@@ -25,6 +26,10 @@ pub fn run() {
             background::commands::background_read,
             background::commands::background_remove,
             project::commands::project_open,
+            provider::commands::provider_list,
+            provider::commands::provider_remove,
+            provider::commands::provider_save,
+            provider::commands::provider_switch,
             usage::commands::usage_report,
             commands::terminal_create,
             commands::terminal_write,

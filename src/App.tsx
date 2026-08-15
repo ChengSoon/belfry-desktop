@@ -1,13 +1,13 @@
 import { AlertTriangle, PanelLeftOpen, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppBackground } from "./background/AppBackground";
-import { AppearanceDialog } from "./background/components/AppearanceDialog";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { WindowTitlebar } from "./components/WindowTitlebar";
 import "./workspace/workspace.css";
 import { TerminalStage } from "./layout/components/TerminalStage";
 import { useSessionDrag } from "./layout/useSessionDrag";
 import { useSplitLayout } from "./layout/useSplitLayout";
+import { SettingsDialog } from "./settings/SettingsDialog";
 import { ICON } from "./theme/sizing";
 import { UpdateDialog } from "./updater/UpdateDialog";
 import { useAppUpdater } from "./updater/useAppUpdater";
@@ -27,7 +27,7 @@ export default function App() {
   const { foldedProjects, toggleFold, unfold } = useFoldedProjects();
   const [collapsed, setCollapsed] = useState(false);
   const [usageOpen, setUsageOpen] = useState(false);
-  const [appearanceOpen, setAppearanceOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [pendingCloseId, setPendingCloseId] = useState<string | null>(null);
   const [pendingRemove, setPendingRemove] = useState<RecentProject | null>(null);
   const updater = useAppUpdater();
@@ -108,7 +108,7 @@ export default function App() {
           onToggleFold={toggleFold}
           onToggleUsage={() => setUsageOpen((value) => !value)}
           onOpenUpdater={updater.openPanel}
-          onOpenAppearance={() => setAppearanceOpen(true)}
+          onOpenSettings={() => setSettingsOpen(true)}
           ref={sidebarRef}
           tabs={workspace.tabs}
           updaterOpen={updater.open}
@@ -196,7 +196,7 @@ export default function App() {
         />
       ) : null}
 
-      {appearanceOpen ? <AppearanceDialog onClose={() => setAppearanceOpen(false)} /> : null}
+      {settingsOpen ? <SettingsDialog onClose={() => setSettingsOpen(false)} /> : null}
 
       {updater.open ? (
         <UpdateDialog

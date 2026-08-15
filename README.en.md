@@ -69,6 +69,14 @@ Neither agent detected? Doesn't matter. Shell sessions don't depend on them, and
 - Session state separates process lifecycle (creating / running / exited / error) from current behavior (idle / talking / awaiting choice)
 - Tab titles are extracted from your first prompt; the untruncated original stays in the tooltip
 
+**Provider switching**
+
+- Switch Codex / Claude Code routing between official endpoints and third-party relays. It rewrites the CLI's own config files, so running `claude` or `codex` outside Belfry picks up the same setting
+- Surgical field rewrites: only routing keys like `ANTHROPIC_BASE_URL` and the `[model_providers.belfry]` table are touched — your hooks, MCP definitions, and project trust records stay byte-for-byte intact
+- On first launch, whatever is already in your config files is adopted as a switchable entry, so nothing is silently overwritten
+- Codex's ChatGPT login state is backed up before switching to a third party and restored verbatim when you switch back
+- Detects `ANTHROPIC_*` / `OPENAI_*` environment variables that would override the config file, and says so
+
 **Terminal**
 
 - xterm.js with the WebGL renderer — no seams between block characters
@@ -96,7 +104,7 @@ Shortcuts: `⌘B` collapses the sidebar, `⌘U` toggles the usage panel. Use `Ct
 
 ## Principles
 
-**No model requests are proxied.** Belfry embeds no inference client, stores no model API keys, and never touches your tokens. It launches your local CLI agent and reads the logs that agent writes itself.
+**No model requests are proxied.** Belfry embeds no inference client — requests go straight from the CLI agent to whichever provider you picked, never through Belfry. Switching providers rewrites the agent's own config files, touching only the routing keys and leaving everything else byte-for-byte intact; API keys are stored in plain text on your machine (owner-readable only), the same way the CLIs store them.
 
 **Full degradation to a plain terminal when agents are unavailable.** Agent integration is an enhancement, not a prerequisite. Failed detection should never stop you from opening a shell.
 
@@ -140,12 +148,15 @@ cd src-tauri && cargo test
 src/                  frontend
   workspace/          project workspace, tabs, sidebar
   terminal/           PTY sessions and xterm control
+  provider/           provider switching for the agent CLIs
+  settings/           settings dialog (appearance, providers)
   usage/              token usage aggregation and display
   panel/              panel width and dragging
   theme/              theming and terminal palette
 src-tauri/src/        Rust backend
   project/            project directories and recents
   agent/              Codex / Claude detection
+  provider/           surgical rewrites of both CLIs' config files
   terminal/           PTY backend, launch profiles, OSC replies
   usage/              Codex / Claude session log parsing
 .codestable/          requirements, roadmap, architecture decisions, feature designs

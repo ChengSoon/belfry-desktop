@@ -1,0 +1,50 @@
+/* 设置对话框：左侧分类，右侧内容。比其它 modal 宽——里面要放表单和列表。 */
+.modal--settings {
+  width: min(560px, 100%);
+  gap: 10px;
+}
+
+.settings__body {
+  display: grid;
+  grid-template-columns: 116px minmax(0, 1fr);
+  gap: 14px;
+  /* 给个下限而不是定死高度：定死了内容少的分区会空一大片，
+     而完全不给下限，切换分类时对话框会跳一下。 */
+  min-height: 268px;
+}
+
+.settings__nav {
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  padding-right: 12px;
+  border-right: 1px solid var(--border);
+}
+
+.settings__nav button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 9px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  background: transparent;
+  font-size: var(--fs-sm);
+  text-align: left;
+  cursor: pointer;
+  transition: color var(--duration) var(--ease), background var(--duration) var(--ease);
+}
+
+.settings__nav button:hover:not(:disabled) { color: var(--text); background: var(--surface-hover); }
+.settings__nav button.is-active { color: var(--text); background: var(--surface-hover); }
+.settings__nav button:disabled { opacity: 0.4; cursor: default; }
+.settings__nav button > svg { flex: none; }
+
+.settings__panel {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-width: 0;
+  overflow-y: auto;
+}

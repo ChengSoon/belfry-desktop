@@ -69,6 +69,14 @@ claude --version
 - 会话状态区分进程生命周期（创建中/运行/已退出/出错）与当下行为（闲着/正在输出/等你选）
 - 标签标题从你的第一句输入里提取，完整原文留在 tooltip
 
+**Provider 切换**
+
+- 在官方端点与第三方中转之间切换 Codex / Claude Code 的路由，改的是 CLI 自己的配置文件，所以在 Belfry 之外直接敲 `claude`、`codex` 一样生效
+- 精准字段改写：只动 `ANTHROPIC_BASE_URL` 这类路由键和 `[model_providers.belfry]` 这张表，你的 hooks、MCP 定义、项目信任记录逐字不动
+- 首次打开时把配置文件里已有的设置收编成一条可切回的条目，不会静默覆盖
+- 切到三方 provider 前先备份 Codex 的 ChatGPT 登录态，切回官方时原样还原
+- 检测会盖过配置文件的 `ANTHROPIC_*` / `OPENAI_*` 环境变量并给出提示
+
 **终端**
 
 - 基于 xterm.js，WebGL renderer——块字符之间没有横缝
@@ -99,7 +107,7 @@ claude --version
 
 ## 设计取向
 
-**不代理模型请求。** Belfry 不内置推理客户端，不保存模型 API Key，不碰你的 token。它只是启动你本地的 CLI Agent，并读它自己写下的日志。
+**不代理模型请求。** Belfry 不内置推理客户端，请求直接从 CLI Agent 发往你选的服务商，不过 Belfry 的手。切换 provider 改的是 Agent 自己的配置文件，只动路由相关的那几个字段，其余逐字不动；填进来的 API Key 明文存在本机配置里（仅本人可读），和 CLI 自己的存法一致。
 
 **Agent 不可用时完整退化为普通终端。** Agent 集成是增强，不是前置条件。检测失败不该让你打不开一个 Shell。
 
@@ -143,12 +151,15 @@ cd src-tauri && cargo test
 src/                  前端
   workspace/          项目工作区、标签、侧栏
   terminal/           PTY 会话与 xterm 控制
+  provider/           Agent CLI 的 provider 切换
+  settings/           设置对话框（外观、Provider）
   usage/              token 用量聚合与展示
   panel/              面板宽度与拖拽
   theme/              主题与终端调色板
 src-tauri/src/        Rust 后端
   project/            项目目录与最近列表
   agent/              Codex / Claude 检测
+  provider/           精准改写两个 CLI 的配置文件
   terminal/           PTY 后端、启动 profile、OSC 应答
   usage/              解析 Codex / Claude 会话日志
 .codestable/          需求、路线图、架构决策与 feature 设计

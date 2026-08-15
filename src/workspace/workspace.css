@@ -262,3 +262,20 @@
   color: var(--accent-contrast);
   background: var(--danger-hover);
 }
+
+/* 主动作的同款填充，只是换成强调色。和 --danger 那条并列放在这里：
+   它是 .modal__actions 的变体，不属于哪一个具体对话框。 */
+.modal__actions .modal__primary {
+  border-color: transparent;
+  color: var(--accent-contrast);
+  background: var(--accent);
+  font-weight: 500;
+}
+
+.modal__actions .modal__primary:hover:not(:disabled) {
+  border-color: transparent;
+  color: var(--accent-contrast);
+  background: var(--accent-hover);
+}
+
+.modal__actions .modal__primary:disabled { opacity: 0.55; cursor: default; }

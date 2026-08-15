@@ -1,7 +1,8 @@
+use std::collections::HashMap;
+#[cfg(target_os = "macos")]
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-#[cfg(target_os = "macos")]
 use std::sync::OnceLock;
 
 use crate::resource::canonicalize;
@@ -10,7 +11,7 @@ use crate::terminal::AppError;
 use super::contracts::{AgentAvailability, AgentKind};
 
 #[cfg(target_os = "macos")]
-static USER_COMMAND_PATH: OnceLock<Option<OsString>> = OnceLock::new();
+static LOGIN_SHELL_ENV: OnceLock<HashMap<String, String>> = OnceLock::new();
 
 pub fn detect_agents() -> Vec<AgentAvailability> {
     // 两个 `--version` 都是独立的外部进程，串行只会把冷启动耗时相加。
@@ -44,16 +45,26 @@ pub(crate) fn resolve_agent(kind: AgentKind) -> Result<PathBuf, AppError> {
 /// Finder 启动的 macOS GUI 进程不会读取用户 shell 配置，导致 NVM/Homebrew 安装的
 /// Node 不在 PATH 中。Agent 脚本通常以 `#!/usr/bin/env node` 开头，因此启动前需要
 /// 使用登录 shell 的 PATH。其他平台沿用系统继承的环境。
+#[cfg(target_os = "macos")]
 pub(crate) fn user_command_path() -> Option<OsString> {
-    #[cfg(target_os = "macos")]
-    {
-        USER_COMMAND_PATH.get_or_init(login_shell_path).clone()
-    }
+    login_shell_env().get("PATH").map(OsString::from)
+}
 
-    #[cfg(not(target_os = "macos"))]
-    {
-        None
-    }
+/// 登录 shell 里的完整环境，跑一次缓存到进程结束。
+///
+/// PATH 只是其中一项：用户写在 `.zshrc` 里的 `ANTHROPIC_BASE_URL` 之类也在这里，
+/// 它们会盖过配置文件，是 provider 切换「看着没生效」的头号原因。
+/// 探测 Agent 时反正要跑这个登录 shell，顺带把整份环境留下，冲突检测就不必再跑一次。
+#[cfg(target_os = "macos")]
+pub(crate) fn login_shell_env() -> &'static HashMap<String, String> {
+    LOGIN_SHELL_ENV.get_or_init(read_login_shell_env)
+}
+
+/// Windows 没有登录 shell 这一说，进程环境就是全部。
+#[cfg(not(target_os = "macos"))]
+pub(crate) fn login_shell_env() -> &'static HashMap<String, String> {
+    static EMPTY: OnceLock<HashMap<String, String>> = OnceLock::new();
+    EMPTY.get_or_init(HashMap::new)
 }
 
 fn detect_agent(kind: AgentKind) -> AgentAvailability {
@@ -124,24 +135,32 @@ fn login_shell() -> String {
 }
 
 #[cfg(target_os = "macos")]
-fn login_shell_path() -> Option<OsString> {
-    let output = Command::new(login_shell())
+fn read_login_shell_env() -> HashMap<String, String> {
+    let Ok(output) = Command::new(login_shell())
         .args(["-lic", "/usr/bin/printf '\\0'; /usr/bin/env -0"])
         .output()
-        .ok()?;
+    else {
+        return HashMap::new();
+    };
     if !output.status.success() {
-        return None;
+        return HashMap::new();
     }
-    parse_login_shell_path(&output.stdout)
+    parse_login_shell_env(&output.stdout)
 }
 
+/// rc 文件里的 `echo` 之类会把噪声混进 stdout，所以先打一个 NUL 当分隔符，
+/// 真正的环境变量从第二段才开始。
 #[cfg(target_os = "macos")]
-fn parse_login_shell_path(output: &[u8]) -> Option<OsString> {
+fn parse_login_shell_env(output: &[u8]) -> HashMap<String, String> {
     output
         .split(|byte| *byte == 0)
-        .rev()
-        .find_map(|value| value.strip_prefix(b"PATH="))
-        .map(|path| OsString::from(String::from_utf8_lossy(path).into_owned()))
+        .skip(1)
+        .filter_map(|entry| {
+            let text = String::from_utf8_lossy(entry);
+            let (name, value) = text.split_once('=')?;
+            (!name.is_empty()).then(|| (name.to_string(), value.to_string()))
+        })
+        .collect()
 }
 
 #[cfg(target_os = "windows")]
@@ -224,11 +243,21 @@ mod tests {
 
     #[cfg(target_os = "macos")]
     #[test]
-    fn login_shell_path_uses_the_last_nul_terminated_value() {
-        let path = parse_login_shell_path(
+    fn login_shell_env_skips_startup_noise_and_keeps_the_last_value() {
+        // rc 文件里的 echo 会混进 stdout，所以真正的环境从第一个 NUL 之后才开始。
+        let env = parse_login_shell_env(
             b"startup warning\n\0HOME=/Users/test\0PATH=/opt/homebrew/bin:/usr/bin\0",
-        )
-        .unwrap();
-        assert_eq!(path, OsString::from("/opt/homebrew/bin:/usr/bin"));
+        );
+        assert_eq!(env.get("PATH").unwrap(), "/opt/homebrew/bin:/usr/bin");
+        assert_eq!(env.get("HOME").unwrap(), "/Users/test");
+        assert!(!env.contains_key("startup warning\n"), "噪声段不该被当成变量");
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn login_shell_env_keeps_values_that_contain_equals_signs() {
+        // 连接串、base64 之类的值里带 `=` 很常见，只能按第一个 `=` 切。
+        let env = parse_login_shell_env(b"\0ANTHROPIC_AUTH_TOKEN=sk-a=b=c\0");
+        assert_eq!(env.get("ANTHROPIC_AUTH_TOKEN").unwrap(), "sk-a=b=c");
     }
 }

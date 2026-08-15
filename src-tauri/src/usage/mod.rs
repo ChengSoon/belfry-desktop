@@ -12,3 +12,5 @@ mod roots;
 mod scan;
 mod service;
 mod timestamp;
+
+pub(crate) use scan::home_dir;

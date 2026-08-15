@@ -1,0 +1,190 @@
+/* Provider 管理对话框。比默认 modal 宽一点：里面是列表加表单，360 挤得慌。 */
+.modal--provider {
+  width: min(440px, 100%);
+  gap: 10px;
+}
+
+/* 两个 agent 的切换。样式跟用量面板、外观里那两组分段器保持一致，
+   但宽度按内容走：满宽的话选中那块 accent 实心色面积太大，压过了下面的列表。 */
+.provider-segments {
+  display: flex;
+  justify-self: start;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--canvas);
+}
+
+.provider-segments button {
+  padding: 4px 14px;
+  border: 0;
+  border-radius: calc(var(--radius-sm) - 2px);
+  color: var(--text-muted);
+  background: transparent;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  transition: color var(--duration) var(--ease), background var(--duration) var(--ease);
+}
+
+.provider-segments button:hover:not(:disabled) { color: var(--text); }
+.provider-segments button.is-active { color: var(--accent-contrast); background: var(--accent); }
+.provider-segments button:disabled { cursor: default; }
+
+.provider-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 12%, transparent);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-relaxed);
+}
+
+.provider-warning > svg { flex: none; margin-top: 2px; }
+
+.provider-list {
+  display: grid;
+  max-height: 260px;
+  gap: 1px;
+  overflow-y: auto;
+}
+
+/* 条目 = 主按钮 + 两个行尾格。悬停底色画在整条上，动作键才会一起亮。 */
+.provider-row {
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius-sm);
+}
+
+.provider-row:hover { background: var(--surface-hover); }
+.provider-row.is-active { background: var(--accent-soft); }
+
+.provider-row__main {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 10px;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.provider-row__main:disabled { cursor: default; }
+
+.provider-row__text { display: grid; min-width: 0; gap: 2px; }
+
+.provider-row__text strong,
+.provider-row__text small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.provider-row__text strong { color: var(--text); font-size: var(--fs-md); font-weight: 500; }
+.provider-row__text small {
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+}
+
+/* 勾与编辑键叠在同一格，hover 时互换——位置固定，条目名截断处就不会被挤动。 */
+.provider-row__tail {
+  display: grid;
+  width: 26px;
+  height: 100%;
+  place-items: center;
+}
+
+.provider-row__tail > * { grid-area: 1 / 1; }
+
+.provider-row__check {
+  color: var(--accent);
+  pointer-events: none;
+  transition: opacity var(--duration) var(--ease);
+}
+
+.provider-row__act {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border: 0;
+  border-radius: 4px;
+  color: var(--text-faint);
+  background: transparent;
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity var(--duration) var(--ease), color var(--duration) var(--ease);
+}
+
+.provider-row:hover .provider-row__act,
+.provider-row__act:focus-visible { opacity: 1; }
+.provider-row:hover .provider-row__check,
+.provider-row:has(.provider-row__act:focus-visible) .provider-row__check { opacity: 0; }
+.provider-row__act:hover { color: var(--text); }
+.provider-row__act--danger:hover { color: var(--danger); }
+
+.provider-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  background: transparent;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  transition: border-color var(--duration) var(--ease), color var(--duration) var(--ease);
+}
+
+.provider-add:hover { border-color: var(--border-strong); color: var(--text); }
+
+.provider-form { display: grid; gap: 7px; }
+
+.provider-form__row {
+  display: grid;
+  grid-template-columns: 68px 1fr;
+  align-items: center;
+  gap: 10px;
+}
+
+.provider-form__row > span { color: var(--text-muted); font-size: var(--fs-sm); }
+
+.provider-form__row input {
+  min-width: 0;
+  padding: 6px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  background: var(--surface);
+  font-size: var(--fs-sm);
+  transition: border-color var(--duration) var(--ease);
+}
+
+.provider-form__row input:hover { border-color: var(--border-strong); }
+.provider-form__row input:focus { border-color: var(--accent); }
+.provider-form__row input::placeholder { color: var(--text-faint); }
+
+.provider-form__hint,
+.provider-form__issue,
+.provider-error,
+.provider-notice {
+  margin: 0;
+  font-size: var(--fs-sm);
+  line-height: var(--lh-relaxed);
+  overflow-wrap: anywhere;
+}
+
+.provider-form__hint { color: var(--text-faint); }
+.provider-form__issue { color: var(--danger); }
+.provider-error { color: var(--danger); }
+.provider-notice { color: var(--text-muted); }
+
+/* 删除确认盖在 provider 对话框之上，所以要比它自己的 scrim 再高一层。 */
+.provider-confirm { z-index: 31; }

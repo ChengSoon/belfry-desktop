@@ -94,21 +94,6 @@
 
 .updater-dialog__progress.is-indeterminate > i { animation: updater-progress 1.2s var(--ease) infinite; }
 
-.modal__actions .modal__primary {
-  border-color: transparent;
-  color: var(--accent-contrast);
-  background: var(--accent);
-  font-weight: 500;
-}
-
-.modal__actions .modal__primary:hover:not(:disabled) {
-  border-color: transparent;
-  color: var(--accent-contrast);
-  background: var(--accent-hover);
-}
-
-.modal__actions .modal__primary:disabled { opacity: 0.55; cursor: default; }
-
 .updater-trigger { position: relative; }
 .updater-trigger--available { color: var(--accent); background: var(--accent-soft); }
 .updater-trigger--checking > svg,
