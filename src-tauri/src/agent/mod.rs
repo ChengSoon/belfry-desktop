@@ -5,5 +5,4 @@ mod detection;
 pub(crate) use contracts::AgentKind;
 pub(crate) use detection::login_shell_env;
 pub(crate) use detection::resolve_agent;
-#[cfg(target_os = "macos")]
 pub(crate) use detection::user_command_path;

@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-#[cfg(target_os = "macos")]
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -45,7 +44,9 @@ pub(crate) fn resolve_agent(kind: AgentKind) -> Result<PathBuf, AppError> {
 /// Finder 启动的 macOS GUI 进程不会读取用户 shell 配置，导致 NVM/Homebrew 安装的
 /// Node 不在 PATH 中。Agent 脚本通常以 `#!/usr/bin/env node` 开头，因此启动前需要
 /// 使用登录 shell 的 PATH。其他平台沿用系统继承的环境。
-#[cfg(target_os = "macos")]
+///
+/// 保持跨平台签名：`read_version` 不分平台都要调它，Windows 上 `login_shell_env`
+/// 返回空表，这里自然得到 `None`，语义与「沿用系统环境」一致。
 pub(crate) fn user_command_path() -> Option<OsString> {
     login_shell_env().get("PATH").map(OsString::from)
 }
