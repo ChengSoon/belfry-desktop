@@ -101,17 +101,19 @@ export function Sidebar({
       <div className="sidebar-foot">
         <ThemeToggle />
         <div className="sidebar-foot__actions">
-          <button
-            aria-label={updateButtonLabel(updaterState)}
-            aria-pressed={updaterOpen}
-            className={`icon-button icon-button--sm updater-trigger updater-trigger--${updaterState.status}`}
-            onClick={onOpenUpdater}
-            title={updateButtonLabel(updaterState)}
-            type="button"
-          >
-            <Download aria-hidden="true" size={ICON.md} />
-            {updaterState.status === "available" ? <i aria-hidden="true" /> : null}
-          </button>
+          {showUpdaterTrigger(updaterState, updaterOpen) ? (
+            <button
+              aria-label={updateButtonLabel(updaterState)}
+              aria-pressed={updaterOpen}
+              className={`icon-button icon-button--sm updater-trigger updater-trigger--${updaterState.status}`}
+              onClick={onOpenUpdater}
+              title={updateButtonLabel(updaterState)}
+              type="button"
+            >
+              <Download aria-hidden="true" size={ICON.md} />
+              {updaterState.status === "available" ? <i aria-hidden="true" /> : null}
+            </button>
+          ) : null}
           <button
             className="icon-button icon-button--sm"
             onClick={onOpenAppearance}
@@ -144,6 +146,16 @@ export function Sidebar({
       />
     </aside>
   );
+}
+
+/**
+ * 平时不占位：只有远程确实有新版本、或更新已经在下载安装时才露出入口。
+ * 面板开着时一并保留——下载失败会把状态打回 error，此时面板还开着，
+ * 按钮跟着消失的话，关掉面板前那一下会看到入口凭空不见。
+ */
+function showUpdaterTrigger(state: UpdaterState, open: boolean) {
+  if (open) return true;
+  return state.status === "available" || state.status === "downloading" || state.status === "installing";
 }
 
 function updateButtonLabel(state: UpdaterState) {
