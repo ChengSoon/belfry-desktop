@@ -5,11 +5,14 @@ const decoder = new TextDecoder();
 const ESC = 0x1b;
 const CSI = 0x5b;
 const SGR = 0x6d;
+const DEC_PRIVATE_MODE_RESET = 0x6c;
 const MAX_CSI_BYTES = 128;
 const DEFAULT_BACKGROUND = "49";
 const INVERSE_OFF = "27";
 const MAX_NEUTRAL_CHROMA = 24;
 const NEUTRAL_ANSI_BACKGROUNDS = new Set(["40", "47", "100", "107"]);
+const CODEX_BANNER = encoder.encode("OpenAI Codex");
+const ALT_SCREEN_MODES = new Set(["47", "1047", "1049"]);
 
 /**
  * Codex 会把启动时探测到的终端底色混成输入区背景，并在进程内永久缓存。
@@ -18,14 +21,17 @@ const NEUTRAL_ANSI_BACKGROUNDS = new Set(["40", "47", "100", "107"]);
  */
 export class CodexThemeSync {
   private readonly sources: Rgb[] = [];
-  private readonly rewriteCodexStyles: boolean;
+  private readonly pinnedCodexStyles: boolean;
+  private rewriteCodexStyles: boolean;
   private target: Rgb;
   private transparent: boolean;
   private pending: number[] = [];
+  private bannerMatch = 0;
 
   constructor(theme: TerminalTheme, transparent = false, rewriteCodexStyles = true) {
     this.target = composerBackground(theme.background);
     this.transparent = transparent;
+    this.pinnedCodexStyles = rewriteCodexStyles;
     this.rewriteCodexStyles = rewriteCodexStyles;
     this.remember(this.target);
   }
@@ -36,7 +42,25 @@ export class CodexThemeSync {
     this.remember(this.target);
   }
 
+  enableCodexStyles() {
+    this.rewriteCodexStyles = true;
+    this.bannerMatch = 0;
+  }
+
+  get codexStylesEnabled() {
+    return this.rewriteCodexStyles;
+  }
+
   rewrite(bytes: Iterable<number>, flush = false) {
+    if (!this.rewriteCodexStyles) {
+      const chunk = Array.from(bytes);
+      this.detectCodex(chunk);
+      return this.rewriteBytes(chunk, flush);
+    }
+    return this.rewriteBytes(bytes, flush);
+  }
+
+  private rewriteBytes(bytes: Iterable<number>, flush: boolean) {
     const output: number[] = [];
     for (const byte of bytes) {
       if (this.pending.length === 0 && byte !== ESC) {
@@ -48,6 +72,19 @@ export class CodexThemeSync {
     }
     if (flush) output.push(...this.flush());
     return output;
+  }
+
+  private detectCodex(bytes: Iterable<number>) {
+    for (const byte of bytes) {
+      if (byte === CODEX_BANNER[this.bannerMatch]) {
+        this.bannerMatch += 1;
+      } else {
+        this.bannerMatch = byte === CODEX_BANNER[0] ? 1 : 0;
+      }
+      if (this.bannerMatch !== CODEX_BANNER.length) continue;
+      this.enableCodexStyles();
+      return;
+    }
   }
 
   flush() {
@@ -71,6 +108,9 @@ export class CodexThemeSync {
   }
 
   private rewriteCsi(sequence: number[]) {
+    if (leavesAlternateScreen(sequence) && !this.pinnedCodexStyles) {
+      this.rewriteCodexStyles = false;
+    }
     if (sequence.at(-1) !== SGR) return sequence;
     const body = decoder.decode(Uint8Array.from(sequence.slice(2, -1)));
     const target = this.transparent ? null : this.target;
@@ -245,4 +285,11 @@ function isCsiFinal(byte: number) {
 
 function sameRgb(left: Rgb, right: Rgb) {
   return left.every((channel, index) => channel === right[index]);
+}
+
+function leavesAlternateScreen(sequence: number[]) {
+  if (sequence.at(-1) !== DEC_PRIVATE_MODE_RESET) return false;
+  const body = decoder.decode(Uint8Array.from(sequence.slice(2, -1)));
+  return body.startsWith("?")
+    && body.slice(1).split(";").some((mode) => ALT_SCREEN_MODES.has(mode));
 }

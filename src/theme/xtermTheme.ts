@@ -27,6 +27,8 @@ const DARK: TerminalTheme = {
   scrollbarSliderBackground: "#34353c",
   scrollbarSliderHoverBackground: "#4a4b53",
   scrollbarSliderActiveBackground: "#5a5b63",
+  // overview ruler 即使没有标记也会画一条默认白色分隔线；保留滚动条宽度，只隐藏这条边。
+  overviewRulerBorder: "rgba(0, 0, 0, 0)",
   black: "#26272b",
   red: "#f0796f",
   green: "#57c99a",
@@ -55,6 +57,7 @@ const LIGHT: TerminalTheme = {
   scrollbarSliderBackground: "#c9cbd1",
   scrollbarSliderHoverBackground: "#b4b6bc",
   scrollbarSliderActiveBackground: "#9a9ca3",
+  overviewRulerBorder: "rgba(0, 0, 0, 0)",
   black: "#26272b",
   red: "#c4342a",
   green: "#12875a",

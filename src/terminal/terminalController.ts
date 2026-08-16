@@ -75,8 +75,8 @@ export function mountTerminal(
   let disposed = false;
   const useWebClipboard = usesWebClipboardFallback();
   const isCodexProfile = launch.profileId === "agent:codex";
-  // 透明 WebGL 下的 dim 白块可能来自 Shell 内启动的 Codex，因此所有会话都过滤 dim；
-  // composer 背景与反显改写仍只对 Codex 专用入口启用，避免改变普通 TUI 的配色。
+  // 所有会话都过滤透明 WebGL 的 dim 白块；Shell 提交 codex 命令或输出 Codex banner 后，
+  // 同步器再切到完整配色规则，普通 TUI 在此之前保持原样。
   const codexThemeSync = new CodexThemeSync(theme, transparent, isCodexProfile);
   // Tauri's Windows WebView can consume Ctrl+V as a control character instead of
   // dispatching the native `paste` event. Claude Code runs in raw mode and is
@@ -161,7 +161,10 @@ export function mountTerminal(
     const bytes = new TextEncoder().encode(data);
     const fed = feedInputLine(inputLine, data);
     inputLine = fed.state;
-    for (const line of fed.submitted) callbacks.onInput(line);
+    for (const line of fed.submitted) {
+      callbacks.onInput(line);
+      if (!isCodexProfile && isCodexCommand(line)) codexThemeSync.enableCodexStyles();
+    }
     writeQueue = writeQueue
       .then(() => writeTerminal(currentId, bytes))
       .catch((error) => callbacks.onError(errorMessage(error)));
@@ -196,7 +199,7 @@ export function mountTerminal(
       terminal.options.theme = transparent ? withTransparentBackground(next) : next;
       // PTY 层也得跟着换：换肤之后再启动的程序会重新查一次背景色。
       if (current) void setTerminalPalette(current.id, toPalette(next)).catch(() => undefined);
-      if (current && isCodexProfile) {
+      if (current && codexThemeSync.codexStylesEnabled) {
         terminal.write("", () => void requestCodexRedraw(current, terminal));
       }
     },
@@ -332,6 +335,10 @@ const tailDecoder = new TextDecoder();
 function decodeTail(bytes: number[]) {
   const tail = bytes.length > PROMPT_TAIL_BYTES ? bytes.slice(-PROMPT_TAIL_BYTES) : bytes;
   return tailDecoder.decode(new Uint8Array(tail));
+}
+
+function isCodexCommand(line: string) {
+  return /^(?:(?:command|exec)\s+)?codex(?:\s|$)/.test(line.trim());
 }
 
 function createResizeObserver(

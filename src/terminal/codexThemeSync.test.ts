@@ -177,16 +177,74 @@ describe("CodexThemeSync", () => {
     expect(text(shellSync.rewrite(bytes("before\x1b[2mafter"), true))).toBe("beforeafter");
   });
 
-  it("preserves regular shell backgrounds and reverse video", () => {
+  it("resets composer backgrounds after detecting Codex inside a transparent shell", () => {
+    const shellSync = new CodexThemeSync(xtermTheme("dark"), true, false);
+    const white = [
+      "OpenAI Codex (v0.147.0)",
+      "\x1b[47mansi-white",
+      "\x1b[107mansi-bright-white",
+      "\x1b[48;5;255mindexed-white",
+      "\x1b[48;2;240;240;240mtrue-color-white",
+      "\x1b[48:2::240:240:240mcolon-white",
+    ].join("");
+
+    expect(text(shellSync.rewrite(bytes(white), true))).toBe([
+      "OpenAI Codex (v0.147.0)",
+      "\x1b[49mansi-white",
+      "\x1b[49mansi-bright-white",
+      "\x1b[49mindexed-white",
+      "\x1b[49mtrue-color-white",
+      "\x1b[49mcolon-white",
+    ].join(""));
+  });
+
+  it("detects a Codex banner split across shell output events", () => {
+    const shellSync = new CodexThemeSync(xtermTheme("dark"), true, false);
+
+    shellSync.rewrite(bytes("OpenAI Co"));
+    const output = shellSync.rewrite(bytes(`dex (v0.147.0)${LIGHT_COMPOSER}`), true);
+
+    expect(text(output)).toBe("dex (v0.147.0)\x1b[49m");
+    expect(shellSync.codexStylesEnabled).toBe(true);
+  });
+
+  it("preserves regular shell styles before Codex is detected", () => {
     const shellSync = new CodexThemeSync(xtermTheme("light"), true, false);
     const styles = [
       "\x1b[7mreverse",
+      "\x1b[40mblack",
       "\x1b[47mwhite",
+      "\x1b[107mbright-white",
       "\x1b[48;5;250mgray",
       "\x1b[48;2;20;22;24mblack",
+      "\x1b[48;2;59;91;219mblue",
     ].join("");
 
     expect(text(shellSync.rewrite(bytes(styles), true))).toBe(styles);
+  });
+
+  it("syncs a detected shell Codex when switching from dark to light", () => {
+    const shellSync = new CodexThemeSync(xtermTheme("dark"), false, false);
+    shellSync.rewrite(bytes("OpenAI Codex (v0.147.0)"), true);
+    shellSync.setTheme(xtermTheme("light"), false);
+
+    expect(text(shellSync.rewrite(bytes(DARK_COMPOSER), true))).toBe(LIGHT_COMPOSER);
+  });
+
+  it("restores regular shell styles after a detected Codex leaves the alternate screen", () => {
+    const shellSync = new CodexThemeSync(xtermTheme("dark"), true, false);
+    shellSync.rewrite(bytes("OpenAI Codex (v0.147.0)"), true);
+    shellSync.rewrite(bytes("\x1b[?1049l"), true);
+
+    expect(text(shellSync.rewrite(bytes("\x1b[47mwhite"), true))).toBe("\x1b[47mwhite");
+  });
+
+  it("keeps Codex styles pinned for the dedicated Codex profile", () => {
+    const sync = new CodexThemeSync(xtermTheme("dark"), true);
+    sync.rewrite(bytes("\x1b[?1049l"), true);
+
+    expect(text(sync.rewrite(bytes("\x1b[47mwhite"), true))).toBe("\x1b[49mwhite");
+    expect(sync.codexStylesEnabled).toBe(true);
   });
 
   it("does not mistake color mode or channel values for shell dim styling", () => {

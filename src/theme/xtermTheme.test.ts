@@ -30,6 +30,8 @@ describe("透明背景下的 xterm 主题", () => {
       expect(clear.scrollbarSliderBackground).toMatch(/^rgba\(.+, 0\.38\)$/);
       expect(clear.scrollbarSliderHoverBackground).toMatch(/^rgba\(.+, 0\.56\)$/);
       expect(clear.scrollbarSliderActiveBackground).toMatch(/^rgba\(.+, 0\.72\)$/);
+      expect(base.overviewRulerBorder).toBe("rgba(0, 0, 0, 0)");
+      expect(clear.overviewRulerBorder).toBe(base.overviewRulerBorder);
       // 基准主题不能被就地改掉——它还要喂给 PTY 和 CodexThemeSync
       expect(base.background).toMatch(/^#[0-9a-f]{6}$/i);
       expect(base.scrollbarSliderBackground).toMatch(/^#[0-9a-f]{6}$/i);
