@@ -289,6 +289,49 @@ pub(super) fn config_files() -> Result<Vec<ConfigFilePreview>, AppError> {
     Ok(files)
 }
 
+/// 生成某个 Provider 套用后的内存配置预览。
+///
+/// 和 `switch_in` 使用同一套字段改写规则，但不写入 config.toml/auth.json；
+/// 即使文件还不存在，也返回将要创建的完整内容，方便新增 Provider 时对照。
+pub(super) fn config_files_for_provider(
+    provider: &ProviderConfig,
+) -> Result<Vec<ConfigFilePreview>, AppError> {
+    let dir = codex_home()?;
+    config_files_for_provider_in(&dir, provider)
+}
+
+fn config_files_for_provider_in(
+    dir: &Path,
+    provider: &ProviderConfig,
+) -> Result<Vec<ConfigFilePreview>, AppError> {
+    let mut config = read_config_in(dir)?;
+    apply(&mut config, Some(provider))?;
+
+    let config_path = dir.join("config.toml");
+    let auth_path = dir.join("auth.json");
+    let mut auth = Map::new();
+    auth.insert(
+        "OPENAI_API_KEY".to_string(),
+        Value::String(provider.api_key.clone()),
+    );
+    let mut auth_content = serde_json::to_string_pretty(&Value::Object(auth))
+        .map_err(|err| AppError::io(format!("序列化 auth.json 预览失败：{err}")))?;
+    auth_content.push('\n');
+
+    Ok(vec![
+        ConfigFilePreview {
+            path: config_path.display().to_string(),
+            format: "toml".to_string(),
+            content: config.to_string(),
+        },
+        ConfigFilePreview {
+            path: auth_path.display().to_string(),
+            format: "json".to_string(),
+            content: auth_content,
+        },
+    ])
+}
+
 /// auth.json 里的 API key。ChatGPT 登录态不算 key。
 fn auth_file_key() -> String {
     codex_home()
@@ -486,6 +529,22 @@ experimental_bearer_token = "sk-from-bearer"
     fn detects_nothing_on_a_stock_config() {
         let doc = LIVE.parse::<DocumentMut>().unwrap();
         assert!(detect_live(&doc).is_none());
+    }
+
+    #[test]
+    fn draft_preview_contains_the_provider_base_url_without_writing_files() {
+        let dir = sandbox("preview");
+        let files = config_files_for_provider_in(&dir, &provider("kimi-k2")).unwrap();
+
+        assert!(
+            files[0]
+                .content
+                .contains("base_url = \"https://api.moonshot.cn/v1\"")
+        );
+        assert!(files[1].content.contains("\"OPENAI_API_KEY\": \"sk-new\""));
+        assert!(!dir.join("config.toml").exists());
+        assert!(!dir.join("auth.json").exists());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

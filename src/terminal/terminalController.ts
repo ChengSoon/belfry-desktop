@@ -74,7 +74,9 @@ export function mountTerminal(
   terminal.open(host);
   let disposed = false;
   const useWebClipboard = usesWebClipboardFallback();
-  const codexThemeSync = launch.profileId === "agent:codex" ? new CodexThemeSync(theme) : null;
+  const codexThemeSync = launch.profileId === "agent:codex"
+    ? new CodexThemeSync(theme, transparent)
+    : null;
   // Tauri's Windows WebView can consume Ctrl+V as a control character instead of
   // dispatching the native `paste` event. Claude Code runs in raw mode and is
   // particularly affected: it receives ^V, but no clipboard contents. Read the
@@ -188,7 +190,7 @@ export function mountTerminal(
     applyTheme: (next, transparent) => {
       // 这两处都只认 #rrggbb，喂基准主题：CodexThemeSync 的 parseHex 遇到 rgba 会直接抛，
       // 而 PTY 那边的解析失败是静默的——OSC 11 查询得不到应答，只在个别 TUI 里表现为配色错乱。
-      codexThemeSync?.setTheme(next);
+      codexThemeSync?.setTheme(next, transparent);
       terminal.options.allowTransparency = transparent;
       terminal.options.theme = transparent ? withTransparentBackground(next) : next;
       // PTY 层也得跟着换：换肤之后再启动的程序会重新查一次背景色。
@@ -394,7 +396,7 @@ function createXterm(theme: TerminalTheme, transparent: boolean) {
     cursorStyle: "bar",
     cursorWidth: 4,
     fontFamily: monoFontFamily(),
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: 400,
     fontWeightBold: 500,
     lineHeight: 1.35,

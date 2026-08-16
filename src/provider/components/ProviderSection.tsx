@@ -1,5 +1,5 @@
-import { AlertTriangle, Check, Pencil, Plus, RefreshCcw, Trash2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { AlertTriangle, ArrowLeft, Check, Pencil, Plus, RefreshCcw, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ICON } from "../../theme/sizing";
 import type { AgentKind } from "../../workspace/contracts";
 import { failureLabel, toAppFailure } from "../../workspace/errors";
@@ -15,6 +15,7 @@ import {
 } from "../contracts";
 import { useProviders } from "../useProviders";
 import { type DraftIssue, maskKey, validateDraft } from "../validate";
+import { ProviderConfigEditor } from "./ProviderConfigEditor";
 import { ProviderForm } from "./ProviderForm";
 import "../provider.css";
 
@@ -33,7 +34,9 @@ export function ProviderSection({ onGuardChange }: { onGuardChange: (guarded: bo
   const [configLoading, setConfigLoading] = useState(false);
   const [configFailure, setConfigFailure] = useState<string | null>(null);
   const [copiedPath, setCopiedPath] = useState<string | null>(null);
-  /** 正在编辑的文件原文，按 agent 分开存：切走再切回，编辑内容不丢。
+  const [formNotice, setFormNotice] = useState<string | null>(null);
+  const configRequest = useRef(0);
+  /** 正在编辑的文件原文，按 agent 分开存。
       path → 编辑中的内容。与 configFiles 里的原文不一致才算脏。 */
   const [editsByKind, setEditsByKind] = useState<Record<AgentKind, Record<string, string>>>({
     claude: {},
@@ -66,43 +69,6 @@ export function ProviderSection({ onGuardChange }: { onGuardChange: (guarded: bo
   const group = providers.catalog?.agents.find((item) => item.kind === kind);
   const list = useMemo(() => group?.providers ?? [], [group]);
 
-  // 临时排查用：把 WKWebView 里的真实布局报出去，排完就删。
-  // headless Chrome 里列表渲染正常，所以要看的是 App 自己的渲染引擎量出了什么。
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      const el = document.querySelector(".provider-list");
-      const rows = [...document.querySelectorAll(".provider-row")];
-      const cs = el ? getComputedStyle(el) : null;
-      void fetch("http://127.0.0.1:8899/", {
-        body: JSON.stringify({
-          stage: "layout",
-          kind,
-          listCount: list.length,
-          listExists: !!el,
-          listRect: el?.getBoundingClientRect(),
-          listStyle: cs && {
-            display: cs.display,
-            maxHeight: cs.maxHeight,
-            overflowY: cs.overflowY,
-            height: cs.height,
-            minHeight: cs.minHeight,
-          },
-          parentStyle: (() => {
-            const p = el?.parentElement;
-            const pcs = p ? getComputedStyle(p) : null;
-            return pcs && { cls: p?.className, display: pcs.display, alignContent: pcs.alignContent, height: pcs.height };
-          })(),
-          rows: rows.map((r) => ({
-            label: r.querySelector("strong")?.textContent,
-            rect: r.getBoundingClientRect(),
-          })),
-          ua: navigator.userAgent,
-        }),
-        method: "POST",
-      }).catch(() => {});
-    }, 400);
-    return () => window.clearTimeout(timer);
-  }, [kind, list]);
   const conflicts = useMemo(
     () => providers.catalog?.envConflicts.filter((item) => item.kind === kind) ?? [],
     [kind, providers.catalog],
@@ -110,43 +76,83 @@ export function ProviderSection({ onGuardChange }: { onGuardChange: (guarded: bo
 
   const submit = () => {
     if (!draft) return;
+    if (savingPath !== null) {
+      setFormNotice("配置文件正在保存，请稍候再保存 provider 信息。");
+      return;
+    }
+    if (hasDirty) {
+      setFormNotice("配置文件还有未保存的修改，请先保存或还原，再保存 provider 信息。");
+      return;
+    }
     const found = validateDraft(draft, list);
     setIssue(found);
     if (found) return;
-    void providers.save(kind, draft).then(() => setDraft(null));
+    setFormNotice(null);
+    void providers.save(kind, draft).then((catalog) => {
+      if (catalog) closeDraft();
+    });
   };
 
-  const loadConfig = (agentKind: AgentKind) => {
+  const loadConfig = useCallback((agentKind: AgentKind, previewDraft?: ProviderDraft) => {
+    const request = ++configRequest.current;
     setConfigLoading(true);
     setConfigFailure(null);
-    configPreview(agentKind)
-      .then((files) => setConfigFiles(files))
-      .catch((error) => setConfigFailure(failureLabel(toAppFailure(error))))
-      .finally(() => setConfigLoading(false));
-  };
-
-  // 配置文件原文跟着当前 agent 走。切换时先清掉旧数据，并用 cleanup 把
-  // 上一个 agent 的慢请求标记为失效，避免它回来盖掉新 agent 的内容。
-  useEffect(() => {
-    setConfigFiles(null);
-    setSaveFailure(null);
-    let cancelled = false;
-    setConfigLoading(true);
-    setConfigFailure(null);
-    configPreview(kind)
+    configPreview(agentKind, previewDraft)
       .then((files) => {
-        if (!cancelled) setConfigFiles(files);
+        if (request === configRequest.current) setConfigFiles(files);
       })
       .catch((error) => {
-        if (!cancelled) setConfigFailure(failureLabel(toAppFailure(error)));
+        if (request === configRequest.current) setConfigFailure(failureLabel(toAppFailure(error)));
       })
       .finally(() => {
-        if (!cancelled) setConfigLoading(false);
+        if (request === configRequest.current) setConfigLoading(false);
       });
-    return () => {
-      cancelled = true;
-    };
-  }, [kind]);
+  }, []);
+
+  const clearConfigEditor = () => {
+    configRequest.current += 1;
+    setConfigFiles(null);
+    setConfigLoading(false);
+    setConfigFailure(null);
+    setSaveFailure(null);
+    setCopiedPath(null);
+    setSavedPath(null);
+    setEditsByKind((all) => ({ ...all, [kind]: {} }));
+  };
+
+  const closeDraft = () => {
+    setDraft(null);
+    setIssue(null);
+    setFormNotice(null);
+    clearConfigEditor();
+  };
+
+  const openDraft = (next: ProviderDraft) => {
+    providers.dismissNotice();
+    setIssue(null);
+    setFormNotice(null);
+    setDraft(next);
+    clearConfigEditor();
+  };
+
+  // 左侧字段是 Provider 草稿的主来源。输入变化后重新生成一份内存预览，
+  // 右侧因此始终显示同一个 Base URL / Key / model，而不会继续沿用旧 live 文件。
+  const draftPreviewKey = draft ? JSON.stringify(draft) : null;
+  useEffect(() => {
+    if (!draft) return;
+    const previewDraft = { ...draft };
+    configRequest.current += 1;
+    setConfigFiles(null);
+    setConfigLoading(true);
+    setConfigFailure(null);
+    setSaveFailure(null);
+    setSavedPath(null);
+    setEditsByKind((all) => ({ ...all, [kind]: {} }));
+    const timer = window.setTimeout(() => {
+      loadConfig(kind, previewDraft);
+    }, 180);
+    return () => window.clearTimeout(timer);
+  }, [draftPreviewKey, kind, loadConfig]);
 
   const copyConfig = async (file: ConfigFilePreview) => {
     const text = edits[file.path] ?? file.content;
@@ -169,7 +175,17 @@ export function ProviderSection({ onGuardChange }: { onGuardChange: (guarded: bo
     try {
       await configSave(kind, file.path, next);
       // 文件已经改了，把当前生效的 live 配置同步进库，列表才能看到刚配置的 provider。
-      await providers.syncLive(kind);
+      const synced = await providers.syncLive(kind);
+      if (!synced) {
+        throw new Error("配置文件已保存，但 provider 列表同步失败，请重新读取");
+      }
+      // 直接改原始文件后，当前条目的表单值也要跟着 live 配置走，避免用户
+      // 紧接着点「保存 provider」时又把刚改好的 JSON/TOML 覆盖回去。
+      const liveGroup = synced.agents.find((item) => item.kind === kind);
+      const liveProvider = liveGroup?.providers.find((item) => item.id === liveGroup.currentId);
+      if (liveProvider) {
+        setDraft(toDraft(liveProvider));
+      }
       setConfigFiles(
         (current) =>
           current?.map((item) => (item.path === file.path ? { ...item, content: next } : item)) ??
@@ -221,7 +237,7 @@ export function ProviderSection({ onGuardChange }: { onGuardChange: (guarded: bo
         ))}
         <button
           className="provider-segments__reload"
-          disabled={providers.loading}
+          disabled={providers.loading || draft !== null}
           onClick={() => void providers.reload()}
           title="重新读取 provider 列表"
           type="button"
@@ -243,17 +259,64 @@ export function ProviderSection({ onGuardChange }: { onGuardChange: (guarded: bo
       ) : null}
 
       {draft ? (
-        <ProviderForm
-          busy={providers.loading}
-          draft={draft}
-          issue={issue}
-          onCancel={() => {
-            setDraft(null);
-            setIssue(null);
-          }}
-          onChange={setDraft}
-          onSubmit={submit}
-        />
+        <div className="provider-editor">
+          <div className="provider-editor__toolbar">
+            <button className="provider-editor__back" onClick={closeDraft} type="button">
+              <ArrowLeft aria-hidden="true" size={ICON.sm} />
+              <span>返回 provider 列表</span>
+            </button>
+            <span className="provider-editor__mode">{draft.id ? "编辑 provider" : "新增 provider"}</span>
+          </div>
+          <div className="provider-editor__heading">
+            <div>
+              <p className="provider-editor__eyebrow">{AGENT_LABEL[kind]}</p>
+              <h2>{draft.name.trim() || "未命名 provider"}</h2>
+            </div>
+            <span
+              className={`provider-editor__status${
+                draft.id !== null && group?.currentId === draft.id ? " is-current" : ""
+              }`}
+            >
+              {draft.id !== null && group?.currentId === draft.id ? "当前使用" : "未启用"}
+            </span>
+          </div>
+          <div className="provider-editor__body">
+            <div className="provider-editor__form-column">
+              <ProviderForm
+                busy={providers.loading}
+                draft={draft}
+                issue={issue}
+                onCancel={closeDraft}
+                onChange={(next) => {
+                  setDraft(next);
+                  setFormNotice(null);
+                }}
+                onSubmit={submit}
+              />
+              {formNotice ? <p className="provider-notice">{formNotice}</p> : null}
+            </div>
+            <ProviderConfigEditor
+              copiedPath={copiedPath}
+              dirtyPaths={dirtyPaths}
+              draft={draft}
+              edits={edits}
+              failure={configFailure}
+              files={configFiles}
+              kind={kind}
+              loading={configLoading}
+              onChange={(path, content) =>
+                setEdits((current) => ({ ...current, [path]: content }))
+              }
+              onCopy={(file) => void copyConfig(file)}
+              onReload={() => loadConfig(kind, draft)}
+              onRevert={revertConfigFile}
+              onSave={(file) => void saveConfigFile(file)}
+              saveFailure={saveFailure}
+              savedPath={savedPath}
+              savingPath={savingPath}
+            />
+          </div>
+        </div>
       ) : (
         <>
           {providers.loading && providers.catalog === null ? (
@@ -279,12 +342,7 @@ export function ProviderSection({ onGuardChange }: { onGuardChange: (guarded: bo
                     busy={providers.loading}
                     key={config.id}
                     label={config.name}
-                    onEdit={() => {
-                      // 上一次切换的提示留在表单下方会看成是这次编辑的结果。
-                      providers.dismissNotice();
-                      setIssue(null);
-                      setDraft(toDraft(config));
-                    }}
+                    onEdit={() => openDraft(toDraft(config))}
                     onRemove={() => setPendingRemove(config)}
                     onSelect={() => void providers.select(kind, config.id)}
                     subtitle={`${hostOf(config.baseUrl)} · ${maskKey(config.apiKey)}`}
@@ -295,9 +353,7 @@ export function ProviderSection({ onGuardChange }: { onGuardChange: (guarded: bo
               <button
                 className="provider-add"
                 onClick={() => {
-                  providers.dismissNotice();
-                  setIssue(null);
-                  setDraft({ ...EMPTY_DRAFT });
+                  openDraft({ ...EMPTY_DRAFT });
                 }}
                 type="button"
               >
@@ -315,92 +371,6 @@ export function ProviderSection({ onGuardChange }: { onGuardChange: (guarded: bo
       {providers.notice && !providers.failure ? (
         <p className="provider-notice">{providers.notice}</p>
       ) : null}
-
-      <section aria-label="当前配置文件" className="provider-config">
-        <header className="provider-config__head">
-          <h3>当前配置文件</h3>
-          <button
-            className="provider-config__reload"
-            disabled={configLoading || hasDirty}
-            onClick={() => loadConfig(kind)}
-            title={hasDirty ? "有未保存的修改，先保存或还原" : "重新读取"}
-            type="button"
-          >
-            <RefreshCcw aria-hidden="true" size={ICON.xs} />
-          </button>
-        </header>
-        <p className="provider-config__hint">
-          {AGENT_LABEL[kind]} 配置文件的完整内容（含密钥，仅保存在本机）。
-          Belfry 只认领 provider 路由那几个字段，其余内容原样保留。可直接编辑保存，
-          保存前会校验 JSON/TOML，改坏了不会落盘。
-        </p>
-        {configFailure ? (
-          <p className="provider-error" role="alert">{configFailure}</p>
-        ) : null}
-        {saveFailure ? (
-          <p className="provider-error" role="alert">{saveFailure}</p>
-        ) : null}
-        {configLoading && configFiles === null ? (
-          <p className="provider-config__hint">正在读取…</p>
-        ) : null}
-        {configFiles && configFiles.length === 0 ? (
-          <p className="provider-config__hint">还没有配置文件。</p>
-        ) : null}
-        {configFiles?.map((file) => (
-          <div className="provider-config__file" key={file.path}>
-            <div className="provider-config__file-head">
-              <code className="provider-config__path" title={file.path}>{file.path}</code>
-              <span className={`provider-config__badge provider-config__badge--${file.format}`}>
-                {file.format.toUpperCase()}
-              </span>
-              {dirtyPaths.has(file.path) ? (
-                <>
-                  <button
-                    className="provider-config__save"
-                    disabled={savingPath === file.path}
-                    onClick={() => void saveConfigFile(file)}
-                    type="button"
-                  >
-                    {savingPath === file.path ? "保存中…" : "保存"}
-                  </button>
-                  <button
-                    className="provider-config__copy"
-                    disabled={savingPath === file.path}
-                    onClick={() => revertConfigFile(file.path)}
-                    type="button"
-                  >
-                    还原
-                  </button>
-                </>
-              ) : null}
-              <button
-                className="provider-config__copy"
-                onClick={() => void copyConfig(file)}
-                type="button"
-              >
-                {copiedPath === file.path ? "已复制" : "复制"}
-              </button>
-              {savedPath === file.path ? (
-                <span className="provider-config__saved">已保存</span>
-              ) : null}
-            </div>
-            {file.content.trim() || edits[file.path] !== undefined ? (
-              <textarea
-                aria-label={`编辑 ${file.path}`}
-                className="provider-config__editor"
-                disabled={savingPath === file.path}
-                onChange={(event) =>
-                  setEdits((current) => ({ ...current, [file.path]: event.target.value }))
-                }
-                spellCheck={false}
-                value={edits[file.path] ?? file.content}
-              />
-            ) : (
-              <p className="provider-config__empty">文件还不存在</p>
-            )}
-          </div>
-        ))}
-      </section>
 
       {pendingRemove ? (
         <RemoveConfirm

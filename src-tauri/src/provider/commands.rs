@@ -46,6 +46,15 @@ pub fn provider_config_preview(kind: AgentKind) -> Result<Vec<ConfigFilePreview>
     service::config_files(kind)
 }
 
+/// 根据正在编辑的 Provider 草稿生成内存预览，不写入实际配置文件。
+#[tauri::command]
+pub fn provider_config_preview_for_draft(
+    kind: AgentKind,
+    draft: ProviderDraft,
+) -> Result<Vec<ConfigFilePreview>, AppError> {
+    service::config_files_for_draft(kind, draft)
+}
+
 /// 保存用户在界面上编辑后的配置文件全文。路径白名单与格式校验在服务端，
 /// 校验失败时原文件保持不动。
 #[tauri::command]

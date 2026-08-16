@@ -1,5 +1,9 @@
-/* 这个框比确认框宽些：里面有预览和三行控件，360px 会挤。 */
-.appearance { width: min(420px, 100%); }
+/* 控制区保持适合扫读的行长；宽屏不再把预览拉成横跨整页的巨幅色块。 */
+.appearance {
+  display: grid;
+  width: min(640px, 100%);
+  gap: 14px;
+}
 
 .appearance__field {
   display: grid;
@@ -39,7 +43,7 @@
   background: var(--canvas);
 }
 
-/* 与 background.css 里那几层同源，读的是同一组 --app-bg-* 变量。
+/* 与 background.css 里的图片层同源，读的是同一组 --app-bg-* 变量。
    这里不做 blur 的外扩：预览框小，边缘那点晕反而如实反映了模糊强度。 */
 .appearance__preview-image {
   position: absolute;
@@ -49,25 +53,10 @@
   background-repeat: var(--app-bg-repeat, no-repeat);
   background-size: var(--app-bg-size, cover);
   filter: blur(var(--app-bg-blur, 0px));
+  opacity: var(--app-bg-opacity, 1);
 }
 
-.appearance__preview-scrim {
-  position: absolute;
-  inset: 0;
-  background: var(--canvas);
-  opacity: calc(1 - var(--app-bg-opacity, 0.35));
-}
-
-/* 终端在 scrim 之上还压了一层与侧栏同档的 veil（见 terminal.css），
-   预览要如实反映这个叠加，否则滑块调出来的效果和实际差一截。 */
-:root[data-background="on"] .appearance__preview-veil {
-  position: absolute;
-  inset: 0;
-  background: var(--canvas);
-  opacity: var(--app-bg-veil, 78%);
-}
-
-/* 样例文字压在几层之上，用终端的等宽字体——判断可读性得看真实字形。 */
+/* 样例文字压在图片之上，用终端的等宽字体——判断可读性得看真实字形。 */
 .appearance__preview-text {
   position: relative;
   padding: 0 10px;

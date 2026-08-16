@@ -1,4 +1,4 @@
-/* Provider 管理对话框。比默认 modal 宽一点：里面是列表加表单，360 挤得慌。 */
+/* Provider 管理视图。保留旧 modal 入口的宽度约束，窄窗口下不让表单被挤坏。 */
 .modal--provider {
   width: min(440px, 100%);
   gap: 10px;
@@ -71,11 +71,10 @@
 
 .provider-warning > svg { flex: none; margin-top: 2px; }
 
+/* 列表按内容自然展开；空间不足时由设置内容区统一滚动，避免内部固定窗口只露出少数条目。 */
 .provider-list {
   display: grid;
-  max-height: 260px;
   gap: 1px;
-  overflow-y: auto;
 }
 
 /* 条目 = 主按钮 + 两个行尾格。悬停底色画在整条上，动作键才会一起亮。 */
@@ -171,6 +170,100 @@
 
 .provider-add:hover { border-color: var(--border-strong); color: var(--text); }
 
+/* 编辑态：列表和原始配置分成两个明确的层级。常态页面不会渲染这一块，
+   进入新增/编辑后再用双栏把表单与配置文件并排放下。 */
+.provider-editor {
+  display: grid;
+  width: 100%;
+  gap: 12px;
+  min-width: 0;
+}
+
+.provider-editor__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.provider-editor__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 0;
+  border: 0;
+  color: var(--text-muted);
+  background: transparent;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+.provider-editor__back:hover { color: var(--text); }
+
+.provider-editor__mode {
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.provider-editor__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 2px 0 4px;
+}
+
+.provider-editor__eyebrow,
+.provider-config__eyebrow {
+  margin: 0 0 3px;
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.provider-editor__heading h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: clamp(22px, calc(2vw + 2px), 28px);
+  font-weight: 550;
+  letter-spacing: -0.025em;
+}
+
+.provider-editor__status {
+  flex: none;
+  margin-top: 4px;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-faint);
+  background: var(--surface-hover);
+  font-size: var(--fs-xs);
+}
+
+.provider-editor__status.is-current {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.provider-editor__body {
+  display: grid;
+  grid-template-columns: minmax(280px, 420px) minmax(0, 1fr);
+  align-items: start;
+  gap: 18px;
+  min-width: 0;
+}
+
+.provider-editor__form-column {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-width: 0;
+}
+
 .provider-form {
   display: grid;
   /* 字段一个一行竖排；输入框太长不好填，宽度限制在合理范围，不随内容区撑满。 */
@@ -221,30 +314,30 @@
 /* 删除确认盖在 provider 对话框之上，所以要比它自己的 scrim 再高一层。 */
 .provider-confirm { z-index: 31; }
 
-/* 当前配置文件：只读展示 CLI 配置原文。头排是标题、刷新、路径、格式、复制，
-   下面是代码块。Belfry 只认领路由字段，这里呈现的就是用户文件的完整内容。 */
+/* 编辑态的 CLI 原始配置。头排是标题、刷新、路径、格式、复制，下面是代码块。 */
 .provider-config {
   display: grid;
   gap: 8px;
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid var(--border);
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface) 72%, var(--canvas));
 }
 
 .provider-config__head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
 }
 
+.provider-config__head > div { flex: 1; min-width: 0; }
+
 .provider-config__head h3 {
-  flex: 1;
   margin: 0;
-  color: var(--text-faint);
-  font-size: var(--fs-xs);
+  color: var(--text);
+  font-size: var(--fs-md);
   font-weight: 500;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
 }
 
 .provider-config__reload {
@@ -269,6 +362,41 @@
   font-size: var(--fs-xs);
   line-height: var(--lh-relaxed);
 }
+
+.provider-config__identity {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--border);
+}
+
+.provider-config__identity > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+  padding: 8px 9px;
+  background: var(--surface);
+}
+
+.provider-config__identity span {
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+}
+
+.provider-config__identity strong,
+.provider-config__identity code {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.provider-config__identity code { font-family: var(--font-mono); font-weight: 400; }
 
 .provider-config__file {
   display: grid;
@@ -364,11 +492,15 @@
   font-size: var(--fs-xs);
 }
 
-.provider-config__empty {
-  margin: 0;
-  padding: 10px 12px;
-  border: 1px dashed var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text-faint);
-  font-size: var(--fs-xs);
+@media (max-width: 820px) {
+  .provider-editor__body { grid-template-columns: minmax(0, 1fr); }
+  .provider-config__editor { height: clamp(240px, 45vh, 560px); }
+}
+
+@media (max-width: 520px) {
+  .provider-editor__heading { align-items: flex-start; }
+  .provider-editor__status { margin-top: 0; }
+  .provider-config__identity { grid-template-columns: minmax(0, 1fr); }
+  .provider-config__file-head { flex-wrap: wrap; }
+  .provider-config__path { flex-basis: 100%; }
 }

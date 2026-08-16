@@ -32,6 +32,7 @@ pub fn run() {
             provider::commands::provider_remove,
             provider::commands::provider_config_save,
             provider::commands::provider_config_preview,
+            provider::commands::provider_config_preview_for_draft,
             provider::commands::provider_sync_live,
             provider::commands::provider_save,
             provider::commands::provider_switch,

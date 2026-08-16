@@ -69,11 +69,11 @@ export function toDraft(config: ProviderConfig): ProviderDraft {
   };
 }
 
-/** 一个配置文件的只读预览，内容保持文件原样，不做任何改写。 */
+/** 一个配置文件预览；可为磁盘原文，也可为草稿套用后的内存内容。 */
 export interface ConfigFilePreview {
   path: string;
   /** "json" | "toml"，前端按这个贴标签。 */
   format: "json" | "toml";
-  /** 文件原始文本；文件不存在时为空串。 */
+  /** 配置文本；文件不存在时为空串。 */
   content: string;
 }

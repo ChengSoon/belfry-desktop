@@ -88,7 +88,19 @@ export function xtermTheme(mode: ThemeMode): TerminalTheme {
  * 逐像素一致（实测差异为 0，见 tmp/bg-probe 的对照）。
  */
 export function withTransparentBackground(theme: TerminalTheme): TerminalTheme {
-  return { ...theme, background: toZeroAlpha(theme.background) };
+  return {
+    ...theme,
+    background: toZeroAlpha(theme.background),
+    scrollbarSliderBackground: toAlpha(theme.scrollbarSliderBackground ?? theme.foreground, 0.38),
+    scrollbarSliderHoverBackground: toAlpha(
+      theme.scrollbarSliderHoverBackground ?? theme.foreground,
+      0.56,
+    ),
+    scrollbarSliderActiveBackground: toAlpha(
+      theme.scrollbarSliderActiveBackground ?? theme.foreground,
+      0.72,
+    ),
+  };
 }
 
 /**
@@ -98,9 +110,13 @@ export function withTransparentBackground(theme: TerminalTheme): TerminalTheme {
  * ——和上面 scrollbarSlider 那三个值踩的是同一个坑。
  */
 export function toZeroAlpha(hex: string): string {
+  return toAlpha(hex, 0);
+}
+
+/** xterm 接受 rgba，但不接受 transparent 关键字；滑块用它保留 RGB 并降低存在感。 */
+function toAlpha(hex: string, alpha: number): string {
   const match = /^#([0-9a-f]{6})$/i.exec(hex.trim());
-  // 走到这儿说明主题里的 background 不是标准六位十六进制。全透明黑至少不会盖住背景图。
-  if (!match) return "rgba(0, 0, 0, 0)";
+  if (!match) return `rgba(0, 0, 0, ${alpha})`;
   const value = Number.parseInt(match[1], 16);
-  return `rgba(${(value >> 16) & 255}, ${(value >> 8) & 255}, ${value & 255}, 0)`;
+  return `rgba(${(value >> 16) & 255}, ${(value >> 8) & 255}, ${value & 255}, ${alpha})`;
 }

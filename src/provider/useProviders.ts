@@ -4,14 +4,6 @@ import { toAppFailure } from "../workspace/errors";
 import { listProviders, removeProvider, saveProvider, switchProvider, syncLiveProvider } from "./api";
 import { AGENT_LABEL, type ProviderCatalog, type ProviderDraft } from "./contracts";
 
-/** 临时排查用：把 IPC 的真实返回外发给 tmp/app-probe/catch-catalog.mjs，排完就删。 */
-function probe(payload: unknown) {
-  void fetch("http://127.0.0.1:8899/", {
-    body: JSON.stringify(payload),
-    method: "POST",
-  }).catch(() => {});
-}
-
 export function useProviders(open: boolean) {
   const [catalog, setCatalog] = useState<ProviderCatalog | null>(null);
   const [loading, setLoading] = useState(false);
@@ -20,22 +12,28 @@ export function useProviders(open: boolean) {
   // 切换和读取会并发，慢的那个回来时不能把新状态盖回去。
   const requestVersion = useRef(0);
 
-  const run = useCallback(async <T,>(task: () => Promise<T>, apply: (result: T) => void) => {
-    const version = ++requestVersion.current;
-    setLoading(true);
-    setFailure(null);
-    try {
-      const result = await task();
-      probe({ stage: "resolved", version, current: requestVersion.current, result });
-      if (version !== requestVersion.current) return;
-      apply(result);
-    } catch (error) {
-      probe({ stage: "threw", version, error: String(error) });
-      if (version === requestVersion.current) setFailure(toAppFailure(error));
-    } finally {
-      if (version === requestVersion.current) setLoading(false);
-    }
-  }, []);
+  const run = useCallback(
+    async <T,>(
+      task: () => Promise<T>,
+      apply: (result: T) => void,
+    ): Promise<T | undefined> => {
+      const version = ++requestVersion.current;
+      setLoading(true);
+      setFailure(null);
+      try {
+        const result = await task();
+        if (version !== requestVersion.current) return undefined;
+        apply(result);
+        return result;
+      } catch (error) {
+        if (version === requestVersion.current) setFailure(toAppFailure(error));
+        return undefined;
+      } finally {
+        if (version === requestVersion.current) setLoading(false);
+      }
+    },
+    [],
+  );
 
   const reload = useCallback(() => run(listProviders, setCatalog), [run]);
 

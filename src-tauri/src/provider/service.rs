@@ -21,58 +21,11 @@ use super::{claude, codex, envcheck, store};
 const ADOPTED_NAME: &str = "导入的配置";
 
 pub(super) fn catalog(app: &AppHandle) -> Result<ProviderCatalog, AppError> {
-    let loaded = store::load(app);
-    if let Err(err) = &loaded {
-        probe_dump(app, &format!("store::load 失败：{err:?}"));
-    }
-    let mut store = loaded?;
+    let mut store = store::load(app)?;
     if adopt_live(&mut store)? {
         store::save(app, &store)?;
     }
-    let catalog = build(&store);
-    probe_dump(
-        app,
-        &catalog
-            .agents
-            .iter()
-            .map(|group| {
-                format!(
-                    "{:?}={} 条 current={:?}",
-                    group.kind,
-                    group.providers.len(),
-                    group.current_id
-                )
-            })
-            .collect::<Vec<_>>()
-            .join(" | "),
-    );
-    Ok(catalog)
-}
-
-/// 临时排查用：把每次 provider_list 的真实结果记到 /tmp，排完就删。
-/// 光看界面分不清「窗口跑的是旧二进制」「后端返回空」「前端没渲染」这三种情况。
-fn probe_dump(app: &AppHandle, summary: &str) {
-    use std::io::Write;
-    use tauri::Manager;
-    let exe = std::env::current_exe()
-        .map(|path| path.display().to_string())
-        .unwrap_or_else(|_| "?".into());
-    let data_dir = app
-        .path()
-        .app_data_dir()
-        .map(|path| path.display().to_string())
-        .unwrap_or_else(|err| format!("<取不到：{err}>"));
-    if let Ok(mut file) = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open("/tmp/belfry-catalog-probe.log")
-    {
-        let _ = writeln!(
-            file,
-            "pid={} exe={exe}\n  data_dir={data_dir}\n  {summary}",
-            std::process::id()
-        );
-    }
+    Ok(build(&store))
 }
 
 pub(super) fn save_provider(
@@ -220,6 +173,47 @@ pub(super) fn config_files(kind: AgentKind) -> Result<Vec<ConfigFilePreview>, Ap
         }
         AgentKind::Codex => codex::config_files(),
     }
+}
+
+/// 根据正在编辑的草稿生成一份内存预览，不写入磁盘。
+///
+/// 右侧编辑器要展示的是「这个 Provider 套用后的配置」，而不是当前 live
+/// Provider 的旧文件；字段改写统一复用切换时的实现，避免两套规则漂移。
+pub(super) fn config_files_for_draft(
+    kind: AgentKind,
+    draft: ProviderDraft,
+) -> Result<Vec<ConfigFilePreview>, AppError> {
+    let provider = ProviderConfig {
+        id: draft.id.unwrap_or_else(|| "preview".to_string()),
+        name: draft.name.trim().to_string(),
+        base_url: draft.base_url.trim().to_string(),
+        api_key: draft.api_key.trim().to_string(),
+        model: draft.model.trim().to_string(),
+        created_at: 0,
+    };
+
+    match kind {
+        AgentKind::Claude => preview_claude(&provider),
+        AgentKind::Codex => preview_codex(&provider),
+    }
+}
+
+fn preview_claude(provider: &ProviderConfig) -> Result<Vec<ConfigFilePreview>, AppError> {
+    let path = claude::settings_path()?;
+    let mut settings = claude::read_settings()?;
+    claude::apply(&mut settings, Some(provider))?;
+    let mut content = serde_json::to_string_pretty(&settings)
+        .map_err(|err| AppError::io(format!("序列化 settings.json 预览失败：{err}")))?;
+    content.push('\n');
+    Ok(vec![ConfigFilePreview {
+        path: path.display().to_string(),
+        format: "json".to_string(),
+        content,
+    }])
+}
+
+fn preview_codex(provider: &ProviderConfig) -> Result<Vec<ConfigFilePreview>, AppError> {
+    codex::config_files_for_provider(provider)
 }
 
 /// 保存用户在界面上编辑后的配置文件全文。路径白名单和格式校验在各 agent 模块里。
@@ -467,4 +461,3 @@ mod tests {
         assert!(store.agent(AgentKind::Claude).current_id.is_none());
     }
 }
-

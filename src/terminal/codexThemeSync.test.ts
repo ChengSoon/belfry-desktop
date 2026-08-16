@@ -6,6 +6,7 @@ const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 const DARK_COMPOSER = "\x1b[48;2;39;39;40m";
 const LIGHT_COMPOSER = "\x1b[48;2;240;240;240m";
+const DEFAULT_BACKGROUND = "\x1b[49m";
 
 describe("CodexThemeSync", () => {
   it("rewrites a dark-started composer for the light theme", () => {
@@ -58,6 +59,42 @@ describe("CodexThemeSync", () => {
     expect(text(sync.rewrite(bytes(LIGHT_COMPOSER), true))).toBe(DARK_COMPOSER);
   });
 
+  it("resets the known composer background when the terminal is transparent", () => {
+    const sync = new CodexThemeSync(xtermTheme("light"), true);
+
+    expect(text(sync.rewrite(bytes(LIGHT_COMPOSER), true))).toBe(DEFAULT_BACKGROUND);
+  });
+
+  it("preserves combined foreground styles while resetting a transparent background", () => {
+    const sync = new CodexThemeSync(xtermTheme("light"), true);
+    const combined = "\x1b[1;38;2;23;24;27;48;2;240;240;240m";
+
+    expect(text(sync.rewrite(bytes(combined), true)))
+      .toBe("\x1b[1;38;2;23;24;27;49m");
+  });
+
+  it("resets a colon-delimited composer background in transparent mode", () => {
+    const sync = new CodexThemeSync(xtermTheme("light"), true);
+    const combined = "\x1b[38:2::23:24:27;48:2::240:240:240m";
+
+    expect(text(sync.rewrite(bytes(combined), true)))
+      .toBe("\x1b[38:2::23:24:27;49m");
+  });
+
+  it("restores the themed composer background when transparency is disabled", () => {
+    const sync = new CodexThemeSync(xtermTheme("light"), true);
+    sync.setTheme(xtermTheme("light"), false);
+
+    expect(text(sync.rewrite(bytes(LIGHT_COMPOSER), true))).toBe(LIGHT_COMPOSER);
+  });
+
+  it("resets a composer after a background image finishes loading", () => {
+    const sync = new CodexThemeSync(xtermTheme("light"));
+    sync.setTheme(xtermTheme("light"), true);
+
+    expect(text(sync.rewrite(bytes(LIGHT_COMPOSER), true))).toBe(DEFAULT_BACKGROUND);
+  });
+
   it("handles a startup probe racing with the first theme switch", () => {
     const sync = new CodexThemeSync(xtermTheme("dark"));
     sync.setTheme(xtermTheme("light"));
@@ -80,6 +117,52 @@ describe("CodexThemeSync", () => {
     const unrelated = "\x1b[48;2;39;39;41m";
 
     expect(text(sync.rewrite(bytes(unrelated), true))).toBe(unrelated);
+  });
+
+  it("resets nearby neutral backgrounds in transparent mode", () => {
+    const sync = new CodexThemeSync(xtermTheme("light"), true);
+    const neutral = "\x1b[48;2;240;240;241m";
+
+    expect(text(sync.rewrite(bytes(neutral), true))).toBe(DEFAULT_BACKGROUND);
+  });
+
+  it("resets white, gray, and black backgrounds while preserving colored backgrounds", () => {
+    const sync = new CodexThemeSync(xtermTheme("light"), true);
+    const input = [
+      "\x1b[47mwhite",
+      "\x1b[48;5;250mgray",
+      "\x1b[48;2;20;22;24mblack",
+      "\x1b[48;2;59;91;219mblue",
+    ].join("");
+
+    expect(text(sync.rewrite(bytes(input), true))).toBe([
+      "\x1b[49mwhite",
+      "\x1b[49mgray",
+      "\x1b[49mblack",
+      "\x1b[48;2;59;91;219mblue",
+    ].join(""));
+  });
+
+  it("resets colon-delimited neutral indexed backgrounds", () => {
+    const sync = new CodexThemeSync(xtermTheme("light"), true);
+
+    expect(text(sync.rewrite(bytes("\x1b[48:5:255m"), true)))
+      .toBe(DEFAULT_BACKGROUND);
+  });
+
+  it("turns off reverse video without dropping the remaining text styles", () => {
+    const sync = new CodexThemeSync(xtermTheme("light"), true);
+    const reversed = "\x1b[1;38;2;59;91;219;7m";
+
+    expect(text(sync.rewrite(bytes(reversed), true)))
+      .toBe("\x1b[1;38;2;59;91;219;27m");
+  });
+
+  it("does not mistake a true-color channel for reverse video", () => {
+    const sync = new CodexThemeSync(xtermTheme("light"), true);
+    const colored = "\x1b[38;2;7;91;219;48;2;59;7;219m";
+
+    expect(text(sync.rewrite(bytes(colored), true))).toBe(colored);
   });
 
   it("flushes an incomplete candidate at end of stream", () => {

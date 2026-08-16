@@ -15,8 +15,8 @@ export interface BackgroundConfig {
   mime: string | null;
   fit: BackgroundFit;
   /**
-   * 背景图可见度 0..1。遮罩的 alpha 取 1 - opacity，
-   * 所以这个值越小，画布底色压得越狠、终端文字越清楚。
+   * 背景图自身可见度 0..1。不会再叠加画布色遮罩，
+   * 所以这个值只控制图片淡出程度。
    */
   opacity: number;
   /** 模糊半径，px。 */
@@ -25,15 +25,12 @@ export interface BackgroundConfig {
 
 export const MAX_BLUR = 40;
 
-/**
- * 默认偏保守：0.35 的可见度足以看出是哪张图，又不至于让正文难读。
- * 用户拉高是主动选择，默认值不该替他冒险。
- */
+/** 默认让背景图完整显示；需要降低干扰时再由用户主动调低。 */
 export const DEFAULT_BACKGROUND: BackgroundConfig = {
   fileName: null,
   mime: null,
   fit: "cover",
-  opacity: 0.35,
+  opacity: 1,
   blur: 0,
 };
 

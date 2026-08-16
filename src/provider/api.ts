@@ -19,8 +19,11 @@ export function switchProvider(kind: AgentKind, id: string | null) {
   return invoke<SwitchOutcome>("provider_switch", { kind, id });
 }
 
-/** 当前生效的配置文件原文（只读）。Claude Code 是 settings.json；Codex 是 config.toml + auth.json。 */
-export function configPreview(kind: AgentKind) {
+/** 读取配置预览；传入草稿时会先在内存中套用 Provider，不写入磁盘。 */
+export function configPreview(kind: AgentKind, draft?: ProviderDraft) {
+  if (draft) {
+    return invoke<ConfigFilePreview[]>("provider_config_preview_for_draft", { kind, draft });
+  }
   return invoke<ConfigFilePreview[]>("provider_config_preview", { kind });
 }
 

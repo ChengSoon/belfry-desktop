@@ -52,7 +52,9 @@ export function ProviderForm({ busy, draft, issue, onCancel, onChange, onSubmit 
 
       <div className="modal__actions">
         <button onClick={onCancel} type="button">取消</button>
-        <button className="modal__primary" disabled={busy} type="submit">保存</button>
+        <button className="modal__primary" disabled={busy} type="submit">
+          {busy ? "保存中…" : "保存 provider"}
+        </button>
       </div>
     </form>
   );

@@ -119,7 +119,7 @@ pub struct SwitchOutcome {
     pub effective_immediately: bool,
 }
 
-/// 一个配置文件的只读预览，内容保持文件原样，不做任何改写。
+/// 一个配置文件预览；可以是磁盘原文，也可以是草稿套用后的内存内容。
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ConfigFilePreview {

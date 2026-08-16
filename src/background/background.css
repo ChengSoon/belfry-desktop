@@ -30,50 +30,62 @@
   background-size: var(--app-bg-size, cover);
   content: "";
   filter: blur(var(--app-bg-blur, 0px));
+  opacity: var(--app-bg-opacity, 1);
 }
 
-/* 遮罩层，压住图片保证正文可读。
-   必须和图片分成两层：同层的话 filter: blur 会把遮罩一起糊掉，
-   压制强度就跟着模糊半径漂移了。
-   底色取 var(--canvas)，深色主题自动叠黑、浅色自动叠白，切主题不用改任何 JS。 */
-.app-background__scrim {
-  position: absolute;
-  inset: 0;
-  background: var(--canvas);
-  opacity: calc(1 - var(--app-bg-opacity, 0.35));
-}
-
-/* 铺了背景图时，界面上原本不透明的几个面要让开，否则图只能在终端区露出来。
-   都是在原色上挂一个 alpha，不改色相——面与面之间的明度层级仍然成立，
-   只是整体透出下面那张图。alpha 值统一由 --app-bg-veil 控制。 */
+/* 背景开启时，基础布局面全部让开，让同一张图连续穿过侧栏、舞台和辅助面板。
+   局部按钮、卡片和真正的模态框仍使用各自的背景，保证交互层级与文字可读性。 */
 :root[data-background="on"] {
-  /* 侧栏和用量面板要压住正文，留得比舞台厚一些；78% 是实测下
-     浅色小字仍然清晰、图案又能明显透出来的位置。 */
-  --app-bg-veil: 78%;
+  --app-bg-divider: color-mix(in srgb, var(--text) 22%, transparent);
+  --app-bg-divider-strong: color-mix(in srgb, var(--text) 38%, transparent);
 }
 
 /* 侧栏。:not() 是必需的——拖会话到侧栏上方时 .is-eject-target 要把整条染成
    强调色，而那条规则的优先级(0,2,0)低于这里的(0,2,1)，不排除掉就会被这层盖住，
    拖拽反馈直接消失。 */
 :root[data-background="on"] .sidebar:not(.is-eject-target) {
-  background: color-mix(in srgb, var(--sidebar) var(--app-bg-veil), transparent);
+  border-right-color: var(--app-bg-divider);
+  background: transparent;
 }
 
 /* Windows 的自绘标题栏与侧栏同色同源，一起让开，否则顶上会横一条不透明的实色。
    macOS 走 Overlay 标题栏，这个节点是 display: none，规则自然落空。 */
 :root[data-background="on"] .window-titlebar {
-  background: color-mix(in srgb, var(--sidebar) var(--app-bg-veil), transparent);
+  background: transparent;
 }
 
 :root[data-background="on"] .usage-panel {
-  background: color-mix(in srgb, var(--surface) var(--app-bg-veil), transparent);
+  border-left-color: var(--app-bg-divider);
+  background: transparent;
+}
+
+:root[data-background="on"] .history-panel {
+  border-left-color: var(--app-bg-divider);
+  background: transparent;
 }
 
 /* 终端窗格自己的标题条（会话标签那一横条）同样要让开：它横跨整个舞台顶部，
    不处理的话背景图铺开时顶上会压一条纯白实色，是全窗口最扎眼的一处不均。 */
 :root[data-background="on"] .terminal-pane__bar {
-  background: color-mix(in srgb, var(--surface-raised) var(--app-bg-veil), transparent);
+  border-color: var(--app-bg-divider);
+  background: transparent;
 }
 
-/* 浮层（模态、确认框、toast）刻意不在此列：它们的职责就是把底下的东西压住，
-   半透明会让正文压在图案上读不清。背景图只透过「面」，不透过「浮层」。 */
+:root[data-background="on"] .terminal-pane.is-onstage .terminal-pane__body {
+  border-color: var(--app-bg-divider);
+}
+
+:root[data-background="on"] .terminal-pane.is-focused .terminal-pane__bar,
+:root[data-background="on"] .terminal-pane.is-onstage.is-focused .terminal-pane__body {
+  border-color: var(--app-bg-divider-strong);
+}
+
+/* 活动会话仍要能扫出来，但不再是一整块纯白/纯黑卡片。 */
+:root[data-background="on"] .session-row.is-active,
+:root[data-background="on"] .session-row.is-active:hover {
+  background: color-mix(in srgb, var(--sidebar-active) 72%, transparent);
+  box-shadow: 0 0 0 1px var(--app-bg-divider);
+}
+
+/* 浮层（模态、确认框、toast）刻意不在此列：它们是局部交互卡片，
+   仍需压住底下内容，避免文字与背景图互相干扰。 */

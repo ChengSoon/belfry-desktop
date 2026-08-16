@@ -6,20 +6,31 @@ const ESC = 0x1b;
 const CSI = 0x5b;
 const SGR = 0x6d;
 const MAX_CSI_BYTES = 128;
+const DEFAULT_BACKGROUND = "49";
+const INVERSE_OFF = "27";
+const MAX_NEUTRAL_CHROMA = 24;
+const NEUTRAL_ANSI_BACKGROUNDS = new Set(["40", "47", "100", "107"]);
 
-/** Codex 会把启动时探测到的终端底色混成输入区背景，并在进程内永久缓存。 */
+/**
+ * Codex 会把启动时探测到的终端底色混成输入区背景，并在进程内永久缓存。
+ * 透明模式下把 composer 与其他中性底色重置为 ANSI 默认背景，并关闭反显样式。
+ * 红、绿、蓝等语义色仍然保留，避免 diff、告警和选项状态丢失层级。
+ */
 export class CodexThemeSync {
   private readonly sources: Rgb[] = [];
   private target: Rgb;
+  private transparent: boolean;
   private pending: number[] = [];
 
-  constructor(theme: TerminalTheme) {
+  constructor(theme: TerminalTheme, transparent = false) {
     this.target = composerBackground(theme.background);
+    this.transparent = transparent;
     this.remember(this.target);
   }
 
-  setTheme(theme: TerminalTheme) {
+  setTheme(theme: TerminalTheme, transparent = false) {
     this.target = composerBackground(theme.background);
+    this.transparent = transparent;
     this.remember(this.target);
   }
 
@@ -60,7 +71,12 @@ export class CodexThemeSync {
   private rewriteCsi(sequence: number[]) {
     if (sequence.at(-1) !== SGR) return sequence;
     const body = decoder.decode(Uint8Array.from(sequence.slice(2, -1)));
-    const rewritten = rewriteBackground(body, this.sources, this.target);
+    const target = this.transparent ? null : this.target;
+    const rewritten = rewriteBackground(body, {
+      sources: this.sources,
+      target,
+      transparent: this.transparent,
+    });
     return Array.from(encoder.encode(`\x1b[${rewritten}m`));
   }
 
@@ -72,6 +88,11 @@ export class CodexThemeSync {
 }
 
 type Rgb = [number, number, number];
+type RewriteContext = {
+  sources: Rgb[];
+  target: Rgb | null;
+  transparent: boolean;
+};
 
 function composerBackground(background: string): Rgb {
   const [red, green, blue] = parseHex(background);
@@ -88,33 +109,119 @@ function parseHex(value: string): [number, number, number] {
   return [Number.parseInt(match[1], 16), Number.parseInt(match[2], 16), Number.parseInt(match[3], 16)];
 }
 
-function rewriteBackground(body: string, sources: Rgb[], target: Rgb) {
+function rewriteBackground(body: string, context: RewriteContext) {
   const params = body.split(";");
-  for (let index = 0; index <= params.length - 5; index += 1) {
-    if (sources.some((source) => matchesBackground(params, index, source))) {
-      params.splice(index + 2, 3, ...target.map(String));
-    }
+  for (let index = 0; index < params.length;) {
+    index = rewriteParam(params, index, context);
   }
-  return sources.reduce(
-    (rewritten, source) => rewriteColonBackground(rewritten, source, target),
-    params.join(";"),
-  );
+  return params.join(";");
 }
 
-function matchesBackground(params: string[], index: number, [red, green, blue]: Rgb) {
-  return params[index] === "48"
-    && params[index + 1] === "2"
-    && params[index + 2] === String(red)
-    && params[index + 3] === String(green)
-    && params[index + 4] === String(blue);
+function rewriteParam(params: string[], index: number, context: RewriteContext) {
+  const colon = rewriteColonBackground(params[index], context);
+  if (colon !== params[index]) {
+    params[index] = colon;
+    return index + 1;
+  }
+
+  const rgb = readTrueColorBackground(params, index);
+  if (rgb) return rewriteTrueColor(params, index, { ...context, rgb });
+
+  const indexed = readIndexedBackground(params, index);
+  if (indexed !== null) return rewriteIndexed(params, index, {
+    color: indexed,
+    transparent: context.transparent,
+  });
+
+  const extendedColorLength = readExtendedColorLength(params, index);
+  if (extendedColorLength) return index + extendedColorLength;
+
+  if (context.transparent && params[index] === "7") params[index] = INVERSE_OFF;
+  if (context.transparent && NEUTRAL_ANSI_BACKGROUNDS.has(params[index])) {
+    params[index] = DEFAULT_BACKGROUND;
+  }
+  return index + 1;
 }
 
-function rewriteColonBackground(body: string, source: Rgb, target: Rgb) {
-  const sourceRgb = source.join(":");
-  const targetRgb = target.join(":");
-  return body
-    .replaceAll(`48:2:${sourceRgb}`, `48:2:${targetRgb}`)
-    .replaceAll(`48:2::${sourceRgb}`, `48:2::${targetRgb}`);
+function rewriteTrueColor(
+  params: string[],
+  index: number,
+  context: RewriteContext & { rgb: Rgb },
+) {
+  const known = context.sources.some((source) => sameRgb(source, context.rgb));
+  if (!known && !(context.transparent && isNeutral(context.rgb))) return index + 5;
+  if (!context.target) {
+    params.splice(index, 5, DEFAULT_BACKGROUND);
+    return index + 1;
+  }
+  params.splice(index + 2, 3, ...context.target.map(String));
+  return index + 5;
+}
+
+function rewriteIndexed(
+  params: string[],
+  index: number,
+  context: { color: number; transparent: boolean },
+) {
+  if (!context.transparent || !isNeutralIndex(context.color)) return index + 3;
+  params.splice(index, 3, DEFAULT_BACKGROUND);
+  return index + 1;
+}
+
+function readTrueColorBackground(params: string[], index: number): Rgb | null {
+  if (params[index] !== "48" || params[index + 1] !== "2") return null;
+  const rgb = params.slice(index + 2, index + 5).map(Number);
+  return rgb.length === 3 && rgb.every(isByte) ? rgb as Rgb : null;
+}
+
+function readIndexedBackground(params: string[], index: number) {
+  if (params[index] !== "48" || params[index + 1] !== "5") return null;
+  const value = Number(params[index + 2]);
+  return isByte(value) ? value : null;
+}
+
+function readExtendedColorLength(params: string[], index: number) {
+  if (!["38", "48", "58"].includes(params[index])) return 0;
+  if (params[index + 1] === "2") return params.length - index >= 5 ? 5 : 0;
+  if (params[index + 1] === "5") return params.length - index >= 3 ? 3 : 0;
+  return 0;
+}
+
+function rewriteColonBackground(param: string, context: RewriteContext) {
+  const parts = param.split(":");
+  if (parts[0] !== "48") return param;
+  if (parts[1] === "5") {
+    const indexed = Number(parts.at(-1));
+    return context.transparent && isByte(indexed) && isNeutralIndex(indexed)
+      ? DEFAULT_BACKGROUND
+      : param;
+  }
+  if (parts[1] !== "2" || parts.length < 5) return param;
+  const rgb = parts.slice(-3).map(Number);
+  if (!rgb.every(isByte)) return param;
+  const known = context.sources.some((source) => sameRgb(source, rgb as Rgb));
+  if (!known && !(context.transparent && isNeutral(rgb as Rgb))) return param;
+  if (!context.target) return DEFAULT_BACKGROUND;
+  parts.splice(-3, 3, ...context.target.map(String));
+  return parts.join(":");
+}
+
+function isNeutral([red, green, blue]: Rgb) {
+  return Math.max(red, green, blue) - Math.min(red, green, blue) <= MAX_NEUTRAL_CHROMA;
+}
+
+function isNeutralIndex(index: number) {
+  if ([0, 7, 8, 15].includes(index) || index >= 232) return true;
+  if (index < 16) return false;
+  const cube = index - 16;
+  const red = Math.floor(cube / 36);
+  const green = Math.floor((cube % 36) / 6);
+  const blue = cube % 6;
+  return red === green && green === blue;
+}
+
+function isByte(value: number) {
+  return Number.isInteger(value) && value >= 0 && value <= 255;
 }
 
 function isCsiFinal(byte: number) {

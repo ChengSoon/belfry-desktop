@@ -78,7 +78,7 @@ export function BackgroundProvider({ children }: { children: ReactNode }) {
   }, [config.fileName, config.mime, assetVersion, swapUrl]);
 
   /* 配置广播走 CSS 变量而不是 props：背景层不用为了这几个参数被穿透一路传参，
-     并且 data-background 同时驱动 terminal.css 里 xterm 底色、以及侧栏等面的半透明。 */
+     opacity 直接作用在图片层，data-background 再驱动终端与基础布局面的透明化。 */
   useEffect(() => {
     const root = document.documentElement;
     const fit = FIT_STYLE[config.fit];

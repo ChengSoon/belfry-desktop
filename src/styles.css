@@ -45,10 +45,10 @@
     "JetBrains Mono", monospace;
 
   /* 三档正文 + 一档展示。要整体缩放只需改这四个值，不必再翻各模块的 CSS。 */
-  --fs-xs: 10px;
-  --fs-sm: 11px;
-  --fs-md: 12px;
-  --fs-display: 18px;
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-md: 14px;
+  --fs-display: 20px;
   --lh-normal: 1.5;
   --lh-relaxed: 1.6;
 

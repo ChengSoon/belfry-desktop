@@ -1,15 +1,26 @@
 /* 设置视图：整窗铺开，布局沿用 Codex 桌面版设置那种「左侧分类导航，右侧内容」。
    打开时主界面整片隐藏（保持挂载，PTY 不断），见 workspace.css 的 is-settings 规则。
-   导航栏用侧栏底色，内容区用画布底色，跟主界面的分层保持一致。 */
+   没有背景图时使用主题画布；有背景图时由下面的覆盖规则让背景连续透出。 */
 .settings-view {
+  position: relative;
+  z-index: 1;
   display: grid;
   grid-column: 1 / -1;
   grid-row: 1 / -1;
   min-width: 0;
   min-height: 0;
   grid-template-columns: 200px minmax(0, 1fr);
+  isolation: isolate;
+  overflow: hidden;
   padding-top: var(--titlebar-inset);
   background: var(--canvas);
+}
+
+/* 设置页不是一张白色遮罩：背景开启时只保留布局与边界，不再加磨砂底。 */
+:root[data-background="on"] .settings-view {
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 .settings-nav {
@@ -22,6 +33,11 @@
   border-right: 1px solid var(--border);
   background: var(--sidebar);
   scrollbar-color: var(--scrollbar) transparent;
+}
+
+:root[data-background="on"] .settings-nav {
+  border-right-color: var(--app-bg-divider);
+  background: transparent;
 }
 
 .settings-nav__head {
@@ -57,7 +73,11 @@
 }
 
 .settings-nav > button:hover:not(:disabled) { color: var(--text); background: var(--surface-hover); }
-.settings-nav > button.is-active { color: var(--text); background: var(--surface-hover); }
+.settings-nav > button.is-active,
+.settings-nav > button.is-active:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--accent-soft);
+}
 .settings-nav > button:disabled { opacity: 0.4; cursor: default; }
 .settings-nav > button > svg { flex: none; }
 
@@ -68,6 +88,8 @@
   align-content: start;
   min-width: 0;
   min-height: 0;
+  /* WebKit 会把带 overflow 的隐式 auto 行压到 0，高度不足时 provider 列表会被裁掉。 */
+  grid-auto-rows: max-content;
   gap: 8px;
   overflow-y: auto;
   padding: 18px 24px;
