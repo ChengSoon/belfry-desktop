@@ -14,6 +14,7 @@ import { UpdateDialog } from "./updater/UpdateDialog";
 import { useAppUpdater } from "./updater/useAppUpdater";
 import { HistoryPanel } from "./history/components/HistoryPanel";
 import type { HistorySession } from "./history/contracts";
+import type { SshLaunch } from "./terminal/contracts";
 import { UsagePanel } from "./usage/components/UsagePanel";
 import { closeConfirmBody, needsCloseConfirm } from "./workspace/closeConfirm";
 import { ProjectSwitcher } from "./workspace/components/ProjectSwitcher";
@@ -54,6 +55,11 @@ export default function App() {
     if (workspace.activeProject) unfold(workspace.activeProject.id);
     void workspace.launch(kind);
   }, [unfold, workspace.activeProject, workspace.launch]);
+
+  const launchSsh = useCallback((target: SshLaunch) => {
+    unfold("ssh");
+    void workspace.launchSsh(target);
+  }, [unfold, workspace.launchSsh]);
 
   // 历史会话与用量面板互斥：两者都占右侧一列，栅格只留了一条轨道。
   const toggleUsage = useCallback(() => {
@@ -124,11 +130,14 @@ export default function App() {
           foldedProjects={foldedProjects}
           onActivate={layout.activateTab}
           onClose={requestClose}
+          onRename={workspace.renameTab}
           onCollapse={() => setCollapsed(true)}
           onConsumeClick={consumedClick}
           onDragStart={startDrag}
           onLaunch={launch}
+          onLaunchSsh={launchSsh}
           onRefresh={workspace.redetectAgents}
+          onUpdateSsh={workspace.updateSsh}
           onToggleFold={toggleFold}
           onToggleUsage={toggleUsage}
           onToggleHistory={toggleHistory}

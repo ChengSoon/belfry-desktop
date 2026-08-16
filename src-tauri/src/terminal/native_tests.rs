@@ -4,11 +4,13 @@ use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
 use super::backend::{PtyBackend, TerminalEventSink};
+#[cfg(target_os = "macos")]
+use super::contracts::SshTarget;
+#[cfg(target_os = "macos")]
+use super::contracts::TerminalPalette;
 use super::contracts::{
     AppError, CreateTerminalRequest, Elevation, Platform, TerminalEvent, TerminalSize,
 };
-#[cfg(target_os = "macos")]
-use super::contracts::TerminalPalette;
 use super::native::NativePtyBackend;
 #[cfg(target_os = "macos")]
 use super::native_test_commands::color_query_command;
@@ -171,6 +173,31 @@ fn native_backend_uses_requested_project_cwd() {
     backend.close(&session.id).unwrap();
 }
 
+/// 只在 macOS 上跑：/usr/bin/ssh 是系统自带的，Windows 的 OpenSSH 客户端
+/// 是可选功能，装没装不该决定测试能不能过。
+///
+/// 只验到"进程被拉起来"为止：连不连得上取决于本机网络与防火墙，不该进单元测试。
+/// spawn 成功即证明 ssh 可执行文件解析、参数拼装与 PTY 接线这条链路是通的。
+#[cfg(target_os = "macos")]
+#[test]
+fn native_backend_spawns_the_system_ssh_client() {
+    let _guard = lock_native_test();
+    let backend = NativePtyBackend::default();
+    let sink = Arc::new(RecordingSink::default());
+    let mut request = default_request();
+    request.profile_id = "ssh".to_string();
+    request.ssh = Some(SshTarget {
+        host: "127.0.0.1".to_string(),
+        user: Some("root".to_string()),
+        port: Some(1),
+        password: None,
+        remember_password: None,
+    });
+    let session = backend.spawn(request, sink.clone()).unwrap();
+    assert_eq!(session.shell, "root@127.0.0.1");
+    backend.close(&session.id).unwrap();
+}
+
 /// 只在 macOS 上跑：这里验证的是"过滤器 → PTY writer → 子进程"这段接线，
 /// 和平台无关。Windows 上真正的未知数是 ConPTY 会不会把查询透传出来，
 /// 那件事只能在真机上验。
@@ -210,6 +237,7 @@ fn default_request() -> CreateTerminalRequest {
         command: None,
         env: HashMap::new(),
         resume: None,
+        ssh: None,
         cols: 100,
         rows: 30,
         elevation: Elevation::Normal,
@@ -271,7 +299,10 @@ fn wait_for_events(
     }
     let bytes = output_bytes(&events);
     let tail = &bytes[bytes.len().saturating_sub(2_000)..];
-    eprintln!("terminal output before timeout: {:?}", String::from_utf8_lossy(tail));
+    eprintln!(
+        "terminal output before timeout: {:?}",
+        String::from_utf8_lossy(tail)
+    );
     false
 }
 
@@ -284,15 +315,9 @@ fn lock_native_test() -> MutexGuard<'static, ()> {
 /// xterm.js 会自动应答 PowerShell/PSReadLine 的启动查询；这里的 RecordingSink 不是
 /// 终端模拟器，必须补上同样的最小握手，否则 PowerShell 会等查询超时后才处理测试输入。
 #[cfg(target_os = "windows")]
-fn complete_startup_handshake(
-    backend: &NativePtyBackend,
-    session_id: &str,
-    sink: &RecordingSink,
-) {
+fn complete_startup_handshake(backend: &NativePtyBackend, session_id: &str, sink: &RecordingSink) {
     assert!(wait_for_text(sink, "\x1b[6n", Duration::from_secs(3)));
-    backend
-        .write(session_id, b"\x1b[1;1R\x1b[?1;2c")
-        .unwrap();
+    backend.write(session_id, b"\x1b[1;1R\x1b[?1;2c").unwrap();
     // 等到提示符出现再发测试命令，避免响应与命令被 ConPTY 合并为同一输入块，
     // 被 PowerShell 的终端查询读取逻辑一并消费掉。
     assert!(wait_for_text(sink, "PS ", Duration::from_secs(5)));

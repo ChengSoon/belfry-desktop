@@ -6,7 +6,7 @@ use portable_pty::CommandBuilder;
 use crate::agent::{AgentKind, resolve_agent};
 use crate::resource::{canonicalize, file_uri_to_path, path_to_file_uri};
 
-use super::contracts::{AppError, LaunchProfileId, Platform};
+use super::contracts::{AppError, LaunchProfileId, Platform, SshTarget};
 
 pub(super) struct ResolvedLaunch {
     pub command: CommandBuilder,
@@ -18,12 +18,73 @@ pub(super) fn resolve_launch(
     cwd: &Path,
     env: &HashMap<String, String>,
     resume: Option<&str>,
+    ssh: Option<&SshTarget>,
 ) -> Result<ResolvedLaunch, AppError> {
     match LaunchProfileId::parse(profile_id)? {
         LaunchProfileId::SystemDefault => resolve_shell_launch(cwd, env),
         LaunchProfileId::AgentCodex => resolve_agent_launch(AgentKind::Codex, cwd, env, resume),
         LaunchProfileId::AgentClaude => resolve_agent_launch(AgentKind::Claude, cwd, env, resume),
+        LaunchProfileId::Ssh => resolve_ssh_launch(cwd, env, ssh),
     }
+}
+
+/// SSH 会话直接拉起系统 OpenSSH 客户端：密码只经 PTY 应答提示、不进命令行，
+/// 主机指纹、2FA 全在终端里交互；`~/.ssh/config` 的别名、密钥和 agent 都原样继承。
+/// 勾选「记住密码」时密码会存进系统钥匙串，但不随工作区状态持久化。
+fn resolve_ssh_launch(
+    cwd: &Path,
+    env: &HashMap<String, String>,
+    target: Option<&SshTarget>,
+) -> Result<ResolvedLaunch, AppError> {
+    let target = target
+        .ok_or_else(|| AppError::invalid_argument("ssh launch profile requires an ssh target"))?;
+    let mut command = configured_command(resolve_ssh_executable()?, cwd, env);
+    command.args(ssh_arguments(target));
+    let destination = ssh_destination(target);
+    Ok(ResolvedLaunch {
+        command,
+        display_name: destination,
+    })
+}
+
+fn ssh_arguments(target: &SshTarget) -> Vec<String> {
+    let mut args = Vec::new();
+    if let Some(port) = target.port {
+        args.push("-p".to_string());
+        args.push(port.to_string());
+    }
+    args.push(ssh_destination(target));
+    args
+}
+
+fn ssh_destination(target: &SshTarget) -> String {
+    match &target.user {
+        Some(user) => format!("{user}@{}", target.host),
+        None => target.host.clone(),
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn resolve_ssh_executable() -> Result<String, AppError> {
+    const SSH_PATH: &str = "/usr/bin/ssh";
+    Path::new(SSH_PATH)
+        .is_file()
+        .then(|| SSH_PATH.to_string())
+        .ok_or_else(|| AppError::not_found("OpenSSH client was not found on this system"))
+}
+
+/// Windows 上 OpenSSH 客户端是可选功能：先查系统自带位置，找不到再走 PATH，
+/// 覆盖用户自装的客户端。与 resolve_default_shell 同理，能给绝对路径就不给裸名。
+#[cfg(target_os = "windows")]
+fn resolve_ssh_executable() -> Result<String, AppError> {
+    let system_root = std::env::var("SystemRoot").unwrap_or_else(|_| "C:\\Windows".to_string());
+    let bundled = Path::new(&system_root).join("System32\\OpenSSH\\ssh.exe");
+    if bundled.is_file() {
+        return Ok(bundled.to_string_lossy().to_string());
+    }
+    crate::agent::find_in_path("ssh")
+        .map(|path| path.to_string_lossy().to_string())
+        .ok_or_else(|| AppError::not_found("OpenSSH client was not found on this system"))
 }
 
 fn resolve_shell_launch(
@@ -221,16 +282,56 @@ mod tests {
     #[test]
     fn resume_appends_agent_specific_flags() {
         assert_eq!(
-            agent_args(AgentKind::Codex, Some("019ff0d5-dbaf-7893-96db-4fbbbfee03a7")),
+            agent_args(
+                AgentKind::Codex,
+                Some("019ff0d5-dbaf-7893-96db-4fbbbfee03a7")
+            ),
             &["resume", "019ff0d5-dbaf-7893-96db-4fbbbfee03a7"]
         );
         assert_eq!(
-            agent_args(AgentKind::Claude, Some("cf32a9a3-0a60-427b-8bba-823e36c66d13")),
+            agent_args(
+                AgentKind::Claude,
+                Some("cf32a9a3-0a60-427b-8bba-823e36c66d13")
+            ),
             &[
                 "--dangerously-skip-permissions",
                 "--resume",
                 "cf32a9a3-0a60-427b-8bba-823e36c66d13"
             ]
+        );
+    }
+
+    #[test]
+    fn ssh_arguments_carry_port_and_destination() {
+        let target = SshTarget {
+            host: "example.com".to_string(),
+            user: Some("root".to_string()),
+            port: Some(2222),
+            password: None,
+            remember_password: None,
+        };
+        assert_eq!(ssh_arguments(&target), &["-p", "2222", "root@example.com"]);
+        assert_eq!(ssh_destination(&target), "root@example.com");
+    }
+
+    #[test]
+    fn ssh_without_user_or_port_destinations_to_the_bare_host() {
+        let target = SshTarget {
+            host: "bastion".to_string(),
+            user: None,
+            port: None,
+            password: None,
+            remember_password: None,
+        };
+        assert_eq!(ssh_arguments(&target), &["bastion"]);
+    }
+
+    #[test]
+    fn ssh_launch_requires_a_target() {
+        let cwd = std::env::current_dir().unwrap();
+        assert!(
+            resolve_ssh_launch(&cwd, &HashMap::new(), None).is_err(),
+            "ssh without a target must not resolve"
         );
     }
 }

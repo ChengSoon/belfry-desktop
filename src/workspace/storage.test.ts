@@ -100,6 +100,89 @@ describe("workspace session persistence", () => {
     expect(plain?.tabs[0].resumeSessionId).toBeNull();
   });
 
+  it("persists and restores ssh connection targets", () => {
+    const ssh = {
+      ...createWorkspaceTab(
+        project,
+        "ssh",
+        1,
+        null,
+        { host: "example.com", user: "root", port: 2222, password: null, rememberPassword: false },
+      ),
+      id: "ssh-1",
+    };
+    const restored = parseWorkspaceState(serializeWorkspaceState([ssh], ssh.id));
+    expect(restored?.tabs[0]).toMatchObject({
+      kind: "ssh",
+      profileId: "ssh",
+      title: "root@example.com",
+      sshTarget: { host: "example.com", user: "root", port: 2222, password: null, rememberPassword: false },
+    });
+  });
+
+  it("never persists ssh passwords into workspace state", () => {
+    const ssh = {
+      ...createWorkspaceTab(
+        project,
+        "ssh",
+        1,
+        null,
+        {
+          host: "example.com",
+          user: null,
+          port: null,
+          password: "secret",
+          rememberPassword: true,
+        },
+      ),
+      id: "ssh-1",
+    };
+    const serialized = serializeWorkspaceState([ssh], ssh.id);
+    expect(serialized).not.toContain("secret");
+    expect(serialized).not.toContain("rememberPassword");
+    const restored = parseWorkspaceState(serialized);
+    expect(restored?.tabs[0].sshTarget).toEqual({
+      host: "example.com",
+      user: null,
+      port: null,
+      password: null,
+      rememberPassword: false,
+    });
+  });
+
+  it("persists a custom ssh display name", () => {
+    const ssh = {
+      ...createWorkspaceTab(
+        project,
+        "ssh",
+        1,
+        null,
+        { host: "example.com", user: null, port: null, password: null, rememberPassword: false },
+      ),
+      id: "ssh-1",
+      title: "生产服务器",
+      customTitle: "生产服务器",
+    };
+    const restored = parseWorkspaceState(serializeWorkspaceState([ssh], ssh.id));
+    expect(restored?.tabs[0]).toMatchObject({
+      title: "生产服务器",
+      customTitle: "生产服务器",
+    });
+  });
+
+  it("drops ssh sessions whose target is missing from an old save", () => {
+    const persisted = JSON.stringify({
+      tabs: [
+        { id: "ssh-1", project, kind: "ssh", title: "broken", titleHint: null, sshTarget: null },
+        { id: "shell-1", project, kind: "shell", title: "Shell 01", titleHint: null },
+      ],
+      activeTabId: "ssh-1",
+    });
+    const restored = parseWorkspaceState(persisted);
+    expect(restored?.tabs.map((tab) => tab.id)).toEqual(["shell-1"]);
+    expect(restored?.activeTabId).toBe("shell-1");
+  });
+
   it("keeps an intentionally empty session list", () => {
     expect(parseWorkspaceState(serializeWorkspaceState([], null))).toEqual({
       tabs: [],

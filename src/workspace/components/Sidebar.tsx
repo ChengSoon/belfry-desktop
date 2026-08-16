@@ -1,16 +1,18 @@
-import { ChevronRight, Download, Gauge, History, PanelLeftClose, Settings, SquareTerminal, X } from "lucide-react";
-import type { CSSProperties, PointerEvent, Ref } from "react";
+import { ChevronRight, Download, Gauge, History, PanelLeftClose, Pencil, Server, Settings, Settings2, SquareTerminal, X } from "lucide-react";
+import { useRef, useState, type CSSProperties, type PointerEvent, type Ref } from "react";
 import { PanelResizeHandle } from "../../panel/PanelResizeHandle";
 import { usePanelWidth } from "../../panel/usePanelWidth";
 import { ICON } from "../../theme/sizing";
 import { ThemeToggle } from "../../theme/ThemeToggle";
 import type { UpdaterState } from "../../updater/contracts";
+import type { SshLaunch } from "../../terminal/contracts";
 import type { AgentAvailability, WorkspaceTab, WorkspaceTabKind } from "../contracts";
 import { shortPath } from "../path";
 import { SIDEBAR_WIDTH } from "../sidebarWidth";
 import { groupTabsByProject, type ProjectGroup } from "../tabs";
 import { ClaudeIcon, CodexIcon } from "./AgentIcons";
 import { NewSessionMenu } from "./NewSessionMenu";
+import { SshDialog } from "./SshDialog";
 import "../sidebar.css";
 
 interface SidebarProps {
@@ -21,9 +23,12 @@ interface SidebarProps {
   draggingId: string | null;
   foldedProjects: ReadonlySet<string>;
   onLaunch: (kind: WorkspaceTabKind) => void;
+  onLaunchSsh: (target: SshLaunch) => void;
+  onUpdateSsh: (id: string, target: SshLaunch) => void;
   onRefresh: () => Promise<void>;
   onActivate: (id: string) => void;
   onClose: (id: string) => void;
+  onRename: (id: string, customTitle: string | null) => void;
   onDragStart: (id: string, event: PointerEvent) => void;
   /** 拖完那下 pointerup 还会带出一次 click，返回 true 表示这次点击该被吞掉。 */
   onConsumeClick: () => boolean;
@@ -52,9 +57,12 @@ export function Sidebar({
   ejecting = false,
   foldedProjects,
   onLaunch,
+  onLaunchSsh,
+  onUpdateSsh,
   onRefresh,
   onActivate,
   onClose,
+  onRename,
   onDragStart,
   onConsumeClick,
   onToggleFold,
@@ -84,7 +92,12 @@ export function Sidebar({
       <div className="sidebar-sessions">
         <div className="sessions-head">
           <span>会话</span>
-          <NewSessionMenu agents={agents} onLaunch={onLaunch} onRefresh={onRefresh} />
+          <NewSessionMenu
+            agents={agents}
+            onLaunch={onLaunch}
+            onLaunchSsh={onLaunchSsh}
+            onRefresh={onRefresh}
+          />
         </div>
         <nav className="session-list" aria-label="会话列表">
           {groups.map((group) => (
@@ -96,6 +109,8 @@ export function Sidebar({
               key={group.project.id}
               onActivate={onActivate}
               onClose={onClose}
+              onRename={onRename}
+              onUpdateSsh={onUpdateSsh}
               onConsumeClick={onConsumeClick}
               onDragStart={onDragStart}
               onToggleFold={onToggleFold}
@@ -189,6 +204,8 @@ function SessionGroup({
   draggingId,
   onActivate,
   onClose,
+  onRename,
+  onUpdateSsh,
   onConsumeClick,
   onDragStart,
   onToggleFold,
@@ -199,6 +216,8 @@ function SessionGroup({
   draggingId: string | null;
   onActivate: (id: string) => void;
   onClose: (id: string) => void;
+  onRename: (id: string, customTitle: string | null) => void;
+  onUpdateSsh: (id: string, target: SshLaunch) => void;
   onConsumeClick: () => boolean;
   onDragStart: (id: string, event: PointerEvent) => void;
   onToggleFold: (projectId: string) => void;
@@ -213,10 +232,11 @@ function SessionGroup({
         aria-label={`${group.project.name}，${group.tabs.length} 个会话${dot === "awaiting" ? "，有会话等待选择" : ""}`}
         className="session-group__head"
         onClick={() => onToggleFold(group.project.id)}
-        title={shortPath(group.project.rootPath)}
+        title={group.project.rootPath ? shortPath(group.project.rootPath) : "SSH 会话"}
         type="button"
       >
         <ChevronRight aria-hidden="true" className="session-group__chevron" size={ICON.xs} />
+        {group.project.id === "ssh" ? <Server aria-hidden="true" size={ICON.xs} /> : null}
         <span>{group.project.name}</span>
         {folded ? <i className="session-group__count" aria-hidden="true">{group.tabs.length}</i> : null}
         {dot ? <i className={`session-group__dot session-group__dot--${dot}`} aria-hidden="true" /> : null}
@@ -228,6 +248,8 @@ function SessionGroup({
           key={tab.id}
           onActivate={onActivate}
           onClose={onClose}
+          onRename={onRename}
+          onUpdateSsh={onUpdateSsh}
           onConsumeClick={onConsumeClick}
           onDragStart={onDragStart}
           tab={tab}
@@ -243,6 +265,8 @@ function SessionRow({
   dragging,
   onActivate,
   onClose,
+  onRename,
+  onUpdateSsh,
   onConsumeClick,
   onDragStart,
 }: {
@@ -251,30 +275,113 @@ function SessionRow({
   dragging: boolean;
   onActivate: (id: string) => void;
   onClose: (id: string) => void;
+  onRename: (id: string, customTitle: string | null) => void;
+  onUpdateSsh: (id: string, target: SshLaunch) => void;
   onConsumeClick: () => boolean;
   onDragStart: (id: string, event: PointerEvent) => void;
 }) {
-  const Icon = tab.kind === "shell" ? SquareTerminal : tab.kind === "codex" ? CodexIcon : ClaudeIcon;
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [sshEditorOpen, setSshEditorOpen] = useState(false);
+  const sshEditRef = useRef<HTMLButtonElement>(null);
+  // Escape 取消后 input 卸载会补发一次 blur，不挡一下会把"取消"变成"提交"。
+  const dismissed = useRef(false);
+  const Icon = tab.kind === "shell"
+    ? SquareTerminal
+    : tab.kind === "codex"
+      ? CodexIcon
+      : tab.kind === "claude"
+        ? ClaudeIcon
+        : Server;
+  const startEditing = () => {
+    dismissed.current = false;
+    setDraft(tab.title);
+    setEditing(true);
+  };
+  const commit = () => {
+    if (dismissed.current) return;
+    dismissed.current = true;
+    setEditing(false);
+    onRename(tab.id, draft.trim() || null);
+  };
+  const cancel = () => {
+    dismissed.current = true;
+    setEditing(false);
+  };
+  const openSshEditor = () => {
+    if (tab.sshTarget) setSshEditorOpen(true);
+  };
+  const closeSshEditor = () => {
+    setSshEditorOpen(false);
+    window.requestAnimationFrame(() => sshEditRef.current?.focus());
+  };
   // 只有 exited 褪色。error 也是"进程没了"，但它要你去看，褪成灰会把行尾那个红点的分量抵掉。
   const dim = tab.phase === "exited";
   return (
-    <div className={`session-row${active ? " is-active" : ""}${dim ? " is-dim" : ""}${dragging ? " is-dragging" : ""}`}>
-      <button
-        aria-current={active}
-        aria-label={`${tab.title}，${statusText(tab)}`}
-        className="session-row__main"
-        // 拖到终端上分屏；没拖动就是普通的切换点击。
-        onClick={() => {
-          if (!onConsumeClick()) onActivate(tab.id);
-        }}
-        onPointerDown={(event) => onDragStart(tab.id, event)}
-        title={tab.error ?? tab.titleHint ?? tab.title}
-        type="button"
-      >
-        <Icon aria-hidden="true" size={ICON.sm} />
-        <span>{tab.title}</span>
-      </button>
-      <div className="session-row__tail">
+    <>
+      <div className={`session-row${active ? " is-active" : ""}${dim ? " is-dim" : ""}${dragging ? " is-dragging" : ""}${tab.kind === "ssh" ? " session-row--ssh" : ""}`}>
+      {editing ? (
+        <div className="session-row__main session-row__main--editing">
+          <Icon aria-hidden="true" size={ICON.sm} />
+          <input
+            aria-label="会话显示名"
+            autoFocus
+            maxLength={64}
+            onChange={(event) => setDraft(event.target.value)}
+            onBlur={commit}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") commit();
+              if (event.key === "Escape") {
+                event.preventDefault();
+                cancel();
+              }
+            }}
+            onPointerDown={(event) => event.stopPropagation()}
+            value={draft}
+          />
+        </div>
+      ) : (
+        <button
+          aria-current={active}
+          aria-label={`${tab.title}，${statusText(tab)}`}
+          className="session-row__main"
+          // 拖到终端上分屏；没拖动就是普通的切换点击。
+          onClick={() => {
+            if (!onConsumeClick()) onActivate(tab.id);
+          }}
+          onDoubleClick={tab.kind === "ssh" ? startEditing : undefined}
+          onPointerDown={(event) => onDragStart(tab.id, event)}
+          title={rowTitle(tab)}
+          type="button"
+        >
+          <Icon aria-hidden="true" size={ICON.sm} />
+          <span>{tab.title}</span>
+        </button>
+      )}
+      <div className={`session-row__tail${tab.kind === "ssh" ? " session-row__tail--wide" : ""}`}>
+        {tab.kind === "ssh" ? (
+          <>
+            <button
+              aria-label="编辑 SSH 连接"
+              className="session-row__edit"
+              onClick={openSshEditor}
+              ref={sshEditRef}
+              title="编辑 SSH 连接"
+              type="button"
+            >
+              <Settings2 aria-hidden="true" size={ICON.xs} />
+            </button>
+            <button
+              aria-label="重命名会话"
+              className="session-row__rename"
+              onClick={startEditing}
+              title="重命名会话"
+              type="button"
+            >
+              <Pencil aria-hidden="true" size={ICON.xs} />
+            </button>
+          </>
+        ) : null}
         <SessionDot tab={tab} />
         <button
           className="session-row__close"
@@ -285,8 +392,28 @@ function SessionRow({
           <X aria-hidden="true" size={ICON.xs} />
         </button>
       </div>
-    </div>
+      </div>
+      {sshEditorOpen && tab.sshTarget ? (
+        <SshDialog
+          initialRememberPassword={tab.sshTarget.rememberPassword}
+          initialTarget={tab.sshTarget}
+          mode="edit"
+          onCancel={closeSshEditor}
+          onConnect={(target) => {
+            closeSshEditor();
+            onUpdateSsh(tab.id, target);
+          }}
+        />
+      ) : null}
+    </>
   );
+}
+
+/** SSH 会话可以双击改名，把提示挂在悬停 tooltip 上。 */
+function rowTitle(tab: WorkspaceTab) {
+  if (tab.error) return tab.error;
+  if (tab.kind === "ssh") return `双击重命名 · 点击设置编辑连接 · ${tab.title}`;
+  return tab.titleHint ?? tab.title;
 }
 
 /**

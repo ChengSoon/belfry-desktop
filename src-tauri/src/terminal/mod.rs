@@ -1,3 +1,4 @@
+mod auto_password;
 mod backend;
 pub mod commands;
 mod contracts;
@@ -10,6 +11,7 @@ mod native_test_commands;
 mod native_tests;
 mod osc;
 mod runtime;
+mod ssh_auth;
 
 pub(crate) use contracts::AppError;
 pub use runtime::TerminalRuntime;

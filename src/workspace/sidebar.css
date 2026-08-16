@@ -163,6 +163,8 @@
   transition: background var(--duration) var(--ease);
 }
 
+.session-row--ssh { grid-template-columns: minmax(0, 1fr) 68px; }
+
 .session-row:hover { background: var(--sidebar-hover); }
 
 /* 活动态是"浮起的卡片"而不是一块填充色：底色已经沉过一档，这里给纯白 + 一圈描边，
@@ -226,10 +228,66 @@
 
 .session-row__tail > * { grid-area: 1 / 1; }
 
+/* SSH 行多两个操作键：连接设置、重命名、状态/关闭各占一格。 */
+.session-row__tail--wide {
+  width: 68px;
+  grid-template-columns: 22px 22px 24px;
+  grid-template-rows: 100%;
+}
+
+.session-row__tail--wide .session-row__edit { grid-area: 1 / 1; }
+.session-row__tail--wide .session-row__rename { grid-area: 1 / 2; }
+.session-row__tail--wide .session-row__close,
+.session-row__tail--wide > i { grid-area: 1 / 3; }
+
+.session-row__edit,
+.session-row__rename {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border: 0;
+  border-radius: 4px;
+  color: var(--text-faint);
+  background: transparent;
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity var(--duration) var(--ease), color var(--duration) var(--ease);
+}
+
+.session-row:hover .session-row__rename,
+.session-row:hover .session-row__edit,
+.session-row__edit:focus-visible,
+.session-row__rename:focus-visible { opacity: 1; }
+
+.session-row__edit:hover,
+.session-row__rename:hover { color: var(--text); background: var(--surface-hover); }
+
 /* 点画在关闭键下面（DOM 在前），点击永远落在关闭键上；再钉一道 pointer-events 兜底。 */
 .session-row__tail > i {
   pointer-events: none;
   transition: opacity var(--duration) var(--ease);
+}
+
+/* 行内改名：替换主按钮，输入框占满行宽。 */
+.session-row__main--editing {
+  min-width: 0;
+  padding: 0 2px 0 9px;
+}
+
+.session-row__main--editing > svg { flex: 0 0 auto; color: var(--text-faint); }
+
+.session-row__main--editing input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 3px 6px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  background: var(--surface);
+  font-size: var(--fs-md);
+  outline: none;
 }
 
 .session-row__close {

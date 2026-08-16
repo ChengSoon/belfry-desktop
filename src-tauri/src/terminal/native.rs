@@ -7,6 +7,7 @@ use std::time::{Duration, Instant};
 
 use portable_pty::{ChildKiller, MasterPty, PtySize, native_pty_system};
 
+use super::auto_password::AutoPassword;
 use super::backend::{PtyBackend, TerminalEventSink};
 use super::contracts::{
     AppError, CreateTerminalRequest, TerminalEvent, TerminalExitReason, TerminalPalette,
@@ -17,6 +18,7 @@ use super::launch::{
 };
 use super::native_lifecycle::{reap, spawn_exit_monitor, wait_until};
 use super::osc::{OscColorFilter, Palette};
+use super::ssh_auth;
 
 const OUTPUT_CHUNK_SIZE: usize = 64 * 1024;
 /// 交互式关闭：断开 PTY 后给进程自行收尾的时间，等待发生在后台线程。
@@ -43,6 +45,8 @@ pub(super) struct NativeSession {
     closing: AtomicBool,
     /// reader 线程读它来应答 OSC 10/11；换肤时由 set_palette 改写。
     palette: RwLock<Option<Palette>>,
+    /// SSH 登录密码：首次出现密码提示时自动填入一次，然后停用。非 SSH 会话为 None。
+    auto_password: Mutex<Option<AutoPassword>>,
 }
 
 impl PtyBackend for NativePtyBackend {
@@ -54,8 +58,20 @@ impl PtyBackend for NativePtyBackend {
         request.validate()?;
         validate_platform(request.platform)?;
         let cwd = resolve_cwd(request.cwd.as_deref())?;
-        let launch = resolve_launch(&request.profile_id, &cwd, &request.env, request.resume.as_deref())?;
+        let launch = resolve_launch(
+            &request.profile_id,
+            &cwd,
+            &request.env,
+            request.resume.as_deref(),
+            request.ssh.as_ref(),
+        )?;
         let shell = launch.display_name;
+        let auto_password = match &request.ssh {
+            Some(target) => {
+                ssh_auth::resolve_password(target).map(|value| AutoPassword::new(&value))
+            }
+            None => None,
+        };
         let pty_system = native_pty_system();
         let pair = pty_system
             .openpty(to_pty_size(request.cols, request.rows))
@@ -87,6 +103,7 @@ impl PtyBackend for NativePtyBackend {
             closing: AtomicBool::new(false),
             // 颜色坏了不该拦下会话：解析失败就当没给，退回让 xterm.js 自己答。
             palette: RwLock::new(request.palette.as_ref().and_then(to_palette)),
+            auto_password: Mutex::new(auto_password),
         });
         self.sessions
             .lock()
@@ -226,6 +243,16 @@ fn spawn_reader(session_id: String, mut reader: Box<dyn Read + Send>, session: A
                     let filtered = filter.feed(&buffer[..count], palette);
                     if !filtered.reply.is_empty() {
                         session.reply(&filtered.reply);
+                    }
+                    // SSH 密码提示：命中就在本地回写一次密码，不经过前端。
+                    if let Some(reply) = session
+                        .auto_password
+                        .lock()
+                        .unwrap()
+                        .as_mut()
+                        .and_then(|responder| responder.on_output(&buffer[..count]))
+                    {
+                        session.reply(&reply);
                     }
                     // 整块都是查询时跳过：前端按 sequence 严格校验，少发一次比发个空事件干净。
                     if filtered.forward.is_empty() {

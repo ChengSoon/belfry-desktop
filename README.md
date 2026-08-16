@@ -49,7 +49,7 @@ claude --version
 然后：
 
 1. 启动 Belfry，点顶部的项目选择器，选一个本地目录。
-2. 侧栏的新会话菜单里挑 Shell、Codex 或 Claude。检测不到的 Agent 会标灰，鼠标悬停能看到原因。
+2. 侧栏的新会话菜单里挑 Shell、SSH、Codex 或 Claude。检测不到的 Agent 会标灰，鼠标悬停能看到原因。
 3. 同一个项目下可以并排开多个会话，标签自己按你输入的第一句话命名。
 4. `⌘U` 打开用量面板，看 token 花在哪个模型、哪个项目上。
 
@@ -89,6 +89,10 @@ claude --version
 
 - 基于 xterm.js，WebGL renderer——块字符之间没有横缝
 - macOS 走 Unix PTY，Windows 走 ConPTY；Shell 依次探测 PowerShell、`%ComSpec%`、`cmd.exe`
+- SSH 会话直接拉起系统 OpenSSH 客户端：密码、主机指纹、2FA 都在终端里原生交互，
+  `~/.ssh/config` 的别名、密钥和 agent 原样继承
+  - 连接时勾选「记住密码」，密码存进系统钥匙串（macOS Keychain / Windows 凭据管理器），
+    之后的连接自动填入；SSH 表单里可随时清除已保存的密码
 - OSC 10/11 颜色查询在 Rust 侧直接应答。这件事绕不过去：Codex 这类 TUI 只给 100 ms 窗口，走一圈 `PTY → IPC → xterm.js → IPC → PTY` 经常超时，而 Windows 上超时的后果不是「没颜色」而是「猜错颜色」——Codex 会退回读 ConPTY 的黑色调色板，把输入框画成黑块
 - 密码提示识别，输入不回显
 
@@ -208,4 +212,3 @@ Belfry 是终端与会话的托管层，不对 Agent 在你机器上执行的命
 ## 友情链接
 
 - [LINUX DO](https://linux.do/) — 开发者社区
-

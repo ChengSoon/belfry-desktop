@@ -45,6 +45,7 @@ pub fn run() {
             commands::terminal_resize,
             commands::terminal_set_palette,
             commands::terminal_close,
+            commands::ssh_credentials_remove,
         ])
         .build(tauri::generate_context!())
         .expect("failed to build Belfry desktop");

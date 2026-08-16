@@ -94,7 +94,7 @@ fn find_agent(kind: AgentKind) -> Option<PathBuf> {
         .and_then(|path| canonicalize(&path).ok().or(Some(path)))
 }
 
-fn find_in_path(command: &str) -> Option<PathBuf> {
+pub(crate) fn find_in_path(command: &str) -> Option<PathBuf> {
     let search_path = std::env::var_os("PATH")?;
     std::env::split_paths(&search_path)
         .flat_map(|directory| command_candidates(&directory, command))

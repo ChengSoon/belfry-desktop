@@ -1,6 +1,7 @@
 import { invoke, type Channel } from "@tauri-apps/api/core";
 import type {
   CreateTerminalRequest,
+  SshTarget,
   TerminalEvent,
   TerminalPalette,
   TerminalSession,
@@ -30,4 +31,8 @@ export function setTerminalPalette(sessionId: string, palette: TerminalPalette) 
 
 export function closeTerminal(sessionId: string) {
   return invoke<void>("terminal_close", { sessionId });
+}
+
+export function removeSshCredentials(target: SshTarget) {
+  return invoke<void>("ssh_credentials_remove", { target });
 }

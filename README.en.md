@@ -49,7 +49,7 @@ claude --version
 Then:
 
 1. Launch Belfry, click the project switcher at the top, pick a local directory.
-2. Open the new-session menu in the sidebar and choose Shell, Codex, or Claude. Undetected agents are greyed out; hover to see why.
+2. Open the new-session menu in the sidebar and choose Shell, SSH, Codex, or Claude. Undetected agents are greyed out; hover to see why.
 3. Open as many sessions per project as you want — tabs name themselves after your first prompt.
 4. Hit `⌘U` for the usage panel to see which model and project your tokens went to.
 
@@ -89,6 +89,8 @@ Neither agent detected? Doesn't matter. Shell sessions don't depend on them, and
 
 - xterm.js with the WebGL renderer — no seams between block characters
 - Unix PTY on macOS, ConPTY on Windows; shell resolution tries PowerShell, `%ComSpec%`, then `cmd.exe`
+- SSH sessions spawn the system OpenSSH client: passwords, host-key fingerprints, and 2FA are handled interactively in the terminal, and `~/.ssh/config` aliases, keys, and agent inherit as-is
+  - Check "remember password" when connecting to store it in the OS keychain (macOS Keychain / Windows Credential Manager) and auto-fill future connections; saved passwords can be cleared from the SSH form
 - OSC 10/11 color queries are answered in Rust. This isn't optional: TUIs like Codex allow a ~100 ms window, and a round trip through `PTY → IPC → xterm.js → IPC → PTY` frequently misses it. On Windows the cost of a timeout isn't "no color" but "wrong color" — Codex falls back to ConPTY's black palette and paints the input box as a black block.
 - Password prompt detection, with echo suppressed
 

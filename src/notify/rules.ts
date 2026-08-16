@@ -29,8 +29,8 @@ export function classifyTransition(
   to: SessionActivity,
   kind: WorkspaceTabKind,
 ): NotifyReason | null {
-  // Shell 会话的 activity 恒为 idle，跃迁本不该发生；真发生了也没有 Agent 可等。
-  if (kind === "shell") return null;
+  // Shell / SSH 会话的 activity 恒为 idle，跃迁本不该发生；真发生了也没有 Agent 可等。
+  if (kind === "shell" || kind === "ssh") return null;
   if (from === to) return null;
   // 进入等待选择：最该打扰的一种，不去点它就一直卡着。
   if (to === "awaiting-choice") return "awaiting-choice";

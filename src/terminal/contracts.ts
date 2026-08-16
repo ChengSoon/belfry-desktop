@@ -8,13 +8,35 @@ export type TerminalPhase = "idle" | "creating" | "running" | "exited" | "error"
  * 那是 hooks 通道就绪后的精确事件源。这里是屏幕文本猜出来的近似值，两者不能混。
  */
 export type SessionActivity = "idle" | "talking" | "awaiting-choice";
-export type LaunchProfileId = "system-default" | "agent:codex" | "agent:claude";
+export type LaunchProfileId = "system-default" | "agent:codex" | "agent:claude" | "ssh";
+
+/** SSH 连接目标。密码不随工作区状态持久化，只在启动时经 SshLaunch 传递。 */
+export interface SshTarget {
+  host: string;
+  user: string | null;
+  port: number | null;
+}
+
+/** 一次 SSH 启动的完整参数：目标 + 本次密码与「记住密码」开关。 */
+export interface SshLaunch extends SshTarget {
+  /** 本次连接使用的密码；不随工作区状态持久化，勾选记住时由后端写入系统钥匙串。 */
+  password: string | null;
+  /** 为 true 时把 password 存进系统钥匙串，之后的连接自动取用。 */
+  rememberPassword: boolean;
+}
+
+/** `user@host` 或裸 `host`，会话标签和会话信息共用。 */
+export function sshDisplayName(target: SshTarget): string {
+  return target.user ? `${target.user}@${target.host}` : target.host;
+}
 
 export interface TerminalLaunch {
   profileId: LaunchProfileId;
   cwd: string | null;
   /** 继续某条历史会话：Codex/Claude 的 resume 参数。null 表示普通新会话。 */
   resumeSessionId: string | null;
+  /** SSH 会话的连接目标；其他会话为 null。 */
+  ssh: SshLaunch | null;
 }
 
 /**
@@ -36,6 +58,7 @@ export interface CreateTerminalRequest {
   command: null;
   env: Record<string, string>;
   resume: string | null;
+  ssh: SshLaunch | null;
   cols: number;
   rows: number;
   elevation: "normal";
@@ -82,6 +105,7 @@ export function createTerminalRequest(
     command: null,
     env: {},
     resume: launch.resumeSessionId,
+    ssh: launch.ssh,
     cols,
     rows,
     elevation: "normal",
@@ -98,7 +122,7 @@ export function createDefaultRequest(
   return createTerminalRequest(
     cols,
     rows,
-    { profileId: "system-default", cwd: null, resumeSessionId: null },
+    { profileId: "system-default", cwd: null, resumeSessionId: null, ssh: null },
     palette,
     userAgent,
   );

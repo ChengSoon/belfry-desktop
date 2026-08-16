@@ -8,6 +8,7 @@ import {
   groupTabsByProject,
   nextActiveTab,
   nextOrdinal,
+  updateSshTarget,
 } from "./tabs";
 
 const project = { id: "p1", name: "demo", rootPath: "/demo", rootUri: "file:///demo" };
@@ -22,6 +23,32 @@ describe("workspace tabs", () => {
       profileId: "agent:codex",
       title: "Codex 01",
     });
+    vi.unstubAllGlobals();
+  });
+
+  it("maps ssh sessions to the ssh launch profile and the target title", () => {
+    vi.stubGlobal("crypto", { randomUUID: () => "tab-ssh" });
+    const tab = createWorkspaceTab(
+      project,
+      "ssh",
+      1,
+      null,
+      { host: "example.com", user: "root", port: 2222, password: null, rememberPassword: false },
+    );
+    expect(tab).toMatchObject({
+      id: "tab-ssh",
+      project,
+      profileId: "ssh",
+      title: "root@example.com",
+      customTitle: null,
+      sshTarget: { host: "example.com", user: "root", port: 2222 },
+    });
+    vi.unstubAllGlobals();
+  });
+
+  it("falls back to an ordinal title when an ssh session has no target", () => {
+    vi.stubGlobal("crypto", { randomUUID: () => "tab-ssh" });
+    expect(createWorkspaceTab(project, "ssh", 2).title).toBe("SSH 02");
     vi.unstubAllGlobals();
   });
 
@@ -111,6 +138,39 @@ describe("snapshot merge", () => {
     expect(applySnapshot(named, snapshot("再加个测试")).title).toBe("再加个测试");
   });
 
+  it("keeps the connection target as the title of an ssh session", () => {
+    const ssh = {
+      ...createWorkspaceTab(
+        project,
+        "ssh",
+        1,
+        null,
+        { host: "example.com", user: null, port: null, password: null, rememberPassword: false },
+      ),
+      id: "ssh-1",
+    };
+    expect(ssh.title).toBe("example.com");
+    const named = applySnapshot(ssh, snapshot("ls"));
+    expect(named.title).toBe("example.com");
+    expect(named.titleHint).toBeNull();
+  });
+
+  it("keeps a manually renamed title against later snapshots", () => {
+    const ssh = {
+      ...createWorkspaceTab(
+        project,
+        "ssh",
+        1,
+        null,
+        { host: "example.com", user: null, port: null, password: null, rememberPassword: false },
+      ),
+      id: "ssh-1",
+      title: "生产服务器",
+      customTitle: "生产服务器",
+    };
+    expect(applySnapshot(ssh, snapshot("top")).title).toBe("生产服务器");
+  });
+
   it("keeps the previous name when the input carries no information", () => {
     const named = applySnapshot(base, snapshot("pnpm dev"));
     expect(applySnapshot(named, snapshot("ls")).title).toBe("pnpm dev");
@@ -153,6 +213,59 @@ describe("snapshot merge", () => {
   });
 });
 
+describe("SSH target updates", () => {
+  it("updates the default title and resets terminal state", () => {
+    const tab = {
+      ...createWorkspaceTab(
+        project,
+        "ssh",
+        1,
+        null,
+        { host: "old.example.com", user: "root", port: 22, password: null, rememberPassword: false },
+      ),
+      phase: "error" as const,
+      activity: "talking" as const,
+      error: "旧连接失败",
+    };
+    const updated = updateSshTarget(tab, {
+      host: "new.example.com",
+      user: "deploy",
+      port: 2222,
+      password: "secret",
+      rememberPassword: true,
+    });
+
+    expect(updated).toMatchObject({
+      title: "deploy@new.example.com",
+      sshTarget: { host: "new.example.com", user: "deploy", port: 2222, password: "secret" },
+      phase: "idle",
+      activity: "idle",
+      error: null,
+    });
+  });
+
+  it("preserves a custom session title while changing the target", () => {
+    const tab = {
+      ...createWorkspaceTab(
+        project,
+        "ssh",
+        1,
+        null,
+        { host: "old.example.com", user: null, port: null, password: null, rememberPassword: false },
+      ),
+      title: "生产机",
+      customTitle: "生产机",
+    };
+    expect(updateSshTarget(tab, {
+      host: "new.example.com",
+      user: null,
+      port: null,
+      password: null,
+      rememberPassword: false,
+    }).title).toBe("生产机");
+  });
+});
+
 describe("project grouping", () => {
   it("groups sessions by project in first-seen order", () => {
     const tabs = [
@@ -174,5 +287,31 @@ describe("project grouping", () => {
     // 第三个 shell 落在别的项目里也接着排 03，避免组间出现重名会话
     expect(nextOrdinal(tabs, "shell")).toBe(3);
     expect(nextOrdinal(tabs, "claude")).toBe(1);
+  });
+
+  it("keeps ssh sessions in their own group above projects", () => {
+    const tabs = [
+      { ...createWorkspaceTab(project, "shell", 1), id: "a" },
+      {
+        ...createWorkspaceTab(
+          project,
+          "ssh",
+          1,
+          null,
+          { host: "example.com", user: null, port: null, password: null, rememberPassword: false },
+        ),
+        id: "b",
+      },
+      { ...createWorkspaceTab(other, "claude", 1), id: "c" },
+    ];
+    const groups = groupTabsByProject(tabs);
+    expect(groups.map((group) => group.project.id)).toEqual(["ssh", "p1", "p2"]);
+    expect(groups[0]).toMatchObject({ project: { id: "ssh", name: "SSH" }, tabs: [{ id: "b" }] });
+    expect(groups[1].tabs.map((tab) => tab.id)).toEqual(["a"]);
+  });
+
+  it("hides the ssh group when no ssh session exists", () => {
+    const tabs = [{ ...createWorkspaceTab(project, "shell", 1), id: "a" }];
+    expect(groupTabsByProject(tabs).map((group) => group.project.id)).toEqual(["p1"]);
   });
 });

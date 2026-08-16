@@ -4,6 +4,7 @@ import type {
   WorkspaceTab,
   WorkspaceTabKind,
 } from "./contracts";
+import type { LaunchProfileId, SshTarget } from "../terminal/contracts";
 import { pathKey } from "./path";
 
 export const RECENT_PROJECTS_KEY = "belfry.recent-projects.v1";
@@ -58,13 +59,25 @@ export function saveWorkspaceState(
 
 export function serializeWorkspaceState(tabs: WorkspaceTab[], activeTabId: string | null) {
   return JSON.stringify({
-    tabs: tabs.map(({ id, project, kind, title, titleHint, resumeSessionId }) => ({
+    tabs: tabs.map(({
       id,
       project,
       kind,
       title,
       titleHint,
+      customTitle,
       resumeSessionId,
+      sshTarget,
+    }) => ({
+      id,
+      project,
+      kind,
+      title,
+      titleHint,
+      customTitle,
+      resumeSessionId,
+      // 密码只进系统钥匙串：工作区存档只保留连接目标本身。
+      sshTarget: sshTarget ? { host: sshTarget.host, user: sshTarget.user, port: sshTarget.port } : null,
     })),
     activeTabId: tabs.some((tab) => tab.id === activeTabId) ? activeTabId : tabs[0]?.id ?? null,
   });
@@ -85,8 +98,12 @@ export function parseWorkspaceState(value: string | null): PersistedWorkspaceSta
       kind: value.kind,
       title: value.title,
       titleHint: value.titleHint,
+      customTitle: value.customTitle ?? null,
       resumeSessionId: value.resumeSessionId ?? null,
-      profileId: value.kind === "shell" ? "system-default" : `agent:${value.kind}`,
+      profileId: profileIdForKind(value.kind),
+      sshTarget: value.kind === "ssh" && value.sshTarget
+        ? { ...value.sshTarget, password: null, rememberPassword: false }
+        : null,
       phase: "idle",
       activity: "idle",
       error: null,
@@ -99,6 +116,12 @@ export function parseWorkspaceState(value: string | null): PersistedWorkspaceSta
       ? requestedActiveId
       : tabs[0]?.id ?? null,
   };
+}
+
+function profileIdForKind(kind: WorkspaceTabKind): LaunchProfileId {
+  if (kind === "shell") return "system-default";
+  if (kind === "ssh") return "ssh";
+  return `agent:${kind}`;
 }
 
 export function rememberProject(project: ProjectWorkspace, recent: RecentProject[]) {
@@ -142,8 +165,12 @@ interface PersistedTab {
   kind: WorkspaceTabKind;
   title: string;
   titleHint: string | null;
+  /** 用户手动设置的显示名；旧版本存档没有该字段，解析时按 null 处理。 */
+  customTitle: string | null;
   /** 旧版本存档没有该字段，解析时按 null 处理。 */
   resumeSessionId: string | null;
+  /** SSH 会话的连接目标；旧版本存档没有该字段，解析时按 null 处理。 */
+  sshTarget: SshTarget | null;
 }
 
 function isPersistedTab(value: unknown): value is PersistedTab {
@@ -154,10 +181,23 @@ function isPersistedTab(value: unknown): value is PersistedTab {
     && typeof value.title === "string"
     && value.title.length > 0
     && (value.titleHint === null || typeof value.titleHint === "string")
+    && (value.customTitle === undefined
+      || value.customTitle === null
+      || typeof value.customTitle === "string")
     // 旧版本存档没有该字段（undefined 也要放行），解析时按 null 处理。
     && (value.resumeSessionId === undefined
       || value.resumeSessionId === null
-      || typeof value.resumeSessionId === "string");
+      || typeof value.resumeSessionId === "string")
+    // SSH 会话必须带目标，否则重启后拉不起进程；旧存档没有 ssh 会话，不受影响。
+    && (value.kind !== "ssh" || isSshTarget(value.sshTarget));
+}
+
+function isSshTarget(value: unknown): value is SshTarget {
+  if (!isRecord(value)) return false;
+  return typeof value.host === "string"
+    && value.host.length > 0
+    && (value.user === undefined || value.user === null || typeof value.user === "string")
+    && (value.port === undefined || value.port === null || typeof value.port === "number");
 }
 
 function isProjectWorkspace(value: unknown): value is ProjectWorkspace {
@@ -167,7 +207,7 @@ function isProjectWorkspace(value: unknown): value is ProjectWorkspace {
 }
 
 function isWorkspaceTabKind(value: unknown): value is WorkspaceTabKind {
-  return value === "shell" || value === "codex" || value === "claude";
+  return value === "shell" || value === "ssh" || value === "codex" || value === "claude";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -33,3 +33,12 @@ ulid = { version = "3.0.0", features = ["serde"] }
 # 这些都不接受 `\\?\` 前缀，所以 Windows 上换成 dunce 的去前缀版本。
 [target.'cfg(windows)'.dependencies]
 dunce = "1.0.5"
+# SSH 会话记住密码：Windows 存凭据管理器（Credential Manager）。
+windows-sys = { version = "0.61.2", features = [
+  "Win32_Foundation",
+  "Win32_Security_Credentials",
+] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+# SSH 会话记住密码：macOS 存登录钥匙串（Keychain）。
+security-framework = "3.7.0"

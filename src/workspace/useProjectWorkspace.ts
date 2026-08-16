@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { TerminalSnapshot } from "../components/TerminalViewport";
+import { sshDisplayName, type SshLaunch } from "../terminal/contracts";
 import { detectAgents, openProject } from "./api";
 import type { HistorySession } from "../history/contracts";
 import type {
@@ -29,6 +30,7 @@ import {
   createWorkspaceTab,
   nextActiveTab,
   nextOrdinal,
+  updateSshTarget,
 } from "./tabs";
 
 export function useProjectWorkspace() {
@@ -128,7 +130,9 @@ export function useProjectWorkspace() {
   }, [activeTabId, readyToPersist, serializedWorkspace, tabs]);
 
   const launch = useCallback(async (kind: WorkspaceTabKind) => {
-    const availability = kind === "shell" ? null : agents.find((agent) => agent.kind === kind);
+    const availability = kind === "codex" || kind === "claude"
+      ? agents.find((agent) => agent.kind === kind)
+      : null;
     if (availability && !availability.available) {
       setFailure({ code: "NOT_FOUND", message: availability.reason ?? `${kind} 不可用`, retryable: true });
       return;
@@ -150,6 +154,24 @@ export function useProjectWorkspace() {
     setTabs((current) => [...current, tab]);
     setActiveTabId(tab.id);
   }, [acceptProject, activeProject, agents, tabs]);
+
+  /** SSH 会话：凭证不落地，连接在终端里由 OpenSSH 交互，这里只建 tab。 */
+  const launchSsh = useCallback(async (target: SshLaunch) => {
+    // 首启失败等边缘情况下没有任何项目可继承，先要后端给一个默认目录。
+    let project = activeProject;
+    if (!project) {
+      try {
+        project = await openProject(null);
+        acceptProject(project);
+      } catch (error) {
+        setFailure(toAppFailure(error));
+        return;
+      }
+    }
+    const tab = createWorkspaceTab(project, "ssh", nextOrdinal(tabs, "ssh"), null, target);
+    setTabs((current) => [...current, tab]);
+    setActiveTabId(tab.id);
+  }, [acceptProject, activeProject, tabs]);
 
   /**
    * 从历史会话面板恢复一条会话：优先在会话原目录里新开（目录没了退回当前项目），
@@ -193,6 +215,26 @@ export function useProjectWorkspace() {
       return next.remaining;
     });
   }, [activeTabId]);
+
+  /**
+   * 重命名会话。目前只有 SSH 支持：手动名记在 customTitle 里，
+   * 之后快照合并不会再把它顶掉；传 null 或空串则退回默认名（连接目标）。
+   */
+  const renameTab = useCallback((id: string, customTitle: string | null) => {
+    setTabs((current) => current.map((tab) => {
+      if (tab.id !== id || tab.kind !== "ssh") return tab;
+      const fallback = tab.sshTarget ? sshDisplayName(tab.sshTarget) : tab.title;
+      const title = customTitle?.trim() || fallback;
+      return { ...tab, title, customTitle: title === fallback ? null : title };
+    }));
+  }, []);
+
+  /** 修改 SSH 目标后复用当前 tab；sshTarget 变化会让终端层自动重连。 */
+  const updateSsh = useCallback((id: string, target: SshLaunch) => {
+    setTabs((current) => current.map((tab) => (
+      tab.id === id ? updateSshTarget(tab, target) : tab
+    )));
+  }, []);
 
   /**
    * 删除最近项目：从列表移除记录，并关闭该目录下所有会话（PTY 被杀）。
@@ -251,8 +293,11 @@ export function useProjectWorkspace() {
     opening,
     selectProject,
     launch,
+    launchSsh,
     launchHistorySession,
     closeTab,
+    renameTab,
+    updateSsh,
     removeRecentProject,
     updateTab,
     redetectAgents,

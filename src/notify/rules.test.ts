@@ -22,10 +22,12 @@ describe("classifyTransition", () => {
     expect(classifyTransition("idle", "talking", "codex")).toBeNull();
   });
 
-  it("never notifies for shell sessions", () => {
-    // Shell 的 activity 恒为 idle，真跃迁了也没有 Agent 在等谁。
+  it("never notifies for shell or ssh sessions", () => {
+    // Shell / SSH 的 activity 恒为 idle，真跃迁了也没有 Agent 在等谁。
     expect(classifyTransition("talking", "idle", "shell")).toBeNull();
     expect(classifyTransition("idle", "awaiting-choice", "shell")).toBeNull();
+    expect(classifyTransition("talking", "idle", "ssh")).toBeNull();
+    expect(classifyTransition("idle", "awaiting-choice", "ssh")).toBeNull();
   });
 
   it("ignores no-op transitions", () => {

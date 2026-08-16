@@ -240,6 +240,7 @@ version = "0.7.0"
 dependencies = [
  "dunce",
  "portable-pty",
+ "security-framework",
  "serde",
  "serde_json",
  "tauri",
@@ -250,6 +251,7 @@ dependencies = [
  "tauri-plugin-updater",
  "toml_edit 0.25.13+spec-1.1.0",
  "ulid",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

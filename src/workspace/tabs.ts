@@ -1,4 +1,6 @@
 import type { TerminalSnapshot } from "../components/TerminalViewport";
+import type { SshLaunch } from "../terminal/contracts";
+import { sshDisplayName } from "../terminal/contracts";
 import type { ProjectWorkspace, WorkspaceTab, WorkspaceTabKind } from "./contracts";
 import { pathKey } from "./path";
 import { toSessionTitle } from "./sessionTitle";
@@ -8,20 +10,31 @@ export interface ProjectGroup {
   tabs: WorkspaceTab[];
 }
 
+/** SSH 会话不属于任何本地项目，侧栏单独成组。 */
+export const SSH_GROUP_PROJECT: ProjectWorkspace = {
+  id: "ssh",
+  name: "SSH",
+  rootPath: "",
+  rootUri: "",
+};
+
 export function createWorkspaceTab(
   project: ProjectWorkspace,
   kind: WorkspaceTabKind,
   ordinal: number,
   resumeSessionId: string | null = null,
+  sshTarget: SshLaunch | null = null,
 ): WorkspaceTab {
   return {
     id: crypto.randomUUID(),
     project,
     kind,
-    title: tabTitle(kind, ordinal),
+    title: tabTitle(kind, ordinal, sshTarget),
     titleHint: null,
-    profileId: kind === "shell" ? "system-default" : `agent:${kind}`,
+    customTitle: null,
+    profileId: kind === "shell" ? "system-default" : kind === "ssh" ? "ssh" : `agent:${kind}`,
     resumeSessionId,
+    sshTarget,
     phase: "idle",
     activity: "idle",
     error: null,
@@ -41,8 +54,11 @@ export function createProjectSwitchTab(
  * 全程没变就返回原对象，避免 phase 抖动时白白重渲染整条侧栏。
  */
 export function applySnapshot(tab: WorkspaceTab, snapshot: TerminalSnapshot): WorkspaceTab {
-  // toSessionTitle 返回 null = 这条输入不配当名字（ls、y/n 之类），保留上一个。
-  const title = (snapshot.lastInput && toSessionTitle(snapshot.lastInput)) || tab.title;
+  // SSH 标签认连接目标，不随远程命令改名；手动改过的名字同样不再被自动顶掉。
+  // toSessionTitle 返回 null 同理保留上一个。
+  const title = tab.kind === "ssh" || tab.customTitle
+    ? tab.title
+    : (snapshot.lastInput && toSessionTitle(snapshot.lastInput)) || tab.title;
   if (
     tab.phase === snapshot.phase
     && tab.error === snapshot.error
@@ -56,6 +72,20 @@ export function applySnapshot(tab: WorkspaceTab, snapshot: TerminalSnapshot): Wo
     error: snapshot.error,
     title,
     titleHint: title === tab.title ? tab.titleHint : snapshot.lastInput,
+  };
+}
+
+/** 修改 SSH 目标时重置旧终端状态；自定义显示名不随连接地址变化。 */
+export function updateSshTarget(tab: WorkspaceTab, target: SshLaunch): WorkspaceTab {
+  if (tab.kind !== "ssh") return tab;
+  return {
+    ...tab,
+    sshTarget: target,
+    title: tab.customTitle ? tab.title : sshDisplayName(target),
+    titleHint: null,
+    phase: "idle",
+    activity: "idle",
+    error: null,
   };
 }
 
@@ -84,13 +114,20 @@ export function closeTabsForPath(
 
 /** 侧栏分组：按项目首次出现的顺序排列，组内保持会话原有顺序。 */
 export function groupTabsByProject(tabs: WorkspaceTab[]): ProjectGroup[] {
-  const groups = new Map<string, ProjectGroup>();
-  for (const tab of tabs) {
-    const group = groups.get(tab.project.id);
-    if (group) group.tabs.push(tab);
-    else groups.set(tab.project.id, { project: tab.project, tabs: [tab] });
+  const groups: ProjectGroup[] = [];
+  const sshTabs = tabs.filter((tab) => tab.kind === "ssh");
+  if (sshTabs.length > 0) {
+    groups.push({ project: SSH_GROUP_PROJECT, tabs: sshTabs });
   }
-  return [...groups.values()];
+  const byProject = new Map<string, ProjectGroup>();
+  for (const tab of tabs) {
+    if (tab.kind === "ssh") continue;
+    const group = byProject.get(tab.project.id);
+    if (group) group.tabs.push(tab);
+    else byProject.set(tab.project.id, { project: tab.project, tabs: [tab] });
+  }
+  groups.push(...byProject.values());
+  return groups;
 }
 
 /** 序号按 kind 全局递增，不按项目重置——否则两个项目组里会同时出现 Shell 01。 */
@@ -98,7 +135,10 @@ export function nextOrdinal(tabs: WorkspaceTab[], kind: WorkspaceTabKind) {
   return tabs.filter((tab) => tab.kind === kind).length + 1;
 }
 
-function tabTitle(kind: WorkspaceTabKind, ordinal: number) {
+function tabTitle(kind: WorkspaceTabKind, ordinal: number, sshTarget: SshLaunch | null) {
+  if (kind === "ssh") {
+    return sshTarget ? sshDisplayName(sshTarget) : `SSH ${String(ordinal).padStart(2, "0")}`;
+  }
   const label = { shell: "Shell", codex: "Codex", claude: "Claude" }[kind];
   return `${label} ${String(ordinal).padStart(2, "0")}`;
 }

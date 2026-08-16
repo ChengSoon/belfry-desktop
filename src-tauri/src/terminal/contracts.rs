@@ -123,6 +123,9 @@ pub struct CreateTerminalRequest {
     /// 继续某条历史会话：Codex / Claude 各自 CLI 的 resume 参数。仅 Agent profile 可用。
     #[serde(default)]
     pub resume: Option<String>,
+    /// SSH 会话的目标主机。仅 profile_id == "ssh" 时使用。
+    #[serde(default)]
+    pub ssh: Option<SshTarget>,
     pub cols: u16,
     pub rows: u16,
     pub elevation: Elevation,
@@ -130,6 +133,68 @@ pub struct CreateTerminalRequest {
     /// 缺省时不应答，退回让 xterm.js 自己答。
     #[serde(default)]
     pub palette: Option<TerminalPalette>,
+}
+
+/// SSH 连接目标。凭证一律不落地：密码 / 主机指纹 / 2FA 全部在终端里
+/// 由 OpenSSH 客户端交互，这里只描述连到哪；密码只在本次请求中流转，
+/// 勾选记住时由后端写入系统钥匙串，不随工作区状态持久化。
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SshTarget {
+    pub host: String,
+    #[serde(default)]
+    pub user: Option<String>,
+    #[serde(default)]
+    pub port: Option<u16>,
+    /// 本次连接使用的密码。优先于钥匙串里保存的旧密码；不落盘。
+    #[serde(default)]
+    pub password: Option<String>,
+    /// 为 true 时把 password 存入系统钥匙串，之后的连接自动取用。
+    #[serde(default)]
+    pub remember_password: Option<bool>,
+}
+
+impl SshTarget {
+    pub fn validate(&self) -> Result<(), AppError> {
+        // 参数是逐个传给 ssh 的，不存在 shell 注入，但坏 host 会把参数吃成选项
+        // 或直接让会话起不来，早一点拦下比让用户盯着黑屏强。
+        if self.host.is_empty() || self.host.len() > 255 {
+            return Err(AppError::invalid_argument(
+                "ssh host must be 1 to 255 characters",
+            ));
+        }
+        if self.host.chars().any(char::is_whitespace)
+            || self.host.contains(['/', '\\'])
+            || self.host.starts_with('-')
+        {
+            return Err(AppError::invalid_argument(
+                "ssh host contains invalid characters",
+            ));
+        }
+        if let Some(user) = &self.user {
+            if user.is_empty()
+                || user.len() > 255
+                || user.chars().any(char::is_whitespace)
+                || user.contains('@')
+                || user.starts_with('-')
+            {
+                return Err(AppError::invalid_argument("ssh user is invalid"));
+            }
+        }
+        if self.port.is_some_and(|port| port == 0) {
+            return Err(AppError::invalid_argument(
+                "ssh port must be between 1 and 65535",
+            ));
+        }
+        if self
+            .password
+            .as_ref()
+            .is_some_and(|password| password.len() > 1024)
+        {
+            return Err(AppError::invalid_argument("ssh password is too long"));
+        }
+        Ok(())
+    }
 }
 
 /// `#rrggbb` 形式的一对颜色。解析推迟到 PTY 层，坏值只让应答失效，不该拦下整个会话。
@@ -147,13 +212,29 @@ impl CreateTerminalRequest {
                 "terminal size must be greater than zero",
             ));
         }
-        LaunchProfileId::parse(&self.profile_id)?;
+        let profile = LaunchProfileId::parse(&self.profile_id)?;
         if self.command.is_some() {
             return Err(AppError::unsupported("custom commands are not supported"));
         }
+        match &self.ssh {
+            Some(target) => {
+                if profile != LaunchProfileId::Ssh {
+                    return Err(AppError::invalid_argument(
+                        "ssh target requires the ssh launch profile",
+                    ));
+                }
+                target.validate()?;
+            }
+            None if profile == LaunchProfileId::Ssh => {
+                return Err(AppError::invalid_argument(
+                    "ssh launch profile requires an ssh target",
+                ));
+            }
+            None => {}
+        }
         if let Some(resume) = &self.resume {
             let agent_profile = matches!(
-                LaunchProfileId::parse(&self.profile_id)?,
+                profile,
                 LaunchProfileId::AgentCodex | LaunchProfileId::AgentClaude
             );
             if !agent_profile {
@@ -161,7 +242,11 @@ impl CreateTerminalRequest {
                     "resume requires an agent launch profile",
                 ));
             }
-            if resume.is_empty() || resume.contains('/') || resume.contains('\\') || resume.contains("..") {
+            if resume.is_empty()
+                || resume.contains('/')
+                || resume.contains('\\')
+                || resume.contains("..")
+            {
                 return Err(AppError::invalid_argument("resume session id is invalid"));
             }
         }
@@ -179,6 +264,7 @@ pub enum LaunchProfileId {
     SystemDefault,
     AgentCodex,
     AgentClaude,
+    Ssh,
 }
 
 impl LaunchProfileId {
@@ -187,6 +273,7 @@ impl LaunchProfileId {
             "system-default" => Ok(Self::SystemDefault),
             "agent:codex" => Ok(Self::AgentCodex),
             "agent:claude" => Ok(Self::AgentClaude),
+            "ssh" => Ok(Self::Ssh),
             _ => Err(AppError::unsupported(format!(
                 "unsupported terminal launch profile: {value}"
             ))),
@@ -258,6 +345,115 @@ mod tests {
             LaunchProfileId::parse("agent:claude").unwrap(),
             LaunchProfileId::AgentClaude
         );
+        assert_eq!(LaunchProfileId::parse("ssh").unwrap(), LaunchProfileId::Ssh);
         assert!(LaunchProfileId::parse("agent:custom").is_err());
+    }
+
+    #[test]
+    fn ssh_targets_reject_hosts_that_could_escape_the_argument_list() {
+        let valid = SshTarget {
+            host: "example.com".to_string(),
+            user: Some("root".to_string()),
+            port: Some(2222),
+            password: None,
+            remember_password: None,
+        };
+        assert!(valid.validate().is_ok());
+
+        for host in [
+            "",
+            " ",
+            "a b",
+            "a/b",
+            "a\\b",
+            "-oProxyCommand=evil",
+            "-host",
+        ] {
+            let target = SshTarget {
+                host: host.to_string(),
+                user: None,
+                port: None,
+                password: None,
+                remember_password: None,
+            };
+            assert!(target.validate().is_err(), "host {host:?} must be rejected");
+        }
+        for user in ["", "a b", "a@b", "-oProxyCommand=evil"] {
+            let target = SshTarget {
+                host: "example.com".to_string(),
+                user: Some(user.to_string()),
+                port: None,
+                password: None,
+                remember_password: None,
+            };
+            assert!(target.validate().is_err(), "user {user:?} must be rejected");
+        }
+        let zero_port = SshTarget {
+            host: "example.com".to_string(),
+            user: None,
+            port: Some(0),
+            password: None,
+            remember_password: None,
+        };
+        assert!(zero_port.validate().is_err());
+    }
+
+    #[test]
+    fn ssh_password_rules_guard_length_only() {
+        let mut target = SshTarget {
+            host: "example.com".to_string(),
+            user: None,
+            port: None,
+            password: Some("secret".to_string()),
+            remember_password: None,
+        };
+        assert!(target.validate().is_ok());
+
+        target.remember_password = Some(true);
+        assert!(target.validate().is_ok(), "password + remember is valid");
+
+        // 空密码 + 记住 = 视为"用已保存的"，连接不拦。
+        target.password = None;
+        assert!(target.validate().is_ok());
+
+        target.password = Some("x".repeat(1025));
+        target.remember_password = None;
+        assert!(
+            target.validate().is_err(),
+            "overlong passwords must be rejected"
+        );
+    }
+
+    #[test]
+    fn ssh_profile_and_target_must_come_together() {
+        let mut request = CreateTerminalRequest {
+            platform: Platform::Macos,
+            profile_id: "ssh".to_string(),
+            cwd: Some("file:///tmp".to_string()),
+            command: None,
+            env: std::collections::HashMap::new(),
+            resume: None,
+            ssh: None,
+            cols: 120,
+            rows: 36,
+            elevation: Elevation::Normal,
+            palette: None,
+        };
+        assert!(request.validate().is_err(), "ssh profile without a target");
+
+        request.ssh = Some(SshTarget {
+            host: "example.com".to_string(),
+            user: None,
+            port: None,
+            password: None,
+            remember_password: None,
+        });
+        assert!(request.validate().is_ok());
+
+        request.profile_id = "system-default".to_string();
+        assert!(
+            request.validate().is_err(),
+            "target without the ssh profile"
+        );
     }
 }

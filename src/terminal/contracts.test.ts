@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createDefaultRequest } from "./contracts";
+import { createDefaultRequest, createTerminalRequest } from "./contracts";
 
 const PALETTE = { foreground: "#26272b", background: "#fafafa" };
 
@@ -19,5 +19,38 @@ describe("createDefaultRequest", () => {
   // Windows 上猜出来的是黑色。
   it("carries the terminal palette down to the backend", () => {
     expect(createDefaultRequest(80, 24, PALETTE, "Macintosh").palette).toEqual(PALETTE);
+  });
+
+  it("carries the ssh target down to the backend", () => {
+    const request = createTerminalRequest(
+      80,
+      24,
+      {
+        profileId: "ssh",
+        cwd: "file:///demo",
+        resumeSessionId: null,
+        ssh: {
+          host: "example.com",
+          user: "root",
+          port: 2222,
+          password: "secret",
+          rememberPassword: true,
+        },
+      },
+      PALETTE,
+      "Macintosh",
+    );
+    expect(request.profileId).toBe("ssh");
+    expect(request.ssh).toEqual({
+      host: "example.com",
+      user: "root",
+      port: 2222,
+      password: "secret",
+      rememberPassword: true,
+    });
+  });
+
+  it("keeps non-ssh requests free of an ssh target", () => {
+    expect(createDefaultRequest(80, 24, PALETTE, "Macintosh").ssh).toBeNull();
   });
 });

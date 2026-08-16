@@ -1,7 +1,7 @@
-import type { LaunchProfileId, SessionActivity, TerminalPhase } from "../terminal/contracts";
+import type { LaunchProfileId, SessionActivity, SshLaunch, TerminalPhase } from "../terminal/contracts";
 
 export type AgentKind = "codex" | "claude";
-export type WorkspaceTabKind = "shell" | AgentKind;
+export type WorkspaceTabKind = "shell" | "ssh" | AgentKind;
 
 export interface ProjectWorkspace {
   id: string;
@@ -26,7 +26,11 @@ export interface WorkspaceTab {
   title: string;
   /** 命名所依据的完整输入原文，未截断，只给 tooltip 用。 */
   titleHint: string | null;
+  /** 用户手动设置的显示名；null 表示用默认命名（SSH 为连接目标）。 */
+  customTitle: string | null;
   profileId: LaunchProfileId;
+  /** SSH 会话的连接目标；其他会话为 null。 */
+  sshTarget: SshLaunch | null;
   /** 新建会话时继承的历史会话 id；普通会话为 null。 */
   resumeSessionId: string | null;
   phase: TerminalPhase;

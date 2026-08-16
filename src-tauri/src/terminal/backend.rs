@@ -122,6 +122,7 @@ mod tests {
             command: None,
             env: HashMap::new(),
             resume: None,
+            ssh: None,
             cols: 120,
             rows: 36,
             elevation: Elevation::Normal,

@@ -1,4 +1,4 @@
-import { SquareTerminal, X } from "lucide-react";
+import { Server, SquareTerminal, X } from "lucide-react";
 import type { CSSProperties, PointerEvent, ReactNode } from "react";
 import { ICON } from "../../theme/sizing";
 import type { WorkspaceTab } from "../../workspace/contracts";
@@ -39,7 +39,13 @@ export function TerminalPane({
   onDragStart,
   children,
 }: TerminalPaneProps) {
-  const Icon = tab.kind === "shell" ? SquareTerminal : tab.kind === "codex" ? CodexIcon : ClaudeIcon;
+  const Icon = tab.kind === "shell"
+    ? SquareTerminal
+    : tab.kind === "codex"
+      ? CodexIcon
+      : tab.kind === "claude"
+        ? ClaudeIcon
+        : Server;
   const style = {
     left: `${rect.left}%`,
     top: `${rect.top}%`,
