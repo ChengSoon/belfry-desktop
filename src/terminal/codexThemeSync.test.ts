@@ -171,6 +171,31 @@ describe("CodexThemeSync", () => {
     expect(text(sync.rewrite(bytes(styled), true))).toBe("\x1b[1;38;2;59;91;219m");
   });
 
+  it("drops dim for a Codex process launched from a transparent shell", () => {
+    const shellSync = new CodexThemeSync(xtermTheme("light"), true, false);
+
+    expect(text(shellSync.rewrite(bytes("before\x1b[2mafter"), true))).toBe("beforeafter");
+  });
+
+  it("preserves regular shell backgrounds and reverse video", () => {
+    const shellSync = new CodexThemeSync(xtermTheme("light"), true, false);
+    const styles = [
+      "\x1b[7mreverse",
+      "\x1b[47mwhite",
+      "\x1b[48;5;250mgray",
+      "\x1b[48;2;20;22;24mblack",
+    ].join("");
+
+    expect(text(shellSync.rewrite(bytes(styles), true))).toBe(styles);
+  });
+
+  it("does not mistake color mode or channel values for shell dim styling", () => {
+    const shellSync = new CodexThemeSync(xtermTheme("light"), true, false);
+    const colored = "\x1b[38;2;2;91;219;48;2;59;2;219m";
+
+    expect(text(shellSync.rewrite(bytes(colored), true))).toBe(colored);
+  });
+
   it("does not mistake a true-color channel for reverse video", () => {
     const sync = new CodexThemeSync(xtermTheme("light"), true);
     const colored = "\x1b[38;2;7;91;219;48;2;59;7;219m";

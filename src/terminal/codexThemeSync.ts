@@ -18,13 +18,15 @@ const NEUTRAL_ANSI_BACKGROUNDS = new Set(["40", "47", "100", "107"]);
  */
 export class CodexThemeSync {
   private readonly sources: Rgb[] = [];
+  private readonly rewriteCodexStyles: boolean;
   private target: Rgb;
   private transparent: boolean;
   private pending: number[] = [];
 
-  constructor(theme: TerminalTheme, transparent = false) {
+  constructor(theme: TerminalTheme, transparent = false, rewriteCodexStyles = true) {
     this.target = composerBackground(theme.background);
     this.transparent = transparent;
+    this.rewriteCodexStyles = rewriteCodexStyles;
     this.remember(this.target);
   }
 
@@ -76,6 +78,7 @@ export class CodexThemeSync {
       sources: this.sources,
       target,
       transparent: this.transparent,
+      rewriteCodexStyles: this.rewriteCodexStyles,
     });
     if (rewritten === null) return [];
     return Array.from(encoder.encode(`\x1b[${rewritten}m`));
@@ -93,6 +96,7 @@ type RewriteContext = {
   sources: Rgb[];
   target: Rgb | null;
   transparent: boolean;
+  rewriteCodexStyles: boolean;
 };
 
 function composerBackground(background: string): Rgb {
@@ -119,20 +123,22 @@ function rewriteSgr(body: string, context: RewriteContext) {
 }
 
 function rewriteParam(params: string[], index: number, context: RewriteContext) {
-  const colon = rewriteColonBackground(params[index], context);
-  if (colon !== params[index]) {
-    params[index] = colon;
-    return index + 1;
+  if (context.rewriteCodexStyles) {
+    const colon = rewriteColonBackground(params[index], context);
+    if (colon !== params[index]) {
+      params[index] = colon;
+      return index + 1;
+    }
+
+    const rgb = readTrueColorBackground(params, index);
+    if (rgb) return rewriteTrueColor(params, index, { ...context, rgb });
+
+    const indexed = readIndexedBackground(params, index);
+    if (indexed !== null) return rewriteIndexed(params, index, {
+      color: indexed,
+      transparent: context.transparent,
+    });
   }
-
-  const rgb = readTrueColorBackground(params, index);
-  if (rgb) return rewriteTrueColor(params, index, { ...context, rgb });
-
-  const indexed = readIndexedBackground(params, index);
-  if (indexed !== null) return rewriteIndexed(params, index, {
-    color: indexed,
-    transparent: context.transparent,
-  });
 
   const extendedColorLength = readExtendedColorLength(params, index);
   if (extendedColorLength) return index + extendedColorLength;
@@ -144,6 +150,7 @@ function rewriteParam(params: string[], index: number, context: RewriteContext) 
     params.splice(index, 1);
     return index;
   }
+  if (!context.rewriteCodexStyles) return index + 1;
   if (context.transparent && params[index] === "7") params[index] = INVERSE_OFF;
   if (context.transparent && NEUTRAL_ANSI_BACKGROUNDS.has(params[index])) {
     params[index] = DEFAULT_BACKGROUND;

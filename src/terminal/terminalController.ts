@@ -74,9 +74,10 @@ export function mountTerminal(
   terminal.open(host);
   let disposed = false;
   const useWebClipboard = usesWebClipboardFallback();
-  const codexThemeSync = launch.profileId === "agent:codex"
-    ? new CodexThemeSync(theme, transparent)
-    : null;
+  const isCodexProfile = launch.profileId === "agent:codex";
+  // 透明 WebGL 下的 dim 白块可能来自 Shell 内启动的 Codex，因此所有会话都过滤 dim；
+  // composer 背景与反显改写仍只对 Codex 专用入口启用，避免改变普通 TUI 的配色。
+  const codexThemeSync = new CodexThemeSync(theme, transparent, isCodexProfile);
   // Tauri's Windows WebView can consume Ctrl+V as a control character instead of
   // dispatching the native `paste` event. Claude Code runs in raw mode and is
   // particularly affected: it receives ^V, but no clipboard contents. Read the
@@ -190,12 +191,12 @@ export function mountTerminal(
     applyTheme: (next, transparent) => {
       // 这两处都只认 #rrggbb，喂基准主题：CodexThemeSync 的 parseHex 遇到 rgba 会直接抛，
       // 而 PTY 那边的解析失败是静默的——OSC 11 查询得不到应答，只在个别 TUI 里表现为配色错乱。
-      codexThemeSync?.setTheme(next, transparent);
+      codexThemeSync.setTheme(next, transparent);
       terminal.options.allowTransparency = transparent;
       terminal.options.theme = transparent ? withTransparentBackground(next) : next;
       // PTY 层也得跟着换：换肤之后再启动的程序会重新查一次背景色。
       if (current) void setTerminalPalette(current.id, toPalette(next)).catch(() => undefined);
-      if (current && codexThemeSync) {
+      if (current && isCodexProfile) {
         terminal.write("", () => void requestCodexRedraw(current, terminal));
       }
     },
@@ -297,15 +298,15 @@ function handleTerminalEvent(
   callbacks: MountCallbacks,
   event: TerminalEvent,
   expectedSequence: number,
-  codexThemeSync: CodexThemeSync | null,
+  codexThemeSync: CodexThemeSync,
 ) {
   if (event.kind === "output") {
     const next = acceptSequence(expectedSequence, event.sequence);
-    const bytes = codexThemeSync?.rewrite(event.bytes, event.eof) ?? event.bytes;
+    const bytes = codexThemeSync.rewrite(event.bytes, event.eof);
     if (bytes.length > 0) terminal.write(new Uint8Array(bytes));
     return next;
   }
-  const held = codexThemeSync?.flush() ?? [];
+  const held = codexThemeSync.flush();
   if (held.length > 0) terminal.write(new Uint8Array(held));
   callbacks.onPhase("exited");
   callbacks.onSession(null);
