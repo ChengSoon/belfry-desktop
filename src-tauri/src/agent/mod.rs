@@ -3,6 +3,9 @@ mod contracts;
 mod detection;
 
 pub(crate) use contracts::AgentKind;
+#[cfg(target_os = "windows")]
+pub(crate) use detection::find_in_path;
 pub(crate) use detection::login_shell_env;
 pub(crate) use detection::resolve_agent;
+#[cfg(target_os = "macos")]
 pub(crate) use detection::user_command_path;
