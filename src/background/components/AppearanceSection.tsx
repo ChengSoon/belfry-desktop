@@ -65,6 +65,15 @@ function BackgroundControls() {
         value={config.opacity}
       />
       <Slider
+        format={(value) => `${Math.round(value * 100)}%`}
+        label="文字衬底"
+        max={1}
+        min={0}
+        onChange={(veil) => update({ veil })}
+        step={0.01}
+        value={config.veil}
+      />
+      <Slider
         format={(value) => `${value}px`}
         label="模糊"
         max={MAX_BLUR}

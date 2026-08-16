@@ -33,46 +33,67 @@
   opacity: var(--app-bg-opacity, 1);
 }
 
-/* 背景开启时，基础布局面全部让开，让同一张图连续穿过侧栏、舞台和辅助面板。
-   局部按钮、卡片和真正的模态框仍使用各自的背景，保证交互层级与文字可读性。 */
+/* ==================== 背景开启时的分层 ====================
+
+   原则：图是「窗外的景」，功能面是「玻璃」——文字坐在玻璃上，不裸压在图上。
+   全透明的面在高对比图案上会让正文彻底不可读（试过一轮，被打回）。
+
+   - 终端内容区：垫一层浓度可调的画布色衬底（--app-bg-veil，设置里的滑块），
+     不模糊——这里是用户最想看清图的地方，衬底只降对比不磨细节；
+   - 右侧面板与设置页：毛玻璃（半透明底 + backdrop blur），正文密集，把图案抹匀；
+   - 侧栏：只提浓度、不上 backdrop-filter——那会创建 stacking context，
+     而侧栏的 popover（min-width 238px）在窄侧栏下要伸出右缘盖住舞台，
+     被封进上下文后会让后绘制的 .workbench 压掉伸出的部分；
+   - 浮层（模态、popover、toast）保持不透明：它们的职责就是压住底下的内容。 */
 :root[data-background="on"] {
   --app-bg-divider: color-mix(in srgb, var(--text) 22%, transparent);
   --app-bg-divider-strong: color-mix(in srgb, var(--text) 38%, transparent);
+  /* 面板与设置页共用的玻璃配方。saturate 补回 blur 平均掉的色彩浓度，
+     透出来的图不发灰。 */
+  --app-bg-glass: color-mix(in srgb, var(--surface) 62%, transparent);
+  --app-bg-glass-filter: blur(22px) saturate(1.3);
 }
 
 /* 侧栏。:not() 是必需的——拖会话到侧栏上方时 .is-eject-target 要把整条染成
    强调色，而那条规则的优先级(0,2,0)低于这里的(0,2,1)，不排除掉就会被这层盖住，
-   拖拽反馈直接消失。 */
+   拖拽反馈直接消失。78% 沿用初版实测值：小字仍清晰、图案又明显透得出来。 */
 :root[data-background="on"] .sidebar:not(.is-eject-target) {
   border-right-color: var(--app-bg-divider);
-  background: transparent;
+  background: color-mix(in srgb, var(--sidebar) 78%, transparent);
 }
 
-/* Windows 的自绘标题栏与侧栏同色同源，一起让开，否则顶上会横一条不透明的实色。
+/* Windows 的自绘标题栏与侧栏同色同源，同一档浓度，否则顶上横一条色阶。
    macOS 走 Overlay 标题栏，这个节点是 display: none，规则自然落空。 */
 :root[data-background="on"] .window-titlebar {
-  background: transparent;
+  background: color-mix(in srgb, var(--sidebar) 78%, transparent);
 }
 
 :root[data-background="on"] .usage-panel {
   border-left-color: var(--app-bg-divider);
-  background: transparent;
+  background: var(--app-bg-glass);
+  -webkit-backdrop-filter: var(--app-bg-glass-filter);
+  backdrop-filter: var(--app-bg-glass-filter);
 }
 
 :root[data-background="on"] .history-panel {
   border-left-color: var(--app-bg-divider);
-  background: transparent;
+  background: var(--app-bg-glass);
+  -webkit-backdrop-filter: var(--app-bg-glass-filter);
+  backdrop-filter: var(--app-bg-glass-filter);
 }
 
-/* 终端窗格自己的标题条（会话标签那一横条）同样要让开：它横跨整个舞台顶部，
-   不处理的话背景图铺开时顶上会压一条纯白实色，是全窗口最扎眼的一处不均。 */
+/* 终端 = 一张浮在图上的卡片：标题条略实，内容区垫用户可调的画布衬底，
+   两段拼成同一个圆角卡。衬底放在 __body 而不是 xterm 的 viewport 上：
+   viewport 被 .terminal-canvas 的 padding 内缩，垫在那里会在四周
+   露出一圈裸图亮边。--terminal-fill 在 terminal.css 里保持 transparent。 */
 :root[data-background="on"] .terminal-pane__bar {
   border-color: var(--app-bg-divider);
-  background: transparent;
+  background: color-mix(in srgb, var(--surface-raised) 72%, transparent);
 }
 
 :root[data-background="on"] .terminal-pane.is-onstage .terminal-pane__body {
   border-color: var(--app-bg-divider);
+  background: color-mix(in srgb, var(--canvas) var(--app-bg-veil, 50%), transparent);
 }
 
 :root[data-background="on"] .terminal-pane.is-focused .terminal-pane__bar,
@@ -87,5 +108,17 @@
   box-shadow: 0 0 0 1px var(--app-bg-divider);
 }
 
-/* 浮层（模态、确认框、toast）刻意不在此列：它们是局部交互卡片，
-   仍需压住底下内容，避免文字与背景图互相干扰。 */
+/* 舞台标题行悬在图案正上方，没有任何面可以依靠，给触发器自己垫一粒玻璃胶囊。
+   它本来就有 padding 和圆角，加底即成形。它的弹层挂在父级 .stage-switcher 上，
+   这里创建 stacking context 不影响弹层盖住舞台。 */
+:root[data-background="on"] .project-trigger {
+  background: color-mix(in srgb, var(--canvas) 72%, transparent);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  backdrop-filter: blur(14px) saturate(1.2);
+}
+
+/* 路径原本用 --text-faint：图透进 72% 的胶囊后底色向中灰漂，faint 会和底同亮度
+   直接隐形（实测浅色下 rgb(140) 字压 rgb(150) 底）。提一档，回到能读的对比。 */
+:root[data-background="on"] .project-trigger__path {
+  color: var(--text-muted);
+}

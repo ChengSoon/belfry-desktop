@@ -86,6 +86,9 @@ export function BackgroundProvider({ children }: { children: ReactNode }) {
     root.style.setProperty("--app-bg-image", url ? `url("${url}")` : "none");
     root.style.setProperty("--app-bg-opacity", String(config.opacity));
     root.style.setProperty("--app-bg-blur", `${config.blur}px`);
+    /* 写成带 % 的字符串直接喂给 color-mix：变量替换是文本级的，
+       不依赖 color-mix 里嵌 calc() 的解析支持。 */
+    root.style.setProperty("--app-bg-veil", `${Math.round(config.veil * 100)}%`);
     root.style.setProperty("--app-bg-size", fit.size);
     root.style.setProperty("--app-bg-repeat", fit.repeat);
   }, [url, config]);

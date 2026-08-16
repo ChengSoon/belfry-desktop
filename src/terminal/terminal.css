@@ -48,7 +48,8 @@
   scrollbar-width: none;
 }
 
-/* 背景开启时终端底色完全让开，避免 xterm 的画布色重新形成一整块白/黑遮罩。 */
+/* 背景开启时 xterm 这层完全让开：文字衬底由 .terminal-pane__body 统一垫
+   （见 background.css），viewport 再自带底色就会在衬底上多压一块。 */
 :root[data-background="on"] {
   --terminal-fill: transparent;
 }

@@ -72,11 +72,12 @@ export class CodexThemeSync {
     if (sequence.at(-1) !== SGR) return sequence;
     const body = decoder.decode(Uint8Array.from(sequence.slice(2, -1)));
     const target = this.transparent ? null : this.target;
-    const rewritten = rewriteBackground(body, {
+    const rewritten = rewriteSgr(body, {
       sources: this.sources,
       target,
       transparent: this.transparent,
     });
+    if (rewritten === null) return [];
     return Array.from(encoder.encode(`\x1b[${rewritten}m`));
   }
 
@@ -109,12 +110,12 @@ function parseHex(value: string): [number, number, number] {
   return [Number.parseInt(match[1], 16), Number.parseInt(match[2], 16), Number.parseInt(match[3], 16)];
 }
 
-function rewriteBackground(body: string, context: RewriteContext) {
+function rewriteSgr(body: string, context: RewriteContext) {
   const params = body.split(";");
   for (let index = 0; index < params.length;) {
     index = rewriteParam(params, index, context);
   }
-  return params.join(";");
+  return params.length > 0 ? params.join(";") : null;
 }
 
 function rewriteParam(params: string[], index: number, context: RewriteContext) {
@@ -136,6 +137,13 @@ function rewriteParam(params: string[], index: number, context: RewriteContext) 
   const extendedColorLength = readExtendedColorLength(params, index);
   if (extendedColorLength) return index + extendedColorLength;
 
+  /* xterm WebGL 0.19 会把透明默认背景上的 dim 单元格栅格化成不透明底块。
+     Codex 用 dim 画欢迎卡片、提示和 placeholder，所以整片空格也会变白。
+     这里删除参数而不是改成 22：22 会连同同一序列里的 bold 一起关闭。 */
+  if (context.transparent && params[index] === "2") {
+    params.splice(index, 1);
+    return index;
+  }
   if (context.transparent && params[index] === "7") params[index] = INVERSE_OFF;
   if (context.transparent && NEUTRAL_ANSI_BACKGROUNDS.has(params[index])) {
     params[index] = DEFAULT_BACKGROUND;

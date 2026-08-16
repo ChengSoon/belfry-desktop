@@ -16,11 +16,12 @@
   background: var(--canvas);
 }
 
-/* 设置页不是一张白色遮罩：背景开启时只保留布局与边界，不再加磨砂底。 */
+/* 设置页正文密、字号小，直接透图会读不成句。铺同一套面板玻璃（见 background.css）：
+   图案被 blur 抹匀、色彩留下来，右侧那张不透明的预览白卡也不再孤立。 */
 :root[data-background="on"] .settings-view {
-  background: transparent;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
+  background: var(--app-bg-glass, var(--canvas));
+  -webkit-backdrop-filter: var(--app-bg-glass-filter, none);
+  backdrop-filter: var(--app-bg-glass-filter, none);
 }
 
 .settings-nav {
@@ -35,9 +36,11 @@
   scrollbar-color: var(--scrollbar) transparent;
 }
 
+/* 导航列叠在 settings-view 的玻璃上，只补一层半透明侧栏色分出左右两区。
+   不再叠一层 backdrop-filter：嵌套毛玻璃的采样行为两个 WebView 不一致。 */
 :root[data-background="on"] .settings-nav {
   border-right-color: var(--app-bg-divider);
-  background: transparent;
+  background: color-mix(in srgb, var(--sidebar) 45%, transparent);
 }
 
 .settings-nav__head {

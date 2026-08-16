@@ -158,6 +158,19 @@ describe("CodexThemeSync", () => {
       .toBe("\x1b[1;38;2;59;91;219;27m");
   });
 
+  it("drops dim styling that WebGL renders as opaque cells over a transparent background", () => {
+    const sync = new CodexThemeSync(xtermTheme("light"), true);
+
+    expect(text(sync.rewrite(bytes("before\x1b[2mafter"), true))).toBe("beforeafter");
+  });
+
+  it("removes dim from a combined sequence without disabling bold or colors", () => {
+    const sync = new CodexThemeSync(xtermTheme("light"), true);
+    const styled = "\x1b[1;2;38;2;59;91;219m";
+
+    expect(text(sync.rewrite(bytes(styled), true))).toBe("\x1b[1;38;2;59;91;219m");
+  });
+
   it("does not mistake a true-color channel for reverse video", () => {
     const sync = new CodexThemeSync(xtermTheme("light"), true);
     const colored = "\x1b[38;2;7;91;219;48;2;59;7;219m";

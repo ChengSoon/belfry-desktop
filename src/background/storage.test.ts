@@ -8,6 +8,7 @@ const complete = {
   fit: "contain",
   opacity: 0.6,
   blur: 12,
+  veil: 0.3,
 };
 
 describe("background config persistence", () => {
@@ -37,13 +38,23 @@ describe("background config persistence", () => {
   });
 
   it("clamps the numeric ranges instead of trusting them", () => {
-    const low = parseBackground(JSON.stringify({ opacity: -5, blur: -3 }));
+    const low = parseBackground(JSON.stringify({ opacity: -5, blur: -3, veil: -1 }));
     expect(low.opacity).toBe(0);
     expect(low.blur).toBe(0);
+    expect(low.veil).toBe(0);
 
-    const high = parseBackground(JSON.stringify({ opacity: 4, blur: 9999 }));
+    const high = parseBackground(JSON.stringify({ opacity: 4, blur: 9999, veil: 2 }));
     expect(high.opacity).toBe(1);
     expect(high.blur).toBe(40);
+    expect(high.veil).toBe(1);
+  });
+
+  /* veil 是后加的字段：旧版本存的 JSON 里没有它，必须落回默认值而不是 0——
+     否则升级上来的用户第一眼看到的就是文字裸压在图上的旧毛病。 */
+  it("defaults veil for configs saved before it existed", () => {
+    const legacy = { ...complete } as Record<string, unknown>;
+    delete legacy.veil;
+    expect(parseBackground(JSON.stringify(legacy)).veil).toBe(DEFAULT_BACKGROUND.veil);
   });
 
   /* NaN 落到 CSS 变量里会让整条规则失效，背景直接不显示，所以要退回默认值而不是 0。 */

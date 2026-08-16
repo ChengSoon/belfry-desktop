@@ -14,24 +14,28 @@ export interface BackgroundConfig {
   fileName: string | null;
   mime: string | null;
   fit: BackgroundFit;
-  /**
-   * 背景图自身可见度 0..1。不会再叠加画布色遮罩，
-   * 所以这个值只控制图片淡出程度。
-   */
+  /** 背景图自身可见度 0..1，控制图片向画布色淡出的程度。 */
   opacity: number;
   /** 模糊半径，px。 */
   blur: number;
+  /**
+   * 终端区文字衬底浓度 0..1：在图上垫一层画布色，保住正文对比度。
+   * 只作用于终端内容区——侧栏和面板有各自的固定底色（见 background.css），
+   * 不跟这个值走；0 = 终端文字直接压在图上。
+   */
+  veil: number;
 }
 
 export const MAX_BLUR = 40;
 
-/** 默认让背景图完整显示；需要降低干扰时再由用户主动调低。 */
+/** 默认图完整显示、终端垫半衬底：图的氛围和正文可读性各让一步。 */
 export const DEFAULT_BACKGROUND: BackgroundConfig = {
   fileName: null,
   mime: null,
   fit: "cover",
   opacity: 1,
   blur: 0,
+  veil: 0.55,
 };
 
 export interface BackgroundController {

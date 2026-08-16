@@ -57,6 +57,7 @@ export function parseBackground(value: string | null): BackgroundConfig {
     fit: parseFit(record.fit),
     opacity: clamp(record.opacity, 0, 1, DEFAULT_BACKGROUND.opacity),
     blur: clamp(record.blur, 0, MAX_BLUR, DEFAULT_BACKGROUND.blur),
+    veil: clamp(record.veil, 0, 1, DEFAULT_BACKGROUND.veil),
   };
 }
 
