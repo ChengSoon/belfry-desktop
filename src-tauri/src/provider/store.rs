@@ -122,7 +122,10 @@ mod tests {
         store.agent_mut(AgentKind::Claude).current_id = Some("p1".into());
         let text = serde_json::to_string(&store).unwrap();
         let back: StoreFile = serde_json::from_str(&text).unwrap();
-        assert_eq!(back.agent(AgentKind::Claude).current_id.as_deref(), Some("p1"));
+        assert_eq!(
+            back.agent(AgentKind::Claude).current_id.as_deref(),
+            Some("p1")
+        );
         assert!(back.codex_official_auth.is_none());
     }
 

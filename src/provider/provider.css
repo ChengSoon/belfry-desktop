@@ -227,7 +227,7 @@
 .provider-editor__heading h2 {
   margin: 0;
   color: var(--text);
-  font-size: clamp(22px, calc(2vw + 2px), 28px);
+  font-size: calc(var(--fs-display) + 6px);
   font-weight: 550;
   letter-spacing: -0.025em;
 }

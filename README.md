@@ -106,9 +106,13 @@ claude --version
 **外观**
 
 - 亮/暗主题切换，主题色同步喂给终端调色板
+- 全应用字体与 `10–20px` 字号同步自定义，支持本机已安装字体
+- 可导入多个 TTF / OTF / WOFF / WOFF2 字体，分别切换或删除，并可随时切回系统字体
 - 内置 JetBrains Mono 与 HarmonyOS Sans SC
 
-快捷键：`⌘B` 折叠侧栏，`⌘U` 开关用量面板。Windows 上用 `Ctrl`。
+Belfry 快捷键：`⌘T` 新建 Shell，`⌘B` 折叠侧栏，`⌘U` 开关用量，`⌘⇧H` 开关历史，
+`⌘,` 打开设置，`⌘1–9` 切换会话，`⌘/` 打开快捷指令。Windows / Linux 统一使用
+`Ctrl+Shift` 组合，避免占用 Codex 与 Claude 的原生 `Ctrl` 快捷键。
 
 <!-- 界面截图待补：需要在两个平台各截一张主工作台（亮/暗）。
      osascript 截不到原生窗口（缺辅助功能权限），得手动截。 -->
@@ -168,7 +172,9 @@ src/                  前端
   notify/             活动通知与角标
   usage/              token 用量聚合与展示
   panel/              面板宽度与拖拽
+  shortcuts/          全局快捷键与快捷指令提示
   theme/              主题与终端调色板
+  typography/         全局字体、字号与导入资源
 src-tauri/src/        Rust 后端
   project/            项目目录与最近列表
   agent/              Codex / Claude 检测

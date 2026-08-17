@@ -9,11 +9,11 @@ use tauri::AppHandle;
 use crate::agent::AgentKind;
 use crate::terminal::AppError;
 
+use super::atomic::read_text_optional;
 use super::contracts::{
     AgentProviderGroup, ConfigFilePreview, ProviderCatalog, ProviderConfig, ProviderDraft,
     SwitchOutcome,
 };
-use super::atomic::read_text_optional;
 use super::store::StoreFile;
 use super::{claude, codex, envcheck, store};
 
@@ -288,7 +288,6 @@ fn apply_live_to_store(
     store.agent_mut(kind).current_id = Some(id);
 }
 
-
 /// 把 CLI 配置文件里已有的 provider 设置收编成一条可切回的条目。
 ///
 /// 两个入口都会走到这里：首次接管（用户装 Belfry 前配好的中转服务，不导入
@@ -343,8 +342,11 @@ fn detect_live(kind: AgentKind) -> Result<LiveProvider, AppError> {
     match kind {
         AgentKind::Claude => {
             let settings = claude::read_settings()?;
-            Ok(claude::detect_live(&settings)
-                .map(|(base_url, api_key, model)| (ADOPTED_NAME.to_string(), base_url, api_key, model)))
+            Ok(
+                claude::detect_live(&settings).map(|(base_url, api_key, model)| {
+                    (ADOPTED_NAME.to_string(), base_url, api_key, model)
+                }),
+            )
         }
         AgentKind::Codex => {
             let doc = codex::read_config()?;
@@ -388,8 +390,18 @@ mod tests {
         // 面板要能显示「这个 agent 还没配过 provider」，而不是干脆不出现。
         let catalog = build(&StoreFile::default());
         assert_eq!(catalog.agents.len(), AgentKind::ALL.len());
-        assert!(catalog.agents.iter().all(|group| group.providers.is_empty()));
-        assert!(catalog.agents.iter().all(|group| group.current_id.is_none()));
+        assert!(
+            catalog
+                .agents
+                .iter()
+                .all(|group| group.providers.is_empty())
+        );
+        assert!(
+            catalog
+                .agents
+                .iter()
+                .all(|group| group.current_id.is_none())
+        );
     }
 
     #[test]

@@ -24,11 +24,13 @@ pub fn list(agent: AgentKind) -> Vec<HistorySession> {
 /// 前端据此提示"已被删除"。
 pub fn delete(agent: AgentKind, session_id: &str) -> Result<(), AppError> {
     validate_session_id(session_id)?;
-    let (root, find): (Option<std::path::PathBuf>, fn(&std::path::Path, &str) -> Vec<std::path::PathBuf>) =
-        match agent {
-            AgentKind::Codex => (codex_sessions_root(), codex::find_files),
-            AgentKind::Claude => (claude_sessions_root(), claude::find_files),
-        };
+    let (root, find): (
+        Option<std::path::PathBuf>,
+        fn(&std::path::Path, &str) -> Vec<std::path::PathBuf>,
+    ) = match agent {
+        AgentKind::Codex => (codex_sessions_root(), codex::find_files),
+        AgentKind::Claude => (claude_sessions_root(), claude::find_files),
+    };
     let Some(root) = root else {
         return Err(AppError::not_found("session directory was not found"));
     };

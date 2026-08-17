@@ -1,5 +1,15 @@
+import { RotateCcw } from "lucide-react";
+import { ICON } from "../../theme/sizing";
+import {
+  DEFAULT_TYPOGRAPHY,
+  MAX_FONT_SIZE,
+  MIN_FONT_SIZE,
+} from "../../typography/contracts";
+import { useTypography } from "../../typography/TypographyProvider";
 import { useBackground } from "../BackgroundProvider";
 import { BACKGROUND_FITS, MAX_BLUR, type BackgroundFit } from "../contracts";
+import { FontFamilyField, useFontChoice } from "./FontFamilyField";
+import { FontImportCard } from "./FontImportCard";
 import "./appearance.css";
 
 const FIT_LABEL: Record<BackgroundFit, string> = {
@@ -10,16 +20,87 @@ const FIT_LABEL: Record<BackgroundFit, string> = {
 };
 
 /**
- * 外观分区。目前只有背景图，名字仍叫「外观」——字号、字体这类后面要加的都归这儿。
+ * 外观分区。全局排版与背景图都在这里即时预览并持久化。
  */
 export function AppearanceSection() {
   const { config } = useBackground();
 
   return (
-    <section aria-label="背景图片" className="appearance">
+    <section aria-label="外观" className="appearance">
+      <TypographyControls />
+      <div className="appearance__divider" />
       <BackgroundPreview />
       {config.fileName ? <BackgroundControls /> : null}
     </section>
+  );
+}
+
+function TypographyControls() {
+  const { config, busy, error, update, pick, clearImported, reset } = useTypography();
+  const font = useFontChoice(config, update);
+  const isDefault = config.fontFamily === DEFAULT_TYPOGRAPHY.fontFamily
+    && config.fontSize === DEFAULT_TYPOGRAPHY.fontSize
+    && config.activeImportedFont === null;
+
+  return (
+    <div aria-label="字体与字号" className="appearance__group" role="group">
+      <TypographyHeading
+        disabled={busy || isDefault}
+        onReset={() => {
+          font.setValue(DEFAULT_TYPOGRAPHY.fontFamily);
+          void reset();
+        }}
+      />
+      <div aria-label="字体预览" className="appearance__type-preview">
+        <strong>Aa 中文 0123</strong>
+        <span>~/project $ codex</span>
+      </div>
+      <FontFamilyField
+        activeImportedFileName={config.activeImportedFont}
+        importedFonts={config.importedFonts}
+        onChange={font.setValue}
+        onCommit={font.commit}
+        onSelectDefault={font.selectDefault}
+        onSelectImported={font.selectImported}
+        onSelectSystem={font.selectSystem}
+        value={font.value}
+      />
+      <FontImportCard
+        activeFileName={config.activeImportedFont}
+        assets={config.importedFonts}
+        busy={busy}
+        error={error}
+        onClear={clearImported}
+        onPick={pick}
+      />
+      <Slider
+        format={(value) => `${value}px`}
+        label="字号"
+        max={MAX_FONT_SIZE}
+        min={MIN_FONT_SIZE}
+        onChange={(fontSize) => update({ fontSize })}
+        step={1}
+        value={config.fontSize}
+      />
+    </div>
+  );
+}
+
+function TypographyHeading({ disabled, onReset }: { disabled: boolean; onReset: () => void }) {
+  return (
+    <div className="appearance__heading">
+      <h2>字体与字号</h2>
+      <button
+        aria-label="恢复默认排版"
+        className="icon-button icon-button--sm"
+        disabled={disabled}
+        onClick={onReset}
+        title="恢复默认排版"
+        type="button"
+      >
+        <RotateCcw aria-hidden="true" size={ICON.sm} />
+      </button>
+    </div>
   );
 }
 

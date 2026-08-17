@@ -26,7 +26,7 @@
 
 .ssh-dialog__title {
   color: var(--text);
-  font-size: 18px;
+  font-size: calc(var(--fs-display) - 2px);
   font-weight: 500;
   letter-spacing: -0.02em;
 }

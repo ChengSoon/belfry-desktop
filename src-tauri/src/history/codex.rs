@@ -181,7 +181,8 @@ mod tests {
     use super::*;
 
     fn temp_root(tag: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("belfry-history-codex-{tag}-{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("belfry-history-codex-{tag}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         dir
@@ -236,7 +237,9 @@ mod tests {
         let path = write_session(
             &root,
             "rollout-2026-08-11T20-39-35-019ff0d5-dbaf-7893-96db-4fbbbfee03a7.jsonl",
-            &[r#"{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"你好"}]}}"#],
+            &[
+                r#"{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"你好"}]}}"#,
+            ],
         );
         let session = scan_file(&path).unwrap();
         assert_eq!(session.id, "019ff0d5-dbaf-7893-96db-4fbbbfee03a7");
@@ -250,7 +253,9 @@ mod tests {
         let path = write_session(
             &root,
             "rollout-2026-08-11T20-39-35-019ff0d5-dbaf-7893-96db-4fbbbfee03a7.jsonl",
-            &[r#"{"type":"session_meta","payload":{"session_id":"019ff0d5-dbaf-7893-96db-4fbbbfee03a7"}}"#],
+            &[
+                r#"{"type":"session_meta","payload":{"session_id":"019ff0d5-dbaf-7893-96db-4fbbbfee03a7"}}"#,
+            ],
         );
         assert_eq!(
             find_files(&root, "019ff0d5-dbaf-7893-96db-4fbbbfee03a7"),
@@ -302,9 +307,9 @@ mod tests {
 
     /// 测试里直接写 mtime：unix 上用 `touch -d` 也行，但这里不依赖外部命令。
     fn filetime_set_mtime(path: &Path, epoch_seconds: i64) -> std::io::Result<()> {
-        let time = std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(epoch_seconds as u64);
+        let time = std::time::SystemTime::UNIX_EPOCH
+            + std::time::Duration::from_secs(epoch_seconds as u64);
         let file = std::fs::File::options().write(true).open(path)?;
         file.set_times(std::fs::FileTimes::new().set_modified(time))
     }
-
 }

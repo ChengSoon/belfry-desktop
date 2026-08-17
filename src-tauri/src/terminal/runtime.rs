@@ -35,11 +35,7 @@ impl TerminalRuntime {
         self.backend.resize(session_id, size)
     }
 
-    pub fn set_palette(
-        &self,
-        session_id: &str,
-        palette: &TerminalPalette,
-    ) -> Result<(), AppError> {
+    pub fn set_palette(&self, session_id: &str, palette: &TerminalPalette) -> Result<(), AppError> {
         self.backend.set_palette(session_id, palette)
     }
 

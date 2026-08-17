@@ -176,10 +176,19 @@ mod tests {
     #[test]
     fn project_filter_accepts_subdirectories_but_not_sibling_prefixes() {
         assert!(matches_project(Some("/work/belfry"), Some("/work/belfry")));
-        assert!(matches_project(Some("/work/belfry/src-tauri"), Some("/work/belfry")));
+        assert!(matches_project(
+            Some("/work/belfry/src-tauri"),
+            Some("/work/belfry")
+        ));
         // 尾斜杠不应改变判定
-        assert!(matches_project(Some("/work/belfry/src"), Some("/work/belfry/")));
-        assert!(!matches_project(Some("/work/belfry-backup"), Some("/work/belfry")));
+        assert!(matches_project(
+            Some("/work/belfry/src"),
+            Some("/work/belfry/")
+        ));
+        assert!(!matches_project(
+            Some("/work/belfry-backup"),
+            Some("/work/belfry")
+        ));
         assert!(!matches_project(Some("/other"), Some("/work/belfry")));
     }
 

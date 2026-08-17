@@ -30,8 +30,8 @@ fn codex_home() -> Result<PathBuf, AppError> {
     if let Some(dir) = std::env::var_os("CODEX_HOME").filter(|value| !value.is_empty()) {
         return Ok(PathBuf::from(dir));
     }
-    let home =
-        crate::usage::home_dir().ok_or_else(|| AppError::not_found("找不到当前用户的 home 目录"))?;
+    let home = crate::usage::home_dir()
+        .ok_or_else(|| AppError::not_found("找不到当前用户的 home 目录"))?;
     Ok(home.join(".codex"))
 }
 
@@ -55,7 +55,10 @@ fn read_config_in(dir: &Path) -> Result<DocumentMut, AppError> {
 }
 
 /// 把 provider 写进内存里的文档。`None` 表示切回官方。
-pub(super) fn apply(doc: &mut DocumentMut, provider: Option<&ProviderConfig>) -> Result<(), AppError> {
+pub(super) fn apply(
+    doc: &mut DocumentMut,
+    provider: Option<&ProviderConfig>,
+) -> Result<(), AppError> {
     let root = doc.as_table_mut();
 
     let Some(provider) = provider else {
@@ -509,7 +512,10 @@ experimental_bearer_token = "sk-from-bearer"
         let out = doc.to_string();
 
         assert!(!out.contains("[model_providers.belfry]"));
-        assert!(out.contains("\n[model_providers]\n"), "只收自己的空壳，不动用户的");
+        assert!(
+            out.contains("\n[model_providers]\n"),
+            "只收自己的空壳，不动用户的"
+        );
         assert!(out.contains("[model_providers.custom]"));
     }
 
@@ -549,14 +555,21 @@ experimental_bearer_token = "sk-from-bearer"
 
     #[test]
     fn oauth_is_told_apart_from_an_api_key() {
-        let oauth = serde_json::json!({ "auth_mode": "chatgpt", "tokens": { "access_token": "x" } });
+        let oauth =
+            serde_json::json!({ "auth_mode": "chatgpt", "tokens": { "access_token": "x" } });
         let api_key = serde_json::json!({ "OPENAI_API_KEY": "sk-x" });
-        assert!(is_oauth(&oauth), "有 tokens 就是 ChatGPT 登录态，覆盖它等于把人登出");
+        assert!(
+            is_oauth(&oauth),
+            "有 tokens 就是 ChatGPT 登录态，覆盖它等于把人登出"
+        );
         assert!(!is_oauth(&api_key));
     }
 
     fn sandbox(tag: &str) -> std::path::PathBuf {
-        let dir = std::env::temp_dir().join(format!("belfry-provider-codex-{tag}-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!(
+            "belfry-provider-codex-{tag}-{}",
+            std::process::id()
+        ));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         dir
@@ -581,7 +594,11 @@ experimental_bearer_token = "sk-from-bearer"
         switch_in(&dir, Some(&provider("kimi-k2")), &mut backup).unwrap();
 
         // 切走：登录态进了库，磁盘上换成 API key。
-        assert_eq!(backup, Some(oauth_auth()), "OAuth 没被收进备份，切回来就登出了");
+        assert_eq!(
+            backup,
+            Some(oauth_auth()),
+            "OAuth 没被收进备份，切回来就登出了"
+        );
         let live: Value =
             serde_json::from_str(&std::fs::read_to_string(dir.join("auth.json")).unwrap()).unwrap();
         assert_eq!(live["OPENAI_API_KEY"], "sk-new");
@@ -592,9 +609,17 @@ experimental_bearer_token = "sk-from-bearer"
         // 切回：登录态原样躺回磁盘，库里的备份清空。
         let restored: Value =
             serde_json::from_str(&std::fs::read_to_string(dir.join("auth.json")).unwrap()).unwrap();
-        assert_eq!(restored, oauth_auth(), "ChatGPT 登录态没还原，用户得重新登录");
+        assert_eq!(
+            restored,
+            oauth_auth(),
+            "ChatGPT 登录态没还原，用户得重新登录"
+        );
         assert!(backup.is_none(), "还原过就不该再留着备份");
-        assert!(!std::fs::read_to_string(dir.join("config.toml")).unwrap().contains("belfry"));
+        assert!(
+            !std::fs::read_to_string(dir.join("config.toml"))
+                .unwrap()
+                .contains("belfry")
+        );
 
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -615,7 +640,11 @@ experimental_bearer_token = "sk-from-bearer"
         // 关键：不能留下「凭据已换成三方、路由还指着官方」这种谁都跑不通的中间态。
         let auth: Value =
             serde_json::from_str(&std::fs::read_to_string(dir.join("auth.json")).unwrap()).unwrap();
-        assert_eq!(auth, oauth_auth(), "auth.json 没退回去，ChatGPT 登录态就白丢了");
+        assert_eq!(
+            auth,
+            oauth_auth(),
+            "auth.json 没退回去，ChatGPT 登录态就白丢了"
+        );
         assert!(backup.is_none(), "内存里的备份也该跟着退回");
 
         let _ = std::fs::remove_dir_all(&dir);
@@ -671,7 +700,9 @@ experimental_bearer_token = "sk-from-bearer"
             return;
         };
         let source = std::fs::read_to_string(&path).expect("读不到指定的 config.toml");
-        let mut doc = source.parse::<DocumentMut>().expect("这份 config.toml 解析不了");
+        let mut doc = source
+            .parse::<DocumentMut>()
+            .expect("这份 config.toml 解析不了");
         apply(&mut doc, Some(&provider("probe-model"))).unwrap();
         let after = doc.to_string();
 
@@ -696,7 +727,10 @@ experimental_bearer_token = "sk-from-bearer"
         println!("新增 {} 行：{:?}", added.len(), added);
         println!("移除 {} 行：{:?}", removed.len(), removed);
         assert!(
-            removed.is_empty() || removed.iter().all(|key| key == "model" || key == "model_provider"),
+            removed.is_empty()
+                || removed
+                    .iter()
+                    .all(|key| key == "model" || key == "model_provider"),
             "除了被改写的 model / model_provider，不该有任何行消失：{removed:?}"
         );
 

@@ -39,10 +39,7 @@ pub(super) fn read_settings() -> Result<Value, AppError> {
             return Ok(Value::Object(Map::new()));
         }
         Err(err) => {
-            return Err(AppError::io(format!(
-                "读不了 {}：{err}",
-                path.display()
-            )));
+            return Err(AppError::io(format!("读不了 {}：{err}", path.display())));
         }
     };
     if text.trim().is_empty() {
@@ -60,7 +57,10 @@ pub(super) fn read_settings() -> Result<Value, AppError> {
 /// 把 provider 写进内存里的配置对象。`None` 表示切回官方。
 ///
 /// 只碰 `env` 下那四个键，其余原样保留。
-pub(super) fn apply(settings: &mut Value, provider: Option<&ProviderConfig>) -> Result<(), AppError> {
+pub(super) fn apply(
+    settings: &mut Value,
+    provider: Option<&ProviderConfig>,
+) -> Result<(), AppError> {
     let root = settings
         .as_object_mut()
         .ok_or_else(|| AppError::invalid_argument("settings.json 的顶层必须是一个对象"))?;
@@ -81,8 +81,14 @@ pub(super) fn apply(settings: &mut Value, provider: Option<&ProviderConfig>) -> 
         .as_object_mut()
         .ok_or_else(|| AppError::invalid_argument("settings.json 的 env 必须是一个对象"))?;
 
-    env.insert(BASE_URL.to_string(), Value::String(provider.base_url.clone()));
-    env.insert(AUTH_TOKEN.to_string(), Value::String(provider.api_key.clone()));
+    env.insert(
+        BASE_URL.to_string(),
+        Value::String(provider.base_url.clone()),
+    );
+    env.insert(
+        AUTH_TOKEN.to_string(),
+        Value::String(provider.api_key.clone()),
+    );
     env.remove(API_KEY);
 
     if provider.model.trim().is_empty() {
@@ -189,7 +195,10 @@ mod tests {
         apply(&mut settings, Some(&provider("kimi-k2"))).unwrap();
 
         let env = settings["env"].as_object().unwrap();
-        assert_eq!(env["ANTHROPIC_BASE_URL"], "https://api.moonshot.cn/anthropic");
+        assert_eq!(
+            env["ANTHROPIC_BASE_URL"],
+            "https://api.moonshot.cn/anthropic"
+        );
         assert_eq!(env["ANTHROPIC_AUTH_TOKEN"], "sk-new");
         assert_eq!(env["ANTHROPIC_MODEL"], "kimi-k2");
 
@@ -220,15 +229,30 @@ mod tests {
         let mut settings = live_settings();
         apply(&mut settings, Some(&provider("kimi-k2"))).unwrap();
 
-        let top: Vec<&str> = settings.as_object().unwrap().keys().map(String::as_str).collect();
+        let top: Vec<&str> = settings
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
         assert_eq!(
             top,
             vec![
-                "cleanupPeriodDays", "env", "includeCoAuthoredBy", "model",
-                "hooks", "enabledPlugins", "tui"
+                "cleanupPeriodDays",
+                "env",
+                "includeCoAuthoredBy",
+                "model",
+                "hooks",
+                "enabledPlugins",
+                "tui"
             ]
         );
-        let env: Vec<&str> = settings["env"].as_object().unwrap().keys().map(String::as_str).collect();
+        let env: Vec<&str> = settings["env"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
         assert_eq!(env[0], "ANTHROPIC_AUTH_TOKEN", "原有键必须留在原位");
         assert_eq!(env[1], "ANTHROPIC_BASE_URL");
     }
@@ -259,7 +283,10 @@ mod tests {
         }
         // 清的是路由，不是用户的其它设置。
         assert_eq!(env["HTTP_PROXY"], "http://127.0.0.1:7890");
-        assert_eq!(settings["hooks"]["Stop"][0]["hooks"][0]["command"], "say done");
+        assert_eq!(
+            settings["hooks"]["Stop"][0]["hooks"][0]["command"],
+            "say done"
+        );
     }
 
     #[test]
@@ -295,7 +322,10 @@ mod tests {
     fn adding_env_to_a_file_that_has_none() {
         let mut settings = serde_json::json!({ "model": "opusplan" });
         apply(&mut settings, Some(&provider(""))).unwrap();
-        assert_eq!(settings["env"]["ANTHROPIC_BASE_URL"], "https://api.moonshot.cn/anthropic");
+        assert_eq!(
+            settings["env"]["ANTHROPIC_BASE_URL"],
+            "https://api.moonshot.cn/anthropic"
+        );
         assert_eq!(settings["model"], "opusplan");
     }
 
@@ -335,16 +365,24 @@ mod tests {
 
         let changed: Vec<&String> = env_after
             .iter()
-            .filter(|key| before.pointer("/env").and_then(|env| env.get(*key)) != after.pointer("/env").and_then(|env| env.get(*key)))
+            .filter(|key| {
+                before.pointer("/env").and_then(|env| env.get(*key))
+                    != after.pointer("/env").and_then(|env| env.get(*key))
+            })
             .collect();
         println!("值发生变化的 env 键：{changed:?}");
-        let dropped: Vec<&String> = env_before.iter().filter(|key| !env_after.contains(key)).collect();
+        let dropped: Vec<&String> = env_before
+            .iter()
+            .filter(|key| !env_after.contains(key))
+            .collect();
         println!("被移除的 env 键：{dropped:?}");
 
         assert!(
-            changed.iter().all(|key| key.starts_with("ANTHROPIC_BASE_URL")
-                || key.starts_with("ANTHROPIC_AUTH_TOKEN")
-                || key.starts_with("ANTHROPIC_MODEL")),
+            changed
+                .iter()
+                .all(|key| key.starts_with("ANTHROPIC_BASE_URL")
+                    || key.starts_with("ANTHROPIC_AUTH_TOKEN")
+                    || key.starts_with("ANTHROPIC_MODEL")),
             "只该动路由三要素：{changed:?}"
         );
         assert!(

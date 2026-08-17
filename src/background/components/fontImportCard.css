@@ -1,0 +1,125 @@
+.font-import-card {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  margin-left: 70px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface) 74%, var(--canvas));
+}
+
+.font-import-card__icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--border));
+  border-radius: var(--radius-sm);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.font-import-card__body,
+.font-import-card__heading {
+  min-width: 0;
+}
+
+.font-import-card__body {
+  display: grid;
+  gap: 2px;
+}
+
+.font-import-card__heading {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+}
+
+.font-import-card__heading strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: var(--fs-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.font-import-card__heading small {
+  flex: 0 0 auto;
+  color: var(--success);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+
+.font-import-card__detail {
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.font-import-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.font-import-card__actions button {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 5px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  background: transparent;
+  font-size: var(--fs-sm);
+  line-height: 1.15;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color var(--duration) var(--ease), color var(--duration) var(--ease),
+    background var(--duration) var(--ease);
+}
+
+.font-import-card__actions button:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  color: var(--text);
+  background: var(--surface-hover);
+}
+
+.font-import-card__actions button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.font-import-card__actions .font-import-card__pick {
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+  background: var(--accent);
+}
+
+.font-import-card__actions .font-import-card__pick:hover:not(:disabled) {
+  border-color: var(--accent-hover);
+  color: var(--accent-contrast);
+  background: var(--accent-hover);
+}
+
+.font-import-card__actions .font-import-card__remove {
+  width: 30px;
+  padding: 5px 0;
+  color: var(--text-faint);
+}
+
+.font-import-card__actions .font-import-card__remove:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--danger) 48%, var(--border));
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+}
+
+@media (max-width: 480px) {
+  .font-import-card { margin-left: 0; }
+}

@@ -314,7 +314,10 @@ mod tests {
             .collect();
         if cfg!(target_os = "windows") {
             // 必须覆盖 PATHEXT 默认集合：npm/pnpm 生成的是 claude.cmd，不是裸名。
-            assert_eq!(names, ["claude.exe", "claude.cmd", "claude.bat", "claude.com"]);
+            assert_eq!(
+                names,
+                ["claude.exe", "claude.cmd", "claude.bat", "claude.com"]
+            );
         } else {
             assert_eq!(names, ["claude"]);
         }
@@ -329,7 +332,10 @@ mod tests {
         );
         assert_eq!(env.get("PATH").unwrap(), "/opt/homebrew/bin:/usr/bin");
         assert_eq!(env.get("HOME").unwrap(), "/Users/test");
-        assert!(!env.contains_key("startup warning\n"), "噪声段不该被当成变量");
+        assert!(
+            !env.contains_key("startup warning\n"),
+            "噪声段不该被当成变量"
+        );
     }
 
     #[cfg(target_os = "macos")]

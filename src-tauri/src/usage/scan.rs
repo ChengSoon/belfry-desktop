@@ -99,7 +99,8 @@ mod tests {
     use super::*;
 
     fn temp_dir(tag: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("belfry-usage-scan-{tag}-{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("belfry-usage-scan-{tag}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         dir
@@ -133,8 +134,7 @@ mod tests {
         std::fs::write(&path, "{\"usage\":1}\n\n{\"other\":2}\n{\"usage\":3}\n").unwrap();
 
         let mut seen = Vec::new();
-        assert!(for_each_line(&path, &["\"usage\""], |line| seen
-            .push(line.to_string())));
+        assert!(for_each_line(&path, &["\"usage\""], |line| seen.push(line.to_string())));
         assert_eq!(seen.len(), 2);
 
         let _ = std::fs::remove_dir_all(&dir);

@@ -8,6 +8,7 @@ mod project;
 mod provider;
 mod resource;
 mod terminal;
+mod typography;
 mod usage;
 
 use terminal::{TerminalRuntime, commands};
@@ -27,6 +28,9 @@ pub fn run() {
             background::commands::background_import,
             background::commands::background_read,
             background::commands::background_remove,
+            typography::commands::font_import,
+            typography::commands::font_read,
+            typography::commands::font_remove,
             project::commands::project_open,
             provider::commands::provider_list,
             provider::commands::provider_remove,

@@ -43,6 +43,8 @@
     "Segoe UI Variable Text", "Segoe UI", system-ui, "PingFang SC", "Microsoft YaHei", sans-serif;
   --font-mono: ui-monospace, "SFMono-Regular", "SF Mono", "Cascadia Mono", Consolas,
     "JetBrains Mono", monospace;
+  --font-terminal: var(--font-mono);
+  --app-font-size: 15px;
 
   /* 三档正文 + 一档展示。要整体缩放只需改这四个值，不必再翻各模块的 CSS。 */
   --fs-xs: 12px;

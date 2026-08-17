@@ -5,6 +5,58 @@
   gap: 14px;
 }
 
+.appearance__group {
+  display: grid;
+  gap: 10px;
+}
+
+.appearance__heading {
+  display: flex;
+  min-height: 26px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.appearance__heading h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--fs-md);
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.appearance__divider {
+  height: 1px;
+  background: var(--border);
+}
+
+.appearance__type-preview {
+  display: grid;
+  height: 132px;
+  align-content: center;
+  gap: 6px;
+  overflow: hidden;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  background: var(--canvas);
+  font-family: var(--font-terminal);
+  font-size: var(--app-font-size, 15px);
+  line-height: 1.35;
+}
+
+.appearance__type-preview strong,
+.appearance__type-preview span {
+  overflow: hidden;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.appearance__type-preview strong { font-weight: 500; }
+.appearance__type-preview span { color: var(--text-muted); font-size: 0.75em; }
+
 .appearance__field {
   display: grid;
   gap: 7px;
@@ -15,6 +67,10 @@
   grid-template-columns: 60px 1fr 44px;
   align-items: center;
   gap: 10px;
+}
+
+.appearance__row--wide {
+  grid-template-columns: 60px minmax(0, 1fr);
 }
 
 .appearance__label {
@@ -29,6 +85,37 @@
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
+
+.appearance__font-input {
+  min-width: 0;
+  width: 100%;
+  padding: 6px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  background: var(--canvas);
+  font-size: var(--fs-sm);
+  outline: none;
+  transition: border-color var(--duration) var(--ease), box-shadow var(--duration) var(--ease);
+}
+
+.appearance__font-input:hover { border-color: var(--border-strong); }
+.appearance__font-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.appearance__font-input:focus-visible { outline: none; }
+
+.appearance__font-input::placeholder { color: var(--text-faint); }
+
+.appearance__font-input.is-imported {
+  color: var(--accent-hover);
+  background: var(--accent-soft);
+  caret-color: var(--accent);
+}
+
+.appearance__font-error { margin-left: 70px; }
 
 .appearance__preview {
   position: relative;

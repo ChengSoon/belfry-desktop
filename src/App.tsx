@@ -1,5 +1,5 @@
-import { AlertTriangle, PanelLeftOpen, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AlertTriangle, Keyboard, PanelLeftOpen, X } from "lucide-react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { AppBackground } from "./background/AppBackground";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { WindowTitlebar } from "./components/WindowTitlebar";
@@ -9,6 +9,9 @@ import { useSessionDrag } from "./layout/useSessionDrag";
 import { useSplitLayout } from "./layout/useSplitLayout";
 import { useActivityNotifications } from "./notify/useActivityNotifications";
 import { SettingsPanel } from "./settings/SettingsPanel";
+import { ShortcutGuide } from "./shortcuts/ShortcutGuide";
+import { appShortcutChord, formatShortcutChord } from "./shortcuts/resolveShortcut";
+import { useAppShortcuts } from "./shortcuts/useAppShortcuts";
 import { ICON } from "./theme/sizing";
 import { UpdateDialog } from "./updater/UpdateDialog";
 import { useAppUpdater } from "./updater/useAppUpdater";
@@ -23,6 +26,7 @@ import type { AgentKind, RecentProject } from "./workspace/contracts";
 import { failureLabel } from "./workspace/errors";
 import { pathKey } from "./workspace/path";
 import { removeRecentConfirmBody } from "./workspace/removeRecentConfirm";
+import { groupTabsByProject } from "./workspace/tabs";
 import { useFoldedProjects } from "./workspace/useFoldedProjects";
 import { useProjectWorkspace } from "./workspace/useProjectWorkspace";
 
@@ -98,21 +102,18 @@ export default function App() {
   // 查一次而不是把 tab 存进 state：弹框开着时这条会话可能已经被别处关掉，
   // 查不到就自然不渲染，也不会拿着一份过期的 phase 去写文案。
   const pendingClose = workspace.tabs.find((tab) => tab.id === pendingCloseId) ?? null;
-
-  // ⌘B / ⌘U 走捕获阶段，避免按键先被 xterm 吞进 shell。
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (!(event.metaKey || event.ctrlKey)) return;
-      const key = event.key.toLowerCase();
-      if (key !== "b" && key !== "u") return;
-      event.preventDefault();
-      event.stopPropagation();
-      if (key === "b") setCollapsed((value) => !value);
-      else setUsageOpen((value) => !value);
-    };
-    window.addEventListener("keydown", onKeyDown, true);
-    return () => window.removeEventListener("keydown", onKeyDown, true);
-  }, []);
+  const shortcuts = useAppShortcuts({
+    blocked: Boolean(pendingClose || pendingRemove || updater.open),
+    onActivateSession: (index) => {
+      const tab = groupTabsByProject(workspace.tabs).flatMap((group) => group.tabs)[index];
+      if (tab) layout.activateTab(tab.id);
+    },
+    onNewShell: () => launch("shell"),
+    onOpenSettings: () => setSettingsOpen(true),
+    onToggleHistory: toggleHistory,
+    onToggleSidebar: () => setCollapsed((value) => !value),
+    onToggleUsage: toggleUsage,
+  });
 
   return (
     <main
@@ -158,7 +159,7 @@ export default function App() {
           <button
             className="icon-button icon-button--sm reveal-handle"
             onClick={() => setCollapsed(false)}
-            title="展开侧栏 ⌘B"
+            title={`展开侧栏 ${formatShortcutChord(appShortcutChord(shortcuts.platform, "B"))}`}
             type="button"
           >
             <PanelLeftOpen aria-hidden="true" size={ICON.md} />
@@ -173,6 +174,17 @@ export default function App() {
             recentProjects={workspace.recentProjects}
           />
         </div>
+        <button
+          aria-expanded={shortcuts.guideOpen}
+          aria-haspopup="dialog"
+          aria-label="快捷指令"
+          className="icon-button icon-button--sm shortcut-help-trigger"
+          onClick={shortcuts.openGuide}
+          title={`快捷指令 ${shortcuts.guideTitle}`}
+          type="button"
+        >
+          <Keyboard aria-hidden="true" size={ICON.md} />
+        </button>
         <TerminalStage
           activeTabId={workspace.activeTabId}
           dividers={layout.dividers}
@@ -245,6 +257,10 @@ export default function App() {
           onInstall={updater.install}
           state={updater.state}
         />
+      ) : null}
+
+      {shortcuts.guideOpen ? (
+        <ShortcutGuide onClose={shortcuts.closeGuide} platform={shortcuts.platform} />
       ) : null}
     </main>
   );

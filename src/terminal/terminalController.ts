@@ -5,6 +5,8 @@ import { WebglAddon } from "@xterm/addon-webgl";
 import { Terminal } from "@xterm/xterm";
 import type { TerminalTheme } from "../theme/xtermTheme";
 import { withTransparentBackground } from "../theme/xtermTheme";
+import type { TypographyRuntime } from "../typography/contracts";
+import { typographyFontStacks } from "../typography/storage";
 import { watchActivity } from "./activity";
 import {
   closeTerminal,
@@ -35,6 +37,7 @@ import { acceptSequence } from "./sequence";
 
 /** 低于此宽度视为布局瞬态，不下发 resize。约等于 10 列等宽字符。 */
 const MIN_HOST_WIDTH = 80;
+const RESIZE_DEBOUNCE_MS = 100;
 
 /** 探测密码提示时只解码输出块的尾部：TUI 全屏刷新一次能吐几十 KB，而提示总在块尾。 */
 const PROMPT_TAIL_BYTES = 200;
@@ -58,6 +61,8 @@ export interface TerminalHandle {
    * 以及会话创建请求——把 rgba 混进来会静默失效或直接抛错。
    */
   applyTheme: (theme: TerminalTheme, transparent: boolean) => void;
+  /** 字体变化只刷新 xterm 并重新 fit，不能重挂终端，否则会杀掉 PTY。 */
+  applyTypography: (config: TypographyRuntime) => void;
   dispose: () => void;
 }
 
@@ -66,13 +71,16 @@ export function mountTerminal(
   launch: TerminalLaunch,
   theme: TerminalTheme,
   transparent: boolean,
+  typography: TypographyRuntime,
   callbacks: MountCallbacks,
 ): TerminalHandle {
-  const terminal = createXterm(theme, transparent);
+  const terminal = createXterm(theme, transparent, typography);
   const fit = new FitAddon();
   terminal.loadAddon(fit);
   terminal.open(host);
   let disposed = false;
+  let typographyVersion = 0;
+  let typographyResizeTimer = 0;
   const useWebClipboard = usesWebClipboardFallback();
   const isCodexProfile = launch.profileId === "agent:codex";
   // 所有会话都过滤透明 WebGL 的 dim 白块；Shell 提交 codex 命令或输出 Codex banner 后，
@@ -114,6 +122,12 @@ export function mountTerminal(
   callbacks.onActivity("idle");
 
   let current: TerminalSession | null = null;
+  const scheduleTypographyResize = () => {
+    window.clearTimeout(typographyResizeTimer);
+    typographyResizeTimer = window.setTimeout(() => {
+      current = syncTerminalSize(terminal, current, callbacks);
+    }, RESIZE_DEBOUNCE_MS);
+  };
   const removeImagePasteListener = !useWebClipboard && launch.profileId.startsWith("agent:")
     ? listenForClipboardImagePaste(host, (sequence) => terminal.input(sequence, true))
     : null;
@@ -203,11 +217,28 @@ export function mountTerminal(
         terminal.write("", () => void requestCodexRedraw(current, terminal));
       }
     },
+    applyTypography: (next) => {
+      const version = ++typographyVersion;
+      applyTypographyOptions(terminal, next);
+      if (host.clientWidth >= MIN_HOST_WIDTH) {
+        fit.fit();
+        scheduleTypographyResize();
+      }
+      void loadTerminalFont(next).then(() => {
+        if (disposed || version !== typographyVersion) return;
+        terminal.clearTextureAtlas();
+        if (host.clientWidth < MIN_HOST_WIDTH) return;
+        terminal.refresh(0, Math.max(0, terminal.rows - 1));
+        fit.fit();
+        scheduleTypographyResize();
+      }).catch(() => undefined);
+    },
     dispose: () => {
       disposed = true;
       host.classList.remove("is-file-drag-over");
       removeImagePasteListener?.();
       removeFileDropListener?.();
+      window.clearTimeout(typographyResizeTimer);
       observer.disconnect();
       input.dispose();
       activity?.dispose();
@@ -371,7 +402,7 @@ function createResizeObserver(
         void resizeTerminal(session.id, terminal.cols, terminal.rows).catch((error) => {
           callbacks.onError(errorMessage(error));
         });
-      }, 100);
+      }, RESIZE_DEBOUNCE_MS);
     });
   });
   observer.observe(host);
@@ -384,16 +415,11 @@ function createResizeObserver(
   };
 }
 
-/* 字体清单只在 styles.css 的 --font-mono 里维护一份，这里读出来喂给 xterm。
-   xterm 只接受字符串，拿不到就退回一个能跑的最小栈。 */
-function monoFontFamily() {
-  const fromCss = getComputedStyle(document.documentElement)
-    .getPropertyValue("--font-mono")
-    .trim();
-  return fromCss || 'ui-monospace, "SFMono-Regular", Consolas, monospace';
-}
-
-function createXterm(theme: TerminalTheme, transparent: boolean) {
+function createXterm(
+  theme: TerminalTheme,
+  transparent: boolean,
+  typography: TypographyRuntime,
+) {
   // 配色必须在构造时就位：会话创建请求要带上背景色，而它在挂载的同一个同步块里就发出去了。
   return new Terminal({
     // 开背景图时必须打开，否则 xterm 会把底色实心涂满、图整个被盖住。
@@ -403,8 +429,8 @@ function createXterm(theme: TerminalTheme, transparent: boolean) {
     cursorBlink: true,
     cursorStyle: "bar",
     cursorWidth: 4,
-    fontFamily: monoFontFamily(),
-    fontSize: 15,
+    fontFamily: typographyFontStacks(typography.fontFamily).mono,
+    fontSize: typography.fontSize,
     fontWeight: 400,
     fontWeightBold: 500,
     lineHeight: 1.35,
@@ -414,6 +440,35 @@ function createXterm(theme: TerminalTheme, transparent: boolean) {
     scrollback: 1000,
     theme: transparent ? withTransparentBackground(theme) : theme,
   });
+}
+
+function applyTypographyOptions(
+  terminal: Terminal,
+  config: TypographyRuntime,
+) {
+  terminal.options.fontFamily = typographyFontStacks(config.fontFamily).mono;
+  terminal.options.fontSize = config.fontSize;
+  terminal.clearTextureAtlas();
+}
+
+function syncTerminalSize(
+  terminal: Terminal,
+  current: TerminalSession | null,
+  callbacks: MountCallbacks,
+): TerminalSession | null {
+  if (!current || (current.cols === terminal.cols && current.rows === terminal.rows)) return current;
+  const next = { ...current, cols: terminal.cols, rows: terminal.rows };
+  callbacks.onSession(next);
+  void resizeTerminal(next.id, next.cols, next.rows).catch((error) => {
+    callbacks.onError(errorMessage(error));
+  });
+  return next;
+}
+
+function loadTerminalFont(config: TypographyRuntime): Promise<FontFace[]> {
+  if (!document.fonts) return Promise.resolve([]);
+  const family = typographyFontStacks(config.fontFamily).mono;
+  return document.fonts.load(`${config.fontSize}px ${family}`);
 }
 
 /* 必须走 WebGL renderer，不是为了性能而是为了画对块字符。

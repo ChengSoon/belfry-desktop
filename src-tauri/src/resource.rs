@@ -82,7 +82,10 @@ fn windows_path_to_uri(path: &str) -> String {
 /// `file://` 之后的部分 → Windows 路径。[`windows_path_to_uri`] 的逆变换。
 fn windows_uri_body_to_path(raw: &str) -> String {
     // 空 authority + 盘符：`/C:/work` → `C:\work`。
-    if let Some(drive) = raw.strip_prefix('/').filter(|value| starts_with_drive(value)) {
+    if let Some(drive) = raw
+        .strip_prefix('/')
+        .filter(|value| starts_with_drive(value))
+    {
         return drive.replace('/', "\\");
     }
     // 非空 authority 就是 UNC 主机名：`server/share` → `\\server\share`。
@@ -131,7 +134,10 @@ mod tests {
 
     #[test]
     fn windows_drive_paths_round_trip() {
-        assert_eq!(windows_path_to_uri(r"C:\work\belfry"), "file:///C:/work/belfry");
+        assert_eq!(
+            windows_path_to_uri(r"C:\work\belfry"),
+            "file:///C:/work/belfry"
+        );
         assert_eq!(windows_round_trip(r"C:\work\belfry"), r"C:\work\belfry");
         assert_eq!(windows_round_trip(r"C:\"), r"C:\");
     }
@@ -154,9 +160,15 @@ mod tests {
             windows_path_to_uri(r"\\server\share\dir"),
             "file://server/share/dir"
         );
-        assert_eq!(windows_round_trip(r"\\server\share\dir"), r"\\server\share\dir");
+        assert_eq!(
+            windows_round_trip(r"\\server\share\dir"),
+            r"\\server\share\dir"
+        );
         // verbatim 形式的 UNC 要还原成普通 UNC，不能退化成 `UNC\server\...`
-        assert_eq!(windows_round_trip(r"\\?\UNC\server\share"), r"\\server\share");
+        assert_eq!(
+            windows_round_trip(r"\\?\UNC\server\share"),
+            r"\\server\share"
+        );
     }
 
     #[test]
@@ -172,6 +184,9 @@ mod tests {
         assert_eq!(strip_verbatim_prefix(r"C:\work"), r"C:\work");
         assert_eq!(strip_verbatim_prefix(r"\\server\share"), r"\\server\share");
         assert_eq!(strip_verbatim_prefix(r"\\?\C:\work"), r"C:\work");
-        assert_eq!(strip_verbatim_prefix(r"\\?\UNC\server\share"), r"\\server\share");
+        assert_eq!(
+            strip_verbatim_prefix(r"\\?\UNC\server\share"),
+            r"\\server\share"
+        );
     }
 }

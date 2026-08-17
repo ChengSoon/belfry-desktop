@@ -104,9 +104,14 @@ Neither agent detected? Doesn't matter. Shell sessions don't depend on them, and
 **Appearance**
 
 - Light/dark theme, with theme colors fed through to the terminal palette
+- Synchronized app-wide font and 10–20px sizing, with locally installed font support
+- Multiple persistent TTF / OTF / WOFF / WOFF2 imports, each independently selectable and removable, with instant switching back to system fonts
 - JetBrains Mono and HarmonyOS Sans SC bundled
 
-Shortcuts: `⌘B` collapses the sidebar, `⌘U` toggles the usage panel. Use `Ctrl` on Windows.
+Belfry shortcuts: `⌘T` opens a Shell, `⌘B` toggles the sidebar, `⌘U` toggles usage,
+`⌘⇧H` toggles history, `⌘,` opens settings, `⌘1–9` switches sessions, and `⌘/` opens
+the shortcut guide. Windows and Linux use `Ctrl+Shift` chords so Codex and Claude keep
+their native `Ctrl` shortcuts.
 
 ## UI
 
@@ -163,7 +168,9 @@ src/                  frontend
   notify/             activity notifications and badge
   usage/              token usage aggregation and display
   panel/              panel width and dragging
+  shortcuts/          global shortcuts and shortcut guide
   theme/              theming and terminal palette
+  typography/         global font, sizing, and imported assets
 src-tauri/src/        Rust backend
   project/            project directories and recents
   agent/              Codex / Claude detection

@@ -112,8 +112,7 @@ fn clear(dir: &Path) -> Result<(), AppError> {
 pub(super) fn import(app: &AppHandle, source: &str) -> Result<BackgroundAsset, AppError> {
     let path = canonicalize(Path::new(source))
         .map_err(|err| AppError::not_found(format!("打不开这个文件：{err}")))?;
-    let meta =
-        fs::metadata(&path).map_err(|err| AppError::io(format!("读不到文件信息：{err}")))?;
+    let meta = fs::metadata(&path).map_err(|err| AppError::io(format!("读不到文件信息：{err}")))?;
     if !meta.is_file() {
         return Err(AppError::invalid_argument("背景图必须是一个文件"));
     }
@@ -127,8 +126,8 @@ pub(super) fn import(app: &AppHandle, source: &str) -> Result<BackgroundAsset, A
     }
 
     let bytes = fs::read(&path).map_err(|err| AppError::io(format!("读不了这个文件：{err}")))?;
-    let format = sniff_format(&bytes)
-        .ok_or_else(|| AppError::unsupported("只认 PNG / JPEG / WebP 图片"))?;
+    let format =
+        sniff_format(&bytes).ok_or_else(|| AppError::unsupported("只认 PNG / JPEG / WebP 图片"))?;
 
     let dir = storage_dir(app)?;
     fs::create_dir_all(&dir).map_err(|err| AppError::io(format!("建不了背景图目录：{err}")))?;

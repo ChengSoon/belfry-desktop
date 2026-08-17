@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from "react"
 import { useBackground } from "../background/BackgroundProvider";
 import { useTheme } from "../theme/ThemeProvider";
 import { xtermTheme } from "../theme/xtermTheme";
+import { useTypography } from "../typography/TypographyProvider";
 import { closeTerminal } from "./api";
 import { type SessionActivity, type TerminalLaunch, type TerminalPhase, type TerminalSession } from "./contracts";
 import { errorMessage, mountTerminal, type TerminalHandle } from "./terminalController";
@@ -30,6 +31,7 @@ export function useTerminalSession(
   },
 ): TerminalViewModel {
   const { mode } = useTheme();
+  const { runtime: typography } = useTypography();
   // 有图可铺时终端才让底色透出去；图还没加载完就照旧不透明，避免中间闪一下画布色。
   const { url } = useBackground();
   const transparent = url !== null;
@@ -41,9 +43,10 @@ export function useTerminalSession(
   const [activity, setActivity] = useState<SessionActivity>("idle");
   const sessionId = useRef<string | null>(null);
   const handle = useRef<TerminalHandle | null>(null);
-  // 主题和背景开关都不能进挂载 effect 的依赖，否则换肤 / 换图会重挂终端、连带杀掉 PTY 会话。
+  // 主题、背景和字体都不能进挂载 effect 的依赖，否则设置外观会重挂终端、连带杀掉 PTY 会话。
   const themeMode = useRef(mode);
   const transparentMode = useRef(transparent);
+  const typographyConfig = useRef(typography);
 
   useEffect(() => {
     const host = container.current;
@@ -53,6 +56,7 @@ export function useTerminalSession(
       launch,
       xtermTheme(themeMode.current),
       transparentMode.current,
+      typographyConfig.current,
       {
         onPhase: setPhase,
         onError: setError,
@@ -76,6 +80,11 @@ export function useTerminalSession(
     transparentMode.current = transparent;
     handle.current?.applyTheme(xtermTheme(mode), transparent);
   }, [mode, transparent]);
+
+  useEffect(() => {
+    typographyConfig.current = typography;
+    handle.current?.applyTypography(typography);
+  }, [typography]);
 
   const restart = useCallback(() => setGeneration((value) => value + 1), []);
   const close = useCallback(() => {

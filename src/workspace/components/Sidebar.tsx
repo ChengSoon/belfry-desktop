@@ -3,6 +3,11 @@ import { useRef, useState, type CSSProperties, type PointerEvent, type Ref } fro
 import { PanelResizeHandle } from "../../panel/PanelResizeHandle";
 import { usePanelWidth } from "../../panel/usePanelWidth";
 import { ICON } from "../../theme/sizing";
+import {
+  appShortcutChord,
+  formatShortcutChord,
+  shortcutPlatform,
+} from "../../shortcuts/resolveShortcut";
 import { ThemeToggle } from "../../theme/ThemeToggle";
 import type { UpdaterState } from "../../updater/contracts";
 import type { SshLaunch } from "../../terminal/contracts";
@@ -81,6 +86,7 @@ export function Sidebar({
   const groups = groupTabsByProject(tabs);
   const { commitWidth, resetWidth, setWidth, width } = usePanelWidth(SIDEBAR_WIDTH);
   const sidebarStyle = { "--sidebar-width": `${width}px` } as CSSProperties;
+  const platform = shortcutPlatform(document.documentElement.dataset.platform);
 
   return (
     <aside
@@ -97,6 +103,7 @@ export function Sidebar({
             onLaunch={onLaunch}
             onLaunchSsh={onLaunchSsh}
             onRefresh={onRefresh}
+            shellShortcut={formatShortcutChord(appShortcutChord(platform, "T"))}
           />
         </div>
         <nav className="session-list" aria-label="会话列表">
@@ -139,7 +146,7 @@ export function Sidebar({
             aria-pressed={settingsOpen}
             className="icon-button icon-button--sm"
             onClick={onOpenSettings}
-            title="设置"
+            title={`设置 ${formatShortcutChord(appShortcutChord(platform, ","))}`}
             type="button"
           >
             <Settings aria-hidden="true" size={ICON.md} />
@@ -148,7 +155,7 @@ export function Sidebar({
             aria-pressed={usageOpen}
             className="icon-button icon-button--sm"
             onClick={onToggleUsage}
-            title="额度用量 ⌘U"
+            title={`额度用量 ${formatShortcutChord(appShortcutChord(platform, "U"))}`}
             type="button"
           >
             <Gauge aria-hidden="true" size={ICON.md} />
@@ -157,12 +164,17 @@ export function Sidebar({
             aria-pressed={historyOpen}
             className="icon-button icon-button--sm"
             onClick={onToggleHistory}
-            title="历史会话"
+            title={`历史会话 ${formatShortcutChord(appShortcutChord(platform, "H", true))}`}
             type="button"
           >
             <History aria-hidden="true" size={ICON.md} />
           </button>
-          <button className="icon-button icon-button--sm" onClick={onCollapse} title="收起侧栏 ⌘B" type="button">
+          <button
+            className="icon-button icon-button--sm"
+            onClick={onCollapse}
+            title={`收起侧栏 ${formatShortcutChord(appShortcutChord(platform, "B"))}`}
+            type="button"
+          >
             <PanelLeftClose aria-hidden="true" size={ICON.md} />
           </button>
         </div>

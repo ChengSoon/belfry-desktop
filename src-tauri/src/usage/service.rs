@@ -65,7 +65,10 @@ mod tests {
     #[test]
     fn window_cutoff_covers_the_requested_days() {
         let now = 1_786_287_401;
-        assert_eq!(window_cutoff(Some(30), now), Some(now - 30 * SECONDS_PER_DAY));
+        assert_eq!(
+            window_cutoff(Some(30), now),
+            Some(now - 30 * SECONDS_PER_DAY)
+        );
         assert_eq!(window_cutoff(Some(1), now), Some(now - SECONDS_PER_DAY));
     }
 

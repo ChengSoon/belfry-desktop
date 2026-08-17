@@ -1,0 +1,110 @@
+.font-combobox {
+  position: relative;
+  min-width: 0;
+}
+
+.font-combobox .appearance__font-input {
+  padding-right: 38px;
+}
+
+.font-combobox__toggle {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  display: grid;
+  width: 34px;
+  height: calc(100% - 2px);
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-left: 1px solid transparent;
+  border-radius: 0 calc(var(--radius-sm) - 1px) calc(var(--radius-sm) - 1px) 0;
+  color: var(--text-faint);
+  background: transparent;
+  cursor: pointer;
+}
+
+.font-combobox__toggle:hover,
+.font-combobox__toggle.is-open {
+  border-left-color: var(--border);
+  color: var(--text);
+  background: var(--surface-hover);
+}
+
+.font-combobox__toggle svg {
+  transition: transform var(--duration) var(--ease);
+}
+
+.font-combobox__toggle.is-open svg { transform: rotate(180deg); }
+
+.font-combobox__menu {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 5px);
+  right: 0;
+  left: 0;
+  display: grid;
+  max-height: min(320px, 48vh);
+  gap: 2px;
+  overflow-y: auto;
+  padding: 5px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-md);
+}
+
+.font-combobox__option {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 26px minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.font-combobox__option.is-active {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+
+.font-combobox__option[aria-selected="true"] {
+  color: var(--text);
+  background: var(--accent-soft);
+}
+
+.font-combobox__option > svg:first-child { color: var(--text-faint); }
+.font-combobox__option[aria-selected="true"] > svg { color: var(--accent); }
+
+.font-combobox__option > span {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.font-combobox__option strong,
+.font-combobox__option small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.font-combobox__option strong {
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+
+.font-combobox__option small {
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .font-combobox__toggle svg { transition: none; }
+}

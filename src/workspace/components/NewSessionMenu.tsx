@@ -12,9 +12,16 @@ interface NewSessionMenuProps {
   onLaunch: (kind: WorkspaceTabKind) => void;
   onLaunchSsh: (target: SshLaunch) => void;
   onRefresh: () => Promise<void>;
+  shellShortcut: string;
 }
 
-export function NewSessionMenu({ agents, onLaunch, onLaunchSsh, onRefresh }: NewSessionMenuProps) {
+export function NewSessionMenu({
+  agents,
+  onLaunch,
+  onLaunchSsh,
+  onRefresh,
+  shellShortcut,
+}: NewSessionMenuProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [sshDialogOpen, setSshDialogOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -45,7 +52,7 @@ export function NewSessionMenu({ agents, onLaunch, onLaunchSsh, onRefresh }: New
           className="icon-button icon-button--sm"
           onClick={() => setMenuOpen((value) => !value)}
           ref={triggerRef}
-          title="新建会话"
+          title={`新建会话（Shell ${shellShortcut}）`}
           type="button"
         >
           <Plus aria-hidden="true" size={ICON.md} />
@@ -56,6 +63,7 @@ export function NewSessionMenu({ agents, onLaunch, onLaunchSsh, onRefresh }: New
             <button onClick={() => start("shell")} role="menuitem" type="button">
               <SquareTerminal aria-hidden="true" size={ICON.md} />
               <span>Shell</span>
+              <i>{shellShortcut}</i>
             </button>
             <button
               onClick={() => {

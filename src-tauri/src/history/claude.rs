@@ -76,7 +76,8 @@ fn take_user(record: &Value, meta: &mut Meta) {
     let text = parts
         .iter()
         .filter_map(|part| {
-            (part["type"].as_str() == Some("text")).then(|| part["text"].as_str().unwrap_or_default())
+            (part["type"].as_str() == Some("text"))
+                .then(|| part["text"].as_str().unwrap_or_default())
         })
         .collect::<Vec<_>>()
         .join("\n");
@@ -104,7 +105,10 @@ mod tests {
     use super::*;
 
     fn temp_root(tag: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("belfry-history-claude-{tag}-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!(
+            "belfry-history-claude-{tag}-{}",
+            std::process::id()
+        ));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         dir
@@ -131,7 +135,10 @@ mod tests {
         assert_eq!(session.id, "cf32a9a3-0a60-427b-8bba-823e36c66d13");
         assert_eq!(session.cwd.as_deref(), Some("/work/a"));
         assert_eq!(session.title, "注册的账号是什么原因");
-        assert_eq!(session.started_at, parse_rfc3339("2026-07-29T02:36:31.744Z"));
+        assert_eq!(
+            session.started_at,
+            parse_rfc3339("2026-07-29T02:36:31.744Z")
+        );
         assert!(session.last_active_at > 0);
         let _ = std::fs::remove_dir_all(&root);
     }

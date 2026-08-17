@@ -159,11 +159,19 @@ mod tests {
     fn accepts_the_single_backslash_form_found_in_real_config_files() {
         // 真实的 settings.json 里就有 `https:\host` 这种写法，而且它在跑。
         // 前端用 URL 解析放行了它，后端这里得跟上，不然存不回去。
-        assert!(draft("中转", "https:\\relay.example.org").validate().is_ok());
+        assert!(
+            draft("中转", "https:\\relay.example.org")
+                .validate()
+                .is_ok()
+        );
     }
 
     #[test]
     fn accepts_a_well_formed_draft() {
-        assert!(draft("Kimi", "https://api.moonshot.cn/anthropic").validate().is_ok());
+        assert!(
+            draft("Kimi", "https://api.moonshot.cn/anthropic")
+                .validate()
+                .is_ok()
+        );
     }
 }
