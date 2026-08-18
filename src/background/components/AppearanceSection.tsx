@@ -105,24 +105,44 @@ function TypographyHeading({ disabled, onReset }: { disabled: boolean; onReset: 
 }
 
 function BackgroundPreview() {
-  const { config, url, busy, error, pick, clear } = useBackground();
+  const { config, url, busy, error, pick, clear, update } = useBackground();
+  const isVideo = Boolean(url && config.mime?.startsWith("video/"));
   return (
     <div className="appearance__field">
-      <span className="appearance__label">背景图</span>
+      <span className="appearance__label">壁纸</span>
       <div className="appearance__preview">
         {url ? (
           <>
-            <div className="appearance__preview-image" />
+            {isVideo ? (
+              <video
+                autoPlay={!config.videoPaused}
+                className={`appearance__preview-video appearance__preview-video--${config.fit}`}
+                loop
+                muted
+                playsInline
+                key={String(config.videoPaused)}
+                src={url ?? undefined}
+              />
+            ) : <div className="appearance__preview-image" />}
             <span className="appearance__preview-text">Aa 示例文字 the quick brown fox</span>
           </>
         ) : (
-          <span className="appearance__preview-empty">还没有设置背景图</span>
+          <span className="appearance__preview-empty">还没有设置壁纸</span>
         )}
       </div>
       <div className="appearance__actions">
         <button disabled={busy} onClick={() => void pick()} type="button">
-          {config.fileName ? "换一张…" : "选择图片…"}
+          {config.fileName ? "更换…" : "选择图片或视频…"}
         </button>
+        {isVideo ? (
+          <button
+            disabled={busy}
+            onClick={() => update({ videoPaused: !config.videoPaused })}
+            type="button"
+          >
+            {config.videoPaused ? "播放" : "暂停"}
+          </button>
+        ) : null}
         {config.fileName ? (
           <button disabled={busy} onClick={() => void clear()} type="button">移除</button>
         ) : null}
@@ -134,6 +154,9 @@ function BackgroundPreview() {
 
 function BackgroundControls() {
   const { config, update } = useBackground();
+  const fits = config.mime?.startsWith("video/")
+    ? BACKGROUND_FITS.filter((fit) => fit === "cover" || fit === "contain")
+    : BACKGROUND_FITS;
   return (
     <>
       <Slider
@@ -166,7 +189,7 @@ function BackgroundControls() {
       <div className="appearance__row">
         <span className="appearance__label">填充</span>
         <div aria-label="填充方式" className="appearance__segments" role="group">
-          {BACKGROUND_FITS.map((fit) => (
+          {fits.map((fit) => (
             <button
               aria-pressed={fit === config.fit}
               className={fit === config.fit ? "is-active" : ""}

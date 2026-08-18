@@ -143,6 +143,19 @@
   opacity: var(--app-bg-opacity, 1);
 }
 
+.appearance__preview-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  filter: blur(var(--app-bg-blur, 0px));
+  opacity: var(--app-bg-opacity, 1);
+  object-position: center;
+}
+
+.appearance__preview-video--cover { object-fit: cover; }
+.appearance__preview-video--contain { object-fit: contain; }
+
 /* 样例文字坐在与终端同款的衬底条上（同一个 --app-bg-veil）：
    「文字衬底」滑块的作用对象就是它，拖动时这里要立刻所见即所得；
    条带上下露出的图则对应「图片可见度」，两个滑块在同一格预览里各管一段。 */

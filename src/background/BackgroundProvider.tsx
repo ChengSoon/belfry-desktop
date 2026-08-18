@@ -83,7 +83,10 @@ export function BackgroundProvider({ children }: { children: ReactNode }) {
     const root = document.documentElement;
     const fit = FIT_STYLE[config.fit];
     root.dataset.background = url ? "on" : "off";
-    root.style.setProperty("--app-bg-image", url ? `url("${url}")` : "none");
+    root.style.setProperty(
+      "--app-bg-image",
+      url && !config.mime?.startsWith("video/") ? `url("${url}")` : "none",
+    );
     root.style.setProperty("--app-bg-opacity", String(config.opacity));
     root.style.setProperty("--app-bg-blur", `${config.blur}px`);
     /* 写成带 % 的字符串直接喂给 color-mix：变量替换是文本级的，
@@ -110,8 +113,11 @@ export function BackgroundProvider({ children }: { children: ReactNode }) {
       selected = await openDialog({
         directory: false,
         multiple: false,
-        title: "选择背景图",
-        filters: [{ name: "图片", extensions: ["png", "jpg", "jpeg", "webp"] }],
+        title: "选择壁纸",
+        filters: [{
+          name: "图片或视频",
+          extensions: ["png", "jpg", "jpeg", "webp", "mp4", "webm"],
+        }],
       });
     } catch (err) {
       setError(errorMessage(err));
@@ -122,7 +128,16 @@ export function BackgroundProvider({ children }: { children: ReactNode }) {
     setBusy(true);
     try {
       const asset = await importBackground(selected);
-      setConfig((prev) => ({ ...prev, fileName: asset.fileName, mime: asset.mime }));
+      setConfig((prev) => ({
+        ...prev,
+        fileName: asset.fileName,
+        mime: asset.mime,
+        // 视频无法像 CSS 图片那样平铺；沿用这两个模式会得到意外的原始尺寸。
+        fit: asset.mime.startsWith("video/") && (prev.fit === "tile" || prev.fit === "center")
+          ? "cover"
+          : prev.fit,
+        videoPaused: false,
+      }));
       setAssetVersion((value) => value + 1);
     } catch (err) {
       setError(errorMessage(err));

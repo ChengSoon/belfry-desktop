@@ -9,6 +9,7 @@ const complete = {
   opacity: 0.6,
   blur: 12,
   veil: 0.3,
+  videoPaused: false,
 };
 
 describe("background config persistence", () => {
@@ -55,6 +56,12 @@ describe("background config persistence", () => {
     const legacy = { ...complete } as Record<string, unknown>;
     delete legacy.veil;
     expect(parseBackground(JSON.stringify(legacy)).veil).toBe(DEFAULT_BACKGROUND.veil);
+  });
+
+  it("defaults playback state for configs saved before video wallpapers existed", () => {
+    const legacy = { ...complete } as Record<string, unknown>;
+    delete legacy.videoPaused;
+    expect(parseBackground(JSON.stringify(legacy)).videoPaused).toBe(false);
   });
 
   /* NaN 落到 CSS 变量里会让整条规则失效，背景直接不显示，所以要退回默认值而不是 0。 */

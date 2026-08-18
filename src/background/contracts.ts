@@ -24,6 +24,8 @@ export interface BackgroundConfig {
    * 不跟这个值走；0 = 终端文字直接压在图上。
    */
   veil: number;
+  /** 动态壁纸是否暂停；对静态图片没有影响。 */
+  videoPaused: boolean;
 }
 
 export const MAX_BLUR = 40;
@@ -36,11 +38,12 @@ export const DEFAULT_BACKGROUND: BackgroundConfig = {
   opacity: 1,
   blur: 0,
   veil: 0.55,
+  videoPaused: false,
 };
 
 export interface BackgroundController {
   config: BackgroundConfig;
-  /** 图片字节就绪后的 Blob URL；没设背景图、或还在加载时为 null。 */
+  /** 壁纸字节就绪后的 Blob URL；没设壁纸、或还在加载时为 null。 */
   url: string | null;
   busy: boolean;
   error: string | null;

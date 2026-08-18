@@ -1,3 +1,5 @@
+import { useEffect, useRef } from "react";
+import { useBackground } from "./BackgroundProvider";
 import "./background.css";
 
 /**
@@ -10,5 +12,36 @@ import "./background.css";
  * 定位元素，绘制次序只由 DOM 顺序决定，往后挪就会盖住界面。
  */
 export function AppBackground() {
-  return <div className="app-background" aria-hidden="true" />;
+  const { config, url } = useBackground();
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const isVideo = Boolean(url && config.mime?.startsWith("video/"));
+
+  // 窗口退到后台时停止解码，回来后仅在用户没有主动暂停时继续播放。
+  useEffect(() => {
+    const syncPlayback = () => {
+      const video = videoRef.current;
+      if (!video) return;
+      if (config.videoPaused || document.hidden) video.pause();
+      else void video.play().catch(() => undefined);
+    };
+    syncPlayback();
+    document.addEventListener("visibilitychange", syncPlayback);
+    return () => document.removeEventListener("visibilitychange", syncPlayback);
+  }, [isVideo, config.videoPaused, url]);
+
+  return (
+    <div className="app-background" aria-hidden="true">
+      {isVideo ? (
+        <video
+          autoPlay={!config.videoPaused}
+          className={`app-background__video app-background__video--${config.fit}`}
+          loop
+          muted
+          playsInline
+          ref={videoRef}
+          src={url ?? undefined}
+        />
+      ) : null}
+    </div>
+  );
 }

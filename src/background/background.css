@@ -33,6 +33,22 @@
   opacity: var(--app-bg-opacity, 1);
 }
 
+/* 视频不能放在伪元素里，单独用 media 节点承载；视觉参数与图片层保持一致。 */
+.app-background__video {
+  position: absolute;
+  width: calc(100% + var(--app-bg-blur, 0px) * 4);
+  height: calc(100% + var(--app-bg-blur, 0px) * 4);
+  inset: calc(var(--app-bg-blur, 0px) * -2);
+  filter: blur(var(--app-bg-blur, 0px));
+  opacity: var(--app-bg-opacity, 1);
+  object-position: center;
+}
+
+.app-background__video--cover { object-fit: cover; }
+.app-background__video--contain { object-fit: contain; }
+.app-background__video--center,
+.app-background__video--tile { object-fit: none; }
+
 /* ==================== 背景开启时的分层 ====================
 
    原则：图是「窗外的景」，功能面是「玻璃」——文字坐在玻璃上，不裸压在图上。
