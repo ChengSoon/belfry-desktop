@@ -70,8 +70,8 @@ jobs:
             macOS 选 `aarch64`（Apple Silicon）或 `x64`（Intel）。
             二进制未做代码签名，首次打开需在「系统设置 → 隐私与安全性」里放行；
             Windows 上 SmartScreen 会提示"未知发布者"，选「更多信息 → 仍要运行」。
-          # 先落成草稿：三个平台的产物齐了、人工过一眼再发布。
-          releaseDraft: true
+          # 三个平台串行上传，全部完成后直接发布正式版本。
+          releaseDraft: false
           prerelease: false
           updaterJsonPreferNsis: true
           args: ${{ matrix.target && format('--target {0}', matrix.target) || '' }}
