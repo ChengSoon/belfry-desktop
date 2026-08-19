@@ -2,7 +2,7 @@
   position: absolute;
   z-index: 8;
   top: calc(var(--titlebar-inset) + 4px);
-  right: 74px;
+  right: 106px;
 }
 
 .prompt-composer-trigger[aria-expanded="true"] {

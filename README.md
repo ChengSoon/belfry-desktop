@@ -63,6 +63,7 @@ claude --version
 - 侧栏按项目分组，可折叠，宽度可拖拽（`⌘B` 整体收起）
 - 会话自带项目归属，不同会话可以指向不同目录
 - Quick Open（`⌘K`）可搜索并切换会话、打开最近项目或执行常用工作区动作
+- 文件预览窗格可浏览当前项目目录，打开只读代码预览；终端输出中的文件路径可直接跳转，并提示磁盘变更
 
 **Agent 托管**
 
@@ -201,11 +202,12 @@ src-tauri/src/        Rust 后端
 - **v0.10.0 · Terminal foundation**：跨平台 Shell Profile、终端内容搜索、可点击 HTTP(S) 链接、Unicode 宽度 provider，以及旧工作区存档兼容。
 - **v0.11.0 · Workspace navigation**：Quick Open 搜索会话 / 项目 / 动作，支持键盘导航和常用工作区操作。
 - **v0.12.0 · Prompt Composer & Queue**：从独立 Composer 选择 Codex / Claude 会话，提交多行 Prompt；Agent 忙时按会话排队，空闲后串行派发，并处理目标重挂、发送失败和会话关闭清理。
+- **v0.13.0 · File Preview Pane**：浏览项目文件树，打开受大小限制的只读文本预览；支持终端路径跳转、轻量语法高亮、二进制保护和外部变更提示。
 
 ### 下一阶段
 
-- **v0.13.0 · File preview pane**：从项目和终端路径打开只读文件预览，支持目录导航、语法高亮、跟随当前会话项目，并在文件变化时提示刷新。
 - **v0.14.0 · Agent adapter foundation**：把 Codex / Claude 的启动、状态和历史能力收进统一适配层，为后续 Recipe 回放与导入导出提供稳定契约。
+- **v0.15.0 · Recipe workspace**：保存可复用的多步 Agent 指令，支持变量、目标会话选择、队列执行、失败重试与运行记录。
 
 ### 长期方向
 
@@ -213,7 +215,7 @@ src-tauri/src/        Rust 后端
 - **Shared Core** — 会话持久化与恢复、Agent Adapter 基座、历史与 resume、Recipe 回放、导入导出
 - **Terminal Runtime** — 跨平台 Shell Profile（zsh/bash/fish、PowerShell/CMD/WSL/Git Bash）、SSH
 - **Platform Services** — 通知、Dock / Taskbar、凭证（Keychain / Credential Manager）、全局快捷键、控制 CLI
-- **Content & Git** — 文件浏览、编辑预览、Git 集成
+- **Content & Git** — 文件编辑、Git 集成
 - **Distribution** — 签名、公证、安装包与自动更新
 
 ## 贡献

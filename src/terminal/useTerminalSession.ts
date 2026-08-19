@@ -39,6 +39,7 @@ export function useTerminalSession(
     ssh: null,
   },
   onSearchRequest?: () => void,
+  onOpenFile?: (path: string, line: number | null) => void,
 ): TerminalViewModel {
   const { mode } = useTheme();
   const { runtime: typography } = useTypography();
@@ -60,6 +61,8 @@ export function useTerminalSession(
   const typographyConfig = useRef(typography);
   const searchRequest = useRef(onSearchRequest);
   searchRequest.current = onSearchRequest;
+  const fileRequest = useRef(onOpenFile);
+  fileRequest.current = onOpenFile;
 
   useEffect(() => {
     const host = container.current;
@@ -79,6 +82,7 @@ export function useTerminalSession(
         },
         onInput: setLastInput,
         onActivity: setActivity,
+        onOpenFile: (path, line) => fileRequest.current?.(path, line),
         onSearchRequest: () => searchRequest.current?.(),
       },
     );

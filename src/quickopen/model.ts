@@ -1,5 +1,5 @@
 export type QuickOpenItemKind = "session" | "project" | "action";
-export type QuickOpenIcon = "terminal" | "folder" | "settings" | "history" | "gauge" | "sidebar" | "keyboard" | "composer";
+export type QuickOpenIcon = "terminal" | "folder" | "settings" | "history" | "gauge" | "sidebar" | "keyboard" | "composer" | "file-search";
 
 export interface QuickOpenItem {
   id: string;

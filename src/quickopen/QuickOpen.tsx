@@ -3,6 +3,7 @@ import {
   ArrowUp,
   Command,
   CornerDownLeft,
+  FileSearch,
   FolderOpen,
   Gauge,
   History,
@@ -183,6 +184,7 @@ function iconComponent(icon: QuickOpenIcon | undefined, kind: QuickOpenItemKind)
   if (icon === "sidebar") return PanelLeft;
   if (icon === "keyboard") return Keyboard;
   if (icon === "composer") return MessageSquareText;
+  if (icon === "file-search") return FileSearch;
   if (icon === "folder" || kind === "project") return FolderOpen;
   if (icon === "terminal" || kind === "session") return SquareTerminal;
   return Command;

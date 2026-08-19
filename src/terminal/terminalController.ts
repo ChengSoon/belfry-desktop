@@ -34,7 +34,7 @@ import { emptyInputLine, feedInputLine, muteInputLine } from "./inputLine";
 import { formatDroppedPaths, pointInsideRect } from "./fileDrop";
 import { looksLikePasswordPrompt } from "./passwordPrompt";
 import { acceptSequence } from "./sequence";
-import { registerHttpLinkProvider } from "./links";
+import { registerFileLinkProvider, registerHttpLinkProvider } from "./links";
 import { TerminalSearchController } from "./search";
 import { configureUnicode } from "./unicode";
 
@@ -53,6 +53,8 @@ export interface MountCallbacks {
   onInput: (line: string) => void;
   /** 会话在生成 / 等按键 / 闲着，供侧栏显示。只有 Agent 会话会翻。 */
   onActivity: (activity: SessionActivity) => void;
+  /** 终端输出中的项目文件路径，交给工作区打开只读预览。 */
+  onOpenFile: (path: string, line: number | null) => void;
   /** Ctrl/Cmd+F 请求打开搜索浮层，由 React 负责呈现。 */
   onSearchRequest: () => void;
 }
@@ -86,6 +88,7 @@ export function mountTerminal(
   const terminal = createXterm(theme, transparent, typography);
   configureUnicode(terminal);
   const linkProvider = registerHttpLinkProvider(terminal);
+  const fileLinkProvider = registerFileLinkProvider(terminal, callbacks.onOpenFile);
   const search = new TerminalSearchController(terminal);
   const fit = new FitAddon();
   terminal.loadAddon(fit);
@@ -271,6 +274,7 @@ export function mountTerminal(
       if (current) void closeTerminal(current.id).catch(() => undefined);
       renderer?.dispose();
       linkProvider.dispose();
+      fileLinkProvider.dispose();
       terminal.dispose();
     },
   };

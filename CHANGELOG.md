@@ -2,7 +2,17 @@
 
 本文件记录 Belfry 面向用户的版本更新，按版本倒序排列。版本日期以 Git 发布节点为准。
 
-当前整理范围：`v0.6.0` 至 `v0.12.0`。
+当前整理范围：`v0.6.0` 至 `v0.13.0`。
+
+## [0.13.0] - 2026-08-19
+
+### 新增
+
+- **File Preview Pane**：从当前项目浏览目录，打开只读文本预览；文件树按目录优先排序并过滤常见生成目录。
+- **安全文件服务**：预览路径由 Rust 校验在项目根目录内，限制单文件读取大小，二进制文件显示不可预览提示。
+- **轻量代码高亮**：为常见 Rust、TypeScript、JavaScript、JSON、Markdown、CSS 等文本提供关键词、字符串、数字和注释层次。
+- **变更提醒**：文件在磁盘上被修改后，预览区提示重新加载，不会静默覆盖当前阅读位置。
+- **工作区入口**：新增文件预览按钮、Quick Open 动作和终端路径链接，预览窗格可独立调整宽度并定位到输出中的行号。
 
 ## [0.12.0] - 2026-08-19
 
@@ -86,6 +96,7 @@
 ## 版本链接
 
 [0.12.0]: https://github.com/ChengSoon/belfry-desktop/releases/tag/v0.12.0
+[0.13.0]: https://github.com/ChengSoon/belfry-desktop/releases/tag/v0.13.0
 [0.11.0]: https://github.com/ChengSoon/belfry-desktop/releases/tag/v0.11.0
 [0.10.0]: https://github.com/ChengSoon/belfry-desktop/releases/tag/v0.10.0
 

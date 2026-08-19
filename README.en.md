@@ -63,6 +63,7 @@ Neither agent detected? Doesn't matter. Shell sessions don't depend on them, and
 - Sidebar groups by project, folds, and has a draggable width (`⌘B` collapses it entirely)
 - Each session carries its own project, so different sessions can point at different directories
 - Quick Open (`⌘K`) searches sessions and recent projects, and runs common workspace actions
+- The file preview pane browses the active project, opens read-only code previews, follows file paths from terminal output, and surfaces disk-change notices
 
 **Agent hosting**
 
@@ -197,11 +198,12 @@ Past the delivered vertical slice, work proceeds along the split in [`.codestabl
 - **v0.10.0 · Terminal foundation**: cross-platform Shell Profiles, terminal search, clickable HTTP(S) links, Unicode width support, and backwards-compatible workspace archives.
 - **v0.11.0 · Workspace navigation**: Quick Open search across sessions, projects, and actions, with keyboard navigation and common workspace commands.
 - **v0.12.0 · Prompt Composer & Queue**: choose a Codex or Claude session, submit multiline prompts from a dedicated Composer, queue per session while the agent is busy, dispatch serially when idle, and recover queued work across target remounts, send failures, and session closure.
+- **v0.13.0 · File Preview Pane**: browse the project tree, open size-limited read-only text previews, jump from terminal paths, add lightweight syntax highlighting, protect binary files, and surface external changes.
 
 ### Next milestones
 
-- **v0.13.0 · File preview pane**: open read-only previews from projects and terminal paths, navigate directories, highlight syntax, follow the active project, and signal when a file changed on disk.
 - **v0.14.0 · Agent adapter foundation**: unify Codex / Claude launch, state, and history capabilities behind a stable adapter contract for recipe replay and import / export.
+- **v0.15.0 · Recipe workspace**: save reusable multi-step Agent instructions with variables, target-session selection, queued execution, retry handling, and run history.
 
 ### Long-term tracks
 
@@ -209,7 +211,7 @@ Past the delivered vertical slice, work proceeds along the split in [`.codestabl
 - **Shared Core** — session persistence and restore, agent adapter foundation, history and resume, recipe replay, import/export
 - **Terminal Runtime** — cross-platform shell profiles (zsh/bash/fish, PowerShell/CMD/WSL/Git Bash), SSH
 - **Platform Services** — notifications, Dock / Taskbar, credentials (Keychain / Credential Manager), global shortcuts, control CLI
-- **Content & Git** — file browsing, edit preview, Git integration
+- **Content & Git** — file editing and Git integration
 - **Distribution** — signing, notarization, installers, auto-update
 
 ## Contributing

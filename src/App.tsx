@@ -2,6 +2,8 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { AppBackground } from "./background/AppBackground";
 import { AppOverlays } from "./components/AppOverlays";
 import { Workbench } from "./components/Workbench";
+import { FilePreviewPane } from "./filepreview/FilePreviewPane";
+import { projectRelativePath } from "./filepreview/path";
 import { WindowTitlebar } from "./components/WindowTitlebar";
 import "./workspace/workspace.css";
 import { useSessionDrag } from "./layout/useSessionDrag";
@@ -24,6 +26,11 @@ import { groupTabsByProject } from "./workspace/tabs";
 import { useFoldedProjects } from "./workspace/useFoldedProjects";
 import { useProjectWorkspace } from "./workspace/useProjectWorkspace";
 
+interface PreviewRequest {
+  path: string;
+  line: number | null;
+}
+
 export default function App() {
   const workspace = useProjectWorkspace();
   const { foldedProjects, toggleFold, unfold } = useFoldedProjects();
@@ -32,6 +39,8 @@ export default function App() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [composerOpen, setComposerOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewRequest, setPreviewRequest] = useState<PreviewRequest | null>(null);
   const [pendingCloseId, setPendingCloseId] = useState<string | null>(null);
   const [pendingRemove, setPendingRemove] = useState<RecentProject | null>(null);
   const updater = useAppUpdater();
@@ -66,11 +75,17 @@ export default function App() {
   // 历史会话与用量面板互斥：两者都占右侧一列，栅格只留了一条轨道。
   const toggleUsage = useCallback(() => {
     setHistoryOpen(false);
+    setPreviewOpen(false);
+    setPreviewRequest(null);
+    setComposerOpen(false);
     setUsageOpen((value) => !value);
   }, []);
 
   const toggleHistory = useCallback(() => {
     setUsageOpen(false);
+    setPreviewOpen(false);
+    setPreviewRequest(null);
+    setComposerOpen(false);
     setHistoryOpen((value) => !value);
   }, []);
 
@@ -90,12 +105,46 @@ export default function App() {
   const promptQueue = usePromptQueue({ tabs: workspace.tabs, targets: terminalTargets.targets });
   const toggleQuickOpen = useCallback(() => {
     setComposerOpen(false);
+    setPreviewOpen(false);
+    setPreviewRequest(null);
+    setUsageOpen(false);
+    setHistoryOpen(false);
     quickOpen.toggle();
   }, [quickOpen.toggle]);
   const toggleComposer = useCallback(() => {
     quickOpen.close();
+    setPreviewOpen(false);
+    setPreviewRequest(null);
+    setUsageOpen(false);
+    setHistoryOpen(false);
     setComposerOpen((value) => !value);
   }, [quickOpen.close]);
+
+  const openPreview = useCallback((request?: PreviewRequest) => {
+    quickOpen.close();
+    setComposerOpen(false);
+    setUsageOpen(false);
+    setHistoryOpen(false);
+    setPreviewOpen(true);
+    setPreviewRequest(request ?? null);
+  }, [quickOpen.close]);
+
+  const togglePreview = useCallback(() => {
+    if (previewOpen) {
+      setPreviewOpen(false);
+      setPreviewRequest(null);
+      return;
+    }
+    openPreview();
+  }, [openPreview, previewOpen]);
+
+  const openTerminalFile = useCallback((tabId: string, candidate: string, line: number | null) => {
+    const tab = workspace.tabs.find((item) => item.id === tabId);
+    if (!tab || tab.kind === "ssh") return;
+    const relativePath = projectRelativePath(tab.project.rootPath, candidate);
+    if (!relativePath) return;
+    openPreview({ path: relativePath, line });
+  }, [openPreview, workspace.tabs]);
 
   /**
    * 侧栏那个 X 是真删会话：PTY 被杀，滚屏跟着没，撤不回来。进程还活着就先拦一道，
@@ -139,7 +188,15 @@ export default function App() {
     quickOpen.select(item, (id) => {
       switch (id) {
         case "action:new-shell": launch("shell"); break;
-        case "action:composer": setComposerOpen(true); break;
+        case "action:composer":
+          quickOpen.close();
+          setUsageOpen(false);
+          setHistoryOpen(false);
+          setPreviewOpen(false);
+          setPreviewRequest(null);
+          setComposerOpen(true);
+          break;
+        case "action:file-preview": openPreview(); break;
         case "action:settings": setSettingsOpen(true); break;
         case "action:history": toggleHistory(); break;
         case "action:usage": toggleUsage(); break;
@@ -148,11 +205,11 @@ export default function App() {
         default: break;
       }
     });
-  }, [launch, quickOpen, shortcuts, toggleHistory, toggleUsage]);
+  }, [launch, openPreview, quickOpen, shortcuts, toggleHistory, toggleUsage]);
 
   return (
     <main
-      className={`app-shell${collapsed ? " is-collapsed" : ""}${usageOpen ? " has-usage" : ""}${historyOpen ? " has-history" : ""}${settingsOpen ? " is-settings" : ""}`}
+      className={`app-shell${collapsed ? " is-collapsed" : ""}${usageOpen ? " has-usage" : ""}${historyOpen ? " has-history" : ""}${previewOpen ? " has-preview" : ""}${settingsOpen ? " is-settings" : ""}`}
     >
       <AppBackground />
       <WindowTitlebar />
@@ -205,6 +262,7 @@ export default function App() {
         onOpenProject={workspace.selectProject}
         onOpenShortcutGuide={shortcuts.openGuide}
         onRegisterTarget={terminalTargets.register}
+        onOpenFile={openTerminalFile}
         onRemovePrompt={promptQueue.remove}
         onRequestRemove={setPendingRemove}
         onResize={layout.resizeSplit}
@@ -213,9 +271,11 @@ export default function App() {
         onSnapshot={workspace.updateTab}
         onSubmitPrompt={promptQueue.submit}
         onToggleComposer={toggleComposer}
+        onTogglePreview={togglePreview}
         onToggleQuickOpen={toggleQuickOpen}
         opening={workspace.opening}
         promptItems={promptQueue.items}
+        previewOpen={previewOpen}
         quickOpenOpen={quickOpen.open}
         recentProjects={workspace.recentProjects}
         rects={layout.rects}
@@ -225,6 +285,18 @@ export default function App() {
         stageRef={stageRef}
         tabs={workspace.tabs}
       />
+
+      {previewOpen ? (
+        <FilePreviewPane
+          onClose={() => {
+            setPreviewOpen(false);
+            setPreviewRequest(null);
+          }}
+          project={workspace.activeProject}
+          requestedLine={previewRequest?.line ?? null}
+          requestedPath={previewRequest?.path ?? null}
+        />
+      ) : null}
 
       <AppOverlays
         failure={workspace.failure}

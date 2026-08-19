@@ -21,6 +21,7 @@ interface TerminalStageProps {
   onClosePane: (tabId: string) => void;
   onDragStart: (tabId: string, event: PointerEvent) => void;
   onResize: (path: string, ratio: number) => void;
+  onOpenFile: (tabId: string, path: string, line: number | null) => void;
   onSnapshot: (id: string, snapshot: TerminalSnapshot) => void;
   onCommandTarget: (id: string, target: TerminalCommandTarget | null) => void;
 }
@@ -40,6 +41,7 @@ export function TerminalStage({
   onClosePane,
   onDragStart,
   onResize,
+  onOpenFile,
   onSnapshot,
   onCommandTarget,
 }: TerminalStageProps) {
@@ -69,6 +71,7 @@ export function TerminalStage({
           >
             <SessionTerminal
               onCommandTarget={onCommandTarget}
+              onOpenFile={onOpenFile}
               onSnapshot={onSnapshot}
               tab={tab}
               visible={rect !== undefined}
@@ -105,11 +108,13 @@ function SessionTerminal({
   tab,
   visible,
   onCommandTarget,
+  onOpenFile,
   onSnapshot,
 }: {
   tab: WorkspaceTab;
   visible: boolean;
   onCommandTarget: (id: string, target: TerminalCommandTarget | null) => void;
+  onOpenFile: (tabId: string, path: string, line: number | null) => void;
   onSnapshot: (id: string, snapshot: TerminalSnapshot) => void;
 }) {
   // launch 变了就等于要换 cwd/profile，会重启 PTY——只能跟着这两个字段变。
@@ -130,10 +135,15 @@ function SessionTerminal({
     (target: TerminalCommandTarget | null) => onCommandTarget(tab.id, target),
     [onCommandTarget, tab.id],
   );
+  const openFile = useCallback(
+    (path: string, line: number | null) => onOpenFile(tab.id, path, line),
+    [onOpenFile, tab.id],
+  );
   return (
     <TerminalViewport
       launch={launch}
       onCommandTarget={registerTarget}
+      onOpenFile={openFile}
       onSnapshot={report}
       visible={visible}
     />

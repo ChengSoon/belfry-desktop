@@ -1,0 +1,60 @@
+/* 让标题栏根据实际剩余宽度响应，而不是根据整个窗口宽度猜测。 */
+.workbench { container-type: inline-size; }
+
+/* 工作区变窄时，标题和工具按钮按优先级收缩，避免互相覆盖。 */
+@container (max-width: 760px) {
+  .workbench .stage-caption {
+    justify-content: flex-start;
+    padding-right: 140px;
+    padding-left: 10px;
+  }
+
+  .stage-caption .stage-switcher {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .stage-caption .project-trigger {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .stage-caption .project-trigger__name {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+@container (max-width: 560px) {
+  .stage-caption .project-trigger__path { display: none; }
+}
+
+/* 极窄舞台无法同时容纳标题和四个工具按钮：收起标题，并把按钮栏压紧到右侧。 */
+@container (max-width: 300px) {
+  .stage-caption .stage-switcher { display: none; }
+  .workbench .prompt-composer-trigger { right: 100px; }
+  .workbench .quick-open-trigger { right: 68px; }
+  .workbench .file-preview-trigger { right: 36px; }
+  .workbench .shortcut-help-trigger { right: 4px; }
+}
+
+@container (max-width: 128px) {
+  .workbench .prompt-composer-trigger { display: none; }
+}
+
+@container (max-width: 96px) {
+  .workbench .quick-open-trigger { display: none; }
+}
+
+@container (max-width: 64px) {
+  .workbench .file-preview-trigger { display: none; }
+}
+
+@container (max-width: 32px) {
+  .workbench .shortcut-help-trigger { display: none; }
+}

@@ -1,4 +1,4 @@
-import { Keyboard, MessageSquareText, PanelLeftOpen, Search } from "lucide-react";
+import { FileSearch, Keyboard, MessageSquareText, PanelLeftOpen, Search } from "lucide-react";
 import type { PointerEvent, RefObject } from "react";
 import { TerminalStage } from "../layout/components/TerminalStage";
 import type { DividerFrame, Rect } from "../layout/contracts";
@@ -10,6 +10,8 @@ import type { TerminalCommandTarget } from "../terminal/contracts";
 import { ICON } from "../theme/sizing";
 import { ProjectSwitcher } from "../workspace/components/ProjectSwitcher";
 import type { ProjectWorkspace, RecentProject, WorkspaceTab } from "../workspace/contracts";
+import "../filepreview/filePreviewTrigger.css";
+import "./workbench.css";
 import type { TerminalSnapshot } from "./TerminalViewport";
 
 interface WorkbenchProps {
@@ -21,6 +23,7 @@ interface WorkbenchProps {
   drag: SessionDrag | null;
   opening: boolean;
   promptItems: readonly PromptQueueItem[];
+  previewOpen: boolean;
   quickOpenOpen: boolean;
   recentProjects: RecentProject[];
   rects: Map<string, Rect>;
@@ -34,6 +37,7 @@ interface WorkbenchProps {
   onDragStart: (id: string, event: PointerEvent) => void;
   onFocus: (id: string) => void;
   onLaunchShell: () => void;
+  onOpenFile: (tabId: string, path: string, line: number | null) => void;
   onOpenProject: (path: string | null) => Promise<void>;
   onOpenShortcutGuide: () => void;
   onRegisterTarget: (id: string, target: TerminalCommandTarget | null) => void;
@@ -45,6 +49,7 @@ interface WorkbenchProps {
   onSnapshot: (id: string, snapshot: TerminalSnapshot) => void;
   onSubmitPrompt: (tabId: string, text: string) => PromptSubmitResult;
   onToggleComposer: () => void;
+  onTogglePreview: () => void;
   onToggleQuickOpen: () => void;
 }
 
@@ -92,6 +97,14 @@ export function Workbench(props: WorkbenchProps) {
       />
       <WorkbenchButton
         dialog
+        expanded={props.previewOpen}
+        icon={FileSearch}
+        label="文件预览"
+        onClick={props.onTogglePreview}
+        triggerClass="file-preview-trigger"
+      />
+      <WorkbenchButton
+        dialog
         expanded={props.shortcutGuideOpen}
         icon={Keyboard}
         label="快捷指令"
@@ -107,6 +120,7 @@ export function Workbench(props: WorkbenchProps) {
         onCommandTarget={props.onRegisterTarget}
         onDragStart={props.onDragStart}
         onFocus={props.onFocus}
+        onOpenFile={props.onOpenFile}
         onResize={props.onResize}
         onSnapshot={props.onSnapshot}
         rects={props.rects}
@@ -147,7 +161,7 @@ function WorkbenchButton({
   label: string;
   onClick: () => void;
   protectDismiss?: boolean;
-  shortcut: string;
+  shortcut?: string;
   triggerClass: string;
 }) {
   return (
@@ -158,7 +172,7 @@ function WorkbenchButton({
       className={`icon-button icon-button--sm ${triggerClass}`}
       onClick={onClick}
       onMouseDown={protectDismiss ? (event) => event.stopPropagation() : undefined}
-      title={`${label} ${shortcut}`}
+      title={shortcut ? `${label} ${shortcut}` : label}
       type="button"
     >
       <Icon aria-hidden="true" size={ICON.md} />

@@ -4,6 +4,7 @@ import type { QuickOpenItem } from "./model";
 const ACTION_ITEMS: QuickOpenItem[] = [
   { id: "action:new-shell", kind: "action", title: "新建 Shell 会话", subtitle: "当前项目", keywords: ["shell", "terminal", "new"], icon: "terminal" },
   { id: "action:composer", kind: "action", title: "打开 Prompt Composer", subtitle: "发送或排队 Agent 指令", keywords: ["prompt", "queue", "消息", "队列"], icon: "composer" },
+  { id: "action:file-preview", kind: "action", title: "打开文件预览", subtitle: "浏览当前项目文件", keywords: ["file", "preview", "文件", "目录", "code"], icon: "file-search" },
   { id: "action:settings", kind: "action", title: "打开设置", subtitle: "Belfry", keywords: ["preferences", "config"], icon: "settings" },
   { id: "action:history", kind: "action", title: "打开历史会话", subtitle: "Codex / Claude", keywords: ["resume", "history"], icon: "history" },
   { id: "action:usage", kind: "action", title: "打开额度用量", subtitle: "按模型和项目查看", keywords: ["tokens", "usage", "quota"], icon: "gauge" },

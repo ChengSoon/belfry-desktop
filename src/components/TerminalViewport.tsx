@@ -25,6 +25,7 @@ interface TerminalViewportProps {
   launch: TerminalLaunch;
   onSnapshot: (snapshot: TerminalSnapshot) => void;
   onCommandTarget?: (target: TerminalCommandTarget | null) => void;
+  onOpenFile?: (path: string, line: number | null) => void;
 }
 
 export function TerminalViewport({
@@ -32,6 +33,7 @@ export function TerminalViewport({
   launch,
   onSnapshot,
   onCommandTarget,
+  onOpenFile,
 }: TerminalViewportProps) {
   const terminalHost = useRef<HTMLDivElement>(null);
   const searchInput = useRef<HTMLInputElement>(null);
@@ -48,7 +50,7 @@ export function TerminalViewport({
     [launch.cwd, launch.profileId, launch.resumeSessionId, launch.ssh],
   );
   const requestSearch = useCallback(() => setSearchOpen(true), []);
-  const session = useTerminalSession(terminalHost, stableLaunch, requestSearch);
+  const session = useTerminalSession(terminalHost, stableLaunch, requestSearch, onOpenFile);
   const dormant = session.phase === "exited" || session.phase === "error";
 
   useEffect(() => {

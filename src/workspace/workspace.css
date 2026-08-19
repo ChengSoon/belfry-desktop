@@ -15,9 +15,11 @@
 /* 用量 / 历史会话面板占右侧一列，宽度由面板自己拖拽决定。同样不加宽度过渡，理由同上。
    两个面板互斥（App 里只留一个开），所以这里不需要四列布局。 */
 .app-shell.has-usage,
-.app-shell.has-history { grid-template-columns: auto minmax(0, 1fr) auto; }
+.app-shell.has-history,
+.app-shell.has-preview { grid-template-columns: auto minmax(0, 1fr) auto; }
 .app-shell.is-collapsed.has-usage,
-.app-shell.is-collapsed.has-history { grid-template-columns: minmax(0, 1fr) auto; }
+.app-shell.is-collapsed.has-history,
+.app-shell.is-collapsed.has-preview { grid-template-columns: minmax(0, 1fr) auto; }
 
 /* 设置视图整窗铺开：主界面整片隐藏但保持挂载——PTY 和滚动缓冲不能因为
    切视图被卸载（见 TerminalPane 的注释）。终端容器瞬时坍缩时
@@ -28,6 +30,7 @@
 .app-shell.is-settings > .workbench,
 .app-shell.is-settings > .usage-panel,
 .app-shell.is-settings > .history-panel,
+.app-shell.is-settings > .file-preview-panel,
 .app-shell.is-settings > .failure-toast { display: none; }
 
 /* Overlay 标题栏把顶部那条交给了 webview，系统不再代拖窗口，得自己声明拖拽区。

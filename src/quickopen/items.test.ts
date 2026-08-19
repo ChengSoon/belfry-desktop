@@ -36,6 +36,7 @@ describe("buildQuickOpenItems", () => {
     expect(new Set(actionIds).size).toBe(actionIds.length);
     expect(actionIds).toContain("action:new-shell");
     expect(actionIds).toContain("action:composer");
+    expect(actionIds).toContain("action:file-preview");
     expect(actionIds).toContain("action:shortcuts");
   });
 });

@@ -1,0 +1,11 @@
+.file-preview-trigger {
+  position: absolute;
+  z-index: 8;
+  top: calc(var(--titlebar-inset) + 4px);
+  right: 42px;
+}
+
+.file-preview-trigger[aria-expanded="true"] {
+  color: var(--accent);
+  background: var(--accent-soft);
+}

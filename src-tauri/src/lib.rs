@@ -32,6 +32,8 @@ pub fn run() {
             typography::commands::font_read,
             typography::commands::font_remove,
             project::commands::project_open,
+            project::commands::project_list_directory,
+            project::commands::project_read_file,
             provider::commands::provider_list,
             provider::commands::provider_remove,
             provider::commands::provider_config_save,
