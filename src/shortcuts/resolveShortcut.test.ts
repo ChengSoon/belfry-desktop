@@ -25,6 +25,10 @@ describe("resolveAppShortcut", () => {
       .toEqual({ kind: "new-shell" });
     expect(resolveAppShortcut({ ...baseEvent, code: "Comma", metaKey: true }, "macos"))
       .toEqual({ kind: "open-settings" });
+    expect(resolveAppShortcut({ ...baseEvent, code: "KeyK", metaKey: true }, "macos"))
+      .toEqual({ kind: "toggle-quick-open" });
+    expect(resolveAppShortcut({ ...baseEvent, code: "KeyJ", metaKey: true }, "macos"))
+      .toEqual({ kind: "toggle-composer" });
     expect(resolveAppShortcut({ ...baseEvent, code: "Digit4", metaKey: true }, "macos"))
       .toEqual({ kind: "activate-session", index: 3 });
   });
@@ -41,6 +45,10 @@ describe("resolveAppShortcut", () => {
       .toEqual({ kind: "toggle-sidebar" });
     expect(resolveAppShortcut({ ...baseEvent, code: "KeyU", ctrlKey: true, shiftKey: true }, "control"))
       .toEqual({ kind: "toggle-usage" });
+    expect(resolveAppShortcut({ ...baseEvent, code: "KeyK", ctrlKey: true, shiftKey: true }, "control"))
+      .toEqual({ kind: "toggle-quick-open" });
+    expect(resolveAppShortcut({ ...baseEvent, code: "KeyJ", ctrlKey: true, shiftKey: true }, "control"))
+      .toEqual({ kind: "toggle-composer" });
     expect(resolveAppShortcut({ ...baseEvent, code: "Digit9", ctrlKey: true, shiftKey: true }, "control"))
       .toEqual({ kind: "activate-session", index: 8 });
   });
@@ -66,6 +74,8 @@ describe("shortcut labels", () => {
     expect(shortcutPlatform("macos")).toBe("macos");
     expect(shortcutPlatform("windows")).toBe("control");
     expect(appShortcutChord("macos", "H", true)).toEqual(["⌘", "Shift", "H"]);
+    expect(appShortcutChord("control", "K")).toEqual(["Ctrl", "Shift", "K"]);
+    expect(appShortcutChord("control", "J")).toEqual(["Ctrl", "Shift", "J"]);
     expect(appShortcutChord("control", "B")).toEqual(["Ctrl", "Shift", "B"]);
     expect(systemShortcutChord("control", "C")).toEqual(["Ctrl", "C"]);
     expect(formatShortcutChord(["Ctrl", "Shift", "/"])).toBe("Ctrl+Shift+/");

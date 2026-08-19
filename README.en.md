@@ -62,12 +62,15 @@ Neither agent detected? Doesn't matter. Shell sessions don't depend on them, and
 - Open a local directory as a project; recents are remembered
 - Sidebar groups by project, folds, and has a draggable width (`⌘B` collapses it entirely)
 - Each session carries its own project, so different sessions can point at different directories
+- Quick Open (`⌘K`) searches sessions and recent projects, and runs common workspace actions
 
 **Agent hosting**
 
 - Detects Codex and Claude Code automatically: executable path, version, and a reason when unavailable
 - Session state separates process lifecycle (creating / running / exited / error) from current behavior (idle / talking / awaiting choice)
 - Tab titles are extracted from your first prompt; the untruncated original stays in the tooltip
+- Prompt Composer (`⌘J`; `Ctrl+Shift+J` on Windows / Linux) sends multiline prompts to a selected Codex or Claude session
+- New prompts queue per session while an agent is talking or awaiting confirmation, then dispatch in order when it returns to idle; queued items can be removed or sent manually
 
 **Activity notifications**
 
@@ -93,6 +96,7 @@ Neither agent detected? Doesn't matter. Shell sessions don't depend on them, and
   - Check "remember password" when connecting to store it in the OS keychain (macOS Keychain / Windows Credential Manager) and auto-fill future connections; saved passwords can be cleared from the SSH form
 - OSC 10/11 color queries are answered in Rust. This isn't optional: TUIs like Codex allow a ~100 ms window, and a round trip through `PTY → IPC → xterm.js → IPC → PTY` frequently misses it. On Windows the cost of a timeout isn't "no color" but "wrong color" — Codex falls back to ConPTY's black palette and paints the input box as a black block.
 - Password prompt detection, with echo suppressed
+- `⌘F` searches terminal content across wrapped lines; HTTP(S) URLs are clickable; CJK, combining characters, and emoji use correct cell widths
 
 **Usage stats**
 
@@ -108,7 +112,7 @@ Neither agent detected? Doesn't matter. Shell sessions don't depend on them, and
 - Multiple persistent TTF / OTF / WOFF / WOFF2 imports, each independently selectable and removable, with instant switching back to system fonts
 - JetBrains Mono and HarmonyOS Sans SC bundled
 
-Belfry shortcuts: `⌘T` opens a Shell, `⌘B` toggles the sidebar, `⌘U` toggles usage,
+Belfry shortcuts: `⌘T` opens a Shell, `⌘B` toggles the sidebar, `⌘J` opens Prompt Composer, `⌘K` opens Quick Open, `⌘U` toggles usage,
 `⌘⇧H` toggles history, `⌘,` opens settings, `⌘1–9` switches sessions, and `⌘/` opens
 the shortcut guide. Windows and Linux use `Ctrl+Shift` chords so Codex and Claude keep
 their native `Ctrl` shortcuts.
@@ -163,6 +167,8 @@ cd src-tauri && cargo test
 src/                  frontend
   workspace/          project workspace, tabs, sidebar
   terminal/           PTY sessions and xterm control
+  prompt/             Prompt Composer and per-agent queue
+  quickopen/          fast search across sessions, projects, and actions
   provider/           provider switching for the agent CLIs
   settings/           settings dialog (appearance, providers)
   notify/             activity notifications and badge
@@ -186,7 +192,20 @@ src-tauri/src/        Rust backend
 
 Past the delivered vertical slice, work proceeds along the split in [`.codestable/roadmap/belfry-desktop/`](.codestable/roadmap/belfry-desktop/):
 
-- **Shared UI** — split panes, settings, prompt composer and queue, quick open, file preview panes
+### Shipped versions
+
+- **v0.10.0 · Terminal foundation**: cross-platform Shell Profiles, terminal search, clickable HTTP(S) links, Unicode width support, and backwards-compatible workspace archives.
+- **v0.11.0 · Workspace navigation**: Quick Open search across sessions, projects, and actions, with keyboard navigation and common workspace commands.
+- **v0.12.0 · Prompt Composer & Queue**: choose a Codex or Claude session, submit multiline prompts from a dedicated Composer, queue per session while the agent is busy, dispatch serially when idle, and recover queued work across target remounts, send failures, and session closure.
+
+### Next milestones
+
+- **v0.13.0 · File preview pane**: open read-only previews from projects and terminal paths, navigate directories, highlight syntax, follow the active project, and signal when a file changed on disk.
+- **v0.14.0 · Agent adapter foundation**: unify Codex / Claude launch, state, and history capabilities behind a stable adapter contract for recipe replay and import / export.
+
+### Long-term tracks
+
+- **Shared UI** — split panes, settings, prompt composer and queue, quick open, file preview panes (v0.13)
 - **Shared Core** — session persistence and restore, agent adapter foundation, history and resume, recipe replay, import/export
 - **Terminal Runtime** — cross-platform shell profiles (zsh/bash/fish, PowerShell/CMD/WSL/Git Bash), SSH
 - **Platform Services** — notifications, Dock / Taskbar, credentials (Keychain / Credential Manager), global shortcuts, control CLI

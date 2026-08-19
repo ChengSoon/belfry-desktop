@@ -1,5 +1,5 @@
 import type { TerminalSnapshot } from "../components/TerminalViewport";
-import type { SshLaunch } from "../terminal/contracts";
+import type { LaunchProfileId, ShellProfileId, SshLaunch } from "../terminal/contracts";
 import { sshDisplayName } from "../terminal/contracts";
 import type { ProjectWorkspace, WorkspaceTab, WorkspaceTabKind } from "./contracts";
 import { pathKey } from "./path";
@@ -24,6 +24,7 @@ export function createWorkspaceTab(
   ordinal: number,
   resumeSessionId: string | null = null,
   sshTarget: SshLaunch | null = null,
+  shellProfileId: ShellProfileId = "system-default",
 ): WorkspaceTab {
   return {
     id: crypto.randomUUID(),
@@ -32,13 +33,19 @@ export function createWorkspaceTab(
     title: tabTitle(kind, ordinal, sshTarget),
     titleHint: null,
     customTitle: null,
-    profileId: kind === "shell" ? "system-default" : kind === "ssh" ? "ssh" : `agent:${kind}`,
+    profileId: profileForKind(kind, shellProfileId),
     resumeSessionId,
     sshTarget,
     phase: "idle",
     activity: "idle",
     error: null,
   };
+}
+
+function profileForKind(kind: WorkspaceTabKind, shellProfileId: ShellProfileId): LaunchProfileId {
+  if (kind === "shell") return shellProfileId;
+  if (kind === "ssh") return "ssh";
+  return `agent:${kind}`;
 }
 
 /** 切换目录时固定创建 Shell；原 tab 不变，调用方把新 tab 追加到列表。 */

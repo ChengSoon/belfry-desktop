@@ -8,7 +8,53 @@ export type TerminalPhase = "idle" | "creating" | "running" | "exited" | "error"
  * 那是 hooks 通道就绪后的精确事件源。这里是屏幕文本猜出来的近似值，两者不能混。
  */
 export type SessionActivity = "idle" | "talking" | "awaiting-choice";
-export type LaunchProfileId = "system-default" | "agent:codex" | "agent:claude" | "ssh";
+export type ShellProfileId =
+  | "system-default"
+  | "shell:zsh"
+  | "shell:bash"
+  | "shell:fish"
+  | "shell:pwsh"
+  | "shell:powershell"
+  | "shell:cmd"
+  | "shell:wsl"
+  | "shell:git-bash";
+export type LaunchProfileId = ShellProfileId | "agent:codex" | "agent:claude" | "ssh";
+
+export interface ShellProfile {
+  id: ShellProfileId;
+  available: boolean;
+  executable: string | null;
+  isDefault: boolean;
+  reason: string | null;
+}
+
+export function isShellProfileId(value: string): value is ShellProfileId {
+  return [
+    "system-default",
+    "shell:zsh",
+    "shell:bash",
+    "shell:fish",
+    "shell:pwsh",
+    "shell:powershell",
+    "shell:cmd",
+    "shell:wsl",
+    "shell:git-bash",
+  ].includes(value);
+}
+
+export function shellProfileLabel(id: ShellProfileId): string {
+  return {
+    "system-default": "系统默认",
+    "shell:zsh": "zsh",
+    "shell:bash": "bash",
+    "shell:fish": "fish",
+    "shell:pwsh": "PowerShell 7",
+    "shell:powershell": "Windows PowerShell",
+    "shell:cmd": "命令提示符",
+    "shell:wsl": "WSL",
+    "shell:git-bash": "Git Bash",
+  }[id];
+}
 
 /** SSH 连接目标。密码不随工作区状态持久化，只在启动时经 SshLaunch 传递。 */
 export interface SshTarget {
@@ -74,6 +120,13 @@ export interface TerminalSession {
   rows: number;
   status: "starting" | "running" | "exited" | "failed";
   exitCode: number | null;
+}
+
+/** 可由 Composer 等宿主 UI 驱动的最小终端输入面。 */
+export interface TerminalCommandTarget {
+  focus: () => void;
+  /** 通过 xterm 的 paste + 用户回车通道提交；PTY 未就绪时返回 false。 */
+  sendText: (text: string) => boolean;
 }
 
 export type TerminalEvent =

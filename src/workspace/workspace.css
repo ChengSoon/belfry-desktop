@@ -113,12 +113,16 @@
   grid-template-rows: calc(34px + var(--titlebar-inset)) minmax(0, 1fr);
 }
 
+.workbench.has-composer {
+  grid-template-rows: calc(34px + var(--titlebar-inset)) minmax(0, 1fr) auto;
+}
+
 .stage-caption {
   display: flex;
   min-width: 0;
   align-items: center;
   justify-content: center;
-  padding: var(--titlebar-inset) 44px 0;
+  padding: var(--titlebar-inset) 76px 0;
   user-select: none;
 }
 

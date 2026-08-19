@@ -262,6 +262,14 @@ impl CreateTerminalRequest {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum LaunchProfileId {
     SystemDefault,
+    ShellZsh,
+    ShellBash,
+    ShellFish,
+    ShellPwsh,
+    ShellPowershell,
+    ShellCmd,
+    ShellWsl,
+    ShellGitBash,
     AgentCodex,
     AgentClaude,
     Ssh,
@@ -271,6 +279,14 @@ impl LaunchProfileId {
     pub fn parse(value: &str) -> Result<Self, AppError> {
         match value {
             "system-default" => Ok(Self::SystemDefault),
+            "shell:zsh" => Ok(Self::ShellZsh),
+            "shell:bash" => Ok(Self::ShellBash),
+            "shell:fish" => Ok(Self::ShellFish),
+            "shell:pwsh" => Ok(Self::ShellPwsh),
+            "shell:powershell" => Ok(Self::ShellPowershell),
+            "shell:cmd" => Ok(Self::ShellCmd),
+            "shell:wsl" => Ok(Self::ShellWsl),
+            "shell:git-bash" => Ok(Self::ShellGitBash),
             "agent:codex" => Ok(Self::AgentCodex),
             "agent:claude" => Ok(Self::AgentClaude),
             "ssh" => Ok(Self::Ssh),
@@ -279,6 +295,48 @@ impl LaunchProfileId {
             ))),
         }
     }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::SystemDefault => "system-default",
+            Self::ShellZsh => "shell:zsh",
+            Self::ShellBash => "shell:bash",
+            Self::ShellFish => "shell:fish",
+            Self::ShellPwsh => "shell:pwsh",
+            Self::ShellPowershell => "shell:powershell",
+            Self::ShellCmd => "shell:cmd",
+            Self::ShellWsl => "shell:wsl",
+            Self::ShellGitBash => "shell:git-bash",
+            Self::AgentCodex => "agent:codex",
+            Self::AgentClaude => "agent:claude",
+            Self::Ssh => "ssh",
+        }
+    }
+
+    pub fn is_shell(self) -> bool {
+        matches!(
+            self,
+            Self::SystemDefault
+                | Self::ShellZsh
+                | Self::ShellBash
+                | Self::ShellFish
+                | Self::ShellPwsh
+                | Self::ShellPowershell
+                | Self::ShellCmd
+                | Self::ShellWsl
+                | Self::ShellGitBash
+        )
+    }
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ShellProfile {
+    pub id: String,
+    pub available: bool,
+    pub executable: Option<String>,
+    pub is_default: bool,
+    pub reason: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -342,11 +400,41 @@ mod tests {
             LaunchProfileId::AgentCodex
         );
         assert_eq!(
+            LaunchProfileId::parse("shell:zsh").unwrap(),
+            LaunchProfileId::ShellZsh
+        );
+        assert_eq!(
+            LaunchProfileId::parse("shell:git-bash").unwrap(),
+            LaunchProfileId::ShellGitBash
+        );
+        assert_eq!(
             LaunchProfileId::parse("agent:claude").unwrap(),
             LaunchProfileId::AgentClaude
         );
         assert_eq!(LaunchProfileId::parse("ssh").unwrap(), LaunchProfileId::Ssh);
         assert!(LaunchProfileId::parse("agent:custom").is_err());
+        assert!(LaunchProfileId::parse("/bin/sh").is_err());
+    }
+
+    #[test]
+    fn launch_profile_ids_round_trip_to_the_frontend_contract() {
+        let ids = [
+            LaunchProfileId::SystemDefault,
+            LaunchProfileId::ShellZsh,
+            LaunchProfileId::ShellBash,
+            LaunchProfileId::ShellFish,
+            LaunchProfileId::ShellPwsh,
+            LaunchProfileId::ShellPowershell,
+            LaunchProfileId::ShellCmd,
+            LaunchProfileId::ShellWsl,
+            LaunchProfileId::ShellGitBash,
+            LaunchProfileId::AgentCodex,
+            LaunchProfileId::AgentClaude,
+            LaunchProfileId::Ssh,
+        ];
+        for id in ids {
+            assert_eq!(LaunchProfileId::parse(id.as_str()).unwrap(), id);
+        }
     }
 
     #[test]

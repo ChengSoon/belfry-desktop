@@ -44,6 +44,7 @@ pub fn run() {
             history::commands::history_delete,
             history::commands::history_clear,
             usage::commands::usage_report,
+            commands::terminal_shell_profiles,
             commands::terminal_create,
             commands::terminal_write,
             commands::terminal_resize,

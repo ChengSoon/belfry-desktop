@@ -1,5 +1,6 @@
 import { useCallback, useMemo, type CSSProperties, type PointerEvent, type RefObject } from "react";
 import { TerminalViewport, type TerminalSnapshot } from "../../components/TerminalViewport";
+import type { TerminalCommandTarget } from "../../terminal/contracts";
 import type { WorkspaceTab } from "../../workspace/contracts";
 import type { DividerFrame, DropEdge, Rect } from "../contracts";
 import { composeDropIndicator } from "../dropZone";
@@ -21,6 +22,7 @@ interface TerminalStageProps {
   onDragStart: (tabId: string, event: PointerEvent) => void;
   onResize: (path: string, ratio: number) => void;
   onSnapshot: (id: string, snapshot: TerminalSnapshot) => void;
+  onCommandTarget: (id: string, target: TerminalCommandTarget | null) => void;
 }
 
 /** 隐藏的会话铺满整个舞台：尺寸不变，PTY 就不会因为进出分屏白挨一次 resize。 */
@@ -39,6 +41,7 @@ export function TerminalStage({
   onDragStart,
   onResize,
   onSnapshot,
+  onCommandTarget,
 }: TerminalStageProps) {
   const indicator = useMemo(() => {
     if (drag?.target?.kind !== "pane") return null;
@@ -64,7 +67,12 @@ export function TerminalStage({
             split={split && rect !== undefined}
             tab={tab}
           >
-            <SessionTerminal onSnapshot={onSnapshot} tab={tab} visible={rect !== undefined} />
+            <SessionTerminal
+              onCommandTarget={onCommandTarget}
+              onSnapshot={onSnapshot}
+              tab={tab}
+              visible={rect !== undefined}
+            />
           </TerminalPane>
         );
       })}
@@ -96,10 +104,12 @@ function DropIndicator({ rect, edge }: { rect: Rect; edge: DropEdge }) {
 function SessionTerminal({
   tab,
   visible,
+  onCommandTarget,
   onSnapshot,
 }: {
   tab: WorkspaceTab;
   visible: boolean;
+  onCommandTarget: (id: string, target: TerminalCommandTarget | null) => void;
   onSnapshot: (id: string, snapshot: TerminalSnapshot) => void;
 }) {
   // launch 变了就等于要换 cwd/profile，会重启 PTY——只能跟着这两个字段变。
@@ -116,5 +126,16 @@ function SessionTerminal({
     (snapshot: TerminalSnapshot) => onSnapshot(tab.id, snapshot),
     [onSnapshot, tab.id],
   );
-  return <TerminalViewport launch={launch} onSnapshot={report} visible={visible} />;
+  const registerTarget = useCallback(
+    (target: TerminalCommandTarget | null) => onCommandTarget(tab.id, target),
+    [onCommandTarget, tab.id],
+  );
+  return (
+    <TerminalViewport
+      launch={launch}
+      onCommandTarget={registerTarget}
+      onSnapshot={report}
+      visible={visible}
+    />
+  );
 }

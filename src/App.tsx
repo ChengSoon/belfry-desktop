@@ -1,31 +1,25 @@
-import { AlertTriangle, Keyboard, PanelLeftOpen, X } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { AppBackground } from "./background/AppBackground";
-import { ConfirmDialog } from "./components/ConfirmDialog";
+import { AppOverlays } from "./components/AppOverlays";
+import { Workbench } from "./components/Workbench";
 import { WindowTitlebar } from "./components/WindowTitlebar";
 import "./workspace/workspace.css";
-import { TerminalStage } from "./layout/components/TerminalStage";
 import { useSessionDrag } from "./layout/useSessionDrag";
 import { useSplitLayout } from "./layout/useSplitLayout";
 import { useActivityNotifications } from "./notify/useActivityNotifications";
-import { SettingsPanel } from "./settings/SettingsPanel";
-import { ShortcutGuide } from "./shortcuts/ShortcutGuide";
+import { usePromptQueue } from "./prompt/usePromptQueue";
 import { appShortcutChord, formatShortcutChord } from "./shortcuts/resolveShortcut";
 import { useAppShortcuts } from "./shortcuts/useAppShortcuts";
-import { ICON } from "./theme/sizing";
-import { UpdateDialog } from "./updater/UpdateDialog";
 import { useAppUpdater } from "./updater/useAppUpdater";
-import { HistoryPanel } from "./history/components/HistoryPanel";
 import type { HistorySession } from "./history/contracts";
-import type { SshLaunch } from "./terminal/contracts";
-import { UsagePanel } from "./usage/components/UsagePanel";
-import { closeConfirmBody, needsCloseConfirm } from "./workspace/closeConfirm";
-import { ProjectSwitcher } from "./workspace/components/ProjectSwitcher";
+import type { QuickOpenItem } from "./quickopen/model";
+import { useQuickOpen } from "./quickopen/useQuickOpen";
+import type { ShellProfileId, SshLaunch } from "./terminal/contracts";
+import { useTerminalTargets } from "./terminal/useTerminalTargets";
+import { needsCloseConfirm } from "./workspace/closeConfirm";
 import { Sidebar } from "./workspace/components/Sidebar";
 import type { AgentKind, RecentProject } from "./workspace/contracts";
-import { failureLabel } from "./workspace/errors";
 import { pathKey } from "./workspace/path";
-import { removeRecentConfirmBody } from "./workspace/removeRecentConfirm";
 import { groupTabsByProject } from "./workspace/tabs";
 import { useFoldedProjects } from "./workspace/useFoldedProjects";
 import { useProjectWorkspace } from "./workspace/useProjectWorkspace";
@@ -37,6 +31,7 @@ export default function App() {
   const [usageOpen, setUsageOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [composerOpen, setComposerOpen] = useState(false);
   const [pendingCloseId, setPendingCloseId] = useState<string | null>(null);
   const [pendingRemove, setPendingRemove] = useState<RecentProject | null>(null);
   const updater = useAppUpdater();
@@ -55,9 +50,12 @@ export default function App() {
   useActivityNotifications(workspace.tabs, visibleTabIds);
 
   // 新会话继承 activeProject，那组要是折叠着就会开出一个侧栏里看不见的会话。
-  const launch = useCallback((kind: Parameters<typeof workspace.launch>[0]) => {
+  const launch = useCallback((
+    kind: Parameters<typeof workspace.launch>[0],
+    profileId?: ShellProfileId,
+  ) => {
     if (workspace.activeProject) unfold(workspace.activeProject.id);
-    void workspace.launch(kind);
+    void workspace.launch(kind, profileId);
   }, [unfold, workspace.activeProject, workspace.launch]);
 
   const launchSsh = useCallback((target: SshLaunch) => {
@@ -80,6 +78,24 @@ export default function App() {
     if (workspace.activeProject) unfold(workspace.activeProject.id);
     void workspace.launchHistorySession(kind, session);
   }, [unfold, workspace.launchHistorySession, workspace.activeProject]);
+
+  const quickOpen = useQuickOpen({
+    activateTab: layout.activateTab,
+    activeTabId: workspace.activeTabId,
+    recentProjects: workspace.recentProjects,
+    selectProject: workspace.selectProject,
+    tabs: workspace.tabs,
+  });
+  const terminalTargets = useTerminalTargets();
+  const promptQueue = usePromptQueue({ tabs: workspace.tabs, targets: terminalTargets.targets });
+  const toggleQuickOpen = useCallback(() => {
+    setComposerOpen(false);
+    quickOpen.toggle();
+  }, [quickOpen.toggle]);
+  const toggleComposer = useCallback(() => {
+    quickOpen.close();
+    setComposerOpen((value) => !value);
+  }, [quickOpen.close]);
 
   /**
    * 侧栏那个 X 是真删会话：PTY 被杀，滚屏跟着没，撤不回来。进程还活着就先拦一道，
@@ -104,6 +120,8 @@ export default function App() {
   const pendingClose = workspace.tabs.find((tab) => tab.id === pendingCloseId) ?? null;
   const shortcuts = useAppShortcuts({
     blocked: Boolean(pendingClose || pendingRemove || updater.open),
+    composerOpen,
+    quickOpenOpen: quickOpen.open,
     onActivateSession: (index) => {
       const tab = groupTabsByProject(workspace.tabs).flatMap((group) => group.tabs)[index];
       if (tab) layout.activateTab(tab.id);
@@ -111,9 +129,26 @@ export default function App() {
     onNewShell: () => launch("shell"),
     onOpenSettings: () => setSettingsOpen(true),
     onToggleHistory: toggleHistory,
+    onToggleComposer: toggleComposer,
+    onToggleQuickOpen: toggleQuickOpen,
     onToggleSidebar: () => setCollapsed((value) => !value),
     onToggleUsage: toggleUsage,
   });
+
+  const selectQuickOpenItem = useCallback((item: QuickOpenItem) => {
+    quickOpen.select(item, (id) => {
+      switch (id) {
+        case "action:new-shell": launch("shell"); break;
+        case "action:composer": setComposerOpen(true); break;
+        case "action:settings": setSettingsOpen(true); break;
+        case "action:history": toggleHistory(); break;
+        case "action:usage": toggleUsage(); break;
+        case "action:sidebar": setCollapsed((value) => !value); break;
+        case "action:shortcuts": shortcuts.openGuide(); break;
+        default: break;
+      }
+    });
+  }, [launch, quickOpen, shortcuts, toggleHistory, toggleUsage]);
 
   return (
     <main
@@ -126,6 +161,7 @@ export default function App() {
         <Sidebar
           activeId={workspace.activeTabId}
           agents={workspace.agents}
+          shellProfiles={workspace.shellProfiles}
           draggingId={drag?.tabId ?? null}
           ejecting={drag?.target?.kind === "sidebar"}
           foldedProjects={foldedProjects}
@@ -154,122 +190,79 @@ export default function App() {
         />
       )}
 
-      <section className="workbench">
-        {collapsed ? (
-          <button
-            className="icon-button icon-button--sm reveal-handle"
-            onClick={() => setCollapsed(false)}
-            title={`展开侧栏 ${formatShortcutChord(appShortcutChord(shortcuts.platform, "B"))}`}
-            type="button"
-          >
-            <PanelLeftOpen aria-hidden="true" size={ICON.md} />
-          </button>
-        ) : null}
-        <div className="stage-caption">
-          <ProjectSwitcher
-            onOpen={workspace.selectProject}
-            onRequestRemove={setPendingRemove}
-            opening={workspace.opening}
-            project={workspace.activeProject}
-            recentProjects={workspace.recentProjects}
-          />
-        </div>
-        <button
-          aria-expanded={shortcuts.guideOpen}
-          aria-haspopup="dialog"
-          aria-label="快捷指令"
-          className="icon-button icon-button--sm shortcut-help-trigger"
-          onClick={shortcuts.openGuide}
-          title={`快捷指令 ${shortcuts.guideTitle}`}
-          type="button"
-        >
-          <Keyboard aria-hidden="true" size={ICON.md} />
-        </button>
-        <TerminalStage
-          activeTabId={workspace.activeTabId}
-          dividers={layout.dividers}
-          drag={drag}
-          onClosePane={layout.closePane}
-          onDragStart={startDrag}
-          onFocus={workspace.setActiveTabId}
-          onResize={layout.resizeSplit}
-          onSnapshot={workspace.updateTab}
-          rects={layout.rects}
-          split={layout.split}
-          stageRef={stageRef}
-          tabs={workspace.tabs}
-        />
-        {workspace.tabs.length === 0 ? <EmptyStage onLaunch={() => launch("shell")} /> : null}
-      </section>
+      <Workbench
+        activeProject={workspace.activeProject}
+        activeTabId={workspace.activeTabId}
+        collapsed={collapsed}
+        composerOpen={composerOpen}
+        dividers={layout.dividers}
+        drag={drag}
+        onCloseComposer={() => setComposerOpen(false)}
+        onClosePane={layout.closePane}
+        onDragStart={startDrag}
+        onFocus={workspace.setActiveTabId}
+        onLaunchShell={() => launch("shell")}
+        onOpenProject={workspace.selectProject}
+        onOpenShortcutGuide={shortcuts.openGuide}
+        onRegisterTarget={terminalTargets.register}
+        onRemovePrompt={promptQueue.remove}
+        onRequestRemove={setPendingRemove}
+        onResize={layout.resizeSplit}
+        onRevealSidebar={() => setCollapsed(false)}
+        onSendPromptNow={promptQueue.sendNow}
+        onSnapshot={workspace.updateTab}
+        onSubmitPrompt={promptQueue.submit}
+        onToggleComposer={toggleComposer}
+        onToggleQuickOpen={toggleQuickOpen}
+        opening={workspace.opening}
+        promptItems={promptQueue.items}
+        quickOpenOpen={quickOpen.open}
+        recentProjects={workspace.recentProjects}
+        rects={layout.rects}
+        shortcutGuideOpen={shortcuts.guideOpen}
+        shortcutPlatform={shortcuts.platform}
+        split={layout.split}
+        stageRef={stageRef}
+        tabs={workspace.tabs}
+      />
 
-      {settingsOpen ? <SettingsPanel onClose={() => setSettingsOpen(false)} /> : null}
-
-      {usageOpen ? (
-        <UsagePanel onClose={() => setUsageOpen(false)} project={workspace.activeProject} />
-      ) : null}
-
-      {historyOpen ? (
-        <HistoryPanel onClose={() => setHistoryOpen(false)} onResume={resumeHistory} />
-      ) : null}
-
-      {workspace.failure ? (
-        <div className="failure-toast" role="alert">
-          <AlertTriangle aria-hidden="true" size={ICON.lg} />
-          <p>{failureLabel(workspace.failure)}</p>
-          <button onClick={workspace.dismissFailure} title="关闭错误提示" type="button">
-            <X size={ICON.sm} />
-          </button>
-        </div>
-      ) : null}
-
-      {pendingClose ? (
-        <ConfirmDialog
-          body={closeConfirmBody(pendingClose)}
-          confirmLabel="关闭"
-          onCancel={cancelClose}
-          onConfirm={confirmClose}
-          title={`关闭 ${pendingClose.title}？`}
-        />
-      ) : null}
-
-      {pendingRemove ? (
-        <ConfirmDialog
-          body={removeRecentConfirmBody(
-            pendingRemove,
-            workspace.tabs.filter(
-              (tab) => pathKey(tab.project.rootPath) === pathKey(pendingRemove.rootPath),
-            ).length,
-          )}
-          confirmLabel="删除"
-          onCancel={() => setPendingRemove(null)}
-          onConfirm={() => {
-            workspace.removeRecentProject(pendingRemove.id);
-            setPendingRemove(null);
-          }}
-          title={`删除 ${pendingRemove.name}？`}
-        />
-      ) : null}
-
-      {updater.open ? (
-        <UpdateDialog
-          onCheck={updater.checkNow}
-          onClose={updater.closePanel}
-          onInstall={updater.install}
-          state={updater.state}
-        />
-      ) : null}
-
-      {shortcuts.guideOpen ? (
-        <ShortcutGuide onClose={shortcuts.closeGuide} platform={shortcuts.platform} />
-      ) : null}
+      <AppOverlays
+        failure={workspace.failure}
+        historyOpen={historyOpen}
+        onCancelClose={cancelClose}
+        onCancelRemove={() => setPendingRemove(null)}
+        onCheckUpdate={updater.checkNow}
+        onCloseHistory={() => setHistoryOpen(false)}
+        onCloseQuickOpen={quickOpen.close}
+        onCloseSettings={() => setSettingsOpen(false)}
+        onCloseShortcutGuide={shortcuts.closeGuide}
+        onCloseUpdater={updater.closePanel}
+        onCloseUsage={() => setUsageOpen(false)}
+        onConfirmClose={confirmClose}
+        onConfirmRemove={() => {
+          if (pendingRemove) workspace.removeRecentProject(pendingRemove.id);
+          setPendingRemove(null);
+        }}
+        onDismissFailure={workspace.dismissFailure}
+        onInstallUpdate={updater.install}
+        onResumeHistory={resumeHistory}
+        onSelectQuickOpen={selectQuickOpenItem}
+        pendingClose={pendingClose}
+        pendingRemove={pendingRemove}
+        pendingRemoveTabCount={pendingRemove ? workspace.tabs.filter(
+          (tab) => pathKey(tab.project.rootPath) === pathKey(pendingRemove.rootPath),
+        ).length : 0}
+        project={workspace.activeProject}
+        quickOpenItems={quickOpen.items}
+        quickOpenOpen={quickOpen.open}
+        quickOpenShortcut={formatShortcutChord(appShortcutChord(shortcuts.platform, "K"))}
+        settingsOpen={settingsOpen}
+        shortcutGuideOpen={shortcuts.guideOpen}
+        shortcutPlatform={shortcuts.platform}
+        updaterOpen={updater.open}
+        updaterState={updater.state}
+        usageOpen={usageOpen}
+      />
     </main>
-  );
-}
-
-function EmptyStage({ onLaunch }: { onLaunch: () => void }) {
-  return (
-    <div className="empty-stage">
-      <button onClick={onLaunch} type="button">打开 Shell</button>
-    </div>
   );
 }

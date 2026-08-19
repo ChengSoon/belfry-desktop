@@ -4,7 +4,11 @@ import type {
   WorkspaceTab,
   WorkspaceTabKind,
 } from "./contracts";
-import type { LaunchProfileId, SshTarget } from "../terminal/contracts";
+import {
+  isShellProfileId,
+  type LaunchProfileId,
+  type SshTarget,
+} from "../terminal/contracts";
 import { pathKey } from "./path";
 
 export const RECENT_PROJECTS_KEY = "belfry.recent-projects.v1";
@@ -66,6 +70,7 @@ export function serializeWorkspaceState(tabs: WorkspaceTab[], activeTabId: strin
       title,
       titleHint,
       customTitle,
+      profileId,
       resumeSessionId,
       sshTarget,
     }) => ({
@@ -75,6 +80,7 @@ export function serializeWorkspaceState(tabs: WorkspaceTab[], activeTabId: strin
       title,
       titleHint,
       customTitle,
+      profileId,
       resumeSessionId,
       // 密码只进系统钥匙串：工作区存档只保留连接目标本身。
       sshTarget: sshTarget ? { host: sshTarget.host, user: sshTarget.user, port: sshTarget.port } : null,
@@ -100,7 +106,7 @@ export function parseWorkspaceState(value: string | null): PersistedWorkspaceSta
       titleHint: value.titleHint,
       customTitle: value.customTitle ?? null,
       resumeSessionId: value.resumeSessionId ?? null,
-      profileId: profileIdForKind(value.kind),
+      profileId: profileIdForKind(value.kind, value.profileId),
       sshTarget: value.kind === "ssh" && value.sshTarget
         ? { ...value.sshTarget, password: null, rememberPassword: false }
         : null,
@@ -118,8 +124,8 @@ export function parseWorkspaceState(value: string | null): PersistedWorkspaceSta
   };
 }
 
-function profileIdForKind(kind: WorkspaceTabKind): LaunchProfileId {
-  if (kind === "shell") return "system-default";
+function profileIdForKind(kind: WorkspaceTabKind, persisted: LaunchProfileId | undefined): LaunchProfileId {
+  if (kind === "shell") return persisted && isShellProfileId(persisted) ? persisted : "system-default";
   if (kind === "ssh") return "ssh";
   return `agent:${kind}`;
 }
@@ -167,6 +173,8 @@ interface PersistedTab {
   titleHint: string | null;
   /** 用户手动设置的显示名；旧版本存档没有该字段，解析时按 null 处理。 */
   customTitle: string | null;
+  /** Shell profile；旧版本存档没有该字段，解析时回退系统默认。 */
+  profileId?: LaunchProfileId;
   /** 旧版本存档没有该字段，解析时按 null 处理。 */
   resumeSessionId: string | null;
   /** SSH 会话的连接目标；旧版本存档没有该字段，解析时按 null 处理。 */
@@ -184,6 +192,9 @@ function isPersistedTab(value: unknown): value is PersistedTab {
     && (value.customTitle === undefined
       || value.customTitle === null
       || typeof value.customTitle === "string")
+    && (value.profileId === undefined
+      || (typeof value.profileId === "string"
+        && (value.kind !== "shell" || isShellProfileId(value.profileId))))
     // 旧版本存档没有该字段（undefined 也要放行），解析时按 null 处理。
     && (value.resumeSessionId === undefined
       || value.resumeSessionId === null

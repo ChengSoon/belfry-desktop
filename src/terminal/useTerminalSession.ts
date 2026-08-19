@@ -1,11 +1,18 @@
-import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useBackground } from "../background/BackgroundProvider";
 import { useTheme } from "../theme/ThemeProvider";
 import { xtermTheme } from "../theme/xtermTheme";
 import { useTypography } from "../typography/TypographyProvider";
 import { closeTerminal } from "./api";
-import { type SessionActivity, type TerminalLaunch, type TerminalPhase, type TerminalSession } from "./contracts";
+import {
+  type SessionActivity,
+  type TerminalCommandTarget,
+  type TerminalLaunch,
+  type TerminalPhase,
+  type TerminalSession,
+} from "./contracts";
 import { errorMessage, mountTerminal, type TerminalHandle } from "./terminalController";
+import type { TerminalSearchController } from "./search";
 
 interface TerminalViewModel {
   phase: TerminalPhase;
@@ -17,6 +24,8 @@ interface TerminalViewModel {
   lastInput: string | null;
   /** 会话在生成 / 等按键 / 闲着。Shell 会话恒为 idle。 */
   activity: SessionActivity;
+  search: TerminalSearchController | null;
+  commandTarget: TerminalCommandTarget;
   restart: () => void;
   close: () => void;
 }
@@ -29,6 +38,7 @@ export function useTerminalSession(
     resumeSessionId: null,
     ssh: null,
   },
+  onSearchRequest?: () => void,
 ): TerminalViewModel {
   const { mode } = useTheme();
   const { runtime: typography } = useTypography();
@@ -41,12 +51,15 @@ export function useTerminalSession(
   const [session, setSession] = useState<TerminalSession | null>(null);
   const [lastInput, setLastInput] = useState<string | null>(null);
   const [activity, setActivity] = useState<SessionActivity>("idle");
+  const [search, setSearch] = useState<TerminalSearchController | null>(null);
   const sessionId = useRef<string | null>(null);
   const handle = useRef<TerminalHandle | null>(null);
   // 主题、背景和字体都不能进挂载 effect 的依赖，否则设置外观会重挂终端、连带杀掉 PTY 会话。
   const themeMode = useRef(mode);
   const transparentMode = useRef(transparent);
   const typographyConfig = useRef(typography);
+  const searchRequest = useRef(onSearchRequest);
+  searchRequest.current = onSearchRequest;
 
   useEffect(() => {
     const host = container.current;
@@ -66,11 +79,14 @@ export function useTerminalSession(
         },
         onInput: setLastInput,
         onActivity: setActivity,
+        onSearchRequest: () => searchRequest.current?.(),
       },
     );
     handle.current = mounted;
+    setSearch(mounted.search);
     return () => {
       handle.current = null;
+      setSearch(null);
       mounted.dispose();
     };
   }, [container, generation, launch.cwd, launch.profileId, launch.resumeSessionId, launch.ssh]);
@@ -87,6 +103,9 @@ export function useTerminalSession(
   }, [typography]);
 
   const restart = useCallback(() => setGeneration((value) => value + 1), []);
+  const focus = useCallback(() => handle.current?.focus(), []);
+  const sendText = useCallback((text: string) => handle.current?.sendText(text) ?? false, []);
+  const commandTarget = useMemo(() => ({ focus, sendText }), [focus, sendText]);
   const close = useCallback(() => {
     const current = sessionId.current;
     if (current) {
@@ -102,6 +121,8 @@ export function useTerminalSession(
     rows: session?.rows ?? 0,
     lastInput,
     activity,
+    search,
+    commandTarget,
     restart,
     close,
   };

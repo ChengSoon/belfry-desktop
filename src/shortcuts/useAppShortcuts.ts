@@ -9,10 +9,14 @@ import {
 
 interface AppShortcutActions {
   blocked: boolean;
+  composerOpen: boolean;
+  quickOpenOpen: boolean;
   onActivateSession: (index: number) => void;
   onNewShell: () => void;
   onOpenSettings: () => void;
   onToggleHistory: () => void;
+  onToggleComposer: () => void;
+  onToggleQuickOpen: () => void;
   onToggleSidebar: () => void;
   onToggleUsage: () => void;
 }
@@ -28,7 +32,10 @@ export function useAppShortcuts(actions: AppShortcutActions) {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const shortcut = resolveAppShortcut(event, platform);
-      if (!shortcut || actionsRef.current.blocked) return;
+      if (!shortcut) return;
+      if (actionsRef.current.composerOpen && shortcut.kind !== "toggle-composer") return;
+      if (actionsRef.current.quickOpenOpen && shortcut.kind !== "toggle-quick-open") return;
+      if (actionsRef.current.blocked) return;
       if (guideOpenRef.current && shortcut.kind !== "toggle-shortcuts") return;
       event.preventDefault();
       event.stopPropagation();
@@ -57,6 +64,8 @@ function runShortcut(
   if (shortcut.kind === "toggle-sidebar") actions.onToggleSidebar();
   else if (shortcut.kind === "toggle-usage") actions.onToggleUsage();
   else if (shortcut.kind === "toggle-history") actions.onToggleHistory();
+  else if (shortcut.kind === "toggle-composer") actions.onToggleComposer();
+  else if (shortcut.kind === "toggle-quick-open") actions.onToggleQuickOpen();
   else if (shortcut.kind === "open-settings") actions.onOpenSettings();
   else if (shortcut.kind === "new-shell") actions.onNewShell();
   else if (shortcut.kind === "activate-session") actions.onActivateSession(shortcut.index);

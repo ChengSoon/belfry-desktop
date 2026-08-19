@@ -389,6 +389,32 @@
 .popover--menu button > span { flex: 1; }
 .popover--menu button > i { color: var(--text-faint); font-size: var(--fs-xs); font-style: normal; }
 
+.popover-menu__chevron {
+  flex: 0 0 auto;
+  color: var(--text-faint) !important;
+  transition: transform var(--duration) var(--ease);
+}
+
+.popover--menu > button[aria-expanded="true"] .popover-menu__chevron {
+  transform: rotate(90deg);
+}
+
+.popover-menu__submenu {
+  display: grid;
+  gap: 1px;
+  margin: 0 0 2px 8px;
+  padding-left: 6px;
+  border-left: 1px solid var(--border);
+}
+
+.popover-menu__submenu button {
+  min-width: 0;
+  padding: 6px 7px;
+  font-size: var(--fs-sm);
+}
+
+.popover-menu__submenu button > svg { color: var(--accent) !important; }
+
 .popover--menu button:hover:not(:disabled) { background: var(--surface-hover); }
 .popover--menu button:disabled { opacity: 0.45; cursor: not-allowed; }
 

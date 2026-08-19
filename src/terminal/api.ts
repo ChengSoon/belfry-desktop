@@ -1,11 +1,16 @@
 import { invoke, type Channel } from "@tauri-apps/api/core";
 import type {
   CreateTerminalRequest,
+  ShellProfile,
   SshTarget,
   TerminalEvent,
   TerminalPalette,
   TerminalSession,
 } from "./contracts";
+
+export function listShellProfiles() {
+  return invoke<ShellProfile[]>("terminal_shell_profiles");
+}
 
 export function createTerminal(
   request: CreateTerminalRequest,

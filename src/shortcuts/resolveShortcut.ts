@@ -5,6 +5,8 @@ export type AppShortcut =
   | { kind: "toggle-usage" }
   | { kind: "toggle-history" }
   | { kind: "toggle-shortcuts" }
+  | { kind: "toggle-quick-open" }
+  | { kind: "toggle-composer" }
   | { kind: "open-settings" }
   | { kind: "new-shell" }
   | { kind: "activate-session"; index: number };
@@ -29,6 +31,8 @@ export function resolveAppShortcut(
   if (code === "KeyU") return { kind: "toggle-usage" };
   if (code === "KeyH") return { kind: "toggle-history" };
   if (code === "Slash") return { kind: "toggle-shortcuts" };
+  if (code === "KeyK") return { kind: "toggle-quick-open" };
+  if (code === "KeyJ") return { kind: "toggle-composer" };
   if (code === "Comma") return { kind: "open-settings" };
   if (code === "KeyT") return { kind: "new-shell" };
   if (/^Digit[1-9]$/.test(code)) return { kind: "activate-session", index: Number(code.at(-1)) - 1 };

@@ -10,7 +10,12 @@ import {
 } from "../../shortcuts/resolveShortcut";
 import { ThemeToggle } from "../../theme/ThemeToggle";
 import type { UpdaterState } from "../../updater/contracts";
-import type { SshLaunch } from "../../terminal/contracts";
+import {
+  shellProfileLabel,
+  type ShellProfile,
+  type ShellProfileId,
+  type SshLaunch,
+} from "../../terminal/contracts";
 import type { AgentAvailability, WorkspaceTab, WorkspaceTabKind } from "../contracts";
 import { shortPath } from "../path";
 import { SIDEBAR_WIDTH } from "../sidebarWidth";
@@ -22,12 +27,13 @@ import "../sidebar.css";
 
 interface SidebarProps {
   agents: AgentAvailability[];
+  shellProfiles: ShellProfile[];
   tabs: WorkspaceTab[];
   activeId: string | null;
   /** 正被拖着的会话，拖拽期间在列表里淡下去。 */
   draggingId: string | null;
   foldedProjects: ReadonlySet<string>;
-  onLaunch: (kind: WorkspaceTabKind) => void;
+  onLaunch: (kind: WorkspaceTabKind, profileId?: ShellProfileId) => void;
   onLaunchSsh: (target: SshLaunch) => void;
   onUpdateSsh: (id: string, target: SshLaunch) => void;
   onRefresh: () => Promise<void>;
@@ -56,6 +62,7 @@ interface SidebarProps {
 
 export function Sidebar({
   agents,
+  shellProfiles,
   tabs,
   activeId,
   draggingId,
@@ -100,6 +107,7 @@ export function Sidebar({
           <span>会话</span>
           <NewSessionMenu
             agents={agents}
+            shellProfiles={shellProfiles}
             onLaunch={onLaunch}
             onLaunchSsh={onLaunchSsh}
             onRefresh={onRefresh}
@@ -424,6 +432,7 @@ function SessionRow({
 /** SSH 会话可以双击改名，把提示挂在悬停 tooltip 上。 */
 function rowTitle(tab: WorkspaceTab) {
   if (tab.error) return tab.error;
+  if (tab.kind === "shell") return shellProfileLabel(tab.profileId as ShellProfileId);
   if (tab.kind === "ssh") return `双击重命名 · 点击设置编辑连接 · ${tab.title}`;
   return tab.titleHint ?? tab.title;
 }

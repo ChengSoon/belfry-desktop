@@ -76,6 +76,67 @@
   clip-path: inset(0 0 1px 0);
 }
 
+.terminal-search {
+  position: absolute;
+  z-index: 4;
+  top: 10px;
+  right: 18px;
+  display: flex;
+  min-width: min(360px, calc(100% - 28px));
+  height: 32px;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 4px 3px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-md);
+}
+
+.terminal-search__icon { flex: 0 0 auto; color: var(--text-faint); }
+
+.terminal-search input {
+  min-width: 0;
+  flex: 1;
+  height: 24px;
+  padding: 0 4px;
+  border: 0;
+  outline: 0;
+  color: var(--text);
+  background: transparent;
+  font-size: var(--fs-sm);
+}
+
+.terminal-search input::placeholder { color: var(--text-faint); }
+
+.terminal-search__count {
+  flex: 0 0 auto;
+  min-width: 40px;
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.terminal-search button {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  color: var(--text-muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.terminal-search button:hover:not(:disabled) { color: var(--text); background: var(--surface-hover); }
+.terminal-search button:disabled { opacity: 0.35; cursor: default; }
+
 /* 会话异常时才提示，正常运行不占视觉。 */
 .terminal-alert {
   position: absolute;

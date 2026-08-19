@@ -6,7 +6,7 @@ use portable_pty::CommandBuilder;
 use crate::agent::{AgentKind, resolve_agent};
 use crate::resource::{canonicalize, file_uri_to_path, path_to_file_uri};
 
-use super::contracts::{AppError, LaunchProfileId, Platform, SshTarget};
+use super::contracts::{AppError, LaunchProfileId, Platform, ShellProfile, SshTarget};
 
 pub(super) struct ResolvedLaunch {
     pub command: CommandBuilder,
@@ -20,12 +20,57 @@ pub(super) fn resolve_launch(
     resume: Option<&str>,
     ssh: Option<&SshTarget>,
 ) -> Result<ResolvedLaunch, AppError> {
-    match LaunchProfileId::parse(profile_id)? {
-        LaunchProfileId::SystemDefault => resolve_shell_launch(cwd, env),
+    let profile = LaunchProfileId::parse(profile_id)?;
+    if profile.is_shell() {
+        return if profile == LaunchProfileId::SystemDefault {
+            resolve_shell_launch(cwd, env)
+        } else {
+            resolve_named_shell_launch(profile, cwd, env)
+        };
+    }
+    match profile {
         LaunchProfileId::AgentCodex => resolve_agent_launch(AgentKind::Codex, cwd, env, resume),
         LaunchProfileId::AgentClaude => resolve_agent_launch(AgentKind::Claude, cwd, env, resume),
         LaunchProfileId::Ssh => resolve_ssh_launch(cwd, env, ssh),
+        _ => Err(AppError::invalid_argument(
+            "unsupported terminal launch profile",
+        )),
     }
+}
+
+pub(super) fn detect_shell_profiles() -> Vec<ShellProfile> {
+    [
+        LaunchProfileId::SystemDefault,
+        LaunchProfileId::ShellZsh,
+        LaunchProfileId::ShellBash,
+        LaunchProfileId::ShellFish,
+        LaunchProfileId::ShellPwsh,
+        LaunchProfileId::ShellPowershell,
+        LaunchProfileId::ShellCmd,
+        LaunchProfileId::ShellWsl,
+        LaunchProfileId::ShellGitBash,
+    ]
+    .into_iter()
+    .map(|id| {
+        let is_default = id == LaunchProfileId::SystemDefault;
+        match resolve_shell_executable(id) {
+            Ok(executable) => ShellProfile {
+                id: id.as_str().to_string(),
+                available: true,
+                executable: Some(executable),
+                is_default,
+                reason: None,
+            },
+            Err(error) => ShellProfile {
+                id: id.as_str().to_string(),
+                available: false,
+                executable: None,
+                is_default,
+                reason: Some(error.message),
+            },
+        }
+    })
+    .collect()
 }
 
 /// SSH 会话直接拉起系统 OpenSSH 客户端：密码只经 PTY 应答提示、不进命令行，
@@ -98,6 +143,194 @@ fn resolve_shell_launch(
         // 展示用的是可执行文件名：解析结果是绝对路径，整条打出来在标签页里没有信息量。
         display_name: shell_display_name(&shell),
     })
+}
+
+fn resolve_named_shell_launch(
+    profile: LaunchProfileId,
+    cwd: &Path,
+    env: &HashMap<String, String>,
+) -> Result<ResolvedLaunch, AppError> {
+    let executable = resolve_shell_executable(profile)?;
+    let mut command = configured_command(&executable, cwd, env);
+    match profile {
+        LaunchProfileId::ShellZsh | LaunchProfileId::ShellBash | LaunchProfileId::ShellFish => {
+            command.arg("-l");
+        }
+        LaunchProfileId::ShellPwsh | LaunchProfileId::ShellPowershell => {
+            command.arg("-NoLogo");
+        }
+        LaunchProfileId::ShellCmd => {
+            command.arg("/d");
+        }
+        LaunchProfileId::ShellWsl => {}
+        LaunchProfileId::ShellGitBash => {
+            command.args(["--login", "-i"]);
+        }
+        LaunchProfileId::SystemDefault
+        | LaunchProfileId::AgentCodex
+        | LaunchProfileId::AgentClaude
+        | LaunchProfileId::Ssh => {
+            return Err(AppError::invalid_argument("profile is not a named shell"));
+        }
+    }
+    Ok(ResolvedLaunch {
+        command,
+        display_name: shell_display_name(&executable),
+    })
+}
+
+fn resolve_shell_executable(profile: LaunchProfileId) -> Result<String, AppError> {
+    match profile {
+        LaunchProfileId::SystemDefault => resolve_default_shell(),
+        LaunchProfileId::ShellZsh => resolve_fixed_executable(profile, "/bin/zsh"),
+        LaunchProfileId::ShellBash => resolve_fixed_executable(profile, "/bin/bash"),
+        LaunchProfileId::ShellFish => resolve_fish_executable(),
+        LaunchProfileId::ShellPwsh => resolve_windows_command(profile, "pwsh"),
+        LaunchProfileId::ShellPowershell => resolve_windows_powershell(),
+        LaunchProfileId::ShellCmd => resolve_windows_cmd(),
+        LaunchProfileId::ShellWsl => resolve_windows_wsl(),
+        LaunchProfileId::ShellGitBash => resolve_git_bash(),
+        LaunchProfileId::AgentCodex | LaunchProfileId::AgentClaude | LaunchProfileId::Ssh => {
+            Err(AppError::invalid_argument("profile is not a shell"))
+        }
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn resolve_fixed_executable(profile: LaunchProfileId, path: &str) -> Result<String, AppError> {
+    Path::new(path)
+        .is_file()
+        .then_some(path.to_string())
+        .ok_or_else(|| AppError::not_found(format!("{} was not found at {path}", profile.as_str())))
+}
+
+#[cfg(not(target_os = "macos"))]
+fn resolve_fixed_executable(profile: LaunchProfileId, _path: &str) -> Result<String, AppError> {
+    Err(AppError::unsupported(format!(
+        "{} is only available on macOS",
+        profile.as_str()
+    )))
+}
+
+#[cfg(target_os = "macos")]
+fn resolve_fish_executable() -> Result<String, AppError> {
+    let candidates = [
+        Some(Path::new("/opt/homebrew/bin/fish").to_path_buf()),
+        Some(Path::new("/usr/local/bin/fish").to_path_buf()),
+        crate::agent::find_in_path("fish"),
+    ];
+    candidates
+        .into_iter()
+        .flatten()
+        .find(|path| path.is_file())
+        .map(|path| path.to_string_lossy().to_string())
+        .ok_or_else(|| {
+            AppError::not_found("fish was not found in common install locations or PATH")
+        })
+}
+
+#[cfg(not(target_os = "macos"))]
+fn resolve_fish_executable() -> Result<String, AppError> {
+    Err(AppError::unsupported("fish is only available on macOS"))
+}
+
+#[cfg(target_os = "windows")]
+fn resolve_windows_command(profile: LaunchProfileId, command: &str) -> Result<String, AppError> {
+    crate::agent::find_in_path(command)
+        .map(|path| path.to_string_lossy().to_string())
+        .ok_or_else(|| AppError::not_found(format!("{} was not found in PATH", profile.as_str())))
+}
+
+#[cfg(not(target_os = "windows"))]
+fn resolve_windows_command(profile: LaunchProfileId, _command: &str) -> Result<String, AppError> {
+    Err(AppError::unsupported(format!(
+        "{} is only available on Windows",
+        profile.as_str()
+    )))
+}
+
+#[cfg(target_os = "windows")]
+fn resolve_windows_powershell() -> Result<String, AppError> {
+    let root = std::env::var("SystemRoot").unwrap_or_else(|_| "C:\\Windows".to_string());
+    let path = Path::new(&root).join("System32\\WindowsPowerShell\\v1.0\\powershell.exe");
+    path.is_file()
+        .then(|| path.to_string_lossy().to_string())
+        .ok_or_else(|| AppError::not_found("Windows PowerShell was not found"))
+}
+
+#[cfg(not(target_os = "windows"))]
+fn resolve_windows_powershell() -> Result<String, AppError> {
+    Err(AppError::unsupported(
+        "Windows PowerShell is only available on Windows",
+    ))
+}
+
+#[cfg(target_os = "windows")]
+fn resolve_windows_cmd() -> Result<String, AppError> {
+    let root = std::env::var("SystemRoot").unwrap_or_else(|_| "C:\\Windows".to_string());
+    let candidates = [
+        std::env::var("ComSpec").unwrap_or_default(),
+        format!("{root}\\System32\\cmd.exe"),
+    ];
+    candidates
+        .into_iter()
+        .find(|path| !path.is_empty() && Path::new(path).is_file())
+        .ok_or_else(|| AppError::not_found("Command Prompt was not found"))
+}
+
+#[cfg(not(target_os = "windows"))]
+fn resolve_windows_cmd() -> Result<String, AppError> {
+    Err(AppError::unsupported(
+        "Command Prompt is only available on Windows",
+    ))
+}
+
+#[cfg(target_os = "windows")]
+fn resolve_windows_wsl() -> Result<String, AppError> {
+    let root = std::env::var("SystemRoot").unwrap_or_else(|_| "C:\\Windows".to_string());
+    let candidates = [
+        format!("{root}\\System32\\wsl.exe"),
+        format!("{root}\\Sysnative\\wsl.exe"),
+    ];
+    candidates
+        .into_iter()
+        .find(|path| Path::new(path).is_file())
+        .ok_or_else(|| AppError::not_found("WSL was not found"))
+}
+
+#[cfg(not(target_os = "windows"))]
+fn resolve_windows_wsl() -> Result<String, AppError> {
+    Err(AppError::unsupported("WSL is only available on Windows"))
+}
+
+#[cfg(target_os = "windows")]
+fn resolve_git_bash() -> Result<String, AppError> {
+    let mut candidates = Vec::new();
+    if let Some(program_files) = std::env::var_os("ProgramFiles") {
+        let root = Path::new(&program_files).join("Git");
+        candidates.extend([root.join("bin\\bash.exe"), root.join("usr\\bin\\bash.exe")]);
+    }
+    if let Some(local_app_data) = std::env::var_os("LocalAppData") {
+        let root = Path::new(&local_app_data).join("Programs\\Git");
+        candidates.extend([root.join("bin\\bash.exe"), root.join("usr\\bin\\bash.exe")]);
+    }
+    if let Some(path) = crate::agent::find_in_path("bash") {
+        candidates.push(path);
+    }
+    candidates
+        .into_iter()
+        .find(|path| path.is_file())
+        .map(|path| path.to_string_lossy().to_string())
+        .ok_or_else(|| {
+            AppError::not_found("Git Bash was not found in common install locations or PATH")
+        })
+}
+
+#[cfg(not(target_os = "windows"))]
+fn resolve_git_bash() -> Result<String, AppError> {
+    Err(AppError::unsupported(
+        "Git Bash is only available on Windows",
+    ))
 }
 
 fn shell_display_name(shell: &str) -> String {
@@ -333,5 +566,50 @@ mod tests {
             resolve_ssh_launch(&cwd, &HashMap::new(), None).is_err(),
             "ssh without a target must not resolve"
         );
+    }
+
+    #[test]
+    fn shell_detection_keeps_a_stable_fixed_profile_order() {
+        let profiles = detect_shell_profiles();
+        let ids: Vec<&str> = profiles.iter().map(|profile| profile.id.as_str()).collect();
+        assert_eq!(
+            ids,
+            [
+                "system-default",
+                "shell:zsh",
+                "shell:bash",
+                "shell:fish",
+                "shell:pwsh",
+                "shell:powershell",
+                "shell:cmd",
+                "shell:wsl",
+                "shell:git-bash",
+            ]
+        );
+        assert!(profiles[0].is_default);
+        assert!(profiles[1..].iter().all(|profile| !profile.is_default));
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn macos_shell_detection_marks_windows_profiles_unavailable() {
+        let profiles = detect_shell_profiles();
+        for id in [
+            "shell:pwsh",
+            "shell:powershell",
+            "shell:cmd",
+            "shell:wsl",
+            "shell:git-bash",
+        ] {
+            let profile = profiles.iter().find(|profile| profile.id == id).unwrap();
+            assert!(!profile.available);
+            assert!(
+                profile
+                    .reason
+                    .as_deref()
+                    .unwrap_or_default()
+                    .contains("Windows")
+            );
+        }
     }
 }

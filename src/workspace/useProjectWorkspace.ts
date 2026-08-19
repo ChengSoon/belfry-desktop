@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { TerminalSnapshot } from "../components/TerminalViewport";
-import { sshDisplayName, type SshLaunch } from "../terminal/contracts";
+import {
+  isShellProfileId,
+  sshDisplayName,
+  type ShellProfile,
+  type ShellProfileId,
+  type SshLaunch,
+} from "../terminal/contracts";
 import { detectAgents, openProject } from "./api";
+import { listShellProfiles } from "../terminal/api";
 import type { HistorySession } from "../history/contracts";
 import type {
   AgentAvailability,
@@ -51,6 +58,7 @@ export function useProjectWorkspace() {
       ?? null
   ));
   const [agents, setAgents] = useState<AgentAvailability[]>(pendingAgents());
+  const [shellProfiles, setShellProfiles] = useState<ShellProfile[]>(pendingShellProfiles());
   const [recentProjects, setRecentProjects] = useState<RecentProject[]>(loadRecentProjects);
   const [failure, setFailure] = useState<AppFailure | null>(null);
   const [opening, setOpening] = useState(true);
@@ -97,8 +105,11 @@ export function useProjectWorkspace() {
             (tab) => tab.id === restoredWorkspace.activeTabId,
           )?.project ?? restoredWorkspace.tabs[0]?.project;
           if (restoredProject) acceptProject(restoredProject);
-          const detected = await loadAgentState();
-          if (version === requestVersion.current) setAgents(detected);
+          const [detected, shells] = await Promise.all([loadAgentState(), loadShellProfileState()]);
+          if (version === requestVersion.current) {
+            setAgents(detected);
+            setShellProfiles(shells);
+          }
           return;
         }
         const workspace = await openProject(initialProjectPath.current);
@@ -107,8 +118,11 @@ export function useProjectWorkspace() {
         setTabs([tab]);
         setActiveTabId(tab.id);
         acceptProject(workspace);
-        const detected = await loadAgentState();
-        if (version === requestVersion.current) setAgents(detected);
+        const [detected, shells] = await Promise.all([loadAgentState(), loadShellProfileState()]);
+        if (version === requestVersion.current) {
+          setAgents(detected);
+          setShellProfiles(shells);
+        }
       } catch (error) {
         if (version === requestVersion.current) setFailure(toAppFailure(error));
       } finally {
@@ -129,7 +143,19 @@ export function useProjectWorkspace() {
     }
   }, [activeTabId, readyToPersist, serializedWorkspace, tabs]);
 
-  const launch = useCallback(async (kind: WorkspaceTabKind) => {
+  const launch = useCallback(async (kind: WorkspaceTabKind, requestedProfile?: ShellProfileId) => {
+    const profileId = kind === "shell" ? requestedProfile ?? "system-default" : null;
+    const shellAvailability = profileId && profileId !== "system-default"
+      ? shellProfiles.find((profile) => profile.id === profileId)
+      : null;
+    if (shellAvailability && !shellAvailability.available) {
+      setFailure({
+        code: "NOT_FOUND",
+        message: shellAvailability.reason ?? `${profileId} 不可用`,
+        retryable: true,
+      });
+      return;
+    }
     const availability = kind === "codex" || kind === "claude"
       ? agents.find((agent) => agent.kind === kind)
       : null;
@@ -150,10 +176,17 @@ export function useProjectWorkspace() {
     }
     // tab 必须在 updater 外建：updater 在 StrictMode 下会跑两次，
     // 每次 randomUUID 不同，setActiveTabId 就会指向一个被丢弃的 id。
-    const tab = createWorkspaceTab(target, kind, nextOrdinal(tabs, kind));
+    const tab = createWorkspaceTab(
+      target,
+      kind,
+      nextOrdinal(tabs, kind),
+      null,
+      null,
+      profileId && isShellProfileId(profileId) ? profileId : "system-default",
+    );
     setTabs((current) => [...current, tab]);
     setActiveTabId(tab.id);
-  }, [acceptProject, activeProject, agents, tabs]);
+  }, [acceptProject, activeProject, agents, shellProfiles, tabs]);
 
   /** SSH 会话：凭证不落地，连接在终端里由 OpenSSH 交互，这里只建 tab。 */
   const launchSsh = useCallback(async (target: SshLaunch) => {
@@ -279,13 +312,18 @@ export function useProjectWorkspace() {
   const redetectAgents = useCallback(async () => {
     const version = requestVersion.current;
     setAgents(pendingAgents());
-    const detected = await loadAgentState();
-    if (version === requestVersion.current) setAgents(detected);
+    setShellProfiles(pendingShellProfiles());
+    const [detected, shells] = await Promise.all([loadAgentState(), loadShellProfileState()]);
+    if (version === requestVersion.current) {
+      setAgents(detected);
+      setShellProfiles(shells);
+    }
   }, []);
 
   return {
     activeProject,
     agents,
+    shellProfiles,
     tabs,
     activeTabId,
     recentProjects,
@@ -316,12 +354,42 @@ function pendingAgents(): AgentAvailability[] {
   }));
 }
 
+function pendingShellProfiles(): ShellProfile[] {
+  const ids: ShellProfileId[] = [
+    "system-default",
+    "shell:zsh",
+    "shell:bash",
+    "shell:fish",
+    "shell:pwsh",
+    "shell:powershell",
+    "shell:cmd",
+    "shell:wsl",
+    "shell:git-bash",
+  ];
+  return ids.map((id) => ({
+    id,
+    available: false,
+    executable: null,
+    isDefault: id === "system-default",
+    reason: "正在检测可用 Shell…",
+  }));
+}
+
 async function loadAgentState() {
   try {
     return await detectAgents();
   } catch (error) {
     const message = toAppFailure(error).message;
     return pendingAgents().map((agent) => ({ ...agent, reason: message }));
+  }
+}
+
+async function loadShellProfileState() {
+  try {
+    return await listShellProfiles();
+  } catch (error) {
+    const message = toAppFailure(error).message;
+    return pendingShellProfiles().map((profile) => ({ ...profile, reason: message }));
   }
 }
 

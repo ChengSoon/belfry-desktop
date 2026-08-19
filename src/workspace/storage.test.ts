@@ -100,6 +100,36 @@ describe("workspace session persistence", () => {
     expect(plain?.tabs[0].resumeSessionId).toBeNull();
   });
 
+  it("persists the selected shell profile and keeps old saves on the default", () => {
+    const shell = {
+      ...createWorkspaceTab(project, "shell", 1, null, null, "shell:bash"),
+      id: "shell-bash",
+    };
+    const restored = parseWorkspaceState(serializeWorkspaceState([shell], shell.id));
+    expect(restored?.tabs[0].profileId).toBe("shell:bash");
+
+    const old = parseWorkspaceState(JSON.stringify({
+      tabs: [{ id: "legacy", project, kind: "shell", title: "Shell 01", titleHint: null }],
+      activeTabId: "legacy",
+    }));
+    expect(old?.tabs[0].profileId).toBe("system-default");
+  });
+
+  it("rejects a persisted shell profile outside the fixed allowlist", () => {
+    const restored = parseWorkspaceState(JSON.stringify({
+      tabs: [{
+        id: "unsafe",
+        project,
+        kind: "shell",
+        title: "Shell 01",
+        titleHint: null,
+        profileId: "/bin/sh",
+      }],
+      activeTabId: "unsafe",
+    }));
+    expect(restored?.tabs).toEqual([]);
+  });
+
   it("persists and restores ssh connection targets", () => {
     const ssh = {
       ...createWorkspaceTab(

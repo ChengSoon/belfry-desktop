@@ -34,6 +34,9 @@ import { emptyInputLine, feedInputLine, muteInputLine } from "./inputLine";
 import { formatDroppedPaths, pointInsideRect } from "./fileDrop";
 import { looksLikePasswordPrompt } from "./passwordPrompt";
 import { acceptSequence } from "./sequence";
+import { registerHttpLinkProvider } from "./links";
+import { TerminalSearchController } from "./search";
+import { configureUnicode } from "./unicode";
 
 /** 低于此宽度视为布局瞬态，不下发 resize。约等于 10 列等宽字符。 */
 const MIN_HOST_WIDTH = 80;
@@ -50,6 +53,8 @@ export interface MountCallbacks {
   onInput: (line: string) => void;
   /** 会话在生成 / 等按键 / 闲着，供侧栏显示。只有 Agent 会话会翻。 */
   onActivity: (activity: SessionActivity) => void;
+  /** Ctrl/Cmd+F 请求打开搜索浮层，由 React 负责呈现。 */
+  onSearchRequest: () => void;
 }
 
 export interface TerminalHandle {
@@ -63,6 +68,10 @@ export interface TerminalHandle {
   applyTheme: (theme: TerminalTheme, transparent: boolean) => void;
   /** 字体变化只刷新 xterm 并重新 fit，不能重挂终端，否则会杀掉 PTY。 */
   applyTypography: (config: TypographyRuntime) => void;
+  search: TerminalSearchController;
+  focus: () => void;
+  /** Composer 走可信的 xterm 输入通道提交多行文本，不直接绕过终端写 PTY。 */
+  sendText: (text: string) => boolean;
   dispose: () => void;
 }
 
@@ -75,6 +84,9 @@ export function mountTerminal(
   callbacks: MountCallbacks,
 ): TerminalHandle {
   const terminal = createXterm(theme, transparent, typography);
+  configureUnicode(terminal);
+  const linkProvider = registerHttpLinkProvider(terminal);
+  const search = new TerminalSearchController(terminal);
   const fit = new FitAddon();
   terminal.loadAddon(fit);
   terminal.open(host);
@@ -101,6 +113,10 @@ export function mountTerminal(
       if (!useWebClipboard) return true;
       if (typeof navigator.clipboard?.readText !== "function") return true;
       return consumeWebClipboardPaste(event, () => void pasteClipboard(terminal));
+    }
+    if (key === "f") {
+      callbacks.onSearchRequest();
+      return false;
     }
     /* Ctrl+C 在终端里本来就是 SIGINT，但用户按下它时多半只是想复制刚选中的那段。
        按选区分流：有选区就复制，没选区才把 ^C 发下去——想中断的时候通常没在选东西。
@@ -233,6 +249,16 @@ export function mountTerminal(
         scheduleTypographyResize();
       }).catch(() => undefined);
     },
+    search,
+    focus: () => terminal.focus(),
+    sendText: (text) => {
+      if (disposed || !current || !text) return false;
+      terminal.focus();
+      // paste() 保留多行内容并遵守 bracketed-paste；回车放在 paste 之外才会真正提交。
+      terminal.paste(text);
+      terminal.input("\r", true);
+      return true;
+    },
     dispose: () => {
       disposed = true;
       host.classList.remove("is-file-drag-over");
@@ -244,6 +270,7 @@ export function mountTerminal(
       activity?.dispose();
       if (current) void closeTerminal(current.id).catch(() => undefined);
       renderer?.dispose();
+      linkProvider.dispose();
       terminal.dispose();
     },
   };
@@ -422,6 +449,8 @@ function createXterm(
 ) {
   // 配色必须在构造时就位：会话创建请求要带上背景色，而它在挂载的同一个同步块里就发出去了。
   return new Terminal({
+    // Unicode provider 使用 xterm 的 proposed API；不显式开启时，首个终端挂载会抛异常并导致整页白屏。
+    allowProposedApi: true,
     // 开背景图时必须打开，否则 xterm 会把底色实心涂满、图整个被盖住。
     // 官方说明它对性能有影响，所以没背景图时照旧关着。
     allowTransparency: transparent,

@@ -1,9 +1,10 @@
 use tauri::{State, ipc::Channel};
 
 use super::contracts::{
-    AppError, CreateTerminalRequest, SshTarget, TerminalEvent, TerminalPalette, TerminalSession,
-    TerminalSize,
+    AppError, CreateTerminalRequest, ShellProfile, SshTarget, TerminalEvent, TerminalPalette,
+    TerminalSession, TerminalSize,
 };
+use super::launch::detect_shell_profiles;
 use super::runtime::TerminalRuntime;
 
 #[tauri::command]
@@ -13,6 +14,11 @@ pub fn terminal_create(
     on_event: Channel<TerminalEvent>,
 ) -> Result<TerminalSession, AppError> {
     runtime.create(request, on_event)
+}
+
+#[tauri::command]
+pub fn terminal_shell_profiles() -> Vec<ShellProfile> {
+    detect_shell_profiles()
 }
 
 #[tauri::command]

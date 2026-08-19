@@ -62,12 +62,15 @@ claude --version
 - 打开本地目录作为项目，记住最近打开过的
 - 侧栏按项目分组，可折叠，宽度可拖拽（`⌘B` 整体收起）
 - 会话自带项目归属，不同会话可以指向不同目录
+- Quick Open（`⌘K`）可搜索并切换会话、打开最近项目或执行常用工作区动作
 
 **Agent 托管**
 
 - 自动检测 Codex 与 Claude Code：可执行文件路径、版本号，不可用时给出原因
 - 会话状态区分进程生命周期（创建中/运行/已退出/出错）与当下行为（闲着/正在输出/等你选）
 - 标签标题从你的第一句输入里提取，完整原文留在 tooltip
+- Prompt Composer（`⌘J`；Windows / Linux 为 `Ctrl+Shift+J`）可把多行指令发给指定的 Codex / Claude 会话
+- Agent 忙碌或等待确认时，新的指令按会话分别排队；Agent 回到空闲后按提交顺序自动发送，可手动移除或立即发送
 
 **活动通知**
 
@@ -95,6 +98,7 @@ claude --version
     之后的连接自动填入；SSH 表单里可随时清除已保存的密码
 - OSC 10/11 颜色查询在 Rust 侧直接应答。这件事绕不过去：Codex 这类 TUI 只给 100 ms 窗口，走一圈 `PTY → IPC → xterm.js → IPC → PTY` 经常超时，而 Windows 上超时的后果不是「没颜色」而是「猜错颜色」——Codex 会退回读 ConPTY 的黑色调色板，把输入框画成黑块
 - 密码提示识别，输入不回显
+- `⌘F` 搜索当前终端内容，支持跨换行匹配；HTTP(S) 地址可点击打开；CJK、组合字符和 emoji 按正确宽度显示
 
 **用量统计**
 
@@ -110,7 +114,7 @@ claude --version
 - 可导入多个 TTF / OTF / WOFF / WOFF2 字体，分别切换或删除，并可随时切回系统字体
 - 内置 JetBrains Mono 与 HarmonyOS Sans SC
 
-Belfry 快捷键：`⌘T` 新建 Shell，`⌘B` 折叠侧栏，`⌘U` 开关用量，`⌘⇧H` 开关历史，
+Belfry 快捷键：`⌘T` 新建 Shell，`⌘B` 折叠侧栏，`⌘J` 打开 Prompt Composer，`⌘K` 打开 Quick Open，`⌘U` 开关用量，`⌘⇧H` 开关历史，
 `⌘,` 打开设置，`⌘1–9` 切换会话，`⌘/` 打开快捷指令。Windows / Linux 统一使用
 `Ctrl+Shift` 组合，避免占用 Codex 与 Claude 的原生 `Ctrl` 快捷键。
 
@@ -167,6 +171,8 @@ cd src-tauri && cargo test
 src/                  前端
   workspace/          项目工作区、标签、侧栏
   terminal/           PTY 会话与 xterm 控制
+  prompt/             Prompt Composer 与按 Agent 分流的队列
+  quickopen/          会话、项目与动作的快速搜索
   provider/           Agent CLI 的 provider 切换
   settings/           设置对话框（外观、Provider）
   notify/             活动通知与角标
@@ -190,7 +196,20 @@ src-tauri/src/        Rust 后端
 
 已交付的垂直切片之后，按 [`.codestable/roadmap/belfry-desktop/`](.codestable/roadmap/belfry-desktop/) 的划分推进：
 
-- **Shared UI** — 分屏、设置、Prompt Composer 与 Queue、Quick Open、文件预览 Pane
+### 已交付版本
+
+- **v0.10.0 · Terminal foundation**：跨平台 Shell Profile、终端内容搜索、可点击 HTTP(S) 链接、Unicode 宽度 provider，以及旧工作区存档兼容。
+- **v0.11.0 · Workspace navigation**：Quick Open 搜索会话 / 项目 / 动作，支持键盘导航和常用工作区操作。
+- **v0.12.0 · Prompt Composer & Queue**：从独立 Composer 选择 Codex / Claude 会话，提交多行 Prompt；Agent 忙时按会话排队，空闲后串行派发，并处理目标重挂、发送失败和会话关闭清理。
+
+### 下一阶段
+
+- **v0.13.0 · File preview pane**：从项目和终端路径打开只读文件预览，支持目录导航、语法高亮、跟随当前会话项目，并在文件变化时提示刷新。
+- **v0.14.0 · Agent adapter foundation**：把 Codex / Claude 的启动、状态和历史能力收进统一适配层，为后续 Recipe 回放与导入导出提供稳定契约。
+
+### 长期方向
+
+- **Shared UI** — 分屏、设置、Prompt Composer 与 Queue、Quick Open、文件预览 Pane（v0.13）
 - **Shared Core** — 会话持久化与恢复、Agent Adapter 基座、历史与 resume、Recipe 回放、导入导出
 - **Terminal Runtime** — 跨平台 Shell Profile（zsh/bash/fish、PowerShell/CMD/WSL/Git Bash）、SSH
 - **Platform Services** — 通知、Dock / Taskbar、凭证（Keychain / Credential Manager）、全局快捷键、控制 CLI
