@@ -1,22 +1,15 @@
 //! 编排历史会话的列取与删除。
 
-use crate::agent::AgentKind;
+use crate::agent::{AgentKind, adapter_for};
 use crate::terminal::AppError;
 
 use super::contracts::HistorySession;
-use super::scan::{
-    claude_sessions_root, codex_sessions_root, collect_jsonl_files, remove_session_file,
-    validate_session_id,
-};
-use super::{claude, codex};
+use super::scan::{remove_session_file, validate_session_id};
 
 /// 列出某 Agent 的全部历史会话，按最后活跃时间倒序。
 pub fn list(agent: AgentKind) -> Vec<HistorySession> {
-    let mut sessions = match agent {
-        AgentKind::Codex => codex::scan(),
-        AgentKind::Claude => claude::scan(),
-    };
-    sessions.sort_by(|a, b| b.last_active_at.cmp(&a.last_active_at));
+    let mut sessions = adapter_for(agent).history().list();
+    sessions.sort_by_key(|session| std::cmp::Reverse(session.last_active_at));
     sessions
 }
 
@@ -24,17 +17,12 @@ pub fn list(agent: AgentKind) -> Vec<HistorySession> {
 /// 前端据此提示"已被删除"。
 pub fn delete(agent: AgentKind, session_id: &str) -> Result<(), AppError> {
     validate_session_id(session_id)?;
-    let (root, find): (
-        Option<std::path::PathBuf>,
-        fn(&std::path::Path, &str) -> Vec<std::path::PathBuf>,
-    ) = match agent {
-        AgentKind::Codex => (codex_sessions_root(), codex::find_files),
-        AgentKind::Claude => (claude_sessions_root(), claude::find_files),
-    };
+    let history = adapter_for(agent).history();
+    let root = history.sessions_root();
     let Some(root) = root else {
         return Err(AppError::not_found("session directory was not found"));
     };
-    let files = find(&root, session_id);
+    let files = history.find_files(&root, session_id);
     if files.is_empty() {
         return Err(AppError::not_found("session was not found"));
     }
@@ -46,20 +34,7 @@ pub fn delete(agent: AgentKind, session_id: &str) -> Result<(), AppError> {
 
 /// 清空某 Agent 的全部会话，返回删除的文件数。
 pub fn clear(agent: AgentKind) -> Result<u32, AppError> {
-    let root = match agent {
-        AgentKind::Codex => codex_sessions_root(),
-        AgentKind::Claude => claude_sessions_root(),
-    };
-    let Some(root) = root else {
-        return Ok(0);
-    };
-    let mut removed = 0;
-    for path in collect_jsonl_files(&root) {
-        if remove_session_file(&root, &path).is_ok() {
-            removed += 1;
-        }
-    }
-    Ok(removed)
+    adapter_for(agent).history().clear()
 }
 
 #[cfg(test)]

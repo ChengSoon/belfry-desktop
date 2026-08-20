@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 
 use serde_json::Value;
 
+use crate::agent::{AgentKind, AgentSessionRef};
 use crate::usage::timestamp::parse_rfc3339;
 
 use super::contracts::HistorySession;
@@ -49,8 +50,15 @@ fn scan_file(path: &Path) -> Option<HistorySession> {
         meta.done()
     });
 
-    Some(HistorySession {
+    let session_ref = AgentSessionRef {
+        agent: AgentKind::Claude,
         id,
+    };
+    session_ref.validate().ok()?;
+    Some(HistorySession {
+        agent: AgentKind::Claude,
+        id: session_ref.id.clone(),
+        session_ref,
         title: meta.title.unwrap_or_default(),
         cwd: meta.cwd,
         started_at: meta
@@ -75,10 +83,8 @@ fn take_user(record: &Value, meta: &mut Meta) {
     };
     let text = parts
         .iter()
-        .filter_map(|part| {
-            (part["type"].as_str() == Some("text"))
-                .then(|| part["text"].as_str().unwrap_or_default())
-        })
+        .filter(|part| part["type"].as_str() == Some("text"))
+        .map(|part| part["text"].as_str().unwrap_or_default())
         .collect::<Vec<_>>()
         .join("\n");
     if text.trim().is_empty() {
@@ -132,6 +138,9 @@ mod tests {
             ],
         );
         let session = scan_file(&path).unwrap();
+        assert_eq!(session.agent, AgentKind::Claude);
+        assert_eq!(session.session_ref.agent, AgentKind::Claude);
+        assert_eq!(session.session_ref.id, session.id);
         assert_eq!(session.id, "cf32a9a3-0a60-427b-8bba-823e36c66d13");
         assert_eq!(session.cwd.as_deref(), Some("/work/a"));
         assert_eq!(session.title, "注册的账号是什么原因");

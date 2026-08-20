@@ -1,9 +1,11 @@
 import type {
+  AgentSessionRef,
   ProjectWorkspace,
   RecentProject,
   WorkspaceTab,
   WorkspaceTabKind,
 } from "./contracts";
+import { isAgentSessionId, isAgentSessionRef } from "../agent/contracts";
 import {
   isShellProfileId,
   type LaunchProfileId,
@@ -72,6 +74,7 @@ export function serializeWorkspaceState(tabs: WorkspaceTab[], activeTabId: strin
       customTitle,
       profileId,
       resumeSessionId,
+      agentSessionRef,
       sshTarget,
     }) => ({
       id,
@@ -82,6 +85,7 @@ export function serializeWorkspaceState(tabs: WorkspaceTab[], activeTabId: strin
       customTitle,
       profileId,
       resumeSessionId,
+      agentSessionRef,
       // 密码只进系统钥匙串：工作区存档只保留连接目标本身。
       sshTarget: sshTarget ? { host: sshTarget.host, user: sshTarget.user, port: sshTarget.port } : null,
     })),
@@ -98,6 +102,7 @@ export function parseWorkspaceState(value: string | null): PersistedWorkspaceSta
   const tabs = parsed.tabs.flatMap((value): WorkspaceTab[] => {
     if (!isPersistedTab(value) || ids.has(value.id)) return [];
     ids.add(value.id);
+    const sessionRef = sessionRefForPersistedTab(value);
     return [{
       id: value.id,
       project: value.project,
@@ -105,7 +110,8 @@ export function parseWorkspaceState(value: string | null): PersistedWorkspaceSta
       title: value.title,
       titleHint: value.titleHint,
       customTitle: value.customTitle ?? null,
-      resumeSessionId: value.resumeSessionId ?? null,
+      resumeSessionId: sessionRef?.id ?? null,
+      agentSessionRef: sessionRef,
       profileId: profileIdForKind(value.kind, value.profileId),
       sshTarget: value.kind === "ssh" && value.sshTarget
         ? { ...value.sshTarget, password: null, rememberPassword: false }
@@ -177,6 +183,8 @@ interface PersistedTab {
   profileId?: LaunchProfileId;
   /** 旧版本存档没有该字段，解析时按 null 处理。 */
   resumeSessionId: string | null;
+  /** v0.14 explicit Agent identity; absent in older saves. */
+  agentSessionRef?: AgentSessionRef | null;
   /** SSH 会话的连接目标；旧版本存档没有该字段，解析时按 null 处理。 */
   sshTarget: SshTarget | null;
 }
@@ -198,9 +206,37 @@ function isPersistedTab(value: unknown): value is PersistedTab {
     // 旧版本存档没有该字段（undefined 也要放行），解析时按 null 处理。
     && (value.resumeSessionId === undefined
       || value.resumeSessionId === null
-      || typeof value.resumeSessionId === "string")
+      || (typeof value.resumeSessionId === "string"
+        && isAgentSessionIdForKind(value.kind, value.resumeSessionId)))
+    && (value.agentSessionRef === undefined
+      || value.agentSessionRef === null
+      || isAgentSessionRef(value.agentSessionRef))
+    && ((value.kind === "codex" || value.kind === "claude")
+      ? (value.agentSessionRef === undefined
+        || value.agentSessionRef === null
+        || value.agentSessionRef.agent === value.kind)
+      : value.agentSessionRef === undefined || value.agentSessionRef === null)
+    && (value.agentSessionRef === undefined
+      || value.agentSessionRef === null
+      || value.resumeSessionId === undefined
+      || value.resumeSessionId === null
+      || value.agentSessionRef.id === value.resumeSessionId)
     // SSH 会话必须带目标，否则重启后拉不起进程；旧存档没有 ssh 会话，不受影响。
     && (value.kind !== "ssh" || isSshTarget(value.sshTarget));
+}
+
+function sessionRefForPersistedTab(value: PersistedTab): AgentSessionRef | null {
+  if (value.kind !== "codex" && value.kind !== "claude") return null;
+  if (value.agentSessionRef?.agent === value.kind && value.agentSessionRef.id) {
+    return value.agentSessionRef;
+  }
+  return value.resumeSessionId && isAgentSessionId(value.resumeSessionId)
+    ? { agent: value.kind, id: value.resumeSessionId }
+    : null;
+}
+
+function isAgentSessionIdForKind(kind: WorkspaceTabKind, value: string) {
+  return (kind === "codex" || kind === "claude") && isAgentSessionId(value);
 }
 
 function isSshTarget(value: unknown): value is SshTarget {

@@ -2,7 +2,20 @@
 
 本文件记录 Belfry 面向用户的版本更新，按版本倒序排列。版本日期以 Git 发布节点为准。
 
-当前整理范围：`v0.6.0` 至 `v0.13.0`。
+当前整理范围：`v0.6.0` 至 `v0.14.0`。
+
+## [0.14.0] - 2026-08-20
+
+### 新增
+
+- **Agent adapter foundation**：将 Codex / Claude 的检测、启动、resume、历史扫描与清理统一到适配器契约，集中描述能力和 Agent 身份。
+- **会话身份与恢复安全**：历史会话携带显式 Agent + session reference，恢复参数和工作区存档在边界处校验，避免跨 Agent 冲突和路径型 session id。
+- **生命周期契约**：提供版本化的 Agent 状态快照、生命周期事件和恢复计划 DTO，为后续结构化 hooks 与 Recipe 回放预留稳定接口。
+- **快捷指令面板优化**：改为更宽的双列布局，固定快捷键 / 命令值列，补充分组计数、上下文提示与窄屏响应式排版，避免内容被压缩。
+
+### 修复
+
+- 修复历史操作在 Agent 切换和首屏 Agent 检测期间的异步竞态，防止使用过期 Agent 上下文恢复会话。
 
 ## [0.13.0] - 2026-08-19
 
@@ -97,6 +110,7 @@
 
 [0.12.0]: https://github.com/ChengSoon/belfry-desktop/releases/tag/v0.12.0
 [0.13.0]: https://github.com/ChengSoon/belfry-desktop/releases/tag/v0.13.0
+[0.14.0]: https://github.com/ChengSoon/belfry-desktop/releases/tag/v0.14.0
 [0.11.0]: https://github.com/ChengSoon/belfry-desktop/releases/tag/v0.11.0
 [0.10.0]: https://github.com/ChengSoon/belfry-desktop/releases/tag/v0.10.0
 

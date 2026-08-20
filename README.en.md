@@ -199,10 +199,10 @@ Past the delivered vertical slice, work proceeds along the split in [`.codestabl
 - **v0.11.0 · Workspace navigation**: Quick Open search across sessions, projects, and actions, with keyboard navigation and common workspace commands.
 - **v0.12.0 · Prompt Composer & Queue**: choose a Codex or Claude session, submit multiline prompts from a dedicated Composer, queue per session while the agent is busy, dispatch serially when idle, and recover queued work across target remounts, send failures, and session closure.
 - **v0.13.0 · File Preview Pane**: browse the project tree, open size-limited read-only text previews, jump from terminal paths, add lightweight syntax highlighting, protect binary files, and surface external changes.
+- **v0.14.0 · Agent adapter foundation**: unify Codex / Claude detection, launch, state, history, and resume behind one adapter layer, with explicit session identity validation, safe resume planning, and a responsive two-column shortcut guide.
 
 ### Next milestones
 
-- **v0.14.0 · Agent adapter foundation**: unify Codex / Claude launch, state, and history capabilities behind a stable adapter contract for recipe replay and import / export.
 - **v0.15.0 · Recipe workspace**: save reusable multi-step Agent instructions with variables, target-session selection, queued execution, retry handling, and run history.
 
 ### Long-term tracks

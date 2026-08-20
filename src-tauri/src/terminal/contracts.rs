@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::agent::{AgentKind, AgentSessionRef};
+
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Platform {
@@ -233,22 +235,21 @@ impl CreateTerminalRequest {
             None => {}
         }
         if let Some(resume) = &self.resume {
-            let agent_profile = matches!(
-                profile,
-                LaunchProfileId::AgentCodex | LaunchProfileId::AgentClaude
-            );
-            if !agent_profile {
-                return Err(AppError::invalid_argument(
-                    "resume requires an agent launch profile",
-                ));
+            let agent = match profile {
+                LaunchProfileId::AgentCodex => AgentKind::Codex,
+                LaunchProfileId::AgentClaude => AgentKind::Claude,
+                _ => {
+                    return Err(AppError::invalid_argument(
+                        "resume requires an agent launch profile",
+                    ));
+                }
+            };
+            AgentSessionRef {
+                agent,
+                id: resume.clone(),
             }
-            if resume.is_empty()
-                || resume.contains('/')
-                || resume.contains('\\')
-                || resume.contains("..")
-            {
-                return Err(AppError::invalid_argument("resume session id is invalid"));
-            }
+            .validate()
+            .map_err(AppError::invalid_argument)?;
         }
         if self.elevation != Elevation::Normal {
             return Err(AppError::unsupported(
@@ -543,5 +544,25 @@ mod tests {
             request.validate().is_err(),
             "target without the ssh profile"
         );
+    }
+
+    #[test]
+    fn resume_uses_the_agent_session_id_contract() {
+        let mut request = CreateTerminalRequest {
+            platform: Platform::Macos,
+            profile_id: "agent:codex".to_string(),
+            cwd: Some("file:///tmp".to_string()),
+            command: None,
+            env: std::collections::HashMap::new(),
+            resume: Some(".".to_string()),
+            ssh: None,
+            cols: 120,
+            rows: 36,
+            elevation: Elevation::Normal,
+            palette: None,
+        };
+        assert!(request.validate().is_err());
+        request.resume = Some("x".repeat(513));
+        assert!(request.validate().is_err());
     }
 }

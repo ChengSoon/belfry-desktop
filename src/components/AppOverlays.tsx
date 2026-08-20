@@ -12,7 +12,6 @@ import type { UpdaterState } from "../updater/contracts";
 import { UsagePanel } from "../usage/components/UsagePanel";
 import { closeConfirmBody } from "../workspace/closeConfirm";
 import type {
-  AgentKind,
   AppFailure,
   ProjectWorkspace,
   RecentProject,
@@ -51,7 +50,7 @@ interface AppOverlaysProps {
   onConfirmRemove: () => void;
   onDismissFailure: () => void;
   onInstallUpdate: () => void;
-  onResumeHistory: (kind: AgentKind, session: HistorySession) => void;
+  onResumeHistory: (session: HistorySession) => void;
   onSelectQuickOpen: (item: QuickOpenItem) => void;
 }
 

@@ -4,9 +4,9 @@
 //! 这里只关心会话本身的元数据，不解析用量。删除操作严格限制在各自的
 //! sessions 根目录内，会话 id 也做了形状校验，避免前端误传路径删到别处。
 
-mod claude;
-mod codex;
+pub(crate) mod claude;
+pub(crate) mod codex;
 pub mod commands;
-mod contracts;
-mod scan;
+pub(crate) mod contracts;
+pub(crate) mod scan;
 mod service;

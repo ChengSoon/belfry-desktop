@@ -7,30 +7,10 @@ use std::sync::OnceLock;
 use crate::resource::canonicalize;
 use crate::terminal::AppError;
 
-use super::contracts::{AgentAvailability, AgentKind};
+use super::contracts::{AgentAvailability, AgentDescriptor, AgentKind};
 
 #[cfg(target_os = "macos")]
 static LOGIN_SHELL_ENV: OnceLock<HashMap<String, String>> = OnceLock::new();
-
-pub fn detect_agents() -> Vec<AgentAvailability> {
-    // 两个 `--version` 都是独立的外部进程，串行只会把冷启动耗时相加。
-    // 保留 AgentKind::ALL 的稳定顺序，避免前端列表在探测完成后跳动。
-    std::thread::scope(|scope| {
-        AgentKind::ALL
-            .into_iter()
-            .map(|kind| (kind, scope.spawn(move || detect_agent(kind))))
-            .map(|(kind, handle)| {
-                handle.join().unwrap_or_else(|_| AgentAvailability {
-                    kind,
-                    available: false,
-                    executable: None,
-                    version: None,
-                    reason: Some(format!("检测 {} 时后台任务异常退出", kind.command_name())),
-                })
-            })
-            .collect()
-    })
-}
 
 pub(crate) fn resolve_agent(kind: AgentKind) -> Result<PathBuf, AppError> {
     find_agent(kind).ok_or_else(|| {
@@ -68,9 +48,10 @@ pub(crate) fn login_shell_env() -> &'static HashMap<String, String> {
     EMPTY.get_or_init(HashMap::new)
 }
 
-fn detect_agent(kind: AgentKind) -> AgentAvailability {
+pub(crate) fn detect_agent(kind: AgentKind) -> AgentAvailability {
     match find_agent(kind) {
         Some(path) => AgentAvailability {
+            descriptor: AgentDescriptor::for_kind(kind),
             kind,
             available: true,
             version: read_version(&path),
@@ -78,6 +59,7 @@ fn detect_agent(kind: AgentKind) -> AgentAvailability {
             reason: None,
         },
         None => AgentAvailability {
+            descriptor: AgentDescriptor::for_kind(kind),
             kind,
             available: false,
             executable: None,
@@ -300,7 +282,7 @@ mod tests {
 
     #[test]
     fn detection_always_reports_both_supported_agents() {
-        let result = detect_agents();
+        let result = super::super::adapter::detect_all();
         assert_eq!(result.len(), 2);
         assert_eq!(result[0].kind, AgentKind::Codex);
         assert_eq!(result[1].kind, AgentKind::Claude);

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { agentDescriptor, isAgentSessionRef } from "../agent/contracts";
 import type { TerminalSnapshot } from "../components/TerminalViewport";
 import {
   isShellProfileId,
@@ -63,6 +64,8 @@ export function useProjectWorkspace() {
   const [failure, setFailure] = useState<AppFailure | null>(null);
   const [opening, setOpening] = useState(true);
   const [readyToPersist, setReadyToPersist] = useState(restoredWorkspace !== null);
+  const agentDetectionPromise = useRef<Promise<AgentAvailability[]> | null>(null);
+  const agentDetectionGeneration = useRef(0);
   const requestVersion = useRef(0);
   const lastPersistedWorkspace = useRef<string | null>(null);
 
@@ -71,6 +74,17 @@ export function useProjectWorkspace() {
   const acceptProject = useCallback((workspace: ProjectWorkspace) => {
     setLastProject(workspace);
     setRecentProjects((current) => persistRecent(workspace, current));
+  }, []);
+
+  const startAgentDetection = useCallback(() => {
+    const generation = ++agentDetectionGeneration.current;
+    setAgents(pendingAgents());
+    const promise = loadAgentState();
+    agentDetectionPromise.current = promise;
+    void promise.then((detected) => {
+      if (generation === agentDetectionGeneration.current) setAgents(detected);
+    });
+    return promise;
   }, []);
 
   /**
@@ -99,15 +113,15 @@ export function useProjectWorkspace() {
     void bootstrap();
     async function bootstrap() {
       const version = ++requestVersion.current;
+      const agentDetection = startAgentDetection();
       try {
         if (restoredWorkspace) {
           const restoredProject = restoredWorkspace.tabs.find(
             (tab) => tab.id === restoredWorkspace.activeTabId,
           )?.project ?? restoredWorkspace.tabs[0]?.project;
           if (restoredProject) acceptProject(restoredProject);
-          const [detected, shells] = await Promise.all([loadAgentState(), loadShellProfileState()]);
+          const [, shells] = await Promise.all([agentDetection, loadShellProfileState()]);
           if (version === requestVersion.current) {
-            setAgents(detected);
             setShellProfiles(shells);
           }
           return;
@@ -118,9 +132,8 @@ export function useProjectWorkspace() {
         setTabs([tab]);
         setActiveTabId(tab.id);
         acceptProject(workspace);
-        const [detected, shells] = await Promise.all([loadAgentState(), loadShellProfileState()]);
+        const [, shells] = await Promise.all([agentDetection, loadShellProfileState()]);
         if (version === requestVersion.current) {
-          setAgents(detected);
           setShellProfiles(shells);
         }
       } catch (error) {
@@ -132,7 +145,7 @@ export function useProjectWorkspace() {
         }
       }
     }
-  }, [acceptProject, restoredWorkspace]);
+  }, [acceptProject, restoredWorkspace, startAgentDetection]);
 
   // 序列化结果排除了 phase/activity/error，因此终端刷屏不会反复写 localStorage。
   const serializedWorkspace = serializeWorkspaceState(tabs, activeTabId);
@@ -210,7 +223,15 @@ export function useProjectWorkspace() {
    * 从历史会话面板恢复一条会话：优先在会话原目录里新开（目录没了退回当前项目），
    * 启动参数带上 resumeSessionId，PTY 起来时直接进 resume。
    */
-  const launchHistorySession = useCallback(async (kind: AgentKind, session: HistorySession) => {
+  const launchHistorySession = useCallback(async (session: HistorySession) => {
+    // 历史扫描和 Agent 检测并行；恢复必须等检测结果，不能把 pending 当成不可用。
+    const detectedAgents = await (agentDetectionPromise.current ?? startAgentDetection());
+    const validationFailure = validateHistoryResume(session, detectedAgents);
+    if (validationFailure) {
+      setFailure(validationFailure);
+      return;
+    }
+    const { agent: kind, id: sessionId } = session.sessionRef;
     let target = activeProject;
     if (session.cwd) {
       try {
@@ -236,10 +257,10 @@ export function useProjectWorkspace() {
     // 序号在 updater 内基于最新列表计算：批量打开多条时不会全部叫 "Codex 01"。
     setTabs((current) => [
       ...current,
-      { ...createWorkspaceTab(target, kind, nextOrdinal(current, kind), session.id), id },
+      { ...createWorkspaceTab(target, kind, nextOrdinal(current, kind), sessionId), id },
     ]);
     setActiveTabId(id);
-  }, [acceptProject, activeProject]);
+  }, [acceptProject, activeProject, startAgentDetection]);
 
   const closeTab = useCallback((id: string) => {
     setTabs((current) => {
@@ -311,14 +332,13 @@ export function useProjectWorkspace() {
 
   const redetectAgents = useCallback(async () => {
     const version = requestVersion.current;
-    setAgents(pendingAgents());
+    const agentDetection = startAgentDetection();
     setShellProfiles(pendingShellProfiles());
-    const [detected, shells] = await Promise.all([loadAgentState(), loadShellProfileState()]);
+    const [, shells] = await Promise.all([agentDetection, loadShellProfileState()]);
     if (version === requestVersion.current) {
-      setAgents(detected);
       setShellProfiles(shells);
     }
-  }, []);
+  }, [startAgentDetection]);
 
   return {
     activeProject,
@@ -346,6 +366,7 @@ export function useProjectWorkspace() {
 
 function pendingAgents(): AgentAvailability[] {
   return (["codex", "claude"] as AgentKind[]).map((kind) => ({
+    descriptor: agentDescriptor(kind),
     kind,
     available: false,
     executable: null,
@@ -397,4 +418,35 @@ function persistRecent(project: ProjectWorkspace, current: RecentProject[]) {
   const next = rememberProject(project, current);
   saveRecentProjects(next);
   return next;
+}
+
+function validateHistoryResume(
+  session: HistorySession,
+  agents: AgentAvailability[],
+): AppFailure | null {
+  if (!isAgentSessionRef(session.sessionRef)
+    || session.agent !== session.sessionRef.agent
+    || session.id !== session.sessionRef.id) {
+    return {
+      code: "INVALID_ARGUMENT",
+      message: "历史会话的 Agent 身份不一致，无法恢复",
+      retryable: false,
+    };
+  }
+  const availability = agents.find((item) => item.kind === session.sessionRef.agent);
+  if (!availability?.available) {
+    return {
+      code: "NOT_FOUND",
+      message: availability?.reason ?? `${session.sessionRef.agent} 不可用`,
+      retryable: true,
+    };
+  }
+  if (!availability.descriptor.capabilities.resume) {
+    return {
+      code: "UNSUPPORTED",
+      message: `${availability.descriptor.displayName} 不支持恢复历史会话`,
+      retryable: false,
+    };
+  }
+  return null;
 }

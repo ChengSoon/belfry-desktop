@@ -1,6 +1,16 @@
 import type { LaunchProfileId, SessionActivity, SshLaunch, TerminalPhase } from "../terminal/contracts";
+import type {
+  AgentKind,
+  AgentSessionRef,
+} from "../agent/contracts";
 
-export type AgentKind = "codex" | "claude";
+export type {
+  AgentAvailability,
+  AgentCapabilities,
+  AgentDescriptor,
+  AgentKind,
+  AgentSessionRef,
+} from "../agent/contracts";
 export type WorkspaceTabKind = "shell" | "ssh" | AgentKind;
 
 export interface ProjectWorkspace {
@@ -8,14 +18,6 @@ export interface ProjectWorkspace {
   name: string;
   rootPath: string;
   rootUri: string;
-}
-
-export interface AgentAvailability {
-  kind: AgentKind;
-  available: boolean;
-  executable: string | null;
-  version: string | null;
-  reason: string | null;
 }
 
 export interface WorkspaceTab {
@@ -33,6 +35,8 @@ export interface WorkspaceTab {
   sshTarget: SshLaunch | null;
   /** 新建会话时继承的历史会话 id；普通会话为 null。 */
   resumeSessionId: string | null;
+  /** Agent 历史身份的显式引用；旧工作区只保留 resumeSessionId 时可为空。 */
+  agentSessionRef?: AgentSessionRef | null;
   phase: TerminalPhase;
   /** 与 phase 正交：phase 说进程活着没，activity 说它眼下在干什么。 */
   activity: SessionActivity;

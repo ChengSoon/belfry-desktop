@@ -24,7 +24,7 @@ import "../history.css";
 interface HistoryPanelProps {
   onClose: () => void;
   /** 选中一条历史会话：新开会话框继续它。 */
-  onResume: (agent: AgentKind, session: HistorySession) => void;
+  onResume: (session: HistorySession) => void;
 }
 
 const AGENTS: AgentKind[] = ["codex", "claude"];
@@ -71,9 +71,9 @@ export function HistoryPanel({ onClose, onResume }: HistoryPanelProps) {
 
   const resumeSelected = useCallback(() => {
     for (const session of history.sessions) {
-      if (selected.has(session.id)) onResume(history.agent, session);
+      if (selected.has(session.id)) onResume(session);
     }
-  }, [history.agent, history.sessions, onResume, selected]);
+  }, [history.sessions, onResume, selected]);
 
   return (
     <section className="history-panel" aria-label="历史会话" style={panelStyle}>
@@ -207,7 +207,7 @@ export function HistoryPanel({ onClose, onResume }: HistoryPanelProps) {
                     className="history-item__main"
                     onClick={() => {
                       if (selecting) toggleSelected(session.id);
-                      else onResume(history.agent, session);
+                      else onResume(session);
                     }}
                     title={selecting
                       ? (isSelected ? "取消选择" : "选择该会话")
@@ -225,7 +225,7 @@ export function HistoryPanel({ onClose, onResume }: HistoryPanelProps) {
                     <button
                       aria-label={`打开 ${session.title || "无标题会话"}`}
                       className="icon-button icon-button--sm"
-                      onClick={() => onResume(history.agent, session)}
+                      onClick={() => onResume(session)}
                       title="新开会话框继续该会话"
                       type="button"
                     >

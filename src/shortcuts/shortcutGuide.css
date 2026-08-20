@@ -19,13 +19,22 @@
 .modal--shortcut-guide {
   position: relative;
   display: grid;
-  width: min(720px, 100%);
-  max-height: min(640px, calc(100% - 32px));
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
-  gap: 14px;
+  width: min(760px, 100%);
+  max-height: min(720px, calc(100% - 32px));
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  gap: 12px;
   overflow: hidden;
-  padding: 20px;
+  padding: 22px;
   animation: shortcut-guide-in 180ms var(--ease) both;
+}
+
+/* workspace.css 里的通用 .modal 规则会在组件样式之后加载；提高选择器
+   特异性，确保快捷指令面板不会退回通用确认框的 360px 窄卡片。 */
+.modal.modal--shortcut-guide {
+  width: min(760px, 100%);
+  max-height: min(720px, calc(100% - 32px));
+  gap: 12px;
+  padding: 22px;
 }
 
 .modal--shortcut-guide::before {
@@ -42,17 +51,17 @@
 .shortcut-guide__head {
   display: grid;
   align-items: center;
-  gap: 11px;
-  grid-template-columns: 36px minmax(0, 1fr) 26px;
+  gap: 12px;
+  grid-template-columns: 38px minmax(0, 1fr) 30px;
 }
 
 .shortcut-guide__mark {
   display: grid;
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   place-items: center;
   border: 1px solid var(--border-strong);
-  border-radius: 9px;
+  border-radius: 10px;
   color: var(--accent);
   background: var(--accent-soft);
   box-shadow: inset 0 -2px 0 rgb(0 0 0 / 14%);
@@ -62,9 +71,9 @@
 
 .shortcut-guide__head strong {
   color: var(--text);
-  font-size: var(--fs-display);
+  font-size: 21px;
   font-weight: 500;
-  letter-spacing: -0.03em;
+  letter-spacing: 0;
 }
 
 .shortcut-guide__head p {
@@ -76,22 +85,23 @@
 .shortcut-guide__tabs {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 3px;
-  padding: 3px;
+  gap: 4px;
+  padding: 4px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface);
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--surface) 86%, var(--canvas));
 }
 
 .shortcut-guide__tabs button {
+  position: relative;
   display: flex;
   min-width: 0;
-  height: 34px;
+  height: 38px;
   align-items: center;
   justify-content: center;
   gap: 7px;
   border: 0;
-  border-radius: 7px;
+  border-radius: 8px;
   color: var(--text-faint);
   background: transparent;
   cursor: pointer;
@@ -109,23 +119,71 @@
 
 .shortcut-guide__tabs button[aria-selected="true"] > svg { color: var(--accent); }
 
+.shortcut-guide__tabs button[aria-selected="true"]::after {
+  position: absolute;
+  right: 22%;
+  bottom: 3px;
+  left: 22%;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+  content: "";
+}
+
+.shortcut-guide__context {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+  margin: 0 2px;
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+  line-height: 1.35;
+}
+
+.shortcut-guide__context-dot {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.shortcut-guide__context-count {
+  margin-left: auto;
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
 .shortcut-guide__body {
   min-height: 0;
   overflow-y: auto;
-  padding-right: 2px;
+  padding: 2px 3px 2px 0;
+  overscroll-behavior: contain;
   scrollbar-color: var(--scrollbar) transparent;
 }
 
 .shortcut-guide__groups {
   display: grid;
   align-items: start;
-  gap: 12px;
+  gap: 16px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.shortcut-group { display: grid; min-width: 0; gap: 7px; }
+.shortcut-group { display: grid; min-width: 0; gap: 8px; }
+
+.shortcut-group__head {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
 
 .shortcut-group h2 {
+  min-width: 0;
   margin: 0;
   color: var(--text-faint);
   font-size: var(--fs-xs);
@@ -133,8 +191,26 @@
   letter-spacing: 0.08em;
 }
 
+.shortcut-group__count {
+  display: inline-grid;
+  min-width: 20px;
+  height: 18px;
+  place-items: center;
+  padding: 0 5px;
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  color: var(--text-faint);
+  background: var(--surface);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1;
+}
+
 .shortcut-group__list {
   display: grid;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -143,29 +219,49 @@
 
 .shortcut-row {
   display: grid;
-  min-height: 38px;
+  min-width: 0;
+  min-height: 42px;
   align-items: center;
-  gap: 10px;
-  grid-template-columns: minmax(0, 1fr) auto;
-  padding: 6px 9px 6px 11px;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  padding: 7px 10px 7px 12px;
   color: var(--text-muted);
   font-size: var(--fs-sm);
+  line-height: 1.35;
   animation: shortcut-row-in 180ms var(--ease) both;
 }
 
 .shortcut-row + .shortcut-row { border-top: 1px solid var(--border); }
+.shortcut-row:hover { background: var(--surface-hover); }
 .shortcut-row:nth-child(2) { animation-delay: 20ms; }
 .shortcut-row:nth-child(3) { animation-delay: 40ms; }
 .shortcut-row:nth-child(4) { animation-delay: 60ms; }
 
+.shortcut-row__label {
+  min-width: 0;
+  overflow-wrap: break-word;
+  text-wrap: pretty;
+  word-break: keep-all;
+}
+
+.shortcut-row__value {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-end;
+}
+
 .shortcut-row code {
-  padding: 4px 6px;
+  min-width: 58px;
+  padding: 5px 8px;
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: 6px;
   color: var(--accent-hover);
   background: var(--accent-soft);
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
+  line-height: 1;
+  text-align: center;
   white-space: nowrap;
 }
 
@@ -173,18 +269,19 @@
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: 4px;
+  justify-content: flex-end;
+  gap: 5px;
   vertical-align: middle;
 }
 
 .key-chord kbd {
   display: inline-grid;
-  min-width: 25px;
-  height: 25px;
+  min-width: 27px;
+  height: 27px;
   place-items: center;
-  padding: 0 6px;
+  padding: 0 7px;
   border: 1px solid var(--border-strong);
-  border-radius: 6px;
+  border-radius: 7px;
   color: var(--text);
   background: var(--surface-raised);
   box-shadow: 0 2px 0 var(--border), inset 0 1px 0 rgb(255 255 255 / 5%);
@@ -197,14 +294,16 @@
 
 .shortcut-guide__foot {
   display: flex;
-  min-height: 34px;
+  min-height: 38px;
   align-items: center;
-  gap: 9px;
-  padding: 7px 10px;
-  border-radius: var(--radius-sm);
+  gap: 10px;
+  padding: 8px 11px;
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+  border-radius: 8px;
   color: var(--text-faint);
-  background: var(--accent-soft);
+  background: color-mix(in srgb, var(--accent-soft) 72%, var(--surface));
   font-size: var(--fs-sm);
+  line-height: 1.4;
 }
 
 .shortcut-guide__foot > span {
@@ -222,8 +321,19 @@
 
 @media (max-width: 620px) {
   .shortcut-guide__scrim { padding: 14px; }
-  .modal--shortcut-guide { max-height: calc(100% - 28px); gap: 12px; padding: 17px; }
+  .modal.modal--shortcut-guide { max-height: calc(100% - 28px); gap: 11px; padding: 17px; }
   .shortcut-guide__groups { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 420px) {
+  .shortcut-guide__scrim { padding: 10px; }
+  .modal.modal--shortcut-guide { max-height: calc(100% - 20px); padding: 14px; }
+  .shortcut-guide__head { grid-template-columns: 34px minmax(0, 1fr) 28px; gap: 9px; }
+  .shortcut-guide__mark { width: 34px; height: 34px; }
+  .shortcut-guide__head strong { font-size: 19px; }
+  .shortcut-guide__tabs button { height: 36px; gap: 5px; }
+  .shortcut-guide__tabs button span { font-size: var(--fs-xs); }
+  .shortcut-row { gap: 8px; padding-right: 8px; padding-left: 10px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

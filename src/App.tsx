@@ -20,7 +20,7 @@ import type { ShellProfileId, SshLaunch } from "./terminal/contracts";
 import { useTerminalTargets } from "./terminal/useTerminalTargets";
 import { needsCloseConfirm } from "./workspace/closeConfirm";
 import { Sidebar } from "./workspace/components/Sidebar";
-import type { AgentKind, RecentProject } from "./workspace/contracts";
+import type { RecentProject } from "./workspace/contracts";
 import { pathKey } from "./workspace/path";
 import { groupTabsByProject } from "./workspace/tabs";
 import { useFoldedProjects } from "./workspace/useFoldedProjects";
@@ -89,9 +89,9 @@ export default function App() {
     setHistoryOpen((value) => !value);
   }, []);
 
-  const resumeHistory = useCallback((kind: AgentKind, session: HistorySession) => {
+  const resumeHistory = useCallback((session: HistorySession) => {
     if (workspace.activeProject) unfold(workspace.activeProject.id);
-    void workspace.launchHistorySession(kind, session);
+    void workspace.launchHistorySession(session);
   }, [unfold, workspace.launchHistorySession, workspace.activeProject]);
 
   const quickOpen = useQuickOpen({

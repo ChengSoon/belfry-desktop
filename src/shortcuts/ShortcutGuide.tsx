@@ -25,8 +25,16 @@ const GUIDE_TABS: Array<{ key: GuideTab; label: string; icon: ReactNode }> = [
   { key: "claude", label: "Claude", icon: <ClaudeIcon aria-hidden="true" size={ICON.sm} /> },
 ];
 
+const GUIDE_TAB_DESCRIPTIONS: Record<GuideTab, string> = {
+  belfry: "工作区与终端操作",
+  codex: "Codex CLI 交互指令",
+  claude: "Claude Code 交互指令",
+};
+
 export function ShortcutGuide({ onClose, platform }: ShortcutGuideProps) {
   const [activeTab, setActiveTab] = useState<GuideTab>("belfry");
+  const sections = guideSections(activeTab, platform);
+  const itemCount = sections.reduce((total, group) => total + group.items.length, 0);
   const panelRef = useDismiss<HTMLDivElement>(true, onClose);
   const closeRef = useRef<HTMLButtonElement>(null);
   useRestoreFocus(closeRef);
@@ -44,13 +52,20 @@ export function ShortcutGuide({ onClose, platform }: ShortcutGuideProps) {
       >
         <ShortcutHeader closeRef={closeRef} onClose={onClose} />
         <GuideTabs active={activeTab} onSelect={setActiveTab} />
+        <p className="shortcut-guide__context" aria-live="polite">
+          <span className="shortcut-guide__context-dot" aria-hidden="true" />
+          {GUIDE_TAB_DESCRIPTIONS[activeTab]}
+          <span className="shortcut-guide__context-count">
+            {itemCount} 条
+          </span>
+        </p>
         <div
           aria-labelledby={`shortcut-tab-${activeTab}`}
           className="shortcut-guide__body"
           id={`shortcut-panel-${activeTab}`}
           role="tabpanel"
         >
-          <ShortcutGroups groups={guideSections(activeTab, platform)} key={activeTab} />
+          <ShortcutGroups groups={sections} key={activeTab} />
         </div>
         <ShortcutFooter copy={guideFootnote(activeTab, platform)} tab={activeTab} />
       </div>
@@ -106,6 +121,7 @@ function GuideTabs({ active, onSelect }: { active: GuideTab; onSelect: (tab: Gui
     <nav aria-label="快捷指令分类" className="shortcut-guide__tabs" role="tablist">
       {GUIDE_TABS.map((tab) => (
         <button aria-controls={`shortcut-panel-${tab.key}`} aria-selected={active === tab.key}
+          data-tab={tab.key}
           id={`shortcut-tab-${tab.key}`} key={tab.key} onClick={() => onSelect(tab.key)}
           onKeyDown={(event) => moveTabFocus(event, tab.key, onSelect)} role="tab"
           tabIndex={active === tab.key ? 0 : -1} type="button">
@@ -131,15 +147,20 @@ function ShortcutGroups({ groups }: { groups: GuideSection[] }) {
     <div className="shortcut-guide__groups">
       {groups.map((group) => (
         <section className="shortcut-group" key={group.label}>
-          <h2>{group.label}</h2>
-          <div className="shortcut-group__list">
-            {group.items.map((item) => (
-              <div className="shortcut-row" key={item.command ?? item.label}>
-                <span>{item.label}</span>
-                {item.command ? <code>{item.command}</code> : <KeyChord keys={item.keys ?? []} />}
-              </div>
-            ))}
+          <div className="shortcut-group__head">
+            <h2>{group.label}</h2>
+            <span className="shortcut-group__count">{group.items.length}</span>
           </div>
+          <ul className="shortcut-group__list">
+            {group.items.map((item) => (
+              <li className="shortcut-row" key={item.command ?? item.label}>
+                <span className="shortcut-row__label" title={item.label}>{item.label}</span>
+                <span className="shortcut-row__value">
+                  {item.command ? <code>{item.command}</code> : <KeyChord keys={item.keys ?? []} />}
+                </span>
+              </li>
+            ))}
+          </ul>
         </section>
       ))}
     </div>

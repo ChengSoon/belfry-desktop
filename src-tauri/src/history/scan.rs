@@ -4,6 +4,7 @@ use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 
+use crate::agent::validate_agent_session_id;
 use crate::terminal::AppError;
 
 pub fn home_dir() -> Option<PathBuf> {
@@ -37,10 +38,11 @@ fn push_jsonl_files(path: &Path, files: &mut Vec<PathBuf>) {
         let entry_path = entry.path();
         match entry.file_type() {
             Ok(kind) if kind.is_dir() => push_jsonl_files(&entry_path, files),
-            Ok(kind) if kind.is_file() => {
-                if entry_path.extension().is_some_and(|value| value == "jsonl") {
-                    files.push(entry_path);
-                }
+            Ok(kind)
+                if kind.is_file()
+                    && entry_path.extension().is_some_and(|value| value == "jsonl") =>
+            {
+                files.push(entry_path);
             }
             _ => {}
         }
@@ -49,15 +51,7 @@ fn push_jsonl_files(path: &Path, files: &mut Vec<PathBuf>) {
 
 /// 会话 id 必须是普通文件名主干：不含路径分隔符、不含 `..`，防止把删除指向 sessions 根之外。
 pub fn validate_session_id(value: &str) -> Result<(), AppError> {
-    if value.is_empty()
-        || value.contains('/')
-        || value.contains('\\')
-        || value.contains("..")
-        || value == "."
-    {
-        return Err(AppError::invalid_argument("invalid session id"));
-    }
-    Ok(())
+    validate_agent_session_id(value).map_err(AppError::invalid_argument)
 }
 
 /// 删除单个会话文件，并把沿途变空的目录一并清掉（Codex 的日期目录、Claude 的项目目录）。
@@ -124,6 +118,22 @@ where
     }
 }
 
+/// 把首条用户消息压成适合列表展示的单行标题：折叠空白、去掉首尾、限长。
+/// 只做文本整理，不截断多字节字符，也不会把单个超长词硬切。
+pub fn normalize_title(text: &str) -> String {
+    let mut out = String::new();
+    for word in text.split_whitespace() {
+        if !out.is_empty() {
+            out.push(' ');
+        }
+        if out.chars().count() + word.chars().count() > 500 {
+            break;
+        }
+        out.push_str(word);
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -164,6 +174,11 @@ mod tests {
         assert!(validate_session_id("..").is_err());
         assert!(validate_session_id("../x").is_err());
         assert!(validate_session_id("a\\b").is_err());
+        assert!(validate_session_id(".").is_err());
+        assert!(validate_session_id("line\nbreak").is_err());
+        assert!(validate_session_id("nul\0byte").is_err());
+        assert!(validate_session_id(&"x".repeat(513)).is_err());
+        assert!(validate_session_id(&"会".repeat(171)).is_err());
     }
 
     #[test]
@@ -211,20 +226,4 @@ mod tests {
         let _ = std::fs::remove_dir_all(&root);
         let _ = std::fs::remove_file(&outside);
     }
-}
-
-/// 把首条用户消息压成适合列表展示的单行标题：折叠空白、去掉首尾、限长。
-/// 只做文本整理，不截断多字节字符，也不会把单个超长词硬切。
-pub fn normalize_title(text: &str) -> String {
-    let mut out = String::new();
-    for word in text.split_whitespace() {
-        if !out.is_empty() {
-            out.push(' ');
-        }
-        if out.chars().count() + word.chars().count() > 500 {
-            break;
-        }
-        out.push_str(word);
-    }
-    out
 }

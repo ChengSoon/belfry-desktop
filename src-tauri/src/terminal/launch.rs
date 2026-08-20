@@ -3,7 +3,9 @@ use std::path::Path;
 
 use portable_pty::CommandBuilder;
 
-use crate::agent::{AgentKind, resolve_agent};
+#[cfg(test)]
+use crate::agent::arguments_for;
+use crate::agent::{AgentKind, AgentLaunchContext, adapter_for};
 use crate::resource::{canonicalize, file_uri_to_path, path_to_file_uri};
 
 use super::contracts::{AppError, LaunchProfileId, Platform, ShellProfile, SshTarget};
@@ -348,27 +350,13 @@ fn resolve_agent_launch(
     env: &HashMap<String, String>,
     resume: Option<&str>,
 ) -> Result<ResolvedLaunch, AppError> {
-    let executable = resolve_agent(kind)?;
-    let mut command = agent_command(&executable, cwd, env);
-    command.args(agent_args(kind, resume));
+    let spec = adapter_for(kind).launch(AgentLaunchContext { cwd, env, resume })?;
+    let mut command = agent_command(&spec.executable, cwd, env);
+    command.args(spec.arguments);
     Ok(ResolvedLaunch {
         command,
-        display_name: kind.command_name().to_string(),
+        display_name: spec.display_name,
     })
-}
-
-fn agent_args(kind: AgentKind, resume: Option<&str>) -> Vec<String> {
-    let mut args: Vec<String> = match kind {
-        AgentKind::Codex => Vec::new(),
-        AgentKind::Claude => vec!["--dangerously-skip-permissions".to_string()],
-    };
-    if let Some(session_id) = resume {
-        match kind {
-            AgentKind::Codex => args.extend(["resume".to_string(), session_id.to_string()]),
-            AgentKind::Claude => args.extend(["--resume".to_string(), session_id.to_string()]),
-        }
-    }
-    args
 }
 
 fn configured_command(
@@ -502,30 +490,32 @@ mod tests {
     #[test]
     fn claude_skips_permission_prompts() {
         assert_eq!(
-            agent_args(AgentKind::Claude, None),
+            arguments_for(AgentKind::Claude, None).unwrap(),
             &["--dangerously-skip-permissions"]
         );
     }
 
     #[test]
     fn codex_launch_arguments_are_unchanged() {
-        assert!(agent_args(AgentKind::Codex, None).is_empty());
+        assert!(arguments_for(AgentKind::Codex, None).unwrap().is_empty());
     }
 
     #[test]
     fn resume_appends_agent_specific_flags() {
         assert_eq!(
-            agent_args(
+            arguments_for(
                 AgentKind::Codex,
                 Some("019ff0d5-dbaf-7893-96db-4fbbbfee03a7")
-            ),
+            )
+            .unwrap(),
             &["resume", "019ff0d5-dbaf-7893-96db-4fbbbfee03a7"]
         );
         assert_eq!(
-            agent_args(
+            arguments_for(
                 AgentKind::Claude,
                 Some("cf32a9a3-0a60-427b-8bba-823e36c66d13")
-            ),
+            )
+            .unwrap(),
             &[
                 "--dangerously-skip-permissions",
                 "--resume",

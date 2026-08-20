@@ -10,6 +10,7 @@ use std::path::{Path, PathBuf};
 
 use serde_json::Value;
 
+use crate::agent::{AgentKind, AgentSessionRef};
 use crate::usage::timestamp::parse_rfc3339;
 
 use super::contracts::HistorySession;
@@ -87,8 +88,15 @@ fn scan_file(path: &Path) -> Option<HistorySession> {
     });
 
     let id = meta.session_id.or_else(|| session_id_from_name(path))?;
-    Some(HistorySession {
+    let session_ref = AgentSessionRef {
+        agent: AgentKind::Codex,
         id,
+    };
+    session_ref.validate().ok()?;
+    Some(HistorySession {
+        agent: AgentKind::Codex,
+        id: session_ref.id.clone(),
+        session_ref,
         title: meta.title.unwrap_or_default(),
         cwd: meta.cwd,
         started_at: meta
@@ -119,10 +127,8 @@ fn take_user_message(payload: &Value, meta: &mut Meta) {
     };
     let text = parts
         .iter()
-        .filter_map(|part| {
-            (part["type"].as_str() == Some("input_text"))
-                .then(|| part["text"].as_str().unwrap_or_default())
-        })
+        .filter(|part| part["type"].as_str() == Some("input_text"))
+        .map(|part| part["text"].as_str().unwrap_or_default())
         .collect::<Vec<_>>()
         .join("\n");
     if text.trim().is_empty() || is_injected(&text) {
@@ -206,6 +212,9 @@ mod tests {
             ],
         );
         let session = scan_file(&path).unwrap();
+        assert_eq!(session.agent, AgentKind::Codex);
+        assert_eq!(session.session_ref.agent, AgentKind::Codex);
+        assert_eq!(session.session_ref.id, session.id);
         assert_eq!(session.id, "019ff0d5-dbaf-7893-96db-4fbbbfee03a7");
         assert_eq!(session.cwd.as_deref(), Some("/work/a"));
         assert_eq!(session.title, "帮我看看这个 bug");

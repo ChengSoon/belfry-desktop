@@ -1,4 +1,5 @@
 import type { TerminalSnapshot } from "../components/TerminalViewport";
+import { isAgentKind, type AgentSessionRef } from "../agent/contracts";
 import type { LaunchProfileId, ShellProfileId, SshLaunch } from "../terminal/contracts";
 import { sshDisplayName } from "../terminal/contracts";
 import type { ProjectWorkspace, WorkspaceTab, WorkspaceTabKind } from "./contracts";
@@ -35,11 +36,19 @@ export function createWorkspaceTab(
     customTitle: null,
     profileId: profileForKind(kind, shellProfileId),
     resumeSessionId,
+    agentSessionRef: agentSessionRefFor(kind, resumeSessionId),
     sshTarget,
     phase: "idle",
     activity: "idle",
     error: null,
   };
+}
+
+function agentSessionRefFor(
+  kind: WorkspaceTabKind,
+  sessionId: string | null,
+): AgentSessionRef | null {
+  return sessionId && isAgentKind(kind) ? { agent: kind, id: sessionId } : null;
 }
 
 function profileForKind(kind: WorkspaceTabKind, shellProfileId: ShellProfileId): LaunchProfileId {

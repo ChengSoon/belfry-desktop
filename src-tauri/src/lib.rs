@@ -25,6 +25,8 @@ pub fn run() {
         .manage(TerminalRuntime::with_platform_backend())
         .invoke_handler(tauri::generate_handler![
             agent::commands::agent_detect,
+            agent::commands::agent_descriptors,
+            agent::commands::agent_resume_plan,
             background::commands::background_import,
             background::commands::background_read,
             background::commands::background_remove,

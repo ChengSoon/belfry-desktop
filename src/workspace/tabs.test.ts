@@ -22,7 +22,15 @@ describe("workspace tabs", () => {
       project,
       profileId: "agent:codex",
       title: "Codex 01",
+      agentSessionRef: null,
     });
+    vi.unstubAllGlobals();
+  });
+
+  it("binds a resumed tab to an explicit Agent session reference", () => {
+    vi.stubGlobal("crypto", { randomUUID: () => "tab-resume" });
+    expect(createWorkspaceTab(project, "claude", 1, "session-2").agentSessionRef)
+      .toEqual({ agent: "claude", id: "session-2" });
     vi.unstubAllGlobals();
   });
 

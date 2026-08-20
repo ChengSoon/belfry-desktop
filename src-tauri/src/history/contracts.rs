@@ -1,10 +1,14 @@
 use serde::Serialize;
 
+use crate::agent::{AgentKind, AgentSessionRef};
+
 /// 一条历史会话的元数据。`id` 是 resume / delete 用的会话标识：
 /// Codex 取日志 `session_meta` 里的 session_id，Claude 取文件名主干（去 `.jsonl`）。
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HistorySession {
+    pub agent: AgentKind,
+    pub session_ref: AgentSessionRef,
     pub id: String,
     /// 会话首条用户消息提炼出的标题；读不到用户消息时为空串。
     pub title: String,

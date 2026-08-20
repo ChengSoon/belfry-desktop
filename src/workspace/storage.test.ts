@@ -95,6 +95,10 @@ describe("workspace session persistence", () => {
     };
     const restored = parseWorkspaceState(serializeWorkspaceState([resumed], resumed.id));
     expect(restored?.tabs[0].resumeSessionId).toBe("019ff0d5-dbaf-7893-96db-4fbbbfee03a7");
+    expect(restored?.tabs[0].agentSessionRef).toEqual({
+      agent: "codex",
+      id: "019ff0d5-dbaf-7893-96db-4fbbbfee03a7",
+    });
     // 普通会话持久化为 null，而不是缺字段。
     const plain = parseWorkspaceState(serializeWorkspaceState([createWorkspaceTab(project, "shell", 1)], null));
     expect(plain?.tabs[0].resumeSessionId).toBeNull();
@@ -115,6 +119,22 @@ describe("workspace session persistence", () => {
     expect(old?.tabs[0].profileId).toBe("system-default");
   });
 
+  it("rejects an Agent session reference that crosses the tab kind", () => {
+    const restored = parseWorkspaceState(JSON.stringify({
+      tabs: [{
+        id: "cross-agent",
+        project,
+        kind: "codex",
+        title: "Codex 01",
+        titleHint: null,
+        resumeSessionId: "same-id",
+        agentSessionRef: { agent: "claude", id: "same-id" },
+      }],
+      activeTabId: "cross-agent",
+    }));
+    expect(restored?.tabs).toEqual([]);
+  });
+
   it("rejects a persisted shell profile outside the fixed allowlist", () => {
     const restored = parseWorkspaceState(JSON.stringify({
       tabs: [{
@@ -128,6 +148,54 @@ describe("workspace session persistence", () => {
       activeTabId: "unsafe",
     }));
     expect(restored?.tabs).toEqual([]);
+  });
+
+  it("rejects malformed or mismatched persisted resume references", () => {
+    for (const resumeSessionId of [".", "../escape", "x".repeat(513)]) {
+      const restored = parseWorkspaceState(JSON.stringify({
+        tabs: [{
+          id: "invalid-resume",
+          project,
+          kind: "codex",
+          title: "Codex 01",
+          titleHint: null,
+          resumeSessionId,
+        }],
+        activeTabId: "invalid-resume",
+      }));
+      expect(restored?.tabs).toEqual([]);
+    }
+    const mismatched = parseWorkspaceState(JSON.stringify({
+      tabs: [{
+        id: "mismatched-resume",
+        project,
+        kind: "codex",
+        title: "Codex 01",
+        titleHint: null,
+        resumeSessionId: "session-a",
+        agentSessionRef: { agent: "codex", id: "session-b" },
+      }],
+      activeTabId: "mismatched-resume",
+    }));
+    expect(mismatched?.tabs).toEqual([]);
+  });
+
+  it("migrates an explicit session reference when the legacy id is absent", () => {
+    const restored = parseWorkspaceState(JSON.stringify({
+      tabs: [{
+        id: "ref-only",
+        project,
+        kind: "claude",
+        title: "Claude 01",
+        titleHint: null,
+        agentSessionRef: { agent: "claude", id: "session-ref" },
+      }],
+      activeTabId: "ref-only",
+    }));
+    expect(restored?.tabs[0]).toMatchObject({
+      resumeSessionId: "session-ref",
+      agentSessionRef: { agent: "claude", id: "session-ref" },
+    });
   });
 
   it("persists and restores ssh connection targets", () => {
