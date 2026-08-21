@@ -1,11 +1,22 @@
 import type { SessionActivity, TerminalPhase } from "../terminal/contracts";
 import type { WorkspaceTab, WorkspaceTabKind } from "../workspace/contracts";
 
+/**
+ * 队列项的来源。Recipe 把多步指令一次塞进队列后，靠它认出队列里哪些项属于自己，
+ * 从而渲染进度、跳过某步或中止整轮。手工提交的项为 null。
+ */
+export interface PromptOrigin {
+  runId: string;
+  stepId: string;
+}
+
 export interface PromptQueueItem {
   id: string;
   tabId: string;
   text: string;
   createdAt: number;
+  /** 非可选：队列不持久化，没有旧数据要兼容，每个构造点都该表态。 */
+  origin: PromptOrigin | null;
 }
 
 export type PromptSubmitResult = "sent" | "queued" | "unavailable";

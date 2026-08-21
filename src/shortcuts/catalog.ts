@@ -42,6 +42,7 @@ function belfrySections(platform: ShortcutPlatform): GuideSection[] {
         { label: "打开 / 关闭历史", keys: appShortcutChord(platform, "H", true) },
         { label: "打开设置", keys: appShortcutChord(platform, ",") },
         { label: "打开 Prompt Composer", keys: appShortcutChord(platform, "J") },
+        { label: "打开 Recipe", keys: appShortcutChord(platform, "R") },
         { label: "打开 Quick Open", keys: appShortcutChord(platform, "K") },
         { label: "打开快捷指令", keys: appShortcutChord(platform, "/") },
       ],

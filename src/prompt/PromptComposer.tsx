@@ -111,7 +111,10 @@ export function PromptComposer({
             </option>
           ))}
         </select>
-        <span className={`prompt-composer__status prompt-composer__status--${statusTone(target)}`}>
+        <span
+          aria-live="polite"
+          className={`prompt-composer__status prompt-composer__status--${statusTone(target)}`}
+        >
           {targetStatus(target)}
         </span>
         <button
@@ -149,6 +152,7 @@ export function PromptComposer({
         <div className="prompt-composer__send">
           <span aria-live="polite">{feedback}</span>
           <button
+            aria-label={target && canDispatchPrompt(target) ? "发送提示词" : "将提示词加入队列"}
             disabled={!target || !draft.trim() || target.phase === "exited" || target.phase === "error"}
             onClick={submit}
             type="button"

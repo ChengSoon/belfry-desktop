@@ -1,7 +1,13 @@
 import type { TerminalCommandTarget } from "../terminal/contracts";
 import type { WorkspaceTab } from "../workspace/contracts";
 import { canDispatchPrompt, isAgentKind, isPromptBusy, type PromptQueueItem, type PromptSubmitResult } from "./contracts";
-import { createPromptQueueItem, nextPrompt, removePrompt } from "./queue";
+import { createPromptQueueItem, nextPrompt, removePrompt, removePromptsForRun } from "./queue";
+
+/** Recipe 交给队列的一步。text 已经完成变量替换。 */
+export interface PromptRunStep {
+  stepId: string;
+  text: string;
+}
 
 /**
  * Prompt 队列的可测试运行时。已交给 xterm、但尚未看到 Agent 忙碌信号的项单独暂存；
@@ -34,6 +40,53 @@ export class PromptQueueRuntime {
 
   remove(id: string) {
     this.queue = removePrompt(this.queue, id);
+  }
+
+  /**
+   * 把一轮 Recipe 的步骤一次塞进队列，随后按普通队列语义串行派发。
+   *
+   * 队列本身已经保证串行、等 `running + idle`、终端重挂回滚，所以 Recipe 不需要自己的
+   * 执行引擎；Agent 卡在权限框时 `canDispatchPrompt` 不成立，整轮自然停住。
+   *
+   * `position: "head"` 供「重发这一步」使用：插到队首，下一次派发优先取它。
+   */
+  enqueueRun(
+    tabs: readonly WorkspaceTab[],
+    targets: ReadonlyMap<string, TerminalCommandTarget>,
+    tabId: string,
+    steps: readonly PromptRunStep[],
+    runId: string,
+    position: "head" | "tail" = "tail",
+  ): number {
+    const tab = findAgentTab(tabs, tabId);
+    if (!tab || tab.phase === "exited" || tab.phase === "error") return 0;
+
+    const created = steps
+      .map((step) => ({ step, text: step.text.replace(/\r\n/gu, "\n").trimEnd() }))
+      .filter(({ text }) => text.trim().length > 0)
+      .map(({ step, text }) => createPromptQueueItem(tabId, text, Date.now(), {
+        runId,
+        stepId: step.stepId,
+      }));
+    if (created.length === 0) return 0;
+
+    this.reconcileTarget(tab.id, targets.get(tab.id));
+    this.queue = position === "head" ? [...created, ...this.queue] : [...this.queue, ...created];
+    this.dispatch(tab, targets);
+    return created.length;
+  }
+
+  /**
+   * 中止一轮：清掉队列里剩余步骤。
+   *
+   * 同时丢弃属于这一轮的 in-flight 记录——它已经交给 xterm 了，拦不回来，但如果留着，
+   * 之后一次终端重挂就会把它当「未确认」回滚进队列，让用户明明中止过的步骤又发一次。
+   */
+  removeRun(runId: string) {
+    this.queue = removePromptsForRun(this.queue, runId);
+    for (const [tabId, inFlight] of this.inFlight) {
+      if (inFlight.item.origin?.runId === runId) this.inFlight.delete(tabId);
+    }
   }
 
   sendNow(

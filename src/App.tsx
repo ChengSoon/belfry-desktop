@@ -10,6 +10,7 @@ import { useSessionDrag } from "./layout/useSessionDrag";
 import { useSplitLayout } from "./layout/useSplitLayout";
 import { useActivityNotifications } from "./notify/useActivityNotifications";
 import { usePromptQueue } from "./prompt/usePromptQueue";
+import { useRecipes } from "./recipe/useRecipes";
 import { appShortcutChord, formatShortcutChord } from "./shortcuts/resolveShortcut";
 import { useAppShortcuts } from "./shortcuts/useAppShortcuts";
 import { useAppUpdater } from "./updater/useAppUpdater";
@@ -39,6 +40,7 @@ export default function App() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [composerOpen, setComposerOpen] = useState(false);
+  const [recipesOpen, setRecipesOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewRequest, setPreviewRequest] = useState<PreviewRequest | null>(null);
   const [pendingCloseId, setPendingCloseId] = useState<string | null>(null);
@@ -78,6 +80,7 @@ export default function App() {
     setPreviewOpen(false);
     setPreviewRequest(null);
     setComposerOpen(false);
+    setRecipesOpen(false);
     setUsageOpen((value) => !value);
   }, []);
 
@@ -86,6 +89,7 @@ export default function App() {
     setPreviewOpen(false);
     setPreviewRequest(null);
     setComposerOpen(false);
+    setRecipesOpen(false);
     setHistoryOpen((value) => !value);
   }, []);
 
@@ -103,8 +107,16 @@ export default function App() {
   });
   const terminalTargets = useTerminalTargets();
   const promptQueue = usePromptQueue({ tabs: workspace.tabs, targets: terminalTargets.targets });
+  const recipes = useRecipes({
+    enqueueRun: promptQueue.enqueueRun,
+    queueItems: promptQueue.items,
+    removePrompt: promptQueue.remove,
+    removeRun: promptQueue.removeRun,
+    tabs: workspace.tabs,
+  });
   const toggleQuickOpen = useCallback(() => {
     setComposerOpen(false);
+    setRecipesOpen(false);
     setPreviewOpen(false);
     setPreviewRequest(null);
     setUsageOpen(false);
@@ -113,16 +125,27 @@ export default function App() {
   }, [quickOpen.toggle]);
   const toggleComposer = useCallback(() => {
     quickOpen.close();
+    setRecipesOpen(false);
     setPreviewOpen(false);
     setPreviewRequest(null);
     setUsageOpen(false);
     setHistoryOpen(false);
     setComposerOpen((value) => !value);
   }, [quickOpen.close]);
+  const toggleRecipes = useCallback(() => {
+    quickOpen.close();
+    setComposerOpen(false);
+    setPreviewOpen(false);
+    setPreviewRequest(null);
+    setUsageOpen(false);
+    setHistoryOpen(false);
+    setRecipesOpen((value) => !value);
+  }, [quickOpen.close]);
 
   const openPreview = useCallback((request?: PreviewRequest) => {
     quickOpen.close();
     setComposerOpen(false);
+    setRecipesOpen(false);
     setUsageOpen(false);
     setHistoryOpen(false);
     setPreviewOpen(true);
@@ -171,6 +194,7 @@ export default function App() {
     blocked: Boolean(pendingClose || pendingRemove || updater.open),
     composerOpen,
     quickOpenOpen: quickOpen.open,
+    recipesOpen,
     onActivateSession: (index) => {
       const tab = groupTabsByProject(workspace.tabs).flatMap((group) => group.tabs)[index];
       if (tab) layout.activateTab(tab.id);
@@ -180,6 +204,7 @@ export default function App() {
     onToggleHistory: toggleHistory,
     onToggleComposer: toggleComposer,
     onToggleQuickOpen: toggleQuickOpen,
+    onToggleRecipes: toggleRecipes,
     onToggleSidebar: () => setCollapsed((value) => !value),
     onToggleUsage: toggleUsage,
   });
@@ -194,7 +219,17 @@ export default function App() {
           setHistoryOpen(false);
           setPreviewOpen(false);
           setPreviewRequest(null);
+          setRecipesOpen(false);
           setComposerOpen(true);
+          break;
+        case "action:recipes":
+          quickOpen.close();
+          setUsageOpen(false);
+          setHistoryOpen(false);
+          setPreviewOpen(false);
+          setPreviewRequest(null);
+          setComposerOpen(false);
+          setRecipesOpen(true);
           break;
         case "action:file-preview": openPreview(); break;
         case "action:settings": setSettingsOpen(true); break;
@@ -254,8 +289,13 @@ export default function App() {
         composerOpen={composerOpen}
         dividers={layout.dividers}
         drag={drag}
+        onAbortRun={recipes.abortRun}
+        onClearRun={recipes.clearRun}
         onCloseComposer={() => setComposerOpen(false)}
+        onCloseRecipes={() => setRecipesOpen(false)}
         onClosePane={layout.closePane}
+        onDraftRecipe={recipes.draft}
+        onDuplicateRecipe={recipes.duplicateRecipe}
         onDragStart={startDrag}
         onFocus={workspace.setActiveTabId}
         onLaunchShell={() => launch("shell")}
@@ -264,21 +304,30 @@ export default function App() {
         onRegisterTarget={terminalTargets.register}
         onOpenFile={openTerminalFile}
         onRemovePrompt={promptQueue.remove}
+        onRemoveRecipe={recipes.removeRecipe}
         onRequestRemove={setPendingRemove}
+        onResendStep={recipes.resendStep}
         onResize={layout.resizeSplit}
         onRevealSidebar={() => setCollapsed(false)}
+        onSaveRecipe={recipes.saveRecipe}
         onSendPromptNow={promptQueue.sendNow}
+        onSkipStep={recipes.skipStep}
         onSnapshot={workspace.updateTab}
+        onStartRun={recipes.startRun}
         onSubmitPrompt={promptQueue.submit}
         onToggleComposer={toggleComposer}
         onTogglePreview={togglePreview}
         onToggleQuickOpen={toggleQuickOpen}
+        onToggleRecipes={toggleRecipes}
         opening={workspace.opening}
         promptItems={promptQueue.items}
         previewOpen={previewOpen}
         quickOpenOpen={quickOpen.open}
         recentProjects={workspace.recentProjects}
+        recipes={recipes.recipes}
+        recipesOpen={recipesOpen}
         rects={layout.rects}
+        runs={recipes.runs}
         shortcutGuideOpen={shortcuts.guideOpen}
         shortcutPlatform={shortcuts.platform}
         split={layout.split}

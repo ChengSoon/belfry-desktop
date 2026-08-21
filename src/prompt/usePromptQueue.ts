@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { TerminalCommandTarget } from "../terminal/contracts";
 import type { WorkspaceTab } from "../workspace/contracts";
 import { type PromptSubmitResult } from "./contracts";
-import { PromptQueueRuntime } from "./runtime";
+import { PromptQueueRuntime, type PromptRunStep } from "./runtime";
 
 interface PromptQueueOptions {
   tabs: readonly WorkspaceTab[];
@@ -32,10 +32,26 @@ export function usePromptQueue({ tabs, targets }: PromptQueueOptions) {
     return sent;
   }, [publish, tabs, targets]);
 
+  const enqueueRun = useCallback((
+    tabId: string,
+    steps: readonly PromptRunStep[],
+    runId: string,
+    position: "head" | "tail" = "tail",
+  ) => {
+    const queued = runtime.current.enqueueRun(tabs, targets, tabId, steps, runId, position);
+    publish();
+    return queued;
+  }, [publish, tabs, targets]);
+
+  const removeRun = useCallback((runId: string) => {
+    runtime.current.removeRun(runId);
+    publish();
+  }, [publish]);
+
   useEffect(() => {
     runtime.current.sync(tabs, targets);
     publish();
   }, [publish, tabs, targets]);
 
-  return { items, remove, sendNow, submit };
+  return { enqueueRun, items, remove, removeRun, sendNow, submit };
 }
