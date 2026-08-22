@@ -77,6 +77,8 @@ export function sshDisplayName(target: SshTarget): string {
 }
 
 export interface TerminalLaunch {
+  /** 前端那条会话的 id。Agent 会话据此领协作身份，注入进它自己的 PTY 环境。 */
+  tabId: string | null;
   profileId: LaunchProfileId;
   cwd: string | null;
   /** 继续某条历史会话：Codex/Claude 的 resume 参数。null 表示普通新会话。 */
@@ -100,6 +102,8 @@ export interface TerminalPalette {
 export interface CreateTerminalRequest {
   platform: Platform;
   profileId: LaunchProfileId;
+  /** Agent 会话据此领协作身份；Shell / SSH 传 null。 */
+  tabId: string | null;
   cwd: string | null;
   command: null;
   env: Record<string, string>;
@@ -127,6 +131,10 @@ export interface TerminalCommandTarget {
   focus: () => void;
   /** 通过 xterm 的 paste + 用户回车通道提交；PTY 未就绪时返回 false。 */
   sendText: (text: string) => boolean;
+  /** 只放进输入行不提交。插引用用：后面还得让用户补自己的话。 */
+  insertText: (text: string) => boolean;
+  /** 当前选区文本，没选中时是空串。存共享上下文用，不清选区。 */
+  readSelection: () => string;
 }
 
 export type TerminalEvent =
@@ -154,6 +162,7 @@ export function createTerminalRequest(
   return {
     platform: userAgent.includes("Windows") ? "windows" : "macos",
     profileId: launch.profileId,
+    tabId: launch.tabId,
     cwd: launch.cwd,
     command: null,
     env: {},
@@ -175,7 +184,7 @@ export function createDefaultRequest(
   return createTerminalRequest(
     cols,
     rows,
-    { profileId: "system-default", cwd: null, resumeSessionId: null, ssh: null },
+    { tabId: null, profileId: "system-default", cwd: null, resumeSessionId: null, ssh: null },
     palette,
     userAgent,
   );

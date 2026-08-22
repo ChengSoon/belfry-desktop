@@ -24,7 +24,12 @@ function tab(overrides: Partial<WorkspaceTab> = {}): WorkspaceTab {
 }
 
 function target(sendText = vi.fn(() => true)): TerminalCommandTarget {
-  return { focus: vi.fn(), sendText };
+  return {
+    focus: vi.fn(),
+    insertText: vi.fn(() => true),
+    readSelection: vi.fn(() => ""),
+    sendText,
+  };
 }
 
 function targets(entry?: TerminalCommandTarget) {
