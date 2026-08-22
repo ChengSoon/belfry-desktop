@@ -8,6 +8,7 @@ export type AppShortcut =
   | { kind: "toggle-quick-open" }
   | { kind: "toggle-composer" }
   | { kind: "toggle-recipes" }
+  | { kind: "toggle-context" }
   | { kind: "open-settings" }
   | { kind: "new-shell" }
   | { kind: "activate-session"; index: number };
@@ -37,6 +38,7 @@ export function resolveAppShortcut(
   // Windows 的 Ctrl+Shift+R 与 macOS 的 ⌘R 本来是 WebView 的刷新键，capture 阶段
   // preventDefault 掉——重载会连同所有 PTY 一起丢，代价比抢走一个组合键大得多。
   if (code === "KeyR") return { kind: "toggle-recipes" };
+  if (code === "KeyG") return { kind: "toggle-context" };
   if (code === "Comma") return { kind: "open-settings" };
   if (code === "KeyT") return { kind: "new-shell" };
   if (/^Digit[1-9]$/.test(code)) return { kind: "activate-session", index: Number(code.at(-1)) - 1 };
