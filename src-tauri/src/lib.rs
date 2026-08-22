@@ -50,6 +50,8 @@ pub fn run() {
             collab::commands::context_remove,
             collab::commands::context_set_pinned,
             collab::commands::collab_sync_sessions,
+            collab::commands::collab_pending_tasks,
+            collab::commands::collab_mark_dispatched,
             typography::commands::font_import,
             typography::commands::font_read,
             typography::commands::font_remove,

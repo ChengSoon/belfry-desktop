@@ -52,3 +52,24 @@ export interface CollabSessionSnapshot {
 export function syncCollabSessions(sessions: CollabSessionSnapshot[]) {
   return invoke<void>("collab_sync_sessions", { sessions });
 }
+
+/** 一条等着投进目标终端的协作任务。 */
+export interface PendingTask {
+  id: string;
+  /** 注入文本，三行协议头已拼好。 */
+  text: string;
+  to: string;
+  from: string;
+  fromLabel: string;
+  instruction: string;
+}
+
+/** 取待投递任务。拉而不是推：只有前端知道终端目标注册好了没。 */
+export function listPendingTasks() {
+  return invoke<PendingTask[]>("collab_pending_tasks");
+}
+
+/** 投递完回执，免得下一轮又取到同一条。 */
+export function markTaskDispatched(id: string) {
+  return invoke<void>("collab_mark_dispatched", { id });
+}

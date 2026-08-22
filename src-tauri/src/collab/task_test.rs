@@ -253,6 +253,39 @@ fn the_run_counter_follows_the_chain_root() {
 }
 
 #[test]
+fn pending_lists_only_undelivered_tasks_in_order() {
+    let board = TaskBoard::default();
+    let mut later = build_task("id-2".into(), &request("t1", "t3", None), 200);
+    later.created_at = 200;
+    let mut earlier = build_task("id-1".into(), &request("t1", "t2", None), 100);
+    earlier.created_at = 100;
+    board.insert(later);
+    board.insert(earlier);
+    board.insert(build_task("id-3".into(), &request("t1", "t4", None), 300));
+    board.mark_dispatched("id-3");
+
+    let pending = board.pending();
+
+    // 已经投出去的不该再投一次。
+    assert_eq!(pending.len(), 2);
+    // 同一目标收到多条时，顺序该和派活顺序一致。
+    assert_eq!(pending[0].id, "id-1");
+    assert_eq!(pending[1].id, "id-2");
+}
+
+#[test]
+fn marking_dispatched_does_not_revive_a_settled_task() {
+    let board = TaskBoard::default();
+    board.insert(build_task("id-1".into(), &request("t1", "t2", None), 0));
+    board.settle("id-1", "t2", TaskState::Done, None).unwrap();
+
+    // 一次迟到的投递回执不该把已经结掉的任务改回进行中。
+    board.mark_dispatched("id-1");
+
+    assert_eq!(board.get("id-1").unwrap().state, TaskState::Done);
+}
+
+#[test]
 fn short_id_survives_odd_input() {
     assert_eq!(short_id("01ABCDEFGHIJ"), "01ABCDEF");
     // 不能因为 id 比截断长度短就 panic。

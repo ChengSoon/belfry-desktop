@@ -206,6 +206,8 @@ impl TaskBoard {
         }
     }
 
+    /// 取一条。目前只有测试在用——生产路径要么整份 snapshot，要么按状态过滤。
+    #[cfg(test)]
     pub fn get(&self, id: &str) -> Option<CollabTask> {
         self.tasks.lock().ok()?.get(id).cloned()
     }
@@ -236,6 +238,38 @@ impl TaskBoard {
         task.state = state;
         task.result = result;
         Ok(task.clone())
+    }
+
+    /// 还没投递给目标终端的任务。
+    ///
+    /// 前端定期来取，投进 Prompt 队列后回头调 `mark_dispatched`。用拉而不是推，
+    /// 是因为只有前端知道终端目标注册好了没——它手上有 targets 表。
+    pub fn pending(&self) -> Vec<CollabTask> {
+        self.tasks
+            .lock()
+            .map(|tasks| {
+                let mut queued: Vec<CollabTask> = tasks
+                    .values()
+                    .filter(|task| task.state == TaskState::Queued)
+                    .cloned()
+                    .collect();
+                // 按创建时间投递：同一目标收到多条时，顺序应该和派活顺序一致。
+                queued.sort_by_key(|task| task.created_at);
+                queued
+            })
+            .unwrap_or_default()
+    }
+
+    /// 标记已交给终端。
+    ///
+    /// 只从 Queued 迁移：已经结掉的任务不该被一次迟到的投递回执改回进行中。
+    pub fn mark_dispatched(&self, id: &str) {
+        if let Ok(mut tasks) = self.tasks.lock()
+            && let Some(task) = tasks.get_mut(id)
+            && task.state == TaskState::Queued
+        {
+            task.state = TaskState::Dispatched;
+        }
     }
 
     /// 某条会话作为接收方还没结的任务。用来在会话关闭时收尾。

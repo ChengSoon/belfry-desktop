@@ -259,7 +259,6 @@ fn dispatch(
             parent_task,
         } => dispatch_send(
             request,
-            identities,
             registry,
             board,
             to,
@@ -303,7 +302,6 @@ fn dispatch(
 /// 比对项目归属。分开是因为闸门是最不能出错的部分，它必须能脱离 IPC 单测。
 fn dispatch_send(
     request: &Request,
-    identities: &SessionIdentities,
     registry: &SessionRegistry,
     board: &TaskBoard,
     to: &str,

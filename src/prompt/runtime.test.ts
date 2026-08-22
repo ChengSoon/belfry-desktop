@@ -219,3 +219,63 @@ describe("PromptQueueRuntime", () => {
     });
   });
 });
+
+describe("collab tasks", () => {
+  it("协作任务和 Recipe 走同一条队列，靠 kind 区分来源", () => {
+    const runtime = new PromptQueueRuntime();
+    const send = vi.fn(() => true);
+    const entry = target(send);
+
+    runtime.enqueueRun(
+      [tab()],
+      targets(entry),
+      "agent-1",
+      [{ stepId: "task-1", text: "[belfry] 来自「写实现」的任务 abc" }],
+      "task-1",
+      "tail",
+      "collab",
+    );
+
+    expect(send).toHaveBeenCalledOnce();
+    // 归属判断一律按 runId，两种来源共用同一套队列操作。
+    runtime.enqueueRun([tab()], targets(entry), "agent-1", [
+      { stepId: "s1", text: "第二条" },
+    ], "task-1", "tail", "collab");
+    expect(runtime.items.filter((item) => item.origin?.kind === "collab")).toHaveLength(1);
+  });
+
+  it("目标忙着时协作任务排队，不抢在 Recipe 前面", () => {
+    const runtime = new PromptQueueRuntime();
+    const send = vi.fn(() => true);
+    const entry = target(send);
+    const busy = tab({ activity: "talking" });
+
+    runtime.enqueueRun([busy], targets(entry), "agent-1", [
+      { stepId: "r1", text: "recipe 的一步" },
+    ], "run-1");
+    runtime.enqueueRun([busy], targets(entry), "agent-1", [
+      { stepId: "t1", text: "协作派来的" },
+    ], "task-1", "tail", "collab");
+
+    // 忙着就都不发，且顺序按入队来——协作不该插队。
+    expect(send).not.toHaveBeenCalled();
+    expect(runtime.items.map((item) => item.origin?.kind)).toEqual(["recipe", "collab"]);
+  });
+
+  it("中止一轮不会误伤同一会话上的协作任务", () => {
+    const runtime = new PromptQueueRuntime();
+    const busy = tab({ activity: "talking" });
+    const entry = target();
+
+    runtime.enqueueRun([busy], targets(entry), "agent-1", [
+      { stepId: "r1", text: "recipe" },
+    ], "run-1");
+    runtime.enqueueRun([busy], targets(entry), "agent-1", [
+      { stepId: "t1", text: "collab" },
+    ], "task-1", "tail", "collab");
+
+    runtime.removeRun("run-1");
+
+    expect(runtime.items.map((item) => item.origin?.runId)).toEqual(["task-1"]);
+  });
+});

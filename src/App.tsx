@@ -11,6 +11,7 @@ import { useSplitLayout } from "./layout/useSplitLayout";
 import { useActivityNotifications } from "./notify/useActivityNotifications";
 import { useSharedContext } from "./collab/useSharedContext";
 import { useCollabSessions } from "./collab/useCollabSessions";
+import { useCollabTasks } from "./collab/useCollabTasks";
 import { contextReference, type ContextItem } from "./collab/contracts";
 import { usePromptQueue } from "./prompt/usePromptQueue";
 import { useRecipes } from "./recipe/useRecipes";
@@ -95,6 +96,11 @@ export default function App() {
   const terminalTargets = useTerminalTargets();
   const sharedContext = useSharedContext({ project: workspace.activeProject });
   const promptQueue = usePromptQueue({ tabs: workspace.tabs, targets: terminalTargets.targets });
+  // 别的会话派来的任务，投进同一条 Prompt 队列——派活不需要第二个执行引擎。
+  useCollabTasks({
+    readyTabIds: useMemo(() => new Set(terminalTargets.targets.keys()), [terminalTargets.targets]),
+    enqueueRun: promptQueue.enqueueRun,
+  });
   const recipes = useRecipes({
     enqueueRun: promptQueue.enqueueRun,
     queueItems: promptQueue.items,

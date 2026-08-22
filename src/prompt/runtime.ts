@@ -1,6 +1,13 @@
 import type { TerminalCommandTarget } from "../terminal/contracts";
 import type { WorkspaceTab } from "../workspace/contracts";
-import { canDispatchPrompt, isAgentKind, isPromptBusy, type PromptQueueItem, type PromptSubmitResult } from "./contracts";
+import {
+  canDispatchPrompt,
+  isAgentKind,
+  isPromptBusy,
+  type PromptOrigin,
+  type PromptQueueItem,
+  type PromptSubmitResult,
+} from "./contracts";
 import { createPromptQueueItem, nextPrompt, removePrompt, removePromptsForRun } from "./queue";
 
 /** Recipe 交给队列的一步。text 已经完成变量替换。 */
@@ -57,6 +64,7 @@ export class PromptQueueRuntime {
     steps: readonly PromptRunStep[],
     runId: string,
     position: "head" | "tail" = "tail",
+    kind: PromptOrigin["kind"] = "recipe",
   ): number {
     const tab = findAgentTab(tabs, tabId);
     if (!tab || tab.phase === "exited" || tab.phase === "error") return 0;
@@ -65,6 +73,7 @@ export class PromptQueueRuntime {
       .map((step) => ({ step, text: step.text.replace(/\r\n/gu, "\n").trimEnd() }))
       .filter(({ text }) => text.trim().length > 0)
       .map(({ step, text }) => createPromptQueueItem(tabId, text, Date.now(), {
+        kind,
         runId,
         stepId: step.stepId,
       }));

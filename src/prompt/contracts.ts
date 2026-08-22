@@ -4,9 +4,16 @@ import type { WorkspaceTab, WorkspaceTabKind } from "../workspace/contracts";
 /**
  * 队列项的来源。Recipe 把多步指令一次塞进队列后，靠它认出队列里哪些项属于自己，
  * 从而渲染进度、跳过某步或中止整轮。手工提交的项为 null。
+ *
+ * 协作任务走同一套：队列已经保证串行、等 `running + idle`、终端重挂回滚，
+ * 派活不需要第二个执行引擎。`kind` 只用来在 UI 上区分这一项是谁排进来的，
+ * 归属判断一律按 `runId`，两种来源共用。
  */
 export interface PromptOrigin {
+  kind: "recipe" | "collab";
+  /** 归属的批次：Recipe 是一轮运行，协作是一条任务。 */
   runId: string;
+  /** 批次内的一步。协作任务只有一步，与 runId 相同。 */
   stepId: string;
 }
 
