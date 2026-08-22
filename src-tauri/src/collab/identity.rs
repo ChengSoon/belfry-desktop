@@ -72,10 +72,14 @@ impl SessionIdentities {
             .and_then(|identity| identity.project_root.clone())
     }
 
-    /// 会话关掉就收回牌子。
-    pub fn revoke(&self, tab_id: &str) {
+    /// 只留下还活着的那些会话，其余的牌子作废。
+    ///
+    /// 按存量对账而不是逐个 revoke：调用方（前端）手上只有「现在还有哪些」，
+    /// 要它额外算出「哪条刚没的」是多余的一步，而漏掉一次关闭事件的后果是
+    /// 一张永不过期的牌子。
+    pub fn retain(&self, live: &[String]) {
         if let Ok(mut entries) = self.entries.lock() {
-            entries.remove(tab_id);
+            entries.retain(|tab_id, _| live.iter().any(|alive| alive == tab_id));
         }
     }
 }
@@ -99,16 +103,19 @@ fn constant_time_eq(left: &str, right: &str) -> bool {
 mod tests {
     use super::*;
 
+    fn token_of(env: &[(String, String)]) -> String {
+        env.iter()
+            .find(|(key, _)| key == ENV_TOKEN)
+            .map(|(_, value)| value.clone())
+            .unwrap()
+    }
+
     #[test]
     fn an_issued_identity_verifies() {
         let identities = SessionIdentities::default();
         let env = identities.issue("tab-1", Some("/tmp/project"));
 
-        let token = env
-            .iter()
-            .find(|(key, _)| key == ENV_TOKEN)
-            .map(|(_, value)| value.clone())
-            .unwrap();
+        let token = token_of(&env);
         assert!(identities.verify("tab-1", &token));
         assert_eq!(
             identities.project_root("tab-1").as_deref(),
@@ -120,11 +127,7 @@ mod tests {
     fn reissuing_invalidates_the_previous_token() {
         let identities = SessionIdentities::default();
         let first = identities.issue("tab-1", None);
-        let old = first
-            .iter()
-            .find(|(key, _)| key == ENV_TOKEN)
-            .map(|(_, value)| value.clone())
-            .unwrap();
+        let old = token_of(&first);
 
         identities.issue("tab-1", None);
 
@@ -137,11 +140,7 @@ mod tests {
         let identities = SessionIdentities::default();
         identities.issue("tab-1", None);
         let other = identities.issue("tab-2", None);
-        let other_token = other
-            .iter()
-            .find(|(key, _)| key == ENV_TOKEN)
-            .map(|(_, value)| value.clone())
-            .unwrap();
+        let other_token = token_of(&other);
 
         // 抄到别人的 token 也不能冒充成 tab-1。
         assert!(!identities.verify("tab-1", &other_token));
@@ -149,18 +148,26 @@ mod tests {
     }
 
     #[test]
-    fn revoking_stops_further_access() {
+    fn retain_revokes_sessions_that_are_gone() {
         let identities = SessionIdentities::default();
-        let env = identities.issue("tab-1", None);
-        let token = env
-            .iter()
-            .find(|(key, _)| key == ENV_TOKEN)
-            .map(|(_, value)| value.clone())
-            .unwrap();
+        let gone = token_of(&identities.issue("t1", None));
+        let alive = token_of(&identities.issue("t2", None));
 
-        identities.revoke("tab-1");
+        identities.retain(&["t2".to_string()]);
 
-        assert!(!identities.verify("tab-1", &token));
+        // 会话关了 token 还有效的话，那条 PTY 里残留的进程仍能以它的名义说话。
+        assert!(!identities.verify("t1", &gone));
+        assert!(identities.verify("t2", &alive));
+    }
+
+    #[test]
+    fn retaining_nothing_clears_everything() {
+        let identities = SessionIdentities::default();
+        let token = token_of(&identities.issue("t1", None));
+
+        identities.retain(&[]);
+
+        assert!(!identities.verify("t1", &token));
     }
 
     #[test]

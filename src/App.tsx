@@ -10,6 +10,7 @@ import { useSessionDrag } from "./layout/useSessionDrag";
 import { useSplitLayout } from "./layout/useSplitLayout";
 import { useActivityNotifications } from "./notify/useActivityNotifications";
 import { useSharedContext } from "./collab/useSharedContext";
+import { useCollabSessions } from "./collab/useCollabSessions";
 import { contextReference, type ContextItem } from "./collab/contracts";
 import { usePromptQueue } from "./prompt/usePromptQueue";
 import { useRecipes } from "./recipe/useRecipes";
@@ -62,6 +63,8 @@ export default function App() {
   // 画在舞台上的那几条会话。没分屏时就是活动会话自己；用户看得见的就不必再弹通知。
   const visibleTabIds = useMemo(() => new Set(layout.rects.keys()), [layout.rects]);
   useActivityNotifications(workspace.tabs, visibleTabIds);
+  // 名册推给 Rust，供 Agent 在自己的 PTY 里敲 `belfry peers` 时回答。
+  useCollabSessions(workspace.tabs);
 
   // 新会话继承 activeProject，那组要是折叠着就会开出一个侧栏里看不见的会话。
   const launch = useCallback((

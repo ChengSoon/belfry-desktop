@@ -1,0 +1,14 @@
+[package]
+name = "belfry-cli"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Belfry control CLI, available inside Belfry-managed agent sessions"
+
+[[bin]]
+name = "belfry"
+path = "src/main.rs"
+
+[dependencies]
+belfry-protocol = { path = "../belfry-protocol" }
+serde_json = { workspace = true }

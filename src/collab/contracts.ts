@@ -19,7 +19,8 @@ import type { AgentKind, AgentSessionRef } from "../agent/contracts";
 export type ContextSource =
   | { from: "user" }
   | { from: "terminal"; tabId: string }
-  | { from: "agent"; tabId: string; agent: AgentKind }
+  /** agent 是开放字符串：这一层不比较具体取值，接新 CLI 时不必改这里。 */
+  | { from: "agent"; tabId: string; agent: string }
   | { from: "history"; session: AgentSessionRef };
 
 /**

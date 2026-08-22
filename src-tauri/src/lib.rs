@@ -19,13 +19,22 @@ use terminal::{TerminalRuntime, commands};
 pub fn run() {
     use tauri::Manager;
 
+    let identities = std::sync::Arc::new(collab::SessionIdentities::default());
+    let sessions = std::sync::Arc::new(collab::SessionRegistry::default());
+    // 协作是增强功能：socket 起不来（被占用、权限不足）不该让整个应用起不来。
+    // 这和「Agent 检测失败不该让你打不开一个 Shell」是同一条取向。
+    let endpoint = collab::CollabServer::start(identities.clone(), sessions.clone())
+        .map(|server| server.endpoint().to_string());
+
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(TerminalRuntime::with_platform_backend())
-        .manage(collab::SessionIdentities::default())
+        .manage(collab::CollabEndpoint(endpoint))
+        .manage(identities)
+        .manage(sessions)
         .invoke_handler(tauri::generate_handler![
             agent::commands::agent_detect,
             agent::commands::agent_descriptors,
@@ -38,6 +47,7 @@ pub fn run() {
             collab::commands::context_get,
             collab::commands::context_remove,
             collab::commands::context_set_pinned,
+            collab::commands::collab_sync_sessions,
             typography::commands::font_import,
             typography::commands::font_read,
             typography::commands::font_remove,

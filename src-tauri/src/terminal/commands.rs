@@ -1,6 +1,6 @@
 use tauri::{State, ipc::Channel};
 
-use crate::collab::SessionIdentities;
+use crate::collab::{CollabEndpoint, SessionIdentities};
 
 use super::contracts::{
     AppError, CreateTerminalRequest, LaunchProfileId, ShellProfile, SshTarget, TerminalEvent,
@@ -12,11 +12,12 @@ use super::runtime::TerminalRuntime;
 #[tauri::command]
 pub fn terminal_create(
     runtime: State<'_, TerminalRuntime>,
-    identities: State<'_, SessionIdentities>,
+    identities: State<'_, std::sync::Arc<SessionIdentities>>,
+    endpoint: State<'_, CollabEndpoint>,
     mut request: CreateTerminalRequest,
     on_event: Channel<TerminalEvent>,
 ) -> Result<TerminalSession, AppError> {
-    issue_collab_identity(&identities, &mut request);
+    issue_collab_identity(&identities, endpoint.0.as_deref(), &mut request);
     runtime.create(request, on_event)
 }
 
@@ -26,7 +27,11 @@ pub fn terminal_create(
 /// 能以「会话」身份说话的通道，而它背后可能是任意一个用户手敲的命令。
 ///
 /// token 在这里生成，全程不经过前端——前端只说「这条会话是谁」，不碰凭证。
-fn issue_collab_identity(identities: &SessionIdentities, request: &mut CreateTerminalRequest) {
+fn issue_collab_identity(
+    identities: &SessionIdentities,
+    endpoint: Option<&str>,
+    request: &mut CreateTerminalRequest,
+) {
     let Some(tab_id) = request.tab_id.clone() else {
         return;
     };
@@ -36,7 +41,15 @@ fn issue_collab_identity(identities: &SessionIdentities, request: &mut CreateTer
     ) {
         return;
     }
-    for (key, value) in identities.issue(&tab_id, request.cwd.as_deref()) {
+    let mut env = identities.issue(&tab_id, request.cwd.as_deref());
+    // 服务没起来就不给端点：让 CLI 一上来就说连不上，好过对着不存在的地址重试。
+    if let Some(endpoint) = endpoint {
+        env.push((
+            belfry_protocol::ENV_ENDPOINT.to_string(),
+            endpoint.to_string(),
+        ));
+    }
+    for (key, value) in env {
         // 调用方显式传的同名变量优先：别让身份注入盖掉用户自己的设置。
         request.env.entry(key).or_insert(value);
     }
@@ -117,7 +130,7 @@ mod tests {
         let identities = SessionIdentities::default();
         let mut req = request("agent:claude", Some("tab-1"));
 
-        issue_collab_identity(&identities, &mut req);
+        issue_collab_identity(&identities, Some("unix:/tmp/x.sock"), &mut req);
 
         assert_eq!(req.env.get(ENV_TAB_ID).map(String::as_str), Some("tab-1"));
         assert_eq!(
@@ -136,7 +149,7 @@ mod tests {
         // 而它背后是用户手敲的任意命令。
         for profile in ["system-default", "shell:zsh", "ssh"] {
             let mut req = request(profile, Some("tab-1"));
-            issue_collab_identity(&identities, &mut req);
+            issue_collab_identity(&identities, Some("unix:/tmp/x.sock"), &mut req);
             assert!(req.env.is_empty(), "{profile} 不该拿到身份");
             assert!(!identities.verify("tab-1", ""));
         }
@@ -147,7 +160,7 @@ mod tests {
         let identities = SessionIdentities::default();
         let mut req = request("agent:codex", None);
 
-        issue_collab_identity(&identities, &mut req);
+        issue_collab_identity(&identities, Some("unix:/tmp/x.sock"), &mut req);
 
         assert!(req.env.is_empty());
     }
@@ -159,7 +172,7 @@ mod tests {
         req.env
             .insert(ENV_PROJECT.to_string(), "/elsewhere".to_string());
 
-        issue_collab_identity(&identities, &mut req);
+        issue_collab_identity(&identities, Some("unix:/tmp/x.sock"), &mut req);
 
         // 调用方显式传的值优先，身份注入只补缺。
         assert_eq!(
@@ -167,5 +180,18 @@ mod tests {
             Some("/elsewhere")
         );
         assert!(req.env.contains_key(ENV_TOKEN));
+    }
+
+    #[test]
+    fn without_a_running_server_no_endpoint_is_injected() {
+        let identities = SessionIdentities::default();
+        let mut req = request("agent:claude", Some("tab-1"));
+
+        issue_collab_identity(&identities, None, &mut req);
+
+        // 身份照发，但不给端点：CLI 一上来就能说「连不上」，
+        // 好过对着一个不存在的地址反复重试。
+        assert!(req.env.contains_key(ENV_TOKEN));
+        assert!(!req.env.contains_key(belfry_protocol::ENV_ENDPOINT));
     }
 }

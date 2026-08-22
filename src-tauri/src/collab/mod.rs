@@ -6,12 +6,26 @@
 //! 第二层是协作总线：给每条 Agent 会话发一张身份牌，让它能通过控制 CLI
 //! 读写共享上下文，并（后续）对别的会话派活。
 //!
-//! 这一层对「是哪个 Agent」保持无知——不比较 agent 取值，只认能力。
-//! 新接一个 CLI 进来时，这里不该有任何改动。
+//! 这一层对「是哪个 Agent」保持无知——不比较也不构造具体 agent 取值，
+//! 只认能力。新接一个 CLI 进来时，这里不该有任何改动。
 
 pub mod commands;
-mod contracts;
+pub(crate) mod contracts;
 mod identity;
-mod store;
+mod registry;
+mod server;
+pub(crate) mod store;
+
+#[cfg(test)]
+#[path = "e2e_test.rs"]
+mod e2e_test;
 
 pub use identity::SessionIdentities;
+pub use registry::SessionRegistry;
+pub use server::CollabServer;
+
+/// 控制 CLI 的接入点，注入进 Agent 会话的环境变量。
+///
+/// None 表示服务没起来：此时 Agent 拿不到 BELFRY_ENDPOINT，敲 belfry 会
+/// 直接被告知连不上，而不是对着一个不存在的地址反复重试。
+pub struct CollabEndpoint(pub Option<String>);

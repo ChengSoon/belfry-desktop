@@ -1,6 +1,27 @@
 use super::contracts::{ContextItem, ContextWrite};
+use super::identity::SessionIdentities;
+use super::registry::{SessionRegistry, SessionSnapshot};
 use super::store::{get, list, put, remove, set_pinned};
 use crate::terminal::AppError;
+use tauri::State;
+
+/// 前端把会话名册同步过来。
+///
+/// 会话状态只在前端有，而控制 CLI 是从 PTY 里连进来问「现在有谁在」的，
+/// 那时前端不在调用栈上——只能靠这份快照。
+///
+/// 顺带收回已经不在名册里的身份牌：会话关了 token 还有效的话，那条 PTY
+/// 里残留的进程仍能以它的名义读写共享上下文。
+#[tauri::command]
+pub fn collab_sync_sessions(
+    registry: State<'_, std::sync::Arc<SessionRegistry>>,
+    identities: State<'_, std::sync::Arc<SessionIdentities>>,
+    sessions: Vec<SessionSnapshot>,
+) {
+    let live: Vec<String> = sessions.iter().map(|item| item.tab_id.clone()).collect();
+    registry.replace(sessions);
+    identities.retain(&live);
+}
 
 #[tauri::command]
 pub async fn context_list(root_path: String) -> Result<Vec<ContextItem>, AppError> {

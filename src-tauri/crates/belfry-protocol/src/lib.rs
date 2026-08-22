@@ -14,10 +14,16 @@ use serde::{Deserialize, Serialize};
 /// 而不是让字段缺失表现成「参数没传对」这种误导性行为。
 pub const PROTOCOL_VERSION: u32 = 1;
 
-/// 注入到 Agent PTY 环境里的三个变量名。CLI 靠它们知道自己是谁。
+/// 注入到 Agent PTY 环境里的变量名。CLI 靠它们知道自己是谁、往哪连。
 pub const ENV_TAB_ID: &str = "BELFRY_TAB_ID";
 pub const ENV_TOKEN: &str = "BELFRY_TOKEN";
 pub const ENV_PROJECT: &str = "BELFRY_PROJECT";
+/// 形如 `unix:/tmp/belfry-501.sock` 或 `tcp:127.0.0.1:54321`。
+///
+/// macOS 走 Unix socket：文件权限 0600 就能把访问面锁到本用户。
+/// Windows 没有等价的简单原语（named pipe 要手写 win32 调用），退回 loopback
+/// TCP——本机其他进程能连上，但没有 token 做不了任何事。
+pub const ENV_ENDPOINT: &str = "BELFRY_ENDPOINT";
 
 /// 一次请求。
 ///

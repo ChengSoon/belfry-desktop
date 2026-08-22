@@ -27,8 +27,10 @@ pub enum ContextSource {
     User,
     #[serde(rename_all = "camelCase")]
     Terminal { tab_id: String },
+    /// `agent` 是开放字符串而不是 `AgentKind`：这一层不比较也不构造具体
+    /// agent 取值，接入第四个 CLI 时这里不该需要改动。
     #[serde(rename_all = "camelCase")]
-    Agent { tab_id: String, agent: AgentKind },
+    Agent { tab_id: String, agent: String },
     #[serde(rename_all = "camelCase")]
     History { session: ContextSessionRef },
 }

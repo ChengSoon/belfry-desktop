@@ -35,3 +35,18 @@ export function removeContext(rootPath: string, id: string) {
 export function setContextPinned(rootPath: string, id: string, pinned: boolean) {
   return invoke<ContextItem>("context_set_pinned", { rootPath, id, pinned });
 }
+
+/** 一条会话在名册里的样子。字段与 Rust 侧 SessionSnapshot 一一对应。 */
+export interface CollabSessionSnapshot {
+  tabId: string;
+  title: string;
+  agent: string;
+  activity: string;
+  /** 能不能收指令。前端算好，Rust 侧原样转发。 */
+  canReceive: boolean;
+}
+
+/** 把会话名册推给 Rust，供控制 CLI 的 `belfry peers` 回答。 */
+export function syncCollabSessions(sessions: CollabSessionSnapshot[]) {
+  return invoke<void>("collab_sync_sessions", { sessions });
+}
