@@ -376,13 +376,49 @@ fn configured_command(
     command
 }
 
+/// `belfry` 控制 CLI 所在的目录。
+///
+/// 就在主程序旁边：打包后 sidecar 躺在同一个 bundle 目录，开发时 cargo 也把
+/// 两个二进制放进同一个 target 目录。两种情况用同一条规则。
+///
+/// 要先确认文件真的在：没构建 CLI 时往 PATH 里塞一个无效目录，只会让
+/// `belfry` 报「找不到命令」而不是「服务没起来」，把人引到错误的方向。
+fn cli_directory() -> Option<std::path::PathBuf> {
+    let exe = std::env::current_exe().ok()?;
+    let dir = exe.parent()?;
+    let name = if cfg!(windows) { "belfry.exe" } else { "belfry" };
+    dir.join(name).exists().then(|| dir.to_path_buf())
+}
+
+/// 把 CLI 目录接到 PATH 最前面。
+///
+/// 只改这条 PTY 的环境，不装进系统 PATH、也不动用户的 shell 配置——前者要
+/// 提权（项目明确不做静默提权），后者是改用户的家当。代价是在 Belfry 之外
+/// 敲 `belfry` 不认，但它本来就只在托管会话里才有身份。
+///
+/// 没找到 CLI 就原样返回 base，不制造一个只含无效目录的 PATH。
+fn with_cli_on_path(base: Option<std::ffi::OsString>) -> Option<std::ffi::OsString> {
+    let Some(dir) = cli_directory() else {
+        return base;
+    };
+    let mut parts = vec![dir.into_os_string()];
+    if let Some(base) = &base {
+        parts.extend(std::env::split_paths(base).map(std::path::PathBuf::into_os_string));
+    }
+    std::env::join_paths(parts).ok().or(base)
+}
+
 #[cfg(target_os = "macos")]
 fn agent_command(executable: &Path, cwd: &Path, env: &HashMap<String, String>) -> CommandBuilder {
     let mut command = configured_command(executable, cwd, env);
-    if !env.contains_key("PATH") {
-        if let Some(path) = crate::agent::user_command_path() {
-            command.env("PATH", path);
-        }
+    // 调用方显式给了 PATH 就以它为准，否则用登录 shell 的那份——
+    // GUI 进程继承到的 PATH 通常找不到用户装的 claude / codex。
+    let base = env
+        .get("PATH")
+        .map(std::ffi::OsString::from)
+        .or_else(crate::agent::user_command_path);
+    if let Some(path) = with_cli_on_path(base) {
+        command.env("PATH", path);
     }
     command
 }
@@ -394,7 +430,7 @@ fn agent_command(executable: &Path, cwd: &Path, env: &HashMap<String, String>) -
         .and_then(|value| value.to_str())
         .map(|value| matches!(value.to_ascii_lowercase().as_str(), "cmd" | "bat"))
         .unwrap_or(false);
-    if is_script {
+    let mut command = if is_script {
         let mut command = configured_command("cmd.exe", cwd, env);
         command.arg("/d");
         command.arg("/c");
@@ -402,7 +438,16 @@ fn agent_command(executable: &Path, cwd: &Path, env: &HashMap<String, String>) -
         command
     } else {
         configured_command(executable, cwd, env)
+    };
+    // Windows 没有登录 shell 那一说，进程环境就是基准。
+    let base = env
+        .get("PATH")
+        .map(std::ffi::OsString::from)
+        .or_else(|| std::env::var_os("PATH"));
+    if let Some(path) = with_cli_on_path(base) {
+        command.env("PATH", path);
     }
+    command
 }
 
 pub(super) fn resolve_cwd(uri: Option<&str>) -> Result<std::path::PathBuf, AppError> {
@@ -600,6 +645,51 @@ mod tests {
                     .unwrap_or_default()
                     .contains("Windows")
             );
+        }
+    }
+
+    #[test]
+    fn the_cli_directory_goes_to_the_front_of_path() {
+        let Some(dir) = cli_directory() else {
+            eprintln!("跳过：belfry 还没构建");
+            return;
+        };
+        let base = std::ffi::OsString::from("/usr/bin:/bin");
+
+        let resolved = with_cli_on_path(Some(base)).expect("应该拼得出 PATH");
+
+        let mut parts = std::env::split_paths(&resolved);
+        // 必须在最前：用户机器上可能装着同名的旧版本，排后面就等于没注入。
+        assert_eq!(parts.next().as_deref(), Some(dir.as_path()));
+        assert!(std::env::split_paths(&resolved).any(|p| p == std::path::Path::new("/bin")),
+            "原有条目不能丢");
+    }
+
+    #[test]
+    fn a_missing_cli_leaves_path_untouched() {
+        // cli_directory 找不到文件时返回 None，此时不该造出一个只含无效目录的 PATH。
+        let base = std::ffi::OsString::from("/usr/bin:/bin");
+        let resolved = with_cli_on_path(Some(base.clone()));
+
+        match cli_directory() {
+            Some(_) => assert_ne!(resolved.as_ref(), Some(&base)),
+            None => assert_eq!(resolved.as_ref(), Some(&base)),
+        }
+    }
+
+    #[test]
+    fn no_base_path_still_yields_the_cli_directory() {
+        let resolved = with_cli_on_path(None);
+        match cli_directory() {
+            Some(dir) => {
+                let resolved = resolved.expect("有 CLI 就该给出 PATH");
+                assert_eq!(
+                    std::env::split_paths(&resolved).next().as_deref(),
+                    Some(dir.as_path())
+                );
+            }
+            // 两样都没有时保持 None，让调用方走「不设 PATH」那条路。
+            None => assert!(resolved.is_none()),
         }
     }
 }

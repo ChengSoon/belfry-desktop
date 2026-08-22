@@ -5,6 +5,8 @@ src-tauri/target/
 src-tauri/gen/schemas/
 # build.rs 按目标架构挑出来的那份 conpty，构建产物不入库。
 src-tauri/vendor/conpty/active/
+# belfry 控制 CLI 的 sidecar 副本，由 scripts/bundle-cli.mjs 每次构建时生成。
+src-tauri/binaries/
 *.tsbuildinfo
 *.log
 tmp/

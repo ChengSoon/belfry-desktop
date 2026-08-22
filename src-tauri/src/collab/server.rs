@@ -10,6 +10,7 @@
 //! 都是一次性的，多余的状态只会带来重连语义。
 
 use std::io::{BufRead, BufReader, Write};
+#[cfg(not(unix))]
 use std::net::{TcpListener, TcpStream};
 use std::sync::Arc;
 use std::thread;
@@ -48,6 +49,7 @@ impl CollabServer {
 enum Listener {
     #[cfg(unix)]
     Unix(std::os::unix::net::UnixListener, std::path::PathBuf),
+    #[cfg(not(unix))]
     Tcp(TcpListener),
 }
 
@@ -76,6 +78,7 @@ impl Listener {
         match self {
             #[cfg(unix)]
             Self::Unix(_, path) => format!("unix:{}", path.display()),
+            #[cfg(not(unix))]
             Self::Tcp(listener) => listener
                 .local_addr()
                 .map(|addr| format!("tcp:{addr}"))
@@ -94,6 +97,7 @@ impl Listener {
                     thread::spawn(move || serve_connection(stream, &identities, &registry));
                 }
             }
+            #[cfg(not(unix))]
             Self::Tcp(listener) => {
                 for stream in listener.incoming().flatten() {
                     let (identities, registry) = (identities.clone(), registry.clone());
@@ -109,6 +113,7 @@ trait Connection: std::io::Read + Send + 'static {
     fn write_half(&self) -> Option<Box<dyn Write + Send>>;
 }
 
+#[cfg(not(unix))]
 impl Connection for TcpStream {
     fn write_half(&self) -> Option<Box<dyn Write + Send>> {
         self.try_clone().ok().map(|value| Box::new(value) as _)
