@@ -48,6 +48,83 @@ pub fn collab_pending_tasks(
         .collect()
 }
 
+/// 协作全貌，给面板用。
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CollabView {
+    pub tasks: Vec<TaskView>,
+}
+
+/// 一条任务在面板里的样子。
+///
+/// 两端都换成看得懂的标题：面板上一串 tabId 没法让人判断该不该批准。
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskView {
+    pub id: String,
+    pub short_id: String,
+    pub from_label: String,
+    pub to_label: String,
+    pub instruction: String,
+    pub state: String,
+    pub hop: u8,
+    pub created_at: i64,
+    pub result: Option<String>,
+}
+
+#[tauri::command]
+pub fn collab_tasks(
+    board: State<'_, std::sync::Arc<TaskBoard>>,
+    registry: State<'_, std::sync::Arc<SessionRegistry>>,
+) -> CollabView {
+    let label = |tab_id: &str| {
+        registry
+            .find(tab_id)
+            .map(|session| session.title)
+            .unwrap_or_else(|| tab_id.to_string())
+    };
+    let mut tasks: Vec<TaskView> = board
+        .snapshot()
+        .into_iter()
+        .map(|entry| TaskView {
+            short_id: task::short_id(&entry.id).to_string(),
+            from_label: label(&entry.from),
+            to_label: label(&entry.to),
+            id: entry.id,
+            instruction: entry.instruction,
+            state: format!("{:?}", entry.state).to_lowercase(),
+            hop: entry.hop,
+            created_at: entry.created_at,
+            result: entry.result,
+        })
+        .collect();
+    // 新的排前面：要处理的（等确认）通常就是刚发生的那条。
+    tasks.sort_by(|left, right| right.created_at.cmp(&left.created_at));
+    CollabView { tasks }
+}
+
+#[tauri::command]
+pub fn collab_approve(
+    board: State<'_, std::sync::Arc<TaskBoard>>,
+    id: String,
+) -> Result<(), AppError> {
+    board.approve(&id).map(|_| ()).map_err(AppError::invalid_argument)
+}
+
+#[tauri::command]
+pub fn collab_reject(
+    board: State<'_, std::sync::Arc<TaskBoard>>,
+    id: String,
+) -> Result<(), AppError> {
+    board.reject(&id).map(|_| ()).map_err(AppError::invalid_argument)
+}
+
+/// 一键全停。返回停掉几条，好在界面上给个确切的交代。
+#[tauri::command]
+pub fn collab_stop_all(board: State<'_, std::sync::Arc<TaskBoard>>) -> usize {
+    board.stop_all()
+}
+
 /// 前端投递完回执。
 #[tauri::command]
 pub fn collab_mark_dispatched(board: State<'_, std::sync::Arc<TaskBoard>>, id: String) {

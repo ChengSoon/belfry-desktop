@@ -9,6 +9,7 @@ export type AppShortcut =
   | { kind: "toggle-composer" }
   | { kind: "toggle-recipes" }
   | { kind: "toggle-context" }
+  | { kind: "toggle-collab" }
   | { kind: "open-settings" }
   | { kind: "new-shell" }
   | { kind: "activate-session"; index: number };
@@ -39,6 +40,8 @@ export function resolveAppShortcut(
   // preventDefault 掉——重载会连同所有 PTY 一起丢，代价比抢走一个组合键大得多。
   if (code === "KeyR") return { kind: "toggle-recipes" };
   if (code === "KeyG") return { kind: "toggle-context" };
+  // 不用 KeyA：⌘A 是全选，终端里是刚需，抢掉代价太大。
+  if (code === "KeyY") return { kind: "toggle-collab" };
   if (code === "Comma") return { kind: "open-settings" };
   if (code === "KeyT") return { kind: "new-shell" };
   if (/^Digit[1-9]$/.test(code)) return { kind: "activate-session", index: Number(code.at(-1)) - 1 };

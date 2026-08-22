@@ -73,3 +73,33 @@ export function listPendingTasks() {
 export function markTaskDispatched(id: string) {
   return invoke<void>("collab_mark_dispatched", { id });
 }
+
+/** 一条任务在面板里的样子。两端都是看得懂的标题，不是 tabId。 */
+export interface TaskView {
+  id: string;
+  shortId: string;
+  fromLabel: string;
+  toLabel: string;
+  instruction: string;
+  state: "pendingApproval" | "queued" | "dispatched" | "done" | "failed" | "abandoned";
+  hop: number;
+  createdAt: number;
+  result: string | null;
+}
+
+export function listCollabTasks() {
+  return invoke<{ tasks: TaskView[] }>("collab_tasks");
+}
+
+export function approveTask(id: string) {
+  return invoke<void>("collab_approve", { id });
+}
+
+export function rejectTask(id: string) {
+  return invoke<void>("collab_reject", { id });
+}
+
+/** 一键全停，返回停掉几条。 */
+export function stopAllTasks() {
+  return invoke<number>("collab_stop_all");
+}

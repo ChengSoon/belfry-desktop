@@ -6,6 +6,7 @@ const ACTION_ITEMS: QuickOpenItem[] = [
   { id: "action:composer", kind: "action", title: "打开 Prompt Composer", subtitle: "发送或排队 Agent 指令", keywords: ["prompt", "queue", "消息", "队列"], icon: "composer" },
   { id: "action:recipes", kind: "action", title: "打开 Recipe", subtitle: "可复用的多步 Agent 指令", keywords: ["recipe", "steps", "多步", "指令", "复用", "剧本"], icon: "list-checks" },
   { id: "action:context", kind: "action", title: "打开共享上下文", subtitle: "会话之间互通的约定与片段", keywords: ["context", "shared", "共享", "上下文", "笔记", "约定"], icon: "library" },
+  { id: "action:collab", kind: "action", title: "打开 Agent 协作", subtitle: "跨会话任务与确认", keywords: ["collab", "agent", "协作", "任务", "派活"], icon: "network" },
   { id: "action:file-preview", kind: "action", title: "打开文件预览", subtitle: "浏览当前项目文件", keywords: ["file", "preview", "文件", "目录", "code"], icon: "file-search" },
   { id: "action:settings", kind: "action", title: "打开设置", subtitle: "Belfry", keywords: ["preferences", "config"], icon: "settings" },
   { id: "action:history", kind: "action", title: "打开历史会话", subtitle: "Codex / Claude", keywords: ["resume", "history"], icon: "history" },

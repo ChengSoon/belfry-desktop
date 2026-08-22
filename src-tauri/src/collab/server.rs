@@ -348,7 +348,7 @@ fn dispatch_send(
         Verdict::Rejected(message) => Response::error(message),
         verdict => {
             let id = ulid::Ulid::generate().to_string().to_lowercase();
-            let created = task::build_task(id, &outgoing, now_millis());
+            let created = task::build_task(id, &outgoing, now_millis(), &verdict);
             let short = task::short_id(&created.id).to_string();
             board.insert(created);
             Response::Ok {

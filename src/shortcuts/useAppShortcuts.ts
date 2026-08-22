@@ -10,6 +10,7 @@ import {
 interface AppShortcutActions {
   blocked: boolean;
   composerOpen: boolean;
+  collabOpen: boolean;
   contextOpen: boolean;
   quickOpenOpen: boolean;
   recipesOpen: boolean;
@@ -18,6 +19,7 @@ interface AppShortcutActions {
   onOpenSettings: () => void;
   onToggleHistory: () => void;
   onToggleComposer: () => void;
+  onToggleCollab: () => void;
   onToggleContext: () => void;
   onToggleQuickOpen: () => void;
   onToggleRecipes: () => void;
@@ -43,6 +45,8 @@ export function useAppShortcuts(actions: AppShortcutActions) {
       if (actionsRef.current.recipesOpen && shortcut.kind !== "toggle-recipes") return;
       // 共享上下文面板里有标题和正文两个输入框，同理别让它被顶掉。
       if (actionsRef.current.contextOpen && shortcut.kind !== "toggle-context") return;
+      // 协作面板里有待确认的任务，别让组合键把它顶掉——那正是要用户表态的东西。
+      if (actionsRef.current.collabOpen && shortcut.kind !== "toggle-collab") return;
       if (actionsRef.current.blocked) return;
       if (guideOpenRef.current && shortcut.kind !== "toggle-shortcuts") return;
       event.preventDefault();
@@ -76,6 +80,7 @@ function runShortcut(
   else if (shortcut.kind === "toggle-quick-open") actions.onToggleQuickOpen();
   else if (shortcut.kind === "toggle-recipes") actions.onToggleRecipes();
   else if (shortcut.kind === "toggle-context") actions.onToggleContext();
+  else if (shortcut.kind === "toggle-collab") actions.onToggleCollab();
   else if (shortcut.kind === "open-settings") actions.onOpenSettings();
   else if (shortcut.kind === "new-shell") actions.onNewShell();
   else if (shortcut.kind === "activate-session") actions.onActivateSession(shortcut.index);

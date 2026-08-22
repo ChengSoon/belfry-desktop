@@ -12,6 +12,7 @@ import { useActivityNotifications } from "./notify/useActivityNotifications";
 import { useSharedContext } from "./collab/useSharedContext";
 import { useCollabSessions } from "./collab/useCollabSessions";
 import { useCollabTasks } from "./collab/useCollabTasks";
+import { useCollabTaskBoard } from "./collab/useCollabTaskBoard";
 import { contextReference, type ContextItem } from "./collab/contracts";
 import { usePromptQueue } from "./prompt/usePromptQueue";
 import { useRecipes } from "./recipe/useRecipes";
@@ -44,6 +45,7 @@ export default function App() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [composerOpen, setComposerOpen] = useState(false);
+  const [collabOpen, setCollabOpen] = useState(false);
   const [contextOpen, setContextOpen] = useState(false);
   const [recipesOpen, setRecipesOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -95,6 +97,7 @@ export default function App() {
   });
   const terminalTargets = useTerminalTargets();
   const sharedContext = useSharedContext({ project: workspace.activeProject });
+  const collab = useCollabTaskBoard();
   const promptQueue = usePromptQueue({ tabs: workspace.tabs, targets: terminalTargets.targets });
   // 别的会话派来的任务，投进同一条 Prompt 队列——派活不需要第二个执行引擎。
   useCollabTasks({
@@ -117,6 +120,7 @@ export default function App() {
   const closeOverlays = useCallback(() => {
     quickOpen.close();
     setComposerOpen(false);
+    setCollabOpen(false);
     setContextOpen(false);
     setRecipesOpen(false);
     setPreviewOpen(false);
@@ -154,6 +158,12 @@ export default function App() {
     closeOverlays();
     setRecipesOpen(next);
   }, [closeOverlays, recipesOpen]);
+
+  const toggleCollab = useCallback(() => {
+    const next = !collabOpen;
+    closeOverlays();
+    setCollabOpen(next);
+  }, [closeOverlays, collabOpen]);
 
   const toggleContext = useCallback(() => {
     const next = !contextOpen;
@@ -244,6 +254,7 @@ export default function App() {
   const shortcuts = useAppShortcuts({
     blocked: Boolean(pendingClose || pendingRemove || updater.open),
     composerOpen,
+    collabOpen,
     contextOpen,
     quickOpenOpen: quickOpen.open,
     recipesOpen,
@@ -255,6 +266,7 @@ export default function App() {
     onOpenSettings: () => setSettingsOpen(true),
     onToggleHistory: toggleHistory,
     onToggleComposer: toggleComposer,
+    onToggleCollab: toggleCollab,
     onToggleContext: toggleContext,
     onToggleQuickOpen: toggleQuickOpen,
     onToggleRecipes: toggleRecipes,
@@ -277,6 +289,10 @@ export default function App() {
         case "action:context":
           closeOverlays();
           setContextOpen(true);
+          break;
+        case "action:collab":
+          closeOverlays();
+          setCollabOpen(true);
           break;
         case "action:file-preview": openPreview(); break;
         case "action:settings": setSettingsOpen(true); break;
@@ -367,6 +383,14 @@ export default function App() {
         onToggleQuickOpen={toggleQuickOpen}
         onToggleRecipes={toggleRecipes}
         onToggleContext={toggleContext}
+        onToggleCollab={toggleCollab}
+        onApproveTask={collab.approve}
+        onRejectTask={collab.reject}
+        onStopAllTasks={collab.stopAll}
+        collabActive={collab.active}
+        collabOpen={collabOpen}
+        collabPending={collab.pendingApproval}
+        collabTasks={collab.tasks}
         onAddContextNote={addContextNote}
         onCaptureSelection={captureSelection}
         onInsertContext={insertContext}

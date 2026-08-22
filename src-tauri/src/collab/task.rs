@@ -47,6 +47,8 @@ pub enum ApprovalMode {
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum TaskState {
+    /// 等用户点头。没批准之前绝不投递——否则 Ask 模式形同虚设。
+    PendingApproval,
     /// 已入队，等目标空闲。
     Queued,
     /// 已注入目标终端，等它干活。
@@ -147,10 +149,14 @@ fn next_hop(parent: Option<&CollabTask>) -> u8 {
 }
 
 /// 造一条通过闸门后的任务。
+///
+/// `verdict` 决定它是直接排队还是先等用户点头——这一步不能省，
+/// 否则 `NeedsApproval` 的任务照样会被投递，Ask 模式就形同虚设。
 pub fn build_task(
     id: String,
     request: &TaskRequest<'_>,
     now: i64,
+    verdict: &Verdict,
 ) -> CollabTask {
     let hop = next_hop(request.parent);
     let mut path = request
@@ -163,7 +169,10 @@ pub fn build_task(
         from: request.from.to_string(),
         to: request.to.to_string(),
         instruction: request.instruction.trim().to_string(),
-        state: TaskState::Queued,
+        state: match verdict {
+            Verdict::NeedsApproval => TaskState::PendingApproval,
+            _ => TaskState::Queued,
+        },
         hop,
         path,
         created_at: now,
@@ -272,11 +281,70 @@ impl TaskBoard {
         }
     }
 
+    /// 用户点头，放行投递。
+    ///
+    /// 只放行还在等的：已经拒掉或结掉的不该被一次误点改回去。
+    pub fn approve(&self, id: &str) -> Result<CollabTask, String> {
+        let Ok(mut tasks) = self.tasks.lock() else {
+            return Err("任务表锁不上".into());
+        };
+        let Some(task) = tasks.get_mut(id) else {
+            return Err(format!("没有编号 {id} 的任务"));
+        };
+        if task.state != TaskState::PendingApproval {
+            return Err("这条任务不在等确认".into());
+        }
+        task.state = TaskState::Queued;
+        Ok(task.clone())
+    }
+
+    /// 用户否掉一条待确认的任务。
+    pub fn reject(&self, id: &str) -> Result<CollabTask, String> {
+        let Ok(mut tasks) = self.tasks.lock() else {
+            return Err("任务表锁不上".into());
+        };
+        let Some(task) = tasks.get_mut(id) else {
+            return Err(format!("没有编号 {id} 的任务"));
+        };
+        if task.state != TaskState::PendingApproval {
+            return Err("这条任务不在等确认".into());
+        }
+        task.state = TaskState::Abandoned;
+        task.result = Some("用户拒绝了这条派活".into());
+        Ok(task.clone())
+    }
+
+    /// 一键全停。
+    ///
+    /// 比任何单条操作都重要：协作跑飞时用户需要一个不用想、不用挑的出口。
+    /// 已经交给终端的拦不回来，但至少不再有新的进去。
+    pub fn stop_all(&self) -> usize {
+        let Ok(mut tasks) = self.tasks.lock() else {
+            return 0;
+        };
+        let mut stopped = 0;
+        for task in tasks.values_mut() {
+            if matches!(
+                task.state,
+                TaskState::PendingApproval | TaskState::Queued | TaskState::Dispatched
+            ) {
+                task.state = TaskState::Abandoned;
+                task.result = Some("用户中止了协作".into());
+                stopped += 1;
+            }
+        }
+        stopped
+    }
+
     /// 某条会话作为接收方还没结的任务。用来在会话关闭时收尾。
     pub fn abandon_for(&self, tab_id: &str) {
         if let Ok(mut tasks) = self.tasks.lock() {
             for task in tasks.values_mut() {
-                if task.to == tab_id && matches!(task.state, TaskState::Queued | TaskState::Dispatched)
+                if task.to == tab_id
+                    && matches!(
+                        task.state,
+                        TaskState::PendingApproval | TaskState::Queued | TaskState::Dispatched
+                    )
                 {
                     task.state = TaskState::Abandoned;
                 }
