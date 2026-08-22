@@ -31,5 +31,7 @@ function toSnapshot(tab: WorkspaceTab): CollabSessionSnapshot {
     agent: tab.kind,
     activity: tab.activity,
     canReceive: isAgentKind(tab.kind) && tab.phase === "running",
+    // 派活的同项目判断读它。会话自带项目归属，不同会话可以指向不同目录。
+    projectRoot: tab.project.rootPath,
   };
 }

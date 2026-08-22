@@ -44,6 +44,8 @@ export interface CollabSessionSnapshot {
   activity: string;
   /** 能不能收指令。前端算好，Rust 侧原样转发。 */
   canReceive: boolean;
+  /** 会话的项目根，供派活判断是不是同项目。不会转发给别的 Agent。 */
+  projectRoot: string;
 }
 
 /** 把会话名册推给 Rust，供控制 CLI 的 `belfry peers` 回答。 */

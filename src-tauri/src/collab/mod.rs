@@ -15,6 +15,7 @@ mod identity;
 mod registry;
 mod server;
 pub(crate) mod store;
+pub(crate) mod task;
 
 #[cfg(test)]
 #[path = "e2e_test.rs"]
@@ -23,6 +24,7 @@ mod e2e_test;
 pub use identity::SessionIdentities;
 pub use registry::SessionRegistry;
 pub use server::CollabServer;
+pub use task::TaskBoard;
 
 /// 控制 CLI 的接入点，注入进 Agent 会话的环境变量。
 ///

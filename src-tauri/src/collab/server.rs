@@ -15,12 +15,15 @@ use std::net::{TcpListener, TcpStream};
 use std::sync::Arc;
 use std::thread;
 
-use belfry_protocol::{Command, ContextEntry, PROTOCOL_VERSION, Request, Response, ResponseData};
+use belfry_protocol::{
+    Command, ContextEntry, InboxTask, PROTOCOL_VERSION, Request, Response, ResponseData,
+};
 
 use super::contracts::{ContextKind, ContextSource, ContextWrite};
 use super::identity::SessionIdentities;
 use super::registry::SessionRegistry;
 use super::store;
+use super::task::{self, ApprovalMode, TargetInfo, TaskBoard, TaskRequest, TaskState, Verdict};
 
 /// 单行请求的上限。够放一条派活指令，又不至于让一个坏客户端把内存吃光。
 const MAX_REQUEST_BYTES: u64 = 1024 * 1024;
@@ -34,10 +37,14 @@ impl CollabServer {
     ///
     /// 起不来就返回 None：协作是增强功能，socket 占用或权限不足不该让整个
     /// 应用起不来——这和「Agent 检测失败不该让你打不开一个 Shell」是同一条取向。
-    pub fn start(identities: Arc<SessionIdentities>, registry: Arc<SessionRegistry>) -> Option<Self> {
+    pub fn start(
+        identities: Arc<SessionIdentities>,
+        registry: Arc<SessionRegistry>,
+        board: Arc<TaskBoard>,
+    ) -> Option<Self> {
         let listener = Listener::bind()?;
         let endpoint = listener.endpoint();
-        thread::spawn(move || listener.serve(identities, registry));
+        thread::spawn(move || listener.serve(identities, registry, board));
         Some(Self { endpoint })
     }
 
@@ -86,22 +93,29 @@ impl Listener {
         }
     }
 
-    fn serve(self, identities: Arc<SessionIdentities>, registry: Arc<SessionRegistry>) {
+    fn serve(
+        self,
+        identities: Arc<SessionIdentities>,
+        registry: Arc<SessionRegistry>,
+        board: Arc<TaskBoard>,
+    ) {
         match self {
             #[cfg(unix)]
             Self::Unix(listener, _) => {
                 for stream in listener.incoming().flatten() {
-                    let (identities, registry) = (identities.clone(), registry.clone());
+                    let (identities, registry, board) =
+                        (identities.clone(), registry.clone(), board.clone());
                     // 每个连接一个短线程：一次请求处理里有文件 IO，
                     // 卡在一个客户端上会让其他 Agent 一起等。
-                    thread::spawn(move || serve_connection(stream, &identities, &registry));
+                    thread::spawn(move || serve_connection(stream, &identities, &registry, &board));
                 }
             }
             #[cfg(not(unix))]
             Self::Tcp(listener) => {
                 for stream in listener.incoming().flatten() {
-                    let (identities, registry) = (identities.clone(), registry.clone());
-                    thread::spawn(move || serve_connection(stream, &identities, &registry));
+                    let (identities, registry, board) =
+                        (identities.clone(), registry.clone(), board.clone());
+                    thread::spawn(move || serve_connection(stream, &identities, &registry, &board));
                 }
             }
         }
@@ -131,6 +145,7 @@ fn serve_connection<S: Connection>(
     stream: S,
     identities: &SessionIdentities,
     registry: &SessionRegistry,
+    board: &TaskBoard,
 ) {
     let Some(mut writer) = stream.write_half() else {
         return;
@@ -141,7 +156,7 @@ fn serve_connection<S: Connection>(
         return;
     }
 
-    let response = handle_line(&line, identities, registry);
+    let response = handle_line(&line, identities, registry, board);
     if let Ok(mut text) = serde_json::to_string(&response) {
         text.push('\n');
         let _ = writer.write_all(text.as_bytes());
@@ -153,6 +168,7 @@ fn handle_line(
     line: &str,
     identities: &SessionIdentities,
     registry: &SessionRegistry,
+    board: &TaskBoard,
 ) -> Response {
     let request: Request = match serde_json::from_str(line) {
         Ok(value) => value,
@@ -169,13 +185,14 @@ fn handle_line(
         // 不区分「会话不存在」和「token 不对」：区分本身就是一个可试探的信号。
         return Response::error("身份校验失败：这条会话不能通过 belfry 说话");
     }
-    dispatch(&request, identities, registry)
+    dispatch(&request, identities, registry, board)
 }
 
 fn dispatch(
     request: &Request,
     identities: &SessionIdentities,
     registry: &SessionRegistry,
+    board: &TaskBoard,
 ) -> Response {
     match &request.command {
         Command::Peers => Response::Ok {
@@ -236,6 +253,141 @@ fn dispatch(
                 })
             })
         }
+        Command::Send {
+            to,
+            instruction,
+            parent_task,
+        } => dispatch_send(
+            request,
+            identities,
+            registry,
+            board,
+            to,
+            instruction,
+            parent_task.as_deref(),
+        ),
+        Command::Done { task, result } => {
+            settle(board, &request.tab_id, task, TaskState::Done, result.clone())
+        }
+        Command::Fail { task, reason } => settle(
+            board,
+            &request.tab_id,
+            task,
+            TaskState::Failed,
+            Some(reason.clone()),
+        ),
+        Command::Inbox => Response::Ok {
+            data: ResponseData::Inbox {
+                tasks: board
+                    .snapshot()
+                    .into_iter()
+                    .filter(|entry| {
+                        entry.to == request.tab_id
+                            && matches!(entry.state, TaskState::Queued | TaskState::Dispatched)
+                    })
+                    .map(|entry| InboxTask {
+                        task: task::short_id(&entry.id).to_string(),
+                        from: entry.from,
+                        instruction: entry.instruction,
+                        state: format!("{:?}", entry.state).to_lowercase(),
+                    })
+                    .collect(),
+            },
+        },
+    }
+}
+
+/// 派活。
+///
+/// 闸门判断在 `task::judge` 里，这里只把上下文凑齐：解析目标、找父任务、
+/// 比对项目归属。分开是因为闸门是最不能出错的部分，它必须能脱离 IPC 单测。
+fn dispatch_send(
+    request: &Request,
+    identities: &SessionIdentities,
+    registry: &SessionRegistry,
+    board: &TaskBoard,
+    to: &str,
+    instruction: &str,
+    parent_task: Option<&str>,
+) -> Response {
+    let target = match registry.resolve(to, &request.tab_id) {
+        Ok(session) => session,
+        Err(message) => return Response::error(message),
+    };
+    // 父任务用短 id 传递：Agent 照抄它在提示里看到的那串就行。
+    let parent = parent_task.and_then(|short| {
+        board
+            .snapshot()
+            .into_iter()
+            .find(|candidate| task::short_id(&candidate.id) == short)
+    });
+
+    // 项目归属从名册读而不是身份表：身份表里只有领过牌子的会话才有这一项，
+    // 而名册是前端推过来的完整状态，两条会话都在里面。
+    let mine = registry
+        .find(&request.tab_id)
+        .and_then(|session| session.project_root);
+    let info = TargetInfo {
+        exists: true,
+        can_receive: target.can_receive,
+        // 两边都没有项目时不算同项目：那说明谁都没打开目录，
+        // 派过去也没有共同的工作现场。
+        same_project: mine.is_some() && mine == target.project_root,
+    };
+    let outgoing = TaskRequest {
+        from: &request.tab_id,
+        to: &target.tab_id,
+        instruction,
+        parent: parent.as_ref(),
+    };
+    let root = parent
+        .as_ref()
+        .and_then(|entry| entry.path.first().cloned())
+        .unwrap_or_else(|| request.tab_id.clone());
+
+    // 权限模式暂固定 Ask：确认 UI 属于下一步，先让默认值站在安全那一侧。
+    match task::judge(&outgoing, &info, ApprovalMode::Ask, board.count_in_path(&root)) {
+        Verdict::Rejected(message) => Response::error(message),
+        verdict => {
+            let id = ulid::Ulid::generate().to_string().to_lowercase();
+            let created = task::build_task(id, &outgoing, now_millis());
+            let short = task::short_id(&created.id).to_string();
+            board.insert(created);
+            Response::Ok {
+                data: ResponseData::Sent {
+                    task: short,
+                    to: target.title,
+                    // 「已受理」不等于「已送到」——不说清楚，Agent 会以为对方开工了。
+                    pending_approval: verdict == Verdict::NeedsApproval,
+                },
+            }
+        }
+    }
+}
+
+/// 结掉一条任务。短 id 来自注入提示里那串，先还原成完整 id 再交给 board。
+fn settle(
+    board: &TaskBoard,
+    claimant: &str,
+    short: &str,
+    state: TaskState,
+    result: Option<String>,
+) -> Response {
+    let Some(full) = board
+        .snapshot()
+        .into_iter()
+        .find(|entry| task::short_id(&entry.id) == short)
+        .map(|entry| entry.id)
+    else {
+        return Response::error(format!("没有编号 {short} 的任务，用 belfry inbox 看看"));
+    };
+    match board.settle(&full, claimant, state, result) {
+        Ok(entry) => Response::Ok {
+            data: ResponseData::Settled {
+                task: task::short_id(&entry.id).to_string(),
+            },
+        },
+        Err(message) => Response::error(message),
     }
 }
 

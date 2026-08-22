@@ -41,10 +41,18 @@ fn run(args: &[String]) -> Result<String, String> {
 const USAGE: &str = "\
 belfry —— Belfry 会话之间的协作命令
 
-  belfry peers                    看看现在还有哪些会话，各自在忙什么
-  belfry ctx list                 列出这个项目的共享上下文
-  belfry ctx get <id>             读一条的正文
-  belfry ctx put <标题> [正文]     写一条；省略正文时从标准输入读
+  belfry peers                     看看现在还有哪些会话，各自在忙什么
+  belfry send <目标> <指令>         请另一条会话做点什么
+  belfry inbox                     派给我、还没结的任务
+  belfry done <任务号> [结果]       我做完了（唯一可信的完成信号）
+  belfry fail <任务号> <原因>       我做不了
+
+  belfry ctx list                  列出这个项目的共享上下文
+  belfry ctx get <id>              读一条的正文
+  belfry ctx put <标题> [正文]      写一条；省略正文时从标准输入读
+
+目标可以写 tabId、会话标题的一部分，或 agent 名。
+在别人派的任务里再派活时，加 --parent <任务号>，这样转包层数和环才算得准。
 
 只在 Belfry 托管的 Agent 会话里可用。";
 
@@ -52,7 +60,11 @@ fn parse(args: &[String]) -> Result<Command, String> {
     let head = args.first().map(String::as_str);
     match (head, args.len()) {
         (Some("peers"), 1) => Ok(Command::Peers),
+        (Some("inbox"), 1) => Ok(Command::Inbox),
         (Some("ctx"), _) => parse_ctx(&args[1..]),
+        (Some("send"), _) => parse_send(&args[1..]),
+        (Some("done"), _) => parse_done(&args[1..]),
+        (Some("fail"), _) => parse_fail(&args[1..]),
         (Some("help") | Some("--help") | Some("-h"), _) | (None, _) => Err(USAGE.to_string()),
         (Some(other), _) => Err(format!("不认识的命令 `{other}`。\n\n{USAGE}")),
     }
@@ -86,6 +98,62 @@ fn parse_ctx(args: &[String]) -> Result<Command, String> {
         }
         _ => Err(format!("belfry ctx 需要 list / get / put。\n\n{USAGE}")),
     }
+}
+
+/// `belfry send <目标> <指令> [--parent <任务号>]`
+///
+/// 目标和指令都按位置取，不搞 `--to` / `--message`：Agent 拼命令行时
+/// 位置参数出错的概率明显低于记住一组标志名。
+fn parse_send(args: &[String]) -> Result<Command, String> {
+    let mut positional = Vec::new();
+    let mut parent_task = None;
+    let mut rest = args.iter();
+    while let Some(arg) = rest.next() {
+        if arg == "--parent" {
+            parent_task = Some(
+                rest.next()
+                    .ok_or_else(|| "--parent 后面要跟任务号".to_string())?
+                    .clone(),
+            );
+        } else {
+            positional.push(arg.clone());
+        }
+    }
+    let to = positional
+        .first()
+        .ok_or_else(|| "belfry send 需要一个目标，用 belfry peers 看看有谁".to_string())?;
+    if positional.len() < 2 {
+        return Err("belfry send 需要一条指令".to_string());
+    }
+    Ok(Command::Send {
+        to: to.clone(),
+        // 指令允许不加引号写成多个词，拼回去比要求 Agent 记得转义可靠。
+        instruction: positional[1..].join(" "),
+        parent_task,
+    })
+}
+
+fn parse_done(args: &[String]) -> Result<Command, String> {
+    let task = args
+        .first()
+        .ok_or_else(|| "belfry done 需要任务号，用 belfry inbox 查".to_string())?;
+    Ok(Command::Done {
+        task: task.clone(),
+        result: (args.len() > 1).then(|| args[1..].join(" ")),
+    })
+}
+
+fn parse_fail(args: &[String]) -> Result<Command, String> {
+    let task = args
+        .first()
+        .ok_or_else(|| "belfry fail 需要任务号，用 belfry inbox 查".to_string())?;
+    if args.len() < 2 {
+        return Err("belfry fail 要说明原因：派活那边只能看到你写的这句".to_string());
+    }
+    Ok(Command::Fail {
+        task: task.clone(),
+        reason: args[1..].join(" "),
+    })
 }
 
 fn read_stdin() -> Result<String, String> {
@@ -241,6 +309,34 @@ fn render(data: ResponseData) -> String {
         ResponseData::ContextPut { id, reference } => {
             format!("已存下 {id}，引用它用：{reference}")
         }
+        ResponseData::Sent {
+            task,
+            to,
+            pending_approval,
+        } => {
+            if pending_approval {
+                // 说清「还没送到」，否则 Agent 会当成对方已经开工，接着去等结果。
+                format!("任务 {task} 已提交给「{to}」，等用户确认后才会送达")
+            } else {
+                format!("任务 {task} 已送给「{to}」")
+            }
+        }
+        ResponseData::Settled { task } => format!("任务 {task} 已结"),
+        ResponseData::Inbox { tasks } => {
+            if tasks.is_empty() {
+                return "没有派给你的任务".to_string();
+            }
+            tasks
+                .iter()
+                .map(|task| {
+                    format!(
+                        "{}  来自 {}  [{}]\n    {}",
+                        task.task, task.from, task.state, task.instruction
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join("\n")
+        }
     }
 }
 
@@ -343,5 +439,103 @@ mod tests {
         });
         assert!(text.contains(".belfry/context/c1.md"), "{text}");
         assert!(text.contains("[置顶]"), "{text}");
+    }
+
+    #[test]
+    fn send_takes_target_then_instruction() {
+        match parse(&["send".into(), "reviewer".into(), "审".into(), "一下队列".into()]) {
+            Ok(Command::Send { to, instruction, parent_task }) => {
+                assert_eq!(to, "reviewer");
+                // 指令不加引号写成多个词也要拼得回来。
+                assert_eq!(instruction, "审 一下队列");
+                assert!(parent_task.is_none());
+            }
+            other => panic!("解析结果不对：{other:?}"),
+        }
+    }
+
+    #[test]
+    fn send_picks_up_the_parent_task_anywhere() {
+        match parse(&[
+            "send".into(), "reviewer".into(), "--parent".into(), "01ABCDEF".into(),
+            "接着".into(), "干".into(),
+        ]) {
+            Ok(Command::Send { to, instruction, parent_task }) => {
+                assert_eq!(to, "reviewer");
+                assert_eq!(instruction, "接着 干");
+                assert_eq!(parent_task.as_deref(), Some("01ABCDEF"));
+            }
+            other => panic!("解析结果不对：{other:?}"),
+        }
+    }
+
+    #[test]
+    fn send_without_an_instruction_is_rejected() {
+        assert!(parse(&["send".into(), "reviewer".into()]).is_err());
+        let err = parse(&["send".into()]).unwrap_err();
+        assert!(err.contains("belfry peers"), "要告诉它去哪找目标：{err}");
+    }
+
+    #[test]
+    fn a_dangling_parent_flag_is_rejected() {
+        assert!(parse(&["send".into(), "r".into(), "干活".into(), "--parent".into()]).is_err());
+    }
+
+    #[test]
+    fn done_can_carry_a_result_or_not() {
+        match parse(&["done".into(), "01ABCDEF".into()]) {
+            Ok(Command::Done { task, result }) => {
+                assert_eq!(task, "01ABCDEF");
+                assert!(result.is_none());
+            }
+            other => panic!("{other:?}"),
+        }
+        match parse(&["done".into(), "01ABCDEF".into(), "写在".into(), "out.md".into()]) {
+            Ok(Command::Done { result, .. }) => assert_eq!(result.as_deref(), Some("写在 out.md")),
+            other => panic!("{other:?}"),
+        }
+    }
+
+    #[test]
+    fn fail_requires_a_reason() {
+        // 派活那边只能看到这句话，空着等于什么都没说。
+        assert!(parse(&["fail".into(), "01ABCDEF".into()]).is_err());
+        assert!(parse(&["fail".into(), "01ABCDEF".into(), "跑不动".into()]).is_ok());
+    }
+
+    #[test]
+    fn a_pending_send_says_it_is_not_delivered_yet() {
+        let text = render(ResponseData::Sent {
+            task: "01ABCDEF".into(),
+            to: "审查那条".into(),
+            pending_approval: true,
+        });
+        // 不说清楚的话，Agent 会以为对方已经开工，接着去等结果。
+        assert!(text.contains("确认"), "{text}");
+
+        let sent = render(ResponseData::Sent {
+            task: "01ABCDEF".into(),
+            to: "审查那条".into(),
+            pending_approval: false,
+        });
+        assert!(!sent.contains("确认"), "{sent}");
+    }
+
+    #[test]
+    fn an_empty_inbox_says_so() {
+        assert!(!render(ResponseData::Inbox { tasks: vec![] }).is_empty());
+    }
+
+    #[test]
+    fn inbox_shows_who_asked_and_what_for() {
+        let text = render(ResponseData::Inbox {
+            tasks: vec![belfry_protocol::InboxTask {
+                task: "01ABCDEF".into(),
+                from: "t1".into(),
+                instruction: "审一下队列回滚".into(),
+                state: "dispatched".into(),
+            }],
+        });
+        assert!(text.contains("01ABCDEF") && text.contains("审一下队列回滚"), "{text}");
     }
 }

@@ -3,6 +3,7 @@ use std::path::PathBuf;
 
 use super::*;
 use crate::collab::registry::SessionSnapshot;
+use crate::collab::task::TaskBoard;
 
 fn temp_root(tag: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!(
@@ -21,6 +22,7 @@ fn snapshot(tab_id: &str, agent: &str) -> SessionSnapshot {
         agent: agent.to_string(),
         activity: "idle".to_string(),
         can_receive: true,
+        project_root: Some("/tmp/project".to_string()),
     }
 }
 
@@ -39,10 +41,11 @@ fn line(tab: &str, token: &str, command: Command) -> String {
 fn a_valid_request_is_served() {
     let identities = SessionIdentities::default();
     let registry = SessionRegistry::default();
+    let board = TaskBoard::default();
     let token = token_of(&identities.issue("t1", None));
     registry.replace(vec![snapshot("t1", "claude"), snapshot("t2", "codex")]);
 
-    let response = handle_line(&line("t1", &token, Command::Peers), &identities, &registry);
+    let response = handle_line(&line("t1", &token, Command::Peers), &identities, &registry, &board);
 
     match response {
         Response::Ok {
@@ -59,9 +62,10 @@ fn a_valid_request_is_served() {
 fn a_wrong_token_is_rejected() {
     let identities = SessionIdentities::default();
     let registry = SessionRegistry::default();
+    let board = TaskBoard::default();
     identities.issue("t1", None);
 
-    let response = handle_line(&line("t1", "猜的", Command::Peers), &identities, &registry);
+    let response = handle_line(&line("t1", "猜的", Command::Peers), &identities, &registry, &board);
 
     assert!(matches!(response, Response::Error { .. }));
 }
@@ -70,10 +74,11 @@ fn a_wrong_token_is_rejected() {
 fn an_unknown_session_and_a_wrong_token_look_identical() {
     let identities = SessionIdentities::default();
     let registry = SessionRegistry::default();
+    let board = TaskBoard::default();
     identities.issue("t1", None);
 
-    let wrong = handle_line(&line("t1", "猜的", Command::Peers), &identities, &registry);
-    let missing = handle_line(&line("t9", "猜的", Command::Peers), &identities, &registry);
+    let wrong = handle_line(&line("t1", "猜的", Command::Peers), &identities, &registry, &board);
+    let missing = handle_line(&line("t9", "猜的", Command::Peers), &identities, &registry, &board);
 
     // 区分这两种情况本身就是一个可试探的信号：能问出「哪些 tabId 是真的」。
     match (wrong, missing) {
@@ -86,11 +91,12 @@ fn an_unknown_session_and_a_wrong_token_look_identical() {
 fn a_version_mismatch_says_so_explicitly() {
     let identities = SessionIdentities::default();
     let registry = SessionRegistry::default();
+    let board = TaskBoard::default();
     let token = token_of(&identities.issue("t1", None));
 
     let mut request = Request::new("t1".into(), token, Command::Peers);
     request.version = PROTOCOL_VERSION + 1;
-    let response = handle_line(&serde_json::to_string(&request).unwrap(), &identities, &registry);
+    let response = handle_line(&serde_json::to_string(&request).unwrap(), &identities, &registry, &board);
 
     match response {
         // 版本问题必须说清，否则表现成「某个参数没生效」，最难查。
@@ -103,9 +109,10 @@ fn a_version_mismatch_says_so_explicitly() {
 fn malformed_input_does_not_panic() {
     let identities = SessionIdentities::default();
     let registry = SessionRegistry::default();
+    let board = TaskBoard::default();
 
     for bad in ["", "{", "null", "{\"version\":1}", "не json"] {
-        let response = handle_line(bad, &identities, &registry);
+        let response = handle_line(bad, &identities, &registry, &board);
         assert!(matches!(response, Response::Error { .. }), "输入 {bad:?}");
     }
 }
@@ -115,11 +122,11 @@ fn context_write_records_the_real_agent_as_its_source() {
     let root = temp_root("put");
     let identities = SessionIdentities::default();
     let registry = SessionRegistry::default();
+    let board = TaskBoard::default();
     let token = token_of(&identities.issue("t1", Some(root.to_str().unwrap())));
     registry.replace(vec![snapshot("t1", "codex")]);
 
-    let response = handle_line(
-        &line(
+    let response = handle_line(&line(
             "t1",
             &token,
             Command::ContextPut {
@@ -127,10 +134,7 @@ fn context_write_records_the_real_agent_as_its_source() {
                 body: "队列回滚要保序".into(),
                 tags: vec!["队列".into()],
             },
-        ),
-        &identities,
-        &registry,
-    );
+        ), &identities, &registry, &board);
     assert!(matches!(response, Response::Ok { .. }), "{response:?}");
 
     let items = crate::collab::store::list(root.to_str().unwrap()).unwrap();
@@ -152,11 +156,11 @@ fn context_round_trips_through_the_wire() {
     let root = temp_root("roundtrip");
     let identities = SessionIdentities::default();
     let registry = SessionRegistry::default();
+    let board = TaskBoard::default();
     let token = token_of(&identities.issue("t1", Some(root.to_str().unwrap())));
     registry.replace(vec![snapshot("t1", "claude")]);
 
-    let put = handle_line(
-        &line(
+    let put = handle_line(&line(
             "t1",
             &token,
             Command::ContextPut {
@@ -164,10 +168,7 @@ fn context_round_trips_through_the_wire() {
                 body: "只改路由字段".into(),
                 tags: vec![],
             },
-        ),
-        &identities,
-        &registry,
-    );
+        ), &identities, &registry, &board);
     let id = match put {
         Response::Ok {
             data: ResponseData::ContextPut { id, .. },
@@ -175,11 +176,7 @@ fn context_round_trips_through_the_wire() {
         other => panic!("写入失败：{other:?}"),
     };
 
-    let got = handle_line(
-        &line("t1", &token, Command::ContextGet { id }),
-        &identities,
-        &registry,
-    );
+    let got = handle_line(&line("t1", &token, Command::ContextGet { id }), &identities, &registry, &board);
     match got {
         Response::Ok {
             data: ResponseData::ContextBody { body },
@@ -194,13 +191,10 @@ fn context_round_trips_through_the_wire() {
 fn a_session_without_a_project_gets_a_clear_reason() {
     let identities = SessionIdentities::default();
     let registry = SessionRegistry::default();
+    let board = TaskBoard::default();
     let token = token_of(&identities.issue("t1", None));
 
-    let response = handle_line(
-        &line("t1", &token, Command::ContextList),
-        &identities,
-        &registry,
-    );
+    let response = handle_line(&line("t1", &token, Command::ContextList), &identities, &registry, &board);
 
     match response {
         // 别让 Agent 对着静默失败反复重试。
@@ -215,14 +209,14 @@ fn one_session_cannot_read_another_projects_context() {
     let theirs = temp_root("theirs");
     let identities = SessionIdentities::default();
     let registry = SessionRegistry::default();
+    let board = TaskBoard::default();
     let my_token = token_of(&identities.issue("t1", Some(mine.to_str().unwrap())));
     identities.issue("t2", Some(theirs.to_str().unwrap()));
     registry.replace(vec![snapshot("t1", "claude"), snapshot("t2", "codex")]);
 
     // t2 往自己项目里写一条
     let their_token = token_of(&identities.issue("t2", Some(theirs.to_str().unwrap())));
-    handle_line(
-        &line(
+    handle_line(&line(
             "t2",
             &their_token,
             Command::ContextPut {
@@ -230,17 +224,10 @@ fn one_session_cannot_read_another_projects_context() {
                 body: "机密".into(),
                 tags: vec![],
             },
-        ),
-        &identities,
-        &registry,
-    );
+        ), &identities, &registry, &board);
 
     // t1 列自己的，看不到 t2 的东西：读写始终落在会话自己的项目里。
-    let response = handle_line(
-        &line("t1", &my_token, Command::ContextList),
-        &identities,
-        &registry,
-    );
+    let response = handle_line(&line("t1", &my_token, Command::ContextList), &identities, &registry, &board);
     match response {
         Response::Ok {
             data: ResponseData::ContextList { items },

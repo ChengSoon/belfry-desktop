@@ -12,6 +12,7 @@ use std::sync::Arc;
 use super::identity::SessionIdentities;
 use super::registry::{SessionRegistry, SessionSnapshot};
 use super::server::CollabServer;
+use super::task::TaskBoard;
 
 #[test]
 fn the_cli_talks_to_a_real_server() {
@@ -29,7 +30,9 @@ fn the_cli_talks_to_a_real_server() {
     ));
     std::fs::create_dir_all(&project).unwrap();
 
-    let Some(server) = CollabServer::start(identities.clone(), registry.clone()) else {
+    let board = Arc::new(TaskBoard::default());
+    let Some(server) = CollabServer::start(identities.clone(), registry.clone(), board.clone())
+    else {
         panic!("server 起不来");
     };
     let endpoint = server.endpoint().to_string();
@@ -47,6 +50,7 @@ fn the_cli_talks_to_a_real_server() {
             agent: "claude".into(),
             activity: "idle".into(),
             can_receive: true,
+            project_root: project.to_str().map(str::to_string),
         },
         SessionSnapshot {
             tab_id: "t2".into(),
@@ -54,6 +58,7 @@ fn the_cli_talks_to_a_real_server() {
             agent: "codex".into(),
             activity: "idle".into(),
             can_receive: true,
+            project_root: project.to_str().map(str::to_string),
         },
     ]);
 
@@ -83,6 +88,31 @@ fn the_cli_talks_to_a_real_server() {
     assert!(
         !String::from_utf8_lossy(&denied.stderr).is_empty(),
         "失败得说清原因，Agent 读的是 stderr"
+    );
+
+    // 4. 派活：t1 用标题片段找到 t2，闸门默认 Ask，所以只是受理
+    let sent = run(&binary, &endpoint, &token, &["send", "另一条", "审一下队列回滚"]);
+    let sent_text = String::from_utf8_lossy(&sent.stdout).to_string();
+    assert!(sent.status.success(), "派活应该受理：{sent:?}");
+    assert!(
+        sent_text.contains("确认"),
+        "默认 Ask 下要说清还没送到：{sent_text}"
+    );
+
+    // 5. 派给自己会绕成死结，必须挡住
+    let to_self = run(&binary, &endpoint, &token, &["send", "t1", "自己干"]);
+    assert!(!to_self.status.success(), "不该允许给自己派活");
+
+    // 6. 结任务：只有接收方能结，派活方不行
+    let task_id = board
+        .snapshot()
+        .first()
+        .map(|task| crate::collab::task::short_id(&task.id).to_string())
+        .expect("刚派的任务应该在板上");
+    let by_sender = run(&binary, &endpoint, &token, &["done", &task_id]);
+    assert!(
+        !by_sender.status.success(),
+        "派活方不能替接收方宣布完成，否则这个信号就没有可信度了"
     );
 
     let _ = std::fs::remove_dir_all(&project);

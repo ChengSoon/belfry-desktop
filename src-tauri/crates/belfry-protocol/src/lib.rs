@@ -68,6 +68,33 @@ pub enum Command {
         #[serde(default)]
         tags: Vec<String>,
     },
+    /// 派活给另一条会话。
+    ///
+    /// `to` 是人写的目标，可以是标题片段或 agent 名——解析留在 app 侧，
+    /// CLI 不猜。这样 Agent 能用「reviewer」这种叫法而不必知道 tabId。
+    #[serde(rename_all = "camelCase")]
+    Send {
+        to: String,
+        instruction: String,
+        /// 这条指令是在完成哪个任务的过程中发出的。
+        /// 用来算转包层数和检测环——Agent 自己不必理解，照抄收到的编号即可。
+        #[serde(default)]
+        parent_task: Option<String>,
+    },
+    /// 我把派给我的任务做完了。
+    ///
+    /// 唯一可信的完成信号：屏幕上看着像结束了不算数。
+    #[serde(rename_all = "camelCase")]
+    Done {
+        task: String,
+        #[serde(default)]
+        result: Option<String>,
+    },
+    /// 我做不了这条任务。
+    #[serde(rename_all = "camelCase")]
+    Fail { task: String, reason: String },
+    /// 派给我、我还没结的任务。Agent 忘了任务编号时可以查。
+    Inbox,
 }
 
 /// 一次响应。
@@ -96,6 +123,28 @@ pub enum ResponseData {
     ContextList { items: Vec<ContextEntry> },
     ContextBody { body: String },
     ContextPut { id: String, reference: String },
+    /// 派活受理了。`pendingApproval` 为真时还在等用户点头——
+    /// 要让 Agent 知道「已受理」不等于「已送到」，否则它会以为对方已经开工。
+    #[serde(rename_all = "camelCase")]
+    Sent {
+        task: String,
+        to: String,
+        pending_approval: bool,
+    },
+    /// 任务结了。
+    #[serde(rename_all = "camelCase")]
+    Settled { task: String },
+    Inbox { tasks: Vec<InboxTask> },
+}
+
+/// 派给我、还没结的一条任务。
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InboxTask {
+    pub task: String,
+    pub from: String,
+    pub instruction: String,
+    pub state: String,
 }
 
 /// 一条会话在别人眼里的样子。
