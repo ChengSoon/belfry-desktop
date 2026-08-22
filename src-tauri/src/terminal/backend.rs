@@ -118,6 +118,7 @@ mod tests {
         CreateTerminalRequest {
             platform: Platform::Macos,
             profile_id: "system-default".to_string(),
+            tab_id: None,
             cwd: Some("file:///tmp".to_string()),
             command: None,
             env: HashMap::new(),

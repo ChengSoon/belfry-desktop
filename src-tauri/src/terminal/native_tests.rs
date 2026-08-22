@@ -233,6 +233,7 @@ fn default_request() -> CreateTerminalRequest {
     CreateTerminalRequest {
         platform: Platform::current(),
         profile_id: "system-default".to_string(),
+        tab_id: None,
         cwd: None,
         command: None,
         env: HashMap::new(),

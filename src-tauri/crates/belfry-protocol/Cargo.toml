@@ -1,0 +1,10 @@
+[package]
+name = "belfry-protocol"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Wire protocol shared by the Belfry desktop app and its control CLI"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

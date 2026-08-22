@@ -2,7 +2,9 @@
 #![cfg_attr(belfry_cross_check, allow(dead_code, unused_imports))]
 
 mod agent;
+mod atomic;
 mod background;
+mod collab;
 mod history;
 mod project;
 mod provider;
@@ -23,6 +25,7 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(TerminalRuntime::with_platform_backend())
+        .manage(collab::SessionIdentities::default())
         .invoke_handler(tauri::generate_handler![
             agent::commands::agent_detect,
             agent::commands::agent_descriptors,
@@ -30,6 +33,11 @@ pub fn run() {
             background::commands::background_import,
             background::commands::background_read,
             background::commands::background_remove,
+            collab::commands::context_list,
+            collab::commands::context_put,
+            collab::commands::context_get,
+            collab::commands::context_remove,
+            collab::commands::context_set_pinned,
             typography::commands::font_import,
             typography::commands::font_read,
             typography::commands::font_remove,
