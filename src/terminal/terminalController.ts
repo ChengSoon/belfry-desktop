@@ -74,10 +74,6 @@ export interface TerminalHandle {
   focus: () => void;
   /** Composer 走可信的 xterm 输入通道提交多行文本，不直接绕过终端写 PTY。 */
   sendText: (text: string) => boolean;
-  /** 同一条通道，但不发回车：内容留在输入行等用户自己补完。 */
-  insertText: (text: string) => boolean;
-  /** 读当前选区，不清选区——存完上下文用户往往还想接着复制同一段。 */
-  readSelection: () => string;
   dispose: () => void;
 }
 
@@ -266,14 +262,6 @@ export function mountTerminal(
       terminal.input("\r", true);
       return true;
     },
-    insertText: (text) => {
-      if (disposed || !current || !text) return false;
-      terminal.focus();
-      // 和 sendText 同一条 paste 通道，只是不补回车。
-      terminal.paste(text);
-      return true;
-    },
-    readSelection: () => (disposed ? "" : terminal.getSelection()),
     dispose: () => {
       disposed = true;
       host.classList.remove("is-file-drag-over");

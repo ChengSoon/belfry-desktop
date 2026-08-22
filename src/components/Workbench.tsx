@@ -1,23 +1,10 @@
-import {
-  FileSearch,
-  Keyboard,
-  Library,
-  ListChecks,
-  MessageSquareText,
-  Network,
-  PanelLeftOpen,
-  Search,
-} from "lucide-react";
+import { FileSearch, Keyboard, ListChecks, MessageSquareText, PanelLeftOpen, Search } from "lucide-react";
 import type { PointerEvent, RefObject } from "react";
 import { TerminalStage } from "../layout/components/TerminalStage";
 import type { DividerFrame, Rect } from "../layout/contracts";
 import type { SessionDrag } from "../layout/useSessionDrag";
 import { PromptComposer } from "../prompt/PromptComposer";
 import type { PromptQueueItem, PromptSubmitResult } from "../prompt/contracts";
-import { CollabPanel } from "../collab/CollabPanel";
-import { ContextPanel } from "../collab/ContextPanel";
-import type { ContextItem } from "../collab/contracts";
-import type { TaskView } from "../collab/api";
 import { RecipePanel } from "../recipe/RecipePanel";
 import type { Recipe, RecipeRun } from "../recipe/contracts";
 import { appShortcutChord, formatShortcutChord, type ShortcutPlatform } from "../shortcuts/resolveShortcut";
@@ -34,14 +21,6 @@ interface WorkbenchProps {
   activeTabId: string | null;
   collapsed: boolean;
   composerOpen: boolean;
-  collabActive: readonly TaskView[];
-  collabOpen: boolean;
-  collabPending: readonly TaskView[];
-  collabTasks: readonly TaskView[];
-  contextFailure: string | null;
-  contextItems: readonly ContextItem[];
-  contextLoading: boolean;
-  contextOpen: boolean;
   dividers: DividerFrame[];
   drag: SessionDrag | null;
   opening: boolean;
@@ -59,12 +38,6 @@ interface WorkbenchProps {
   stageRef: RefObject<HTMLDivElement | null>;
   tabs: WorkspaceTab[];
   onAbortRun: (runId: string) => void;
-  onAddContextNote: (title: string, body: string) => void;
-  onApproveTask: (id: string) => void;
-  onRejectTask: (id: string) => void;
-  onStopAllTasks: () => void;
-  onToggleCollab: () => void;
-  onCaptureSelection: (tabId: string) => void;
   onClearRun: (runId: string) => void;
   onCloseComposer: () => void;
   onCloseRecipes: () => void;
@@ -73,14 +46,12 @@ interface WorkbenchProps {
   onDragStart: (id: string, event: PointerEvent) => void;
   onDuplicateRecipe: (id: string) => void;
   onFocus: (id: string) => void;
-  onInsertContext: (item: ContextItem) => void;
   onLaunchShell: () => void;
   onOpenFile: (tabId: string, path: string, line: number | null) => void;
   onOpenProject: (path: string | null) => Promise<void>;
   onOpenShortcutGuide: () => void;
   onRegisterTarget: (id: string, target: TerminalCommandTarget | null) => void;
   onRemovePrompt: (id: string) => void;
-  onRemoveContext: (id: string) => void;
   onRemoveRecipe: (id: string) => void;
   onRequestRemove: (project: RecentProject) => void;
   onResendStep: (runId: string, stepId: string) => void;
@@ -93,8 +64,6 @@ interface WorkbenchProps {
   onStartRun: (recipe: Recipe, tabId: string, values: Record<string, string>) => void;
   onSubmitPrompt: (tabId: string, text: string) => PromptSubmitResult;
   onToggleComposer: () => void;
-  onToggleContext: () => void;
-  onTogglePinContext: (id: string) => void;
   onTogglePreview: () => void;
   onToggleQuickOpen: () => void;
   onToggleRecipes: () => void;
@@ -104,8 +73,6 @@ export function Workbench(props: WorkbenchProps) {
   const composerShortcut = shortcutLabel(props.shortcutPlatform, "J");
   const quickOpenShortcut = shortcutLabel(props.shortcutPlatform, "K");
   const recipeShortcut = shortcutLabel(props.shortcutPlatform, "R");
-  const contextShortcut = shortcutLabel(props.shortcutPlatform, "G");
-  const collabShortcut = shortcutLabel(props.shortcutPlatform, "Y");
   return (
     <section className={`workbench${props.composerOpen ? " has-composer" : ""}`}>
       {props.collapsed ? (
@@ -127,25 +94,6 @@ export function Workbench(props: WorkbenchProps) {
           recentProjects={props.recentProjects}
         />
       </div>
-      <WorkbenchButton
-        expanded={props.collabOpen}
-        icon={Network}
-        label="Agent 协作"
-        onClick={props.onToggleCollab}
-        protectDismiss
-        shortcut={collabShortcut}
-        // 有任务等确认时点亮：这是唯一需要用户动作的状态，藏起来就白等了。
-        triggerClass={`collab-panel-trigger${props.collabPending.length > 0 ? " has-pending" : ""}`}
-      />
-      <WorkbenchButton
-        expanded={props.contextOpen}
-        icon={Library}
-        label="共享上下文"
-        onClick={props.onToggleContext}
-        protectDismiss
-        shortcut={contextShortcut}
-        triggerClass="context-panel-trigger"
-      />
       <WorkbenchButton
         expanded={props.recipesOpen}
         icon={ListChecks}
@@ -207,35 +155,6 @@ export function Workbench(props: WorkbenchProps) {
         tabs={props.tabs}
       />
       {props.tabs.length === 0 ? <EmptyStage onLaunch={props.onLaunchShell} /> : null}
-      {props.collabOpen ? (
-        <CollabPanel
-          active={props.collabActive}
-          onApprove={props.onApproveTask}
-          onClose={props.onToggleCollab}
-          onReject={props.onRejectTask}
-          onStopAll={props.onStopAllTasks}
-          pendingApproval={props.collabPending}
-          shortcutLabel={collabShortcut}
-          tasks={props.collabTasks}
-        />
-      ) : null}
-      {props.contextOpen ? (
-        <ContextPanel
-          activeTabId={props.activeTabId}
-          failure={props.contextFailure}
-          hasProject={props.activeProject !== null}
-          items={props.contextItems}
-          loading={props.contextLoading}
-          onAddNote={props.onAddContextNote}
-          onCaptureSelection={props.onCaptureSelection}
-          onClose={props.onToggleContext}
-          onInsert={props.onInsertContext}
-          onRemove={props.onRemoveContext}
-          onTogglePin={props.onTogglePinContext}
-          shortcutLabel={contextShortcut}
-          tabs={props.tabs}
-        />
-      ) : null}
       {props.recipesOpen ? (
         <RecipePanel
           activeTabId={props.activeTabId}

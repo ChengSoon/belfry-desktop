@@ -8,10 +8,8 @@ import {
   Gauge,
   History,
   Keyboard,
-  Library,
   ListChecks,
   MessageSquareText,
-  Network,
   PanelLeft,
   Search,
   SearchX,
@@ -188,8 +186,6 @@ function iconComponent(icon: QuickOpenIcon | undefined, kind: QuickOpenItemKind)
   if (icon === "keyboard") return Keyboard;
   if (icon === "composer") return MessageSquareText;
   if (icon === "list-checks") return ListChecks;
-  if (icon === "library") return Library;
-  if (icon === "network") return Network;
   if (icon === "file-search") return FileSearch;
   if (icon === "folder" || kind === "project") return FolderOpen;
   if (icon === "terminal" || kind === "session") return SquareTerminal;

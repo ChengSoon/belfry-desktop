@@ -4,9 +4,9 @@
   "version": "0.14.0",
   "identifier": "io.appmakes.belfry.desktop",
   "build": {
-    "beforeDevCommand": "node scripts/bundle-cli.mjs && pnpm dev",
+    "beforeDevCommand": "pnpm dev",
     "devUrl": "http://127.0.0.1:1420",
-    "beforeBuildCommand": "pnpm build && node scripts/bundle-cli.mjs",
+    "beforeBuildCommand": "pnpm build",
     "frontendDist": "../dist"
   },
   "app": {
@@ -25,9 +25,7 @@
     ],
     "security": {
       "csp": null,
-      "capabilities": [
-        "default"
-      ]
+      "capabilities": ["default"]
     }
   },
   "bundle": {
@@ -44,10 +42,7 @@
     "macOS": {
       "minimumSystemVersion": "14.0",
       "signingIdentity": "-"
-    },
-    "externalBin": [
-      "binaries/belfry"
-    ]
+    }
   },
   "plugins": {
     "updater": {

@@ -9,11 +9,6 @@ import "./workspace/workspace.css";
 import { useSessionDrag } from "./layout/useSessionDrag";
 import { useSplitLayout } from "./layout/useSplitLayout";
 import { useActivityNotifications } from "./notify/useActivityNotifications";
-import { useSharedContext } from "./collab/useSharedContext";
-import { useCollabSessions } from "./collab/useCollabSessions";
-import { useCollabTasks } from "./collab/useCollabTasks";
-import { useCollabTaskBoard } from "./collab/useCollabTaskBoard";
-import { contextReference, type ContextItem } from "./collab/contracts";
 import { usePromptQueue } from "./prompt/usePromptQueue";
 import { useRecipes } from "./recipe/useRecipes";
 import { appShortcutChord, formatShortcutChord } from "./shortcuts/resolveShortcut";
@@ -45,8 +40,6 @@ export default function App() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [composerOpen, setComposerOpen] = useState(false);
-  const [collabOpen, setCollabOpen] = useState(false);
-  const [contextOpen, setContextOpen] = useState(false);
   const [recipesOpen, setRecipesOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewRequest, setPreviewRequest] = useState<PreviewRequest | null>(null);
@@ -66,8 +59,6 @@ export default function App() {
   // 画在舞台上的那几条会话。没分屏时就是活动会话自己；用户看得见的就不必再弹通知。
   const visibleTabIds = useMemo(() => new Set(layout.rects.keys()), [layout.rects]);
   useActivityNotifications(workspace.tabs, visibleTabIds);
-  // 名册推给 Rust，供 Agent 在自己的 PTY 里敲 `belfry peers` 时回答。
-  useCollabSessions(workspace.tabs);
 
   // 新会话继承 activeProject，那组要是折叠着就会开出一个侧栏里看不见的会话。
   const launch = useCallback((
@@ -96,14 +87,7 @@ export default function App() {
     tabs: workspace.tabs,
   });
   const terminalTargets = useTerminalTargets();
-  const sharedContext = useSharedContext({ project: workspace.activeProject });
-  const collab = useCollabTaskBoard();
   const promptQueue = usePromptQueue({ tabs: workspace.tabs, targets: terminalTargets.targets });
-  // 别的会话派来的任务，投进同一条 Prompt 队列——派活不需要第二个执行引擎。
-  useCollabTasks({
-    readyTabIds: useMemo(() => new Set(terminalTargets.targets.keys()), [terminalTargets.targets]),
-    enqueueRun: promptQueue.enqueueRun,
-  });
   const recipes = useRecipes({
     enqueueRun: promptQueue.enqueueRun,
     queueItems: promptQueue.items,
@@ -111,107 +95,64 @@ export default function App() {
     removeRun: promptQueue.removeRun,
     tabs: workspace.tabs,
   });
-  /**
-   * 舞台上一次只留一个浮层：它们抢的是同一块可视区域和同一批快捷键。
-   *
-   * 收在一处而不是每个 toggle 里手写一串 setXxx(false)——那样每加一个浮层
-   * 都要回头改所有旧的，漏一个就是两层叠着显示。
-   */
-  const closeOverlays = useCallback(() => {
-    quickOpen.close();
+  // 历史会话与用量面板互斥：两者都占右侧一列，栅格只留了一条轨道。
+  const toggleUsage = useCallback(() => {
+    setHistoryOpen(false);
+    setPreviewOpen(false);
+    setPreviewRequest(null);
     setComposerOpen(false);
-    setCollabOpen(false);
-    setContextOpen(false);
+    setRecipesOpen(false);
+    setUsageOpen((value) => !value);
+  }, []);
+
+  const toggleHistory = useCallback(() => {
+    setUsageOpen(false);
+    setPreviewOpen(false);
+    setPreviewRequest(null);
+    setComposerOpen(false);
+    setRecipesOpen(false);
+    setHistoryOpen((value) => !value);
+  }, []);
+
+  const toggleQuickOpen = useCallback(() => {
+    setComposerOpen(false);
     setRecipesOpen(false);
     setPreviewOpen(false);
     setPreviewRequest(null);
     setUsageOpen(false);
     setHistoryOpen(false);
-  }, [quickOpen.close]);
-
-  const toggleUsage = useCallback(() => {
-    const next = !usageOpen;
-    closeOverlays();
-    setUsageOpen(next);
-  }, [closeOverlays, usageOpen]);
-
-  const toggleHistory = useCallback(() => {
-    const next = !historyOpen;
-    closeOverlays();
-    setHistoryOpen(next);
-  }, [closeOverlays, historyOpen]);
-
-  const toggleQuickOpen = useCallback(() => {
-    const next = !quickOpen.open;
-    closeOverlays();
-    if (next) quickOpen.toggle();
-  }, [closeOverlays, quickOpen.open, quickOpen.toggle]);
+    quickOpen.toggle();
+  }, [quickOpen.toggle]);
 
   const toggleComposer = useCallback(() => {
-    const next = !composerOpen;
-    closeOverlays();
-    setComposerOpen(next);
-  }, [closeOverlays, composerOpen]);
+    quickOpen.close();
+    setRecipesOpen(false);
+    setPreviewOpen(false);
+    setPreviewRequest(null);
+    setUsageOpen(false);
+    setHistoryOpen(false);
+    setComposerOpen((value) => !value);
+  }, [quickOpen.close]);
 
   const toggleRecipes = useCallback(() => {
-    const next = !recipesOpen;
-    closeOverlays();
-    setRecipesOpen(next);
-  }, [closeOverlays, recipesOpen]);
-
-  const toggleCollab = useCallback(() => {
-    const next = !collabOpen;
-    closeOverlays();
-    setCollabOpen(next);
-  }, [closeOverlays, collabOpen]);
-
-  const toggleContext = useCallback(() => {
-    const next = !contextOpen;
-    closeOverlays();
-    setContextOpen(next);
-  }, [closeOverlays, contextOpen]);
-
-  /** 把某条会话当前选中的终端内容存成一条上下文。没选中就什么也不做。 */
-  const captureSelection = useCallback((tabId: string) => {
-    const target = terminalTargets.targets.get(tabId);
-    const text = target?.readSelection() ?? "";
-    if (text.trim().length === 0) return;
-    const tab = workspace.tabs.find((item) => item.id === tabId);
-    void sharedContext.add({
-      kind: "excerpt",
-      title: "",
-      body: text,
-      // 记来路：从屏幕上抓的和用户手敲的可信度不一样。
-      source: { from: "terminal", tabId },
-      tags: tab ? [tab.title] : [],
-    });
-  }, [sharedContext.add, terminalTargets.targets, workspace.tabs]);
-
-  const addContextNote = useCallback((title: string, body: string) => {
-    void sharedContext.add({ kind: "note", title, body, source: { from: "user" } });
-  }, [sharedContext.add]);
-
-  /**
-   * 把一条上下文的引用送进当前会话的输入行。
-   *
-   * 走 sendText 会直接回车提交，这里只想把引用放进输入框让用户接着写，
-   * 所以先关面板再插——插入后焦点回到终端。
-   */
-  const insertContext = useCallback((item: ContextItem) => {
-    const tabId = workspace.activeTabId;
-    const target = tabId ? terminalTargets.targets.get(tabId) : null;
-    if (!target) return;
-    setContextOpen(false);
-    target.focus();
-    // paste 不带回车：引用只是开头，用户还要补自己的问题。
-    target.insertText(`${contextReference(item)} `);
-  }, [terminalTargets.targets, workspace.activeTabId]);
+    quickOpen.close();
+    setComposerOpen(false);
+    setPreviewOpen(false);
+    setPreviewRequest(null);
+    setUsageOpen(false);
+    setHistoryOpen(false);
+    setRecipesOpen((value) => !value);
+  }, [quickOpen.close]);
 
   const openPreview = useCallback((request?: PreviewRequest) => {
-    closeOverlays();
+    quickOpen.close();
+    setComposerOpen(false);
+    setRecipesOpen(false);
+    setUsageOpen(false);
+    setHistoryOpen(false);
     setPreviewOpen(true);
     setPreviewRequest(request ?? null);
-  }, [closeOverlays]);
+  }, [quickOpen.close]);
 
   const togglePreview = useCallback(() => {
     if (previewOpen) {
@@ -254,8 +195,6 @@ export default function App() {
   const shortcuts = useAppShortcuts({
     blocked: Boolean(pendingClose || pendingRemove || updater.open),
     composerOpen,
-    collabOpen,
-    contextOpen,
     quickOpenOpen: quickOpen.open,
     recipesOpen,
     onActivateSession: (index) => {
@@ -266,8 +205,6 @@ export default function App() {
     onOpenSettings: () => setSettingsOpen(true),
     onToggleHistory: toggleHistory,
     onToggleComposer: toggleComposer,
-    onToggleCollab: toggleCollab,
-    onToggleContext: toggleContext,
     onToggleQuickOpen: toggleQuickOpen,
     onToggleRecipes: toggleRecipes,
     onToggleSidebar: () => setCollapsed((value) => !value),
@@ -279,20 +216,22 @@ export default function App() {
       switch (id) {
         case "action:new-shell": launch("shell"); break;
         case "action:composer":
-          closeOverlays();
+          quickOpen.close();
+          setUsageOpen(false);
+          setHistoryOpen(false);
+          setPreviewOpen(false);
+          setPreviewRequest(null);
+          setRecipesOpen(false);
           setComposerOpen(true);
           break;
         case "action:recipes":
-          closeOverlays();
+          quickOpen.close();
+          setUsageOpen(false);
+          setHistoryOpen(false);
+          setPreviewOpen(false);
+          setPreviewRequest(null);
+          setComposerOpen(false);
           setRecipesOpen(true);
-          break;
-        case "action:context":
-          closeOverlays();
-          setContextOpen(true);
-          break;
-        case "action:collab":
-          closeOverlays();
-          setCollabOpen(true);
           break;
         case "action:file-preview": openPreview(); break;
         case "action:settings": setSettingsOpen(true); break;
@@ -382,24 +321,6 @@ export default function App() {
         onTogglePreview={togglePreview}
         onToggleQuickOpen={toggleQuickOpen}
         onToggleRecipes={toggleRecipes}
-        onToggleContext={toggleContext}
-        onToggleCollab={toggleCollab}
-        onApproveTask={collab.approve}
-        onRejectTask={collab.reject}
-        onStopAllTasks={collab.stopAll}
-        collabActive={collab.active}
-        collabOpen={collabOpen}
-        collabPending={collab.pendingApproval}
-        collabTasks={collab.tasks}
-        onAddContextNote={addContextNote}
-        onCaptureSelection={captureSelection}
-        onInsertContext={insertContext}
-        onRemoveContext={sharedContext.remove}
-        onTogglePinContext={sharedContext.togglePin}
-        contextFailure={sharedContext.failure}
-        contextItems={sharedContext.items}
-        contextLoading={sharedContext.loading}
-        contextOpen={contextOpen}
         opening={workspace.opening}
         promptItems={promptQueue.items}
         previewOpen={previewOpen}

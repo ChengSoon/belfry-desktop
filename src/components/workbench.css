@@ -5,7 +5,7 @@
 @container (max-width: 760px) {
   .workbench .stage-caption {
     justify-content: flex-start;
-    padding-right: 236px;
+    padding-right: 172px;
     padding-left: 10px;
   }
 
@@ -34,11 +34,9 @@
   .stage-caption .project-trigger__path { display: none; }
 }
 
-/* 极窄舞台无法同时容纳标题和七个工具按钮：收起标题，并把按钮栏压紧到右侧。 */
+/* 极窄舞台无法同时容纳标题和五个工具按钮：收起标题，并把按钮栏压紧到右侧。 */
 @container (max-width: 300px) {
   .stage-caption .stage-switcher { display: none; }
-  .workbench .collab-panel-trigger { right: 196px; }
-  .workbench .context-panel-trigger { right: 164px; }
   .workbench .recipe-panel-trigger { right: 132px; }
   .workbench .prompt-composer-trigger { right: 100px; }
   .workbench .quick-open-trigger { right: 68px; }
@@ -46,18 +44,9 @@
   .workbench .shortcut-help-trigger { right: 4px; }
 }
 
-/* 再窄就按优先级逐个隐藏：最靠左的最少用，先走。
-   协作面板例外——它可能有等确认的任务，最后才藏。 */
-@container (max-width: 224px) {
-  .workbench .context-panel-trigger { display: none; }
-}
-
-@container (max-width: 192px) {
-  .workbench .recipe-panel-trigger { display: none; }
-}
-
+/* 再窄就按优先级逐个隐藏：最靠左的最少用，先走。 */
 @container (max-width: 160px) {
-  .workbench .collab-panel-trigger { display: none; }
+  .workbench .recipe-panel-trigger { display: none; }
 }
 
 @container (max-width: 128px) {

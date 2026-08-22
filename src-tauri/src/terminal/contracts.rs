@@ -118,10 +118,6 @@ impl AppError {
 pub struct CreateTerminalRequest {
     pub platform: Platform,
     pub profile_id: String,
-    /// 前端那条会话的 id。Agent 会话据此领取协作身份并注入进 PTY 的环境变量。
-    /// 旧存档和 Shell / SSH 会话没有这个字段，缺省即不发身份牌。
-    #[serde(default)]
-    pub tab_id: Option<String>,
     pub cwd: Option<String>,
     pub command: Option<Vec<String>>,
     #[serde(default)]
@@ -522,7 +518,6 @@ mod tests {
         let mut request = CreateTerminalRequest {
             platform: Platform::Macos,
             profile_id: "ssh".to_string(),
-            tab_id: None,
             cwd: Some("file:///tmp".to_string()),
             command: None,
             env: std::collections::HashMap::new(),
@@ -556,7 +551,6 @@ mod tests {
         let mut request = CreateTerminalRequest {
             platform: Platform::Macos,
             profile_id: "agent:codex".to_string(),
-            tab_id: None,
             cwd: Some("file:///tmp".to_string()),
             command: None,
             env: std::collections::HashMap::new(),

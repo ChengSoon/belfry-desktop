@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { TerminalCommandTarget } from "../terminal/contracts";
 import type { WorkspaceTab } from "../workspace/contracts";
-import { type PromptOrigin, type PromptSubmitResult } from "./contracts";
+import { type PromptSubmitResult } from "./contracts";
 import { PromptQueueRuntime, type PromptRunStep } from "./runtime";
 
 interface PromptQueueOptions {
@@ -37,9 +37,8 @@ export function usePromptQueue({ tabs, targets }: PromptQueueOptions) {
     steps: readonly PromptRunStep[],
     runId: string,
     position: "head" | "tail" = "tail",
-    kind: PromptOrigin["kind"] = "recipe",
   ) => {
-    const queued = runtime.current.enqueueRun(tabs, targets, tabId, steps, runId, position, kind);
+    const queued = runtime.current.enqueueRun(tabs, targets, tabId, steps, runId, position);
     publish();
     return queued;
   }, [publish, tabs, targets]);

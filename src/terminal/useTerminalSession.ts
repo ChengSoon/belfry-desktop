@@ -33,7 +33,6 @@ interface TerminalViewModel {
 export function useTerminalSession(
   container: RefObject<HTMLDivElement | null>,
   launch: TerminalLaunch = {
-    tabId: null,
     profileId: "system-default",
     cwd: null,
     resumeSessionId: null,
@@ -110,12 +109,7 @@ export function useTerminalSession(
   const restart = useCallback(() => setGeneration((value) => value + 1), []);
   const focus = useCallback(() => handle.current?.focus(), []);
   const sendText = useCallback((text: string) => handle.current?.sendText(text) ?? false, []);
-  const insertText = useCallback((text: string) => handle.current?.insertText(text) ?? false, []);
-  const readSelection = useCallback(() => handle.current?.readSelection() ?? "", []);
-  const commandTarget = useMemo(
-    () => ({ focus, insertText, readSelection, sendText }),
-    [focus, insertText, readSelection, sendText],
-  );
+  const commandTarget = useMemo(() => ({ focus, sendText }), [focus, sendText]);
   const close = useCallback(() => {
     const current = sessionId.current;
     if (current) {

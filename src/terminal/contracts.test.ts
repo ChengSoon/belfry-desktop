@@ -26,7 +26,6 @@ describe("createDefaultRequest", () => {
       80,
       24,
       {
-        tabId: null,
         profileId: "ssh",
         cwd: "file:///demo",
         resumeSessionId: null,

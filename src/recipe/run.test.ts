@@ -27,7 +27,7 @@ function queued(...stepIds: string[]): PromptQueueItem[] {
     tabId: "agent-1",
     text: stepId,
     createdAt: index,
-    origin: { kind: "recipe" as const, runId: "run-1", stepId },
+    origin: { runId: "run-1", stepId },
   }));
 }
 
@@ -110,7 +110,7 @@ describe("deriveRecipeRun", () => {
   it("ignores queue entries from other runs and manual prompts", () => {
     const foreign: PromptQueueItem[] = [
       { id: "m", tabId: "agent-1", text: "手工", createdAt: 0, origin: null },
-      { id: "o", tabId: "agent-1", text: "别轮", createdAt: 1, origin: { kind: "recipe" as const, runId: "run-2", stepId: "s1" } },
+      { id: "o", tabId: "agent-1", text: "别轮", createdAt: 1, origin: { runId: "run-2", stepId: "s1" } },
     ];
     const view = deriveRecipeRun(run(), [...foreign, ...queued("s3")], running);
     expect(view.pendingCount).toBe(1);
