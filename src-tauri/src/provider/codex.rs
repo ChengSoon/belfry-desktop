@@ -15,7 +15,7 @@ use toml_edit::{DocumentMut, Item, value};
 
 use crate::terminal::AppError;
 
-use super::atomic::{read_text_optional, write_atomic};
+use crate::atomic::{read_text_optional, write_atomic};
 use super::contracts::{ConfigFilePreview, ProviderConfig};
 
 /// Belfry 在 config.toml 里的所有权哨兵：只有这个名字的表归我们管，

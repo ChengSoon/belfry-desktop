@@ -7,7 +7,6 @@
 //! 这些文件里有用户的 hooks、MCP 服务器定义和项目信任记录，整文件覆盖再靠快照
 //! 回填的做法（cc-switch 那套）在这里风险太高——回填只要失败一次就是真实损失。
 
-mod atomic;
 mod claude;
 mod codex;
 pub mod commands;
