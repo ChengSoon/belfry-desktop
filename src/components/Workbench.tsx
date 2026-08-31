@@ -1,4 +1,4 @@
-import { FileSearch, Keyboard, ListChecks, MessageSquareText, PanelLeftOpen, Search } from "lucide-react";
+import { FileSearch, Users, Keyboard, ListChecks, MessageSquareText, PanelLeftOpen, Search } from "lucide-react";
 import type { PointerEvent, RefObject } from "react";
 import { TerminalStage } from "../layout/components/TerminalStage";
 import type { DividerFrame, Rect } from "../layout/contracts";
@@ -21,6 +21,9 @@ interface WorkbenchProps {
   activeTabId: string | null;
   collapsed: boolean;
   composerOpen: boolean;
+  collabOpen: boolean;
+  /** 有几条派活等着确认。>0 时触发键上点个角标——面板关着也得看得见。 */
+  collabWaiting: number;
   dividers: DividerFrame[];
   drag: SessionDrag | null;
   opening: boolean;
@@ -64,6 +67,7 @@ interface WorkbenchProps {
   onStartRun: (recipe: Recipe, tabId: string, values: Record<string, string>) => void;
   onSubmitPrompt: (tabId: string, text: string) => PromptSubmitResult;
   onToggleComposer: () => void;
+  onToggleCollab: () => void;
   onTogglePreview: () => void;
   onToggleQuickOpen: () => void;
   onToggleRecipes: () => void;
@@ -94,6 +98,16 @@ export function Workbench(props: WorkbenchProps) {
           recentProjects={props.recentProjects}
         />
       </div>
+      <WorkbenchButton
+        badge={props.collabWaiting > 0}
+        dialog
+        expanded={props.collabOpen}
+        icon={Users}
+        label={props.collabWaiting > 0 ? `会话协作（${props.collabWaiting} 条等确认）` : "会话协作"}
+        onClick={props.onToggleCollab}
+        protectDismiss
+        triggerClass="collab-trigger"
+      />
       <WorkbenchButton
         expanded={props.recipesOpen}
         icon={ListChecks}
@@ -192,6 +206,7 @@ export function Workbench(props: WorkbenchProps) {
 }
 
 function WorkbenchButton({
+  badge = false,
   dialog = false,
   expanded,
   icon: Icon,
@@ -201,6 +216,7 @@ function WorkbenchButton({
   shortcut,
   triggerClass,
 }: {
+  badge?: boolean;
   dialog?: boolean;
   expanded: boolean;
   icon: typeof Search;
@@ -222,6 +238,7 @@ function WorkbenchButton({
       type="button"
     >
       <Icon aria-hidden="true" size={ICON.md} />
+      {badge ? <i aria-hidden="true" /> : null}
     </button>
   );
 }

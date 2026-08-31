@@ -117,15 +117,25 @@ function SessionTerminal({
   onOpenFile: (tabId: string, path: string, line: number | null) => void;
   onSnapshot: (id: string, snapshot: TerminalSnapshot) => void;
 }) {
-  // launch 变了就等于要换 cwd/profile，会重启 PTY——只能跟着这两个字段变。
+  // launch 变了就等于要换 cwd/profile，会重启 PTY——只能跟着这几个字段变。
+  // tab.id 在会话整个生命周期里不变，放进来不会招致额外重启。
   const launch = useMemo(
     () => ({
       profileId: tab.profileId,
       cwd: tab.project.rootUri,
+      tabId: tab.id,
+      collaborationMode: tab.collaborationMode,
       resumeSessionId: tab.resumeSessionId,
       ssh: tab.sshTarget,
     }),
-    [tab.profileId, tab.project.rootUri, tab.resumeSessionId, tab.sshTarget],
+    [
+      tab.collaborationMode,
+      tab.id,
+      tab.profileId,
+      tab.project.rootUri,
+      tab.resumeSessionId,
+      tab.sshTarget,
+    ],
   );
   const report = useCallback(
     (snapshot: TerminalSnapshot) => onSnapshot(tab.id, snapshot),

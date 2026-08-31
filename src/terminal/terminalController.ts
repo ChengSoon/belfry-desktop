@@ -51,6 +51,8 @@ export interface MountCallbacks {
   onSession: (session: TerminalSession | null) => void;
   /** 用户提交的一行原始输入，供上层提炼会话名。 */
   onInput: (line: string) => void;
+  /** 终端输出的文本片段，供协作协议等结构化通道消费。 */
+  onOutput?: (text: string) => void;
   /** 会话在生成 / 等按键 / 闲着，供侧栏显示。只有 Agent 会话会翻。 */
   onActivity: (activity: SessionActivity) => void;
   /** 终端输出中的项目文件路径，交给工作区打开只读预览。 */
@@ -152,6 +154,8 @@ export function mountTerminal(
     : null;
   let expectedSequence = 0;
   let writeQueue = Promise.resolve();
+  const outputDecoder = new TextDecoder();
+  let outputTail = "";
   let inputLine = emptyInputLine();
   // Shell 会话不猜状态：它没有"对话"这回事，而 cat 一个含 `1. Yes` 的文件必然误报。
   let activity = launch.profileId.startsWith("agent:")
@@ -162,13 +166,19 @@ export function mountTerminal(
   channel.onmessage = (event) => {
     if (disposed) return;
     try {
-      expectedSequence = handleTerminalEvent(
+      const handled = handleTerminalEvent(
         terminal,
         callbacks,
         event,
         expectedSequence,
         codexThemeSync,
+        outputDecoder,
       );
+      expectedSequence = handled.expectedSequence;
+      if (handled.outputText.length > 0) {
+        outputTail = appendOutputTail(outputTail, handled.outputText);
+        callbacks.onOutput?.(handled.outputText);
+      }
       // 停在密码提示上就静默采集，否则 sudo 密码会被当成最新一条输入写进会话名。
       if (event.kind === "output" && looksLikePasswordPrompt(decodeTail(event.bytes))) {
         inputLine = muteInputLine(inputLine);
@@ -181,6 +191,7 @@ export function mountTerminal(
     if (event.kind === "exit") {
       exitedSessions.add(event.sessionId);
       current = null;
+      callbacks.onError(diagnoseTerminalExit(event.exitCode, outputTail));
       // 进程没了就停止猜：最后一屏还停在 spinner 上，再扫一次会把状态永久钉在"正在对话"。
       activity?.dispose();
       activity = null;
@@ -364,19 +375,47 @@ function handleTerminalEvent(
   event: TerminalEvent,
   expectedSequence: number,
   codexThemeSync: CodexThemeSync,
+  outputDecoder: TextDecoder,
 ) {
   if (event.kind === "output") {
     const next = acceptSequence(expectedSequence, event.sequence);
     const bytes = codexThemeSync.rewrite(event.bytes, event.eof);
     if (bytes.length > 0) terminal.write(new Uint8Array(bytes));
-    return next;
+    const text = outputDecoder.decode(new Uint8Array(bytes), { stream: !event.eof });
+    return { expectedSequence: next, outputText: text };
   }
   const held = codexThemeSync.flush();
   if (held.length > 0) terminal.write(new Uint8Array(held));
   callbacks.onPhase("exited");
   callbacks.onSession(null);
   terminal.write(`\r\n\x1b[90m[process exited ${event.exitCode}]\x1b[0m\r\n`);
-  return expectedSequence;
+  return { expectedSequence, outputText: "" };
+}
+
+const MAX_OUTPUT_TAIL = 16_384;
+
+function appendOutputTail(previous: string, next: string) {
+  const combined = previous + next;
+  return combined.length > MAX_OUTPUT_TAIL ? combined.slice(-MAX_OUTPUT_TAIL) : combined;
+}
+
+/** 将 CLI 启动失败从“终端已退出”提升为用户可执行的诊断。 */
+export function diagnoseTerminalExit(exitCode: number, output: string): string | null {
+  if (exitCode === 0) return null;
+  const clean = stripTerminalAnsi(output).replace(/\r/g, "\n");
+  if (/readonly database|read-only database|local database appears to be damaged|failed to initialize state/i.test(clean)) {
+    return "Agent 启动失败：Codex 无法写入本地状态数据库（~/.codex/state_5.sqlite）。请检查 ~/.codex 的读写权限后重试。";
+  }
+  const lines = clean
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const detail = [...lines].reverse().find((line) => /^(error|fatal|错误|失败)[:：]?/i.test(line) || /couldn't start|operation not permitted|failed to initialize/i.test(line));
+  return detail ? `Agent 启动失败：${detail}` : `Agent 进程已退出（代码 ${exitCode}）`;
+}
+
+function stripTerminalAnsi(value: string) {
+  return value.replace(/\x1b\][^\x07]*(?:\x07|\x1b\\)/g, "").replace(/\x1b\[[0-?]*[ -\/]*[@-~]/g, "");
 }
 
 /** 尺寸恢复后 Codex 会完整重绘，新的输入区背景才能覆盖 xterm 缓冲区里的旧颜色。 */

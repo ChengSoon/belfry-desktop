@@ -37,6 +37,7 @@
 /* 极窄舞台无法同时容纳标题和五个工具按钮：收起标题，并把按钮栏压紧到右侧。 */
 @container (max-width: 300px) {
   .stage-caption .stage-switcher { display: none; }
+  .workbench .collab-trigger { right: 164px; }
   .workbench .recipe-panel-trigger { right: 132px; }
   .workbench .prompt-composer-trigger { right: 100px; }
   .workbench .quick-open-trigger { right: 68px; }
@@ -46,6 +47,7 @@
 
 /* 再窄就按优先级逐个隐藏：最靠左的最少用，先走。 */
 @container (max-width: 160px) {
+  .workbench .collab-trigger,
   .workbench .recipe-panel-trigger { display: none; }
 }
 

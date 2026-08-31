@@ -8,3 +8,6 @@ src-tauri/vendor/conpty/active/
 *.tsbuildinfo
 *.log
 tmp/
+
+# belfry 控制 CLI 的 sidecar 副本，由 scripts/bundle-cli.mjs 每次构建时生成。
+src-tauri/binaries/

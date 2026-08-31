@@ -1,3 +1,16 @@
+# workspace 根留在 src-tauri 而不是仓库根：CI 的 rust-cache 配了
+# `workspaces: src-tauri`，.gitignore 也锁着 `src-tauri/target/`。
+# 把根上移会同时动到这两处和发布流程，换来的只是目录好看一点，不划算。
+[workspace]
+members = [".", "crates/*"]
+
+[workspace.dependencies]
+serde = { version = "1.0", features = ["derive"] }
+# preserve_order：provider 切换只改用户配置里的几个 key，其余逐字不动。
+# 默认的 BTreeMap 会把 settings.json 的键按字母重排，diff 里全是噪声。
+serde_json = { version = "1.0", features = ["preserve_order"] }
+ulid = { version = "3.0.0", features = ["serde"] }
+
 [package]
 name = "belfry-desktop"
 version = "0.14.0"
@@ -14,11 +27,12 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2.6.3", features = [] }
 
 [dependencies]
+# 控制 CLI 与 app 共用一份线上协议类型：手抄两份迟早漂移，
+# 而漂移的症状是「命令静默地不生效」。
+belfry-protocol = { path = "crates/belfry-protocol" }
 portable-pty = "0.9.0"
-serde = { version = "1.0", features = ["derive"] }
-# preserve_order：provider 切换只改用户配置里的几个 key，其余逐字不动。
-# 默认的 BTreeMap 会把 settings.json 的键按字母重排，diff 里全是噪声。
-serde_json = { version = "1.0", features = ["preserve_order"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
 tauri = { version = "2.11.5", features = [] }
 tauri-plugin-dialog = "2.7.2"
 tauri-plugin-notification = "2.3.3"
@@ -27,7 +41,7 @@ tauri-plugin-updater = "2.10.1"
 # 同理，Codex 的 config.toml 里有 MCP 定义和项目信任记录，改 provider 不能动它们。
 # toml_edit 保留注释、空行与键序，toml 的 Value 往返会全丢。
 toml_edit = "0.25"
-ulid = { version = "3.0.0", features = ["serde"] }
+ulid = { workspace = true }
 
 # canonicalize 的产物要能直接喂给 CreateProcessW / cmd.exe / 文件对话框，
 # 这些都不接受 `\\?\` 前缀，所以 Windows 上换成 dunce 的去前缀版本。

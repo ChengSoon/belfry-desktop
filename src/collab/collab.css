@@ -1,0 +1,192 @@
+/* 协作面板：右侧一列，和历史/用量面板同一套栅格语义。 */
+.collab-trigger {
+  position: absolute;
+  z-index: 8;
+  top: calc(var(--titlebar-inset) + 4px);
+  right: 170px;
+}
+
+.collab-trigger[aria-expanded="true"] { color: var(--accent); background: var(--accent-soft); }
+
+/* 有活等确认时给个角标：面板关着也要能看见，否则派出去的活会一直悬着没人知道。 */
+.collab-trigger i {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--warning);
+}
+
+.collab-panel {
+  position: relative;
+  z-index: 12;
+  display: grid;
+  width: clamp(340px, 30vw, 460px);
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  overflow: hidden;
+  border: 0;
+  border-left: 1px solid var(--border);
+  padding-top: var(--titlebar-inset);
+  background: color-mix(in srgb, var(--surface-raised) 97%, var(--accent) 3%);
+  animation: collab-panel-in 160ms var(--ease) both;
+}
+
+@keyframes collab-panel-in {
+  from { opacity: 0; translate: 8px 0; }
+  to { opacity: 1; translate: 0 0; }
+}
+
+.collab-panel__head {
+  display: grid;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  grid-template-columns: 34px minmax(0, 1fr) 30px;
+  padding: 11px 13px;
+  border-bottom: 1px solid var(--border);
+}
+
+.collab-panel__mark {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--border-strong));
+  border-radius: var(--radius-sm);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.collab-panel__title { display: grid; min-width: 0; gap: 1px; }
+.collab-panel__title strong { overflow: hidden; font-size: var(--fs-md); text-overflow: ellipsis; white-space: nowrap; }
+.collab-panel__title span { color: var(--text-faint); font-size: var(--fs-xs); }
+
+.collab-panel__error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 13px;
+  border-bottom: 1px solid var(--border);
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+  font-size: var(--fs-xs);
+}
+
+.collab-panel__body {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  padding: 13px;
+  overflow-y: auto;
+}
+
+.collab-group { display: grid; gap: 8px; }
+.collab-group h3 {
+  margin: 0;
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+.collab-group--quiet { opacity: 0.62; }
+
+.collab-task {
+  display: grid;
+  gap: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 9px 10px;
+  background: var(--surface);
+}
+
+/* 等确认那条要拦住人，给它一道明确的左边框；其余状态保持安静。 */
+.collab-task--waiting { border-left: 2px solid var(--warning); }
+.collab-task--failed { border-left: 2px solid var(--danger); }
+.collab-task--done { border-left: 2px solid var(--success); }
+
+.collab-task__route {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text);
+  font-size: var(--fs-xs);
+}
+.collab-task__route strong { overflow: hidden; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.collab-task__route span { color: var(--text-faint); }
+.collab-task__route code {
+  margin-left: auto;
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+}
+
+.collab-task__instruction {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.collab-task__foot { display: flex; align-items: center; gap: 8px; }
+.collab-task__state { color: var(--text-faint); font-size: var(--fs-xs); }
+.collab-task__actions { display: flex; margin-left: auto; gap: 6px; }
+
+.collab-task__result {
+  margin: 0;
+  border-top: 1px solid var(--border);
+  padding-top: 6px;
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+}
+
+.collab-empty { display: grid; gap: 6px; color: var(--text-muted); font-size: var(--fs-sm); }
+.collab-empty p { margin: 0; }
+.collab-empty code {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 5px 7px;
+  color: var(--text);
+  background: var(--surface);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  overflow-wrap: anywhere;
+}
+.collab-empty small { color: var(--text-faint); font-size: var(--fs-xs); }
+.collab-empty__note { margin-top: 6px; color: var(--text-faint); font-size: var(--fs-xs); line-height: 1.5; }
+
+.collab-panel__foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 13px;
+  border-top: 1px solid var(--border);
+}
+.collab-panel__count { color: var(--text-faint); font-size: var(--fs-xs); }
+
+.collab-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 4px 9px;
+  color: var(--text);
+  background: var(--surface);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  transition: background var(--duration) var(--ease), color var(--duration) var(--ease);
+}
+.collab-button:hover { background: var(--surface-hover); }
+.collab-button--primary { border-color: color-mix(in srgb, var(--accent) 55%, var(--border-strong)); color: var(--accent); background: var(--accent-soft); }
+.collab-button--quiet { color: var(--text-faint); }
+.collab-button--danger { margin-left: auto; border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); color: var(--danger); }
+.collab-button--danger:hover { background: color-mix(in srgb, var(--danger) 12%, transparent); }

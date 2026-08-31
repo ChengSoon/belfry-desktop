@@ -35,11 +35,14 @@ export function useTerminalSession(
   launch: TerminalLaunch = {
     profileId: "system-default",
     cwd: null,
+    tabId: null,
+    collaborationMode: false,
     resumeSessionId: null,
     ssh: null,
   },
   onSearchRequest?: () => void,
   onOpenFile?: (path: string, line: number | null) => void,
+  onOutput?: (text: string) => void,
 ): TerminalViewModel {
   const { mode } = useTheme();
   const { runtime: typography } = useTypography();
@@ -63,6 +66,8 @@ export function useTerminalSession(
   searchRequest.current = onSearchRequest;
   const fileRequest = useRef(onOpenFile);
   fileRequest.current = onOpenFile;
+  const outputRequest = useRef(onOutput);
+  outputRequest.current = onOutput;
 
   useEffect(() => {
     const host = container.current;
@@ -83,6 +88,7 @@ export function useTerminalSession(
         onInput: setLastInput,
         onActivity: setActivity,
         onOpenFile: (path, line) => fileRequest.current?.(path, line),
+        onOutput: (text) => outputRequest.current?.(text),
         onSearchRequest: () => searchRequest.current?.(),
       },
     );
@@ -93,7 +99,7 @@ export function useTerminalSession(
       setSearch(null);
       mounted.dispose();
     };
-  }, [container, generation, launch.cwd, launch.profileId, launch.resumeSessionId, launch.ssh]);
+  }, [container, generation, launch.collaborationMode, launch.cwd, launch.profileId, launch.resumeSessionId, launch.ssh]);
 
   useEffect(() => {
     themeMode.current = mode;

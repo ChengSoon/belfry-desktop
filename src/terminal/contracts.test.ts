@@ -28,6 +28,8 @@ describe("createDefaultRequest", () => {
       {
         profileId: "ssh",
         cwd: "file:///demo",
+        tabId: null,
+        collaborationMode: false,
         resumeSessionId: null,
         ssh: {
           host: "example.com",
@@ -52,5 +54,24 @@ describe("createDefaultRequest", () => {
 
   it("keeps non-ssh requests free of an ssh target", () => {
     expect(createDefaultRequest(80, 24, PALETTE, "Macintosh").ssh).toBeNull();
+  });
+
+  it("carries collaboration mode only when the launch requests it", () => {
+    const request = createTerminalRequest(
+      80,
+      24,
+      {
+        profileId: "agent:codex",
+        cwd: "file:///demo",
+        tabId: "tab-1",
+        collaborationMode: true,
+        resumeSessionId: null,
+        ssh: null,
+      },
+      PALETTE,
+      "Macintosh",
+    );
+    expect(request.collaborationMode).toBe(true);
+    expect(createDefaultRequest(80, 24, PALETTE, "Macintosh").collaborationMode).toBe(false);
   });
 });

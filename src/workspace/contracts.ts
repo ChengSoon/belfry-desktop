@@ -30,7 +30,17 @@ export interface WorkspaceTab {
   titleHint: string | null;
   /** 用户手动设置的显示名；null 表示用默认命名（SSH 为连接目标）。 */
   customTitle: string | null;
+  /**
+   * 这条 Agent 会话在协作里的唯一名（`reviewer` / `frontend`）。派活只认它。
+   *
+   * 与 `title` / `customTitle` 分开存：title 是从最后一条输入自动生成、每敲一条
+   * prompt 就变的展示名，而寻址键必须稳定；customTitle 一旦设置还会顺带锁死自动
+   * 改名，那是另一件事。null 表示还没命名，此时无法被别的 Agent 寻址。
+   */
+  agentName: string | null;
   profileId: LaunchProfileId;
+  /** true 表示该 Agent 由 Otty 协作调度器独占管理。 */
+  collaborationMode: boolean;
   /** SSH 会话的连接目标；其他会话为 null。 */
   sshTarget: SshLaunch | null;
   /** 新建会话时继承的历史会话 id；普通会话为 null。 */

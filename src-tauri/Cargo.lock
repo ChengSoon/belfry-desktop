@@ -235,9 +235,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
+name = "belfry-cli"
+version = "0.1.0"
+dependencies = [
+ "belfry-protocol",
+ "serde_json",
+]
+
+[[package]]
 name = "belfry-desktop"
 version = "0.14.0"
 dependencies = [
+ "belfry-protocol",
  "dunce",
  "portable-pty",
  "security-framework",
@@ -252,6 +261,14 @@ dependencies = [
  "toml_edit 0.25.13+spec-1.1.0",
  "ulid",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "belfry-protocol"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

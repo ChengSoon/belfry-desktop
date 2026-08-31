@@ -2,6 +2,7 @@ import type { RecentProject, WorkspaceTab, WorkspaceTabKind } from "../workspace
 import type { QuickOpenItem } from "./model";
 
 const ACTION_ITEMS: QuickOpenItem[] = [
+  { id: "action:collab", kind: "action", title: "会话协作", subtitle: "看谁在派活、确认待办", keywords: ["agent", "collab", "协作", "派活", "belfry", "peers", "send"], icon: "bot" },
   { id: "action:new-shell", kind: "action", title: "新建 Shell 会话", subtitle: "当前项目", keywords: ["shell", "terminal", "new"], icon: "terminal" },
   { id: "action:composer", kind: "action", title: "打开 Prompt Composer", subtitle: "发送或排队 Agent 指令", keywords: ["prompt", "queue", "消息", "队列"], icon: "composer" },
   { id: "action:recipes", kind: "action", title: "打开 Recipe", subtitle: "可复用的多步 Agent 指令", keywords: ["recipe", "steps", "多步", "指令", "复用", "剧本"], icon: "list-checks" },

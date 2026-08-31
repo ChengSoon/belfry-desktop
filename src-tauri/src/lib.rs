@@ -4,6 +4,8 @@
 mod agent;
 mod atomic;
 mod background;
+mod collab;
+mod collaboration_protocol;
 mod history;
 mod project;
 mod provider;
@@ -18,12 +20,24 @@ use terminal::{TerminalRuntime, commands};
 pub fn run() {
     use tauri::Manager;
 
+    let identities = std::sync::Arc::new(collab::SessionIdentities::default());
+    let sessions = std::sync::Arc::new(collab::SessionRegistry::default());
+    let board = std::sync::Arc::new(collab::TaskBoard::default());
+    // 协作是增强功能：socket 起不来（被占用、权限不足）不该让整个应用起不来。
+    // 这和「Agent 检测失败不该让你打不开一个 Shell」是同一条取向。
+    let endpoint = collab::CollabServer::start(identities.clone(), sessions.clone(), board.clone())
+        .map(|server| server.endpoint().to_string());
+
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(TerminalRuntime::with_platform_backend())
+        .manage(collab::CollabEndpoint(endpoint))
+        .manage(identities)
+        .manage(sessions)
+        .manage(board)
         .invoke_handler(tauri::generate_handler![
             agent::commands::agent_detect,
             agent::commands::agent_descriptors,
@@ -31,6 +45,14 @@ pub fn run() {
             background::commands::background_import,
             background::commands::background_read,
             background::commands::background_remove,
+            collaboration_protocol::collaboration_log_read,
+            collab::commands::collab_sync_sessions,
+            collab::commands::collab_pending_tasks,
+            collab::commands::collab_mark_dispatched,
+            collab::commands::collab_tasks,
+            collab::commands::collab_approve,
+            collab::commands::collab_reject,
+            collab::commands::collab_stop_all,
             typography::commands::font_import,
             typography::commands::font_read,
             typography::commands::font_remove,
