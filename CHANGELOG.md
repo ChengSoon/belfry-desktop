@@ -2,7 +2,21 @@
 
 本文件记录 Belfry 面向用户的版本更新，按版本倒序排列。版本日期以 Git 发布节点为准。
 
-当前整理范围：`v0.6.0` 至 `v0.14.0`。
+当前整理范围：`v0.6.0` 至 `v0.15.0`。
+
+## [0.15.0] - 2026-09-01
+
+### 新增
+
+- **会话协作**：Agent 会话可设置稳定且唯一的协作名字，通过 `belfry peers`、`send`、`inbox`、`wait`、`done` 与 `fail` 在现有会话之间派活、等待和交差。
+- **协作控制面板**：集中查看待确认、进行中和已结束任务，支持逐条批准 / 拒绝、一键停止，并在工作台入口显示待确认数量。
+- **安全闸门**：只允许同项目 Agent 会话互相派活，限制转包深度和单轮消息数，拦截自派、成环、失效目标与跨项目请求；会话身份由后端签发，凭证不经过前端。
+- **可靠投递**：复用 Prompt Queue，在目标忙碌、等待确认或终端重挂时保持任务顺序；目标退出后任务自动作废，只有接收方提交的 `done` / `fail` 才作为可信完成信号。
+- **内置控制 CLI**：将 `belfry` 作为 Tauri sidecar 随 macOS / Windows 安装包分发，并仅注入 Belfry 托管的 Agent 终端环境。
+
+### 修复
+
+- 为从 GUI 启动的 Agent 终端补齐 UTF-8 locale，避免中文输出按单字节编码显示异常。
 
 ## [0.14.0] - 2026-08-20
 
@@ -111,6 +125,7 @@
 [0.12.0]: https://github.com/ChengSoon/belfry-desktop/releases/tag/v0.12.0
 [0.13.0]: https://github.com/ChengSoon/belfry-desktop/releases/tag/v0.13.0
 [0.14.0]: https://github.com/ChengSoon/belfry-desktop/releases/tag/v0.14.0
+[0.15.0]: https://github.com/ChengSoon/belfry-desktop/releases/tag/v0.15.0
 [0.11.0]: https://github.com/ChengSoon/belfry-desktop/releases/tag/v0.11.0
 [0.10.0]: https://github.com/ChengSoon/belfry-desktop/releases/tag/v0.10.0
 
