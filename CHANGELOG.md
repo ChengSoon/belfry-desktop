@@ -2,7 +2,19 @@
 
 本文件记录 Belfry 面向用户的版本更新，按版本倒序排列。版本日期以 Git 发布节点为准。
 
-当前整理范围：`v0.6.0` 至 `v0.15.0`。
+当前整理范围：`v0.6.0` 至 `v0.16.0`。
+
+## [0.16.0] - 2026-09-01
+
+### 新增
+
+- **协作环境诊断**：在设置中集中检查 Belfry skill、Codex CLI 版本与登录状态、`multi_agent` 功能、`codex doctor` 结果，以及内置控制 CLI 与协作服务的端到端连通性。
+- **Skill 生命周期管理**：应用启动时自动同步内置 `belfry` skill，也可在协作环境页面手动安装或更新；诊断会区分未安装、需要更新和已同步状态。
+- **可视化检查结果**：按正常、警告和异常汇总环境状态，展示每项检查的具体结论，并支持一键重新检查。
+
+### 改进
+
+- 协作通道自检使用临时身份并在结束后立即撤销，避免诊断凭证残留在当前应用实例中。
 
 ## [0.15.0] - 2026-09-01
 
@@ -126,6 +138,7 @@
 [0.13.0]: https://github.com/ChengSoon/belfry-desktop/releases/tag/v0.13.0
 [0.14.0]: https://github.com/ChengSoon/belfry-desktop/releases/tag/v0.14.0
 [0.15.0]: https://github.com/ChengSoon/belfry-desktop/releases/tag/v0.15.0
+[0.16.0]: https://github.com/ChengSoon/belfry-desktop/releases/tag/v0.16.0
 [0.11.0]: https://github.com/ChengSoon/belfry-desktop/releases/tag/v0.11.0
 [0.10.0]: https://github.com/ChengSoon/belfry-desktop/releases/tag/v0.10.0
 

@@ -201,10 +201,11 @@ Past the delivered vertical slice, work proceeds along the split in [`.codestabl
 - **v0.13.0 · File Preview Pane**: browse the project tree, open size-limited read-only text previews, jump from terminal paths, add lightweight syntax highlighting, protect binary files, and surface external changes.
 - **v0.14.0 · Agent adapter foundation**: unify Codex / Claude detection, launch, state, history, and resume behind one adapter layer, with explicit session identity validation, safe resume planning, and a responsive two-column shortcut guide.
 - **v0.15.0 · Session collaboration**: give Agent sessions stable names, delegate and settle work between same-project sessions with the bundled `belfry` CLI, and track approvals, safety limits, queued delivery, and task state in the collaboration panel.
+- **v0.16.0 · Collaboration setup**: diagnose the Belfry skill, Codex login and feature state, doctor results, and the collaboration channel from Settings, with automatic synchronization and manual updates for the bundled skill.
 
 ### Next milestones
 
-- **v0.16.0 · Recipe workspace**: save reusable multi-step Agent instructions with variables, target-session selection, queued execution, retry handling, and run history.
+- **v0.17.0 · Recipe workspace**: save reusable multi-step Agent instructions with variables, target-session selection, queued execution, retry handling, and run history.
 
 ### Long-term tracks
 
