@@ -12,9 +12,9 @@ import { failureLabel, toAppFailure } from "../workspace/errors";
 import { diagnoseEnvironment, installBelfrySkill } from "./api";
 import {
   countChecks,
+  summarizeSkillInstall,
   type CheckState,
   type EnvironmentReport,
-  type SkillInstallAction,
 } from "./contracts";
 import "./environment.css";
 
@@ -24,12 +24,6 @@ const OVERALL_LABEL: Record<CheckState, string> = {
   ok: "环境就绪",
   warning: "需要处理部分项目",
   error: "存在阻塞项",
-};
-
-const INSTALL_LABEL: Record<SkillInstallAction, string> = {
-  installed: "Belfry skill 已安装",
-  updated: "Belfry skill 已更新",
-  unchanged: "Belfry skill 已是最新",
 };
 
 export function EnvironmentSection() {
@@ -75,7 +69,9 @@ function useEnvironmentSetup() {
     setNotice(null);
     try {
       const outcome = await installBelfrySkill();
-      setNotice(INSTALL_LABEL[outcome.action]);
+      const feedback = summarizeSkillInstall(outcome);
+      setFailure(feedback.failure);
+      setNotice(feedback.notice);
       setReport(await diagnoseEnvironment());
     } catch (error) {
       setFailure(failureLabel(toAppFailure(error)));
@@ -107,7 +103,7 @@ function EnvironmentHeader({ busy, onDiagnose, onInstall }: HeaderProps) {
           {busy === "install" ? (
             <LoaderCircle aria-hidden="true" className="environment-spin" size={ICON.sm} />
           ) : <Download aria-hidden="true" size={ICON.sm} />}
-          <span>安装/更新 skill</span>
+          <span>同步全部 skill</span>
         </button>
         <button
           className="environment-action environment-action--icon"

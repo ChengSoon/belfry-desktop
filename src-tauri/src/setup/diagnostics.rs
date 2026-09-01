@@ -3,42 +3,45 @@ use std::process::Command;
 
 use belfry_protocol::ENV_ENDPOINT;
 
+use crate::agent::AgentKind;
 use crate::collab::SessionIdentities;
 
-use super::codex;
+use super::client;
 use super::contracts::{CheckKind, CheckState, EnvironmentCheck, EnvironmentReport};
 use super::skill::{self, SkillState};
 
 pub fn run(endpoint: Option<&str>, identities: &SessionIdentities) -> EnvironmentReport {
-    let mut checks = vec![skill_check()];
-    checks.extend(codex::checks());
+    let mut checks = Vec::new();
+    for agent in AgentKind::ALL {
+        checks.push(skill_check(agent));
+        checks.extend(client::checks(agent));
+    }
     checks.push(collaboration_check(endpoint, identities));
     EnvironmentReport::new(checks)
 }
 
-fn skill_check() -> EnvironmentCheck {
-    match skill::inspect() {
+fn skill_check(agent: AgentKind) -> EnvironmentCheck {
+    match skill::inspect(agent) {
         Ok(inspection) => from_skill_inspection(inspection),
-        Err(error) => EnvironmentCheck::new(CheckKind::Skill, CheckState::Error, error.message),
+        Err(error) => {
+            EnvironmentCheck::new(CheckKind::Skill(agent), CheckState::Error, error.message)
+        }
     }
 }
 
 fn from_skill_inspection(inspection: skill::SkillInspection) -> EnvironmentCheck {
     let path = inspection.path.to_string_lossy();
+    let kind = CheckKind::Skill(inspection.agent);
     match inspection.state {
         SkillState::Current => {
-            EnvironmentCheck::new(CheckKind::Skill, CheckState::Ok, format!("已同步到 {path}"))
+            EnvironmentCheck::new(kind, CheckState::Ok, format!("已同步到 {path}"))
         }
-        SkillState::Missing => EnvironmentCheck::new(
-            CheckKind::Skill,
-            CheckState::Warning,
-            format!("尚未安装到 {path}"),
-        ),
-        SkillState::Outdated => EnvironmentCheck::new(
-            CheckKind::Skill,
-            CheckState::Warning,
-            format!("需要更新：{path}"),
-        ),
+        SkillState::Missing => {
+            EnvironmentCheck::new(kind, CheckState::Warning, format!("尚未安装到 {path}"))
+        }
+        SkillState::Outdated => {
+            EnvironmentCheck::new(kind, CheckState::Warning, format!("需要更新：{path}"))
+        }
     }
 }
 
