@@ -28,7 +28,7 @@
 
 ## 下载
 
-安装包在 [Releases](https://github.com/ChengSoon/belfry-desktop/releases) 页面，四个构建目标：macOS Apple Silicon (`aarch64`)、macOS Intel (`x64`)、Windows、Linux。
+安装包在 [Releases](https://github.com/ChengSoon/belfry-desktop/releases) 页面，三个构建目标：macOS Apple Silicon (`aarch64`)、macOS Intel (`x64`) 和 Windows。
 
 macOS 产物使用 ad-hoc 签名但未经过 Apple 公证，Windows 产物未签名：
 
@@ -206,10 +206,11 @@ src-tauri/src/        Rust 后端
 - **v0.14.0 · Agent adapter foundation**：把 Codex / Claude 的检测、启动、状态、历史与 resume 能力收进统一适配层；补充会话身份校验、恢复安全和快捷指令面板的双列响应式布局。
 - **v0.15.0 · Session collaboration**：为 Agent 会话设置稳定名字，通过内置 `belfry` CLI 在同项目会话间派活、等待和交差；提供批准闸门、循环与层级限制、Prompt Queue 投递和协作状态面板。
 - **v0.16.0 · Collaboration setup**：在设置中诊断 Belfry skill、Codex 登录与功能状态、doctor 结果和协作通道，并自动同步或手动更新内置 skill。
+- **v0.17.0 · Multi-client collaboration setup**：将协作环境诊断与内置 skill 同步扩展到 Codex 和 Claude Code，分别报告客户端状态，并保留部分成功结果。
 
 ### 下一阶段
 
-- **v0.17.0 · Recipe workspace**：保存可复用的多步 Agent 指令，支持变量、目标会话选择、队列执行、失败重试与运行记录。
+- **v0.18.0 · Recipe workspace**：保存可复用的多步 Agent 指令，支持变量、目标会话选择、队列执行、失败重试与运行记录。
 
 ### 长期方向
 

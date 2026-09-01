@@ -28,7 +28,7 @@ Run Codex and Claude Code through one interface on macOS and Windows, and see wh
 
 ## Download
 
-Installers live on the [Releases](https://github.com/ChengSoon/belfry-desktop/releases) page. Four build targets: macOS Apple Silicon (`aarch64`), macOS Intel (`x64`), Windows, Linux.
+Installers live on the [Releases](https://github.com/ChengSoon/belfry-desktop/releases) page. Three build targets are available: macOS Apple Silicon (`aarch64`), macOS Intel (`x64`), and Windows.
 
 The macOS builds are ad-hoc signed but not notarized by Apple. The Windows builds are unsigned:
 
@@ -202,10 +202,11 @@ Past the delivered vertical slice, work proceeds along the split in [`.codestabl
 - **v0.14.0 · Agent adapter foundation**: unify Codex / Claude detection, launch, state, history, and resume behind one adapter layer, with explicit session identity validation, safe resume planning, and a responsive two-column shortcut guide.
 - **v0.15.0 · Session collaboration**: give Agent sessions stable names, delegate and settle work between same-project sessions with the bundled `belfry` CLI, and track approvals, safety limits, queued delivery, and task state in the collaboration panel.
 - **v0.16.0 · Collaboration setup**: diagnose the Belfry skill, Codex login and feature state, doctor results, and the collaboration channel from Settings, with automatic synchronization and manual updates for the bundled skill.
+- **v0.17.0 · Multi-client collaboration setup**: extend collaboration diagnostics and bundled skill synchronization to both Codex and Claude Code, report each client independently, and preserve partial-success results.
 
 ### Next milestones
 
-- **v0.17.0 · Recipe workspace**: save reusable multi-step Agent instructions with variables, target-session selection, queued execution, retry handling, and run history.
+- **v0.18.0 · Recipe workspace**: save reusable multi-step Agent instructions with variables, target-session selection, queued execution, retry handling, and run history.
 
 ### Long-term tracks
 

@@ -2,7 +2,19 @@
 
 本文件记录 Belfry 面向用户的版本更新，按版本倒序排列。版本日期以 Git 发布节点为准。
 
-当前整理范围：`v0.6.0` 至 `v0.16.0`。
+当前整理范围：`v0.6.0` 至 `v0.17.0`。
+
+## [0.17.0] - 2026-09-01
+
+### 新增
+
+- **双 Agent 环境诊断**：协作环境检查扩展到 Codex 与 Claude Code，分别展示 CLI 版本、登录状态，以及客户端支持的专项检查。
+- **多客户端 Skill 同步**：启动时和手动操作都会同步 Codex、Claude Code 两端的内置 `belfry` skill，并分别返回安装、更新或已是最新的结果。
+
+### 改进
+
+- Skill 同步支持部分成功：单个客户端目录不可用时保留另一端的成功结果，并明确显示失败客户端与原因。
+- 未安装的可选 Agent 只显示警告，不再把仅使用 Codex 或仅使用 Claude Code 的环境误判为阻塞。
 
 ## [0.16.0] - 2026-09-01
 
@@ -139,6 +151,7 @@
 [0.14.0]: https://github.com/ChengSoon/belfry-desktop/releases/tag/v0.14.0
 [0.15.0]: https://github.com/ChengSoon/belfry-desktop/releases/tag/v0.15.0
 [0.16.0]: https://github.com/ChengSoon/belfry-desktop/releases/tag/v0.16.0
+[0.17.0]: https://github.com/ChengSoon/belfry-desktop/releases/tag/v0.17.0
 [0.11.0]: https://github.com/ChengSoon/belfry-desktop/releases/tag/v0.11.0
 [0.10.0]: https://github.com/ChengSoon/belfry-desktop/releases/tag/v0.10.0
 
