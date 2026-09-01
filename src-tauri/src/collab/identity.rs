@@ -71,6 +71,13 @@ impl SessionIdentities {
             entries.retain(|tab_id, _| live.iter().any(|alive| alive == tab_id));
         }
     }
+
+    /// 撤销一张临时或已关闭会话的身份牌。
+    pub fn revoke(&self, tab_id: &str) {
+        if let Ok(mut entries) = self.entries.lock() {
+            entries.remove(tab_id);
+        }
+    }
 }
 
 /// 比较不因第一个不同字节就提前返回。
@@ -161,6 +168,18 @@ mod tests {
         identities.retain(&[]);
 
         assert!(!identities.verify("t1", &token));
+    }
+
+    #[test]
+    fn revoking_removes_only_the_requested_identity() {
+        let identities = SessionIdentities::default();
+        let removed = token_of(&identities.issue("t1", None));
+        let kept = token_of(&identities.issue("t2", None));
+
+        identities.revoke("t1");
+
+        assert!(!identities.verify("t1", &removed));
+        assert!(identities.verify("t2", &kept));
     }
 
     #[test]

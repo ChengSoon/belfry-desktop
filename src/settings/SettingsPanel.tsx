@@ -1,13 +1,15 @@
-import { Image, Waypoints, X } from "lucide-react";
+import { HeartPulse, Image, Waypoints, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { AppearanceSection } from "../background/components/AppearanceSection";
 import { ProviderSection } from "../provider/components/ProviderSection";
+import { EnvironmentSection } from "../setup/EnvironmentSection";
 import { ICON } from "../theme/sizing";
 import "./settings.css";
 
 const SECTIONS = [
   { icon: Image, key: "appearance", label: "外观" },
   { icon: Waypoints, key: "provider", label: "Provider" },
+  { icon: HeartPulse, key: "environment", label: "协作环境" },
 ] as const;
 
 type SectionKey = (typeof SECTIONS)[number]["key"];
@@ -72,6 +74,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
       <div className="settings-content">
         {active === "appearance" ? <AppearanceSection /> : null}
         {active === "provider" ? <ProviderSection onGuardChange={setGuarded} /> : null}
+        {active === "environment" ? <EnvironmentSection /> : null}
       </div>
     </section>
   );

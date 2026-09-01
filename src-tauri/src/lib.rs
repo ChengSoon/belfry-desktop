@@ -10,6 +10,7 @@ mod history;
 mod project;
 mod provider;
 mod resource;
+mod setup;
 mod terminal;
 mod typography;
 mod usage;
@@ -20,6 +21,7 @@ use terminal::{TerminalRuntime, commands};
 pub fn run() {
     use tauri::Manager;
 
+    setup::install_skill_on_startup();
     let identities = std::sync::Arc::new(collab::SessionIdentities::default());
     let sessions = std::sync::Arc::new(collab::SessionRegistry::default());
     let board = std::sync::Arc::new(collab::TaskBoard::default());
@@ -71,6 +73,8 @@ pub fn run() {
             history::commands::history_delete,
             history::commands::history_clear,
             usage::commands::usage_report,
+            setup::commands::setup_diagnose,
+            setup::commands::setup_install_skill,
             commands::terminal_shell_profiles,
             commands::terminal_create,
             commands::terminal_write,
