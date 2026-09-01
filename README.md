@@ -204,10 +204,12 @@ src-tauri/src/        Rust 后端
 - **v0.12.0 · Prompt Composer & Queue**：从独立 Composer 选择 Codex / Claude 会话，提交多行 Prompt；Agent 忙时按会话排队，空闲后串行派发，并处理目标重挂、发送失败和会话关闭清理。
 - **v0.13.0 · File Preview Pane**：浏览项目文件树，打开受大小限制的只读文本预览；支持终端路径跳转、轻量语法高亮、二进制保护和外部变更提示。
 - **v0.14.0 · Agent adapter foundation**：把 Codex / Claude 的检测、启动、状态、历史与 resume 能力收进统一适配层；补充会话身份校验、恢复安全和快捷指令面板的双列响应式布局。
+- **v0.15.0 · Session collaboration**：为 Agent 会话设置稳定名字，通过内置 `belfry` CLI 在同项目会话间派活、等待和交差；提供批准闸门、循环与层级限制、Prompt Queue 投递和协作状态面板。
+- **v0.16.0 · Collaboration setup**：在设置中诊断 Belfry skill、Codex 登录与功能状态、doctor 结果和协作通道，并自动同步或手动更新内置 skill。
 
 ### 下一阶段
 
-- **v0.15.0 · Recipe workspace**：保存可复用的多步 Agent 指令，支持变量、目标会话选择、队列执行、失败重试与运行记录。
+- **v0.17.0 · Recipe workspace**：保存可复用的多步 Agent 指令，支持变量、目标会话选择、队列执行、失败重试与运行记录。
 
 ### 长期方向
 

@@ -12,7 +12,7 @@ use tauri::{AppHandle, Manager};
 use crate::agent::AgentKind;
 use crate::terminal::AppError;
 
-use super::atomic::write_atomic;
+use crate::atomic::write_atomic;
 use super::contracts::AgentProviders;
 
 const FILE: &str = "providers.json";

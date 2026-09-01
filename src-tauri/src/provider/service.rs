@@ -9,7 +9,7 @@ use tauri::AppHandle;
 use crate::agent::AgentKind;
 use crate::terminal::AppError;
 
-use super::atomic::read_text_optional;
+use crate::atomic::read_text_optional;
 use super::contracts::{
     AgentProviderGroup, ConfigFilePreview, ProviderCatalog, ProviderConfig, ProviderDraft,
     SwitchOutcome,

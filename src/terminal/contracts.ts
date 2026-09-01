@@ -79,6 +79,15 @@ export function sshDisplayName(target: SshTarget): string {
 export interface TerminalLaunch {
   profileId: LaunchProfileId;
   cwd: string | null;
+  /**
+   * 发起这条 PTY 的会话 id。协作身份牌按它发放。
+   *
+   * null 表示不参与协作（默认 Shell 这类没有会话归属的请求）。后端只给 Agent
+   * 会话发牌，所以这里给了也不代表一定会拿到身份。
+   */
+  tabId: string | null;
+  /** Otty 调度的专用 Agent 会话；后端会禁用 Provider 自带的子 Agent 工具。 */
+  collaborationMode: boolean;
   /** 继续某条历史会话：Codex/Claude 的 resume 参数。null 表示普通新会话。 */
   resumeSessionId: string | null;
   /** SSH 会话的连接目标；其他会话为 null。 */
@@ -100,9 +109,11 @@ export interface TerminalPalette {
 export interface CreateTerminalRequest {
   platform: Platform;
   profileId: LaunchProfileId;
+  tabId: string | null;
   cwd: string | null;
   command: null;
   env: Record<string, string>;
+  collaborationMode: boolean;
   resume: string | null;
   ssh: SshLaunch | null;
   cols: number;
@@ -154,9 +165,11 @@ export function createTerminalRequest(
   return {
     platform: userAgent.includes("Windows") ? "windows" : "macos",
     profileId: launch.profileId,
+    tabId: launch.tabId,
     cwd: launch.cwd,
     command: null,
     env: {},
+    collaborationMode: launch.collaborationMode,
     resume: launch.resumeSessionId,
     ssh: launch.ssh,
     cols,
@@ -175,7 +188,7 @@ export function createDefaultRequest(
   return createTerminalRequest(
     cols,
     rows,
-    { profileId: "system-default", cwd: null, resumeSessionId: null, ssh: null },
+    { profileId: "system-default", cwd: null, tabId: null, collaborationMode: false, resumeSessionId: null, ssh: null },
     palette,
     userAgent,
   );

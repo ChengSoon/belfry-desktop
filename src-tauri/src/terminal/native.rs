@@ -64,6 +64,7 @@ impl PtyBackend for NativePtyBackend {
             &request.env,
             request.resume.as_deref(),
             request.ssh.as_ref(),
+            request.collaboration_mode,
         )?;
         let shell = launch.display_name;
         let auto_password = match &request.ssh {

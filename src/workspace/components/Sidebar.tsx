@@ -16,6 +16,7 @@ import {
   type ShellProfileId,
   type SshLaunch,
 } from "../../terminal/contracts";
+import { isAgentKind } from "../../agent/contracts";
 import type { AgentAvailability, WorkspaceTab, WorkspaceTabKind } from "../contracts";
 import { shortPath } from "../path";
 import { SIDEBAR_WIDTH } from "../sidebarWidth";
@@ -40,6 +41,8 @@ interface SidebarProps {
   onActivate: (id: string) => void;
   onClose: (id: string) => void;
   onRename: (id: string, customTitle: string | null) => void;
+  /** 给 Agent 会话起协作用的唯一名。返回错误信息表示没改成，null 表示成了。 */
+  onRenameAgent: (id: string, raw: string) => string | null;
   onDragStart: (id: string, event: PointerEvent) => void;
   /** 拖完那下 pointerup 还会带出一次 click，返回 true 表示这次点击该被吞掉。 */
   onConsumeClick: () => boolean;
@@ -75,6 +78,7 @@ export function Sidebar({
   onActivate,
   onClose,
   onRename,
+  onRenameAgent,
   onDragStart,
   onConsumeClick,
   onToggleFold,
@@ -125,6 +129,7 @@ export function Sidebar({
               onActivate={onActivate}
               onClose={onClose}
               onRename={onRename}
+              onRenameAgent={onRenameAgent}
               onUpdateSsh={onUpdateSsh}
               onConsumeClick={onConsumeClick}
               onDragStart={onDragStart}
@@ -225,6 +230,7 @@ function SessionGroup({
   onActivate,
   onClose,
   onRename,
+  onRenameAgent,
   onUpdateSsh,
   onConsumeClick,
   onDragStart,
@@ -237,6 +243,8 @@ function SessionGroup({
   onActivate: (id: string) => void;
   onClose: (id: string) => void;
   onRename: (id: string, customTitle: string | null) => void;
+  /** 给 Agent 会话起协作用的唯一名。返回错误信息表示没改成，null 表示成了。 */
+  onRenameAgent: (id: string, raw: string) => string | null;
   onUpdateSsh: (id: string, target: SshLaunch) => void;
   onConsumeClick: () => boolean;
   onDragStart: (id: string, event: PointerEvent) => void;
@@ -269,6 +277,7 @@ function SessionGroup({
           onActivate={onActivate}
           onClose={onClose}
           onRename={onRename}
+          onRenameAgent={onRenameAgent}
           onUpdateSsh={onUpdateSsh}
           onConsumeClick={onConsumeClick}
           onDragStart={onDragStart}
@@ -286,6 +295,7 @@ function SessionRow({
   onActivate,
   onClose,
   onRename,
+  onRenameAgent,
   onUpdateSsh,
   onConsumeClick,
   onDragStart,
@@ -296,12 +306,15 @@ function SessionRow({
   onActivate: (id: string) => void;
   onClose: (id: string) => void;
   onRename: (id: string, customTitle: string | null) => void;
+  /** 给 Agent 会话起协作用的唯一名。返回错误信息表示没改成，null 表示成了。 */
+  onRenameAgent: (id: string, raw: string) => string | null;
   onUpdateSsh: (id: string, target: SshLaunch) => void;
   onConsumeClick: () => boolean;
   onDragStart: (id: string, event: PointerEvent) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
+  const [nameError, setNameError] = useState<string | null>(null);
   const [sshEditorOpen, setSshEditorOpen] = useState(false);
   const sshEditRef = useRef<HTMLButtonElement>(null);
   // Escape 取消后 input 卸载会补发一次 blur，不挡一下会把"取消"变成"提交"。
@@ -313,19 +326,35 @@ function SessionRow({
       : tab.kind === "claude"
         ? ClaudeIcon
         : Server;
+  // 两种会话都能改名，但改的是两样东西：SSH 改显示标题，Agent 改协作里的寻址名。
+  const renamesAgent = isAgentKind(tab.kind);
+  const renamable = renamesAgent || tab.kind === "ssh";
   const startEditing = () => {
     dismissed.current = false;
-    setDraft(tab.title);
+    setNameError(null);
+    setDraft(renamesAgent ? tab.agentName ?? "" : tab.title);
     setEditing(true);
   };
   const commit = () => {
     if (dismissed.current) return;
+    if (renamesAgent) {
+      const error = onRenameAgent(tab.id, draft);
+      // 名字不合规就留在编辑态，把理由摆出来——关掉输入框再报错，
+      // 用户得重新点开才能改，而且不知道刚才哪儿写错了。
+      if (error) {
+        setNameError(error);
+        return;
+      }
+    } else {
+      onRename(tab.id, draft.trim() || null);
+    }
     dismissed.current = true;
+    setNameError(null);
     setEditing(false);
-    onRename(tab.id, draft.trim() || null);
   };
   const cancel = () => {
     dismissed.current = true;
+    setNameError(null);
     setEditing(false);
   };
   const openSshEditor = () => {
@@ -339,17 +368,26 @@ function SessionRow({
   const dim = tab.phase === "exited";
   return (
     <>
-      <div className={`session-row${active ? " is-active" : ""}${dim ? " is-dim" : ""}${dragging ? " is-dragging" : ""}${tab.kind === "ssh" ? " session-row--ssh" : ""}`}>
+      <div className={`session-row${active ? " is-active" : ""}${dim ? " is-dim" : ""}${dragging ? " is-dragging" : ""}${tab.kind === "ssh" ? " session-row--ssh" : ""}${renamesAgent ? " session-row--agent" : ""}`}>
       {editing ? (
         <div className="session-row__main session-row__main--editing">
           <Icon aria-hidden="true" size={ICON.sm} />
           <input
-            aria-label="会话显示名"
+            aria-invalid={nameError !== null}
+            aria-label={renamesAgent ? "协作名字" : "会话显示名"}
             autoFocus
-            maxLength={64}
-            onChange={(event) => setDraft(event.target.value)}
+            maxLength={renamesAgent ? 32 : 64}
+            onChange={(event) => {
+              setDraft(event.target.value);
+              // 一边打字一边把上次的红消掉，否则改对了还挂着旧理由。
+              if (nameError) setNameError(null);
+            }}
             onBlur={commit}
             onKeyDown={(event) => {
+              // 中文 / 日文输入法按 Enter 是「确认候选词」，不是「提交」。不放过这一下的话，
+              // 用中文起名时存进去的是拼音（shencha），编辑框还当场关掉——用户以为没保存成功，
+              // 其实存了个莫名的英文名。Escape 同理：组字时那是「取消候选」，不该连框一起关。
+              if (event.nativeEvent.isComposing) return;
               if (event.key === "Enter") commit();
               if (event.key === "Escape") {
                 event.preventDefault();
@@ -357,56 +395,60 @@ function SessionRow({
               }
             }}
             onPointerDown={(event) => event.stopPropagation()}
+            placeholder={renamesAgent ? "如 审查 或 reviewer" : undefined}
+            title={nameError ?? undefined}
             value={draft}
           />
         </div>
       ) : (
         <button
           aria-current={active}
-          aria-label={`${tab.title}，${statusText(tab)}`}
+          aria-label={`${sessionLabel(tab)}，${statusText(tab)}`}
           className="session-row__main"
           // 拖到终端上分屏；没拖动就是普通的切换点击。
           onClick={() => {
             if (!onConsumeClick()) onActivate(tab.id);
           }}
-          onDoubleClick={tab.kind === "ssh" ? startEditing : undefined}
+          onDoubleClick={renamable ? startEditing : undefined}
           onPointerDown={(event) => onDragStart(tab.id, event)}
           title={rowTitle(tab)}
           type="button"
         >
           <Icon aria-hidden="true" size={ICON.sm} />
-          <span>{tab.title}</span>
+          <span>{sessionLabel(tab)}</span>
         </button>
       )}
-      <div className={`session-row__tail${tab.kind === "ssh" ? " session-row__tail--wide" : ""}`}>
+      <div className={`session-row__tail${tab.kind === "ssh" ? " session-row__tail--wide" : renamesAgent ? " session-row__tail--rename" : ""}`}>
         {tab.kind === "ssh" ? (
-          <>
-            <button
-              aria-label="编辑 SSH 连接"
-              className="session-row__edit"
-              onClick={openSshEditor}
-              ref={sshEditRef}
-              title="编辑 SSH 连接"
-              type="button"
-            >
-              <Settings2 aria-hidden="true" size={ICON.xs} />
-            </button>
-            <button
-              aria-label="重命名会话"
-              className="session-row__rename"
-              onClick={startEditing}
-              title="重命名会话"
-              type="button"
-            >
-              <Pencil aria-hidden="true" size={ICON.xs} />
-            </button>
-          </>
+          <button
+            aria-label="编辑 SSH 连接"
+            className="session-row__edit"
+            onClick={openSshEditor}
+            ref={sshEditRef}
+            title="编辑 SSH 连接"
+            type="button"
+          >
+            <Settings2 aria-hidden="true" size={ICON.xs} />
+          </button>
+        ) : null}
+        {renamable ? (
+          <button
+            aria-label={renamesAgent ? "设置协作名字" : "重命名会话"}
+            className="session-row__rename"
+            onClick={startEditing}
+            title={renamesAgent
+              ? `协作名字${tab.agentName ? `：${tab.agentName}` : "（还没起，别的 Agent 派活找不到它）"}`
+              : "重命名会话"}
+            type="button"
+          >
+            <Pencil aria-hidden="true" size={ICON.xs} />
+          </button>
         ) : null}
         <SessionDot tab={tab} />
         <button
           className="session-row__close"
           onClick={() => onClose(tab.id)}
-          title={`关闭 ${tab.title}`}
+          title={`关闭 ${sessionLabel(tab)}`}
           type="button"
         >
           <X aria-hidden="true" size={ICON.xs} />
@@ -430,11 +472,23 @@ function SessionRow({
 }
 
 /** SSH 会话可以双击改名，把提示挂在悬停 tooltip 上。 */
+/**
+ * 侧栏这一行显示什么。
+ *
+ * 起了协作名字就显示名字：那是用户自己给的稳定叫法，也正是别的 Agent 派活时要
+ * 写的东西。没起名字才回落到自动标题——它是从最后一条输入生成的，每敲一条就变。
+ */
+function sessionLabel(tab: WorkspaceTab) {
+  return tab.agentName ?? tab.title;
+}
+
 function rowTitle(tab: WorkspaceTab) {
   if (tab.error) return tab.error;
   if (tab.kind === "shell") return shellProfileLabel(tab.profileId as ShellProfileId);
   if (tab.kind === "ssh") return `双击重命名 · 点击设置编辑连接 · ${tab.title}`;
-  return tab.titleHint ?? tab.title;
+  const detail = tab.titleHint ?? tab.title;
+  // 起过名字的行显示的是名字，正在干什么就只剩 tooltip 能交代了。
+  return tab.agentName ? `${tab.agentName} · ${detail}` : `双击起个协作名字 · ${detail}`;
 }
 
 /**

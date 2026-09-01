@@ -21,6 +21,7 @@ pub(crate) struct AgentLaunchContext<'a> {
     pub cwd: &'a Path,
     pub env: &'a HashMap<String, String>,
     pub resume: Option<&'a str>,
+    pub collaboration_mode: bool,
 }
 
 pub(crate) struct AgentLaunchSpec {
@@ -112,12 +113,15 @@ pub(crate) fn detect_all() -> Vec<AgentAvailability> {
 pub(crate) fn arguments_for(
     kind: AgentKind,
     resume: Option<&str>,
+    collaboration_mode: bool,
 ) -> Result<Vec<String>, AppError> {
     let adapter = adapter_for(kind);
-    match resume {
-        Some(session_id) => Ok(adapter.plan_resume(session_id)?.arguments),
-        None => Ok(adapter.new_session_arguments()),
-    }
+    launch_arguments(
+        kind,
+        resume,
+        adapter.new_session_arguments(),
+        collaboration_mode,
+    )
 }
 
 fn validate_session_id(kind: AgentKind, session_id: &str) -> Result<AgentSessionRef, AppError> {
@@ -135,16 +139,43 @@ fn resolve_launch(
     base_arguments: Vec<String>,
 ) -> Result<AgentLaunchSpec, AppError> {
     let executable = super::detection::resolve_agent(kind)?;
-    let arguments = match context.resume {
-        Some(session_id) => adapter_for(kind).plan_resume(session_id)?.arguments,
-        None => base_arguments,
-    };
+    let arguments = launch_arguments(
+        kind,
+        context.resume,
+        base_arguments,
+        context.collaboration_mode,
+    )?;
     let _ = (context.cwd, context.env);
     Ok(AgentLaunchSpec {
         executable,
         arguments,
         display_name: kind.command_name().to_string(),
     })
+}
+
+fn launch_arguments(
+    kind: AgentKind,
+    resume: Option<&str>,
+    base_arguments: Vec<String>,
+    collaboration_mode: bool,
+) -> Result<Vec<String>, AppError> {
+    let mut arguments = match resume {
+        Some(session_id) => adapter_for(kind).plan_resume(session_id)?.arguments,
+        None => base_arguments,
+    };
+    if collaboration_mode {
+        arguments.splice(0..0, collaboration_arguments(kind));
+    }
+    Ok(arguments)
+}
+
+fn collaboration_arguments(kind: AgentKind) -> impl Iterator<Item = String> {
+    match kind {
+        AgentKind::Codex => ["--disable", "multi_agent"].as_slice(),
+        AgentKind::Claude => ["--disallowedTools", "Agent", "Task"].as_slice(),
+    }
+    .iter()
+    .map(|value| (*value).to_string())
 }
 
 fn resume_plan(

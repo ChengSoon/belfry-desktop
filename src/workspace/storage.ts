@@ -72,7 +72,9 @@ export function serializeWorkspaceState(tabs: WorkspaceTab[], activeTabId: strin
       title,
       titleHint,
       customTitle,
+      agentName,
       profileId,
+      collaborationMode,
       resumeSessionId,
       agentSessionRef,
       sshTarget,
@@ -83,7 +85,9 @@ export function serializeWorkspaceState(tabs: WorkspaceTab[], activeTabId: strin
       title,
       titleHint,
       customTitle,
+      agentName,
       profileId,
+      collaborationMode,
       resumeSessionId,
       agentSessionRef,
       // 密码只进系统钥匙串：工作区存档只保留连接目标本身。
@@ -110,9 +114,11 @@ export function parseWorkspaceState(value: string | null): PersistedWorkspaceSta
       title: value.title,
       titleHint: value.titleHint,
       customTitle: value.customTitle ?? null,
+      agentName: value.agentName ?? null,
       resumeSessionId: sessionRef?.id ?? null,
       agentSessionRef: sessionRef,
       profileId: profileIdForKind(value.kind, value.profileId),
+      collaborationMode: value.collaborationMode ?? false,
       sshTarget: value.kind === "ssh" && value.sshTarget
         ? { ...value.sshTarget, password: null, rememberPassword: false }
         : null,
@@ -179,8 +185,12 @@ interface PersistedTab {
   titleHint: string | null;
   /** 用户手动设置的显示名；旧版本存档没有该字段，解析时按 null 处理。 */
   customTitle: string | null;
+  /** 协作里的唯一名；旧版本存档没有该字段，解析时按 null 处理。 */
+  agentName?: string | null;
   /** Shell profile；旧版本存档没有该字段，解析时回退系统默认。 */
   profileId?: LaunchProfileId;
+  /** 协作专用会话；旧版本存档没有该字段，解析时按 false。 */
+  collaborationMode?: boolean;
   /** 旧版本存档没有该字段，解析时按 null 处理。 */
   resumeSessionId: string | null;
   /** v0.14 explicit Agent identity; absent in older saves. */
@@ -200,9 +210,13 @@ function isPersistedTab(value: unknown): value is PersistedTab {
     && (value.customTitle === undefined
       || value.customTitle === null
       || typeof value.customTitle === "string")
+    && (value.agentName === undefined
+      || value.agentName === null
+      || typeof value.agentName === "string")
     && (value.profileId === undefined
       || (typeof value.profileId === "string"
         && (value.kind !== "shell" || isShellProfileId(value.profileId))))
+    && (value.collaborationMode === undefined || typeof value.collaborationMode === "boolean")
     // 旧版本存档没有该字段（undefined 也要放行），解析时按 null 处理。
     && (value.resumeSessionId === undefined
       || value.resumeSessionId === null

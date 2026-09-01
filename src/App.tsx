@@ -26,6 +26,12 @@ import { pathKey } from "./workspace/path";
 import { groupTabsByProject } from "./workspace/tabs";
 import { useFoldedProjects } from "./workspace/useFoldedProjects";
 import { useProjectWorkspace } from "./workspace/useProjectWorkspace";
+import { useSessionRoster } from "./collab/useSessionRoster";
+import { useTaskDelivery } from "./collab/useTaskDelivery";
+import { resolveAgentRename } from "./collab/naming";
+import { CollabPanel } from "./collab/CollabPanel";
+import { useCollabTasks } from "./collab/useCollabTasks";
+import { awaitingApproval } from "./collab/taskTone";
 
 interface PreviewRequest {
   path: string;
@@ -41,6 +47,7 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [composerOpen, setComposerOpen] = useState(false);
   const [recipesOpen, setRecipesOpen] = useState(false);
+  const [collabOpen, setCollabOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewRequest, setPreviewRequest] = useState<PreviewRequest | null>(null);
   const [pendingCloseId, setPendingCloseId] = useState<string | null>(null);
@@ -74,25 +81,6 @@ export default function App() {
     void workspace.launchSsh(target);
   }, [unfold, workspace.launchSsh]);
 
-  // 历史会话与用量面板互斥：两者都占右侧一列，栅格只留了一条轨道。
-  const toggleUsage = useCallback(() => {
-    setHistoryOpen(false);
-    setPreviewOpen(false);
-    setPreviewRequest(null);
-    setComposerOpen(false);
-    setRecipesOpen(false);
-    setUsageOpen((value) => !value);
-  }, []);
-
-  const toggleHistory = useCallback(() => {
-    setUsageOpen(false);
-    setPreviewOpen(false);
-    setPreviewRequest(null);
-    setComposerOpen(false);
-    setRecipesOpen(false);
-    setHistoryOpen((value) => !value);
-  }, []);
-
   const resumeHistory = useCallback((session: HistorySession) => {
     if (workspace.activeProject) unfold(workspace.activeProject.id);
     void workspace.launchHistorySession(session);
@@ -106,7 +94,24 @@ export default function App() {
     tabs: workspace.tabs,
   });
   const terminalTargets = useTerminalTargets();
+  // 控制 CLI 从 PTY 里连进来问「现在有谁在」时前端不在调用栈上，得先把名册推过去。
+  useSessionRoster(workspace.tabs);
+  /**
+   * 给 Agent 会话起协作名字：校验通过就落库，不通过把理由交回侧栏当场显示。
+   *
+   * 校验放在这里而不是 workspace 里，是因为唯一性要看全部会话，而理由必须能
+   * 同步回到那个输入框——塞进 setState 回调里就只能默默丢掉。
+   */
+  const renameAgent = useCallback((id: string, raw: string) => {
+    const outcome = resolveAgentRename(raw, workspace.tabs, id);
+    if ("error" in outcome) return outcome.error;
+    workspace.renameAgent(id, outcome.name);
+    return null;
+  }, [workspace.renameAgent, workspace.tabs]);
   const promptQueue = usePromptQueue({ tabs: workspace.tabs, targets: terminalTargets.targets });
+  // `belfry send` 落下的任务由这里投进目标终端，走的是和手敲 prompt 同一条队列。
+  useTaskDelivery(promptQueue.submit);
+  const collab = useCollabTasks();
   const recipes = useRecipes({
     enqueueRun: promptQueue.enqueueRun,
     queueItems: promptQueue.items,
@@ -114,6 +119,27 @@ export default function App() {
     removeRun: promptQueue.removeRun,
     tabs: workspace.tabs,
   });
+  // 历史会话与用量面板互斥：两者都占右侧一列，栅格只留了一条轨道。
+  const toggleUsage = useCallback(() => {
+    setHistoryOpen(false);
+    setPreviewOpen(false);
+    setPreviewRequest(null);
+    setComposerOpen(false);
+    setRecipesOpen(false);
+    setCollabOpen(false);
+    setUsageOpen((value) => !value);
+  }, []);
+
+  const toggleHistory = useCallback(() => {
+    setUsageOpen(false);
+    setPreviewOpen(false);
+    setPreviewRequest(null);
+    setComposerOpen(false);
+    setRecipesOpen(false);
+    setCollabOpen(false);
+    setHistoryOpen((value) => !value);
+  }, []);
+
   const toggleQuickOpen = useCallback(() => {
     setComposerOpen(false);
     setRecipesOpen(false);
@@ -121,8 +147,10 @@ export default function App() {
     setPreviewRequest(null);
     setUsageOpen(false);
     setHistoryOpen(false);
+    setCollabOpen(false);
     quickOpen.toggle();
   }, [quickOpen.toggle]);
+
   const toggleComposer = useCallback(() => {
     quickOpen.close();
     setRecipesOpen(false);
@@ -130,8 +158,10 @@ export default function App() {
     setPreviewRequest(null);
     setUsageOpen(false);
     setHistoryOpen(false);
+    setCollabOpen(false);
     setComposerOpen((value) => !value);
   }, [quickOpen.close]);
+
   const toggleRecipes = useCallback(() => {
     quickOpen.close();
     setComposerOpen(false);
@@ -139,7 +169,19 @@ export default function App() {
     setPreviewRequest(null);
     setUsageOpen(false);
     setHistoryOpen(false);
+    setCollabOpen(false);
     setRecipesOpen((value) => !value);
+  }, [quickOpen.close]);
+
+  const toggleCollab = useCallback(() => {
+    quickOpen.close();
+    setComposerOpen(false);
+    setRecipesOpen(false);
+    setPreviewOpen(false);
+    setPreviewRequest(null);
+    setUsageOpen(false);
+    setHistoryOpen(false);
+    setCollabOpen((value) => !value);
   }, [quickOpen.close]);
 
   const openPreview = useCallback((request?: PreviewRequest) => {
@@ -148,6 +190,7 @@ export default function App() {
     setRecipesOpen(false);
     setUsageOpen(false);
     setHistoryOpen(false);
+    setCollabOpen(false);
     setPreviewOpen(true);
     setPreviewRequest(request ?? null);
   }, [quickOpen.close]);
@@ -231,6 +274,7 @@ export default function App() {
           setComposerOpen(false);
           setRecipesOpen(true);
           break;
+        case "action:collab": toggleCollab(); break;
         case "action:file-preview": openPreview(); break;
         case "action:settings": setSettingsOpen(true); break;
         case "action:history": toggleHistory(); break;
@@ -240,11 +284,11 @@ export default function App() {
         default: break;
       }
     });
-  }, [launch, openPreview, quickOpen, shortcuts, toggleHistory, toggleUsage]);
+  }, [launch, openPreview, quickOpen, shortcuts, toggleCollab, toggleHistory, toggleUsage]);
 
   return (
     <main
-      className={`app-shell${collapsed ? " is-collapsed" : ""}${usageOpen ? " has-usage" : ""}${historyOpen ? " has-history" : ""}${previewOpen ? " has-preview" : ""}${settingsOpen ? " is-settings" : ""}`}
+      className={`app-shell${collapsed ? " is-collapsed" : ""}${usageOpen ? " has-usage" : ""}${historyOpen ? " has-history" : ""}${previewOpen ? " has-preview" : ""}${settingsOpen ? " is-settings" : ""}${collabOpen ? " has-collab" : ""}`}
     >
       <AppBackground />
       <WindowTitlebar />
@@ -260,6 +304,7 @@ export default function App() {
           onActivate={layout.activateTab}
           onClose={requestClose}
           onRename={workspace.renameTab}
+          onRenameAgent={renameAgent}
           onCollapse={() => setCollapsed(true)}
           onConsumeClick={consumedClick}
           onDragStart={startDrag}
@@ -287,6 +332,8 @@ export default function App() {
         activeTabId={workspace.activeTabId}
         collapsed={collapsed}
         composerOpen={composerOpen}
+        collabOpen={collabOpen}
+        collabWaiting={awaitingApproval(collab.tasks).length}
         dividers={layout.dividers}
         drag={drag}
         onAbortRun={recipes.abortRun}
@@ -316,6 +363,7 @@ export default function App() {
         onStartRun={recipes.startRun}
         onSubmitPrompt={promptQueue.submit}
         onToggleComposer={toggleComposer}
+        onToggleCollab={toggleCollab}
         onTogglePreview={togglePreview}
         onToggleQuickOpen={toggleQuickOpen}
         onToggleRecipes={toggleRecipes}
@@ -334,6 +382,8 @@ export default function App() {
         stageRef={stageRef}
         tabs={workspace.tabs}
       />
+
+      {collabOpen ? <CollabPanel collab={collab} onClose={() => setCollabOpen(false)} /> : null}
 
       {previewOpen ? (
         <FilePreviewPane

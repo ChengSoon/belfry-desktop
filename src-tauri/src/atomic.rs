@@ -1,4 +1,4 @@
-//! 配置文件的原子替换。
+//! 文件的原子替换。
 //!
 //! 这些文件是用户的真家伙——`~/.claude/settings.json` 里有 hooks，
 //! `~/.codex/config.toml` 里有 MCP 定义和项目信任记录。写到一半断电或崩溃
@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 use crate::terminal::AppError;
 
 /// 读文件原文。文件不存在时返回空串，而不是报错——全新机器上还没建配置文件是常态。
-pub(super) fn read_text_optional(path: &Path) -> Result<String, AppError> {
+pub(crate) fn read_text_optional(path: &Path) -> Result<String, AppError> {
     match fs::read_to_string(path) {
         Ok(text) => Ok(text),
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(String::new()),
@@ -22,10 +22,10 @@ pub(super) fn read_text_optional(path: &Path) -> Result<String, AppError> {
 }
 
 /// 目标文件不存在时创建用的权限。存密钥的文件传 `true`。
-pub(super) fn write_atomic(path: &Path, contents: &str, private: bool) -> Result<(), AppError> {
+pub(crate) fn write_atomic(path: &Path, contents: &str, private: bool) -> Result<(), AppError> {
     let parent = path
         .parent()
-        .ok_or_else(|| AppError::invalid_argument("配置文件路径没有父目录"))?;
+        .ok_or_else(|| AppError::invalid_argument("文件路径没有父目录"))?;
     fs::create_dir_all(parent)
         .map_err(|err| AppError::io(format!("建不了目录 {}：{err}", parent.display())))?;
 

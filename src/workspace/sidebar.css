@@ -164,6 +164,9 @@
 }
 
 .session-row--ssh { grid-template-columns: minmax(0, 1fr) 68px; }
+/* Agent 行多一个改名键。列宽定义在行上，不能只给 .session-row__tail 设 width——
+   那样 tail 会溢出行外，把关闭键推到侧栏边缘的 resize handle 底下，点都点不动。 */
+.session-row--agent { grid-template-columns: minmax(0, 1fr) 46px; }
 
 .session-row:hover { background: var(--sidebar-hover); }
 
@@ -239,6 +242,16 @@
 .session-row__tail--wide .session-row__rename { grid-area: 1 / 2; }
 .session-row__tail--wide .session-row__close,
 .session-row__tail--wide > i { grid-area: 1 / 3; }
+
+/* Agent 行多一个改名键：起了名字才能被别的 Agent 派活。 */
+.session-row__tail--rename {
+  grid-template-columns: 22px 24px;
+  grid-template-rows: 100%;
+}
+
+.session-row__tail--rename .session-row__rename { grid-area: 1 / 1; }
+.session-row__tail--rename .session-row__close,
+.session-row__tail--rename > i { grid-area: 1 / 2; }
 
 .session-row__edit,
 .session-row__rename {

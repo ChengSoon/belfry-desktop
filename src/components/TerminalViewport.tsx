@@ -26,6 +26,7 @@ interface TerminalViewportProps {
   onSnapshot: (snapshot: TerminalSnapshot) => void;
   onCommandTarget?: (target: TerminalCommandTarget | null) => void;
   onOpenFile?: (path: string, line: number | null) => void;
+  onOutput?: (text: string) => void;
 }
 
 export function TerminalViewport({
@@ -34,6 +35,7 @@ export function TerminalViewport({
   onSnapshot,
   onCommandTarget,
   onOpenFile,
+  onOutput,
 }: TerminalViewportProps) {
   const terminalHost = useRef<HTMLDivElement>(null);
   const searchInput = useRef<HTMLInputElement>(null);
@@ -47,10 +49,10 @@ export function TerminalViewport({
   // resumeSessionId 与 cwd/profileId 一样会触发 PTY 重启，必须一起参与记忆。
   const stableLaunch = useMemo(
     () => launch,
-    [launch.cwd, launch.profileId, launch.resumeSessionId, launch.ssh],
+    [launch.collaborationMode, launch.cwd, launch.profileId, launch.resumeSessionId, launch.ssh],
   );
   const requestSearch = useCallback(() => setSearchOpen(true), []);
-  const session = useTerminalSession(terminalHost, stableLaunch, requestSearch, onOpenFile);
+  const session = useTerminalSession(terminalHost, stableLaunch, requestSearch, onOpenFile, onOutput);
   const dormant = session.phase === "exited" || session.phase === "error";
 
   useEffect(() => {
@@ -115,6 +117,9 @@ export function TerminalViewport({
             autoFocus
             onChange={(event) => updateSearch(event.target.value)}
             onKeyDown={(event) => {
+              // 输入法组字时的 Enter 是确认候选词。不放过的话，搜中文时刚打出的拼音
+              // 就被当成「跳下一个匹配」，组字也被打断。
+              if (event.nativeEvent.isComposing) return;
               if (event.key === "Enter") {
                 event.preventDefault();
                 moveSearch(event.shiftKey ? "previous" : "next");

@@ -26,6 +26,7 @@ export function createWorkspaceTab(
   resumeSessionId: string | null = null,
   sshTarget: SshLaunch | null = null,
   shellProfileId: ShellProfileId = "system-default",
+  collaborationMode = false,
 ): WorkspaceTab {
   return {
     id: crypto.randomUUID(),
@@ -34,7 +35,9 @@ export function createWorkspaceTab(
     title: tabTitle(kind, ordinal, sshTarget),
     titleHint: null,
     customTitle: null,
+    agentName: null,
     profileId: profileForKind(kind, shellProfileId),
+    collaborationMode,
     resumeSessionId,
     agentSessionRef: agentSessionRefFor(kind, resumeSessionId),
     sshTarget,

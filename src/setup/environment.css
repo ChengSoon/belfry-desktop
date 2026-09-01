@@ -1,0 +1,185 @@
+.environment-section {
+  display: grid;
+  width: min(820px, 100%);
+  gap: 12px;
+}
+
+.environment-section__header {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.environment-section__header h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--fs-display);
+  font-weight: 550;
+  letter-spacing: 0;
+}
+
+.environment-section__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.environment-action {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  background: var(--surface);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  transition: color var(--duration) var(--ease), border-color var(--duration) var(--ease), background var(--duration) var(--ease);
+}
+
+.environment-action:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  color: var(--text);
+  background: var(--surface-hover);
+}
+
+.environment-action:disabled { opacity: 0.45; cursor: default; }
+
+.environment-action--primary {
+  border-color: transparent;
+  color: var(--accent-contrast);
+  background: var(--accent);
+  font-weight: 500;
+}
+
+.environment-action--primary:hover:not(:disabled) {
+  border-color: transparent;
+  color: var(--accent-contrast);
+  background: var(--accent-hover);
+}
+
+.environment-action--icon {
+  width: 30px;
+  padding: 0;
+}
+
+.environment-summary {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  min-height: 48px;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 4px;
+  border-block: 1px solid var(--border);
+}
+
+.environment-summary strong {
+  color: var(--text);
+  font-size: var(--fs-md);
+  font-weight: 550;
+}
+
+.environment-summary span:last-child {
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+
+.environment-summary[data-state="ok"] > svg { color: var(--success); }
+.environment-summary[data-state="warning"] > svg { color: var(--warning); }
+.environment-summary[data-state="error"] > svg { color: var(--danger); }
+
+.environment-checks {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.environment-checks li {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  min-height: 52px;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.environment-checks__icon {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.environment-checks li[data-state="ok"] .environment-checks__icon { color: var(--success); }
+.environment-checks li[data-state="warning"] .environment-checks__icon { color: var(--warning); }
+.environment-checks li[data-state="error"] .environment-checks__icon { color: var(--danger); }
+
+.environment-checks__text {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.environment-checks__text strong {
+  color: var(--text);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+
+.environment-checks__text small {
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-relaxed);
+  overflow-wrap: anywhere;
+}
+
+.environment-notice,
+.environment-failure,
+.environment-loading {
+  display: flex;
+  min-height: 36px;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  padding: 7px 9px;
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-sm);
+}
+
+.environment-notice {
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 10%, transparent);
+}
+
+.environment-failure {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+}
+
+.environment-loading {
+  color: var(--text-muted);
+  background: var(--surface);
+}
+
+.environment-spin { animation: environment-spin 0.8s linear infinite; }
+
+@keyframes environment-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 680px) {
+  .environment-section__header { align-items: flex-start; }
+  .environment-summary { grid-template-columns: 24px minmax(0, 1fr); }
+  .environment-summary span:last-child { grid-column: 2; white-space: normal; }
+}

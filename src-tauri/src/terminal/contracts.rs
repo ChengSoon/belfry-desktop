@@ -118,10 +118,18 @@ impl AppError {
 pub struct CreateTerminalRequest {
     pub platform: Platform,
     pub profile_id: String,
+    /// 前端那条会话的 id。协作身份牌按它发放——Rust 侧的 PTY session id 是另一个
+    /// 空间，两者不通，而 Agent 之间互相寻址认的是前端这一份。
+    #[serde(default)]
+    pub tab_id: Option<String>,
     pub cwd: Option<String>,
     pub command: Option<Vec<String>>,
     #[serde(default)]
     pub env: std::collections::HashMap<String, String>,
+    /// Otty 调度的专用 Agent 会话。开启后禁用 Provider 自带的子 Agent 工具，
+    /// 避免绕过 Otty 的任务分派、状态跟踪和结果汇总。
+    #[serde(default)]
+    pub collaboration_mode: bool,
     /// 继续某条历史会话：Codex / Claude 各自 CLI 的 resume 参数。仅 Agent profile 可用。
     #[serde(default)]
     pub resume: Option<String>,
@@ -217,6 +225,16 @@ impl CreateTerminalRequest {
         let profile = LaunchProfileId::parse(&self.profile_id)?;
         if self.command.is_some() {
             return Err(AppError::unsupported("custom commands are not supported"));
+        }
+        if self.collaboration_mode
+            && !matches!(
+                profile,
+                LaunchProfileId::AgentCodex | LaunchProfileId::AgentClaude
+            )
+        {
+            return Err(AppError::invalid_argument(
+                "collaboration mode requires an agent launch profile",
+            ));
         }
         match &self.ssh {
             Some(target) => {
@@ -518,9 +536,11 @@ mod tests {
         let mut request = CreateTerminalRequest {
             platform: Platform::Macos,
             profile_id: "ssh".to_string(),
+            tab_id: None,
             cwd: Some("file:///tmp".to_string()),
             command: None,
             env: std::collections::HashMap::new(),
+            collaboration_mode: false,
             resume: None,
             ssh: None,
             cols: 120,
@@ -551,9 +571,11 @@ mod tests {
         let mut request = CreateTerminalRequest {
             platform: Platform::Macos,
             profile_id: "agent:codex".to_string(),
+            tab_id: None,
             cwd: Some("file:///tmp".to_string()),
             command: None,
             env: std::collections::HashMap::new(),
+            collaboration_mode: false,
             resume: Some(".".to_string()),
             ssh: None,
             cols: 120,
@@ -564,5 +586,30 @@ mod tests {
         assert!(request.validate().is_err());
         request.resume = Some("x".repeat(513));
         assert!(request.validate().is_err());
+    }
+
+    #[test]
+    fn collaboration_mode_only_accepts_agent_profiles() {
+        let mut request = CreateTerminalRequest {
+            platform: Platform::Macos,
+            profile_id: "system-default".to_string(),
+            tab_id: None,
+            cwd: Some("file:///tmp".to_string()),
+            command: None,
+            env: std::collections::HashMap::new(),
+            collaboration_mode: true,
+            resume: None,
+            ssh: None,
+            cols: 120,
+            rows: 36,
+            elevation: Elevation::Normal,
+            palette: None,
+        };
+        assert!(request.validate().is_err());
+
+        request.profile_id = "agent:codex".to_string();
+        assert!(request.validate().is_ok());
+        request.profile_id = "agent:claude".to_string();
+        assert!(request.validate().is_ok());
     }
 }

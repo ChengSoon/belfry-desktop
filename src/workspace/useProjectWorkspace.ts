@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { agentDescriptor, isAgentSessionRef } from "../agent/contracts";
+import { agentDescriptor, isAgentKind, isAgentSessionRef } from "../agent/contracts";
 import type { TerminalSnapshot } from "../components/TerminalViewport";
 import {
   isShellProfileId,
@@ -156,7 +156,7 @@ export function useProjectWorkspace() {
     }
   }, [activeTabId, readyToPersist, serializedWorkspace, tabs]);
 
-  const launch = useCallback(async (kind: WorkspaceTabKind, requestedProfile?: ShellProfileId) => {
+  const launch = useCallback(async (kind: WorkspaceTabKind, requestedProfile?: ShellProfileId, projectRoot?: string, activate = true, collaborationMode = false): Promise<string | null> => {
     const profileId = kind === "shell" ? requestedProfile ?? "system-default" : null;
     const shellAvailability = profileId && profileId !== "system-default"
       ? shellProfiles.find((profile) => profile.id === profileId)
@@ -167,24 +167,33 @@ export function useProjectWorkspace() {
         message: shellAvailability.reason ?? `${profileId} 不可用`,
         retryable: true,
       });
-      return;
+      return null;
     }
     const availability = kind === "codex" || kind === "claude"
       ? agents.find((agent) => agent.kind === kind)
       : null;
     if (availability && !availability.available) {
       setFailure({ code: "NOT_FOUND", message: availability.reason ?? `${kind} 不可用`, retryable: true });
-      return;
+      return null;
     }
     // 首启失败等边缘情况下没有任何项目可继承，先要后端给一个默认目录。
     let target = activeProject;
+    if (projectRoot && (!target || pathKey(target.rootPath) !== pathKey(projectRoot))) {
+      try {
+        target = await openProject(projectRoot);
+        if (activate) acceptProject(target);
+      } catch (error) {
+        setFailure(toAppFailure(error));
+        return null;
+      }
+    }
     if (!target) {
       try {
         target = await openProject(null);
-        acceptProject(target);
+        if (activate) acceptProject(target);
       } catch (error) {
         setFailure(toAppFailure(error));
-        return;
+        return null;
       }
     }
     // tab 必须在 updater 外建：updater 在 StrictMode 下会跑两次，
@@ -196,9 +205,11 @@ export function useProjectWorkspace() {
       null,
       null,
       profileId && isShellProfileId(profileId) ? profileId : "system-default",
+      collaborationMode,
     );
     setTabs((current) => [...current, tab]);
-    setActiveTabId(tab.id);
+    if (activate) setActiveTabId(tab.id);
+    return tab.id;
   }, [acceptProject, activeProject, agents, shellProfiles, tabs]);
 
   /** SSH 会话：凭证不落地，连接在终端里由 OpenSSH 交互，这里只建 tab。 */
@@ -283,6 +294,19 @@ export function useProjectWorkspace() {
     }));
   }, []);
 
+  /**
+   * 给 Agent 会话起协作用的唯一名。
+   *
+   * 和 `renameTab` 是两件事：那个改的是显示标题（只 SSH 用），这个改的是别的
+   * Agent 派活时要写的寻址键。格式与唯一性校验放在 UI 侧先做——那里才能把
+   * 「为什么不行」当场回给用户，塞进 setState 回调里就只能默默丢掉。
+   */
+  const renameAgent = useCallback((id: string, agentName: string | null) => {
+    setTabs((current) => current.map((tab) => (
+      tab.id === id && isAgentKind(tab.kind) ? { ...tab, agentName } : tab
+    )));
+  }, []);
+
   /** 修改 SSH 目标后复用当前 tab；sshTarget 变化会让终端层自动重连。 */
   const updateSsh = useCallback((id: string, target: SshLaunch) => {
     setTabs((current) => current.map((tab) => (
@@ -355,6 +379,7 @@ export function useProjectWorkspace() {
     launchHistorySession,
     closeTab,
     renameTab,
+    renameAgent,
     updateSsh,
     removeRecentProject,
     updateTab,

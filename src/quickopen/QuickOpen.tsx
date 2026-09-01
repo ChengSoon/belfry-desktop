@@ -1,6 +1,7 @@
 import {
   ArrowDown,
   ArrowUp,
+  Bot,
   Command,
   CornerDownLeft,
   FileSearch,
@@ -179,6 +180,7 @@ function ItemIcon({ kind, icon }: { kind: QuickOpenItemKind; icon?: QuickOpenIco
 }
 
 function iconComponent(icon: QuickOpenIcon | undefined, kind: QuickOpenItemKind): LucideIcon {
+  if (icon === "bot") return Bot;
   if (icon === "settings") return Settings;
   if (icon === "history") return History;
   if (icon === "gauge") return Gauge;
