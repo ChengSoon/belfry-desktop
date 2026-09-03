@@ -13,7 +13,7 @@ ulid = { version = "3.0.0", features = ["serde"] }
 
 [package]
 name = "belfry-desktop"
-version = "0.17.0"
+version = "0.18.0"
 description = "Cross-platform AI terminal workspace"
 authors = ["appmakes"]
 edition = "2024"
