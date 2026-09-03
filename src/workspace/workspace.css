@@ -33,7 +33,7 @@
 .app-shell.is-settings > .usage-panel,
 .app-shell.is-settings > .history-panel,
 .app-shell.is-settings > .file-preview-panel,
-.app-shell.is-settings > .collaboration-panel,
+.app-shell.is-settings > .collab-panel,
 .app-shell.is-settings > .failure-toast { display: none; }
 
 /* Overlay 标题栏把顶部那条交给了 webview，系统不再代拖窗口，得自己声明拖拽区。

@@ -98,6 +98,24 @@
   backdrop-filter: var(--app-bg-glass-filter);
 }
 
+/* 协作面板和上面两个是同一列同一套东西，之前漏了，背景图一开它就是一张
+   生硬的不透明板贴在图上。这里的 background 还要盖掉 collab.css 里那条带
+   accent 的实色底——选择器 (0,2,1) 高于它的 (0,1,0)，压得住。 */
+:root[data-background="on"] .collab-panel {
+  border-left-color: var(--app-bg-divider);
+  background: var(--app-bg-glass);
+  -webkit-backdrop-filter: var(--app-bg-glass-filter);
+  backdrop-filter: var(--app-bg-glass-filter);
+}
+
+/* --text-faint 压在半透明底上会和透出的图混成同亮度而发虚（同 .project-trigger__path
+   的理由）。事件里吃这个色的两处正好都是细节信息：shortId 还额外叠了 opacity: 0.5，
+   是最容易糊掉的一处；路由行的时间同理。背景图模式下提档到 --text-muted。 */
+:root[data-background="on"] .collab-event__id,
+:root[data-background="on"] .collab-event__time {
+  color: var(--text-muted);
+}
+
 /* 终端 = 一张浮在图上的卡片：标题条略实，内容区垫用户可调的画布衬底，
    两段拼成同一个圆角卡。衬底放在 __body 而不是 xterm 的 viewport 上：
    viewport 被 .terminal-canvas 的 padding 内缩，垫在那里会在四周

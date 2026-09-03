@@ -22,7 +22,7 @@ pub async fn setup_diagnose(app: AppHandle) -> Result<EnvironmentReport, AppErro
 
 #[tauri::command]
 pub async fn setup_install_skill() -> Result<SkillInstallOutcome, AppError> {
-    tauri::async_runtime::spawn_blocking(skill::install)
+    tauri::async_runtime::spawn_blocking(skill::install_all)
         .await
-        .map_err(|error| AppError::io(format!("Skill 安装任务异常退出：{error}")))?
+        .map_err(|error| AppError::io(format!("Skill 安装任务异常退出：{error}")))
 }

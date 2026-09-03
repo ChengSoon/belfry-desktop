@@ -19,15 +19,20 @@
   background: var(--warning);
 }
 
+/* 用 flex 列而不是 grid 行模板：模板写死四条轨道（头 / 错误条 / 体 / 脚），
+   但错误条是条件渲染的，没有 error 时只有三个子节点——minmax(0,1fr) 那条就落到了
+   footer 身上，body 反而变成 auto。空态因此顶在上面（body 只有内容那么高），
+   任务多到撑满时 footer 又被挤成 21px 顶出可视区，「全部停下」按钮正好在最需要它的
+   时候被裁掉。flex 只认「哪个孩子会长」，不数位置，条件渲染多少个都对。 */
 .collab-panel {
   position: relative;
   z-index: 12;
-  display: grid;
+  display: flex;
   width: clamp(340px, 30vw, 460px);
   min-width: 0;
   min-height: 0;
   height: 100%;
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  flex-direction: column;
   overflow: hidden;
   border: 0;
   border-left: 1px solid var(--border);
@@ -79,6 +84,8 @@
 
 .collab-panel__body {
   display: grid;
+  min-height: 0;
+  flex: 1 1 auto;
   align-content: start;
   gap: 16px;
   padding: 13px;
@@ -87,81 +94,351 @@
 
 .collab-group { display: grid; gap: 8px; }
 .collab-group h3 {
+  display: flex;
   margin: 0;
+  align-items: baseline;
+  gap: 6px;
   color: var(--text-faint);
   font-size: var(--fs-xs);
   font-weight: 500;
   letter-spacing: 0.04em;
 }
+.collab-group__count { margin-left: auto; font-variant-numeric: tabular-nums; }
 .collab-group--quiet { opacity: 0.62; }
 
-.collab-task {
+/* 事件之间不留 gap：轨道线要连成一条，间距由事件内容列的 padding-bottom 撑
+   （见下面 .collab-event__body），线才能穿过那段空白接上下一个节点。 */
+.collab-group__track { display: grid; }
+
+/* ==================== 轨道上的一个事件 ====================
+
+   左列 20px 放节点与轨道线，右列放内容。节点直径 10px、在左列水平居中，
+   所以线落在距事件左边缘 10px 处。 */
+.collab-event {
   display: grid;
-  gap: 6px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 9px 10px;
-  background: var(--surface);
+  min-width: 0;
+  gap: 0 8px;
+  grid-template-columns: 20px minmax(0, 1fr);
 }
 
-/* 等确认那条要拦住人，给它一道明确的左边框；其余状态保持安静。 */
-.collab-task--waiting { border-left: 2px solid var(--warning); }
-.collab-task--failed { border-left: 2px solid var(--danger); }
-.collab-task--done { border-left: 2px solid var(--success); }
+.collab-event__rail {
+  position: relative;
+  display: block;
+  height: 100%;
+}
 
-.collab-task__route {
+/* 轨道线分两段画：::before 是节点上方那截，::after 是下方那截，
+   中间天然空出节点的位置。
+
+   绝不能改成「画一条通长的线，再拿背景色画个圆盖住中间」——背景图模式下
+   （:root[data-background="on"]）面板是半透明毛玻璃，任何用 var(--surface) 遮挡的
+   手法都会在图上留一个不透明的小圆斑。分两段画则完全不需要遮挡。
+
+   用 background 而不是 border：border 画在元素上会被读屏念成分隔线。
+
+   颜色不用 var(--border)：暗色下它(#232428)和面板底(≈#191b21)只差 10/255，
+   线整个糊在底上看不见（实测对比度 1.05:1）。改用 --text 兑透明，两个主题自动
+   反向、深浅各自拉开到 ~1.5:1；半透明也让它在毛玻璃上跟着背景走，不会变成一条
+   贴上去的实色线。配方与 background.css 的 --app-bg-divider 同源。
+
+   left 写 10px 而不是 50% + translate(-50%)：列宽 20px，居中会把 1px 的线摆到
+   9.5px 这个半像素上，浏览器只能劈成两列各半强度的抗锯齿——1x 屏（Windows 常见）
+   上等于又暗一半。钉在整数像素边界上，偏离列中心 0.5px 没人看得出来。 */
+.collab-event__rail::before,
+.collab-event__rail::after {
+  position: absolute;
+  left: 10px;
+  width: 1px;
+  background: color-mix(in srgb, var(--text) 18%, transparent);
+  content: "";
+}
+
+/* 上段只有 3px——它是从上一个事件的下段接过来的那一小截，
+   接口就在事件框的上边缘（相邻事件之间没有 gap）。 */
+.collab-event__rail::before { top: 0; height: 3px; }
+/* 下段从节点底下起，一直铺到事件框底边，交给下一个事件的上段接住。 */
+.collab-event__rail::after { top: 16px; bottom: 0; }
+
+/* 收口：组内第一条不画上段、最后一条不画下段，线在每组首尾自然收住不留断头。 */
+.collab-event:first-child .collab-event__rail::before,
+.collab-event:last-child .collab-event__rail::after { content: none; }
+
+/* 节点垂直对齐路由行的中线：路由行 line-height 18px，中线在 9px，
+   10px 的节点因此从 4px 起。 */
+.collab-event__node {
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  display: grid;
+  width: 10px;
+  height: 10px;
+  place-items: center;
+  border-radius: 50%;
+  translate: -50% 0;
+}
+
+/* 五个 tone 全都要有节点样式——taskTone() 的 default 分支会把未知 state 落到 gone，
+   漏掉哪个都会出现「一条任务没有节点」的空轨道。 */
+
+/* waiting：描边加粗一档，再加一圈光晕，让它在列表里拦得住人。 */
+.collab-event--waiting .collab-event__node {
+  border: 2px solid var(--warning);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--warning) 18%, transparent);
+}
+
+/* running：空心环 + 呼吸。这是「它还在跑」唯一的动态信号——
+   状态文案只敢说「完成情况未知」，生命感只能由这里给。
+   动画复用 styles.css 的 @keyframes pulse（.status-dot--creating 那套），不另造一份；
+   慢到 2s 是因为它可能同时有好几条在呼吸，跟状态点同速会显得整个面板在闪。 */
+.collab-event--running .collab-event__node {
+  border: 1.5px solid var(--accent);
+  animation: pulse 2s var(--ease) infinite;
+}
+
+/* done / failed 只有图标，无边框无底色。 */
+.collab-event--done .collab-event__node { color: var(--success); }
+.collab-event--failed .collab-event__node { color: var(--danger); }
+
+/* gone：虚线表达「这条线断了」。 */
+.collab-event--gone .collab-event__node { border: 1px dashed var(--border-strong); }
+
+/* styles.css:247 的 reduce 覆盖只点名了 .status-dot--creating 和 .activity-dot，
+   够不到这里，得自己补一条。 */
+@media (prefers-reduced-motion: reduce) {
+  .collab-event--running .collab-event__node { animation: none; }
+}
+
+/* 事件之间的间距由内容列的 padding-bottom 撑，不由 .collab-event 自己的 padding：
+   轨道线靠左列拉满整个栅格行来画，padding 加在事件上会把左列的高度截在 padding 之内，
+   线就接不到下一个节点了。 */
+.collab-event__body {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+  padding-bottom: 14px;
+}
+
+.collab-event:last-child .collab-event__body { padding-bottom: 0; }
+
+/* 1｜路由行。line-height 锁死 18px：节点的 top 是按这个中线算的。 */
+.collab-event__route {
   display: flex;
+  min-width: 0;
   align-items: center;
   gap: 6px;
-  color: var(--text);
+  font-size: var(--fs-xs);
+  line-height: 18px;
+}
+/* min-width: 0 不能省：flex 项默认 min-width: auto，长会话名会顶开整行而不是省略。 */
+.collab-event__from,
+.collab-event__to {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.collab-event__from { color: var(--text-muted); font-weight: 400; }
+.collab-event__to { color: var(--text); font-weight: 500; }
+.collab-event__arrow { flex: 0 0 auto; color: var(--text-faint); }
+/* tabular-nums：每 1.5s 轮询刷一次数字，比例宽度会让整行左右抖。 */
+.collab-event__time {
+  flex: 0 0 auto;
+  margin-left: auto;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 2｜状态行。 */
+.collab-event__status {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
   font-size: var(--fs-xs);
 }
-.collab-task__route strong { overflow: hidden; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-.collab-task__route span { color: var(--text-faint); }
-.collab-task__route code {
+.collab-event__state {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.collab-event--waiting .collab-event__state { color: var(--warning); }
+.collab-event--running .collab-event__state { color: var(--text-muted); }
+.collab-event--done .collab-event__state { color: var(--success); }
+.collab-event--failed .collab-event__state { color: var(--danger); }
+.collab-event--gone .collab-event__state { color: var(--text-faint); }
+
+.collab-event__id {
+  flex: 0 0 auto;
   margin-left: auto;
   color: var(--text-faint);
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
+  opacity: 0.5;
+  transition: opacity var(--duration) var(--ease);
+  user-select: all;
 }
+.collab-event:hover .collab-event__id { opacity: 1; }
 
-.collab-task__instruction {
+/* 3｜指令行。用 --text 不用 --text-muted：指令是任务的主体，该是卡片上最实的一行；
+   和路由行的层级靠字号拉开（xs vs sm），不靠把它压暗。 */
+.collab-event__instruction {
   display: -webkit-box;
   margin: 0;
   overflow: hidden;
-  color: var(--text-muted);
+  color: var(--text);
   font-size: var(--fs-sm);
   line-height: 1.45;
+  overflow-wrap: anywhere;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
 }
 
-.collab-task__foot { display: flex; align-items: center; gap: 8px; }
-.collab-task__state { color: var(--text-faint); font-size: var(--fs-xs); }
-.collab-task__actions { display: flex; margin-left: auto; gap: 6px; }
-
-.collab-task__result {
+/* 4｜结果块。对方交差时唯一的解释，值一个引用块而不是底部一行小字。
+   不加 border-top：轨道已经承担了分隔。 */
+.collab-event__result {
+  display: -webkit-box;
   margin: 0;
-  border-top: 1px solid var(--border);
-  padding-top: 6px;
+  overflow: hidden;
+  border-left: 2px solid var(--border-strong);
+  padding-left: 8px;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+
+.collab-event__actions { display: flex; justify-content: flex-end; gap: 6px; }
+
+/* ==================== 空态 ====================
+
+   居中靠 margin-block: auto，但前提是行轨道得先占满高度：body 是 align-content: start，
+   轨道被压到内容高，auto margin 没有空间可吸收，空态就还是顶在上面。所以只在空态时
+   把 body 放开成 stretch（:has 限定，有任务时的列表布局一点不动）。
+
+   不用 align-content: center 是因为溢出时它两端一起裁，小窗口下顶部文字会被切掉看不见；
+   而 auto margin 在内容超过可用高度时会自然退化成 0，只往下溢出、顶部照常可读。 */
+.collab-panel__body:has(> .collab-empty) { align-content: stretch; }
+
+.collab-empty {
+  display: grid;
+  align-content: center;
+  margin-block: auto;
+  gap: 18px;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.collab-empty p { margin: 0; line-height: 1.5; }
+.collab-empty__lead { color: var(--text); }
+
+/* 虚线轨道预演：空态也说时间轴的语言，那片空白也就被填上了。 */
+.collab-empty__preview { display: grid; }
+
+/* 左列必须和 .collab-event 用同一套栅格，否则从空态切到有任务时节点会横向跳。 */
+.collab-empty__row {
+  display: grid;
+  min-width: 0;
+  gap: 0 8px;
+  grid-template-columns: 20px minmax(0, 1fr);
+}
+
+.collab-empty__rail { position: relative; display: block; height: 100%; }
+
+/* 虚线用 background 的 repeating-linear-gradient，不用 border-left: dashed——
+   和实线轨道保持同一种画法，border 画在元素上会被读屏念成分隔线。
+   left: 10px 同样是为了钉整数像素，理由见上面实线轨道那段。
+
+   浓度反而要比实线轨道（--text 18%）**高**，这跟直觉相反：虚线占空比只有 50%
+   （3px 实、3px 空），一半的像素根本没颜色，同一个数值的观感天然就淡近一半。
+   按「比实线淡一档」的直觉去调 12%，等于淡了两次，暗色下直接看不见。
+   30% 是截图扫 18/24/30/36 四档定的：暗色下能看出虚线把两行说明串起来，
+   而实段亮度（≈rgb(89)）仍压在说明文字 --text-faint（rgb(106)）之下，不抢正文；
+   再往上到 36% 就和文字齐平了。 */
+.collab-empty__rail::before,
+.collab-empty__rail::after {
+  position: absolute;
+  left: 10px;
+  width: 1px;
+  background: repeating-linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--text) 30%, transparent) 0 3px,
+    transparent 3px 6px
+  );
+  content: "";
+}
+.collab-empty__rail::before { top: 0; height: 3px; }
+.collab-empty__rail::after { top: 16px; bottom: 0; }
+
+/* 收口同实线轨道：第一行上方不画、最后一行下方不画。 */
+.collab-empty__row:first-child .collab-empty__rail::before,
+.collab-empty__row:last-child .collab-empty__rail::after { content: none; }
+
+/* 节点跟着线一起提浓度（同样吃虚线占空比那笔账）。仍比 gone 的
+   1px dashed var(--border-strong) 淡：两者不同屏，但语义上空态是「还没来」、
+   gone 是「断了」，轻重要分开。 */
+.collab-empty__node {
+  position: absolute;
+  top: 4px;
+  left: 10px;
+  width: 10px;
+  height: 10px;
+  border: 1px dashed color-mix(in srgb, var(--text) 36%, transparent);
+  border-radius: 50%;
+  translate: -50% 0;
+}
+
+/* 说明文字与路由行同高（18px），节点的 top: 4px 是按这条中线算的。
+   两行之间收紧到 6px：预演是一个整体，间距大了中间那截虚线会拉得孤立，
+   看着不像同一条轨道上的相邻两站。 */
+.collab-empty__caption {
+  min-width: 0;
+  padding-bottom: 6px;
   color: var(--text-faint);
   font-size: var(--fs-xs);
+  line-height: 18px;
 }
+.collab-empty__row:last-child .collab-empty__caption { padding-bottom: 0; }
 
-.collab-empty { display: grid; gap: 6px; color: var(--text-muted); font-size: var(--fs-sm); }
-.collab-empty p { margin: 0; }
-.collab-empty code {
-  border: 1px solid var(--border);
+/* 引导标签，不是标题——「还没有派活记录」才是这一屏的结论。
+   同色同字号会让两者读起来像两个并列的标题。 */
+.collab-empty__howto { display: grid; gap: 8px; }
+.collab-empty__howto > p { color: var(--text-muted); font-size: var(--fs-xs); }
+.collab-empty__command { display: grid; gap: 2px; }
+
+/* 命令默认极轻——它只是语法参考，不该是整页最重的东西；hover / 键盘聚焦时才浮起来。
+   负 margin 让静态时的文字左缘和上下段落对齐，浮起的底色则往外扩出 padding。 */
+.collab-empty__copy {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  margin-inline: -7px;
+  border: 0;
   border-radius: var(--radius-sm);
   padding: 5px 7px;
+  color: var(--text-faint);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--duration) var(--ease), color var(--duration) var(--ease);
+}
+.collab-empty__copy code {
+  min-width: 0;
+  flex: 1 1 auto;
   color: var(--text);
-  background: var(--surface);
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
   overflow-wrap: anywhere;
 }
-.collab-empty small { color: var(--text-faint); font-size: var(--fs-xs); }
-.collab-empty__note { margin-top: 6px; color: var(--text-faint); font-size: var(--fs-xs); line-height: 1.5; }
+.collab-empty__copy svg { flex: 0 0 auto; }
+.collab-empty__copy:hover,
+.collab-empty__copy:focus-visible { color: var(--text); background: var(--surface-hover); }
+.collab-empty__copied { color: var(--success); }
+
+.collab-empty small { display: block; color: var(--text-faint); font-size: var(--fs-xs); }
+.collab-empty__note { color: var(--text-faint); font-size: var(--fs-xs); }
 
 .collab-panel__foot {
   display: flex;

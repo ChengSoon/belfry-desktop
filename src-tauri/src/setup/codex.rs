@@ -1,55 +1,34 @@
 use std::path::Path;
-use std::process::{Command, Output};
 
 use serde_json::Value;
 
-use crate::agent::{AgentKind, login_shell_env, resolve_agent};
+use crate::agent::AgentKind;
 
 use super::contracts::{CheckKind, CheckState, EnvironmentCheck};
+use super::process;
 
-pub fn checks() -> Vec<EnvironmentCheck> {
-    let executable = match resolve_agent(AgentKind::Codex) {
-        Ok(executable) => executable,
-        Err(_) => {
-            return vec![EnvironmentCheck::new(
-                CheckKind::Codex,
-                CheckState::Error,
-                "未找到 Codex CLI",
-            )];
-        }
-    };
+pub fn checks(executable: &Path) -> Vec<EnvironmentCheck> {
     vec![
-        version_check(&executable),
-        login_check(&executable),
-        multi_agent_check(&executable),
-        doctor_check(&executable),
+        login_check(executable),
+        multi_agent_check(executable),
+        doctor_check(executable),
     ]
 }
 
-fn version_check(executable: &Path) -> EnvironmentCheck {
-    match run(executable, &["--version"]) {
-        Ok(output) if output.status.success() => EnvironmentCheck::new(
-            CheckKind::Codex,
-            CheckState::Ok,
-            first_output_line(&output).unwrap_or_else(|| "已安装".to_string()),
-        ),
-        Ok(_) => check(CheckKind::Codex, CheckState::Error, "Codex 无法正常启动"),
-        Err(error) => check(
-            CheckKind::Codex,
-            CheckState::Error,
-            format!("启动失败：{error}"),
-        ),
-    }
-}
-
 fn login_check(executable: &Path) -> EnvironmentCheck {
-    match run(executable, &["login", "status"]) {
-        Ok(output) if output.status.success() => {
-            check(CheckKind::Auth, CheckState::Ok, "Codex 已登录")
-        }
-        Ok(_) => check(CheckKind::Auth, CheckState::Warning, "Codex 尚未登录"),
+    match process::run(executable, &["login", "status"]) {
+        Ok(output) if output.status.success() => check(
+            CheckKind::Auth(AgentKind::Codex),
+            CheckState::Ok,
+            "Codex 已登录",
+        ),
+        Ok(_) => check(
+            CheckKind::Auth(AgentKind::Codex),
+            CheckState::Warning,
+            "Codex 尚未登录",
+        ),
         Err(error) => check(
-            CheckKind::Auth,
+            CheckKind::Auth(AgentKind::Codex),
             CheckState::Warning,
             format!("无法检查登录状态：{error}"),
         ),
@@ -57,15 +36,15 @@ fn login_check(executable: &Path) -> EnvironmentCheck {
 }
 
 fn multi_agent_check(executable: &Path) -> EnvironmentCheck {
-    match run(executable, &["features", "list"]) {
+    match process::run(executable, &["features", "list"]) {
         Ok(output) if output.status.success() => multi_agent_result(&output.stdout),
         Ok(_) => check(
-            CheckKind::MultiAgent,
+            CheckKind::MultiAgent(AgentKind::Codex),
             CheckState::Warning,
             "无法读取 Codex 功能列表",
         ),
         Err(error) => check(
-            CheckKind::MultiAgent,
+            CheckKind::MultiAgent(AgentKind::Codex),
             CheckState::Warning,
             format!("功能检查失败：{error}"),
         ),
@@ -75,17 +54,17 @@ fn multi_agent_check(executable: &Path) -> EnvironmentCheck {
 fn multi_agent_result(output: &[u8]) -> EnvironmentCheck {
     match multi_agent_enabled(output) {
         Some(true) => check(
-            CheckKind::MultiAgent,
+            CheckKind::MultiAgent(AgentKind::Codex),
             CheckState::Ok,
             "Codex multi_agent 已启用",
         ),
         Some(false) => check(
-            CheckKind::MultiAgent,
+            CheckKind::MultiAgent(AgentKind::Codex),
             CheckState::Warning,
             "Codex multi_agent 未启用",
         ),
         None => check(
-            CheckKind::MultiAgent,
+            CheckKind::MultiAgent(AgentKind::Codex),
             CheckState::Warning,
             "当前 Codex 未报告 multi_agent 功能",
         ),
@@ -93,11 +72,11 @@ fn multi_agent_result(output: &[u8]) -> EnvironmentCheck {
 }
 
 fn doctor_check(executable: &Path) -> EnvironmentCheck {
-    let output = match run(executable, &["doctor", "--json", "--no-color"]) {
+    let output = match process::run(executable, &["doctor", "--json", "--no-color"]) {
         Ok(output) => output,
         Err(error) => {
             return check(
-                CheckKind::Doctor,
+                CheckKind::Doctor(AgentKind::Codex),
                 CheckState::Warning,
                 format!("无法运行 doctor：{error}"),
             );
@@ -108,7 +87,7 @@ fn doctor_check(executable: &Path) -> EnvironmentCheck {
         .and_then(|value| doctor_summary(&value))
         .unwrap_or_else(|| {
             check(
-                CheckKind::Doctor,
+                CheckKind::Doctor(AgentKind::Codex),
                 if output.status.success() {
                     CheckState::Warning
                 } else {
@@ -117,51 +96,6 @@ fn doctor_check(executable: &Path) -> EnvironmentCheck {
                 "无法解析 codex doctor 输出",
             )
         })
-}
-
-fn run(executable: &Path, args: &[&str]) -> std::io::Result<Output> {
-    let mut command = command_for(executable);
-    command.args(args).env("NO_COLOR", "1");
-    if let Some(path) = login_shell_env().get("PATH") {
-        command.env("PATH", path);
-    }
-    command.output()
-}
-
-#[cfg(not(target_os = "windows"))]
-fn command_for(executable: &Path) -> Command {
-    Command::new(executable)
-}
-
-#[cfg(target_os = "windows")]
-fn command_for(executable: &Path) -> Command {
-    use std::os::windows::process::CommandExt;
-    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-
-    let is_script = executable
-        .extension()
-        .and_then(|value| value.to_str())
-        .is_some_and(|value| matches!(value.to_ascii_lowercase().as_str(), "cmd" | "bat"));
-    let mut command = if is_script {
-        let mut command = Command::new("cmd.exe");
-        command.args(["/d", "/c"]).arg(executable);
-        command
-    } else {
-        Command::new(executable)
-    };
-    command.creation_flags(CREATE_NO_WINDOW);
-    command
-}
-
-fn first_output_line(output: &Output) -> Option<String> {
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    stdout
-        .lines()
-        .chain(stderr.lines())
-        .map(str::trim)
-        .find(|line| !line.is_empty())
-        .map(ToOwned::to_owned)
 }
 
 fn multi_agent_enabled(stdout: &[u8]) -> Option<bool> {
@@ -191,7 +125,7 @@ fn doctor_summary(value: &Value) -> Option<EnvironmentCheck> {
         _ => CheckState::Warning,
     };
     Some(check(
-        CheckKind::Doctor,
+        CheckKind::Doctor(AgentKind::Codex),
         state,
         format!("通过 {ok}，警告 {warnings}，失败 {failed}"),
     ))
