@@ -8,7 +8,7 @@ const complete = {
   fit: "contain",
   opacity: 0.6,
   blur: 12,
-  veil: 0.3,
+  veil: { dark: 0.3, light: 0.9 },
   videoPaused: false,
 };
 
@@ -39,15 +39,19 @@ describe("background config persistence", () => {
   });
 
   it("clamps the numeric ranges instead of trusting them", () => {
-    const low = parseBackground(JSON.stringify({ opacity: -5, blur: -3, veil: -1 }));
+    const low = parseBackground(
+      JSON.stringify({ opacity: -5, blur: -3, veil: { dark: -1, light: -1 } }),
+    );
     expect(low.opacity).toBe(0);
     expect(low.blur).toBe(0);
-    expect(low.veil).toBe(0);
+    expect(low.veil).toStrictEqual({ dark: 0, light: 0 });
 
-    const high = parseBackground(JSON.stringify({ opacity: 4, blur: 9999, veil: 2 }));
+    const high = parseBackground(
+      JSON.stringify({ opacity: 4, blur: 9999, veil: { dark: 2, light: 2 } }),
+    );
     expect(high.opacity).toBe(1);
     expect(high.blur).toBe(40);
-    expect(high.veil).toBe(1);
+    expect(high.veil).toStrictEqual({ dark: 1, light: 1 });
   });
 
   /* veil 是后加的字段：旧版本存的 JSON 里没有它，必须落回默认值而不是 0——
@@ -55,7 +59,27 @@ describe("background config persistence", () => {
   it("defaults veil for configs saved before it existed", () => {
     const legacy = { ...complete } as Record<string, unknown>;
     delete legacy.veil;
-    expect(parseBackground(JSON.stringify(legacy)).veil).toBe(DEFAULT_BACKGROUND.veil);
+    expect(parseBackground(JSON.stringify(legacy)).veil).toStrictEqual(DEFAULT_BACKGROUND.veil);
+  });
+
+  /* veil 又从单一数值拆成了亮暗两份。旧值只继承给暗色：那时候滑块是主题无关的一根，
+     用户没有为亮色单独定过浓度，而亮色恰恰是浓度不够、这次要修的那一侧。 */
+  it("migrates a legacy single veil number into the dark slot only", () => {
+    const parsed = parseBackground(JSON.stringify({ ...complete, veil: 0.2 }));
+    expect(parsed.veil).toStrictEqual({ dark: 0.2, light: DEFAULT_BACKGROUND.veil.light });
+  });
+
+  /* 半个对象、或被改成字符串的那一份，只坏它自己。 */
+  it("repairs one veil slot without dragging the other down", () => {
+    expect(parseBackground('{"veil": {"dark": 0.1}}').veil).toStrictEqual({
+      dark: 0.1,
+      light: DEFAULT_BACKGROUND.veil.light,
+    });
+    expect(parseBackground('{"veil": {"dark": "0.1", "light": 0.7}}').veil).toStrictEqual({
+      dark: DEFAULT_BACKGROUND.veil.dark,
+      light: 0.7,
+    });
+    expect(parseBackground('{"veil": null}').veil).toStrictEqual(DEFAULT_BACKGROUND.veil);
   });
 
   it("defaults playback state for configs saved before video wallpapers existed", () => {

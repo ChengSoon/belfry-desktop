@@ -3,8 +3,9 @@ import { getCurrentWebview, type DragDropEvent } from "@tauri-apps/api/webview";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { Terminal } from "@xterm/xterm";
+import type { FontWeight } from "@xterm/xterm";
 import type { TerminalTheme } from "../theme/xtermTheme";
-import { withTransparentBackground } from "../theme/xtermTheme";
+import { isLightTheme, minimumContrastRatio, withTransparentBackground } from "../theme/xtermTheme";
 import type { TypographyRuntime } from "../typography/contracts";
 import { typographyFontStacks } from "../typography/storage";
 import { watchActivity } from "./activity";
@@ -241,6 +242,12 @@ export function mountTerminal(
       codexThemeSync.setTheme(next, transparent);
       terminal.options.allowTransparency = transparent;
       terminal.options.theme = transparent ? withTransparentBackground(next) : next;
+      // 对比度兜底与字重补偿都只在亮色开，必须和 theme 同一处改：换到亮色却还留着暗色的
+      // 1 与 400，这两档就都白给（xterm 的 minimumContrastRatio 默认值就是 1 = 关闭）。
+      terminal.options.minimumContrastRatio = minimumContrastRatio(next);
+      const weights = terminalFontWeights(next);
+      terminal.options.fontWeight = weights.fontWeight;
+      terminal.options.fontWeightBold = weights.fontWeightBold;
       // PTY 层也得跟着换：换肤之后再启动的程序会重新查一次背景色。
       if (current) void setTerminalPalette(current.id, toPalette(next)).catch(() => undefined);
       if (current && codexThemeSync.codexStylesEnabled) {
@@ -503,9 +510,10 @@ function createXterm(
     cursorWidth: 4,
     fontFamily: typographyFontStacks(typography.fontFamily).mono,
     fontSize: typography.fontSize,
-    fontWeight: 400,
-    fontWeightBold: 500,
+    ...terminalFontWeights(theme),
     lineHeight: 1.35,
+    // 亮色下把对比度不够的 ANSI 色号往深处拉一档，暗色关闭。取值理由见 minimumContrastRatio。
+    minimumContrastRatio: minimumContrastRatio(theme),
     // 自绘滚动条宽度。默认 14px 在窄窗格里太占地方，收到 8px；
     // 这个值同时控制滚动条与 overview ruler 的宽度（xterm 内部共用）。
     overviewRuler: { width: 8 },
@@ -521,6 +529,30 @@ function applyTypographyOptions(
   terminal.options.fontFamily = typographyFontStacks(config.fontFamily).mono;
   terminal.options.fontSize = config.fontSize;
   terminal.clearTextureAtlas();
+}
+
+/**
+ * 亮色下整体提一档字重，补偿灰度抗锯齿在浅底上把笔画显细的那一档。
+ *
+ * 一并把 bold 从 500 提到 600 是必须的：常见等宽字体只有 Regular 与 Bold 两档
+ * （Menlo、Monaco、Consolas 都是），500 会被字体匹配落回 400——也就是亮色下
+ * 正文和粗体会渲染成一模一样。600 至少能命中 Bold。
+ *
+ * 只有真的带 Medium 的字体（SF Mono、Cascadia Mono 这类可变字体）才吃得到 400→500
+ * 这一档；落到只有两档的字体上，normal 这条静默无变化，不会退化成合成假粗
+ * （styles.css 有全局 `font-synthesis: none`，而 WebGL 的字形图集走 canvas，
+ * 那边浏览器也只做最近档匹配）。
+ *
+ * 等宽字体各字重同宽是设计要求，所以这里不重新 fit：cell 宽度不变，
+ * xterm 自己会因 fontWeight 变更清一次字形图集并全量重绘。
+ */
+function terminalFontWeights(theme: TerminalTheme): {
+  fontWeight: FontWeight;
+  fontWeightBold: FontWeight;
+} {
+  return isLightTheme(theme)
+    ? { fontWeight: 500, fontWeightBold: 600 }
+    : { fontWeight: 400, fontWeightBold: 500 };
 }
 
 function syncTerminalSize(

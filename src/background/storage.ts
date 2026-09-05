@@ -1,3 +1,4 @@
+import type { ThemeMode } from "../theme/contracts";
 import {
   BACKGROUND_FITS,
   DEFAULT_BACKGROUND,
@@ -57,10 +58,33 @@ export function parseBackground(value: string | null): BackgroundConfig {
     fit: parseFit(record.fit),
     opacity: clamp(record.opacity, 0, 1, DEFAULT_BACKGROUND.opacity),
     blur: clamp(record.blur, 0, MAX_BLUR, DEFAULT_BACKGROUND.blur),
-    veil: clamp(record.veil, 0, 1, DEFAULT_BACKGROUND.veil),
+    veil: parseVeil(record.veil),
     videoPaused: typeof record.videoPaused === "boolean"
       ? record.videoPaused
       : DEFAULT_BACKGROUND.videoPaused,
+  };
+}
+
+/**
+ * veil 从单一数值改成了亮暗两份，旧配置里它是个 number。
+ *
+ * 迁移只把旧值继承给暗色，亮色一律取新默认值：那时候滑块是主题无关的一根，
+ * 用户拖它时表达的是"背景图该透多少"，并没有为亮色单独定过浓度——而亮色恰恰是
+ * 55% 明显不够、这次要修的那一侧。继承过去等于把 bug 一起迁移了。
+ */
+function parseVeil(value: unknown): Record<ThemeMode, number> {
+  if (typeof value === "number") {
+    return {
+      dark: clamp(value, 0, 1, DEFAULT_BACKGROUND.veil.dark),
+      light: DEFAULT_BACKGROUND.veil.light,
+    };
+  }
+  const record = typeof value === "object" && value !== null
+    ? (value as Record<string, unknown>)
+    : {};
+  return {
+    dark: clamp(record.dark, 0, 1, DEFAULT_BACKGROUND.veil.dark),
+    light: clamp(record.light, 0, 1, DEFAULT_BACKGROUND.veil.light),
   };
 }
 

@@ -268,17 +268,19 @@
 .collab-event--failed .collab-event__state { color: var(--danger); }
 .collab-event--gone .collab-event__state { color: var(--text-faint); }
 
+/* 静息与 hover 的层级用颜色拉开，不用 opacity：--text-faint 上再叠 0.5 等效只剩 1.9:1，
+   而 shortId 是要逐字认出来复制的（user-select: all），不能糊。
+   换成 faint → muted 两档色，静息 4.3:1、hover 5.9:1，提亮的反馈还在。 */
 .collab-event__id {
   flex: 0 0 auto;
   margin-left: auto;
   color: var(--text-faint);
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
-  opacity: 0.5;
-  transition: opacity var(--duration) var(--ease);
+  transition: color var(--duration) var(--ease);
   user-select: all;
 }
-.collab-event:hover .collab-event__id { opacity: 1; }
+.collab-event:hover .collab-event__id { color: var(--text-muted); }
 
 /* 3｜指令行。用 --text 不用 --text-muted：指令是任务的主体，该是卡片上最实的一行；
    和路由行的层级靠字号拉开（xs vs sm），不靠把它压暗。 */

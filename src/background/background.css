@@ -70,6 +70,20 @@
   --app-bg-glass-filter: blur(22px) saturate(1.3);
 }
 
+/* 文字衬底浓度亮暗各一份（见 background/contracts.ts）。
+   BackgroundProvider 只把两份值写成 --app-bg-veil-light / -dark，挑哪一份在这里定：
+   那边就不用读主题，两个 Provider 保持互不依赖。
+   fallback 与 DEFAULT_BACKGROUND.veil 对齐，首帧脚本没跑到时也不会塌成 0。
+   规则写在 :root 上而不是 [data-background="on"] 里：设置页的样例条也吃这个变量，
+   它在没设背景图时同样要显示。 */
+:root {
+  --app-bg-veil: var(--app-bg-veil-dark, 55%);
+}
+
+:root[data-theme="light"] {
+  --app-bg-veil: var(--app-bg-veil-light, 80%);
+}
+
 /* 侧栏。:not() 是必需的——拖会话到侧栏上方时 .is-eject-target 要把整条染成
    强调色，而那条规则的优先级(0,2,0)低于这里的(0,2,1)，不排除掉就会被这层盖住，
    拖拽反馈直接消失。78% 沿用初版实测值：小字仍清晰、图案又明显透得出来。 */
@@ -109,8 +123,8 @@
 }
 
 /* --text-faint 压在半透明底上会和透出的图混成同亮度而发虚（同 .project-trigger__path
-   的理由）。事件里吃这个色的两处正好都是细节信息：shortId 还额外叠了 opacity: 0.5，
-   是最容易糊掉的一处；路由行的时间同理。背景图模式下提档到 --text-muted。 */
+   的理由）。事件里吃这个色的两处正好都是细节信息：shortId 要逐字认出来复制，
+   路由行的时间同理。背景图模式下两处都提档到 --text-muted。 */
 :root[data-background="on"] .collab-event__id,
 :root[data-background="on"] .collab-event__time {
   color: var(--text-muted);
@@ -127,7 +141,7 @@
 
 :root[data-background="on"] .terminal-pane.is-onstage .terminal-pane__body {
   border-color: var(--app-bg-divider);
-  background: color-mix(in srgb, var(--canvas) var(--app-bg-veil, 50%), transparent);
+  background: color-mix(in srgb, var(--canvas) var(--app-bg-veil), transparent);
 }
 
 :root[data-background="on"] .terminal-pane.is-focused .terminal-pane__bar,

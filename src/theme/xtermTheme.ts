@@ -67,7 +67,17 @@ const LIGHT: TerminalTheme = {
   cyan: "#0e7490",
   // 亮色下 white/brightWhite 不能真给白：程序常用色号 37 输出正文，浅灰在白底会隐形。
   // 这里按亮色终端惯例压暗，bright 一档留给强调。
-  white: "#5f6169",
+  //
+  // white 从 #5f6169（5.9:1）压到 8.2:1，越过 minimumContrastRatio 的 7 之后
+  // xterm 不再改写它，程序原本的配色意图能完整留下。
+  //
+  // brightBlack 反过来**刻意留在 3.2:1**，不跟着压深——它必须停在 dim 的兜底窗口里。
+  // xterm 只在"未 dim 的原色"低于 ratio/2（这里是 3.5）时才为 dim 文字改色，
+  // 改了就直接返回、跳过 DIM_OPACITY；一旦原色高过 3.5，兜底不介入，
+  // 而 0.5 的透明度照样乘下去，dim 反而更虚。实测：留 3.2:1 时 dim+90 是 3.9:1，
+  // 压到 4.9:1 后 dim+90 掉到 2.0:1。非 dim 那侧两种取值都会被兜底拉到 7.6~7.9:1，
+  // 没有区别——所以压深它是纯亏。statusline 大量用 dim + 灰，这一档不能让。
+  white: "#4a4c53",
   brightBlack: "#8a8c94",
   brightRed: "#d94334",
   brightGreen: "#16a06c",
@@ -80,6 +90,50 @@ const LIGHT: TerminalTheme = {
 
 export function xtermTheme(mode: ThemeMode): TerminalTheme {
   return mode === "light" ? LIGHT : DARK;
+}
+
+/**
+ * 这份主题是不是浅底的。
+ *
+ * 从 theme 自己判，不额外收一个 mode 参数：主题本身就是 mode 的产物，
+ * 多一个入参就多一个会和 `terminal.options.theme` 失同步的来源。
+ * 认不出的写法当暗色——暗色那侧的两项补偿都是"不改动"，是安全的一侧。
+ */
+export function isLightTheme(theme: TerminalTheme): boolean {
+  const match = /^#([0-9a-f]{6})$/i.exec(theme.background.trim());
+  if (!match) return false;
+  const value = Number.parseInt(match[1], 16);
+  const channels = [(value >> 16) & 255, (value >> 8) & 255, value & 255].map((channel) => {
+    const ratio = channel / 255;
+    return ratio <= 0.03928 ? ratio / 12.92 : ((ratio + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2] > 0.5;
+}
+
+/**
+ * xterm 的对比度兜底阈值（`minimumContrastRatio`），亮色开、暗色关。
+ *
+ * 只在亮色开：浅底上灰度抗锯齿会把深字显细，而暗色靠光渗反而显实，观感本来是好的，
+ * 开了只会让这里精心调过的配色被 xterm 改写一遍。
+ *
+ * 亮色取 7 而不是 WCAG AA 的 4.5，两个理由：
+ * 1. dim 文字的兜底目标会被除以 2（`addon-webgl` 的 `_getMinimumContrastColor` 与
+ *    `xterm.mjs` 的 `_applyMinimumContrast` 都是 `ratio / (isDim ? 2 : 1)`）。
+ *    注意这个除以 2 是**兜底的触发线**，不是保证值：原色高过这条线时兜底根本不介入，
+ *    而 `DIM_OPACITY = 0.5` 照样乘下去。取 7 把这条线放到 3.5，
+ *    才装得下 brightBlack 这类真正常用于 dim 的灰（见 LIGHT 里那段说明）；
+ *    取 4.5 时线只有 2.25，几乎所有灰都会漏出兜底、被砍半。
+ * 2. 开背景图时 xterm 拿来算对比度的背景是 `rgba(250, 250, 250, 0)`——RGB 分量被
+ *    `withTransparentBackground` 刻意保留了，所以计算不会退化，但偏乐观：
+ *    真实底色是画布色与背景图的混合，比 `#fafafa` 更脏（这一段由 veil 的亮色默认值补，
+ *    见 background/contracts.ts）。
+ *
+ * 代价是 7:1 对彩色色号很苛刻，亮色调色板里除 black/brightWhite/foreground 外
+ * 全都会被 xterm 往深处改写一档，bright 与常规两档的差别会被压缩。
+ * 亮色下可读性优先，这个取舍是有意的。
+ */
+export function minimumContrastRatio(theme: TerminalTheme): number {
+  return isLightTheme(theme) ? 7 : 1;
 }
 
 /**

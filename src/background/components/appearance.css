@@ -164,7 +164,7 @@
   width: 100%;
   padding: 8px 10px;
   color: var(--text);
-  background: color-mix(in srgb, var(--canvas) var(--app-bg-veil, 50%), transparent);
+  background: color-mix(in srgb, var(--canvas) var(--app-bg-veil), transparent);
   font-size: var(--fs-sm);
   font-family: var(--font-mono);
   text-align: center;
