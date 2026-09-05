@@ -1,5 +1,6 @@
 import { RotateCcw } from "lucide-react";
 import { ICON } from "../../theme/sizing";
+import { useTheme } from "../../theme/ThemeProvider";
 import {
   DEFAULT_TYPOGRAPHY,
   MAX_FONT_SIZE,
@@ -154,6 +155,7 @@ function BackgroundPreview() {
 
 function BackgroundControls() {
   const { config, update } = useBackground();
+  const { mode } = useTheme();
   const fits = config.mime?.startsWith("video/")
     ? BACKGROUND_FITS.filter((fit) => fit === "cover" || fit === "contain")
     : BACKGROUND_FITS;
@@ -168,14 +170,16 @@ function BackgroundControls() {
         step={0.01}
         value={config.opacity}
       />
+      {/* 衬底浓度亮暗各记一份，这根滑块只动当前主题那一份——改的就是眼前看到的这套，
+          所以标签不必标注亮/暗（.appearance__label 那一列是写死的 60px，标了会压到滑轨上）。 */}
       <Slider
         format={(value) => `${Math.round(value * 100)}%`}
         label="文字衬底"
         max={1}
         min={0}
-        onChange={(veil) => update({ veil })}
+        onChange={(value) => update({ veil: { ...config.veil, [mode]: value } })}
         step={0.01}
-        value={config.veil}
+        value={config.veil[mode]}
       />
       <Slider
         format={(value) => `${value}px`}

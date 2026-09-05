@@ -122,7 +122,11 @@
   --border-strong: #d2d4d9;
   --text: #17181b;
   --text-muted: #5f6169;
-  --text-faint: #8a8c94;
+  /* 原值 #8a8c94 对 --canvas 只有 3.2:1，是全 App 最弱的一对文字，而亮色下灰度抗锯齿
+     还会把它再显细一档。压到 4.3:1（对 --surface 的纯白是 4.5:1）刚好过 AA，
+     与 --text-muted 的 5.9:1 之间仍留得住层级。暗色那侧的 3.7:1 不动：
+     浅字在暗底上有光渗，同样的数字看起来更实。 */
+  --text-faint: #74767e;
   --accent: #3b5bdb;
   --accent-hover: #2f4bc4;
   --accent-contrast: #fff;
