@@ -1,11 +1,19 @@
 // Adapted from PI-Desktop MarketplaceSourceSettings.tsx, LGPL-3.0; see third_party/pi-desktop/NOTICE.md.
 import { useEffect, useState } from "react";
 import { usePluginsPage } from "./context";
-import { Button, Input, Select } from "./ui";
+import { Button, Dropdown, Input } from "./ui";
 import { t } from "./i18n";
 import { centerApi } from "./api";
 import type { MarketSettings, PluginMarketSource } from "./types";
 import { PersonalMarketControls } from "./PersonalMarketControls";
+
+const SOURCES: Array<{ value: PluginMarketSource; label: string }> = [
+  { value: "personal", label: "我的插件市场" },
+  { value: "belfry", label: "Belfry 插件中心 · GitHub" },
+  { value: "custom", label: "自有在线市场" },
+  { value: "official", label: "PI 公开市场 · GitHub" },
+  { value: "mirror", label: "PI 公开市场 · 镜像" },
+];
 
 export function MarketplaceSourceSettings() {
   const { data, actions, market } = usePluginsPage();
@@ -22,12 +30,9 @@ export function MarketplaceSourceSettings() {
   return <section className="plugins-market-settings" aria-labelledby="plugins-market-settings-title">
     <div className="plugins-market-settings-head"><div className="plugins-market-settings-copy">
       <h2 id="plugins-market-settings-title" className="settings-card-heading">{t("settings.marketProviderTitle")}</h2></div>
-      <div className="plugins-market-settings-control"><Select value={settings.pluginMarketSource} aria-label={t("settings.marketProvider")}
-        disabled={actions.busy} onChange={(event) => void apply({ pluginMarketSource: event.target.value as PluginMarketSource })}>
-        <option value="personal">我的插件市场</option><option value="belfry">Belfry 插件中心 · GitHub</option>
-        <option value="custom">自有在线市场</option>
-        <option value="official">PI 公开市场 · GitHub</option><option value="mirror">PI 公开市场 · 镜像</option>
-      </Select></div></div>
+      <div className="plugins-market-settings-control"><Dropdown options={SOURCES} value={settings.pluginMarketSource}
+        ariaLabel={t("settings.marketProvider")} disabled={actions.busy}
+        onChange={(value) => void apply({ pluginMarketSource: value })} /></div></div>
     {settings.pluginMarketSource === "custom" ? <div className="plugins-market-settings-row"><div className="plugins-market-settings-copy">
       <div className="settings-row-title">{t("settings.marketCustomUrl")}</div><div className="settings-row-desc">{t("settings.marketCustomUrlDesc")}</div></div>
       <form className="plugins-market-settings-control plugins-market-url-form" onSubmit={(event) => { event.preventDefault(); commit(); }}>
