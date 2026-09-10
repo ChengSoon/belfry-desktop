@@ -3,6 +3,7 @@ import {
   appShortcutChord,
   formatShortcutChord,
   resolveAppShortcut,
+  shouldPreventWebviewReload,
   shortcutPlatform,
   systemShortcutChord,
 } from "./resolveShortcut";
@@ -27,8 +28,6 @@ describe("resolveAppShortcut", () => {
       .toEqual({ kind: "open-settings" });
     expect(resolveAppShortcut({ ...baseEvent, code: "KeyK", metaKey: true }, "macos"))
       .toEqual({ kind: "toggle-quick-open" });
-    expect(resolveAppShortcut({ ...baseEvent, code: "KeyJ", metaKey: true }, "macos"))
-      .toEqual({ kind: "toggle-composer" });
     expect(resolveAppShortcut({ ...baseEvent, code: "Digit4", metaKey: true }, "macos"))
       .toEqual({ kind: "activate-session", index: 3 });
   });
@@ -47,10 +46,22 @@ describe("resolveAppShortcut", () => {
       .toEqual({ kind: "toggle-usage" });
     expect(resolveAppShortcut({ ...baseEvent, code: "KeyK", ctrlKey: true, shiftKey: true }, "control"))
       .toEqual({ kind: "toggle-quick-open" });
-    expect(resolveAppShortcut({ ...baseEvent, code: "KeyJ", ctrlKey: true, shiftKey: true }, "control"))
-      .toEqual({ kind: "toggle-composer" });
     expect(resolveAppShortcut({ ...baseEvent, code: "Digit9", ctrlKey: true, shiftKey: true }, "control"))
       .toEqual({ kind: "activate-session", index: 8 });
+  });
+
+  it("does not open removed drafting panels with their old shortcuts", () => {
+    for (const code of ["KeyJ", "KeyR"]) {
+      expect(resolveAppShortcut({ ...baseEvent, code, metaKey: true }, "macos")).toBeNull();
+      expect(resolveAppShortcut({ ...baseEvent, code, ctrlKey: true, shiftKey: true }, "control")).toBeNull();
+    }
+  });
+
+  it("still guards WebView reload without taking the Agent's Ctrl+R shortcut", () => {
+    expect(shouldPreventWebviewReload({ ...baseEvent, code: "KeyR", metaKey: true }, "macos")).toBe(true);
+    expect(shouldPreventWebviewReload({ ...baseEvent, code: "KeyR", ctrlKey: true, shiftKey: true }, "control")).toBe(true);
+    expect(shouldPreventWebviewReload({ ...baseEvent, code: "KeyR", ctrlKey: true }, "control")).toBe(false);
+    expect(shouldPreventWebviewReload({ ...baseEvent, code: "KeyJ", metaKey: true }, "macos")).toBe(false);
   });
 
   it("uses the physical slash key for both slash and shifted question mark", () => {

@@ -119,10 +119,6 @@
   grid-template-rows: calc(34px + var(--titlebar-inset)) minmax(0, 1fr);
 }
 
-.workbench.has-composer {
-  grid-template-rows: calc(34px + var(--titlebar-inset)) minmax(0, 1fr) auto;
-}
-
 .stage-caption {
   display: flex;
   min-width: 0;

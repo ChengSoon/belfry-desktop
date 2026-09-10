@@ -66,6 +66,18 @@ test("market minimum host versions are checked before installing", async (t) => 
   const f = await fixture(t);
   f.version.minPiDesktop = "99.0.0";
   await assert.rejects(f.market.prepare({ id: "local.market" }), { code: "INCOMPATIBLE" });
+  f.version.minPiDesktop = ">=99.0.0";
+  await assert.rejects(f.market.prepare({ id: "local.market" }), { code: "INCOMPATIBLE" });
+  f.version.minPiDesktop = "0.14.6-rc.3";
+  await assert.rejects(f.market.prepare({ id: "local.market" }), { code: "MARKET_INVALID" });
+});
+
+test("market accepts the range syntax the upstream PI catalogs publish", async (t) => {
+  const f = await fixture(t);
+  for (const declared of [">=0.8.0", ">=0.14.6", "0.1.0", "^0.14.0", ">=0.2.0 <1.0.0"]) {
+    f.version.minPiDesktop = declared;
+    assert.equal((await f.market.prepare({ id: "local.market" })).minPiDesktop, declared);
+  }
 });
 
 test("automatic updates keep the plugin's original marketplace identity", async (t) => {

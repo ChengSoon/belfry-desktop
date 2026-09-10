@@ -70,8 +70,7 @@ claude --version
 - 自动检测 Codex 与 Claude Code：可执行文件路径、版本号，不可用时给出原因
 - 会话状态区分进程生命周期（创建中/运行/已退出/出错）与当下行为（闲着/正在输出/等你选）
 - 标签标题从你的第一句输入里提取，完整原文留在 tooltip
-- Prompt Composer（`⌘J`；Windows / Linux 为 `Ctrl+Shift+J`）可把多行指令发给指定的 Codex / Claude 会话
-- Agent 忙碌或等待确认时，新的指令按会话分别排队；Agent 回到空闲后按提交顺序自动发送，可手动移除或立即发送
+- 协作任务按目标 Agent 分别排队；Agent 忙碌或等待确认时暂缓投递，回到空闲后按顺序发送
 
 **活动通知**
 
@@ -115,7 +114,7 @@ claude --version
 - 可导入多个 TTF / OTF / WOFF / WOFF2 字体，分别切换或删除，并可随时切回系统字体
 - 内置 JetBrains Mono 与 HarmonyOS Sans SC
 
-Belfry 快捷键：`⌘T` 新建 Shell，`⌘B` 折叠侧栏，`⌘J` 打开 Prompt Composer，`⌘K` 打开 Quick Open，`⌘U` 开关用量，`⌘⇧H` 开关历史，
+Belfry 快捷键：`⌘T` 新建 Shell，`⌘B` 折叠侧栏，`⌘K` 打开 Quick Open，`⌘U` 开关用量，`⌘⇧H` 开关历史，
 `⌘,` 打开设置，`⌘1–9` 切换会话，`⌘/` 打开快捷指令。Windows / Linux 统一使用
 `Ctrl+Shift` 组合，避免占用 Codex 与 Claude 的原生 `Ctrl` 快捷键。
 
@@ -172,7 +171,7 @@ cd src-tauri && cargo test
 src/                  前端
   workspace/          项目工作区、标签、侧栏
   terminal/           PTY 会话与 xterm 控制
-  prompt/             Prompt Composer 与按 Agent 分流的队列
+  prompt/             按 Agent 分流的后台协作任务队列
   quickopen/          会话、项目与动作的快速搜索
   provider/           Agent CLI 的 provider 切换
   settings/           设置对话框（外观、Provider）
@@ -201,21 +200,17 @@ src-tauri/src/        Rust 后端
 
 - **v0.10.0 · Terminal foundation**：跨平台 Shell Profile、终端内容搜索、可点击 HTTP(S) 链接、Unicode 宽度 provider，以及旧工作区存档兼容。
 - **v0.11.0 · Workspace navigation**：Quick Open 搜索会话 / 项目 / 动作，支持键盘导航和常用工作区操作。
-- **v0.12.0 · Prompt Composer & Queue**：从独立 Composer 选择 Codex / Claude 会话，提交多行 Prompt；Agent 忙时按会话排队，空闲后串行派发，并处理目标重挂、发送失败和会话关闭清理。
+- **v0.12.0 · Prompt Composer & Queue**：引入按会话排队、空闲派发和终端重挂恢复。独立 Composer 与 Recipe 面板现已移除，后台队列继续用于会话协作。
 - **v0.13.0 · File Preview Pane**：浏览项目文件树，打开受大小限制的只读文本预览；支持终端路径跳转、轻量语法高亮、二进制保护和外部变更提示。
 - **v0.14.0 · Agent adapter foundation**：把 Codex / Claude 的检测、启动、状态、历史与 resume 能力收进统一适配层；补充会话身份校验、恢复安全和快捷指令面板的双列响应式布局。
 - **v0.15.0 · Session collaboration**：为 Agent 会话设置稳定名字，通过内置 `belfry` CLI 在同项目会话间派活、等待和交差；提供批准闸门、循环与层级限制、Prompt Queue 投递和协作状态面板。
 - **v0.16.0 · Collaboration setup**：在设置中诊断 Belfry skill、Codex 登录与功能状态、doctor 结果和协作通道，并自动同步或手动更新内置 skill。
 - **v0.17.0 · Multi-client collaboration setup**：将协作环境诊断与内置 skill 同步扩展到 Codex 和 Claude Code，分别报告客户端状态，并保留部分成功结果。
 
-### 下一阶段
-
-- **v0.18.0 · Recipe workspace**：保存可复用的多步 Agent 指令，支持变量、目标会话选择、队列执行、失败重试与运行记录。
-
 ### 长期方向
 
-- **Shared UI** — 分屏、设置、Prompt Composer 与 Queue、Quick Open、文件预览 Pane（v0.13）
-- **Shared Core** — 会话持久化与恢复、Agent Adapter 基座、历史与 resume、Recipe 回放、导入导出
+- **Shared UI** — 分屏、设置、Quick Open、文件预览 Pane（v0.13）
+- **Shared Core** — 会话持久化与恢复、Agent Adapter 基座、历史与 resume、协作任务投递、导入导出
 - **Terminal Runtime** — 跨平台 Shell Profile（zsh/bash/fish、PowerShell/CMD/WSL/Git Bash）、SSH
 - **Platform Services** — 通知、Dock / Taskbar、凭证（Keychain / Credential Manager）、全局快捷键、控制 CLI
 - **Content & Git** — 文件编辑、Git 集成

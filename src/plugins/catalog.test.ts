@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { searchQuickOpen } from "../quickopen/model";
-import { adaptPluginTemplate, buildPluginCatalog } from "./catalog";
+import { buildPluginCatalog } from "./catalog";
 import { directoryFixture } from "./testing/fixtures";
 
 describe("private plugin catalog adapter", () => {
@@ -34,21 +34,7 @@ describe("private plugin catalog adapter", () => {
   });
 });
 
-describe("private template adaptation and catalog preconditions", () => {
-  it("adapts a template to existing Recipe input without installing or saving it", () => {
-    const source = directoryFixture();
-    const recipe = adaptPluginTemplate({
-      pluginId: source.pluginId, template: source.templates[0], now: 123,
-    });
-    expect({
-      id: "plugin:example.review-kit:template:review", name: "审查改动",
-      description: "检查证据", steps: source.templates[0].steps,
-      createdAt: 123, updatedAt: 123,
-    }).toEqual(recipe);
-    recipe.steps[0].text = "edit";
-    expect("审查 {{scope}}\r\n保留原文").toEqual(source.templates[0].steps[0].text);
-  });
-
+describe("private catalog preconditions", () => {
   it("rejects ambiguous or dangling projections instead of exposing a partial catalog", () => {
     const duplicate = directoryFixture();
     duplicate.templates.push({ ...duplicate.templates[0] });

@@ -2,10 +2,12 @@
 import { useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { PanelRightClose, Plug, RefreshCw } from "lucide-react";
+import { Dropdown } from "../center/ui";
 import { usePluginRuntime } from "../usePluginRuntime";
 import { useViewSurfaces } from "./useViewSurfaces";
 import { useViewDrops } from "./useViewDrops";
 import { VIEW_EVENT, viewKey, type ViewRequest } from "./events";
+import "../center/styles/index.css";
 import "./workspace.css";
 
 export function PluginDock({ visible, onClose }: { visible: boolean; onClose: () => void }) {
@@ -13,6 +15,8 @@ export function PluginDock({ visible, onClose }: { visible: boolean; onClose: ()
   const container = useRef<HTMLElement>(null);
   const [selected, setSelected] = useState("");
   const views = [...runtime.views].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  const options = views.map((view) => ({ value: viewKey(view.pluginId, view.id),
+    label: typeof view.title === "string" ? view.title : view.title["zh-CN"] ?? view.title.en ?? view.id }));
   const active = views.find((view) => viewKey(view.pluginId, view.id) === selected) ?? views[0];
   const { surfaces, key, error, refresh } = useViewSurfaces(visible ? active : undefined, runtime);
   useViewDrops(container, visible ? active : undefined);
@@ -25,10 +29,10 @@ export function PluginDock({ visible, onClose }: { visible: boolean; onClose: ()
   }, []);
   return <aside ref={container} className="plugin-dock" hidden={!visible} aria-label="插件工作面板">
     <header className="plugin-dock-header"><Plug size={15} />
-      <select aria-label="选择插件视图" value={active ? viewKey(active.pluginId, active.id) : ""} onChange={(event) => setSelected(event.target.value)}>
-        {!views.length ? <option value="">插件工作面板</option> : views.map((view) => <option key={viewKey(view.pluginId, view.id)} value={viewKey(view.pluginId, view.id)}>
-          {typeof view.title === "string" ? view.title : view.title["zh-CN"] ?? view.title.en ?? view.id}</option>)}
-      </select>
+      <div className="pi-plugins plugin-dock-view-picker">
+        <Dropdown ariaLabel="选择插件视图" value={active ? viewKey(active.pluginId, active.id) : ""} onChange={setSelected}
+          options={options.length ? options : [{ value: "", label: "插件工作面板" }]} disabled={!visible} />
+      </div>
       <button className="icon-button icon-button--sm" type="button" aria-label="刷新插件视图" disabled={!active} onClick={refresh}><RefreshCw size={14} /></button>
       <button className="icon-button icon-button--sm" type="button" aria-label="关闭工作面板" onClick={onClose}><PanelRightClose size={16} /></button>
     </header>
