@@ -17,13 +17,24 @@ HarmonyOS 的拉丁字形偏宽偏大，同字号下比系统字体重一档，�
 | `HarmonyOSSansSC-Regular.woff2` | `--font-sans` 中文 400 | HarmonyOS Sans SC 2.0（华为） |
 | `HarmonyOSSansSC-Medium.woff2` | `--font-sans` 中文 500 | 同上 |
 | `JetBrainsMono-Regular.woff2` | `--font-mono` 400 | `@fontsource/jetbrains-mono@5.3.0` |
+| `JetBrainsMono-Medium.woff2` | 终端正文 500 / 暗色强调 | 同上 |
+| `JetBrainsMono-SemiBold.woff2` | 亮色终端强调 600 | 同上 |
 
-## 为什么只有 400 和 500
+## 字重与 Windows 默认字体
 
-`src/styles.css` 设了 `font-synthesis: none`——浏览器不会合成假粗体。这意味着
-**任何 600/700 的 `font-weight` 声明都不会变粗，而是掉回常规字重**。全站字重必须
-收敛在这两档；发现某处该粗不粗时，先查那里的 `font-weight`，不要去掉
-`font-synthesis`（合成粗体在中文上尤其难看）。
+`src/styles.css` 设了 `font-synthesis: none`，UI 中文仍使用真实的 400/500。
+终端的 JetBrains Mono 另带 600：亮色使用 500/600，暗色使用 400/500。
+不要用 CSS 字重数值替代缺失的字体文件；只有 Regular 的字体请求 500 时仍可能
+匹配到 400。实测补齐 Medium 后，15px 西文笔画墨量增加约 14–17%，字宽不变。
+
+Windows 的默认等宽字体优先使用内置 JetBrains Mono，中文回退到 HarmonyOS Sans SC。
+这样小字号正文与强调都有稳定的真实字重，不依赖 Windows 是否安装 Cascadia Mono。
+macOS 保留原来的系统字体栈，用户自行选择或导入的字体始终排在默认字体之前。
+首帧 CSS 与运行时字体栈分别在 `src/styles.css`、`src/typography/storage.ts` 中维护。
+
+`src/terminal/fontRendering.ts` 会加载 Regular、当前正文和粗体，样本文本同时包含
+西文和中文。终端首次挂载、换字体或换主题后，等加载结束再清理字形图集并重新测量，
+避免 WebGL 长期沿用字体尚未就绪时生成的回退字形。
 
 ## 子集范围
 
@@ -38,10 +49,10 @@ GB2312 覆盖现代中文约 99.7%。界面上出现的只有项目名、路径�
 
 ## 等宽字体不含中文
 
-`JetBrainsMono-Regular.woff2` 只有拉丁字符（216 字形），含中文的路径会 fallback
-到系统中文字体。这是**有意为之**：JetBrains Mono 西文字宽 0.6 em，两格 1.2 em，
-而全角中文是 1.0 em，只占 1.67 格——任何全角中文字体配进等宽栈都会让终端里的
-中文略窄于两格。既然换成打包字体也解决不了，就不引入这个变量。
+JetBrains Mono 子集只有拉丁字符（每个字重 234 个字形），中文由字体栈后面的
+中文字体承担。Windows 现在显式使用已打包的 HarmonyOS，保证中文的字重也能生效。
+JetBrains Mono 西文字宽 0.6 em，两格 1.2 em；中文通常为 1.0 em，字面会略窄于
+两格。终端仍按 Unicode provider 将中文作为两格处理，不能靠拉伸字形补齐宽度。
 
 ## 重新生成
 

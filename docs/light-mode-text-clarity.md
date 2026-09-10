@@ -231,3 +231,34 @@ P1 顺带提到的 `.collab-event__id`：`--text-faint` 上再叠 `opacity: 0.5`
 **暗色下这处也实了一档**（3.7:1，原先是 opacity halved），hover 反馈从"提不透明度"变成"提一档色"。
 方向是变清楚，但严格说不是"零变化"，需要确认。
 
+## Windows 后续修正：提供真实字重并刷新字体图集
+
+上面的 P2 依赖 Windows 实际命中带 Medium 的 Cascadia Mono，但它并非每台机器都有。
+回退到只有 Regular / Bold 的 Consolas，或者原来只打包 Regular 的 JetBrains Mono 时，
+500 仍可能匹配 400，单独提高 `fontWeight` 没有作用。
+
+对现有 JetBrains Mono 的 15px 西文样本进行 canvas 像素对照，400 和 500 的图像哈希相同。
+加载同源的真实 Medium 后，100% / 125% / 150% / 175% / 200% 缩放下墨量增加约
+14–17%，同一字号与缩放下的字宽不变。这里的墨量是像素 alpha 覆盖量，不代表对比度
+或 Windows 原生 ClearType 的改善比例。
+
+本轮调整：
+
+- Windows 默认等宽栈优先使用内置 JetBrains Mono，中文显式回退到 HarmonyOS Sans SC。
+  macOS 的系统字体栈保留；用户选择或导入的字体继续优先。
+- 新增真实 Medium（500）和 SemiBold（600），两个 WOFF2 合计约 16 KB，沿用现有许可。
+  亮色终端使用 500/600，暗色使用 400/500，已有对比度和背景策略保持原样。
+- 字体预加载同时覆盖测宽所需的 400、正文、粗体以及中文。首次挂载、换主题和换字体
+  都在加载完成后清理图集并重新 fit，避免缓存回退字形。过期或已销毁会话的加载回调退出。
+
+验证使用真实 `mountTerminal` 配合模拟 Tauri IPC：579 项前端测试和 `pnpm build` 通过；
+Chromium 的 5 档缩放 × 亮暗主题 × 背景开关，共 20 组渲染检查通过，同时确认自定义字体、
+恢复默认、会话不重建及销毁后的回调处理。构建产物包含新增字体且与源文件字节一致。
+
+渲染探针使用 macOS 上的 Chromium + WebGL，`--force-device-scale-factor` 控制缩放。
+不能只用 CDP 模拟 DPR：它可能与 `devicePixelContentBoxSize` 不一致，导致 xterm 的
+画布观察器把分辨率改回 1x，污染检查结果。另测了画布尺寸和原点对齐，对照截图没有
+像素差异，因此本次没有加入画布缩放修正。Windows 真机的 DirectWrite 观感仍需复核。
+
+临时探针与截图位于 `tmp/windows-font-check/`；字体来源、生成步骤见
+`public/fonts/README.md`。
