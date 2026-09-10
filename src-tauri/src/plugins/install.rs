@@ -11,6 +11,7 @@ pub(super) struct InstallOptions {
     pub enabled: bool,
 }
 impl PluginHost {
+    #[cfg(test)]
     pub fn install(&mut self, preview_id: &str, revision: &str) -> Result<PluginRegistry, String> {
         self.install_with_options((preview_id, revision), InstallOptions::default())
     }
