@@ -10,8 +10,8 @@ use serde_json::{Map, Value};
 
 use crate::terminal::AppError;
 
-use crate::atomic::write_atomic;
 use super::contracts::ProviderConfig;
+use crate::atomic::write_atomic;
 
 const BASE_URL: &str = "ANTHROPIC_BASE_URL";
 const AUTH_TOKEN: &str = "ANTHROPIC_AUTH_TOKEN";

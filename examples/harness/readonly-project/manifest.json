@@ -1,0 +1,1 @@
+{"pluginId":"example.readonly-project","version":"1.0.0","harnessApi":1,"minAppVersion":"0.19.0","tools":["project.list","project.read"],"capabilities":["project.read"]}

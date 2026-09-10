@@ -1,0 +1,127 @@
+/* Adapted from PI-Desktop 4fb58d3, LGPL-3.0. See third_party/pi-desktop/NOTICE.md. */
+/*
+  Shared primitives — panel cards, form fields, button variants, badges, and
+  the overlay/dialog base used by every floating surface.
+*/
+/* Surfaces and fields carry tone, not strokes (D297): a card is a soft tile,
+   a field is a filled well that lifts and gains an accent ring only while
+   focused. Both themes share the formula through the tile tokens. */
+.pi-plugins .panel-card {
+  border-radius: var(--radius-lg);
+  background: var(--ds-tile);
+}
+.pi-plugins .field-input,
+.pi-plugins .field-select,
+.pi-plugins .field-textarea {
+  width: 100%;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--ds-tile-hover);
+  padding: 9px 11px;
+  color: var(--ds-text-primary);
+  outline: none;
+  transition:
+    background var(--motion-duration-fast) var(--motion-ease-out),
+    box-shadow var(--motion-duration-fast) var(--motion-ease-out);
+}
+.pi-plugins .field-input:focus,
+.pi-plugins .field-select:focus,
+.pi-plugins .field-textarea:focus {
+  background: var(--ds-raised);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--ds-accent) 22%, transparent);
+}
+.pi-plugins .field-input:read-only,
+.pi-plugins .field-select:disabled {
+  color: var(--ds-text-secondary);
+  cursor: default;
+}
+.pi-plugins .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: var(--radius-sm);
+  padding: 7px 12px;
+  font-size: var(--text-md);
+  transition:
+    background var(--motion-duration-fast) var(--motion-ease-out),
+    color var(--motion-duration-fast) var(--motion-ease-out),
+    opacity var(--motion-duration-fast) var(--motion-ease-out),
+    transform var(--motion-duration-fast) var(--motion-ease-out);
+}
+.pi-plugins .btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+.pi-plugins .btn-primary {
+  background: var(--ds-accent);
+  color: var(--ds-bg-primary);
+}
+.pi-plugins .btn-primary:hover:not(:disabled) {
+  background: var(--ds-accent-hover);
+  opacity: 1;
+}
+.pi-plugins .btn-secondary {
+  background: var(--ds-tile-hover);
+  color: var(--ds-text-primary);
+}
+.pi-plugins .btn-secondary:hover:not(:disabled) {
+  background: var(--ds-tile-deep);
+}
+.pi-plugins .btn-ghost {
+  color: var(--ds-text-secondary);
+}
+.pi-plugins .btn-ghost:hover:not(:disabled) {
+  background: var(--ds-bg-hover);
+  color: var(--ds-text-primary);
+}
+.pi-plugins .badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--radius-full);
+  padding: 2px 8px;
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+}
+.pi-plugins .badge-neutral {
+  background: color-mix(in oklab, var(--ds-text-primary) 8%, transparent);
+  color: var(--ds-text-secondary);
+}
+.pi-plugins .badge-success {
+  background: color-mix(in oklab, var(--ds-success) 16%, transparent);
+  color: var(--ds-success);
+}
+.pi-plugins .badge-error {
+  background: color-mix(in oklab, var(--ds-error) 16%, transparent);
+  color: var(--ds-error);
+}
+.pi-plugins .badge-warning {
+  background: color-mix(in oklab, var(--ds-warning) 16%, transparent);
+  color: var(--ds-warning);
+}
+.pi-plugins .overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in oklab, #000 45%, transparent);
+  padding: 24px;
+  animation: overlay-in var(--motion-duration-normal) var(--motion-ease-out) both;
+}
+.pi-plugins :root[data-theme="light"] .overlay {
+  /* Lighter scrim keeps elevated white dialogs readable without a heavy veil. */
+  background: color-mix(in oklab, #1a1c1f 28%, transparent);
+}
+.pi-plugins .dialog {
+  width: min(100%, 440px);
+  /* Overlay is a flex box; auto min-width would let wide content overflow it. */
+  min-width: 0;
+  max-width: 100%;
+  border: 1px solid var(--ds-border-default);
+  border-radius: var(--radius-lg-plus);
+  background: var(--ds-bg-elevated-opaque);
+  box-shadow: var(--ds-shadow-dialog);
+  padding: 18px;
+  animation: surface-in var(--motion-duration-normal) var(--motion-ease-out) both;
+}

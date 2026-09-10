@@ -1,0 +1,18 @@
+export type HarnessVersion = `${number}.${number}.${number}`;
+export type Capability = { kind: "project.read" | "project.write" | "command.exec" | "network" | "mcp" | "credential"; scope?: string[] };
+export interface HarnessManifest { schemaVersion: 1; id: string; name: string; version: HarnessVersion; entry: { command: string; args?: string[] }; compatibility: { harnessApi: 1; minAppVersion: HarnessVersion }; modelSlots: string[]; agents: Array<{ id: string; role: string; modelSlot: string; tools: string[]; maxTurns: number }>; capabilities: Capability[]; context: { providers: string[]; maxTokens: number }; workflow: { maxSteps: number; cancellable: boolean }; configSchema?: string }
+export interface RpcRequest { jsonrpc: "2.0"; id: string; method: string; params?: unknown; sessionId?: string }
+export interface RpcResponse { jsonrpc: "2.0"; id: string; sessionId?: string; result?: unknown; error?: { code: string; message: string; data?: unknown } }
+export interface HarnessEvent { schemaVersion: 1; type: string; sequence: number; timestamp: number; sessionId: string; agentId?: string; requestId?: string; toolId?: string; summary?: string; data?: unknown }
+export interface BrokerToolRequest { jsonrpc: "2.0"; id: string; method: "tool/request"; sessionId: string; params: { toolId: string; tool: "project.list" | "project.read"; path?: string } }
+export interface BrokerAuditEvent { phase: "requested" | "completed" | "failed"; sessionId: string; requestId: string; toolId: string; tool: string; durationMs: number; summary: string; errorCode?: string }
+export interface CommandToolRequest { jsonrpc: "2.0"; id: string; method: "tool/request"; sessionId: string; params: { toolId: string; tool: "command.exec"; executable: string; argv?: string[]; cwd?: string; timeoutMs?: number; env?: Record<string, string> } }
+export interface CommandAuditEvent { phase: "requested" | "approval.required" | "started" | "output" | "completed" | "failed" | "cancelled"; sessionId: string; requestId: string; toolId: string; durationMs: number; summary: string; stream?: "stdout" | "stderr"; errorCode?: string }
+export interface PatchToolRequest { jsonrpc: "2.0"; id: string; method: "tool/request"; sessionId: string; params: { toolId: string; tool: "project.patch.propose"; relativePath: string; expectedDigest: string; replacement: string } | { toolId: string; tool: "project.patch.apply"; previewId: string; approvalToken: string } }
+export interface DiffLine { kind: "context" | "add" | "delete"; oldLine?: number; newLine?: number; content: string }
+export interface DiffHunk { oldStart: number; newStart: number; lines: DiffLine[] }
+export interface DiffPreview { hunks: DiffHunk[]; truncated: boolean; omittedHunks: number; omittedLines: number; previewBytes: number }
+export interface PatchPreview { previewId: string; generation: number; relativePath: string; originalDigest: string; replacementDigest: string; oldLines: number; newLines: number; finalBytes: number; diff: DiffPreview; expiresAt: number }
+export interface ApprovalRequest { id: string; capability: Capability; reason: string; scope: "call" | "session" | "project" | "version"; status: "pending" | "approved" | "denied" }
+export const RPC_METHODS = ["initialize", "session/start", "model/request", "tool/request", "context/select", "checkpoint/save", "cancel", "shutdown"] as const;
+export function isCapability(value: unknown): value is Capability { return typeof value === "object" && value !== null && ["project.read", "project.write", "command.exec", "network", "mcp", "credential"].includes((value as Capability).kind); }

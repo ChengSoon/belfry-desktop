@@ -1,0 +1,56 @@
+/* Tauri 页面容器适配；页面内部视觉来自 PI-Desktop。 */
+.pi-plugins { min-width: 0; color: var(--ds-text-primary); font: var(--text-base)/var(--leading-normal) var(--font-sans); }
+.pi-plugins :where(h1,h2,h3,p,ul,dl,dd) { margin: 0; }
+.pi-plugins :where(button,input,textarea,select) { font: inherit; }
+.pi-plugins button { cursor: pointer; border: 0; background: transparent; color: inherit; }
+.pi-plugins button:disabled { cursor: default; opacity: .5; }
+.pi-plugins .page-header { display: flex; justify-content: space-between; }
+.pi-plugins .plugins-page { width: 100%; padding: 2px 0 24px; }
+.pi-plugins .settings-toggle { width: 30px; height: 18px; border-radius: var(--radius-full); padding: 2px; background: var(--ds-switch-track-off); box-shadow: inset 0 0 0 1px var(--ds-switch-ring-off); }
+.pi-plugins .settings-toggle-thumb { display: block; width: 14px; height: 14px; border-radius: var(--radius-full); background: var(--ds-switch-knob-off); transition: transform 150ms; }
+.pi-plugins .settings-toggle.on { background: var(--ds-accent); box-shadow: none; }
+.pi-plugins .settings-toggle.on .settings-toggle-thumb { transform: translateX(12px); background: var(--ds-switch-knob-on); }
+.pi-plugins .settings-card-heading,.pi-plugins .settings-row-title { font-size: var(--text-sm-plus); font-weight: 500; }
+.pi-plugins .settings-row-desc { font-size: var(--text-xs); color: var(--ds-text-muted); margin-top: 5px; }
+.pi-plugins .plugins-inline-error { border-radius: var(--radius-sm); padding: 10px 12px; color: var(--ds-error); background: color-mix(in srgb, var(--ds-error) 8%, transparent); overflow-wrap: anywhere; }
+.pi-plugins .plugins-sheet-layer,.pi-plugins .plugins-modal-backdrop { z-index: 40; }
+.pi-plugins .plugins-modal-backdrop { z-index: 45; }
+.pi-plugins .plugins-source-foot { color: var(--ds-text-muted); font-size: var(--text-xs); overflow-wrap: anywhere; }
+.pi-plugins :where(button,input,textarea,select):focus-visible { outline: 2px solid var(--ds-accent); outline-offset: 2px; }
+.pi-plugins .plugins-readme { line-height: 1.6; overflow-wrap: anywhere; }
+.pi-plugins .plugins-readme pre { padding: 12px; background: var(--ds-bg-inset); overflow-x: auto; border-radius: var(--radius-xs); }
+.pi-plugins .plugins-readme :where(h1,h2,h3,p,ul,ol,pre) { margin-block: 12px; }
+.pi-plugins .plugins-readme a { text-decoration: underline; }
+.pi-plugins .plugins-readme img { max-width: 100%; height: auto; border-radius: var(--radius-xs); }
+.pi-plugins .plugins-readme-table { overflow-x: auto; }
+.pi-plugins .plugins-readme table { width: 100%; border-collapse: collapse; }
+.pi-plugins .plugins-readme :where(th, td) { padding: 8px 10px; border: 1px solid var(--ds-border-subtle); text-align: left; }
+.pi-plugins .plugins-readme blockquote { margin-inline: 0; padding-inline: 12px; border-left: 3px solid var(--ds-border-subtle); color: var(--ds-text-secondary); }
+@media (prefers-reduced-motion: reduce) { .pi-plugins * { animation: none !important; transition: none !important; } }
+/* The head row already carries the tile's 16px inner inset; this block hangs
+   below it and must reuse the same inset, or its input, copy and buttons run
+   to the tile's rounded edge while the select above stays indented. The light
+   top padding keeps the gap under the head at the block's own 12px rhythm
+   instead of stacking onto the head's 14px bottom padding. */
+.pi-plugins .plugins-personal-market { display: grid; gap: 12px; padding: 4px 16px 16px; }
+/* The name field sits in the same 240px column as the source select above, so
+   the two right edges line up down the tile. The width is stated outright
+   because .field-input sets width:100%, which would otherwise stretch the field
+   past the column. box-sizing must be set explicitly to match the select. */
+.pi-plugins .plugins-market-name { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+.pi-plugins .plugins-market-name .field-input { flex: 0 0 240px; width: 240px; min-width: 0; box-sizing: border-box; }
+.pi-plugins .plugins-personal-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+/* Narrow shells stack the same way the source row does: label above, field full
+   width. */
+@media (max-width: 720px) {
+  .pi-plugins .plugins-market-name { align-items: stretch; flex-direction: column; gap: 10px; }
+  .pi-plugins .plugins-market-name .field-input { flex: 0 0 auto; width: 100%; }
+}
+.pi-plugins .plugins-market-url-form { flex-direction: column; align-items: flex-end; gap: 8px; }
+.pi-plugins .plugins-author-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0; }
+.pi-plugins .plugins-author-fields .plugins-author-field { margin: 0; }
+.pi-plugins .plugins-author-fields .plugins-author-field:first-child { grid-column: 1 / -1; }
+.pi-plugins .plugins-author-field { display: grid; gap: 7px; font-size: var(--text-sm); margin-block: 14px; }
+.pi-plugins .plugins-author-hint { color: var(--ds-text-muted); font-size: var(--text-xs); line-height: 1.6; margin-block: 10px; }
+.pi-plugins .plugins-publish-name { font-size: var(--text-lg); margin-bottom: 6px; }
+.pi-plugins .plugins-publish-name span { font-size: var(--text-sm); color: var(--ds-text-muted); font-weight: normal; }

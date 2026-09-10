@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PI 插件示例</title><style>
+:root{color-scheme:light dark;font-family:system-ui,sans-serif}body{margin:0;padding:32px;background:#15171c;color:#edeef3}
+small{color:#a7b8e8;letter-spacing:.12em}h1{font-size:26px;margin:16px 0}p{color:#aeb5c7;line-height:1.7}
+button{font:inherit;background:#c1cdf4;color:#15171c;border:0;border-radius:8px;padding:10px 16px;cursor:pointer}
+button:focus-visible{outline:2px solid white;outline-offset:4px}output{display:block;margin-top:20px;white-space:pre-wrap}
+</style></head><body><small>BELFRY PLUGIN</small><h1>PI 插件示例</h1>
+<p>这是插件自己的界面。通过宿主 API 读取设置和触发操作。</p><button id="run">读取插件设置</button><output id="result" role="status"></output>
+<script>
+document.getElementById("run").addEventListener("click", async () => {
+  const output = document.getElementById("result");
+  try {
+    const settings = await window.pluginBridge.invoke("plugin.getSettings");
+    output.textContent = JSON.stringify(settings, null, 2);
+    await window.pluginBridge.invoke("ui.showToast", { message: "插件已成功调用宿主 API" });
+  } catch (error) { output.textContent = error.message; }
+});
+</script></body></html>

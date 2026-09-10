@@ -1,0 +1,233 @@
+/* PI-Desktop scope styles, LGPL-3.0. */
+.pi-plugins .scope-control {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+  flex: 0 0 auto;
+}
+.pi-plugins .scope-control.is-compact {
+  gap: 0;
+}
+.pi-plugins .scope-track {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--radius-full);
+  background: color-mix(in oklab, var(--ds-text-primary) 5%, transparent);
+}
+.pi-plugins .scope-seg {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: var(--radius-full);
+  color: var(--ds-text-muted);
+  font-size: var(--text-xs-plus);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+  transition:
+    background var(--motion-duration-fast) var(--motion-ease-out),
+    color var(--motion-duration-fast) var(--motion-ease-out),
+    box-shadow var(--motion-duration-fast) var(--motion-ease-out);
+}
+.pi-plugins .scope-compact-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+.pi-plugins .scope-compact-trigger {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  max-width: 156px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  padding: 0 8px;
+  color: var(--ds-text-secondary);
+  font-size: var(--text-xs-plus);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+  background: color-mix(in oklab, var(--ds-text-primary) 5%, transparent);
+  transition:
+    background var(--motion-duration-fast) var(--motion-ease-out),
+    color var(--motion-duration-fast) var(--motion-ease-out),
+    box-shadow var(--motion-duration-fast) var(--motion-ease-out);
+}
+.pi-plugins .scope-compact-trigger > svg:first-child,
+.pi-plugins .scope-compact-chevron {
+  flex: 0 0 auto;
+}
+.pi-plugins .scope-compact-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pi-plugins .scope-compact-chevron {
+  color: var(--ds-text-faint);
+}
+.pi-plugins .scope-compact-trigger.is-off {
+  color: var(--ds-text-secondary);
+}
+.pi-plugins .scope-compact-trigger.is-global {
+  color: var(--ds-text-primary);
+}
+.pi-plugins .scope-compact-trigger:hover:not(:disabled),
+.pi-plugins .scope-compact-trigger[aria-expanded="true"] {
+  background: color-mix(in oklab, var(--ds-text-primary) 10%, transparent);
+  color: var(--ds-text-primary);
+}
+.pi-plugins .scope-compact-trigger:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.pi-plugins .scope-compact-trigger[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 5px);
+  z-index: 40;
+  border: 1px solid var(--ds-border-default);
+  border-radius: var(--radius-sm);
+  background: var(--ds-bg-elevated-opaque, var(--ds-bg-primary));
+  box-shadow: var(--ds-shadow-composer);
+  padding: 3px 7px;
+  color: var(--ds-text-secondary);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--leading-compact);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--motion-duration-fast) var(--motion-ease-out);
+}
+.pi-plugins .scope-compact-trigger[data-tip]:hover::after,
+.pi-plugins .scope-compact-trigger[data-tip]:focus-visible::after {
+  opacity: 1;
+}
+.pi-plugins .scope-compact-trigger[data-tip]:disabled::after {
+  content: none;
+}
+.pi-plugins .scope-compact-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
+  display: flex;
+  width: min(252px, calc(100vw - 40px));
+  flex-direction: column;
+  gap: 1px;
+  border-radius: var(--radius-md-plus);
+  background: var(--ds-bg-elevated-opaque, var(--ds-bg-primary));
+  box-shadow: 0 0 0 0.5px var(--ds-border-default), 0 14px 38px rgba(0, 0, 0, 0.22);
+  padding: 5px;
+  animation: scope-popover-in var(--motion-duration-fast) var(--motion-ease-out) both;
+}
+.pi-plugins .scope-compact-menu.is-up {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
+.pi-plugins .scope-compact-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  border-radius: var(--radius-2xs);
+  padding: 7px 8px;
+  color: var(--ds-text-secondary);
+  text-align: left;
+  transition:
+    background var(--motion-duration-fast) var(--motion-ease-out),
+    color var(--motion-duration-fast) var(--motion-ease-out);
+}
+.pi-plugins .scope-compact-option > svg:first-child {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+.pi-plugins .scope-compact-option:hover,
+.pi-plugins .scope-compact-option.is-active {
+  background: color-mix(in oklab, var(--ds-text-primary) 7%, transparent);
+  color: var(--ds-text-primary);
+}
+.pi-plugins .scope-compact-option-copy {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+}
+.pi-plugins .scope-compact-option-label {
+  color: inherit;
+  font-size: var(--text-sm-plus);
+  font-weight: var(--font-weight-medium);
+}
+.pi-plugins .scope-compact-option-hint {
+  color: var(--ds-text-faint);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-normal);
+}
+.pi-plugins .scope-compact-option > svg:last-child {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: var(--ds-accent);
+}
+.pi-plugins .scope-projects.is-compact {
+  position: static;
+  width: 0;
+  height: 0;
+  margin: 0;
+}
+.pi-plugins .scope-seg > svg {
+  flex: 0 0 auto;
+}
+.pi-plugins .scope-seg:hover:not(.is-active) {
+  color: var(--ds-text-primary);
+}
+.pi-plugins .scope-seg.is-active {
+  background: var(--ds-raised);
+  color: var(--ds-text-primary);
+  box-shadow: var(--ds-raised-shadow);
+}
+/* Off reads as off: the active segment stays quiet instead of looking selected. */
+.pi-plugins .scope-seg.is-active:first-child {
+  color: var(--ds-text-secondary);
+}
+.pi-plugins .scope-seg:last-child.is-active {
+  color: var(--ds-text-primary);
+}
+.pi-plugins .scope-seg:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.pi-plugins .scope-projects {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+  flex: 0 0 auto;
+}
+.pi-plugins .scope-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 190px;
+  border-radius: var(--radius-full);
+  padding: 2px 9px;
+  color: var(--ds-text-secondary);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-medium);
+  background: var(--ds-tile-hover);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition:
+    background var(--motion-duration-fast) var(--motion-ease-out),
+    color var(--motion-duration-fast) var(--motion-ease-out);
+}

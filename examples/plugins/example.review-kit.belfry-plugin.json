@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "example.review-kit",
+  "name": "代码审查助手",
+  "version": "1.0.0",
+  "description": "提供一个可审阅的代码审查 Prompt 和一个多步检查 Recipe。",
+  "author": "Belfry 示例（作者自述）",
+  "compatibility": { "pluginApi": 1, "minAppVersion": "0.19.0" },
+  "contributes": {
+    "templates": [
+      { "id": "review", "kind": "prompt", "name": "审查改动", "steps": [{ "id": "inspect", "text": "请审查 {{scope}}，先阅读项目规则，再报告有证据且可执行的问题。" }] },
+      { "id": "plan-check", "kind": "recipe", "name": "计划与检查", "steps": [{ "id": "plan", "text": "针对 {{goal}} 制定最小实施计划。" }, { "id": "check", "text": "检查上述计划的风险、边界和验证方式。" }] }
+    ],
+    "actions": [{ "id": "open-review", "title": "审查改动", "templateId": "review", "keywords": ["review", "审查"] }]
+  }
+}

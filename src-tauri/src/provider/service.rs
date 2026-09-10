@@ -9,13 +9,13 @@ use tauri::AppHandle;
 use crate::agent::AgentKind;
 use crate::terminal::AppError;
 
-use crate::atomic::read_text_optional;
 use super::contracts::{
     AgentProviderGroup, ConfigFilePreview, ProviderCatalog, ProviderConfig, ProviderDraft,
     SwitchOutcome,
 };
 use super::store::StoreFile;
 use super::{claude, codex, envcheck, store};
+use crate::atomic::read_text_optional;
 
 /// 首次接管时给导入条目起的名字。
 const ADOPTED_NAME: &str = "导入的配置";

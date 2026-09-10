@@ -8,7 +8,7 @@ const POLL_INTERVAL_MS = 750;
 /**
  * 这次投递结果要不要给 Rust 回执。
  *
- * - `sent`：已经打进目标终端了。
+ * - `sent`：终端已接管发送；不代表 Agent 已解析或开始处理。
  * - `queued`：目标在忙、或卡在权限框，Prompt 队列会等它回到 idle 再发。**也要回执**——
  *   队列已经接管这条指令，不回执的话下一轮又会拉到同一条，同一句话被贴好几遍。
  * - `unavailable`：目标不是 Agent、或者进程已经没了。不回执，留给下一轮再看；
@@ -30,11 +30,14 @@ export interface DeliveryPorts {
  * 抽成不依赖 React 的函数：定时器和重入保护的坑在 hook 里，投递语义在这里，
  * 两者分开才测得动。
  */
-export async function deliverPending(ports: DeliveryPorts): Promise<number> {
+export async function deliverPending(ports: DeliveryPorts, accepted = new Set<string>()): Promise<number> {
   const tasks = await ports.fetch();
+  const pendingIds = new Set(tasks.map((task) => task.id));
+  for (const id of accepted) if (!pendingIds.has(id)) accepted.delete(id);
   let acked = 0;
   for (const task of tasks) {
-    if (shouldMarkDispatched(ports.submit(task.to, task.text))) {
+    if (accepted.has(task.id) || shouldMarkDispatched(ports.submit(task.to, task.text))) {
+      accepted.add(task.id);
       await ports.ack(task.id);
       acked += 1;
     }
@@ -54,6 +57,8 @@ export async function deliverPending(ports: DeliveryPorts): Promise<number> {
  * 挂上去会让 interval 被反复清掉重建，最后一次都不触发。
  */
 export function useTaskDelivery(submit: (tabId: string, text: string) => PromptSubmitResult) {
+  // 回执 IPC 失败时保留已接管记录，下一拍只重试回执，不重复入队。
+  const accepted = useRef(new Set<string>());
   const submitRef = useRef(submit);
   submitRef.current = submit;
 
@@ -68,9 +73,9 @@ export function useTaskDelivery(submit: (tabId: string, text: string) => PromptS
       try {
         await deliverPending({
           fetch: pendingTasks,
-          submit: (tabId, text) => submitRef.current(tabId, text),
+          submit: (tabId, text) => stopped ? "unavailable" : submitRef.current(tabId, text),
           ack: markDispatched,
-        });
+        }, accepted.current);
       } catch {
         // 协作是增强功能：IPC 抖一下不该把整个应用带下去，下一拍继续。
       } finally {

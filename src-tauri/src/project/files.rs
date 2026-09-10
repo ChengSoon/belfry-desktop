@@ -1,12 +1,12 @@
 use std::fs::{self, File};
 use std::io::Read;
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
 
-use crate::resource::canonicalize;
 use crate::terminal::AppError;
 
 use super::contracts::{ProjectDirectory, ProjectEntry, ProjectEntryKind, ProjectFilePreview};
+use super::resource_path::{self, ResourcePathError};
 
 const MAX_DIRECTORY_ENTRIES: usize = 1_000;
 const MAX_PREVIEW_BYTES: u64 = 512 * 1024;
@@ -100,45 +100,21 @@ pub fn read_file(root_path: &str, relative_path: &str) -> Result<ProjectFilePrev
 }
 
 fn project_root(root_path: &str) -> Result<PathBuf, AppError> {
-    let requested = Path::new(root_path);
-    let root = canonicalize(requested)
-        .map_err(|error| map_io_error("open project root", requested, error))?;
-    if !root.is_dir() {
-        return Err(AppError::invalid_argument(
-            "project root must point to a directory",
-        ));
-    }
-    Ok(root)
+    resource_path::canonical_root(Path::new(root_path)).map_err(map_resource_error)
 }
 
 fn resolve_existing(root: &Path, relative_path: &str) -> Result<PathBuf, AppError> {
-    let relative = validate_relative_path(relative_path)?;
-    let requested = root.join(relative);
-    let resolved = canonicalize(&requested)
-        .map_err(|error| map_io_error("open project resource", &requested, error))?;
-    if !resolved.starts_with(root) {
-        return Err(AppError::invalid_argument(
-            "project resource must stay inside the project root",
-        ));
-    }
-    Ok(resolved)
+    resource_path::resolve_existing(root, relative_path).map_err(map_resource_error)
 }
 
-fn validate_relative_path(value: &str) -> Result<PathBuf, AppError> {
-    let path = Path::new(value.trim());
-    if path.is_absolute()
-        || path.components().any(|component| {
-            matches!(
-                component,
-                Component::ParentDir | Component::RootDir | Component::Prefix(_)
-            )
-        })
-    {
-        return Err(AppError::invalid_argument(
-            "project resource path must be relative",
-        ));
+fn map_resource_error(error: ResourcePathError) -> AppError {
+    match error {
+        ResourcePathError::NotFound => AppError::not_found("project resource not found"),
+        ResourcePathError::Io => AppError::io("could not access project resource"),
+        ResourcePathError::Invalid | ResourcePathError::OutsideRoot => {
+            AppError::invalid_argument("project resource path must stay inside the project root")
+        }
     }
-    Ok(path.to_path_buf())
 }
 
 fn to_entry(root: &Path, entry: fs::DirEntry) -> Result<Option<ProjectEntry>, AppError> {

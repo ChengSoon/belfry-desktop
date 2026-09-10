@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "id": "belfry.pi-demo",
+  "name": "PI 插件示例",
+  "version": "0.1.0",
+  "description": "使用 Belfry 插件模板创建。",
+  "main": "main.js",
+  "ui": {
+    "panel": "renderer/index.html",
+    "title": "PI 插件示例"
+  },
+  "contributes": {
+    "commands": [
+      {
+        "id": "belfry.pi-demo.open",
+        "title": "打开 PI 插件示例"
+      }
+    ],
+    "agentTools": [
+      {
+        "name": "echo_text",
+        "description": "返回输入的文本",
+        "risk": "low",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "text"
+          ]
+        }
+      }
+    ],
+    "skills": [
+      "skills/guide.md"
+    ],
+    "settings": [
+      {
+        "key": "greeting",
+        "title": "欢迎语",
+        "type": "string",
+        "default": "你好，PI 插件示例"
+      }
+    ]
+  },
+  "permissions": [
+    "ui.panel",
+    "agent.tool.register",
+    "agent.prompt.inject"
+  ],
+  "engines": {
+    "piDesktop": ">=0.1.0"
+  },
+  "activationEvents": [
+    "onStartup"
+  ]
+}

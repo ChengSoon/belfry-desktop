@@ -15,6 +15,7 @@ import type { ProjectWorkspace, RecentProject, WorkspaceTab } from "../workspace
 import "../filepreview/filePreviewTrigger.css";
 import "./workbench.css";
 import type { TerminalSnapshot } from "./TerminalViewport";
+import { PluginWorkbenchActions } from "../plugins/workspace/PluginWorkbenchActions";
 
 interface WorkbenchProps {
   activeProject: ProjectWorkspace | null;
@@ -29,6 +30,7 @@ interface WorkbenchProps {
   opening: boolean;
   promptItems: readonly PromptQueueItem[];
   previewOpen: boolean;
+  pluginDockOpen: boolean;
   quickOpenOpen: boolean;
   recentProjects: RecentProject[];
   recipes: readonly Recipe[];
@@ -98,6 +100,7 @@ export function Workbench(props: WorkbenchProps) {
           recentProjects={props.recentProjects}
         />
       </div>
+      <PluginWorkbenchActions open={props.pluginDockOpen} />
       <WorkbenchButton
         badge={props.collabWaiting > 0}
         dialog

@@ -144,6 +144,9 @@ fn each_instance_gets_its_own_socket_path() {
     );
 }
 
+/// 升级前留下的 socket 没有活体标记，只能退回 connect 探测——这条测的就是那条
+/// 兼容路径（下面几个 socket 都刻意不带 `.lock`）。带标记的情形见
+/// `sweeping_spares_a_busy_instance_that_holds_its_live_lock`。
 #[cfg(unix)]
 #[test]
 fn sweeping_keeps_the_sockets_that_still_answer() {
@@ -173,6 +176,71 @@ fn sweeping_keeps_the_sockets_that_still_answer() {
     assert!(other.exists(), "前缀不匹配的文件不该动");
 
     drop(listener);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// 这条是这个模块最该守住的：**connect 失败不等于进程死了**。backlog 满、accept
+/// 线程正忙、瞬时 EAGAIN 都会让 connect 失败，误判一次就把活实例的 socket 文件
+/// unlink 掉——而 listener 对此毫无感知，它还在 accept，客户端却永远 ENOENT，
+/// 报错指向「文件不存在」，看起来像应用根本没启动。真出过：正式版跑了 20 分钟，
+/// 被本仓库起的一个测试实例扫掉了 socket。
+#[cfg(unix)]
+#[test]
+fn sweeping_spares_a_busy_instance_that_holds_its_live_lock() {
+    let dir = std::path::PathBuf::from(format!("/tmp/bfbusy{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+
+    // 一个「活着但连不上」的实例：socket 文件在，但没人 accept，所以 connect 必
+    // 失败——旧的判活逻辑到这里就会把它删掉。活体标记是它唯一的护身符。
+    let busy = dir.join("belfry-1-444.sock");
+    std::fs::write(&busy, b"").unwrap();
+    let held = super::hold_live_lock_at(&busy).expect("应该能拿到活体标记");
+    let next = dir.join("belfry-1-555.sock");
+    // 落单的标记（没有 .sock 陪着、也没人握着）该收掉，否则会一直攒着。
+    let orphan = dir.join("belfry-1-666.lock");
+    std::fs::write(&orphan, b"").unwrap();
+    // 而本进程自己的标记天生就是「落单」的：sweep 跑在 bind 之前，.sock 还没建。
+    let mine = super::hold_live_lock_at(&next).expect("应该能拿到自己的标记");
+
+    super::sweep_stale_sockets_in(&dir, "belfry-1", &next);
+
+    assert!(
+        busy.exists(),
+        "还握着活体标记的实例不能被扫掉，哪怕它一时连不上"
+    );
+    assert!(!orphan.exists(), "落单又没人握着的标记该收掉");
+    assert!(
+        super::live_lock_path(&next).exists(),
+        "本进程自己的标记不能被自己扫掉"
+    );
+
+    // 标记放掉（进程退出时内核也会这么做），同一个 socket 就该被认成残留了。
+    //
+    // 要等一下才能断言：并行跑的测试会 spawn 子进程（起 shell、ssh），fork 的
+    // 瞬间子进程就继承了这个 fd 的副本，要到 exec 时 O_CLOEXEC 才关掉它。撞上
+    // 那个窗口的话，父进程这边 drop 完了，锁还被子进程按着。
+    //
+    // 生产里这个偏差是安全方向的：把已经死的实例判成活的，只是让残留文件多留
+    // 一轮，下次启动会收掉；反过来把活的判成死的才是致命的——那正是这条测试
+    // 要守的东西。
+    drop(held);
+    let lock = super::live_lock_path(&busy);
+    for _ in 0..50 {
+        if super::try_grab_existing(&lock).is_some() {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+    super::sweep_stale_sockets_in(&dir, "belfry-1", &next);
+
+    assert!(!busy.exists(), "标记已释放，残留该清掉");
+    assert!(
+        !super::live_lock_path(&busy).exists(),
+        "标记文件要跟着 socket 一起收，否则它自己会在临时目录里攒着"
+    );
+
+    drop(mine);
     let _ = std::fs::remove_dir_all(&dir);
 }
 

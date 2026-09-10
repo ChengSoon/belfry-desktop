@@ -13,5 +13,5 @@ mod osc;
 mod runtime;
 mod ssh_auth;
 
-pub(crate) use contracts::AppError;
+pub(crate) use contracts::{AppError, CreateTerminalRequest, LaunchProfileId};
 pub use runtime::TerminalRuntime;

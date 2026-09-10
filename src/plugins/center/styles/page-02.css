@@ -1,0 +1,228 @@
+/* Adapted from PI-Desktop 4fb58d3, LGPL-3.0. See third_party/pi-desktop/NOTICE.md. */
+.pi-plugins .plugins-search-clear {
+  position: absolute;
+  right: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-full);
+  color: var(--ds-text-muted);
+  transition:
+    background var(--motion-duration-fast) var(--motion-ease-out),
+    color var(--motion-duration-fast) var(--motion-ease-out);
+}
+.pi-plugins .plugins-search-clear:hover {
+  background: color-mix(in oklab, var(--ds-text-primary) 10%, transparent);
+  color: var(--ds-text-primary);
+}
+.pi-plugins .plugins-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  min-width: 0;
+}
+/* Always-visible sections: Needs attention, Updates, Active, Disabled. */
+.pi-plugins .plugins-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.pi-plugins .plugins-group-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 4px;
+}
+.pi-plugins .plugins-group-label {
+  margin: 0;
+  color: var(--ds-text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+.pi-plugins .plugins-group-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: var(--radius-full);
+  background: color-mix(in oklab, var(--ds-text-primary) 7%, transparent);
+  color: var(--ds-text-muted);
+  font-size: var(--text-3xs);
+  font-variant-numeric: tabular-nums;
+}
+/* Installed rows are soft tiles stacked with a small gap; the gap does the
+   work a hairline used to. Nothing clips, so row menus can overhang freely. */
+.pi-plugins .plugins-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.pi-plugins .plugins-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 16px;
+  border-radius: var(--radius-md-plus);
+  background: var(--plugins-tile);
+  transition: background var(--motion-duration-fast) var(--motion-ease-out);
+}
+.pi-plugins .plugins-row:hover,
+.pi-plugins .plugins-row:focus-within,
+.pi-plugins .plugins-row.menu-open {
+  background: var(--plugins-tile-hover);
+}
+.pi-plugins .plugins-row:has(.plugins-row-details[open]) {
+  align-items: flex-start;
+}
+.pi-plugins .plugins-glyph {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  background: var(--plugins-tile-deep);
+  color: var(--ds-text-secondary);
+  flex: 0 0 auto;
+}
+.pi-plugins .plugins-row:not(.off):hover .plugins-glyph,
+.pi-plugins .plugins-row:not(.off):focus-within .plugins-glyph {
+  background: color-mix(in oklab, var(--ds-text-primary) 12%, transparent);
+  color: var(--ds-text-primary);
+}
+.pi-plugins .plugins-row.off .plugins-glyph {
+  opacity: 0.6;
+}
+.pi-plugins .plugins-row.broken .plugins-glyph {
+  background: color-mix(in oklab, var(--ds-error) 14%, transparent);
+  color: var(--ds-error);
+}
+.pi-plugins .plugins-row-copy {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+.pi-plugins .plugins-row-title {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.pi-plugins .plugins-row-name {
+  color: var(--ds-text-primary);
+  font-size: var(--text-md-plus);
+  font-weight: var(--font-weight-medium-plus);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pi-plugins .plugins-row.off .plugins-row-name {
+  color: var(--ds-text-secondary);
+}
+.pi-plugins .plugins-row-meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  color: var(--ds-text-muted);
+  font-size: var(--text-xs);
+}
+.pi-plugins .plugins-row-id {
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pi-plugins .plugins-dot {
+  flex: 0 0 auto;
+  color: var(--ds-text-faint);
+}
+.pi-plugins .plugins-row-error {
+  margin: 0;
+  color: var(--ds-error);
+  font-size: var(--text-sm);
+  line-height: var(--leading-body);
+  overflow-wrap: anywhere;
+}
+/* The group heading carries state; the only row tag is the local-source marker. */
+.pi-plugins .plugins-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex: 0 0 auto;
+  border-radius: var(--radius-full);
+  background: color-mix(in oklab, var(--ds-text-primary) 8%, transparent);
+  color: var(--ds-text-secondary);
+  font-size: var(--text-3xs);
+  font-weight: var(--font-weight-medium);
+  padding: 1px 7px;
+  line-height: var(--leading-normal);
+}
+.pi-plugins .plugins-tag.is-update {
+  background: color-mix(in oklab, var(--ds-success) 16%, transparent);
+  color: var(--ds-success);
+}
+/* Capabilities, services and permissions are deliberately disclosed on demand. */
+.pi-plugins .plugins-row-details {
+  margin-top: 2px;
+}
+.pi-plugins .plugins-row-details-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: var(--radius-2xs);
+  padding: 1px 4px;
+  color: var(--ds-text-muted);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  user-select: none;
+  transition:
+    background var(--motion-duration-fast) var(--motion-ease-out),
+    color var(--motion-duration-fast) var(--motion-ease-out);
+}
+.pi-plugins .plugins-row-details-toggle::-webkit-details-marker {
+  display: none;
+}
+.pi-plugins .plugins-row-details-toggle > svg {
+  flex: 0 0 auto;
+  transition: transform var(--motion-duration-fast) var(--motion-ease-out);
+}
+.pi-plugins .plugins-row-details[open] .plugins-row-details-toggle > svg {
+  transform: rotate(180deg);
+}
+.pi-plugins .plugins-row-details-toggle:hover {
+  background: color-mix(in oklab, var(--ds-text-primary) 7%, transparent);
+  color: var(--ds-text-primary);
+}
+.pi-plugins .plugins-row-details-toggle:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--ds-accent) 55%, transparent);
+  outline-offset: 1px;
+}
+.pi-plugins .plugins-row-details-body {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 7px;
+  border-radius: var(--radius-md);
+  padding: 9px 10px;
+  background: var(--plugins-raised);
+  box-shadow: var(--plugins-raised-shadow);
+}
+.pi-plugins .plugins-row-detail {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
