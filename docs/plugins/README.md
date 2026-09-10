@@ -2,6 +2,8 @@
 
 当前移植与验收：[PI-Desktop 插件功能与页面移植](./pi-desktop-port.md)。
 自行制作、发布与独立市场：[自有市场使用指南](./own-market-guide.md)。
+独立 GitHub 插件中心已公开：[源码仓库](https://github.com/ChengSoon/belfry-desktop-plugins)、
+[插件网站](https://chengsoon.github.io/belfry-desktop-plugins/)、[发布与线上验证](./github-plugin-center.md)。
 
 现行功能与使用入口：[PI 插件使用与开发](./pi-runtime-guide.md)。
 插件中心支持模板创建、PI 清单、独立 JavaScript 进程、面板、命令、Agent 工具、Skill、设置、

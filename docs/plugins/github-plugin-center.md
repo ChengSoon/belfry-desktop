@@ -5,7 +5,7 @@
 ## 目标与边界
 
 用户要求拥有与 `vastsa/pi-desktop-plugins` 同类的独立插件中心。
-本地项目：`../belfry-desktop-plugins`；仓库名暂定 `ChengSoon/belfry-desktop-plugins`。
+本地项目：`../belfry-desktop-plugins`；公开仓库：`ChengSoon/belfry-desktop-plugins`。
 参考固定版本：`9b68e43f89af6b033d50f63c31e2043fb49b86b4`，保留 MIT 来源说明。
 
 包含插件源码、不可变 `.piplug` 发布包、PI 兼容 `catalog.json`、模板生成工具、
@@ -22,7 +22,8 @@
 - [x] 客户端来源接入及真实包互操作。
 - [x] 全量自动回归、网页实际操作、结构检查、自审及最新 QA 打包。
 - [ ] 最新桌面窗口复核：Computer Use 连接启动失败，未取得新包界面证据。
-- [ ] 远程创建与发布：待确认创建公开仓库及首次推送；本地文件不能视作线上市场。
+- [x] 主项目现有代码已推送 `feat/multi-agent-collab`；独立插件中心已公开并推送 `main`。
+- [x] GitHub 校验、Pages 部署、真实线上市场与浏览器回归通过，见下方发布结果。
 
 ## 风险与验证
 
@@ -47,6 +48,8 @@ Next.js 静态网站、发布测试及 GitHub Actions。初始插件为工作便
 拒绝链接、越界、重复 JSON 键、大小写别名、Windows 保留名称和文件/目录冲突。
 
 ## 本轮验证（2026-09-10）
+
+本节及 404 排查保留发布前的执行记录；当前线上状态见文末“公开发布结果”。
 
 | 检查 | 实际结果 |
 | --- | --- |
@@ -86,3 +89,34 @@ GitHub 登录用户已核对为 `ChengSoon`，目标仓库查询仍不存在；�
 「保存并连接」或 Enter 提交。4 项页面测试与 8 项来源测试合计通过，插件前端 77 项通过，
 独立 macOS QA 已重建；详见上述执行记录。测试使用实际 React 与 Node 市场模块，
 替换 Tauri 传输边界，不将此等同于原生桌面验收。
+
+## 公开发布结果（2026-09-10）
+
+用户明确要求“先帮我把现有的代码推送，然后把 plugin 的项目发布到 github”。
+本轮按此顺序执行，未再等待旧文档中的发布确认。
+
+- 主项目：[Belfry 当前分支](https://github.com/ChengSoon/belfry-desktop/tree/feat/multi-agent-collab)，
+  实现提交 `945dbda`；保留已有协作和终端修改，Harness 未接回应用入口。
+- 插件中心：[公开仓库](https://github.com/ChengSoon/belfry-desktop-plugins)，`main`，
+  初始实现提交 `8931d82`；三个插件的源码、不可变版本包及目录均已推送。
+- 网站：<https://chengsoon.github.io/belfry-desktop-plugins/>。
+- Belfry 内置 GitHub 来源：
+  <https://raw.githubusercontent.com/ChengSoon/belfry-desktop-plugins/main/catalog.json>。
+
+GitHub [校验工作流](https://github.com/ChengSoon/belfry-desktop-plugins/actions/runs/34435138143)
+成功，含 17 项 Python 测试、包与目录检查、结构与格式检查、网站构建及 6 项浏览器测试。
+[Pages 部署](https://github.com/ChengSoon/belfry-desktop-plugins/actions/runs/34435296505)
+构建和部署均成功。网站采用手动工作流发布，后续修改网站时重新运行该工作流。
+
+发布后用实际 `PluginManagement`、`PluginMarket` 和来源切换入口访问 GitHub，临时配置
+成功选择 `belfry`，读取三个插件，逐个下载并核对大小、SHA-256 与来源身份。未替换网络请求，
+未修改用户真实配置。原先目录 404 已消除。
+
+针对已上线 Pages 另跑同一组 6 项 Playwright 测试，全部通过；涵盖首页、搜索与分类、
+语言、详情与真实下载、复制失败提示及手机布局。首页、列表、开发文档和三个详情页均为
+HTTP 200，Pages 目录与 GitHub 发布目录一致。截图保存在本轮临时测试目录，不提交到源码。
+
+本轮补跑主项目完整 Rust：343 项库测试、1 项集成测试通过，4 项原有忽略；独立中心
+Python 17 项、真实 Node 宿主互操作 3 项再次通过。提交前已检查全部待推送文件、插件包、
+许可证说明及暂存区空白问题。此前 Node 135 项、Vitest 572 项和独立 QA 构建证据仍见
+移植记录；本轮没有重新声称原生窗口、Windows 或跨应用交互已验收。
