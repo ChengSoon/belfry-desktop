@@ -11,8 +11,9 @@ import { PluginMarket } from "../../src-tauri/src/plugins/node/market.mjs";
 import { administration } from "../../src-tauri/src/plugins/node/administration.mjs";
 import { scaffold } from "../../src-tauri/src/plugins/node/author.mjs";
 
-export const SOURCE_SELECT = 'select[aria-label="插件市场来源"]';
+export const SOURCE_SELECT = 'button[aria-label="插件市场来源"]';
 export const CUSTOM_INPUT = 'input[aria-label="目录地址"]';
+const SOURCE_LABELS = { personal: "我的插件市场", belfry: "Belfry 插件中心 · GitHub", custom: "自有在线市场", official: "PI 公开市场 · GitHub", mirror: "PI 公开市场 · 镜像" };
 const UI_TIMEOUT_MS = 10_000;
 const REGISTRY = { format: "belfry-directory-plugins-v1", storeSchemaVersion: 1, revision: "0", plugins: [] };
 const RUNTIME = { available: true, errors: {}, commands: [], tools: [], skills: [], views: [], themes: [], services: [], plugins: [], shortcuts: [] };
@@ -81,11 +82,18 @@ export async function waitFor(view, expression) {
 }
 
 export async function click(view, selector) {
-  const point = await view.cdp.evaluate(`(()=>{
-    const element=document.querySelector(${JSON.stringify(selector)}); if(!element)return null;
-    element.scrollIntoView({block:'center'}); const rect=element.getBoundingClientRect();
-    return {x:rect.x+rect.width/2,y:rect.y+rect.height/2};
-  })()`);
+  const point = await view.cdp.evaluate(`new Promise((resolve,reject)=>{
+    const element=document.querySelector(${JSON.stringify(selector)}); if(!element){resolve(null);return;}
+    element.scrollIntoView({block:'center'});
+    const deadline=Date.now()+${UI_TIMEOUT_MS};let previous='',stable=0;
+    const measure=()=>{
+      const rect=element.getBoundingClientRect(),position=[rect.x,rect.y,rect.width,rect.height].join(',');
+      stable=position===previous?stable+1:0;previous=position;
+      if(stable>=2){resolve({x:rect.x+rect.width/2,y:rect.y+rect.height/2});return;}
+      if(Date.now()>deadline){reject(new Error('控件位置未稳定'));return;}
+      requestAnimationFrame(measure);
+    };requestAnimationFrame(measure);
+  })`);
   assert.ok(point, `缺少页面元素 ${selector}`);
   for (const type of ["mousePressed", "mouseReleased"]) {
     await view.send("Input.dispatchMouseEvent", { type, ...point, button: "left", clickCount: 1 });
@@ -101,11 +109,22 @@ export async function fill(view, selector, value) {
 }
 
 export async function selectSource(view, value) {
-  await view.cdp.evaluate(`(()=>{
-    const select=document.querySelector(${JSON.stringify(SOURCE_SELECT)});
-    if(select.disabled)throw new Error('市场来源仍被禁用');
-    select.value=${JSON.stringify(value)}; select.dispatchEvent(new Event('change',{bubbles:true}));
-  })()`);
+  const open = await view.cdp.evaluate(`document.querySelector(${JSON.stringify(SOURCE_SELECT)})?.getAttribute('aria-expanded')==='true'`);
+  if (!open) await click(view, SOURCE_SELECT);
+  await clickOption(view, SOURCE_LABELS[value]);
+}
+
+export async function clickOption(view, label) {
+  await waitFor(view, "!!document.querySelector('[role=listbox]')");
+  const index = await view.cdp.evaluate(`[...document.querySelectorAll('[role=listbox] [role=option]')].findIndex(option=>option.textContent===${JSON.stringify(label)})`);
+  assert.notEqual(-1, index, `缺少菜单选项 ${label}`);
+  await click(view, `[role=listbox] [role=option]:nth-child(${index + 1})`);
+}
+
+export async function press(view, key, modifiers = 0) {
+  const code = key === " " ? "Space" : key;
+  const windowsVirtualKeyCode = { Enter: 13, Escape: 27, Tab: 9, " ": 32, ArrowDown: 40, ArrowUp: 38, Home: 36, End: 35 }[key];
+  for (const type of ["keyDown", "keyUp"]) await view.send("Input.dispatchKeyEvent", { type, key, code, modifiers, windowsVirtualKeyCode });
 }
 
 export async function enter(view) {
@@ -116,7 +135,7 @@ export async function enter(view) {
 
 export async function pageState(view) {
   return view.cdp.evaluate(`({
-    source:document.querySelector(${JSON.stringify(SOURCE_SELECT)})?.value,
+    source:Object.entries(${JSON.stringify(SOURCE_LABELS)}).find(([,label])=>label===document.querySelector(${JSON.stringify(SOURCE_SELECT)})?.textContent)?.[0],
     disabled:document.querySelector(${JSON.stringify(SOURCE_SELECT)})?.disabled,
     cards:[...document.querySelectorAll('.plugins-card-name')].map(element=>element.textContent),
     errors:[...document.querySelectorAll('[role=alert]')].map(element=>element.textContent),

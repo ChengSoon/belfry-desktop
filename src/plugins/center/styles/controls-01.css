@@ -35,6 +35,82 @@
   color: var(--ds-text-secondary);
   cursor: default;
 }
+/* 下拉框与现有输入框保持相同背景、文字和尺寸。 */
+.pi-plugins .plugins-dropdown {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  text-align: left;
+  cursor: pointer;
+  box-sizing: border-box;
+  width: 100%;
+}
+.pi-plugins .plugins-dropdown:disabled {
+  cursor: default;
+  opacity: .5;
+}
+.pi-plugins .plugins-dropdown-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pi-plugins .plugins-dropdown-caret {
+  flex: 0 0 auto;
+  color: var(--ds-text-muted);
+  transition: transform var(--motion-duration-fast) var(--motion-ease-out);
+}
+.pi-plugins .plugins-dropdown[aria-expanded="true"] .plugins-dropdown-caret {
+  transform: rotate(180deg);
+}
+.pi-plugins .plugins-dropdown-wrap {
+  min-width: 0;
+}
+.pi-plugins .plugins-setting-control > .plugins-dropdown-wrap,
+.pi-plugins .plugins-market-settings-control > .plugins-dropdown-wrap {
+  flex: 1 1 auto;
+}
+.plugins-dropdown-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  pointer-events: none;
+}
+/* 顶层浮层避开滚动区域裁剪，具体位置按锚点和可用窗口空间计算。 */
+.pi-plugins .plugins-menu.plugins-dropdown-menu {
+  position: fixed;
+  right: auto;
+  min-width: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  box-sizing: border-box;
+  pointer-events: auto;
+}
+.pi-plugins .plugins-dropdown-option {
+  justify-content: space-between;
+}
+.pi-plugins .plugins-dropdown-option > svg {
+  flex: 0 0 auto;
+  color: var(--ds-text-muted);
+}
+/* 当前值保留勾选，键盘活动项单独高亮。 */
+.pi-plugins .plugins-dropdown-option.is-selected {
+  background: color-mix(in oklab, var(--ds-text-primary) 8%, transparent);
+  color: var(--ds-text-primary);
+  font-weight: var(--font-weight-medium);
+}
+.pi-plugins .plugins-dropdown-option.is-selected > svg {
+  color: var(--ds-accent);
+}
+.pi-plugins .plugins-menu .plugins-dropdown-option:hover,
+.pi-plugins .plugins-menu .plugins-dropdown-option.is-active {
+  background: var(--ds-bg-hover);
+}
+.pi-plugins .plugins-dropdown-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .pi-plugins .btn {
   display: inline-flex;
   align-items: center;

@@ -18,6 +18,8 @@ test("market page keeps its selected provider, saved settings and cards after Be
   unpublishedBelfry(t);
   const f = await marketUiFixture(t); await f.open();
   await waitFor(f.view, "document.querySelector('.plugins-card-name')?.textContent==='我的笔记'");
+  const aligned = await f.view.cdp.evaluate(`(()=>{const source=document.querySelector(${JSON.stringify(SOURCE_SELECT)}).getBoundingClientRect();const name=document.querySelector('.plugins-market-name input').getBoundingClientRect();return source.width===name.width&&source.right===name.right;})()`);
+  assert.equal(true, aligned, "来源控件应与同列输入框对齐");
   await selectSource(f.view, "belfry");
   await waitFor(f.view, "document.querySelector('[role=alert]')?.textContent.includes('HTTP 404')");
   await waitFor(f.view, READY);

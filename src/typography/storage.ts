@@ -12,6 +12,9 @@ import {
 
 export const TYPOGRAPHY_KEY = "belfry.typography.v1";
 const MANAGED_FONT_FILE = /^(?:custom-font|imported-[a-z0-9]{26})\.(?:ttf|otf|woff|woff2)$/i;
+// 与 styles.css 的 Windows 首帧字体栈保持一致；真实字重随应用分发。
+const WINDOWS_TERMINAL_FONT_STACK =
+  '"JetBrains Mono", "Cascadia Mono", Consolas, "HarmonyOS Sans SC", "Microsoft YaHei UI", "Microsoft YaHei", monospace';
 
 export function loadTypography(
   storage: Pick<Storage, "getItem"> = localStorage,
@@ -70,11 +73,14 @@ export function findActiveImportedFont(config: TypographyConfig) {
 /** 自定义值只作为单个字体名称使用，始终加引号，不能注入额外 CSS 声明。 */
 export function typographyFontStacks(fontFamily: string) {
   const normalized = normalizeFontFamily(fontFamily);
-  if (!normalized) return { ui: DEFAULT_UI_FONT_STACK, mono: DEFAULT_TERMINAL_FONT_STACK };
+  const windows = typeof document !== "undefined"
+    && document.documentElement.dataset.platform === "windows";
+  const mono = windows ? WINDOWS_TERMINAL_FONT_STACK : DEFAULT_TERMINAL_FONT_STACK;
+  if (!normalized) return { ui: DEFAULT_UI_FONT_STACK, mono };
   const quoted = normalized.replaceAll("\\", "\\\\").replaceAll('"', '\\"');
   return {
     ui: `"${quoted}", ${DEFAULT_UI_FONT_STACK}`,
-    mono: `"${quoted}", ${DEFAULT_TERMINAL_FONT_STACK}`,
+    mono: `"${quoted}", ${mono}`,
   };
 }
 

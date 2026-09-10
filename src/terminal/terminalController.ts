@@ -3,9 +3,8 @@ import { getCurrentWebview, type DragDropEvent } from "@tauri-apps/api/webview";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { Terminal } from "@xterm/xterm";
-import type { FontWeight } from "@xterm/xterm";
 import type { TerminalTheme } from "../theme/xtermTheme";
-import { isLightTheme, minimumContrastRatio, withTransparentBackground } from "../theme/xtermTheme";
+import { minimumContrastRatio, withTransparentBackground } from "../theme/xtermTheme";
 import type { TypographyRuntime } from "../typography/contracts";
 import { typographyFontStacks } from "../typography/storage";
 import { watchActivity } from "./activity";
@@ -33,6 +32,7 @@ import {
 } from "./contracts";
 import { emptyInputLine, feedInputLine, muteInputLine } from "./inputLine";
 import { formatDroppedPaths, pointInsideRect } from "./fileDrop";
+import { loadTerminalFonts, terminalFontWeights } from "./fontRendering";
 import { looksLikePasswordPrompt } from "./passwordPrompt";
 import { PromptInput } from "./promptInput";
 import { listenForPromptUserInput } from "./promptUserInput";
@@ -152,6 +152,22 @@ export function mountTerminal(
       current = syncTerminalSize(terminal, current, callbacks);
     }, RESIZE_DEBOUNCE_MS);
   };
+  const refreshTypography = () => {
+    const version = ++typographyVersion;
+    if (host.clientWidth >= MIN_HOST_WIDTH) {
+      fit.fit();
+      scheduleTypographyResize();
+    }
+    void loadTerminalFonts(terminal.options).then(() => {
+      if (disposed || version !== typographyVersion) return;
+      terminal.clearTextureAtlas();
+      if (host.clientWidth < MIN_HOST_WIDTH) return;
+      terminal.refresh(0, Math.max(0, terminal.rows - 1));
+      fit.fit();
+      scheduleTypographyResize();
+    });
+  };
+  refreshTypography();
   const removeImagePasteListener = !useWebClipboard && launch.profileId.startsWith("agent:")
     ? listenForClipboardImagePaste(host, (sequence) => {
       promptInput.onUserInput();
@@ -256,6 +272,7 @@ export function mountTerminal(
       const weights = terminalFontWeights(next);
       terminal.options.fontWeight = weights.fontWeight;
       terminal.options.fontWeightBold = weights.fontWeightBold;
+      refreshTypography();
       // PTY 层也得跟着换：换肤之后再启动的程序会重新查一次背景色。
       if (current) void setTerminalPalette(current.id, toPalette(next)).catch(() => undefined);
       if (current && codexThemeSync.codexStylesEnabled) {
@@ -263,20 +280,8 @@ export function mountTerminal(
       }
     },
     applyTypography: (next) => {
-      const version = ++typographyVersion;
       applyTypographyOptions(terminal, next);
-      if (host.clientWidth >= MIN_HOST_WIDTH) {
-        fit.fit();
-        scheduleTypographyResize();
-      }
-      void loadTerminalFont(next).then(() => {
-        if (disposed || version !== typographyVersion) return;
-        terminal.clearTextureAtlas();
-        if (host.clientWidth < MIN_HOST_WIDTH) return;
-        terminal.refresh(0, Math.max(0, terminal.rows - 1));
-        fit.fit();
-        scheduleTypographyResize();
-      }).catch(() => undefined);
+      refreshTypography();
     },
     search,
     focus: () => terminal.focus(),
@@ -541,30 +546,6 @@ function applyTypographyOptions(
   terminal.clearTextureAtlas();
 }
 
-/**
- * 亮色下整体提一档字重，补偿灰度抗锯齿在浅底上把笔画显细的那一档。
- *
- * 一并把 bold 从 500 提到 600 是必须的：常见等宽字体只有 Regular 与 Bold 两档
- * （Menlo、Monaco、Consolas 都是），500 会被字体匹配落回 400——也就是亮色下
- * 正文和粗体会渲染成一模一样。600 至少能命中 Bold。
- *
- * 只有真的带 Medium 的字体（SF Mono、Cascadia Mono 这类可变字体）才吃得到 400→500
- * 这一档；落到只有两档的字体上，normal 这条静默无变化，不会退化成合成假粗
- * （styles.css 有全局 `font-synthesis: none`，而 WebGL 的字形图集走 canvas，
- * 那边浏览器也只做最近档匹配）。
- *
- * 等宽字体各字重同宽是设计要求，所以这里不重新 fit：cell 宽度不变，
- * xterm 自己会因 fontWeight 变更清一次字形图集并全量重绘。
- */
-function terminalFontWeights(theme: TerminalTheme): {
-  fontWeight: FontWeight;
-  fontWeightBold: FontWeight;
-} {
-  return isLightTheme(theme)
-    ? { fontWeight: 500, fontWeightBold: 600 }
-    : { fontWeight: 400, fontWeightBold: 500 };
-}
-
 function syncTerminalSize(
   terminal: Terminal,
   current: TerminalSession | null,
@@ -577,12 +558,6 @@ function syncTerminalSize(
     callbacks.onError(errorMessage(error));
   });
   return next;
-}
-
-function loadTerminalFont(config: TypographyRuntime): Promise<FontFace[]> {
-  if (!document.fonts) return Promise.resolve([]);
-  const family = typographyFontStacks(config.fontFamily).mono;
-  return document.fonts.load(`${config.fontSize}px ${family}`);
 }
 
 /* 必须走 WebGL renderer，不是为了性能而是为了画对块字符。

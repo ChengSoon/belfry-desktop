@@ -6,8 +6,8 @@
     pip3 install fonttools brotli
     python3 scripts/build-fonts.py
 
-上游来源见 public/fonts/README.md。字重只出 400/500 两档：src/styles.css 开了
-font-synthesis: none，多打的字重不会被用到，少打的也不会被合成。
+上游来源见 public/fonts/README.md。中文提供 400/500，等宽提供 400/500/600：
+src/styles.css 开了 font-synthesis: none，终端必须有真实的 Medium / SemiBold。
 """
 
 from __future__ import annotations
@@ -97,12 +97,13 @@ def main() -> None:
             unicodes=ranges,
         )
 
-    # 等宽只用于终端和路径，拉丁范围就够，中文会落到上面的 sans。
-    subset(
-        SRC_DIR / "package" / "files" / "jetbrains-mono-latin-400-normal.woff2",
-        OUT_DIR / "JetBrainsMono-Regular.woff2",
-        unicodes=unicodes_arg(),
-    )
+    # 等宽用于终端和路径；Windows 的中文回退显式使用上面的 sans。
+    for weight, name in ((400, "Regular"), (500, "Medium"), (600, "SemiBold")):
+        subset(
+            SRC_DIR / "package" / "files" / f"jetbrains-mono-latin-{weight}-normal.woff2",
+            OUT_DIR / f"JetBrainsMono-{name}.woff2",
+            unicodes=unicodes_arg(),
+        )
 
 
 if __name__ == "__main__":

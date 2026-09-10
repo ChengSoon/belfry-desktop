@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_TERMINAL_FONT_STACK,
   DEFAULT_TYPOGRAPHY,
@@ -148,5 +148,29 @@ describe("typography config persistence", () => {
       },
     };
     expect(loadTypography(storage)).toEqual(DEFAULT_TYPOGRAPHY);
+  });
+});
+
+describe("Windows 默认字体", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("优先使用内置等宽字体，并在通用字体前指定中文回退", () => {
+    vi.stubGlobal("document", { documentElement: { dataset: { platform: "windows" } } });
+    const stacks = typographyFontStacks("");
+    expect(stacks.ui).toBe(DEFAULT_UI_FONT_STACK);
+    expect(stacks.mono.split(",")[0]).toBe('"JetBrains Mono"');
+    expect(stacks.mono).toContain('"HarmonyOS Sans SC"');
+    expect(stacks.mono.indexOf('"HarmonyOS Sans SC"')).toBeLessThan(stacks.mono.indexOf("monospace"));
+  });
+
+  it("用户选择的字体仍优先于 Windows 默认字体", () => {
+    vi.stubGlobal("document", { documentElement: { dataset: { platform: "windows" } } });
+    expect(typographyFontStacks('Mono "Alt"').mono)
+      .toBe(`"Mono \\"Alt\\"", ${typographyFontStacks("").mono}`);
+  });
+
+  it("macOS 保留原有的系统字体栈", () => {
+    vi.stubGlobal("document", { documentElement: { dataset: { platform: "macos" } } });
+    expect(typographyFontStacks("").mono).toBe(DEFAULT_TERMINAL_FONT_STACK);
   });
 });

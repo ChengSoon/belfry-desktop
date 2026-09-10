@@ -1,7 +1,7 @@
 /* 中文字体随包分发，不依赖系统安装：Windows 上原先落到微软雅黑，小字号笔画细、发灰。
    产物由 scripts/build-fonts.py 子集化生成，许可见 public/fonts/。
-   只打包 400/500 两档字重——配合下面的 font-synthesis: none，
-   600/700 的声明不会变粗而是保持常规，所以全站字重必须收敛到这两档。
+   中文只打包 400/500 两档字重，UI 使用这两档；终端等宽字体另有真实的 600。
+   配合下面的 font-synthesis: none，避免缺失字重时合成模糊的笔画。
 
    两个 face 都用 unicode-range 圈到中日韩区段，只接管中文；西文交给系统字体。
    这不能靠把系统字体排在前面实现：macOS 的 -apple-system 自带一套 CJK 回退，
@@ -31,6 +31,22 @@
   font-family: "JetBrains Mono";
   src: url("/fonts/JetBrainsMono-Regular.woff2") format("woff2");
   font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("/fonts/JetBrainsMono-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("/fonts/JetBrainsMono-SemiBold.woff2") format("woff2");
+  font-weight: 600;
   font-style: normal;
   font-display: block;
 }
@@ -151,7 +167,11 @@
 
 /* 平台标记由 index.html 的首帧脚本写在 <html> 上，和 data-theme 同一处。 */
 [data-platform="macos"] { --titlebar-inset: 28px; }
-[data-platform="windows"] { --titlebar-inset: 40px; }
+[data-platform="windows"] {
+  --titlebar-inset: 40px;
+  --font-mono: "JetBrains Mono", "Cascadia Mono", Consolas, "HarmonyOS Sans SC",
+    "Microsoft YaHei UI", "Microsoft YaHei", monospace;
+}
 
 * { box-sizing: border-box; }
 
