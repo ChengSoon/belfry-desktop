@@ -1,0 +1,4 @@
+.plugin-toast { position: fixed; z-index: 200; right: 24px; bottom: 24px; max-width: min(480px, calc(100vw - 64px)); display: flex; align-items: start; gap: 16px; padding: 14px 18px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); color: var(--text); box-shadow: 0 8px 30px #0003; font-size: var(--fs-sm); }
+.plugin-toast span { overflow-wrap: anywhere; white-space: pre-wrap; }
+.plugin-toast button { border: 0; background: transparent; color: var(--text-muted); cursor: pointer; font-size: 20px; line-height: 1; padding: 0 2px; }
+.plugin-toast button:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }

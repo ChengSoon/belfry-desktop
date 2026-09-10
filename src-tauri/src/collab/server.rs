@@ -62,7 +62,11 @@ impl Listener {
         use std::os::unix::fs::PermissionsExt;
 
         let path = socket_path()?;
-        // 先扫掉自己那些没退干净的旧 socket，别让临时目录慢慢攒满。
+        // 先立自己的活体标记，再建 socket。顺序反过来会开一个窗口：socket 文件
+        // 已经在了、标记还没有，这时候别的实例扫到这里会退回 connect 探测，而
+        // 我们还没开始 accept，正好被判死、文件被删。
+        hold_live_lock(&path);
+        // 扫掉自己那些没退干净的旧 socket，别让临时目录慢慢攒满。
         sweep_stale_sockets();
         // 同名文件还在（pid 复用这种极小概率）会让 bind 报「地址已占用」。
         let _ = std::fs::remove_file(&path);
@@ -402,8 +406,8 @@ fn socket_path() -> Option<std::path::PathBuf> {
 
 /// 清掉自己那些没退干净的旧 socket。
 ///
-/// 带 pid 命名之后残留文件不会撞车，但会一个个攒在临时目录里。判活不用信号
-/// （pid 会被复用），而是试着连一下：连得上说明有实例在服务，不能动。
+/// 带 pid 命名之后残留文件不会撞车，但会一个个攒在临时目录里。判活看的是活体
+/// 标记（见 `owner_is_gone`），不是信号也不是「连一下试试」。
 #[cfg(unix)]
 fn sweep_stale_sockets() {
     let Some(current) = socket_path() else {
@@ -430,13 +434,122 @@ fn sweep_stale_sockets_in(dir: &std::path::Path, prefix: &str, current: &std::pa
         let Some(name) = path.file_name().and_then(|value| value.to_str()) else {
             continue;
         };
-        if !name.starts_with(prefix) || !name.ends_with(".sock") || path == current {
+        if !name.starts_with(prefix) {
             continue;
         }
-        if std::os::unix::net::UnixStream::connect(&path).is_err() {
-            let _ = std::fs::remove_file(&path);
+        // 落单的活体标记：上面那轮只遍历 .sock，收不到它们，会自己在临时目录里
+        // 攒着。同样只在抢到锁时才动手——注意这里也覆盖了本进程自己的标记（sweep
+        // 跑在 bind 之前，此刻我们的 .sock 还没建，看起来正是「落单」的），靠的是
+        // flock 按 fd 计：换个 fd 打开也抢不到，所以自己的标记扫不掉。
+        if name.ends_with(".lock") && !path.with_extension("sock").exists() {
+            if try_grab_existing(&path).is_some() {
+                let _ = std::fs::remove_file(&path);
+            }
+            continue;
         }
+        if !name.ends_with(".sock") || path == current {
+            continue;
+        }
+        if !owner_is_gone(&path) {
+            continue;
+        }
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(live_lock_path(&path));
     }
+}
+
+/// socket 旁边那个活体标记的路径：`belfry-501-73734.sock` → `…-73734.lock`。
+#[cfg(unix)]
+fn live_lock_path(socket: &std::path::Path) -> std::path::PathBuf {
+    socket.with_extension("lock")
+}
+
+/// 这个 socket 的主人还在不在。
+///
+/// 有活体标记就只认它：抢到锁说明原主人已经不在了。没有标记（升级前留下的
+/// socket）才退回 connect 探测——那条路会误判，但只作用于这批老残留。
+#[cfg(unix)]
+fn owner_is_gone(socket: &std::path::Path) -> bool {
+    let lock = live_lock_path(socket);
+    if lock.exists() {
+        // 抢到就 drop，我们只是探一下，不占着。
+        return try_grab_existing(&lock).is_some();
+    }
+    std::os::unix::net::UnixStream::connect(socket).is_err()
+}
+
+/// 活体标记要活到进程结束，所以存进 static 而不是靠局部变量或结构体字段。
+///
+/// File 一旦 drop，flock 立刻就放了，别的实例会把我们的 socket 当残留删掉。
+/// 那个后果特别隐蔽：Unix socket 的 listener 绑的是 inode，文件被 unlink 之后
+/// 服务端毫无感知——fd 还有效、还在 accept、`lsof` 还显示那个路径，但客户端
+/// 拿路径连过来永远 ENOENT，报错指向「文件不存在」，看起来像应用没启动。
+/// 拿着标记的那个 fd 会被 spawn 出去的 PTY 子进程短暂继承（fork 复制一份，exec
+/// 时 O_CLOEXEC 才关掉）。所以判活偶尔会假阳性：主进程已经退了，锁却还被某个
+/// 正在 fork 的子进程按着。这个方向是刻意选的——把死实例判成活的只是让残留文件
+/// 多留一轮，下次启动会收掉；把活实例判成死的才是要命的，那就是这套标记要挡的。
+#[cfg(unix)]
+static LIVE_LOCK: std::sync::OnceLock<std::fs::File> = std::sync::OnceLock::new();
+
+#[cfg(unix)]
+fn hold_live_lock(socket: &std::path::Path) {
+    if let Some(file) = hold_live_lock_at(socket) {
+        let _ = LIVE_LOCK.set(file);
+    }
+}
+
+/// 建标记文件并抢锁，把 File 交回调用方——**必须一直握着**，见 `LIVE_LOCK`。
+#[cfg(unix)]
+fn hold_live_lock_at(socket: &std::path::Path) -> Option<std::fs::File> {
+    use std::os::unix::fs::PermissionsExt;
+
+    let path = live_lock_path(socket);
+    let file = std::fs::OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(false)
+        .open(&path)
+        .ok()?;
+    // 和 socket 一样锁到本用户：别人连不上，也别让别人来抢我们的标记。
+    let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600));
+    try_grab(file)
+}
+
+/// 只对已存在的文件抢锁。不带 create：「文件不存在」要能和「存在但被占着」
+/// 分开——如果这里顺手把文件建出来，就永远抢得到，等于把所有人判死。
+///
+/// 这也是没法复用 `plugins::owner::PluginOwner` 的原因：它的 `open_file` 带
+/// `create(true)`，那个语义对「占坑」是对的，对「探活」是错的。
+#[cfg(unix)]
+fn try_grab_existing(path: &std::path::Path) -> Option<std::fs::File> {
+    let file = std::fs::OpenOptions::new().write(true).open(path).ok()?;
+    try_grab(file)
+}
+
+#[cfg(unix)]
+fn try_grab(file: std::fs::File) -> Option<std::fs::File> {
+    use std::os::unix::io::AsRawFd;
+
+    // 用 flock 而不是 fcntl 记录锁：flock 按打开的文件描述计，同一进程里换个 fd
+    // 打开同一文件也抢不到——POSIX 记录锁是按进程算的，会直接给我们放行，那样
+    // 自测和同进程多实例都会把对方误判成死的。
+    //
+    // 另一个好处是不用往文件里写 pid：进程被 SIGKILL 掉，内核自动放锁，不会留
+    // 下一把永远解不开的锁。
+    if unsafe { flock(file.as_raw_fd(), LOCK_EX | LOCK_NB) } == 0 {
+        return Some(file);
+    }
+    None
+}
+
+#[cfg(unix)]
+const LOCK_EX: i32 = 2;
+#[cfg(unix)]
+const LOCK_NB: i32 = 4;
+
+#[cfg(unix)]
+unsafe extern "C" {
+    fn flock(fd: i32, operation: i32) -> i32;
 }
 
 #[cfg(unix)]

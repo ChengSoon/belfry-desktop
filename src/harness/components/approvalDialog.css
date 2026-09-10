@@ -1,0 +1,21 @@
+.harness-approval__panel { width: min(560px, calc(100vw - 28px)); max-height: min(620px, calc(100vh - 28px)); overflow: auto; }
+.harness-approval__panel header { display: flex; gap: 10px; align-items: center; }
+.harness-approval__panel header svg { color: var(--warning, #a56a1c); }
+.harness-approval__panel header div { display: grid; gap: 2px; }
+.harness-approval__panel header span { color: var(--text-muted); font-size: var(--fs-xs); }
+.harness-approval__risk { display: flex; gap: 7px; margin: 14px 0; padding: 9px; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-muted); background: var(--surface); font-size: var(--fs-sm); }
+.harness-approval dl { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 8px 12px; margin: 0; }
+.harness-approval dt { color: var(--text-muted); font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .06em; }
+.harness-approval dd { min-width: 0; margin: 0; overflow-wrap: anywhere; }
+.harness-approval ol { margin: 0; padding-left: 20px; }
+.harness-approval code { font-family: var(--font-mono); white-space: pre-wrap; }
+.harness-approval__diff { max-height: 280px; overflow: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--canvas); }
+.harness-approval__diff section > header { padding: 4px 8px; color: var(--text-muted); background: var(--surface); font: var(--fs-xs) var(--font-mono); }
+.harness-approval__diff section > div { display: grid; grid-template-columns: 3.5em 3.5em minmax(max-content, 1fr); min-width: max-content; }
+.harness-approval__diff section > div > span { padding: 1px 5px; color: var(--text-muted); border-right: 1px solid var(--border); text-align: end; font: var(--fs-xs) var(--font-mono); user-select: none; }
+.harness-approval__diff section code { padding: 1px 8px; white-space: pre; }
+.harness-approval__diff [data-kind="add"] { background: color-mix(in srgb, var(--success, #39845a) 13%, transparent); }
+.harness-approval__diff [data-kind="delete"] { background: color-mix(in srgb, var(--danger, #c84b4b) 13%, transparent); }
+.harness-approval__diff > p { margin: 8px; color: var(--warning, #a56a1c); font-size: var(--fs-xs); }
+.harness-approval__allow { color: var(--canvas) !important; background: var(--accent) !important; }
+@media (max-width: 720px) { .harness-approval__panel { max-height: calc(100vh - 20px); } .harness-approval dl { grid-template-columns: 1fr; gap: 3px; } .harness-approval dd { margin-bottom: 8px; } }

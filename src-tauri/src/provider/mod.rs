@@ -14,3 +14,4 @@ mod contracts;
 mod envcheck;
 mod service;
 mod store;
+pub(crate) mod plugin_gateway;

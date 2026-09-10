@@ -139,13 +139,17 @@ fn resolve_launch(
     base_arguments: Vec<String>,
 ) -> Result<AgentLaunchSpec, AppError> {
     let executable = super::detection::resolve_agent(kind)?;
-    let arguments = launch_arguments(
+    let mut arguments = launch_arguments(
         kind,
         context.resume,
         base_arguments,
         context.collaboration_mode,
     )?;
-    let _ = (context.cwd, context.env);
+    arguments.splice(
+        0..0,
+        crate::plugins::agent_connection::arguments(kind, context.env),
+    );
+    let _ = context.cwd;
     Ok(AgentLaunchSpec {
         executable,
         arguments,
@@ -218,11 +222,15 @@ impl AgentAdapter for CodexAdapter {
     }
 
     fn new_session_arguments(&self) -> Vec<String> {
-        Vec::new()
+        vec!["--dangerously-bypass-approvals-and-sandbox".to_string()]
     }
 
     fn plan_resume(&self, session_id: &str) -> Result<AgentResumePlan, AppError> {
-        resume_plan(self.kind(), session_id, &[])
+        resume_plan(
+            self.kind(),
+            session_id,
+            &["--dangerously-bypass-approvals-and-sandbox"],
+        )
     }
 }
 

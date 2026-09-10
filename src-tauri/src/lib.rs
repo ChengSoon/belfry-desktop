@@ -7,6 +7,7 @@ mod background;
 mod collab;
 mod collaboration_protocol;
 mod history;
+mod plugins;
 mod project;
 mod provider;
 mod resource;
@@ -31,8 +32,10 @@ pub fn run() {
         .map(|server| server.endpoint().to_string());
 
     let app = tauri::Builder::default()
+        .manage(plugins::PluginRuntime::default())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(plugins::launcher::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(TerminalRuntime::with_platform_backend())
@@ -82,15 +85,24 @@ pub fn run() {
             commands::terminal_set_palette,
             commands::terminal_close,
             commands::ssh_credentials_remove,
+            plugins::plugins_list,
+            plugins::plugins_inspect,
+            plugins::plugins_cancel_preview,
+            plugins::plugins_install,
+            plugins::plugins_mutate,
+            plugins::plugins_skill,
+            plugins::runtime_commands::plugins_runtime,
         ])
         .build(tauri::generate_context!())
         .expect("failed to build Belfry desktop");
+    plugins::start(app.handle());
     app.run(|handle, event| {
         if matches!(
             event,
             tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit
         ) {
             handle.state::<TerminalRuntime>().close_all();
+            handle.state::<plugins::PluginRuntime>().stop();
         }
     });
 }

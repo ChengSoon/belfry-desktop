@@ -1,0 +1,228 @@
+/* Adapted from PI-Desktop 4fb58d3, LGPL-3.0. See third_party/pi-desktop/NOTICE.md. */
+.pi-plugins .plugins-menu button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+.pi-plugins .plugins-menu button:disabled:hover {
+  background: transparent;
+}
+.pi-plugins .plugins-menu button.danger,
+.pi-plugins .plugins-menu button.danger > svg {
+  color: var(--ds-error);
+}
+.pi-plugins .plugins-menu button.danger:hover {
+  background: color-mix(in oklab, var(--ds-error) 12%, transparent);
+}
+/* Menu groups are separated by a breath of space; the destructive item's
+   colour already sets it apart. */
+.pi-plugins .plugins-menu-sep {
+  height: 6px;
+}
+/* Generated settings surface for declarative plugin fields. */
+.pi-plugins .plugins-settings-modal {
+  width: min(620px, calc(100vw - 32px));
+  max-height: min(720px, calc(100vh - 32px));
+}
+.pi-plugins .plugins-settings-heading {
+  flex: 1;
+  min-width: 0;
+}
+.pi-plugins .plugins-settings-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 460px;
+  overflow: auto;
+  padding: 0 18px;
+}
+.pi-plugins .plugins-setting-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: var(--plugins-tile);
+}
+.pi-plugins .plugins-setting-copy {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.pi-plugins .plugins-setting-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ds-text-primary);
+  font-size: var(--text-sm-plus);
+  font-weight: var(--font-weight-medium-plus);
+}
+.pi-plugins .plugins-setting-title > svg {
+  color: var(--ds-text-muted);
+  flex: 0 0 auto;
+}
+.pi-plugins .plugins-setting-description {
+  margin: 4px 0 0;
+  color: var(--ds-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-body);
+}
+.pi-plugins .plugins-setting-scope {
+  display: inline-flex;
+  margin-top: 5px;
+  border-radius: var(--radius-full);
+  padding: 2px 7px;
+  color: var(--ds-text-muted);
+  background: color-mix(in oklab, var(--ds-text-primary) 6%, transparent);
+  font-size: var(--text-3xs);
+}
+.pi-plugins .plugins-setting-control {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex: 0 0 min(290px, 48%);
+}
+.pi-plugins .plugins-setting-control > .field-input,
+.pi-plugins .plugins-setting-control > .field-select {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.pi-plugins .plugins-setting-json {
+  min-height: 72px;
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+.pi-plugins .plugins-setting-reset {
+  flex: 0 0 auto;
+  color: var(--ds-text-muted);
+  font-size: var(--text-2xs);
+  white-space: nowrap;
+}
+.pi-plugins .plugins-setting-reset:hover {
+  color: var(--ds-text-primary);
+}
+.pi-plugins .plugins-shortcut-recorder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 126px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  padding: 0 10px;
+  color: var(--ds-text-primary);
+  background: var(--plugins-raised);
+  box-shadow: var(--plugins-raised-shadow);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+.pi-plugins .plugins-shortcut-recorder:hover,
+.pi-plugins .plugins-shortcut-recorder:focus-visible,
+.pi-plugins .plugins-shortcut-recorder.recording {
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--ds-accent) 30%, transparent);
+}
+.pi-plugins .plugins-shortcut-recorder.error {
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--ds-error) 35%, transparent);
+}
+.pi-plugins .plugins-settings-error {
+  margin: 10px 18px 0;
+  color: var(--ds-error);
+  font-size: var(--text-xs);
+  line-height: var(--leading-body);
+}
+@media (max-width: 620px) {
+  .pi-plugins .plugins-setting-row {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .pi-plugins .plugins-setting-control {
+    width: 100%;
+    flex-basis: auto;
+  }
+}
+/* Empty / no-match states: one soft tile, centred copy. */
+.pi-plugins .plugins-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  border-radius: var(--radius-lg);
+  padding: 36px 24px 30px;
+  background: var(--plugins-tile);
+  text-align: center;
+}
+.pi-plugins .plugins-empty-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  margin-bottom: 6px;
+  border-radius: var(--radius-full);
+  background: color-mix(in oklab, var(--ds-text-primary) 7%, transparent);
+  color: var(--ds-text-secondary);
+}
+.pi-plugins .plugins-empty-title {
+  margin: 0;
+  color: var(--ds-text-primary);
+  font-size: var(--text-base-plus);
+  font-weight: var(--font-weight-medium-plus);
+}
+.pi-plugins .plugins-empty-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+/* Marketplace: category chips + card grid. */
+.pi-plugins .plugins-filters {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.pi-plugins .plugins-filter {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 11px;
+  border-radius: var(--radius-full);
+  color: var(--ds-text-secondary);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  background: var(--plugins-tile);
+  transition:
+    background var(--motion-duration-fast) var(--motion-ease-out),
+    color var(--motion-duration-fast) var(--motion-ease-out);
+}
+.pi-plugins .plugins-filter:hover {
+  background: var(--plugins-tile-hover);
+  color: var(--ds-text-primary);
+}
+.pi-plugins .plugins-filter.active {
+  background: color-mix(in oklab, var(--ds-text-primary) 12%, transparent);
+  color: var(--ds-text-primary);
+}
+.pi-plugins .plugins-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(272px, 1fr));
+  gap: 12px;
+}
+/* Marketplace cards are tiles too: tint at rest, lifted by shadow on hover. */
+.pi-plugins .plugins-card {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-lg);
+  background: var(--plugins-tile);
+  overflow: hidden;
+  transition:
+    background var(--motion-duration-fast) var(--motion-ease-out),
+    box-shadow var(--motion-duration-fast) var(--motion-ease-out),
+    transform var(--motion-duration-fast) var(--motion-ease-out);
+}
+.pi-plugins .plugins-card:hover {
+  transform: translateY(-1px);
+  background: var(--plugins-raised);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+}

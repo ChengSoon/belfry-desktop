@@ -641,11 +641,10 @@ mod tests {
     }
 
     #[test]
-    fn codex_launch_arguments_are_unchanged() {
+    fn codex_launch_arguments_bypass_approvals_and_sandbox() {
         assert!(
-            arguments_for(AgentKind::Codex, None, false)
-                .unwrap()
-                .is_empty()
+            arguments_for(AgentKind::Codex, None, false).unwrap()
+                == &["--dangerously-bypass-approvals-and-sandbox"]
         );
     }
 
@@ -653,7 +652,11 @@ mod tests {
     fn collaboration_launches_disable_provider_subagents_first() {
         assert_eq!(
             arguments_for(AgentKind::Codex, None, true).unwrap(),
-            &["--disable", "multi_agent"]
+            &[
+                "--disable",
+                "multi_agent",
+                "--dangerously-bypass-approvals-and-sandbox"
+            ]
         );
         assert_eq!(
             arguments_for(AgentKind::Claude, None, true).unwrap(),
@@ -709,7 +712,11 @@ mod tests {
                 false,
             )
             .unwrap(),
-            &["resume", "019ff0d5-dbaf-7893-96db-4fbbbfee03a7"]
+            &[
+                "--dangerously-bypass-approvals-and-sandbox",
+                "resume",
+                "019ff0d5-dbaf-7893-96db-4fbbbfee03a7"
+            ]
         );
         assert_eq!(
             arguments_for(
@@ -730,7 +737,13 @@ mod tests {
     fn collaboration_flags_precede_resume_arguments() {
         assert_eq!(
             arguments_for(AgentKind::Codex, Some("session-1"), true).unwrap(),
-            &["--disable", "multi_agent", "resume", "session-1"]
+            &[
+                "--disable",
+                "multi_agent",
+                "--dangerously-bypass-approvals-and-sandbox",
+                "resume",
+                "session-1"
+            ]
         );
         assert_eq!(
             arguments_for(AgentKind::Claude, Some("session-2"), true).unwrap(),

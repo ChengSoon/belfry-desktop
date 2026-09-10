@@ -34,6 +34,8 @@ import {
 import { emptyInputLine, feedInputLine, muteInputLine } from "./inputLine";
 import { formatDroppedPaths, pointInsideRect } from "./fileDrop";
 import { looksLikePasswordPrompt } from "./passwordPrompt";
+import { PromptInput } from "./promptInput";
+import { listenForPromptUserInput } from "./promptUserInput";
 import { acceptSequence } from "./sequence";
 import { registerFileLinkProvider, registerHttpLinkProvider } from "./links";
 import { TerminalSearchController } from "./search";
@@ -118,7 +120,7 @@ export function mountTerminal(
       // 让它走可信的原生 paste 事件；图片载荷会在下面转成终端 Ctrl+V。
       if (!useWebClipboard) return true;
       if (typeof navigator.clipboard?.readText !== "function") return true;
-      return consumeWebClipboardPaste(event, () => void pasteClipboard(terminal));
+      return consumeWebClipboardPaste(event, () => void pasteClipboard(terminal, () => promptInput.onUserInput()));
     }
     if (key === "f") {
       callbacks.onSearchRequest();
@@ -151,10 +153,20 @@ export function mountTerminal(
     }, RESIZE_DEBOUNCE_MS);
   };
   const removeImagePasteListener = !useWebClipboard && launch.profileId.startsWith("agent:")
-    ? listenForClipboardImagePaste(host, (sequence) => terminal.input(sequence, true))
+    ? listenForClipboardImagePaste(host, (sequence) => {
+      promptInput.onUserInput();
+      terminal.input(sequence, true);
+    })
     : null;
   let expectedSequence = 0;
-  let writeQueue = Promise.resolve();
+  const promptInput = new PromptInput({
+    session: () => disposed ? null : current?.id ?? null,
+    paste: (text) => terminal.paste(text),
+    enter: () => terminal.input("\r", true),
+    write: (id, data) => writeTerminal(id, new TextEncoder().encode(data)),
+    error: (error) => callbacks.onError(`终端输入失败，已停止自动提交：${errorMessage(error)}`),
+  });
+  const removePromptUserInput = listenForPromptUserInput({ terminal, host, onInput: () => promptInput.onUserInput() });
   const outputDecoder = new TextDecoder();
   let outputTail = "";
   let inputLine = emptyInputLine();
@@ -202,21 +214,17 @@ export function mountTerminal(
 
   const input = terminal.onData((data) => {
     if (!current) return;
-    const currentId = current.id;
-    const bytes = new TextEncoder().encode(data);
     const fed = feedInputLine(inputLine, data);
     inputLine = fed.state;
     for (const line of fed.submitted) {
       callbacks.onInput(line);
       if (!isCodexProfile && isCodexCommand(line)) codexThemeSync.enableCodexStyles();
     }
-    writeQueue = writeQueue
-      .then(() => writeTerminal(currentId, bytes))
-      .catch((error) => callbacks.onError(errorMessage(error)));
+    promptInput.onData(data);
   });
   let removeFileDropListener: (() => void) | null = null;
   void getCurrentWebview().onDragDropEvent((event) => {
-    handleFileDropEvent(event.payload, host, terminal, current);
+    if (handleFileDropEvent(event.payload, host, terminal, current)) promptInput.onUserInput();
   }).then((unlisten) => {
     if (disposed) unlisten();
     else removeFileDropListener = unlisten;
@@ -275,10 +283,7 @@ export function mountTerminal(
     sendText: (text) => {
       if (disposed || !current || !text) return false;
       terminal.focus();
-      // paste() 保留多行内容并遵守 bracketed-paste；回车放在 paste 之外才会真正提交。
-      terminal.paste(text);
-      terminal.input("\r", true);
-      return true;
+      return promptInput.sendText(text);
     },
     dispose: () => {
       disposed = true;
@@ -288,6 +293,7 @@ export function mountTerminal(
       window.clearTimeout(typographyResizeTimer);
       observer.disconnect();
       input.dispose();
+      removePromptUserInput();
       activity?.dispose();
       if (current) void closeTerminal(current.id).catch(() => undefined);
       renderer?.dispose();
@@ -326,13 +332,17 @@ function handleFileDropEvent(
   terminal.focus();
   // paste() 会遵守应用开启的 bracketed-paste mode，路径只进入输入区，不会自动执行。
   terminal.paste(text);
+  return true;
 }
 
-async function pasteClipboard(terminal: Terminal) {
+async function pasteClipboard(terminal: Terminal, onInput: () => void) {
   try {
     const clipboard = navigator.clipboard;
     const text = await clipboard.readText();
-    if (text) terminal.paste(text);
+    if (text) {
+      onInput();
+      terminal.paste(text);
+    }
   } catch {
     // Clipboard access may be unavailable in a locked-down WebView. In that case
     // leave the terminal untouched; native context-menu paste remains available.

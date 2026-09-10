@@ -70,8 +70,7 @@ describe("deliverPending", () => {
   });
 
   it("回执失败会往上抛，由外层那一拍兜住", async () => {
-    // 不在这里咽掉：吞了的话这条已经投进终端、Rust 却还当它待投递，
-    // 下一轮会再投一次，用户看到同一句话贴了两遍。
+    // 保留失败信号交给 hook 重试；跨轮去重由 accepted 集合负责。
     const failing = {
       fetch: async () => [task("01aa")],
       submit: () => "sent" as PromptSubmitResult,
@@ -83,3 +82,13 @@ describe("deliverPending", () => {
     await expect(deliverPending(failing)).rejects.toThrow("IPC 断了");
   });
 });
+
+ it.each(["sent", "queued"] as const)("%s 回执失败重试只回执，不再次提交已接管的任务", async (result) => {
+   const { submit, ack, all } = ports([task("retry")], result);
+   const accepted = new Set<string>();
+   ack.mockRejectedValueOnce(new Error("IPC 断了"));
+   await expect(deliverPending(all, accepted)).rejects.toThrow("IPC 断了");
+   expect(await deliverPending(all, accepted)).toBe(1);
+   expect(submit).toHaveBeenCalledTimes(1);
+   expect(ack).toHaveBeenCalledTimes(2);
+ });

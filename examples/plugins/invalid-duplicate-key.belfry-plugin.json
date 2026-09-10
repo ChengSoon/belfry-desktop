@@ -1,0 +1,1 @@
+{"schemaVersion":1,"id":"example.invalid","name":"非法重复键示例","version":"1.0.0","author":"Example","compatibility":{"pluginApi":1,"minAppVersion":"0.19.0"},"contributes":{"templates":[{"id":"one","kind":"prompt","name":"One","steps":[{"id":"step","text":"one"}]}]},"i\u0064":"example.duplicate"}

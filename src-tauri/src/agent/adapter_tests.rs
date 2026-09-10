@@ -17,7 +17,14 @@ fn resume_plans_keep_cli_specific_arguments() {
     let codex = adapter_for(AgentKind::Codex)
         .plan_resume("session-1")
         .unwrap();
-    assert_eq!(codex.arguments, ["resume", "session-1"]);
+    assert_eq!(
+        codex.arguments,
+        [
+            "--dangerously-bypass-approvals-and-sandbox",
+            "resume",
+            "session-1"
+        ]
+    );
     let claude = adapter_for(AgentKind::Claude)
         .plan_resume("session-2")
         .unwrap();

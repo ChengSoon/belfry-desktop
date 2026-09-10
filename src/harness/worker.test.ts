@@ -1,0 +1,3 @@
+import { describe, expect, it } from "vitest";
+import { validateHarnessManifest } from "./validate";
+describe("Harness contract fixtures", () => { it("validates executable plus argv and bounded workflow", () => expect(() => validateHarnessManifest({ schemaVersion: 1, id: "example.coding", name: "Example", version: "1.0.0", entry: { command: "worker", args: [] }, compatibility: { harnessApi: 1, minAppVersion: "0.19.0" }, modelSlots: ["coder"], agents: [{ id: "main", role: "coder", modelSlot: "coder", tools: [], maxTurns: 3 }], capabilities: [{ kind: "project.read" }], context: { providers: ["files"], maxTokens: 1000 }, workflow: { maxSteps: 10, cancellable: true } })).not.toThrow()); });

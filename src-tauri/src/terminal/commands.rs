@@ -1,4 +1,4 @@
-use tauri::{State, ipc::Channel};
+use tauri::{AppHandle, Manager, State, ipc::Channel};
 
 use super::contracts::{
     AppError, CreateTerminalRequest, LaunchProfileId, ShellProfile, SshTarget, TerminalEvent,
@@ -9,15 +9,29 @@ use super::runtime::TerminalRuntime;
 use crate::collab::{CollabEndpoint, SessionIdentities};
 
 #[tauri::command]
-pub fn terminal_create(
-    runtime: State<'_, TerminalRuntime>,
+pub async fn terminal_create(
+    app: AppHandle,
     identities: State<'_, std::sync::Arc<SessionIdentities>>,
     endpoint: State<'_, CollabEndpoint>,
     mut request: CreateTerminalRequest,
     on_event: Channel<TerminalEvent>,
 ) -> Result<TerminalSession, AppError> {
     issue_collab_identity(&identities, endpoint.0.as_deref(), &mut request);
-    runtime.create(request, on_event)
+    tauri::async_runtime::spawn_blocking(move || {
+        let ticket = crate::plugins::agent_connection::attach(&app, &mut request);
+        let result = app.state::<TerminalRuntime>().create(request, on_event);
+        match &result {
+            Ok(session) => crate::plugins::agent_connection::bind(&app, &session.id, ticket),
+            Err(_) => {
+                if let Some(ticket) = ticket {
+                    crate::plugins::agent_connection::revoke(&app, &ticket);
+                }
+            }
+        }
+        result
+    })
+    .await
+    .map_err(|e| AppError::io(e.to_string()))?
 }
 
 /// 给 Agent 会话发协作身份牌，注入进它自己那条 PTY 的环境变量。
@@ -99,11 +113,14 @@ pub fn terminal_set_palette(
 }
 
 #[tauri::command]
-pub fn terminal_close(
-    runtime: State<'_, TerminalRuntime>,
-    session_id: String,
-) -> Result<(), AppError> {
-    runtime.close(&session_id)
+pub async fn terminal_close(app: AppHandle, session_id: String) -> Result<(), AppError> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let result = app.state::<TerminalRuntime>().close(&session_id);
+        crate::plugins::agent_connection::release(&app, &session_id);
+        result
+    })
+    .await
+    .map_err(|e| AppError::io(e.to_string()))?
 }
 
 /// 清除某个 SSH 目标保存的密码。没有存过也算成功，按钮点击无需区分状态。

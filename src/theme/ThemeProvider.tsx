@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import type { ThemeController, ThemeMode } from "./contracts";
-import { loadThemeMode, saveThemeMode } from "./storage";
+import { loadThemeMode, saveThemeMode, THEME_MODE_KEY } from "./storage";
 
 /** 与 styles.css 中两套 --canvas 令牌保持一致，用于同步系统标题栏配色。 */
 const CANVAS_COLOR: Record<ThemeMode, string> = { dark: "#0a0a0b", light: "#fafafa" };
@@ -35,17 +35,26 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, [pinned]);
 
   const select = useCallback((next: ThemeMode) => {
+    window.dispatchEvent(new Event("theme-base-selected"));
     setPinned(true);
     saveThemeMode(next);
     setMode(next);
+  }, []);
+
+  const followSystem = useCallback(() => {
+    window.dispatchEvent(new Event("theme-base-selected"));
+    localStorage.removeItem(THEME_MODE_KEY);
+    setPinned(false);
+    setMode(window.matchMedia(LIGHT_QUERY).matches ? "light" : "dark");
   }, []);
 
   const controller = useMemo<ThemeController>(() => ({
     mode,
     pinned,
     select,
+    followSystem,
     toggle: () => select(mode === "light" ? "dark" : "light"),
-  }), [mode, pinned, select]);
+  }), [mode, pinned, select, followSystem]);
 
   return <ThemeContext value={controller}>{children}</ThemeContext>;
 }

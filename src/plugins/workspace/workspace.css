@@ -1,0 +1,17 @@
+.app-shell.has-plugin-dock { grid-template-columns: auto minmax(0, 1fr) auto; }
+.app-shell.is-collapsed.has-plugin-dock { grid-template-columns: minmax(0, 1fr) auto; }
+.app-shell.is-settings > .plugin-dock, .plugin-dock[hidden], .plugin-dock-frame[hidden] { display: none; }
+.plugin-dock { display: flex; flex-direction: column; min-width: 300px; width: clamp(300px, 39vw, 680px); height: 100%; min-height: 0; padding-top: var(--titlebar-inset); border-left: 1px solid var(--border); background: var(--canvas); color: var(--text); }
+.plugin-dock-header { display: flex; align-items: center; height: 34px; flex: 0 0 auto; gap: 7px; padding: 0 8px 0 12px; border-bottom: 1px solid var(--border); }
+.plugin-dock-header select { min-width: 0; flex: 1; padding: 5px 4px; border: 0; border-radius: 4px; background: var(--canvas); color: var(--text); font-size: var(--fs-sm); }
+.plugin-dock-frame { width: 100%; flex: 1; border: 0; min-height: 0; background: var(--canvas); }
+.plugin-dock-empty { margin: auto; display: grid; gap: 8px; padding: 28px; justify-items: center; text-align: center; color: var(--text-muted); font-size: var(--fs-sm); line-height: 1.6; }
+.plugin-dock-empty p { margin: 4px 0; color: var(--text); }
+.plugin-dock-message { padding: 12px; color: var(--danger); font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.plugin-workbench-actions { position: absolute; z-index: 3; right: 202px; top: calc(var(--titlebar-inset) + 3px); display: flex; gap: 4px; }
+.plugin-workbench-actions button[aria-expanded="true"] { color: var(--accent); background: var(--accent-soft); }
+@container (max-width: 760px) { .workbench .stage-caption { padding-right: 274px; } }
+@container (max-width: 390px) { .workbench .stage-caption .stage-switcher { display: none; } }
+@container (max-width: 268px) { .plugin-workbench-actions { right: auto; left: 4px; } .workbench .collab-trigger, .workbench .recipe-panel-trigger { display: none; } }
+@container (max-width: 200px) { .plugin-workbench-actions { display: none; } }
+@media (max-width: 850px) { .plugin-dock { position: absolute; inset: 0 0 0 auto; z-index: 9; width: min(420px, 90vw); box-shadow: var(--shadow-lg); } }

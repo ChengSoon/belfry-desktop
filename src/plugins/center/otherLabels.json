@@ -1,0 +1,45 @@
+{
+  "settings": {
+    "marketRefreshed": "插件市场已更新（{{count}} 个插件）",
+    "marketSource": "来源：{{url}}",
+    "marketProviderTitle": "扩展市场",
+    "marketProvider": "插件市场来源",
+    "marketProviderOfficial": "GitHub（官方）",
+    "marketProviderMirror": "镜像（cnb.cool）",
+    "marketProviderCustom": "自定义地址",
+    "marketCustomUrl": "目录地址",
+    "marketCustomUrlDesc": "catalog.json 的完整地址。目录内的安装包相对路径会基于该地址解析。",
+    "marketCustomUrlPlaceholder": "https://example.com/catalog.json",
+    "saving": "保存中…"
+  },
+  "extensions": {
+    "scope": {
+      "title": "生效范围",
+      "sheetHint": "选择生效范围。",
+      "ariaLabel": "{{name}} 的生效范围",
+      "off": "关闭",
+      "projects": "指定项目",
+      "global": "全局",
+      "offHint": "已关闭，不会被加载。",
+      "projectsHint": "仅在你选中的项目里生效。",
+      "globalHint": "在所有项目以及未打开项目的对话中生效。",
+      "pickProjects": "选择项目",
+      "projectCount": "{{count}} 个项目",
+      "projectCount_one": "1 个项目",
+      "projectCount_other": "{{count}} 个项目",
+      "pickerTitle": "{{name}} 生效的项目",
+      "searchProjects": "搜索项目",
+      "noProjects": "还没有项目",
+      "noProjectsWarning": "至少选择一个项目，否则不会生效。",
+      "currentProject": "当前打开",
+      "subdirectoryNote": "选中项目的子目录同样生效。"
+    }
+  },
+  "common": {
+    "close": "关闭",
+    "cancel": "取消",
+    "save": "保存",
+    "saving": "正在保存…",
+    "loading": "正在加载…"
+  }
+}

@@ -1,0 +1,268 @@
+/* Adapted from PI-Desktop 4fb58d3, LGPL-3.0. See third_party/pi-desktop/NOTICE.md. */
+/* PI 调色板供插件页面及主题适配共享，宿主仍使用自身的颜色变量。 */
+:root {
+  color-scheme: dark;
+  --gray-0: #ffffff;
+  --gray-50: #f9f9f9;
+  --gray-75: #f3f3f3;
+  --gray-100: #ededed;
+  --gray-300: #afafaf;
+  --gray-500: #5d5d5d;
+  --gray-550: #4f4f4f;
+  --gray-600: #414141;
+  --gray-700: #303030;
+  --gray-750: #282828;
+  --gray-800: #212121;
+  --gray-900: #181818;
+  --gray-1000: #0d0d0d;
+  /* Neutral accent ramp (replaces legacy blue-* accent). */
+  --accent-50: #f3f3f3;
+  --accent-100: #ededed;
+  --accent-300: #afafaf;
+  --accent-400: #ffffff;
+  --accent-900: #303030;
+
+  --ds-bg-primary: var(--gray-900);
+  --ds-bg-sidebar: var(--ds-bg-under); /* Codex surface-under / sideBar */
+  --ds-bg-secondary: var(--gray-800);
+  --ds-bg-tertiary: var(--gray-750);
+  --ds-bg-inset: var(--gray-1000);
+  --ds-bg-under: #000000;
+  --ds-bg-elevated: color-mix(in oklab, var(--gray-800) 96%, transparent);
+  --ds-bg-elevated-opaque: var(--gray-750);
+  --ds-bg-hover: color-mix(in oklab, var(--gray-0) 6%, transparent);
+  --ds-bg-active: color-mix(in oklab, var(--gray-0) 10%, transparent);
+  /* Codex elevated-primary #212121f5 / color-mix(gray-800 96%, transparent) */
+  --ds-bg-composer: color-mix(in oklab, var(--gray-800) 96%, transparent);
+  /*
+    macOS sidebar and boot-splash glass (chrome.css). The native sidebar
+    vibrancy material carries the blur, so the renderer only adds a thin tint
+    plus a sheen; anything heavier reads as a flat panel and hides the
+    material. Tuned so text-muted still clears 4.5:1 on the brightest backdrop
+    the source-list material can produce.
+  */
+  --ds-sidebar-glass-tint: color-mix(in oklab, var(--ds-bg-sidebar) 40%, transparent);
+  --ds-sidebar-glass-sheen-top: color-mix(in oklab, var(--gray-0) 7%, transparent);
+  --ds-sidebar-glass-sheen-bottom: color-mix(in oklab, var(--gray-0) 4%, transparent);
+  --ds-bg-chip: color-mix(in oklab, var(--gray-0) 6%, transparent);
+  --ds-text-primary: var(--gray-0);
+  /*
+    One white-alpha ramp for the whole secondary/muted/faint tier. gray-500 and
+    gray-600 used to sit here, but those are ink values for a pale surface: on
+    the #181818 plate they land at 2.7:1 and 1.7:1, so mono ids, row meta, tool
+    chips, and inactive scope segments were effectively unreadable. Alpha rather
+    than a flat hex keeps each step consistent over hover and elevated fills too.
+  */
+  --ds-text-secondary: color-mix(in oklab, var(--gray-0) 70%, transparent);
+  --ds-text-muted: color-mix(in oklab, var(--gray-0) 52%, transparent);
+  --ds-text-faint: color-mix(in oklab, var(--gray-0) 38%, transparent);
+  --ds-border-default: color-mix(in oklab, var(--gray-0) 8%, transparent);
+  --ds-border-subtle: color-mix(in oklab, var(--gray-0) 5%, transparent);
+  --ds-border-strong: color-mix(in oklab, var(--gray-0) 14%, transparent);
+  /*
+    Divider-free surfaces (D297). In-flow structure is carried by three tonal
+    layers instead of strokes: the page, a soft tile mixed from the text colour,
+    and a raised layer (an opaque lift plus a soft shadow) for the active pill
+    of a control or a block that must read as "on top". Border tokens above stay
+    for floating layers — menus, dialogs, tooltips — where an edge is an
+    elevation cue rather than a partition.
+  */
+  --ds-tile: color-mix(in oklab, var(--gray-0) 3.5%, transparent);
+  --ds-tile-hover: color-mix(in oklab, var(--gray-0) 6%, transparent);
+  --ds-tile-deep: color-mix(in oklab, var(--gray-0) 8%, transparent);
+  --ds-raised: var(--gray-750);
+  --ds-raised-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --ds-accent: var(--gray-0);
+  --ds-accent-hover: var(--gray-100);
+  --ds-accent-soft: var(--gray-300);
+  /*
+    Switch track/knob. Off keeps a dim fill plus a hairline ring so the empty
+    slot still reads as a control; on inverts to the solid accent, so the knob
+    flips polarity with the track instead of only sliding.
+  */
+  --ds-switch-track-off: color-mix(in oklab, var(--gray-0) 10%, transparent);
+  --ds-switch-track-off-hover: color-mix(in oklab, var(--gray-0) 18%, transparent);
+  --ds-switch-ring-off: color-mix(in oklab, var(--gray-0) 22%, transparent);
+  --ds-switch-knob-off: var(--gray-300);
+  --ds-switch-knob-on: var(--gray-900);
+  --ds-success: #40c977;
+  --ds-warning: #ff8549;
+  --ds-error: #ff6764;
+  --ds-info: var(--gray-300);
+  --ds-purple: #c27aff;
+  --ds-shadow-dialog: 0 16px 48px rgba(0, 0, 0, 0.55);
+  /* Codex --elevation-prominent (same stroke+lift in dark and light) */
+  --ds-elevation-stroke: 0 0 0 0.5px color-mix(in oklab, var(--gray-0) 12%, transparent);
+  /* D297: the composer lifts by shadow alone; the hairline stroke is gone. */
+  --ds-shadow-composer: 0 3px 7.5px #0000000a, 0 0 20px #0000000d;
+  --ds-bg-elevated-primary: color-mix(in oklab, var(--gray-800) 96%, transparent);
+  --ds-sidebar-width: clamp(240px, 275px, min(520px, calc(100vw - 320px)));
+  /* Settings rail border-box width, including its 1px right border. The
+   * settings drag band starts after the rail so the rail keeps a single
+   * surface tone from the window top edge down. */
+  --ds-settings-nav-width: 275px;
+  --ds-toolbar-height: 46px;
+  /* Keep an 8px visual buffer between work-panel actions and window chrome. */
+  --ds-window-controls-width: 120px;
+  --ds-composer-radius: var(--radius-xl);
+  --ds-composer-radius-lg: var(--radius-xl);
+
+  /* Motion tokens (design-system §8) */
+  --motion-duration-fast: 150ms;
+  --motion-duration-normal: 200ms;
+  --motion-duration-slow: 300ms;
+  --motion-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --motion-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  /* Global type scale (D343). 1 = product ramp; Appearance multiplies --text-*. */
+  --font-scale: 1;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  /* Codex electron-light */
+  --ds-bg-primary: #ffffff;
+  --ds-bg-sidebar: #f3f3f3;
+  --ds-bg-secondary: #f9f9f9;
+  --ds-bg-tertiary: #f3f3f3;
+  --ds-bg-inset: #ededed;
+  --ds-bg-under: #f9f9f9;
+  --ds-bg-elevated: color-mix(in oklab, #ffffff 70%, transparent);
+  --ds-bg-elevated-opaque: #ffffff;
+  --ds-bg-hover: color-mix(in oklab, #1a1c1f 5%, transparent);
+  --ds-bg-active: color-mix(in oklab, #1a1c1f 8%, transparent);
+  --ds-bg-composer: #ffffff;
+  --ds-sidebar-glass-tint: color-mix(in oklab, var(--ds-bg-sidebar) 55%, transparent);
+  --ds-sidebar-glass-sheen-top: color-mix(in oklab, #ffffff 45%, transparent);
+  --ds-sidebar-glass-sheen-bottom: color-mix(in oklab, #ffffff 30%, transparent);
+  --ds-bg-chip: color-mix(in oklab, #1a1c1f 4%, transparent);
+  --ds-text-primary: #1a1c1f;
+  --ds-text-secondary: color-mix(in oklab, #1a1c1f 74%, transparent);
+  --ds-text-muted: #5d5d5d;
+  --ds-text-faint: #afafaf;
+  --ds-border-default: color-mix(in oklab, #1a1c1f 8%, transparent);
+  --ds-border-subtle: color-mix(in oklab, #1a1c1f 5%, transparent);
+  --ds-border-strong: color-mix(in oklab, #1a1c1f 12%, transparent);
+  --ds-tile: color-mix(in oklab, #1a1c1f 3.5%, transparent);
+  --ds-tile-hover: color-mix(in oklab, #1a1c1f 6%, transparent);
+  --ds-tile-deep: color-mix(in oklab, #1a1c1f 8%, transparent);
+  --ds-raised: #ffffff;
+  --ds-raised-shadow: 0 1px 2px rgba(0, 0, 0, 0.1), 0 0 0 0.5px rgba(0, 0, 0, 0.04);
+  /* Light theme accent inverts: dark ink on pale surfaces. */
+  --ds-accent: #1a1c1f;
+  --ds-accent-hover: #303030;
+  --ds-accent-soft: #5d5d5d;
+  /* Off knob stays white on the pale track; on knob keeps white on near-black. */
+  --ds-switch-track-off: color-mix(in oklab, #1a1c1f 10%, transparent);
+  --ds-switch-track-off-hover: color-mix(in oklab, #1a1c1f 18%, transparent);
+  --ds-switch-ring-off: color-mix(in oklab, #1a1c1f 20%, transparent);
+  --ds-switch-knob-off: #ffffff;
+  --ds-switch-knob-on: #ffffff;
+  --ds-success: #00a240;
+  --ds-warning: #e25507;
+  --ds-error: #e02e2a;
+  --ds-info: #5d5d5d;
+  --ds-purple: #7c3aed;
+  --ds-shadow-dialog: 0 16px 48px rgba(0, 0, 0, 0.12);
+  --ds-elevation-stroke: 0 0 0 0.5px color-mix(in oklab, #1a1c1f 12%, transparent);
+  /* Codex elevation-prominent exact (same dark/light formula). */
+  --ds-shadow-composer: 0 3px 7.5px #0000000a, 0 0 20px #0000000d;
+  --ds-bg-elevated-primary: color-mix(in oklab, #ffffff 70%, transparent);
+}
+
+.pi-plugins {
+  --color-bg-primary: var(--ds-bg-primary);
+  --color-bg-secondary: var(--ds-bg-secondary);
+  --color-bg-tertiary: var(--ds-bg-tertiary);
+  --color-bg-inset: var(--ds-bg-inset);
+  --color-bg-under: var(--ds-bg-under);
+  --color-bg-elevated: var(--ds-bg-elevated);
+  --color-bg-hover: var(--ds-bg-hover);
+  --color-bg-active: var(--ds-bg-active);
+  --color-bg-composer: var(--ds-bg-composer);
+  --color-bg-chip: var(--ds-bg-chip);
+  --color-text-primary: var(--ds-text-primary);
+  --color-text-secondary: var(--ds-text-secondary);
+  --color-text-muted: var(--ds-text-muted);
+  --color-text-faint: var(--ds-text-faint);
+  --color-border-default: var(--ds-border-default);
+  --color-border-subtle: var(--ds-border-subtle);
+  --color-border-strong: var(--ds-border-strong);
+  --color-accent: var(--ds-accent);
+  --color-accent-hover: var(--ds-accent-hover);
+  --color-accent-soft: var(--ds-accent-soft);
+  --color-success: var(--ds-success);
+  --color-warning: var(--ds-warning);
+  --color-error: var(--ds-error);
+  --color-info: var(--ds-info);
+  --color-purple: var(--ds-purple);
+
+  /*
+    Token scales — the ONLY allowed values for typography and radii.
+    Raw px/em literals for font-size, font-weight, line-height,
+    letter-spacing, and border-radius are forbidden in component CSS
+    and TSX (enforced by scripts/check-style-tokens.mjs).
+  */
+  /*
+    Apple-inspired fixed-radius ladder for dense desktop UI. Compact controls
+    remain rounded rectangles; capsules and circles use the explicit shape
+    tokens below. The regular two-pixel rhythm keeps adjacent levels legible
+    and makes concentric nesting predictable.
+  */
+  --radius-3xs: 4px;
+  --radius-2xs: 6px;
+  --radius-xs: 8px;
+  --radius-sm: 10px;
+  --radius-md: 12px;
+  --radius-md-plus: 14px;
+  --radius-lg: 16px;
+  --radius-lg-plus: 18px;
+  --radius-xl: 20px;
+  --radius-2xl: 24px;
+  --radius-full: 9999px;
+  --radius-round: 50%;
+
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Consolas, "Liberation Mono",
+    monospace;
+
+  /* Type ramp (Codex metrics; "-plus" = half-step between named sizes) */
+  --text-3xs: calc(10.5px * var(--font-scale));
+  --text-2xs: calc(11px * var(--font-scale)); /* alias kept: --text-xs */
+  --text-xs: calc(11px * var(--font-scale));
+  --text-xs-plus: calc(11.5px * var(--font-scale));
+  --text-sm: calc(12px * var(--font-scale));
+  --text-sm-plus: calc(12.5px * var(--font-scale));
+  --text-md: calc(13px * var(--font-scale));
+  --text-md-plus: calc(13.5px * var(--font-scale));
+  --text-base: calc(14px * var(--font-scale));
+  --text-base-plus: calc(15px * var(--font-scale));
+  --text-lg: calc(16px * var(--font-scale));
+  --text-lg-plus: calc(18px * var(--font-scale));
+  --text-xl: calc(20px * var(--font-scale));
+  --text-2xl: calc(28px * var(--font-scale));
+
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-medium-plus: 520;
+  --font-weight-strong: 560;
+  --font-weight-semibold: 600;
+
+  --leading-none: 1;
+  --leading-heading: 1.15;
+  --leading-tighter: 1.2;
+  --leading-tight: 1.25;
+  --leading-compact: 1.3;
+  --leading-compact-plus: 1.35;
+  --leading-normal: 1.4;
+  --leading-body: 1.45;
+  --leading-relaxed: 1.5;
+  --leading-chat: 1.55;
+  --leading-prose: 1.6;
+  --leading-row: calc(18px * var(--font-scale)); /* sidebar thread titles */
+
+  --tracking-tighter: -0.03em;
+  --tracking-tight: -0.02em;
+  --tracking-normal: 0em;
+  --tracking-wide: 0.02em;
+}

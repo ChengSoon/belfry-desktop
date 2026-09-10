@@ -11,6 +11,7 @@ import { useBackground } from "../BackgroundProvider";
 import { BACKGROUND_FITS, MAX_BLUR, type BackgroundFit } from "../contracts";
 import { FontFamilyField, useFontChoice } from "./FontFamilyField";
 import { FontImportCard } from "./FontImportCard";
+import { ThemePicker } from "../../plugins/ThemePicker";
 import "./appearance.css";
 
 const FIT_LABEL: Record<BackgroundFit, string> = {
@@ -28,6 +29,8 @@ export function AppearanceSection() {
 
   return (
     <section aria-label="外观" className="appearance">
+      <ThemePicker />
+      <div className="appearance__divider" />
       <TypographyControls />
       <div className="appearance__divider" />
       <BackgroundPreview />

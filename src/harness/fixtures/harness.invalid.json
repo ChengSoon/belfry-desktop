@@ -1,0 +1,1 @@
+{"schemaVersion":1,"id":"bad","name":"Bad","version":"1.0","entry":{"command":"worker --unsafe"},"compatibility":{"harnessApi":1,"minAppVersion":"0.19.0"},"modelSlots":[],"agents":[],"capabilities":[{"kind":"shell"}],"context":{"providers":[],"maxTokens":0},"workflow":{"maxSteps":0,"cancellable":true}}

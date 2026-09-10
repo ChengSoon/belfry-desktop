@@ -1,8 +1,9 @@
-import { HeartPulse, Image, Waypoints, X } from "lucide-react";
+import { Boxes, HeartPulse, Image, Waypoints, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { AppearanceSection } from "../background/components/AppearanceSection";
 import { ProviderSection } from "../provider/components/ProviderSection";
 import { EnvironmentSection } from "../setup/EnvironmentSection";
+import { PluginPanel } from "../plugins/PluginPanel";
 import { ICON } from "../theme/sizing";
 import "./settings.css";
 
@@ -10,9 +11,14 @@ const SECTIONS = [
   { icon: Image, key: "appearance", label: "外观" },
   { icon: Waypoints, key: "provider", label: "Provider" },
   { icon: HeartPulse, key: "environment", label: "协作环境" },
+  { icon: Boxes, key: "plugins", label: "插件" },
 ] as const;
 
 type SectionKey = (typeof SECTIONS)[number]["key"];
+export const settingsSectionKeys = SECTIONS.map((section) => section.key);
+export function normalizeSettingsSection(value: string | undefined): SectionKey {
+  return value && settingsSectionKeys.includes(value as SectionKey) ? (value as SectionKey) : "appearance";
+}
 
 /**
  * 设置视图。整窗铺开，像 Codex 桌面版那样「左侧分类导航，右侧内容」。
@@ -21,8 +27,8 @@ type SectionKey = (typeof SECTIONS)[number]["key"];
  * 各个分区自己决定「现在能不能被关掉」——provider 那边表单填到一半时，
  * 关闭按钮和 Escape 先不响应，防止误触把输入全丢了。
  */
-export function SettingsPanel({ onClose }: { onClose: () => void }) {
-  const [active, setActive] = useState<SectionKey>("appearance");
+export function SettingsPanel({ onClose, initialSection }: { onClose: () => void; initialSection?: string }) {
+  const [active, setActive] = useState<SectionKey>(() => normalizeSettingsSection(initialSection));
   const [guarded, setGuarded] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
 
@@ -75,6 +81,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
         {active === "appearance" ? <AppearanceSection /> : null}
         {active === "provider" ? <ProviderSection onGuardChange={setGuarded} /> : null}
         {active === "environment" ? <EnvironmentSection /> : null}
+        {active === "plugins" ? <PluginPanel onGuardChange={setGuarded} /> : null}
       </div>
     </section>
   );

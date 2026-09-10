@@ -94,18 +94,21 @@ pub(super) fn sniff_format(bytes: &[u8]) -> Option<BackgroundFormat> {
     // 再检查常见 MP4 brand，避免把 HEIF 等同容器文件误收成视频。
     if bytes.len() >= 12 && &bytes[4..8] == b"ftyp" {
         const MP4_BRANDS: [[u8; 4]; 9] = [
-            *b"isom", *b"iso2", *b"avc1", *b"mp41", *b"mp42", *b"M4V ", *b"MSNV",
-            *b"dash", *b"iso6",
+            *b"isom", *b"iso2", *b"avc1", *b"mp41", *b"mp42", *b"M4V ", *b"MSNV", *b"dash",
+            *b"iso6",
         ];
-        if bytes[8..].chunks_exact(4).any(|brand| {
-            MP4_BRANDS.iter().any(|candidate| brand == candidate)
-        }) {
+        if bytes[8..]
+            .chunks_exact(4)
+            .any(|brand| MP4_BRANDS.iter().any(|candidate| brand == candidate))
+        {
             return Some(BackgroundFormat::Mp4);
         }
     }
     // WebM 是 EBML 容器；DocType=webm 位于头部，避免把普通 Matroska 当作 WebM。
     if bytes.starts_with(&[0x1A, 0x45, 0xDF, 0xA3])
-        && bytes.windows(4).any(|window| window.eq_ignore_ascii_case(b"webm"))
+        && bytes
+            .windows(4)
+            .any(|window| window.eq_ignore_ascii_case(b"webm"))
     {
         return Some(BackgroundFormat::Webm);
     }
@@ -153,13 +156,12 @@ pub(super) fn import(app: &AppHandle, source: &str) -> Result<BackgroundAsset, A
     }
     // 先只读头部识别格式，再按图片/视频各自的上限决定是否读取整个文件。
     let mut header = vec![0_u8; 4096.min(meta.len() as usize)];
-    let mut file = fs::File::open(&path)
-        .map_err(|err| AppError::io(format!("读不了这个文件：{err}")))?;
+    let mut file =
+        fs::File::open(&path).map_err(|err| AppError::io(format!("读不了这个文件：{err}")))?;
     file.read_exact(&mut header)
         .map_err(|err| AppError::io(format!("读不了这个文件：{err}")))?;
-    let format = sniff_format(&header).ok_or_else(|| {
-        AppError::unsupported("只支持 PNG / JPEG / WebP 图片和 MP4 / WebM 视频")
-    })?;
+    let format = sniff_format(&header)
+        .ok_or_else(|| AppError::unsupported("只支持 PNG / JPEG / WebP 图片和 MP4 / WebM 视频"))?;
     let max_bytes = format.max_bytes();
     if meta.len() > max_bytes {
         return Err(AppError::invalid_argument(format!(

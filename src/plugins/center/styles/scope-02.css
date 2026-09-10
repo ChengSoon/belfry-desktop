@@ -1,0 +1,220 @@
+/* PI-Desktop scope styles, LGPL-3.0. */
+.pi-plugins .scope-chip > svg {
+  flex: 0 0 auto;
+  color: var(--ds-text-faint);
+}
+.pi-plugins .scope-chip:hover,
+.pi-plugins .scope-chip.is-open {
+  background: color-mix(in oklab, var(--ds-text-primary) 8%, transparent);
+  color: var(--ds-text-primary);
+}
+.pi-plugins .scope-chip.is-empty {
+  color: var(--ds-warning);
+  background: color-mix(in oklab, var(--ds-warning) 12%, transparent);
+}
+/* Stacked rather than wrapped: `flex-basis: 100%` resolves against a
+   max-content container, so the warning sat beside the chip and folded into a
+   ragged two-line block instead of taking a line of its own. */
+.pi-plugins .scope-warn {
+  color: var(--ds-warning);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-normal);
+  max-width: 34ch;
+  text-align: right;
+}
+.pi-plugins .scope-popover {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  width: 304px;
+  max-height: 320px;
+  border-radius: var(--radius-md-plus);
+  background: var(--ds-bg-elevated-opaque, var(--ds-bg-primary));
+  box-shadow: 0 0 0 0.5px var(--ds-border-default), 0 14px 38px rgba(0, 0, 0, 0.22);
+  animation: scope-popover-in var(--motion-duration-fast) var(--motion-ease-out) both;
+  overflow: hidden;
+}
+.pi-plugins .scope-popover.is-up {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
+@keyframes scope-popover-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.pi-plugins .scope-popover-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 10px 8px 12px;
+}
+.pi-plugins .scope-popover-title {
+  flex: 1;
+  min-width: 0;
+  color: var(--ds-text-primary);
+  font-size: var(--text-sm-plus);
+  font-weight: var(--font-weight-medium-plus);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pi-plugins .scope-popover-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-2xs);
+  color: var(--ds-text-faint);
+  flex: 0 0 auto;
+}
+.pi-plugins .scope-popover-close:hover {
+  background: color-mix(in oklab, var(--ds-text-primary) 8%, transparent);
+  color: var(--ds-text-primary);
+}
+.pi-plugins .scope-popover-search {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 10px 6px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklab, var(--ds-text-primary) 5%, transparent);
+  padding: 0 9px;
+  height: 28px;
+  color: var(--ds-text-faint);
+}
+.pi-plugins .scope-popover-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ds-text-primary);
+  font-size: var(--text-sm-plus);
+  outline: none;
+}
+.pi-plugins .scope-popover-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 0 6px 6px;
+  overflow-y: auto;
+  min-height: 0;
+}
+.pi-plugins .scope-popover-empty {
+  margin: 0;
+  padding: 14px 8px;
+  color: var(--ds-text-faint);
+  font-size: var(--text-sm);
+  text-align: center;
+}
+.pi-plugins .scope-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  border-radius: var(--radius-2xs);
+  padding: 6px 8px;
+  transition: background var(--motion-duration-fast) var(--motion-ease-out);
+}
+.pi-plugins .scope-option:hover {
+  background: var(--ds-bg-hover);
+}
+.pi-plugins .scope-option-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  margin-top: 1px;
+  border-radius: var(--radius-2xs);
+  background: var(--ds-tile-deep);
+  color: transparent;
+  flex: 0 0 auto;
+  transition:
+    background var(--motion-duration-fast) var(--motion-ease-out),
+    color var(--motion-duration-fast) var(--motion-ease-out);
+}
+.pi-plugins .scope-option.is-on .scope-option-check {
+  background: var(--ds-accent);
+  color: var(--ds-bg-primary);
+}
+.pi-plugins .scope-option-copy {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+}
+.pi-plugins .scope-option-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--ds-text-primary);
+  font-size: var(--text-sm-plus);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pi-plugins .scope-option-tag {
+  flex: 0 0 auto;
+  border-radius: var(--radius-full);
+  background: color-mix(in oklab, var(--ds-text-primary) 8%, transparent);
+  color: var(--ds-text-muted);
+  font-size: var(--text-3xs);
+  padding: 0 6px;
+}
+.pi-plugins .scope-option-path {
+  color: var(--ds-text-faint);
+  font-family: var(--font-mono);
+  font-size: var(--text-3xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pi-plugins .scope-popover-foot {
+  margin: 0;
+  padding: 4px 12px 9px;
+  color: var(--ds-text-faint);
+  font-size: var(--text-3xs);
+  line-height: var(--leading-normal);
+}
+/*
+ * Inside a form the control is a field like any other, so it reads from the left
+ * edge and its popover opens the same way. In a list row it stays right-aligned
+ * with the other row controls.
+ */
+.pi-plugins .ext-field-group > .scope-control {
+  align-items: flex-start;
+}
+.pi-plugins .ext-field-group > .scope-control .scope-projects {
+  width: 100%;
+  justify-content: flex-start;
+}
+.pi-plugins .ext-field-group > .scope-control .scope-warn {
+  text-align: left;
+}
+/*
+ * In a sheet the picker expands in place instead of floating: the sheet body
+ * scrolls, and a popover positioned inside a scrolling box gets clipped exactly
+ * when it matters — near the bottom, which is where this field sits.
+ */
+.pi-plugins .ext-field-group > .scope-control .scope-popover {
+  position: static;
+  flex: 0 0 100%;
+  width: 100%;
+  max-height: 268px;
+  margin-top: 2px;
+  background: var(--ds-tile);
+  box-shadow: none;
+}

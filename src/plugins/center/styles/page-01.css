@@ -1,0 +1,225 @@
+/* Adapted from PI-Desktop 4fb58d3, LGPL-3.0. See third_party/pi-desktop/NOTICE.md. */
+/*
+  Plugins page — alerts, search and segmented filters, plugin rows and cards,
+  the detail sheet (permissions, versions, readme), and install/permission
+  modals.
+*/
+/* ---- Plugins marketplace / permission review ----
+   One cohesive section for the whole Plugins page: page shell,
+   segmented tabs, installed index, marketplace grid, detail sheet, and the
+   risk-tiered permission dialog. Every color goes through a --ds-* token so the
+   page renders correctly in both themes.
+
+   The page draws no dividers (D296). In-flow structure is carried by three
+   tonal layers — the page, soft tiles mixed from the text colour, and the
+   raised pill of an active control — plus spacing. Hairlines, inset rings and
+   border-top/bottom rules are reserved for floating layers (menus, the detail
+   sheet, dialogs, tooltips), where an edge is an elevation cue rather than a
+   partition. */
+.pi-plugins {
+  /* Aliases of the global tile scheme (tokens.css, D297). */
+  --plugins-tile: var(--ds-tile);
+  --plugins-tile-hover: var(--ds-tile-hover);
+  --plugins-raised: var(--ds-raised);
+  --plugins-raised-shadow: var(--ds-raised-shadow);
+  --plugins-tile-deep: var(--ds-tile-deep);
+}
+.pi-plugins .plugins-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+/* The page header and segmented row form one quiet tool surface; air, not a
+   rule, separates them from the list below. */
+.pi-plugins .plugins-page > .page-header.plugins-page-header {
+  align-items: center;
+  gap: 16px;
+  margin: 0;
+  padding: 0 0 2px;
+}
+.pi-plugins .plugins-title-block {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+.pi-plugins .plugins-title-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  border-radius: var(--radius-sm);
+  color: var(--ds-text-secondary);
+  background: var(--plugins-tile-deep);
+}
+.pi-plugins .plugins-title-copy {
+  min-width: 0;
+}
+.pi-plugins .plugins-title-copy .page-title {
+  font-size: var(--text-lg);
+  font-weight: var(--font-weight-medium-plus);
+  line-height: var(--leading-tighter);
+  letter-spacing: var(--tracking-tight);
+}
+.pi-plugins .plugins-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  /* The page sits under the absolute titlebar band, which is a native drag
+     rectangle: without this the window moves instead of the button reacting. */
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+.pi-plugins .plugins-header-actions > .btn {
+  min-height: 30px;
+  border-radius: var(--radius-2xs);
+  padding: 5px 10px;
+  font-size: var(--text-xs-plus);
+}
+.pi-plugins .plugins-header-menu {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-2xs);
+  color: var(--ds-text-muted);
+  background: var(--plugins-tile);
+  box-shadow: none;
+}
+.pi-plugins .plugins-header-menu:hover {
+  background: var(--ds-bg-hover);
+  color: var(--ds-text-primary);
+}
+.pi-plugins .plugins-header-menu:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--ds-accent) 35%, transparent);
+}
+/* Pending-update banner: shown only while updates exist. */
+.pi-plugins .plugins-alert {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-radius: var(--radius-lg);
+  padding: 12px 14px;
+  background: color-mix(in oklab, var(--ds-success) 10%, transparent);
+}
+.pi-plugins .plugins-alert-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
+  border-radius: var(--radius-full);
+  background: color-mix(in oklab, var(--ds-success) 18%, transparent);
+  color: var(--ds-success);
+}
+.pi-plugins .plugins-alert-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.pi-plugins .plugins-alert-title {
+  color: var(--ds-text-primary);
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-medium-plus);
+}
+/* Toolbar: segmented tabs on the left, count + pill search on the right. */
+.pi-plugins .plugins-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0;
+  flex-wrap: wrap;
+}
+/* Segmented tabs: a tinted pill track with the active tab raised on it. */
+.pi-plugins .plugins-segment {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--radius-full);
+  background: color-mix(in oklab, var(--ds-text-primary) 5%, transparent);
+}
+.pi-plugins .plugins-segment-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: var(--radius-full);
+  color: var(--ds-text-muted);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+  transition:
+    background var(--motion-duration-fast) var(--motion-ease-out),
+    color var(--motion-duration-fast) var(--motion-ease-out);
+}
+.pi-plugins .plugins-segment-btn:hover {
+  color: var(--ds-text-primary);
+}
+.pi-plugins .plugins-segment-btn.active {
+  background: var(--plugins-raised);
+  color: var(--ds-text-primary);
+  box-shadow: var(--plugins-raised-shadow);
+}
+.pi-plugins .plugins-segment-count {
+  color: var(--ds-text-muted);
+  font-size: var(--text-3xs);
+  font-variant-numeric: tabular-nums;
+}
+.pi-plugins .plugins-toolbar-end {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 220px;
+  justify-content: flex-end;
+}
+.pi-plugins .plugins-result-count {
+  color: var(--ds-text-muted);
+  font-size: var(--text-xs-plus);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.pi-plugins .plugins-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 0 1 280px;
+}
+.pi-plugins .plugins-search-wrap > svg {
+  position: absolute;
+  left: 11px;
+  color: var(--ds-text-muted);
+  pointer-events: none;
+}
+.pi-plugins .plugins-search {
+  width: 100%;
+  height: 32px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: color-mix(in oklab, var(--ds-text-primary) 5%, transparent);
+  color: var(--ds-text-primary);
+  padding: 0 30px 0 31px;
+  font-size: var(--text-md);
+  outline: none;
+  transition:
+    box-shadow var(--motion-duration-fast) var(--motion-ease-out),
+    background var(--motion-duration-fast) var(--motion-ease-out);
+}
+.pi-plugins .plugins-search:focus-visible {
+  background: color-mix(in oklab, var(--ds-text-primary) 7%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--ds-accent) 45%, transparent);
+}
+.pi-plugins :root[data-theme="light"] .plugins-search {
+  background: #f3f3f3;
+}
+.pi-plugins :root[data-theme="light"] .plugins-search:focus-visible {
+  background: #ffffff;
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--ds-accent) 35%, transparent);
+}

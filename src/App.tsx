@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppBackground } from "./background/AppBackground";
 import { AppOverlays } from "./components/AppOverlays";
 import { Workbench } from "./components/Workbench";
@@ -32,6 +32,9 @@ import { resolveAgentRename } from "./collab/naming";
 import { CollabPanel } from "./collab/CollabPanel";
 import { useCollabTasks } from "./collab/useCollabTasks";
 import { awaitingApproval } from "./collab/taskTone";
+import { PluginRuntimeBridge } from "./plugins/PluginRuntimeBridge";
+import { PluginDock } from "./plugins/workspace/PluginDock";
+import { usePluginWorkspace } from "./plugins/workspace/usePluginWorkspace";
 
 interface PreviewRequest {
   path: string;
@@ -49,6 +52,7 @@ export default function App() {
   const [recipesOpen, setRecipesOpen] = useState(false);
   const [collabOpen, setCollabOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [pluginDockOpen, setPluginDockOpen] = useState(false);
   const [previewRequest, setPreviewRequest] = useState<PreviewRequest | null>(null);
   const [pendingCloseId, setPendingCloseId] = useState<string | null>(null);
   const [pendingRemove, setPendingRemove] = useState<RecentProject | null>(null);
@@ -121,6 +125,7 @@ export default function App() {
   });
   // 历史会话与用量面板互斥：两者都占右侧一列，栅格只留了一条轨道。
   const toggleUsage = useCallback(() => {
+    setPluginDockOpen(false);
     setHistoryOpen(false);
     setPreviewOpen(false);
     setPreviewRequest(null);
@@ -131,6 +136,7 @@ export default function App() {
   }, []);
 
   const toggleHistory = useCallback(() => {
+    setPluginDockOpen(false);
     setUsageOpen(false);
     setPreviewOpen(false);
     setPreviewRequest(null);
@@ -174,6 +180,7 @@ export default function App() {
   }, [quickOpen.close]);
 
   const toggleCollab = useCallback(() => {
+    setPluginDockOpen(false);
     quickOpen.close();
     setComposerOpen(false);
     setRecipesOpen(false);
@@ -185,6 +192,7 @@ export default function App() {
   }, [quickOpen.close]);
 
   const openPreview = useCallback((request?: PreviewRequest) => {
+    setPluginDockOpen(false);
     quickOpen.close();
     setComposerOpen(false);
     setRecipesOpen(false);
@@ -194,6 +202,19 @@ export default function App() {
     setPreviewOpen(true);
     setPreviewRequest(request ?? null);
   }, [quickOpen.close]);
+
+  const revealPluginDock = useCallback(() => {
+    setSettingsOpen(false); setUsageOpen(false); setHistoryOpen(false);
+    setPreviewOpen(false); setCollabOpen(false); setPluginDockOpen(true);
+  }, []);
+  const togglePluginDock = useCallback(() => {
+    setUsageOpen(false); setHistoryOpen(false); setPreviewOpen(false); setCollabOpen(false);
+    setPluginDockOpen((value) => !value);
+  }, []);
+  const openPluginProject = useCallback(async (path: string) => {
+    await workspace.selectProject(path); setSettingsOpen(false);
+  }, [workspace.selectProject]);
+  usePluginWorkspace({ openProject: openPluginProject, reveal: revealPluginDock, toggle: togglePluginDock });
 
   const togglePreview = useCallback(() => {
     if (previewOpen) {
@@ -288,10 +309,11 @@ export default function App() {
 
   return (
     <main
-      className={`app-shell${collapsed ? " is-collapsed" : ""}${usageOpen ? " has-usage" : ""}${historyOpen ? " has-history" : ""}${previewOpen ? " has-preview" : ""}${settingsOpen ? " is-settings" : ""}${collabOpen ? " has-collab" : ""}`}
+      className={`app-shell${collapsed ? " is-collapsed" : ""}${usageOpen ? " has-usage" : ""}${historyOpen ? " has-history" : ""}${previewOpen ? " has-preview" : ""}${settingsOpen ? " is-settings" : ""}${collabOpen ? " has-collab" : ""}${pluginDockOpen ? " has-plugin-dock" : ""}`}
     >
       <AppBackground />
       <WindowTitlebar />
+      <PluginRuntimeBridge workspacePath={workspace.activeProject?.rootPath} sessionId={workspace.activeTabId} />
 
       {collapsed ? null : (
         <Sidebar
@@ -370,6 +392,7 @@ export default function App() {
         opening={workspace.opening}
         promptItems={promptQueue.items}
         previewOpen={previewOpen}
+        pluginDockOpen={pluginDockOpen}
         quickOpenOpen={quickOpen.open}
         recentProjects={workspace.recentProjects}
         recipes={recipes.recipes}
@@ -384,6 +407,7 @@ export default function App() {
       />
 
       {collabOpen ? <CollabPanel collab={collab} onClose={() => setCollabOpen(false)} /> : null}
+      <PluginDock visible={pluginDockOpen && !settingsOpen} onClose={() => setPluginDockOpen(false)} />
 
       {previewOpen ? (
         <FilePreviewPane

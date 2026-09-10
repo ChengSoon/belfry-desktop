@@ -1,0 +1,231 @@
+/* Adapted from PI-Desktop 4fb58d3, LGPL-3.0. See third_party/pi-desktop/NOTICE.md. */
+.pi-plugins .plugins-row-detail-label {
+  flex: 0 0 72px;
+  color: var(--ds-text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-medium);
+}
+/* A downgraded plugin still works, so the note sits with the detail rather
+   than in the row's error slot. */
+.pi-plugins .plugins-row-detail-note {
+  margin: 0;
+  color: var(--ds-text-muted);
+  font-size: var(--text-3xs);
+  line-height: var(--leading-relaxed);
+}
+.pi-plugins .plugins-row-detail > .plugins-cap-chips,
+.pi-plugins .plugins-row-detail > .plugins-service-chips,
+.pi-plugins .plugins-row-detail > .plugins-perm-chips {
+  flex: 1 1 auto;
+}
+/* Permission chips: risk is encoded in the tint, not in a separate legend. */
+.pi-plugins .plugins-perm-chips {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.pi-plugins .plugins-perm-chip {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  border-radius: var(--radius-2xs);
+  padding: 1px 6px;
+  font-size: var(--text-3xs);
+  line-height: var(--leading-relaxed);
+  background: color-mix(in oklab, var(--ds-text-primary) 6%, transparent);
+  color: var(--ds-text-secondary);
+}
+.pi-plugins .plugins-perm-chip.risk-high {
+  background: color-mix(in oklab, var(--ds-warning) 14%, transparent);
+  color: var(--ds-warning);
+}
+.pi-plugins .plugins-perm-chip.risk-low,
+.pi-plugins .plugins-perm-chip.is-more {
+  background: var(--plugins-tile);
+  color: var(--ds-text-muted);
+}
+.pi-plugins .plugins-perm-none {
+  color: var(--ds-text-faint);
+  font-size: var(--text-3xs);
+}
+/* Capability badges: what the plugin adds, stated before what it may access. */
+.pi-plugins .plugins-cap-chips,
+.pi-plugins .plugins-service-chips {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.pi-plugins .plugins-cap-chip {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  border-radius: var(--radius-2xs);
+  padding: 1px 6px;
+  font-size: var(--text-3xs);
+  line-height: var(--leading-relaxed);
+  color: var(--ds-text-secondary);
+  background: var(--plugins-tile-deep);
+}
+/* A resident service reads as a status pill: dot, name, state, restart count. */
+.pi-plugins .plugins-service-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  border-radius: var(--radius-full);
+  padding: 1px 8px 1px 6px;
+  font-size: var(--text-3xs);
+  line-height: var(--leading-relaxed);
+  color: var(--ds-text-secondary);
+  background: var(--plugins-tile-hover);
+}
+.pi-plugins .plugins-service-dot {
+  width: 5px;
+  height: 5px;
+  flex: 0 0 auto;
+  border-radius: var(--radius-full);
+  background: var(--ds-text-faint);
+}
+.pi-plugins .plugins-service-chip.is-running .plugins-service-dot {
+  background: var(--ds-success);
+}
+.pi-plugins .plugins-service-chip.is-starting .plugins-service-dot {
+  background: var(--ds-warning);
+}
+.pi-plugins .plugins-service-chip.is-failed {
+  color: var(--ds-error);
+  background: color-mix(in oklab, var(--ds-error) 12%, transparent);
+}
+.pi-plugins .plugins-service-chip.is-failed .plugins-service-dot {
+  background: var(--ds-error);
+}
+.pi-plugins .plugins-service-state,
+.pi-plugins .plugins-service-restarts {
+  color: var(--ds-text-muted);
+}
+.pi-plugins .plugins-service-chip.is-failed .plugins-service-state,
+.pi-plugins .plugins-service-chip.is-failed .plugins-service-restarts {
+  color: inherit;
+}
+.pi-plugins .plugins-row-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding-top: 0;
+}
+/* Keep row actions visible so available operations are discoverable at rest. */
+.pi-plugins .plugins-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  opacity: 1;
+}
+.pi-plugins .plugins-icon-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-2xs);
+  color: var(--ds-text-faint);
+  flex: 0 0 auto;
+  transition:
+    background var(--motion-duration-fast) var(--motion-ease-out),
+    color var(--motion-duration-fast) var(--motion-ease-out);
+}
+.pi-plugins .plugins-icon-btn:hover {
+  background: color-mix(in oklab, var(--ds-text-primary) 8%, transparent);
+  color: var(--ds-text-primary);
+}
+.pi-plugins .plugins-icon-btn[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 5px);
+  z-index: 40;
+  border: 1px solid var(--ds-border-default);
+  border-radius: var(--radius-sm);
+  background: var(--ds-bg-elevated-opaque, var(--ds-bg-primary));
+  box-shadow: var(--ds-shadow-composer);
+  padding: 3px 7px;
+  color: var(--ds-text-secondary);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-compact);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--motion-duration-fast) var(--motion-ease-out);
+}
+.pi-plugins .plugins-icon-btn[data-tip]:hover::after,
+.pi-plugins .plugins-icon-btn[data-tip]:focus-visible::after {
+  opacity: 1;
+}
+.pi-plugins .plugins-icon-btn[data-tip]:disabled::after {
+  content: none;
+}
+.pi-plugins .plugins-icon-btn.is-bordered {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  color: var(--ds-text-secondary);
+  background: var(--plugins-tile);
+}
+/* Popover menus (page overflow, row overflow). */
+.pi-plugins .plugins-menu-wrap {
+  position: relative;
+  flex: 0 0 auto;
+}
+.pi-plugins .plugins-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 5px);
+  z-index: 20;
+  min-width: 208px;
+  border-radius: var(--radius-md-plus);
+  background: var(--ds-bg-elevated-opaque, var(--ds-bg-primary));
+  box-shadow: 0 0 0 0.5px var(--ds-border-default), 0 12px 32px rgba(0, 0, 0, 0.2);
+  padding: 5px;
+  animation: plugins-menu-in var(--motion-duration-fast) var(--motion-ease-out) both;
+}
+/* Rows near the viewport bottom open upwards so the menu stays in view. */
+.pi-plugins .plugins-menu.is-up {
+  top: auto;
+  bottom: calc(100% + 5px);
+}
+@keyframes plugins-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.pi-plugins .plugins-menu button {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 9px;
+  text-align: left;
+  border-radius: var(--radius-2xs);
+  padding: 7px 10px;
+  color: var(--ds-text-primary);
+  font-size: var(--text-sm-plus);
+  transition: background var(--motion-duration-fast) var(--motion-ease-out);
+}
+.pi-plugins .plugins-menu button > svg {
+  color: var(--ds-text-muted);
+  flex: 0 0 auto;
+}
+.pi-plugins .plugins-menu button:hover {
+  background: var(--ds-bg-hover);
+}

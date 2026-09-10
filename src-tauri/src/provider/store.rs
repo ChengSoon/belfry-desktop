@@ -12,8 +12,8 @@ use tauri::{AppHandle, Manager};
 use crate::agent::AgentKind;
 use crate::terminal::AppError;
 
-use crate::atomic::write_atomic;
 use super::contracts::AgentProviders;
+use crate::atomic::write_atomic;
 
 const FILE: &str = "providers.json";
 const VERSION: u32 = 1;
