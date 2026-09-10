@@ -18,7 +18,7 @@ export function PersonalMarketControls() {
         onChange={(event) => marketName.setName(event.target.value)} onBlur={() => void marketName.save()}
         onKeyDown={(event) => { if (event.key === "Enter") void marketName.save(); }} /></label>
     {marketName.error ? <p className="plugins-inline-error" role="alert">{marketName.error}</p> : null}
-    <p className="settings-row-desc">你发布的插件会出现在这里。导出的市场包含独立网页和插件包，可部署到自己的网址。</p>
+    <p className="settings-row-desc">导出的市场包含独立网页和插件包，可直接部署到自己的网址。</p>
     <div className="plugins-personal-actions">
       <Button variant="primary" disabled={actions.busy || marketName.loading}
         onClick={() => void afterNameSaved(() => choosePublication(actions, setPublishDirectory))}>发布已有插件</Button>

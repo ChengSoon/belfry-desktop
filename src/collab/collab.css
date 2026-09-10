@@ -3,7 +3,7 @@
   position: absolute;
   z-index: 8;
   top: calc(var(--titlebar-inset) + 4px);
-  right: 170px;
+  right: 106px;
 }
 
 .collab-trigger[aria-expanded="true"] { color: var(--accent); background: var(--accent-soft); }

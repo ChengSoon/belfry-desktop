@@ -18,6 +18,9 @@ export function useCenterActions(refresh: () => Promise<void>) {
   const [error, setError] = useState("");
   const [pending, setPending] = useState<InstallProposal | null>(null);
   const [autoUpdate, setAutoUpdate] = useState(true);
+  // 市场是一屏卡片，光靠页面级的 busy 无法区分点的是哪一张。记下正在预览的
+  // 插件，让只有那张卡片显示进行中。
+  const [inspecting, setInspecting] = useState<string | null>(null);
   const run = async (operation: () => Promise<unknown>) => {
     if (busyRef.current) return false;
     busyRef.current = true; setBusy(true); setError("");
@@ -41,9 +44,15 @@ export function useCenterActions(refresh: () => Promise<void>) {
       setAutoUpdate(true);
     };
     if (input.preview) show();
-    else void run(async () => { const result = await centerApi.marketInspect(input.id, input.version); show(result.preview); });
+    else {
+      setInspecting(input.id);
+      void run(async () => { const result = await centerApi.marketInspect(input.id, input.version); show(result.preview); })
+        .finally(() => setInspecting(null));
+    }
   };
-  return { busy, error, run, mutate, setScope, pending, setPending, autoUpdate, setAutoUpdate, queueInstall };
+  // 预览阶段看 inspecting，确认后的安装阶段 pending 就是目标插件。
+  const installingId = inspecting ?? (busy && pending ? pending.id : null);
+  return { busy, error, run, mutate, setScope, pending, setPending, autoUpdate, setAutoUpdate, queueInstall, installingId };
 }
 export type CenterActions = ReturnType<typeof useCenterActions>;
 

@@ -7,7 +7,7 @@ import { apiError } from "./errors.mjs";
 import { readJson, writeJson } from "./management.mjs";
 import { BELFRY_SOURCE, OFFICIAL_SOURCE, MIRROR_SOURCE, diagnosticUrl, download, normalizeCatalog, summarize, latestVersion, installable, compareVersions } from "./market-catalog.mjs";
 import { PersonalMarket, PERSONAL_SOURCE } from "./personal-market.mjs";
-import { PI_API_VERSION, validateVersion } from "./engine-version.mjs";
+import { PI_API_VERSION, matchesVersionRange } from "./engine-version.mjs";
 
 export class PluginMarket {
   constructor({ base, management, installed }) {
@@ -101,6 +101,11 @@ function validateInstallVersion(version) {
   if (version.yanked) throw apiError("MARKET_YANKED", `插件版本已撤回：${version.yankedReason ?? version.version}`);
   if (!installable(version)) throw apiError("MARKET_INVALID", "这个版本尚未发布插件包");
   if (!version.minPiDesktop) return;
-  validateVersion(version.minPiDesktop);
-  if (compareVersions(version.minPiDesktop, PI_API_VERSION) > 0) throw apiError("INCOMPATIBLE", `插件需要 PI API ${version.minPiDesktop}，当前兼容版本为 ${PI_API_VERSION}`);
+  if (!hostVersionMatches(version.minPiDesktop)) throw apiError("INCOMPATIBLE", `插件需要 PI API ${version.minPiDesktop}，当前兼容版本为 ${PI_API_VERSION}`);
+}
+// 上游目录里 minPiDesktop 既写范围（">=0.8.0"）也写裸版本号，后者按下限处理。
+function hostVersionMatches(declared) {
+  const value = String(declared).trim(), range = /^[<>=^~]/.test(value) ? value : `>=${value}`;
+  try { return matchesVersionRange(range, "minPiDesktop"); }
+  catch { throw apiError("MARKET_INVALID", `插件声明的宿主版本要求无效：${declared}`); }
 }

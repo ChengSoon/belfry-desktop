@@ -10,7 +10,6 @@ import {
   History,
   Keyboard,
   ListChecks,
-  MessageSquareText,
   PanelLeft,
   Search,
   SearchX,
@@ -186,7 +185,6 @@ function iconComponent(icon: QuickOpenIcon | undefined, kind: QuickOpenItemKind)
   if (icon === "gauge") return Gauge;
   if (icon === "sidebar") return PanelLeft;
   if (icon === "keyboard") return Keyboard;
-  if (icon === "composer") return MessageSquareText;
   if (icon === "list-checks") return ListChecks;
   if (icon === "file-search") return FileSearch;
   if (icon === "folder" || kind === "project") return FolderOpen;

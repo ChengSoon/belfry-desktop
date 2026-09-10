@@ -1,12 +1,12 @@
 import type { QuickOpenItem } from "../quickopen/model";
-import type { Recipe, RecipeStep } from "../recipe/contracts";
+import type { PluginStep } from "./contracts";
 
 // 仅模块内的已校验目录投影；不可用于解码 manifest/IPC，不能作为正式共享契约。
 type TemplateProjection = {
   id: string;
   name: string;
   description?: string | null;
-  steps: readonly RecipeStep[];
+  steps: readonly PluginStep[];
 };
 type SourceProjection = {
   pluginId: string;
@@ -50,22 +50,6 @@ export function buildPluginCatalog(sources: readonly SourceProjection[]) {
     icon: "list-checks",
   })));
   return { templates, actions };
-}
-
-/** 仅创建运行输入；Prompt 单步骤和 Recipe 多步骤使用同一路径，不写用户库。 */
-export function adaptPluginTemplate(input: {
-  pluginId: string;
-  template: TemplateProjection;
-  now: number;
-}): Recipe {
-  return {
-    id: templateIdentity(input.pluginId, input.template.id),
-    name: input.template.name,
-    description: input.template.description ?? null,
-    steps: input.template.steps.map((step) => ({ ...step })),
-    createdAt: input.now,
-    updatedAt: input.now,
-  };
 }
 
 function assertUnique(ids: readonly string[]) {

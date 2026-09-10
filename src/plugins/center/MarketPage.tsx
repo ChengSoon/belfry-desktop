@@ -68,10 +68,11 @@ function MarketCardAction({ item }: { item: MarketPluginSummary }) {
   const { data, actions } = usePluginsPage();
   const installed = data.plugins.find((plugin) => plugin.id === item.id);
   const update = !!installed && !!item.updateAvailable, pending = item.installable === false;
+  const installing = actions.installingId === item.id;
   if (installed && !update) return <span className="plugins-installed-mark"><IconCheck size={13} />{t("plugins.installedLabel")}</span>;
   return <Button variant="primary" size="sm" disabled={actions.busy || pending} title={pending ? t("plugins.packagePendingHint", { version: item.latestVersion }) : undefined}
     onClick={() => actions.queueInstall({ id: item.id, name: item.name, permissions: item.permissionSummary, version: item.latestVersion,
       newPermissions: installed ? item.permissionSummary.filter((permission) => !installed.permissions.includes(permission)) : [] })}>
-    {t(pending ? "plugins.packagePending" : actions.busy ? "plugins.installing" : update ? "plugins.updateNow" : "plugins.install")}
+    {t(pending ? "plugins.packagePending" : installing ? "plugins.installing" : update ? "plugins.updateNow" : "plugins.install")}
   </Button>;
 }

@@ -9,9 +9,13 @@ export function validateVersion(value) {
     if (suffix?.split(".").some((part) => !part || index === 0 && /^0\d+$/.test(part))) throw new Error("插件版本后缀无效");
   }
 }
-function tokenMatches(token) {
+export function matchesVersionRange(range, field = "engines.piDesktop") {
+  if (typeof range !== "string" || !range.trim() || range.length > 128) throw new Error(`${field} 必须为版本范围`);
+  return range.split("||").map((group) => group.trim().split(/\s+/).map((token) => tokenMatches(token, field)).every(Boolean)).some(Boolean);
+}
+function tokenMatches(token, field) {
   const match = /^(>=|<=|>|<|=|\^|~)?v?([0-9xX*]+(?:\.[0-9xX*]+){0,2})$/.exec(token);
-  if (!match) throw new Error(`不支持的 engines.piDesktop 范围：${token}`);
+  if (!match) throw new Error(`不支持的 ${field} 范围：${token}`);
   const [, operator = "=", source] = match, parts = source.split(".");
   const wildcard = parts.some((part) => /^[xX*]$/.test(part));
   if (wildcard && operator !== "=") throw new Error("通配版本不能使用比较运算符");
@@ -37,9 +41,7 @@ export function validateEngine(engines) {
   validateEngineFields(engines);
   const range = engines.piDesktop;
   if (range === undefined) return;
-  if (typeof range !== "string" || !range.trim() || range.length > 128) throw new Error("engines.piDesktop 必须为版本范围");
-  const matches = range.split("||").map((group) => group.trim().split(/\s+/).map(tokenMatches).every(Boolean));
-  if (!matches.some(Boolean)) throw new Error(`插件需要 PI API ${range}，当前兼容版本为 ${PI_API_VERSION}`);
+  if (!matchesVersionRange(range)) throw new Error(`插件需要 PI API ${range}，当前兼容版本为 ${PI_API_VERSION}`);
 }
 function validateEngineFields(engines) {
   if (!engines || typeof engines !== "object" || Array.isArray(engines) || Object.keys(engines).some((key) => key !== "piDesktop")) throw new Error("engines 字段无效");

@@ -10,7 +10,6 @@ import { useSessionDrag } from "./layout/useSessionDrag";
 import { useSplitLayout } from "./layout/useSplitLayout";
 import { useActivityNotifications } from "./notify/useActivityNotifications";
 import { usePromptQueue } from "./prompt/usePromptQueue";
-import { useRecipes } from "./recipe/useRecipes";
 import { appShortcutChord, formatShortcutChord } from "./shortcuts/resolveShortcut";
 import { useAppShortcuts } from "./shortcuts/useAppShortcuts";
 import { useAppUpdater } from "./updater/useAppUpdater";
@@ -48,8 +47,6 @@ export default function App() {
   const [usageOpen, setUsageOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [composerOpen, setComposerOpen] = useState(false);
-  const [recipesOpen, setRecipesOpen] = useState(false);
   const [collabOpen, setCollabOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [pluginDockOpen, setPluginDockOpen] = useState(false);
@@ -113,24 +110,15 @@ export default function App() {
     return null;
   }, [workspace.renameAgent, workspace.tabs]);
   const promptQueue = usePromptQueue({ tabs: workspace.tabs, targets: terminalTargets.targets });
-  // `belfry send` 落下的任务由这里投进目标终端，走的是和手敲 prompt 同一条队列。
+  // `belfry send` 的任务经后台队列投进目标终端，等待目标 Agent 空闲。
   useTaskDelivery(promptQueue.submit);
   const collab = useCollabTasks();
-  const recipes = useRecipes({
-    enqueueRun: promptQueue.enqueueRun,
-    queueItems: promptQueue.items,
-    removePrompt: promptQueue.remove,
-    removeRun: promptQueue.removeRun,
-    tabs: workspace.tabs,
-  });
   // 历史会话与用量面板互斥：两者都占右侧一列，栅格只留了一条轨道。
   const toggleUsage = useCallback(() => {
     setPluginDockOpen(false);
     setHistoryOpen(false);
     setPreviewOpen(false);
     setPreviewRequest(null);
-    setComposerOpen(false);
-    setRecipesOpen(false);
     setCollabOpen(false);
     setUsageOpen((value) => !value);
   }, []);
@@ -140,15 +128,11 @@ export default function App() {
     setUsageOpen(false);
     setPreviewOpen(false);
     setPreviewRequest(null);
-    setComposerOpen(false);
-    setRecipesOpen(false);
     setCollabOpen(false);
     setHistoryOpen((value) => !value);
   }, []);
 
   const toggleQuickOpen = useCallback(() => {
-    setComposerOpen(false);
-    setRecipesOpen(false);
     setPreviewOpen(false);
     setPreviewRequest(null);
     setUsageOpen(false);
@@ -157,33 +141,9 @@ export default function App() {
     quickOpen.toggle();
   }, [quickOpen.toggle]);
 
-  const toggleComposer = useCallback(() => {
-    quickOpen.close();
-    setRecipesOpen(false);
-    setPreviewOpen(false);
-    setPreviewRequest(null);
-    setUsageOpen(false);
-    setHistoryOpen(false);
-    setCollabOpen(false);
-    setComposerOpen((value) => !value);
-  }, [quickOpen.close]);
-
-  const toggleRecipes = useCallback(() => {
-    quickOpen.close();
-    setComposerOpen(false);
-    setPreviewOpen(false);
-    setPreviewRequest(null);
-    setUsageOpen(false);
-    setHistoryOpen(false);
-    setCollabOpen(false);
-    setRecipesOpen((value) => !value);
-  }, [quickOpen.close]);
-
   const toggleCollab = useCallback(() => {
     setPluginDockOpen(false);
     quickOpen.close();
-    setComposerOpen(false);
-    setRecipesOpen(false);
     setPreviewOpen(false);
     setPreviewRequest(null);
     setUsageOpen(false);
@@ -194,8 +154,6 @@ export default function App() {
   const openPreview = useCallback((request?: PreviewRequest) => {
     setPluginDockOpen(false);
     quickOpen.close();
-    setComposerOpen(false);
-    setRecipesOpen(false);
     setUsageOpen(false);
     setHistoryOpen(false);
     setCollabOpen(false);
@@ -256,9 +214,7 @@ export default function App() {
   const pendingClose = workspace.tabs.find((tab) => tab.id === pendingCloseId) ?? null;
   const shortcuts = useAppShortcuts({
     blocked: Boolean(pendingClose || pendingRemove || updater.open),
-    composerOpen,
     quickOpenOpen: quickOpen.open,
-    recipesOpen,
     onActivateSession: (index) => {
       const tab = groupTabsByProject(workspace.tabs).flatMap((group) => group.tabs)[index];
       if (tab) layout.activateTab(tab.id);
@@ -266,9 +222,7 @@ export default function App() {
     onNewShell: () => launch("shell"),
     onOpenSettings: () => setSettingsOpen(true),
     onToggleHistory: toggleHistory,
-    onToggleComposer: toggleComposer,
     onToggleQuickOpen: toggleQuickOpen,
-    onToggleRecipes: toggleRecipes,
     onToggleSidebar: () => setCollapsed((value) => !value),
     onToggleUsage: toggleUsage,
   });
@@ -277,24 +231,6 @@ export default function App() {
     quickOpen.select(item, (id) => {
       switch (id) {
         case "action:new-shell": launch("shell"); break;
-        case "action:composer":
-          quickOpen.close();
-          setUsageOpen(false);
-          setHistoryOpen(false);
-          setPreviewOpen(false);
-          setPreviewRequest(null);
-          setRecipesOpen(false);
-          setComposerOpen(true);
-          break;
-        case "action:recipes":
-          quickOpen.close();
-          setUsageOpen(false);
-          setHistoryOpen(false);
-          setPreviewOpen(false);
-          setPreviewRequest(null);
-          setComposerOpen(false);
-          setRecipesOpen(true);
-          break;
         case "action:collab": toggleCollab(); break;
         case "action:file-preview": openPreview(); break;
         case "action:settings": setSettingsOpen(true); break;
@@ -353,18 +289,11 @@ export default function App() {
         activeProject={workspace.activeProject}
         activeTabId={workspace.activeTabId}
         collapsed={collapsed}
-        composerOpen={composerOpen}
         collabOpen={collabOpen}
         collabWaiting={awaitingApproval(collab.tasks).length}
         dividers={layout.dividers}
         drag={drag}
-        onAbortRun={recipes.abortRun}
-        onClearRun={recipes.clearRun}
-        onCloseComposer={() => setComposerOpen(false)}
-        onCloseRecipes={() => setRecipesOpen(false)}
         onClosePane={layout.closePane}
-        onDraftRecipe={recipes.draft}
-        onDuplicateRecipe={recipes.duplicateRecipe}
         onDragStart={startDrag}
         onFocus={workspace.setActiveTabId}
         onLaunchShell={() => launch("shell")}
@@ -372,33 +301,19 @@ export default function App() {
         onOpenShortcutGuide={shortcuts.openGuide}
         onRegisterTarget={terminalTargets.register}
         onOpenFile={openTerminalFile}
-        onRemovePrompt={promptQueue.remove}
-        onRemoveRecipe={recipes.removeRecipe}
         onRequestRemove={setPendingRemove}
-        onResendStep={recipes.resendStep}
         onResize={layout.resizeSplit}
         onRevealSidebar={() => setCollapsed(false)}
-        onSaveRecipe={recipes.saveRecipe}
-        onSendPromptNow={promptQueue.sendNow}
-        onSkipStep={recipes.skipStep}
         onSnapshot={workspace.updateTab}
-        onStartRun={recipes.startRun}
-        onSubmitPrompt={promptQueue.submit}
-        onToggleComposer={toggleComposer}
         onToggleCollab={toggleCollab}
         onTogglePreview={togglePreview}
         onToggleQuickOpen={toggleQuickOpen}
-        onToggleRecipes={toggleRecipes}
         opening={workspace.opening}
-        promptItems={promptQueue.items}
         previewOpen={previewOpen}
         pluginDockOpen={pluginDockOpen}
         quickOpenOpen={quickOpen.open}
         recentProjects={workspace.recentProjects}
-        recipes={recipes.recipes}
-        recipesOpen={recipesOpen}
         rects={layout.rects}
-        runs={recipes.runs}
         shortcutGuideOpen={shortcuts.guideOpen}
         shortcutPlatform={shortcuts.platform}
         split={layout.split}
