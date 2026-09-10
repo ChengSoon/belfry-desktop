@@ -28,15 +28,6 @@ pub(crate) fn resolve_existing(root: &Path, relative: &str) -> Result<PathBuf, R
     }
 }
 
-pub(crate) fn revalidate(root: &Path, path: &Path) -> Result<(), ResourcePathError> {
-    let resolved = canonicalize(path).map_err(map_io)?;
-    if resolved.starts_with(root) {
-        Ok(())
-    } else {
-        Err(ResourcePathError::OutsideRoot)
-    }
-}
-
 fn validate_relative(value: &str) -> Result<PathBuf, ResourcePathError> {
     if value.contains('\0') || has_windows_prefix(value) {
         return Err(ResourcePathError::Invalid);

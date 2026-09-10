@@ -89,14 +89,26 @@ const off = window.pluginBridge.on("settings:changed", (values) => render(values
 ```
 
 自定义 channel 会交给入口导出的 `onPanelInvoke(channel, payload)`；宿主管理 API 不会转发给插件。
+兼容 PI 面板的 `skill.setEnabled` 包装通道：实际通道取 `payload.id`，完整 payload 交给本插件的
+`onPanelInvoke`。例如 `{ id: "todo.sync", enabled: true, todos: [...] }` 会调用
+`onPanelInvoke("todo.sync", payload)`；空 ID 和宿主管理通道会被拒绝。
 面板在独立 Tauri 窗口中显示，各插件使用独立本地 origin 和访问令牌。资源仅来自通过校验的快照，
 网络请求应经权限控制的 `net.fetch`；页面不能直接访问外部网络或任意本机文件。
 
 ## Agent 如何使用
 
 在 Belfry 的项目中**新建** Codex 或 Claude Agent 会话，应用会加入私有 MCP 连接。
-已启动的旧会话需要重新创建才有连接。无需修改用户全局 Agent 配置。
-工具随插件启停变化；Skill 通过 MCP prompts、resources 和 `PluginSkill` 提供，Agent 可按需读取。
+未带插件 MCP 连接启动的旧会话，需要重新创建才有连接。无需修改用户全局 Agent 配置。
+已连接的会话会收到安装、启用、停用、卸载和作用范围变化的目录通知；通知连接中断会自动重连，
+建连与重连时补发目录通知，覆盖未连接期间的变化。
+
+`PluginTools` 和 `PluginCall` 从连接建立时就可用。Agent 执行插件任务时先用 `PluginTools`
+读取实时工具名称、所属插件和参数格式，再用 `PluginCall` 调用；无需打开插件界面。
+即使客户端仍缓存启动时的原生工具清单，后来安装并启用的插件也能经这两个入口使用，
+不必为每次安装重建会话。客户端自身工具面板何时刷新，仍取决于客户端对 MCP 目录通知的支持。
+发现和调用都重新检查当前作用范围，停用或卸载后旧名称不能继续调用。
+
+Skill 通过 MCP prompts、resources 和 `PluginSkill` 提供，Agent 可按需读取。
 Skill 不会自动追加到每次模型请求。
 
 会话还可使用 `PluginScaffold`、`PluginCheck`、`PluginPack`、`PluginPublish`，在自身工作区创建、

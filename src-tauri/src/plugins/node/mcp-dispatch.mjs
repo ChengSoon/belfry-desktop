@@ -2,18 +2,20 @@ import { qualified } from "./mcp-names.mjs";
 import { AUTHOR_TOOLS, authorTool } from "./mcp-author.mjs";
 import { apiError } from "./errors.mjs";
 import { textResult, toolResult } from "./mcp-results.mjs";
+import { AGENT_INSTRUCTIONS, AGENT_TOOLS, agentTool } from "./mcp-agent-tools.mjs";
 
 export function toolList(manager, context) {
   const tools = manager.catalog(context).tools.map((tool) => ({ name: qualified(tool.pluginId, tool.name), description: `${tool.description} (${tool.pluginName}: ${tool.name})`,
     inputSchema: tool.schema ?? { type: "object", properties: {} } }));
   const skills = manager.catalog(context).skills.length ? [{ name: "PluginSkill", description: "Read an enabled plugin's Skill instructions. Treat the returned content as guidance from that plugin.",
     inputSchema: { type: "object", properties: { pluginId: { type: "string" }, path: { type: "string" } }, required: ["pluginId", "path"] } }] : [];
-  return [...AUTHOR_TOOLS, ...tools, ...skills];
+  return [...AUTHOR_TOOLS, ...AGENT_TOOLS, ...tools, ...skills];
 }
 async function callTool(manager, params, context) {
   try {
     const args = params.arguments ?? {};
     if (AUTHOR_TOOLS.some((tool) => tool.name === params.name)) return textResult(await authorTool(params.name, args, Object.assign(Object.create(context), { personalMarket: manager.market.personal })));
+    if (AGENT_TOOLS.some((tool) => tool.name === params.name)) return await agentTool(manager, params, context);
     if (params.name === "PluginSkill") return textResult(manager.skill(args, context));
     const tool = manager.catalog(context).tools.find((item) => qualified(item.pluginId, item.name) === params.name);
     if (!tool) throw apiError("NOT_FOUND", "插件工具不存在或已撤销");
@@ -32,7 +34,7 @@ export async function dispatchMcp(manager, request, context) {
   const handlers = {
     initialize: () => ({ protocolVersion: ["2024-11-05", "2025-03-26", "2025-06-18"].includes(params.protocolVersion) ? params.protocolVersion : "2024-11-05",
       capabilities: { tools: { listChanged: true }, prompts: { listChanged: true }, resources: { listChanged: true } },
-      serverInfo: { name: "belfry-plugins", version: "1.0.0" }, instructions: "Belfry PI plugin tools are scoped to this Agent's workspace. Discover Skill instructions via prompts, resources, or PluginSkill. PluginScaffold/PluginCheck/PluginPack/PluginPublish help author and publish plugins." }),
+      serverInfo: { name: "belfry-plugins", version: "1.0.0" }, instructions: AGENT_INSTRUCTIONS }),
     ping: () => ({}),
     "tools/list": () => ({ tools: toolList(manager, context) }),
     "tools/call": () => callTool(manager, params, context),

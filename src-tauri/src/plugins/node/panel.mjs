@@ -84,13 +84,21 @@ export class PanelServer {
       response.writeHead(403); response.end(); return;
     }
     const { api, payload } = await body(request);
+    const value = await this.dispatch(api, payload);
+    response.writeHead(200, { "Content-Type": "application/json" });
+    response.end(JSON.stringify({ ok: true, value: value ?? null }));
+  }
+  async dispatch(api, payload) {
+    if (api === "skill.setEnabled") {
+      if (!customChannel(payload?.id)) throw apiError("INVALID_ARGUMENT", "PI 面板消息缺少有效的插件通道 id");
+      // PI 面板以 payload.id 携带实际通道，仍只交给本插件的回调。
+      return this.custom(payload.id, payload);
+    }
     let args;
     try { args = bridgeArguments(api, payload); } catch (error) {
       if (!customChannel(api)) throw error;
     }
-    const value = args ? await this.call(api, args) : await this.custom(api, payload);
-    response.writeHead(200, { "Content-Type": "application/json" });
-    response.end(JSON.stringify({ ok: true, value: value ?? null }));
+    return args ? this.call(api, args) : this.custom(api, payload);
   }
   subscribe(request, response, surfaceId) {
     if (this.streams.size >= 8) { response.writeHead(429); response.end(); return; }

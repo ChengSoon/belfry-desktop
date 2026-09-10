@@ -12,6 +12,6 @@ mod codex;
 pub mod commands;
 mod contracts;
 mod envcheck;
+pub(crate) mod plugin_gateway;
 mod service;
 mod store;
-pub(crate) mod plugin_gateway;
