@@ -1,4 +1,5 @@
 import type { PiSetting } from "./runtimeContracts";
+import { numberFromDraft } from "../components/controls/controlModel";
 
 export function settingDraft(setting: PiSetting, value: unknown): string {
   if (setting.type === "json") return JSON.stringify(value ?? null, null, 2);
@@ -8,8 +9,9 @@ export function settingDraft(setting: PiSetting, value: unknown): string {
 export function parseSettingDraft(setting: PiSetting, text: string): unknown {
   const label = setting.title ?? setting.key;
   if (setting.type === "number") {
-    if (!text.trim() || !Number.isFinite(Number(text))) throw new Error(`${label} 需要有效数字`);
-    return Number(text);
+    const value = numberFromDraft(text);
+    if (value === null) throw new Error(`${label} 需要有效数字`);
+    return value;
   }
   if (setting.type === "boolean") return text === "true";
   if (setting.type === "json") {

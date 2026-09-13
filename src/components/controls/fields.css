@@ -1,0 +1,65 @@
+.ui-select, .ui-combobox, .ui-date { position: relative; width: 100%; }
+.ui-control .ui-field, .ui-field.ui-select__trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  min-height: 34px;
+  margin: 0;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--ui-fill, var(--surface));
+  box-shadow: none;
+  color: var(--text);
+  font: inherit;
+  line-height: 1.4;
+  text-align: left;
+  transition: border-color var(--duration) var(--ease), background var(--duration) var(--ease);
+}
+.ui-field.ui-select__trigger { justify-content: space-between; cursor: pointer; }
+.ui-field.ui-select__trigger:hover:not(:disabled), .ui-control .ui-field:hover { border-color: var(--border-strong); }
+.ui-field.ui-select__trigger[aria-expanded="true"], .ui-control .ui-field:focus-within { border-color: var(--accent); background: var(--surface); }
+.ui-select__value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ui-select__caret { flex: none; color: var(--text-faint); transition: transform var(--duration) var(--ease); }
+[aria-expanded="true"] > .ui-select__caret { transform: rotate(180deg); }
+.ui-select__placeholder { color: var(--text-faint); }
+.ui-control .ui-field > input {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  box-shadow: none;
+  outline: none;
+}
+.ui-control .ui-field > input::placeholder { color: var(--text-faint); }
+.ui-control .ui-field > input:focus-visible { outline: none; box-shadow: none; }
+.ui-control .ui-field__icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  margin: -4px -4px -4px 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.ui-control .ui-field__icon:hover:not(:disabled) { background: var(--surface-hover); color: var(--text); }
+.ui-control .ui-field:has([aria-invalid="true"]) { border-color: var(--danger); }
+.ui-date .ui-field > input, .ui-number .ui-field > input { font-variant-numeric: tabular-nums; }
+.ui-number { width: 100%; }
+.ui-number__steps { display: flex; gap: 2px; flex: none; }
+.ui-number .ui-number__steps .ui-field__icon { width: 20px; height: 22px; margin: -4px 0; }
+input[type="search"]::-webkit-search-cancel-button,
+input[type="search"]::-webkit-search-decoration { -webkit-appearance: none; }

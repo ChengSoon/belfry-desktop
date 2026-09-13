@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { isShortcutRecording } from "./custom/recording";
+import { useShortcutSettings } from "./custom/useShortcutSettings";
 import {
   appShortcutChord,
   formatShortcutChord,
@@ -21,6 +23,7 @@ interface AppShortcutActions {
 }
 
 export function useAppShortcuts(actions: AppShortcutActions) {
+  useShortcutSettings();
   const [guideOpen, setGuideOpen] = useState(false);
   const [platform] = useState(() => shortcutPlatform(document.documentElement.dataset.platform));
   const actionsRef = useRef(actions);
@@ -30,6 +33,7 @@ export function useAppShortcuts(actions: AppShortcutActions) {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || isShortcutRecording()) return;
       if (shouldPreventWebviewReload(event, platform)) {
         event.preventDefault();
         event.stopPropagation();

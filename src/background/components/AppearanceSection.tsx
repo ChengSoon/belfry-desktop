@@ -13,6 +13,7 @@ import { FontFamilyField, useFontChoice } from "./FontFamilyField";
 import { FontImportCard } from "./FontImportCard";
 import { ThemePicker } from "../../plugins/ThemePicker";
 import "./appearance.css";
+import { Slider as CustomSlider } from "../../components/controls/Slider";
 
 const FIT_LABEL: Record<BackgroundFit, string> = {
   cover: "覆盖",
@@ -223,21 +224,20 @@ interface SliderProps {
   onChange: (value: number) => void;
 }
 
-/* React 把 range 的 onChange 接到原生 input 事件上，拖动过程中就会连续触发，
-   所见即所得不用额外接 onInput。落盘在 Provider 那侧，见那里关于不做防抖的说明。 */
 function Slider({ label, value, min, max, step, format, onChange }: SliderProps) {
   return (
-    <label className="appearance__row">
+    <div className="appearance__row">
       <span className="appearance__label">{label}</span>
-      <input
+      <CustomSlider
         max={max}
         min={min}
-        onChange={(event) => onChange(Number(event.target.value))}
+        onChange={onChange}
         step={step}
-        type="range"
+        ariaLabel={label}
+        valueText={format(value)}
         value={value}
       />
       <span className="appearance__value">{format(value)}</span>
-    </label>
+    </div>
   );
 }

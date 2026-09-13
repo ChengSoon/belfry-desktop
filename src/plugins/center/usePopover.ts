@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { ownsTarget } from "../../components/controls/layerOwnership";
 
 export function usePopover(height = 220, initialOpen = false) {
   const [open, setOpen] = useState(initialOpen), [up, setUp] = useState(false);
@@ -9,9 +10,13 @@ export function usePopover(height = 220, initialOpen = false) {
   useEffect(() => {
     if (!open) return;
     const inside = (target: EventTarget | null) =>
-      !!target && (!!ref.current?.contains(target as Node) || !!panel.current?.contains(target as Node));
+      !!target && (ownsTarget(ref.current, target as Node) || ownsTarget(panel.current, target as Node));
     const outside = (event: MouseEvent) => { if (!inside(event.target)) setOpen(false); };
-    const escape = (event: KeyboardEvent) => { if (event.key === "Escape") { event.stopPropagation(); setOpen(false); } };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !event.isComposing && !event.defaultPrevented) {
+        event.preventDefault(); event.stopPropagation(); setOpen(false);
+      }
+    };
     document.addEventListener("mousedown", outside);
     document.addEventListener("keydown", escape, true);
     return () => { document.removeEventListener("mousedown", outside); document.removeEventListener("keydown", escape, true); };

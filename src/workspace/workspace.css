@@ -116,7 +116,7 @@
   display: grid;
   min-width: 0;
   min-height: 0;
-  grid-template-rows: calc(34px + var(--titlebar-inset)) minmax(0, 1fr);
+  grid-template-rows: calc(42px + var(--titlebar-inset)) minmax(0, 1fr);
 }
 
 .stage-caption {
@@ -155,7 +155,7 @@
 
 .empty-stage {
   position: absolute;
-  inset: 0;
+  inset: calc(42px + var(--titlebar-inset)) 0 0;
   display: grid;
   place-content: center;
   justify-items: center;
@@ -205,7 +205,7 @@
   height: 24px;
   place-items: center;
   border: 0;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   color: var(--text-faint);
   background: transparent;
   cursor: pointer;

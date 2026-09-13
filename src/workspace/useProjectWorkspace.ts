@@ -9,7 +9,7 @@ import {
   type SshLaunch,
 } from "../terminal/contracts";
 import { detectAgents, openProject } from "./api";
-import { listShellProfiles } from "../terminal/api";
+import { closeTerminalTab, listShellProfiles } from "../terminal/api";
 import type { HistorySession } from "../history/contracts";
 import type {
   AgentAvailability,
@@ -22,6 +22,9 @@ import type {
 } from "./contracts";
 import { toAppFailure } from "./errors";
 import { pathKey } from "./path";
+import { useNamedWorkspaces } from "./named/useNamedWorkspaces";
+import { useProjectRepair } from "./named/useProjectRepair";
+import { configureNewProjectTab, configureRestoredTabs } from "./projects/launch";
 import {
   loadRecentProjects,
   loadWorkspaceState,
@@ -36,22 +39,26 @@ import {
   closeTabsForPath,
   createProjectSwitchTab,
   createWorkspaceTab,
-  nextActiveTab,
   nextOrdinal,
   updateSshTarget,
 } from "./tabs";
 
 export function useProjectWorkspace() {
-  const restoredWorkspace = useMemo(loadWorkspaceState, []);
+  const restoredWorkspace = useMemo(() => {
+    const saved = loadWorkspaceState();
+    return saved ? { ...saved, tabs: configureRestoredTabs(saved.tabs) } : null;
+  }, []);
   const initialProjectPath = useRef(
     restoredWorkspace?.tabs.find((tab) => tab.id === restoredWorkspace.activeTabId)?.project.rootPath
       ?? loadRecentProjects()[0]?.rootPath
       ?? null,
   );
   const [tabs, setTabs] = useState<WorkspaceTab[]>(() => restoredWorkspace?.tabs ?? []);
-  const [activeTabId, setActiveTabId] = useState<string | null>(
-    () => restoredWorkspace?.activeTabId ?? null,
-  );
+  const named = useNamedWorkspaces({ tabIds: tabs.map((tab) => tab.id), activeTabId: restoredWorkspace?.activeTabId ?? null });
+  const { activeTabId, setActiveTabId, registerTab } = named;
+  const bootstrapRegister = useRef(registerTab);
+  const visibleTabs = useMemo(() => tabs.filter((tab) => named.current.tabIds.includes(tab.id)), [named.current.tabIds, tabs]);
+  const repairProject = useProjectRepair(tabs, setTabs);
   // 没有活动会话时新建会话该开在哪；有活动会话时一律继承它的项目。
   const [lastProject, setLastProject] = useState<ProjectWorkspace | null>(() => (
     restoredWorkspace?.tabs.find((tab) => tab.id === restoredWorkspace.activeTabId)?.project
@@ -68,6 +75,8 @@ export function useProjectWorkspace() {
   const agentDetectionGeneration = useRef(0);
   const requestVersion = useRef(0);
   const lastPersistedWorkspace = useRef<string | null>(null);
+  const [persistenceError, setPersistenceError] = useState<string | null>(null);
+  const [persistenceRetry, setPersistenceRetry] = useState(0);
 
   const activeProject = tabs.find((tab) => tab.id === activeTabId)?.project ?? lastProject;
 
@@ -98,16 +107,16 @@ export function useProjectWorkspace() {
     try {
       const workspace = await openProject(path);
       if (version !== requestVersion.current) return;
-      const tab = createProjectSwitchTab(tabs, workspace);
+      const tab = configureNewProjectTab(createProjectSwitchTab(tabs, workspace));
       setTabs((current) => [...current, tab]);
-      setActiveTabId(tab.id);
+      registerTab(tab.id);
       acceptProject(workspace);
     } catch (error) {
       if (version === requestVersion.current) setFailure(toAppFailure(error));
     } finally {
       if (version === requestVersion.current) setOpening(false);
     }
-  }, [acceptProject, tabs]);
+  }, [acceptProject, registerTab, tabs]);
 
   useEffect(() => {
     void bootstrap();
@@ -130,7 +139,7 @@ export function useProjectWorkspace() {
         if (version !== requestVersion.current) return;
         const tab = createWorkspaceTab(workspace, "shell", 1);
         setTabs([tab]);
-        setActiveTabId(tab.id);
+        bootstrapRegister.current(tab.id);
         acceptProject(workspace);
         const [, shells] = await Promise.all([agentDetection, loadShellProfileState()]);
         if (version === requestVersion.current) {
@@ -151,10 +160,11 @@ export function useProjectWorkspace() {
   const serializedWorkspace = serializeWorkspaceState(tabs, activeTabId);
   useEffect(() => {
     if (readyToPersist && serializedWorkspace !== lastPersistedWorkspace.current) {
-      saveWorkspaceState(tabs, activeTabId);
-      lastPersistedWorkspace.current = serializedWorkspace;
+      const error = saveWorkspaceState(tabs, activeTabId);
+      setPersistenceError(error);
+      if (!error) lastPersistedWorkspace.current = serializedWorkspace;
     }
-  }, [activeTabId, readyToPersist, serializedWorkspace, tabs]);
+  }, [activeTabId, persistenceRetry, readyToPersist, serializedWorkspace, tabs]);
 
   const launch = useCallback(async (kind: WorkspaceTabKind, requestedProfile?: ShellProfileId, projectRoot?: string, activate = true, collaborationMode = false): Promise<string | null> => {
     const profileId = kind === "shell" ? requestedProfile ?? "system-default" : null;
@@ -198,7 +208,7 @@ export function useProjectWorkspace() {
     }
     // tab 必须在 updater 外建：updater 在 StrictMode 下会跑两次，
     // 每次 randomUUID 不同，setActiveTabId 就会指向一个被丢弃的 id。
-    const tab = createWorkspaceTab(
+    let tab = createWorkspaceTab(
       target,
       kind,
       nextOrdinal(tabs, kind),
@@ -207,10 +217,16 @@ export function useProjectWorkspace() {
       profileId && isShellProfileId(profileId) ? profileId : "system-default",
       collaborationMode,
     );
+    try {
+      tab = configureNewProjectTab(tab, requestedProfile);
+    } catch (error) {
+      setFailure(toAppFailure(error));
+      return null;
+    }
     setTabs((current) => [...current, tab]);
-    if (activate) setActiveTabId(tab.id);
+    registerTab(tab.id, activate);
     return tab.id;
-  }, [acceptProject, activeProject, agents, shellProfiles, tabs]);
+  }, [acceptProject, activeProject, agents, registerTab, shellProfiles, tabs]);
 
   /** SSH 会话：凭证不落地，连接在终端里由 OpenSSH 交互，这里只建 tab。 */
   const launchSsh = useCallback(async (target: SshLaunch) => {
@@ -227,8 +243,8 @@ export function useProjectWorkspace() {
     }
     const tab = createWorkspaceTab(project, "ssh", nextOrdinal(tabs, "ssh"), null, target);
     setTabs((current) => [...current, tab]);
-    setActiveTabId(tab.id);
-  }, [acceptProject, activeProject, tabs]);
+    registerTab(tab.id);
+  }, [acceptProject, activeProject, registerTab, tabs]);
 
   /**
    * 从历史会话面板恢复一条会话：优先在会话原目录里新开（目录没了退回当前项目），
@@ -265,21 +281,25 @@ export function useProjectWorkspace() {
     // id 必须在 updater 外生成：updater 在 StrictMode 下会跑两次，
     // 每次 randomUUID 不同，setActiveTabId 就会指向一个被丢弃的 id。
     const id = crypto.randomUUID();
+    let prepared: WorkspaceTab;
+    try {
+      prepared = configureNewProjectTab(createWorkspaceTab(target, kind, 1, sessionId));
+    } catch (error) {
+      setFailure(toAppFailure(error));
+      return;
+    }
     // 序号在 updater 内基于最新列表计算：批量打开多条时不会全部叫 "Codex 01"。
     setTabs((current) => [
       ...current,
-      { ...createWorkspaceTab(target, kind, nextOrdinal(current, kind), sessionId), id },
+      { ...createWorkspaceTab(target, kind, nextOrdinal(current, kind), sessionId), id, projectLaunch: prepared.projectLaunch },
     ]);
-    setActiveTabId(id);
-  }, [acceptProject, activeProject, startAgentDetection]);
+    registerTab(id);
+  }, [acceptProject, activeProject, registerTab, startAgentDetection]);
 
   const closeTab = useCallback((id: string) => {
-    setTabs((current) => {
-      const next = nextActiveTab(current, id);
-      if (activeTabId === id) setActiveTabId(next.activeId);
-      return next.remaining;
-    });
-  }, [activeTabId]);
+    void closeTerminalTab(id).then(() => setTabs((current) => current.filter((tab) => tab.id !== id)))
+      .catch((error) => setFailure(toAppFailure(error)));
+  }, []);
 
   /**
    * 重命名会话。目前只有 SSH 支持：手动名记在 customTitle 里，
@@ -309,9 +329,9 @@ export function useProjectWorkspace() {
 
   /** 修改 SSH 目标后复用当前 tab；sshTarget 变化会让终端层自动重连。 */
   const updateSsh = useCallback((id: string, target: SshLaunch) => {
-    setTabs((current) => current.map((tab) => (
+    void closeTerminalTab(id).then(() => setTabs((current) => current.map((tab) => (
       tab.id === id ? updateSshTarget(tab, target) : tab
-    )));
+    )))).catch((error) => setFailure(toAppFailure(error)));
   }, []);
 
   /**
@@ -322,16 +342,17 @@ export function useProjectWorkspace() {
    * 该目录是唯一有会话的目录时，若最近列表还有其他目录，自动打开最近的一条
    * 补位，否则切换器会停在"正在定位…"。
    */
-  const removeRecentProject = useCallback((id: string) => {
+  const removeRecentProject = useCallback(async (id: string) => {
     const target = recentProjects.find((project) => project.id === id);
     if (!target) return;
     const targetKey = pathKey(target.rootPath);
+    try { await Promise.all(tabs.filter((tab) => pathKey(tab.project.rootPath) === targetKey).map((tab) => closeTerminalTab(tab.id))); }
+    catch (error) { setFailure(toAppFailure(error)); return; }
     const next = removeRecentProjectEntry(recentProjects, id);
     saveRecentProjects(next);
     setRecentProjects(next);
     setTabs((current) => {
       const result = closeTabsForPath(current, activeTabId, target.rootPath);
-      if (result.activeId !== activeTabId) setActiveTabId(result.activeId);
       return result.remaining;
     });
     if (lastProject && pathKey(lastProject.rootPath) === targetKey) setLastProject(null);
@@ -341,12 +362,12 @@ export function useProjectWorkspace() {
         .then((workspace) => {
           const tab = createWorkspaceTab(workspace, "shell", 1);
           setTabs([tab]);
-          setActiveTabId(tab.id);
+          registerTab(tab.id);
           acceptProject(workspace);
         })
         .catch((error) => setFailure(toAppFailure(error)));
     }
-  }, [acceptProject, activeTabId, lastProject, recentProjects, tabs]);
+  }, [acceptProject, activeTabId, lastProject, recentProjects, registerTab, tabs]);
 
   const updateTab = useCallback((id: string, snapshot: TerminalSnapshot) => {
     setTabs((current) => current.map((tab) => (
@@ -365,6 +386,11 @@ export function useProjectWorkspace() {
   }, [startAgentDetection]);
 
   return {
+    named,
+    visibleTabs,
+    repairProject,
+    persistenceError,
+    retryPersistence: () => setPersistenceRetry((value) => value + 1),
     activeProject,
     agents,
     shellProfiles,

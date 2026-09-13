@@ -49,7 +49,7 @@ pub(crate) fn login_shell_env() -> &'static HashMap<String, String> {
 }
 
 pub(crate) fn detect_agent(kind: AgentKind) -> AgentAvailability {
-    match find_agent(kind) {
+    let mut availability = match find_agent(kind) {
         Some(path) => AgentAvailability {
             descriptor: AgentDescriptor::for_kind(kind),
             kind,
@@ -66,7 +66,10 @@ pub(crate) fn detect_agent(kind: AgentKind) -> AgentAvailability {
             version: None,
             reason: Some(format!("未在用户命令环境中找到 {}", kind.command_name())),
         },
-    }
+    };
+    availability.descriptor.capabilities.structured_state =
+        super::hooks::features::supported(kind, availability.version.as_deref());
+    availability
 }
 
 fn find_agent(kind: AgentKind) -> Option<PathBuf> {

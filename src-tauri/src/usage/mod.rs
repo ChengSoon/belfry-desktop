@@ -4,6 +4,7 @@
 //! 与"不内置模型服务、不保存 API Key"的产品边界一致。
 
 mod aggregate;
+pub(crate) mod analytics;
 mod claude;
 mod codex;
 pub mod commands;
@@ -11,6 +12,7 @@ mod contracts;
 mod roots;
 mod scan;
 mod service;
+pub(crate) mod session;
 pub(crate) mod timestamp;
 
 pub(crate) use scan::home_dir;

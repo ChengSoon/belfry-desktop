@@ -47,6 +47,8 @@ pub(super) struct NativeSession {
     palette: RwLock<Option<Palette>>,
     /// SSH 登录密码：首次出现密码提示时自动填入一次，然后停用。非 SSH 会话为 None。
     auto_password: Mutex<Option<AutoPassword>>,
+    /// 私有配置快照须活到该 PTY 退出，不能在 spawn 返回时释放。
+    _launch_overlay: super::overlay::LaunchOverlay,
 }
 
 impl PtyBackend for NativePtyBackend {
@@ -58,7 +60,7 @@ impl PtyBackend for NativePtyBackend {
         request.validate()?;
         validate_platform(request.platform)?;
         let cwd = resolve_cwd(request.cwd.as_deref())?;
-        let launch = resolve_launch(
+        let mut launch = resolve_launch(
             &request.profile_id,
             &cwd,
             &request.env,
@@ -66,6 +68,7 @@ impl PtyBackend for NativePtyBackend {
             request.ssh.as_ref(),
             request.collaboration_mode,
         )?;
+        request.launch_overlay.apply(&mut launch.command);
         let shell = launch.display_name;
         let auto_password = match &request.ssh {
             Some(target) => {
@@ -105,6 +108,7 @@ impl PtyBackend for NativePtyBackend {
             // 颜色坏了不该拦下会话：解析失败就当没给，退回让 xterm.js 自己答。
             palette: RwLock::new(request.palette.as_ref().and_then(to_palette)),
             auto_password: Mutex::new(auto_password),
+            _launch_overlay: request.launch_overlay,
         });
         self.sessions
             .lock()
@@ -122,6 +126,8 @@ impl PtyBackend for NativePtyBackend {
             rows: request.rows,
             status: TerminalStatus::Running,
             exit_code: None,
+            reconnected: false,
+            connection_id: None,
         })
     }
 

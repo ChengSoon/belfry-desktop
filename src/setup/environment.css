@@ -15,8 +15,10 @@
 .environment-section__header h2 {
   margin: 0;
   color: var(--text);
-  font-size: var(--fs-display);
-  font-weight: 550;
+  /* 分区标题档，与其它设置页对齐。原先是展示档(20px)——整个设置页只有这一页
+     标题这么大，切过去像换了个应用。展示档留给数字（用量那个总计）。 */
+  font-size: var(--fs-lg);
+  font-weight: 500;
   letter-spacing: 0;
 }
 
@@ -81,7 +83,7 @@
 .environment-summary strong {
   color: var(--text);
   font-size: var(--fs-md);
-  font-weight: 550;
+  font-weight: 500;
 }
 
 .environment-summary span:last-child {

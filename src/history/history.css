@@ -1,6 +1,7 @@
 /* 历史会话面板 */
 
-/* 结构与 usage-panel 对齐：面板底色顶到窗口边，留白开在背景里面。 */
+/* 结构与 usage-panel 对齐：面板底色顶到窗口边，留白开在背景里面。
+   底色与头部规格统一在 panel/panelShell.css。 */
 .history-panel {
   position: relative;
   display: grid;
@@ -12,26 +13,6 @@
   grid-template-rows: auto auto auto minmax(0, 1fr);
   padding-top: var(--titlebar-inset);
   border-left: 1px solid var(--border);
-  background: var(--surface);
-}
-
-.history-head {
-  display: flex;
-  height: 44px;
-  align-items: center;
-  gap: 7px;
-  padding: 0 8px 0 12px;
-  border-bottom: 1px solid var(--border);
-}
-
-.history-head > svg { flex: 0 0 auto; color: var(--text-faint); }
-
-.history-head h2 {
-  flex: 1;
-  margin: 0;
-  font-size: var(--fs-md);
-  font-weight: 500;
-  letter-spacing: -0.01em;
 }
 
 .history-filters {
@@ -151,15 +132,17 @@
   display: flex;
   align-items: stretch;
   overflow: hidden;
-  border: 1px solid var(--border);
+  border: 1px solid var(--card-border);
   border-radius: var(--radius-md);
-  background: var(--surface-raised);
+  /* 第三层。此前用 --surface-raised——亮色下它等于纯白，而那时面板底也是纯白，
+     这一行因此完全浮不起来，只剩一圈边框在示意"这是一条"。 */
+  background: var(--card);
   transition: border-color var(--duration) var(--ease), background var(--duration) var(--ease);
 }
 
 .history-item.is-selected {
   border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 10%, var(--surface-raised));
+  background: color-mix(in srgb, var(--accent) 10%, var(--card));
 }
 
 .history-item__check {

@@ -1,0 +1,20 @@
+.backup-section { max-width: 680px; min-width: 0; display: grid; gap: 24px; }
+.backup-section h2, .backup-section h3, .backup-section p { margin: 0; }
+.backup-section h2 { font-size: var(--fs-lg); font-weight: 500; margin-bottom: 8px; }
+.backup-section h3 { font-size: var(--fs-sm); font-weight: 500; }
+.backup-section header p, .backup-note, .backup-section small, .backup-section time { color: var(--text-muted); line-height: 1.7; font-size: var(--fs-xs); }
+.backup-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.backup-section button:not(.ui-checkbox), .backup-recovery button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); padding: 9px 13px; cursor: pointer; font: inherit; font-size: 12px; }
+.backup-section button:disabled { opacity: .45; cursor: default; }
+.backup-section button:not(:disabled):hover, .backup-recovery button:hover { background: var(--surface-hover); }
+.backup-section button:focus-visible, .backup-recovery button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.backup-section .is-primary { border-color: var(--accent); }
+.backup-card { border: 1px solid var(--border); border-radius: 12px; padding: 20px; display: grid; gap: 16px; }
+.backup-card header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
+.backup-card > button { justify-self: start; }
+.backup-domain { display: grid; gap: 4px; }
+.backup-domain small { padding-left: 26px; }
+.backup-undo { display: grid; gap: 16px; padding-top: 20px; border-top: 1px solid var(--border); }
+.backup-error { color: var(--danger, #c34d58); overflow-wrap: anywhere; }
+.backup-recovery { max-width: 640px; padding: 60px 32px; margin: auto; display: grid; gap: 20px; }
+@media (max-width: 740px) { .backup-section { gap: 20px; } }

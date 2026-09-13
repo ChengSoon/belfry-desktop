@@ -1,5 +1,5 @@
 import { ChevronRight, Download, Gauge, History, PanelLeftClose, Pencil, Server, Settings, Settings2, SquareTerminal, X } from "lucide-react";
-import { useRef, useState, type CSSProperties, type PointerEvent, type Ref } from "react";
+import { useRef, useState, type CSSProperties, type PointerEvent, type ReactNode, type Ref } from "react";
 import { PanelResizeHandle } from "../../panel/PanelResizeHandle";
 import { usePanelWidth } from "../../panel/usePanelWidth";
 import { ICON } from "../../theme/sizing";
@@ -8,7 +8,6 @@ import {
   formatShortcutChord,
   shortcutPlatform,
 } from "../../shortcuts/resolveShortcut";
-import { ThemeToggle } from "../../theme/ThemeToggle";
 import type { UpdaterState } from "../../updater/contracts";
 import {
   shellProfileLabel,
@@ -25,8 +24,10 @@ import { ClaudeIcon, CodexIcon } from "./AgentIcons";
 import { NewSessionMenu } from "./NewSessionMenu";
 import { SshDialog } from "./SshDialog";
 import "../sidebar.css";
+import "../quietSidebar.css";
 
 interface SidebarProps {
+  workspaceControls?: ReactNode;
   agents: AgentAvailability[];
   shellProfiles: ShellProfile[];
   tabs: WorkspaceTab[];
@@ -64,6 +65,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({
+  workspaceControls,
   agents,
   shellProfiles,
   tabs,
@@ -107,23 +109,33 @@ export function Sidebar({
       style={sidebarStyle}
     >
       <div className="sidebar-sessions">
-        <div className="sessions-head">
-          <span>会话</span>
-          <NewSessionMenu
-            agents={agents}
-            shellProfiles={shellProfiles}
-            onLaunch={onLaunch}
-            onLaunchSsh={onLaunchSsh}
-            onRefresh={onRefresh}
-            shellShortcut={formatShortcutChord(appShortcutChord(platform, "T"))}
-          />
+        <div>
+          <div className="sidebar-context">
+            {workspaceControls}
+            <button className="icon-button icon-button--sm sidebar-context__collapse" onClick={onCollapse}
+              aria-label="收起侧栏" title={`收起侧栏 ${formatShortcutChord(appShortcutChord(platform, "B"))}`} type="button">
+              <PanelLeftClose aria-hidden="true" size={ICON.sm} />
+            </button>
+          </div>
+          <div className="sessions-head">
+            <span>会话</span>
+            <NewSessionMenu
+              agents={agents}
+              shellProfiles={shellProfiles}
+              onLaunch={onLaunch}
+              onLaunchSsh={onLaunchSsh}
+              onRefresh={onRefresh}
+              shellShortcut={formatShortcutChord(appShortcutChord(platform, "T"))}
+            />
+          </div>
         </div>
         <nav className="session-list" aria-label="会话列表">
           {groups.map((group) => (
             <SessionGroup
               activeId={activeId}
               draggingId={draggingId}
-              folded={foldedProjects.has(group.project.id)}
+              folded={groups.length > 1 && foldedProjects.has(group.project.id)}
+              showHeading={groups.length > 1}
               group={group}
               key={group.project.id}
               onActivate={onActivate}
@@ -140,7 +152,6 @@ export function Sidebar({
       </div>
 
       <div className="sidebar-foot">
-        <ThemeToggle />
         <div className="sidebar-foot__actions">
           {showUpdaterTrigger(updaterState, updaterOpen) ? (
             <button
@@ -182,14 +193,6 @@ export function Sidebar({
           >
             <History aria-hidden="true" size={ICON.md} />
           </button>
-          <button
-            className="icon-button icon-button--sm"
-            onClick={onCollapse}
-            title={`收起侧栏 ${formatShortcutChord(appShortcutChord(platform, "B"))}`}
-            type="button"
-          >
-            <PanelLeftClose aria-hidden="true" size={ICON.md} />
-          </button>
         </div>
       </div>
       <PanelResizeHandle
@@ -225,6 +228,7 @@ function updateButtonLabel(state: UpdaterState) {
 function SessionGroup({
   group,
   folded,
+  showHeading,
   activeId,
   draggingId,
   onActivate,
@@ -238,6 +242,7 @@ function SessionGroup({
 }: {
   group: ProjectGroup;
   folded: boolean;
+  showHeading: boolean;
   activeId: string | null;
   draggingId: string | null;
   onActivate: (id: string) => void;
@@ -255,7 +260,7 @@ function SessionGroup({
 
   return (
     <div className={`session-group${folded ? " is-folded" : ""}`}>
-      <button
+      {showHeading ? <button
         aria-expanded={!folded}
         aria-label={`${group.project.name}，${group.tabs.length} 个会话${dot === "awaiting" ? "，有会话等待选择" : ""}`}
         className="session-group__head"
@@ -268,7 +273,7 @@ function SessionGroup({
         <span>{group.project.name}</span>
         {folded ? <i className="session-group__count" aria-hidden="true">{group.tabs.length}</i> : null}
         {dot ? <i className={`session-group__dot session-group__dot--${dot}`} aria-hidden="true" /> : null}
-      </button>
+      </button> : null}
       {folded ? null : group.tabs.map((tab) => (
         <SessionRow
           active={tab.id === activeId}

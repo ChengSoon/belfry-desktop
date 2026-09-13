@@ -58,6 +58,8 @@ impl PtyBackend for StubBackend {
             rows: request.rows,
             status: TerminalStatus::Running,
             exit_code: None,
+            reconnected: false,
+            connection_id: None,
         })
     }
 
@@ -122,6 +124,7 @@ mod tests {
             cwd: Some("file:///tmp".to_string()),
             command: None,
             env: HashMap::new(),
+            launch_overlay: Default::default(),
             collaboration_mode: false,
             resume: None,
             ssh: None,

@@ -201,6 +201,7 @@ function applyTypographyCss(runtime: TypographyRuntime) {
   root.style.setProperty("--fs-xs", `${sizes.xs}px`);
   root.style.setProperty("--fs-sm", `${sizes.sm}px`);
   root.style.setProperty("--fs-md", `${sizes.md}px`);
+  root.style.setProperty("--fs-lg", `${sizes.lg}px`);
   root.style.setProperty("--fs-display", `${sizes.display}px`);
 }
 

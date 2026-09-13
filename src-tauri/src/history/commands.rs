@@ -2,7 +2,24 @@ use crate::agent::AgentKind;
 use crate::terminal::AppError;
 
 use super::contracts::HistorySession;
+use super::search::{
+    contracts::{HistorySearchReport, HistorySearchRequest},
+    HistorySearchState,
+};
 use super::service;
+
+#[tauri::command]
+pub async fn history_search(
+    state: tauri::State<'_, HistorySearchState>,
+    request: HistorySearchRequest,
+) -> Result<HistorySearchReport, AppError> {
+    state.search(request).await
+}
+
+#[tauri::command]
+pub fn history_cancel_search(state: tauri::State<'_, HistorySearchState>, request_id: String) {
+    state.cancel(&request_id);
+}
 
 /// 列出某 Agent 的历史会话。扫描本地日志可能耗时，放到阻塞线程池避免卡住 UI。
 #[tauri::command]

@@ -79,7 +79,7 @@
 .pi-plugins .plugins-row.menu-open {
   background: var(--plugins-tile-hover);
 }
-.pi-plugins .plugins-row:has(.plugins-row-details[open]) {
+.pi-plugins .plugins-row:has(.plugins-row-details[data-open="true"]) {
   align-items: flex-start;
 }
 .pi-plugins .plugins-glyph {
@@ -177,7 +177,8 @@
 .pi-plugins .plugins-row-details {
   margin-top: 2px;
 }
-.pi-plugins .plugins-row-details-toggle {
+.pi-plugins .plugins-row-details .plugins-row-details-toggle {
+  width: auto;
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -191,15 +192,12 @@
     background var(--motion-duration-fast) var(--motion-ease-out),
     color var(--motion-duration-fast) var(--motion-ease-out);
 }
-.pi-plugins .plugins-row-details-toggle::-webkit-details-marker {
-  display: none;
-}
 .pi-plugins .plugins-row-details-toggle > svg {
   flex: 0 0 auto;
   transition: transform var(--motion-duration-fast) var(--motion-ease-out);
 }
-.pi-plugins .plugins-row-details[open] .plugins-row-details-toggle > svg {
-  transform: rotate(180deg);
+.pi-plugins .plugins-row-details[data-open="true"] .plugins-row-details-toggle > svg {
+  transform: rotate(90deg);
 }
 .pi-plugins .plugins-row-details-toggle:hover {
   background: color-mix(in oklab, var(--ds-text-primary) 7%, transparent);

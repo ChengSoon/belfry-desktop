@@ -193,11 +193,11 @@
   gap: 1px;
   padding: 0 4px;
   border: 1px solid var(--border-strong);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   color: var(--text-muted);
   background: var(--surface);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--fs-xs);
 }
 
 .quick-open__shortcut { margin-left: auto; color: var(--accent-hover) !important; }

@@ -3,6 +3,7 @@ pub mod commands;
 mod contracts;
 mod detection;
 mod history_adapter;
+pub(crate) mod hooks;
 mod state;
 
 #[cfg(test)]

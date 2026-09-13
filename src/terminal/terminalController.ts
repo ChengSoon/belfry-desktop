@@ -8,9 +8,11 @@ import { minimumContrastRatio, withTransparentBackground } from "../theme/xtermT
 import type { TypographyRuntime } from "../typography/contracts";
 import { typographyFontStacks } from "../typography/storage";
 import { watchActivity } from "./activity";
+import { HookActivity } from "../agent/hooks/activity";
+import type { HookSnapshot } from "../agent/hooks/contracts";
 import {
-  closeTerminal,
   createTerminal,
+  detachTerminal,
   resizeTerminal,
   setTerminalPalette,
   writeTerminal,
@@ -40,6 +42,7 @@ import { acceptSequence } from "./sequence";
 import { registerFileLinkProvider, registerHttpLinkProvider } from "./links";
 import { TerminalSearchController } from "./search";
 import { configureUnicode } from "./unicode";
+import { runStartupOnce } from "../workspace/projects/launch";
 
 /** 低于此宽度视为布局瞬态，不下发 resize。约等于 10 列等宽字符。 */
 const MIN_HOST_WIDTH = 80;
@@ -58,6 +61,7 @@ export interface MountCallbacks {
   onOutput?: (text: string) => void;
   /** 会话在生成 / 等按键 / 闲着，供侧栏显示。只有 Agent 会话会翻。 */
   onActivity: (activity: SessionActivity) => void;
+  onAgentState?: (snapshot: HookSnapshot | null) => void;
   /** 终端输出中的项目文件路径，交给工作区打开只读预览。 */
   onOpenFile: (path: string, line: number | null) => void;
   /** Ctrl/Cmd+F 请求打开搜索浮层，由 React 负责呈现。 */
@@ -144,6 +148,11 @@ export function mountTerminal(
   callbacks.onSession(null);
   // 重启（generation++）会重挂到同一个 tab 上，不清一次就带着上个 PTY 的状态点起步。
   callbacks.onActivity("idle");
+  callbacks.onAgentState?.(null);
+  const hookActivity = new HookActivity(({ activity, hook }) => {
+    callbacks.onActivity(activity);
+    callbacks.onAgentState?.(hook);
+  });
 
   let current: TerminalSession | null = null;
   const scheduleTypographyResize = () => {
@@ -188,12 +197,32 @@ export function mountTerminal(
   let inputLine = emptyInputLine();
   // Shell 会话不猜状态：它没有"对话"这回事，而 cat 一个含 `1. Yes` 的文件必然误报。
   let activity = launch.profileId.startsWith("agent:")
-    ? watchActivity(terminal, callbacks.onActivity)
+    ? watchActivity(terminal, (value) => hookActivity.screen(value))
     : null;
   const exitedSessions = new Set<string>();
+  let attachment: TerminalSession | null = null;
+  let connectionFailed = false;
+  const failConnection = (message: string) => {
+    connectionFailed = true;
+    hookActivity.stop(); activity?.dispose(); activity = null;
+    callbacks.onError(message); callbacks.onPhase("error"); callbacks.onActivity("idle");
+    if (attachment) void detachTerminal(attachment).catch(() => undefined);
+    current = null;
+  };
   const channel = new Channel<TerminalEvent>();
   channel.onmessage = (event) => {
-    if (disposed) return;
+    if (disposed || connectionFailed) return;
+    if (event.kind === "agent_state") { hookActivity.accept(event.snapshot); return; }
+    if (event.kind === "disconnected") {
+      failConnection(event.message); return;
+    }
+    if (event.kind === "replay_gap") {
+      expectedSequence = event.nextSequence;
+      outputDecoder.decode(); outputTail = "";
+      codexThemeSync.flush(); terminal.reset();
+      terminal.write("\r\n[较早输出已超出后台缓存，以下从仍保留的位置继续]\r\n");
+      callbacks.onError("较早输出已超出缓存；原进程仍在继续运行。"); return;
+    }
     try {
       const handled = handleTerminalEvent(
         terminal,
@@ -213,11 +242,10 @@ export function mountTerminal(
         inputLine = muteInputLine(inputLine);
       }
     } catch (error) {
-      callbacks.onError(errorMessage(error));
-      callbacks.onPhase("error");
-      if (current) void closeTerminal(current.id).catch(() => undefined);
+      failConnection(errorMessage(error));
     }
     if (event.kind === "exit") {
+      hookActivity.stop();
       exitedSessions.add(event.sessionId);
       current = null;
       callbacks.onError(diagnoseTerminalExit(event.exitCode, outputTail));
@@ -248,14 +276,23 @@ export function mountTerminal(
   const observer = createResizeObserver(host, terminal, fit, () => current, callbacks);
   void startSession(terminal, fit, channel, launch, theme, callbacks).then((value) => {
     if (disposed) {
-      if (value) void closeTerminal(value.id).catch(() => undefined);
+      if (value) void detachTerminal(value).catch(() => undefined);
+      return;
+    }
+    attachment = value;
+    if (value) callbacks.onSession(value);
+    if (connectionFailed) {
+      if (value) void detachTerminal(value).catch(() => undefined);
       return;
     }
     if (value && !exitedSessions.has(value.id)) {
+      if (value.status === "exited") { callbacks.onPhase("exited"); return; }
       current = value;
-      callbacks.onSession(value);
       callbacks.onPhase("running");
       terminal.focus();
+      void runStartupOnce({ intent: value.reconnected ? undefined : launch.projectLaunch?.startup, sessionId: value.id,
+        current: () => !disposed && current?.id === value.id, write: writeTerminal })
+        .catch((error) => callbacks.onError(`启动命令发送失败，未自动重试：${errorMessage(error)}`));
     }
   });
 
@@ -292,6 +329,7 @@ export function mountTerminal(
     },
     dispose: () => {
       disposed = true;
+      hookActivity.dispose();
       host.classList.remove("is-file-drag-over");
       removeImagePasteListener?.();
       removeFileDropListener?.();
@@ -300,7 +338,7 @@ export function mountTerminal(
       input.dispose();
       removePromptUserInput();
       activity?.dispose();
-      if (current) void closeTerminal(current.id).catch(() => undefined);
+      if (attachment) void detachTerminal(attachment).catch(() => undefined);
       renderer?.dispose();
       linkProvider.dispose();
       fileLinkProvider.dispose();
@@ -383,6 +421,7 @@ async function startSession(
     return await createTerminal(
       createTerminalRequest(terminal.cols, terminal.rows, launch, toPalette(theme)),
       channel,
+      launch.attachmentId,
     );
   } catch (error) {
     callbacks.onError(errorMessage(error));
@@ -394,7 +433,7 @@ async function startSession(
 function handleTerminalEvent(
   terminal: Terminal,
   callbacks: MountCallbacks,
-  event: TerminalEvent,
+  event: Extract<TerminalEvent, { kind: "output" | "exit" }>,
   expectedSequence: number,
   codexThemeSync: CodexThemeSync,
   outputDecoder: TextDecoder,
@@ -409,7 +448,6 @@ function handleTerminalEvent(
   const held = codexThemeSync.flush();
   if (held.length > 0) terminal.write(new Uint8Array(held));
   callbacks.onPhase("exited");
-  callbacks.onSession(null);
   terminal.write(`\r\n\x1b[90m[process exited ${event.exitCode}]\x1b[0m\r\n`);
   return { expectedSequence, outputText: "" };
 }

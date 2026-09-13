@@ -5,6 +5,8 @@ import { pluginNotice } from "../notices";
 import { usePluginRuntime } from "../usePluginRuntime";
 import { isMac, shortcutConflict, shortcutMatches } from "../center/shortcuts";
 import { DOCK_EVENT, VIEW_EVENT } from "./events";
+import { isShortcutRecording } from "../../shortcuts/custom/recording";
+import { composingInput } from "../../shortcuts/custom/chord";
 
 export function usePluginWorkspace(callbacks: {
   openProject: (path: string) => Promise<void>; reveal: () => void; toggle: () => void;
@@ -32,7 +34,7 @@ export function usePluginShortcuts() {
   useEffect(() => {
     const mac = isMac();
     const press = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.isComposing || event.repeat || document.querySelector("[data-shortcut-recorder='true']")) return;
+      if (event.defaultPrevented || composingInput(event) || event.repeat || isShortcutRecording()) return;
       const binding = runtime.shortcuts?.find((item) => shortcutMatches(item.binding, event, mac));
       if (!binding || shortcutConflict([binding.binding], mac)) return;
       event.preventDefault(); event.stopPropagation();

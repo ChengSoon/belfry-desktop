@@ -50,7 +50,10 @@ function HeaderMenu() {
     <button type="button" className="plugins-icon-btn plugins-header-menu" aria-label={t("plugins.moreActions")}
       title={t("plugins.moreActions")} aria-haspopup="menu" aria-expanded={menu.open} disabled={actions.busy} onClick={() => menu.setOpen(!menu.open)}><IconMore size={16} /></button>
     {menu.open ? <div className="plugins-menu is-end" role="menu">{entries.map((entry) =>
-      <button key={entry.key} type="button" role="menuitem" onClick={() => { menu.setOpen(false); void entry.run(); }}>{entry.label ?? t(`plugins.${entry.key}`)}</button>)}
+      <button key={entry.key} type="button" role="menuitem" onClick={() => {
+        menu.ref.current?.querySelector<HTMLButtonElement>(".plugins-header-menu")?.focus();
+        menu.setOpen(false); void entry.run();
+      }}>{entry.label ?? t(`plugins.${entry.key}`)}</button>)}
     </div> : null}
   </div>;
 }

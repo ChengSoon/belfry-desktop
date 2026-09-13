@@ -127,6 +127,8 @@ function SessionTerminal({
       collaborationMode: tab.collaborationMode,
       resumeSessionId: tab.resumeSessionId,
       ssh: tab.sshTarget,
+      projectLaunch: tab.projectLaunch,
+      attachmentId: tab.restoreSessionId,
     }),
     [
       tab.collaborationMode,
@@ -135,6 +137,8 @@ function SessionTerminal({
       tab.project.rootUri,
       tab.resumeSessionId,
       tab.sshTarget,
+      tab.projectLaunch,
+      tab.restoreSessionId,
     ],
   );
   const report = useCallback(

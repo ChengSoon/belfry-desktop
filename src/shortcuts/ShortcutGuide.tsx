@@ -12,6 +12,7 @@ import { ClaudeIcon, CodexIcon } from "../workspace/components/AgentIcons";
 import { useDismiss } from "../workspace/useDismiss";
 import { guideFootnote, guideSections, type GuideSection, type GuideTab } from "./catalog";
 import type { ShortcutPlatform } from "./resolveShortcut";
+import { useShortcutSettings } from "./custom/useShortcutSettings";
 import "./shortcutGuide.css";
 
 interface ShortcutGuideProps {
@@ -32,6 +33,7 @@ const GUIDE_TAB_DESCRIPTIONS: Record<GuideTab, string> = {
 };
 
 export function ShortcutGuide({ onClose, platform }: ShortcutGuideProps) {
+  useShortcutSettings();
   const [activeTab, setActiveTab] = useState<GuideTab>("belfry");
   const sections = guideSections(activeTab, platform);
   const itemCount = sections.reduce((total, group) => total + group.items.length, 0);

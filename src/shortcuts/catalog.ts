@@ -1,8 +1,10 @@
 import {
-  appShortcutChord,
   systemShortcutChord,
   type ShortcutPlatform,
 } from "./resolveShortcut";
+import { effectiveBindings } from "./custom/bindings";
+import { bindingChord } from "./custom/chord";
+import { loadShortcutSettings } from "./custom/storage";
 
 export type GuideTab = "belfry" | "codex" | "claude";
 
@@ -27,28 +29,26 @@ export function guideFootnote(tab: GuideTab, platform: ShortcutPlatform) {
   if (tab === "belfry" && platform === "control") {
     return "Windows / Linux 使用 Ctrl+Shift，给 Agent TUI 保留原生 Ctrl 快捷键。";
   }
-  if (tab === "belfry") return "这些 Belfry 组合键在终端聚焦时也能使用。";
+  if (tab === "belfry") return "在设置 → 快捷键中修改；这些组合键在终端聚焦时也能使用。";
   return "指令会随 CLI 版本变化；在输入框键入 / 可查看当前完整列表。";
 }
 
 function belfrySections(platform: ShortcutPlatform): GuideSection[] {
+  const entries = effectiveBindings(platform, loadShortcutSettings().settings[platform]).map(({ action, bindings }) => ({
+    id: action.id, label: action.label, keys: bindingChord(bindings[0], platform),
+  }));
   return [
     {
       label: "工作区",
-      items: [
-        { label: "新建 Shell 会话", keys: appShortcutChord(platform, "T") },
-        { label: "显示 / 隐藏侧栏", keys: appShortcutChord(platform, "B") },
-        { label: "打开 / 关闭用量", keys: appShortcutChord(platform, "U") },
-        { label: "打开 / 关闭历史", keys: appShortcutChord(platform, "H", true) },
-        { label: "打开设置", keys: appShortcutChord(platform, ",") },
-        { label: "打开 Quick Open", keys: appShortcutChord(platform, "K") },
-        { label: "打开快捷指令", keys: appShortcutChord(platform, "/") },
-      ],
+      items: entries.filter((entry) => !entry.id.startsWith("activate-session-")),
     },
     {
-      label: "会话与终端",
+      label: "会话",
+      items: entries.filter((entry) => entry.id.startsWith("activate-session-")),
+    },
+    {
+      label: "终端",
       items: [
-        { label: "切换第 1–9 个会话", keys: appShortcutChord(platform, "1…9") },
         { label: "复制选中内容", keys: systemShortcutChord(platform, "C") },
         { label: "粘贴剪贴板", keys: systemShortcutChord(platform, "V") },
         { label: "关闭当前浮层", keys: ["Esc"] },

@@ -8,6 +8,8 @@
 //!
 //! 额度（`rate_limits`）也只有这里有：取全局时间最新的一条非空快照。
 
+use std::collections::HashSet;
+use std::hash::{DefaultHasher, Hash, Hasher};
 use std::path::PathBuf;
 
 use serde_json::Value;
@@ -17,11 +19,11 @@ use crate::agent::AgentKind;
 use super::aggregate::UsageAccumulator;
 use super::claude::matches_project;
 use super::contracts::{QuotaWindow, TokenTotals};
-use super::scan::{ScanTally, collect_jsonl_files, for_each_line, home_dir, is_stale};
+use super::scan::ScanTally;
 use super::timestamp::parse_rfc3339;
 
 pub fn sessions_dir() -> Option<PathBuf> {
-    home_dir().map(|home| home.join(".codex").join("sessions"))
+    crate::history::scan::codex_sessions_root()
 }
 
 #[derive(Clone, Debug, Default)]
@@ -37,48 +39,12 @@ pub struct CodexScan {
     pub quota: Option<QuotaSnapshot>,
 }
 
-/// 累加 Codex 用量并顺带取回最新额度快照。
-///
-/// 额度反映账号当前状态，**不受** `cutoff` 与项目过滤影响：即使窗口内没有用量，
-/// 也应展示账号真实剩余额度。
-pub fn scan(
-    accumulator: &mut UsageAccumulator,
-    cutoff: Option<i64>,
-    project_root: Option<&str>,
-) -> CodexScan {
-    let mut tally = ScanTally::default();
-    let mut quota: Option<QuotaSnapshot> = None;
-    let Some(root) = sessions_dir() else {
-        return CodexScan { tally, quota };
-    };
-
-    for path in collect_jsonl_files(&root) {
-        // 额度只看最新文件，被 mtime 预筛掉的老文件也不会有更新的额度。
-        if is_stale(&path, cutoff) {
-            tally.skipped += 1;
-            continue;
-        }
-        let mut file = FileScan::new(project_root);
-        if for_each_line(&path, &["\"turn_context\"", "token_count"], |line| {
-            file.consume(line, accumulator, cutoff)
-        }) {
-            tally.scanned += 1;
-        } else {
-            tally.skipped += 1;
-        }
-        // 跨文件取 observed_at 最大的一条，文件名时序不完全等于事件时序。
-        if let Some(found) = file.quota {
-            if quota
-                .as_ref()
-                .is_none_or(|current| found.observed_at > current.observed_at)
-            {
-                quota = Some(found);
-            }
-        }
-    }
-
-    CodexScan { tally, quota }
-}
+#[path = "codex_scan.rs"]
+mod scanning;
+pub use scanning::scan;
+#[path = "codex_pending.rs"]
+mod pending;
+use pending::PendingUsage;
 
 /// 单个会话文件的扫描状态。
 struct FileScan<'a> {
@@ -87,6 +53,8 @@ struct FileScan<'a> {
     cwd: Option<String>,
     previous: TokenTotals,
     quota: Option<QuotaSnapshot>,
+    seen: HashSet<u64>,
+    pending: Option<PendingUsage>,
 }
 
 impl<'a> FileScan<'a> {
@@ -97,6 +65,8 @@ impl<'a> FileScan<'a> {
             cwd: None,
             previous: TokenTotals::default(),
             quota: None,
+            seen: HashSet::new(),
+            pending: None,
         }
     }
 
@@ -119,7 +89,9 @@ impl<'a> FileScan<'a> {
             }
             _ if payload["type"].as_str() == Some("token_count") => {
                 self.take_quota(payload, at);
-                self.take_usage(payload, accumulator, cutoff, at);
+                if self.seen.insert(fingerprint(&record)) {
+                    self.take_usage(payload, accumulator, cutoff, at);
+                }
             }
             _ => {}
         }
@@ -144,22 +116,52 @@ impl<'a> FileScan<'a> {
         if !usage.is_object() {
             return;
         }
-        let current = read_cumulative(usage);
-        let delta = diff(self.previous, current);
-        self.previous = current;
+        let next = PendingUsage {
+            tokens: read_raw_cumulative(usage),
+            model: self.model.clone(),
+            cwd: self.cwd.clone(),
+            at,
+        };
+        if let Some(pending) = self
+            .pending
+            .as_mut()
+            .filter(|pending| pending.coalesces(&next))
+        {
+            if pending.tokens != next.tokens {
+                *pending = next;
+            }
+            return;
+        }
+        self.flush(accumulator, cutoff);
+        self.pending = Some(next);
+    }
 
-        if let (Some(cutoff), Some(at)) = (cutoff, at) {
+    fn flush(&mut self, accumulator: &mut UsageAccumulator, cutoff: Option<i64>) {
+        let Some(item) = self.pending.take() else {
+            return;
+        };
+        let delta = match incremental_usage(&mut self.previous, item.tokens) {
+            Ok(delta) => delta,
+            Err(note) => {
+                if matches_project(item.cwd.as_deref(), self.project_root) {
+                    accumulator.fail_analytics(note, item.at);
+                }
+                return;
+            }
+        };
+
+        if let (Some(cutoff), Some(at)) = (cutoff, item.at) {
             if at < cutoff {
                 return;
             }
         }
-        if !matches_project(self.cwd.as_deref(), self.project_root) {
+        if !matches_project(item.cwd.as_deref(), self.project_root) {
             return;
         }
-        let Some(model) = self.model.as_deref() else {
+        let Some(model) = item.model.as_deref() else {
             return;
         };
-        accumulator.record(AgentKind::Codex, model, delta, at, self.cwd.as_deref());
+        accumulator.record(AgentKind::Codex, model, delta, item.at, item.cwd.as_deref());
     }
 
     fn take_quota(&mut self, payload: &Value, at: Option<i64>) {
@@ -190,16 +192,50 @@ impl<'a> FileScan<'a> {
 }
 
 /// Codex 的 `input_tokens` **含**缓存读，必须剥离后才能和 Claude 对比。
+#[cfg(test)]
 fn read_cumulative(usage: &Value) -> TokenTotals {
+    normalize(read_raw_cumulative(usage))
+}
+
+fn read_raw_cumulative(usage: &Value) -> TokenTotals {
     let input = number(usage, "input_tokens");
     let cached = number(usage, "cached_input_tokens");
     TokenTotals {
-        input: input.saturating_sub(cached),
+        input,
         cached_input: cached,
         cache_write: number(usage, "cache_write_input_tokens"),
         // reasoning_output_tokens 是 output 的子集，单独加会重复计。
         output: number(usage, "output_tokens"),
     }
+}
+
+fn normalize(tokens: TokenTotals) -> TokenTotals {
+    TokenTotals {
+        input: tokens.input.saturating_sub(tokens.cached_input),
+        ..tokens
+    }
+}
+
+fn incremental_usage(
+    previous: &mut TokenTotals,
+    current: TokenTotals,
+) -> Result<TokenTotals, &'static str> {
+    let cache_only_reset = current.input >= previous.input
+        && current.output >= previous.output
+        && (current.cached_input < previous.cached_input
+            || current.cache_write < previous.cache_write);
+    let delta = diff(*previous, current);
+    *previous = current;
+    if cache_only_reset || delta.cached_input > delta.input {
+        return Err("Codex 日志包含缓存回溯修正，无法可靠地按日期和模型分配费用");
+    }
+    Ok(normalize(delta))
+}
+
+fn fingerprint(record: &Value) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    record.to_string().hash(&mut hasher);
+    hasher.finish()
 }
 
 /// 相邻累计值之差。任一字段下降说明会话被重置，此时整条当增量，
@@ -232,6 +268,10 @@ fn read_window(value: &Value) -> Option<QuotaWindow> {
 fn number(value: &Value, key: &str) -> u64 {
     value[key].as_u64().unwrap_or(0)
 }
+
+#[cfg(test)]
+#[path = "analytics/codex_tests.rs"]
+mod analytics_tests;
 
 #[cfg(test)]
 mod tests {
@@ -325,6 +365,7 @@ mod tests {
             scan.consume(line, &mut accumulator, None);
         }
 
+        scan.flush(&mut accumulator, None);
         let models = accumulator.models();
         assert_eq!(models.len(), 2);
         let sol = models.iter().find(|m| m.model == "gpt-5.6-sol").unwrap();
@@ -344,6 +385,7 @@ mod tests {
             &mut accumulator,
             None,
         );
+        scan.flush(&mut accumulator, None);
         assert!(accumulator.models().is_empty());
     }
 
@@ -362,6 +404,7 @@ mod tests {
             scan.consume(line, &mut accumulator, cutoff);
         }
 
+        scan.flush(&mut accumulator, cutoff);
         let models = accumulator.models();
         assert_eq!(models.len(), 1);
         // 只算窗口内的 50/100，不把窗口前的 900/8000 带进来
@@ -380,6 +423,7 @@ mod tests {
         for line in lines {
             scan.consume(line, &mut accumulator, None);
         }
+        scan.flush(&mut accumulator, None);
         assert!(accumulator.models().is_empty());
     }
 }

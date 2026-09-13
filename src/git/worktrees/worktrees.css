@@ -1,0 +1,47 @@
+.worktree-dialog { display: flex; flex-direction: column; width: min(820px, calc(100vw - 40px)); height: min(640px, calc(100dvh - 64px)); color: var(--text); background: var(--canvas); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; box-shadow: 0 24px 80px #0005; }
+.worktree-dialog h2, .worktree-dialog h3, .worktree-dialog p { margin: 0; }
+.worktree-dialog h2 { font-size: var(--fs-lg); font-weight: 500; }
+.worktree-dialog h3 { font-size: var(--fs-md); font-weight: 500; }
+.worktree-dialog p, .worktree-dialog small, .worktree-task code { color: var(--text-muted); font-size: var(--fs-xs); line-height: 1.7; overflow-wrap: anywhere; }
+.worktree-dialog button:not(.ui-select__trigger):not(.ui-disclosure__trigger), .worktree-entry { display: inline-flex; align-items: center; gap: 7px; padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-xs); cursor: pointer; }
+.worktree-dialog button:disabled { opacity: .45; cursor: default; }
+.worktree-dialog button:not(:disabled):hover { background: var(--surface-hover); }
+.worktree-dialog button:focus-visible, .worktree-entry:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.worktree-head { display: flex; align-items: center; gap: 8px; padding: 18px 22px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.worktree-head > div { flex: 1; }.worktree-head p { margin-top: 5px; }
+.worktree-body { display: grid; grid-template-columns: 205px minmax(0, 1fr); min-height: 0; flex: 1; }
+.worktree-body aside { min-width: 0; overflow-y: auto; padding: 14px 10px; border-right: 1px solid var(--border); background: var(--sidebar); }
+.worktree-body .worktree-new { width: 100%; justify-content: center; margin-bottom: 14px; }
+.worktree-body nav { display: grid; gap: 4px; }
+.worktree-body nav button { text-align: left; background: transparent !important; border-color: transparent !important; width: 100%; }
+.worktree-body nav button[aria-current="true"] { background: var(--accent-soft) !important; }
+.worktree-body nav span { min-width: 0; display: grid; gap: 4px; }
+.worktree-body nav strong, .worktree-body nav small { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: 400; }
+.worktree-body nav svg { flex-shrink: 0; color: var(--text-muted); }
+.worktree-body main { min-width: 0; overflow-y: auto; padding: 22px; }
+.worktree-form, .worktree-task, .worktree-confirm { display: grid; gap: 18px; }
+.worktree-form > div > p, .worktree-task header code { display: block; margin-top: 6px; }
+.worktree-form label, .worktree-field { display: grid; gap: 7px; font-size: var(--fs-xs); color: var(--text-muted); }
+.worktree-dialog input { width: 100%; min-width: 0; box-sizing: border-box; padding: 9px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font: inherit; }
+.worktree-dialog input:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+.worktree-dialog footer { display: flex; justify-content: flex-end; gap: 8px; padding-top: 12px; border-top: 1px solid var(--border); }
+.worktree-dialog button.is-primary { border-color: var(--accent) !important; color: var(--accent) !important; }
+.worktree-task > button { justify-self: start; }
+.worktree-steps { display: flex; gap: 4px; border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-top: 4px; }
+.worktree-steps button { flex: 1; justify-content: center; border-color: transparent !important; background: transparent !important; }
+.worktree-steps button[aria-pressed="true"] { background: var(--accent-soft) !important; }
+.worktree-confirm dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px 14px; font-size: var(--fs-xs); margin: 0; }
+.worktree-confirm dt { color: var(--text-muted); }.worktree-confirm dd { margin: 0; overflow-wrap: anywhere; }
+.worktree-confirm ul, .worktree-result ul { padding-left: 18px; line-height: 1.7; overflow-wrap: anywhere; font-size: var(--fs-xs); }
+.worktree-confirm pre { margin: 8px 0 0; padding: 12px; max-height: 260px; overflow: auto; background: var(--surface); border-radius: var(--radius-sm); font: var(--fs-xs)/1.6 var(--font-mono); }
+.worktree-result { display: grid; gap: 8px; padding: 12px; margin-bottom: 18px; border-left: 2px solid var(--accent); background: var(--surface); }
+.worktree-dialog .worktree-error { color: var(--danger); margin-bottom: 16px; }
+.worktree-entry { margin: 0 14px 10px; justify-content: center; color: var(--text-muted); background: transparent; }
+.worktree-reminder { position: relative; }
+.worktree-reminder > button { width: auto; gap: 3px; padding: 4px; }
+.worktree-reminder small { font-size: 10px; color: var(--text-faint); }
+.worktree-reminder__popover { position: absolute; top: calc(100% + 8px); right: 0; width: 240px; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-raised); box-shadow: var(--shadow-lg); }
+.worktree-reminder__popover p { margin: 0 0 12px; color: var(--text-muted); font-size: var(--fs-xs); line-height: 1.7; }
+.worktree-reminder__popover button { background: transparent; border: 0; color: var(--accent); padding: 0; font-size: var(--fs-xs); cursor: pointer; }
+@media (max-width: 720px) { .worktree-body { grid-template-columns: 155px minmax(0, 1fr); }.worktree-body main { padding: 16px; }.worktree-head { padding: 14px 16px; } }
+@media (max-width: 520px) { .worktree-body { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }.worktree-body aside { max-height: 120px; border-right: 0; border-bottom: 1px solid var(--border); }.worktree-dialog { width: calc(100vw - 20px); } }

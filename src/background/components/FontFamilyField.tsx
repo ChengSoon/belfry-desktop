@@ -1,14 +1,5 @@
-import { Check, ChevronDown, FileType2, Monitor, Type } from "lucide-react";
-import {
-  useCallback,
-  useEffect,
-  useId,
-  useRef,
-  useState,
-  type KeyboardEvent,
-  type RefObject,
-} from "react";
-import { ICON } from "../../theme/sizing";
+import { useCallback, useEffect, useState } from "react";
+import { Combobox } from "../../components/controls/Combobox";
 import {
   MAX_FONT_FAMILY_LENGTH,
   type ImportedFontAsset,
@@ -16,8 +7,6 @@ import {
   type TypographyController,
 } from "../../typography/contracts";
 import { findActiveImportedFont } from "../../typography/storage";
-import "./fontFamilyField.css";
-import { useFontDropdown } from "./useFontDropdown";
 
 const FONT_UPDATE_DELAY = 250;
 const FONT_SUGGESTIONS = [
@@ -81,57 +70,14 @@ interface FontFamilyFieldProps {
 }
 
 export function FontFamilyField(props: FontFamilyFieldProps) {
-  const { activeImportedFileName, importedFonts, value } = props;
-  const listId = useId();
-  const labelId = useId();
-  const options = fontOptions(importedFonts);
-  const selectedIndex = selectedOptionIndex(options, activeImportedFileName, value);
-  const chooseAt = (index: number) => selectFontOption(options[index], props);
-  const dropdown = useFontDropdown({
-    optionCount: options.length,
-    selectedIndex,
-    onCommit: props.onCommit,
-    onSelect: chooseAt,
-  });
-  const changeValue = (next: string) => { props.onChange(next); dropdown.openForTyping(); };
-
-  return (
-    <div className="appearance__row appearance__row--wide">
-      <span className="appearance__label" id={labelId}>字体</span>
-      <div className="font-combobox" onBlur={dropdown.onBlur} ref={dropdown.rootRef}>
-        <FontInput
-          activeDescendant={dropdown.activeId(listId)}
-          activeImported={activeImportedFileName !== null}
-          expanded={dropdown.open}
-          inputRef={dropdown.inputRef}
-          labelId={labelId}
-          listId={listId}
-          onChange={changeValue}
-          onFocus={dropdown.openMenu}
-          onKeyDown={dropdown.onKeyDown}
-          value={value}
-        />
-        <button
-          aria-label={dropdown.open ? "收起字体选项" : "展开字体选项"}
-          className={`font-combobox__toggle${dropdown.open ? " is-open" : ""}`}
-          onClick={dropdown.toggle}
-          type="button"
-        >
-          <ChevronDown aria-hidden="true" size={ICON.sm} />
-        </button>
-        {dropdown.open ? (
-          <FontOptions
-            activeIndex={dropdown.activeIndex}
-            listId={listId}
-            onHover={dropdown.setActiveIndex}
-            onSelect={dropdown.select}
-            options={options}
-            selectedIndex={selectedIndex}
-          />
-        ) : null}
-      </div>
-    </div>
-  );
+  const options = fontOptions(props.importedFonts);
+  const selectedValue = props.activeImportedFileName ?? (props.value ? `system-${props.value}` : "default");
+  return <label className="appearance__row appearance__row--wide"><span className="appearance__label">字体</span>
+    <Combobox ariaLabel="字体" value={props.value} selectedValue={selectedValue} placeholder="系统默认"
+      maxLength={MAX_FONT_FAMILY_LENGTH} onChange={props.onChange} onCommit={props.onCommit}
+      onSelect={(key) => selectFontOption(options.find((option) => option.key === key), props)}
+      options={options.map((option) => ({ value: option.key, label: option.label, description: option.detail }))} />
+  </label>;
 }
 
 function selectFontOption(option: FontOption | undefined, props: FontFamilyFieldProps) {
@@ -139,43 +85,6 @@ function selectFontOption(option: FontOption | undefined, props: FontFamilyField
   if (option.kind === "default") props.onSelectDefault();
   else if (option.kind === "imported") props.onSelectImported(option.fileName);
   else props.onSelectSystem(option.label);
-}
-
-interface FontInputProps {
-  activeDescendant: string | undefined;
-  activeImported: boolean;
-  expanded: boolean;
-  inputRef: RefObject<HTMLInputElement | null>;
-  labelId: string;
-  listId: string;
-  value: string;
-  onChange: (value: string) => void;
-  onFocus: () => void;
-  onKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void;
-}
-
-function FontInput(props: FontInputProps) {
-  return (
-    <input
-      aria-activedescendant={props.activeDescendant}
-      aria-autocomplete="list"
-      aria-controls={props.listId}
-      aria-expanded={props.expanded}
-      aria-labelledby={props.labelId}
-      autoComplete="off"
-      className={`appearance__font-input${props.activeImported ? " is-imported" : ""}`}
-      maxLength={MAX_FONT_FAMILY_LENGTH}
-      onChange={(event) => props.onChange(event.target.value)}
-      onFocus={props.onFocus}
-      onKeyDown={props.onKeyDown}
-      placeholder="系统默认"
-      ref={props.inputRef}
-      role="combobox"
-      spellCheck={false}
-      type="text"
-      value={props.value}
-    />
-  );
 }
 
 interface FontOption {
@@ -209,53 +118,4 @@ function fontOptions(importedFonts: ImportedFontAsset[]): FontOption[] {
     options.push({ key: `system-${font}`, kind: "system", label: font, detail: "系统字体建议", fileName: "" });
   }
   return options;
-}
-
-function selectedOptionIndex(options: FontOption[], activeFileName: string | null, value: string) {
-  if (activeFileName) return options.findIndex((option) => option.fileName === activeFileName);
-  if (!value) return 0;
-  return options.findIndex((option) => option.kind === "system" && option.label === value);
-}
-
-interface FontOptionsProps {
-  activeIndex: number;
-  listId: string;
-  options: FontOption[];
-  selectedIndex: number;
-  onHover: (index: number) => void;
-  onSelect: (index: number) => void;
-}
-
-function FontOptions(props: FontOptionsProps) {
-  const menuRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    menuRef.current?.children.item(props.activeIndex)?.scrollIntoView({ block: "nearest" });
-  }, [props.activeIndex]);
-  return (
-    <div className="font-combobox__menu" id={props.listId} ref={menuRef} role="listbox">
-      {props.options.map((option, index) => (
-        <button
-          aria-selected={index === props.selectedIndex}
-          className={`font-combobox__option${index === props.activeIndex ? " is-active" : ""}`}
-          id={`${props.listId}-option-${index}`}
-          key={option.key}
-          onClick={() => props.onSelect(index)}
-          onMouseDown={(event) => event.preventDefault()}
-          onMouseEnter={() => props.onHover(index)}
-          role="option"
-          type="button"
-        >
-          <FontOptionIcon kind={option.kind} />
-          <span><strong>{option.label}</strong><small>{option.detail}</small></span>
-          {index === props.selectedIndex ? <Check aria-hidden="true" size={ICON.sm} /> : null}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function FontOptionIcon({ kind }: { kind: FontOption["kind"] }) {
-  if (kind === "default") return <Monitor aria-hidden="true" size={ICON.sm} />;
-  if (kind === "imported") return <FileType2 aria-hidden="true" size={ICON.sm} />;
-  return <Type aria-hidden="true" size={ICON.sm} />;
 }

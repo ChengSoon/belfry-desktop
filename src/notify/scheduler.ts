@@ -1,9 +1,11 @@
 import type { SessionActivity } from "../terminal/contracts";
+import type { TerminalPhase } from "../terminal/contracts";
+import type { HookSnapshot } from "../agent/hooks/contracts";
 import type { WorkspaceTabKind } from "../workspace/contracts";
 import { notify as sendNotify, setBadge as applyBadge } from "./api";
+import { notificationTransition, statusChanged } from "./hookRules";
 import {
   FINISHED_CONFIRM_MS,
-  classifyTransition,
   notifyContent,
   shouldSuppress,
   type NotifyContent,
@@ -18,6 +20,8 @@ export interface NotifiableSession {
   id: string;
   kind: WorkspaceTabKind;
   activity: SessionActivity;
+  phase?: TerminalPhase;
+  agentState?: HookSnapshot | null;
   title: string;
   project: { name: string };
 }
@@ -36,7 +40,7 @@ export interface NotifySinks {
 export class ActivityNotifier {
   private readonly sinks: NotifySinks;
   /** 上次见到的 activity。查不到 = 会话刚进视野，不能当跃迁。 */
-  private readonly seen = new Map<string, SessionActivity>();
+  private readonly seen = new Map<string, NotifiableSession>();
   /** 压着等确认的完成通知。 */
   private readonly pending = new Map<string, ReturnType<typeof setTimeout>>();
   /** 已通知完成、用户还没回来看的会话。只用来算角标。 */
@@ -63,14 +67,14 @@ export class ActivityNotifier {
     for (const session of sessions) {
       live.add(session.id);
       const before = this.seen.get(session.id);
-      this.seen.set(session.id, session.activity);
-      if (before === undefined || before === session.activity) continue;
+      this.seen.set(session.id, session);
+      if (before === undefined || !statusChanged(before, session)) continue;
 
       // 状态但凡再动一下，压着的那条"已跑完"就作废。典型序列是
       // talking → idle → awaiting-choice：spinner 先没，权限框隔一拍才画出来。
       this.cancel(session.id);
-      const reason = classifyTransition(before, session.activity, session.kind);
-      if (reason === "awaiting-choice") {
+      const reason = notificationTransition(before, session);
+      if (reason === "awaiting-choice" || reason === "failed" || (reason === "finished" && session.agentState?.source === "hook")) {
         this.deliver(session.id, reason);
       } else if (reason === "finished") {
         this.pending.set(
@@ -109,7 +113,7 @@ export class ActivityNotifier {
     // 可见性要在发送这一刻才看：决策时用户在别处，等通知真要出去时他可能已经回来了。
     if (shouldSuppress(this.focused, this.visible.has(id))) return;
     this.sinks.notify(notifyContent(reason, session.project.name, session.title));
-    if (reason === "finished") this.unread.add(id);
+    if (reason === "finished" || reason === "failed") this.unread.add(id);
     this.reconcile();
   }
 

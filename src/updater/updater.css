@@ -20,7 +20,7 @@
   flex: 0 0 auto;
   place-items: center;
   border: 1px solid var(--border-strong);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   color: var(--accent);
   background: var(--accent-soft);
 }

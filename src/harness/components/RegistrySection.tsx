@@ -3,15 +3,18 @@ import { RefreshCw, ShieldCheck } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { HarnessRegistryClient, type HarnessInstallPreview, type HarnessPlugin, type HarnessRegistryState } from "../registryClient";
 import "./registrySection.css";
+import { ConfirmDialog } from "../../components/ConfirmDialog";
 
 const APP_VERSION = "0.19.0";
 export type RegistryAction = "disable" | "uninstall";
+const defaultClient = new HarnessRegistryClient();
 
-export function RegistrySection({ client = new HarnessRegistryClient() }: { client?: HarnessRegistryClient }) {
+export function RegistrySection({ client = defaultClient }: { client?: HarnessRegistryClient }) {
   const [registry, setRegistry] = useState<HarnessRegistryState | null>(null);
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState<string>();
   const [preview, setPreview] = useState<HarnessInstallPreview>();
+  const [pending, setPending] = useState<{ action: RegistryAction; plugin: HarnessPlugin } | null>(null);
   const load = useCallback(async () => {
     setError(undefined);
     try { setRegistry(await client.list()); }
@@ -20,7 +23,7 @@ export function RegistrySection({ client = new HarnessRegistryClient() }: { clie
   useEffect(() => { void load(); }, [load]);
 
   const mutate = async (action: RegistryAction, plugin: HarnessPlugin) => {
-    if (!registry || !globalThis.confirm(confirmText(action, plugin.pluginId))) return;
+    if (!registry || busy) return;
     setBusy(plugin.pluginId); setError(undefined);
     try {
       const next = action === "disable"
@@ -79,9 +82,12 @@ export function RegistrySection({ client = new HarnessRegistryClient() }: { clie
           <div className="harness-registry__identity"><strong>{plugin.pluginId}</strong><span>v{plugin.version}</span></div>
           <div className="harness-registry__badges"><span data-tone={status.trusted ? "ok" : "warn"}>{status.trusted ? "受信" : "未受信"}</span><span data-tone={status.compatible ? "ok" : "warn"}>{status.compatible ? "兼容" : "不兼容"}</span><span>{status.enabled ? "已启用" : "已禁用"}</span></div>
           <p>{plugin.capabilities.length ? plugin.capabilities.join(" · ") : "未声明能力"}</p>
-          <div className="harness-registry__actions"><button disabled title="产品安装入口待信任链" type="button">更新</button><button disabled={!plugin.enabled || busy === plugin.pluginId} onClick={() => void mutate("disable", plugin)} type="button">禁用</button><button disabled={busy === plugin.pluginId} onClick={() => void mutate("uninstall", plugin)} type="button">卸载</button></div>
+          <div className="harness-registry__actions"><button disabled title="产品安装入口待信任链" type="button">更新</button><button disabled={!plugin.enabled || !!busy} onClick={() => setPending({ action: "disable", plugin })} type="button">禁用</button><button disabled={!!busy} onClick={() => setPending({ action: "uninstall", plugin })} type="button">卸载</button></div>
         </li>;
       })}</ul> : null}
+      {pending ? <ConfirmDialog title={pending.action === "disable" ? "禁用 Harness" : "卸载 Harness"}
+        body={confirmText(pending.action, pending.plugin.pluginId)} confirmLabel={pending.action === "disable" ? "禁用" : "卸载"}
+        onCancel={() => setPending(null)} onConfirm={() => { setPending(null); void mutate(pending.action, pending.plugin); }} /> : null}
     </section>
   );
 }

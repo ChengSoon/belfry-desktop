@@ -37,7 +37,7 @@ pub enum TerminalStatus {
     Failed,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 #[allow(dead_code)] // Roadmap-wide exit contract; this feature exercises a subset.
 pub enum TerminalExitReason {
@@ -113,7 +113,7 @@ impl AppError {
     }
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateTerminalRequest {
     pub platform: Platform,
@@ -126,6 +126,9 @@ pub struct CreateTerminalRequest {
     pub command: Option<Vec<String>>,
     #[serde(default)]
     pub env: std::collections::HashMap<String, String>,
+    /// Rust 为本次启动解析的私有覆盖，前端不能直接传入，也不进入工作区存档。
+    #[serde(skip)]
+    pub(crate) launch_overlay: super::overlay::LaunchOverlay,
     /// Otty 调度的专用 Agent 会话。开启后禁用 Provider 自带的子 Agent 工具，
     /// 避免绕过 Otty 的任务分派、状态跟踪和结果汇总。
     #[serde(default)]
@@ -148,7 +151,7 @@ pub struct CreateTerminalRequest {
 /// SSH 连接目标。凭证一律不落地：密码 / 主机指纹 / 2FA 全部在终端里
 /// 由 OpenSSH 客户端交互，这里只描述连到哪；密码只在本次请求中流转，
 /// 勾选记住时由后端写入系统钥匙串，不随工作区状态持久化。
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SshTarget {
     pub host: String,
@@ -156,6 +159,9 @@ pub struct SshTarget {
     pub user: Option<String>,
     #[serde(default)]
     pub port: Option<u16>,
+    /// 远端初始目录，永远不参与本地路径解析。
+    #[serde(default)]
+    pub remote_path: Option<String>,
     /// 本次连接使用的密码。优先于钥匙串里保存的旧密码；不落盘。
     #[serde(default)]
     pub password: Option<String>,
@@ -166,6 +172,7 @@ pub struct SshTarget {
 
 impl SshTarget {
     pub fn validate(&self) -> Result<(), AppError> {
+        crate::ssh::validate_remote_path(self.remote_path.as_deref())?;
         // 参数是逐个传给 ssh 的，不存在 shell 注入，但坏 host 会把参数吃成选项
         // 或直接让会话起不来，早一点拦下比让用户盯着黑屏强。
         if self.host.is_empty() || self.host.len() > 255 {
@@ -173,7 +180,7 @@ impl SshTarget {
                 "ssh host must be 1 to 255 characters",
             ));
         }
-        if self.host.chars().any(char::is_whitespace)
+        if self.host.chars().any(|c| c.is_whitespace() || c.is_control())
             || self.host.contains(['/', '\\'])
             || self.host.starts_with('-')
         {
@@ -184,7 +191,7 @@ impl SshTarget {
         if let Some(user) = &self.user {
             if user.is_empty()
                 || user.len() > 255
-                || user.chars().any(char::is_whitespace)
+                || user.chars().any(|c| c.is_whitespace() || c.is_control())
                 || user.contains('@')
                 || user.starts_with('-')
             {
@@ -208,7 +215,7 @@ impl SshTarget {
 }
 
 /// `#rrggbb` 形式的一对颜色。解析推迟到 PTY 层，坏值只让应答失效，不该拦下整个会话。
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TerminalPalette {
     pub foreground: String,
@@ -358,7 +365,7 @@ pub struct ShellProfile {
     pub reason: Option<String>,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TerminalSession {
     pub id: String,
@@ -369,15 +376,25 @@ pub struct TerminalSession {
     pub rows: u16,
     pub status: TerminalStatus,
     pub exit_code: Option<i32>,
+    #[serde(default)]
+    pub reconnected: bool,
+    #[serde(default)]
+    pub connection_id: Option<String>,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(
     tag = "kind",
     rename_all = "snake_case",
     rename_all_fields = "camelCase"
 )]
 pub enum TerminalEvent {
+    Disconnected { session_id: String, message: String },
+    ReplayGap { session_id: String, next_sequence: u64, dropped_events: u64 },
+    AgentState {
+        session_id: String,
+        snapshot: crate::agent::hooks::HookSnapshot,
+    },
     Output {
         session_id: String,
         sequence: u64,
@@ -462,6 +479,7 @@ mod tests {
             host: "example.com".to_string(),
             user: Some("root".to_string()),
             port: Some(2222),
+            remote_path: None,
             password: None,
             remember_password: None,
         };
@@ -480,6 +498,7 @@ mod tests {
                 host: host.to_string(),
                 user: None,
                 port: None,
+                remote_path: None,
                 password: None,
                 remember_password: None,
             };
@@ -490,6 +509,7 @@ mod tests {
                 host: "example.com".to_string(),
                 user: Some(user.to_string()),
                 port: None,
+                remote_path: None,
                 password: None,
                 remember_password: None,
             };
@@ -499,6 +519,7 @@ mod tests {
             host: "example.com".to_string(),
             user: None,
             port: Some(0),
+            remote_path: None,
             password: None,
             remember_password: None,
         };
@@ -511,6 +532,7 @@ mod tests {
             host: "example.com".to_string(),
             user: None,
             port: None,
+            remote_path: None,
             password: Some("secret".to_string()),
             remember_password: None,
         };
@@ -540,6 +562,7 @@ mod tests {
             cwd: Some("file:///tmp".to_string()),
             command: None,
             env: std::collections::HashMap::new(),
+            launch_overlay: Default::default(),
             collaboration_mode: false,
             resume: None,
             ssh: None,
@@ -554,6 +577,7 @@ mod tests {
             host: "example.com".to_string(),
             user: None,
             port: None,
+            remote_path: None,
             password: None,
             remember_password: None,
         });
@@ -575,6 +599,7 @@ mod tests {
             cwd: Some("file:///tmp".to_string()),
             command: None,
             env: std::collections::HashMap::new(),
+            launch_overlay: Default::default(),
             collaboration_mode: false,
             resume: Some(".".to_string()),
             ssh: None,
@@ -597,6 +622,7 @@ mod tests {
             cwd: Some("file:///tmp".to_string()),
             command: None,
             env: std::collections::HashMap::new(),
+            launch_overlay: Default::default(),
             collaboration_mode: true,
             resume: None,
             ssh: None,

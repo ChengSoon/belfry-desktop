@@ -6,35 +6,77 @@
 /// 解析 `YYYY-MM-DDTHH:MM:SS[.fff][Z|±HH:MM]`。无法解析时返回 None，调用方跳过该条记录。
 pub fn parse_rfc3339(value: &str) -> Option<i64> {
     let bytes = value.as_bytes();
-    if bytes.len() < 19 || bytes[4] != b'-' || bytes[7] != b'-' {
+    if bytes.len() < 20
+        || ![(4, b'-'), (7, b'-'), (10, b'T'), (13, b':'), (16, b':')]
+            .iter()
+            .all(|(index, separator)| bytes[*index] == *separator)
+    {
         return None;
     }
-    let year: i64 = value.get(0..4)?.parse().ok()?;
-    let month: u32 = value.get(5..7)?.parse().ok()?;
-    let day: u32 = value.get(8..10)?.parse().ok()?;
-    let hour: i64 = value.get(11..13)?.parse().ok()?;
-    let minute: i64 = value.get(14..16)?.parse().ok()?;
-    let second: i64 = value.get(17..19)?.parse().ok()?;
-    if !(1..=12).contains(&month) || !(1..=31).contains(&day) {
+    let year: i64 = number(value.get(0..4)?)?;
+    let month: u32 = number(value.get(5..7)?)?;
+    let day: u32 = number(value.get(8..10)?)?;
+    let hour: i64 = number(value.get(11..13)?)?;
+    let minute: i64 = number(value.get(14..16)?)?;
+    let second: i64 = number(value.get(17..19)?)?;
+    let valid_day = (1..=12).contains(&month) && (1..=month_days(year, month)).contains(&day);
+    let valid_time = [(hour, 24), (minute, 60), (second, 60)]
+        .iter()
+        .all(|(value, limit)| (0..*limit).contains(value));
+    if !valid_day || !valid_time {
         return None;
     }
 
     let days = days_from_civil(year, month, day);
     let base = days * 86_400 + hour * 3_600 + minute * 60 + second;
-    Some(base - offset_seconds(&value[19..]))
+    Some(base - offset_seconds(&value[19..])?)
 }
 
-/// 时区偏移；无后缀或 `Z` 视为 UTC。
-fn offset_seconds(rest: &str) -> i64 {
-    let rest = rest.trim_start_matches(|c: char| c == '.' || c.is_ascii_digit());
+fn number<T: std::str::FromStr>(value: &str) -> Option<T> {
+    value
+        .bytes()
+        .all(|byte| byte.is_ascii_digit())
+        .then(|| value.parse().ok())
+        .flatten()
+}
+
+fn month_days(year: i64, month: u32) -> u32 {
+    match month {
+        2 if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) => 29,
+        2 => 28,
+        4 | 6 | 9 | 11 => 30,
+        _ => 31,
+    }
+}
+
+/// 不猜测无效偏移；小数秒后必须有明确时区。
+fn offset_seconds(rest: &str) -> Option<i64> {
+    let rest = if let Some(fraction) = rest.strip_prefix('.') {
+        let digits = fraction.bytes().take_while(u8::is_ascii_digit).count();
+        if digits == 0 {
+            return None;
+        }
+        &fraction[digits..]
+    } else {
+        rest
+    };
+    if rest == "Z" {
+        return Some(0);
+    }
+    if rest.len() != 6 || rest.as_bytes()[3] != b':' {
+        return None;
+    }
     let sign = match rest.as_bytes().first() {
         Some(b'+') => 1,
         Some(b'-') => -1,
-        _ => return 0,
+        _ => return None,
     };
-    let hours: i64 = rest.get(1..3).and_then(|v| v.parse().ok()).unwrap_or(0);
-    let minutes: i64 = rest.get(4..6).and_then(|v| v.parse().ok()).unwrap_or(0);
-    sign * (hours * 3_600 + minutes * 60)
+    let hours: i64 = number(rest.get(1..3)?)?;
+    let minutes: i64 = number(rest.get(4..6)?)?;
+    if !(0..=23).contains(&hours) || !(0..=59).contains(&minutes) {
+        return None;
+    }
+    Some(sign * (hours * 3_600 + minutes * 60))
 }
 
 /// 1970-01-01 起的天数，对 1970 年前为负。

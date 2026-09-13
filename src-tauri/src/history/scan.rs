@@ -1,9 +1,10 @@
 //! 历史会话扫描共用的文件收集与安全删除。
 
 use std::fs;
-use std::io::{BufRead, BufReader};
+use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
+use super::line_reader::{Check, LineReader};
 use crate::agent::validate_agent_session_id;
 use crate::terminal::AppError;
 
@@ -15,11 +16,16 @@ pub fn home_dir() -> Option<PathBuf> {
 }
 
 pub fn codex_sessions_root() -> Option<PathBuf> {
-    home_dir().map(|home| home.join(".codex").join("sessions"))
+    cli_root("CODEX_HOME", ".codex").map(|root| root.join("sessions"))
 }
 
 pub fn claude_sessions_root() -> Option<PathBuf> {
-    home_dir().map(|home| home.join(".claude").join("projects"))
+    cli_root("CLAUDE_CONFIG_DIR", ".claude").map(|root| root.join("projects"))
+}
+
+fn cli_root(variable: &str, directory: &str) -> Option<PathBuf> {
+    std::env::var_os(variable).filter(|value| !value.is_empty()).map(PathBuf::from)
+        .or_else(|| home_dir().map(|home| home.join(directory)))
 }
 
 /// 递归收集根目录下的全部 `.jsonl` 文件，按路径排序保证扫描顺序稳定。
@@ -94,28 +100,39 @@ pub fn modified_epoch(path: &Path) -> i64 {
 /// 逐行读取文件，`handle` 返回 true 时提前结束。
 /// 会话日志单文件可能几 MB（含 base64 图片），列表只关心头部元数据，不该整读。
 /// 单行可能超长，`read_until` 按字节推进，坏 UTF-8 用有损转换兜底，不会卡死。
-pub fn read_lines_until<F>(path: &Path, max_lines: usize, mut handle: F)
+pub fn read_lines_until<F>(path: &Path, max_lines: usize, handle: F)
 where
     F: FnMut(&str) -> bool,
 {
-    let Ok(file) = fs::File::open(path) else {
-        return;
+    let request = LineScan {
+        path,
+        max_lines,
+        check: &|| Ok(()),
     };
-    let mut reader = BufReader::new(file);
-    let mut buffer = Vec::new();
-    let mut read = 0usize;
-    loop {
-        buffer.clear();
-        match reader.read_until(b'\n', &mut buffer) {
-            Ok(0) | Err(_) => break,
-            Ok(_) => {
-                read += 1;
-                if read > max_lines || handle(String::from_utf8_lossy(&buffer).trim()) {
-                    break;
-                }
-            }
+    let _ = read_lines_checked(request, handle);
+}
+
+pub(super) struct LineScan<'a> {
+    pub path: &'a Path,
+    pub max_lines: usize,
+    pub check: Check<'a>,
+}
+
+pub(super) fn read_lines_checked(
+    request: LineScan<'_>,
+    mut handle: impl FnMut(&str) -> bool,
+) -> Result<(), AppError> {
+    let file = fs::File::open(request.path).map_err(|error| AppError::io(error.to_string()))?;
+    let mut reader = LineReader::new(BufReader::new(file));
+    for _ in 0..request.max_lines {
+        let Some(line) = reader.next(request.check)? else {
+            break;
+        };
+        if handle(String::from_utf8_lossy(line).trim()) {
+            break;
         }
     }
+    Ok(())
 }
 
 /// 把首条用户消息压成适合列表展示的单行标题：折叠空白、去掉首尾、限长。

@@ -2,16 +2,19 @@ import { useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { pluginHost } from "../useDirectoryRegistry";
 import { LAUNCHER_EVENT } from "./events";
+import { isShortcutRecording } from "../../shortcuts/custom/recording";
 
 export function useLauncherShortcut() {
   const [open, setOpen] = useState(false), [note, setNote] = useState("");
   useEffect(() => {
     let live = true, global = false, last = 0;
     const toggle = () => {
+      if (isShortcutRecording()) return;
       const now = Date.now(); if (now - last < 150) return;
       last = now; setOpen((value) => !value);
     };
     const press = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || isShortcutRecording()) return;
       if (global || event.code !== "Space" || !event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || event.isComposing || event.repeat) return;
       event.preventDefault(); event.stopPropagation(); toggle();
     };

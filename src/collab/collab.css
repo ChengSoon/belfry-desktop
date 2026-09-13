@@ -37,7 +37,8 @@
   border: 0;
   border-left: 1px solid var(--border);
   padding-top: var(--titlebar-inset);
-  background: color-mix(in srgb, var(--surface-raised) 97%, var(--accent) 3%);
+  /* 底色统一在 panel/panelShell.css。原先这里掺了 3% 强调色，
+     四个面板并排比较时只有它偏蓝。 */
   animation: collab-panel-in 160ms var(--ease) both;
 }
 
@@ -46,30 +47,8 @@
   to { opacity: 1; translate: 0 0; }
 }
 
-.collab-panel__head {
-  display: grid;
-  min-width: 0;
-  align-items: center;
-  gap: 10px;
-  grid-template-columns: 34px minmax(0, 1fr) 30px;
-  padding: 11px 13px;
-  border-bottom: 1px solid var(--border);
-}
-
-.collab-panel__mark {
-  display: grid;
-  width: 34px;
-  height: 34px;
-  place-items: center;
-  border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--border-strong));
-  border-radius: var(--radius-sm);
-  color: var(--accent);
-  background: var(--accent-soft);
-}
-
-.collab-panel__title { display: grid; min-width: 0; gap: 1px; }
-.collab-panel__title strong { overflow: hidden; font-size: var(--fs-md); text-overflow: ellipsis; white-space: nowrap; }
-.collab-panel__title span { color: var(--text-faint); font-size: var(--fs-xs); }
+/* 头部外壳（高度、padding、标题字号、图标色）统一在 panel/panelShell.css，
+   四个右侧面板共用一份，这里不再单独定义。 */
 
 .collab-panel__error {
   display: flex;

@@ -57,7 +57,7 @@ interface AppOverlaysProps {
 export function AppOverlays(props: AppOverlaysProps) {
   return (
     <>
-      {props.settingsOpen ? <SettingsPanel onClose={props.onCloseSettings} /> : null}
+      {props.settingsOpen ? <SettingsPanel onClose={props.onCloseSettings} project={props.project} /> : null}
 
       {props.quickOpenOpen ? (
         <QuickOpen

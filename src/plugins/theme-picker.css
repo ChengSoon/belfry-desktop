@@ -173,8 +173,8 @@
 }
 
 .plugin-theme-row { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
-.plugin-theme-row h2 { margin: 0; font-size: 15px; font-weight: 600; }
-.plugin-theme-row p { margin: 5px 0 0; font-size: 12px; color: var(--text-muted); }
+.plugin-theme-row h2 { margin: 0; font-size: var(--fs-lg); font-weight: 500; }
+.plugin-theme-row p { margin: 5px 0 0; font-size: var(--fs-xs); color: var(--text-muted); }
 .plugin-theme-row .settings-theme-anchor { width: min(240px, 48%); flex-shrink: 0; }
 .plugin-theme-row .settings-theme-trigger { cursor: pointer; border: 0; font: inherit; }
 .plugin-theme-row .settings-theme-menu { position: absolute; inset: calc(100% + 8px) 0 auto auto; opacity: 1; pointer-events: auto; transform: none; max-width: calc(100vw - 32px); }

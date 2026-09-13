@@ -56,6 +56,17 @@ describe("createDefaultRequest", () => {
     expect(createDefaultRequest(80, 24, PALETTE, "Macintosh").ssh).toBeNull();
   });
 
+  it("sends a snapshot of project variables without serializing the startup intent", () => {
+    const env = { MODE: "中文 value" };
+    const request = createTerminalRequest(80, 24, {
+      profileId: "shell:bash", cwd: "file:///demo", tabId: "tab-one", collaborationMode: false,
+      resumeSessionId: null, ssh: null, projectLaunch: { env, startup: { command: "pnpm dev" } },
+    }, PALETTE, "Macintosh");
+    expect(request.env).toEqual(env);
+    expect(request.env).not.toBe(env);
+    expect(JSON.stringify(request)).not.toContain("pnpm dev");
+  });
+
   it("carries collaboration mode only when the launch requests it", () => {
     const request = createTerminalRequest(
       80,

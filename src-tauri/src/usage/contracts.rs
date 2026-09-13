@@ -47,7 +47,7 @@ pub struct ModelUsage {
     pub agent: AgentKind,
     pub model: String,
     pub tokens: TokenTotals,
-    /// Claude 为去重后的 assistant 消息数；Codex 为产生用量增量的轮次数。
+    /// 产生有效用量增量的记录数；重复快照不计数，流式用量补充可产生多条增量。
     pub requests: u64,
     pub last_used_at: Option<i64>,
 }

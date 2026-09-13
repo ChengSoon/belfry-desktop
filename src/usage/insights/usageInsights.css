@@ -1,0 +1,62 @@
+.usage-body { grid-row: 4; min-height: 0; }
+/* 总用量是这一列的头条数字，给它一张卡片浮到面板底色之上（三层里的第三层）。
+   原先只有一条下边框，整列从头到尾是一个平面，靠分隔线切段。 */
+.usage-insight-summary { margin: 12px 0 14px; padding: 12px 13px 14px; border: 1px solid var(--card-border); border-radius: var(--radius-md); background: var(--card); }
+.usage-insight-summary > span { color: var(--text-muted); font-size: var(--fs-xs); }
+.usage-insight-summary > span small { margin-left: 4px; color: var(--text-faint); font-size: inherit; }
+.usage-insight-summary > strong { display: block; margin: 4px 0 15px; color: var(--text); font-family: var(--font-mono); font-size: calc(var(--fs-display) * 1.6); font-weight: 500; letter-spacing: -.045em; }
+.usage-insight-summary > div { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: var(--fs-sm); }
+.usage-insight-summary > div > span:first-child { flex-shrink: 0; color: var(--text-muted); }
+.usage-insight-summary > p { margin: 6px 0 0; color: var(--text-faint); font-size: var(--fs-xs); line-height: 1.6; }
+.usage-insight-muted { color: var(--text-muted); font-size: var(--fs-xs); }
+.usage-cost { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 2px 7px; color: var(--text-muted); font-family: var(--font-mono); font-size: var(--fs-xs); }
+.usage-cost small { color: var(--text-faint); font-family: var(--font-sans); font-size: var(--fs-xs); }
+.usage-trend { margin: 18px 0; }
+.usage-trend > header { display: flex; align-items: center; justify-content: space-between; min-height: 25px; gap: 6px; }
+.usage-trend h3, .usage-breakdown h3 { margin: 0; color: var(--text-muted); font-size: var(--fs-xs); font-weight: 500; }
+.usage-trend h3 span { margin-left: 5px; color: var(--text-faint); font-size: inherit; font-weight: 400; }
+.usage-trend__pages { display: flex; gap: 2px; }
+.usage-trend__plot { display: flex; align-items: stretch; height: 88px; margin-top: 9px; gap: 2px; border-bottom: 1px solid var(--border); }
+.usage-trend__plot button { display: flex; flex: 1; min-width: 0; align-items: flex-end; justify-content: center; padding: 0; border: 0; border-radius: 3px 3px 0 0; background: transparent; cursor: pointer; }
+.usage-trend__plot i { display: block; width: 100%; max-width: 24px; border-radius: 2px 2px 0 0; background: var(--accent); opacity: .72; transition: opacity var(--duration) var(--ease); }
+.usage-trend__plot button:is(:hover, :focus-visible, [aria-pressed="true"]) { background: var(--accent-soft); }
+.usage-trend__plot button:is(:hover, :focus-visible, [aria-pressed="true"]) i { opacity: 1; }
+.usage-trend > footer { display: flex; justify-content: space-between; margin-top: 7px; color: var(--text-muted); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
+.usage-selection { display: flex; flex-wrap: wrap; gap: 4px; padding-top: 5px; }
+.usage-selection button { display: flex; min-width: 0; max-width: 100%; align-items: center; gap: 5px; padding: 4px 6px; border: 0; border-radius: var(--radius-xs); color: var(--text-muted); background: var(--surface-hover); font-size: var(--fs-xs); cursor: pointer; }
+.usage-selection button > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.usage-selection svg { flex: 0 0 auto; }
+.usage-undated { margin: -4px 0 12px; padding: 0; border: 0; background: transparent; color: var(--text-faint); font-size: var(--fs-xs); cursor: pointer; }
+.usage-undated:is(:hover, [aria-pressed="true"]) { color: var(--text); }
+.usage-breakdown { margin-bottom: 10px; }
+.usage-breakdown > h3 { padding-bottom: 3px; }
+.usage-model-detail { padding: 10px 0; }
+.usage-model-detail + .usage-model-detail { border-top: 1px solid var(--border); }
+.usage-model-detail > .ui-disclosure__trigger { padding: 0; align-items: flex-start; }
+.usage-model-detail .ui-disclosure__chevron { margin-top: 3px; color: var(--text-faint); }
+.usage-model-detail .ui-disclosure__label { align-items: flex-start; gap: 12px; }
+.usage-model-detail .ui-disclosure__label > span { display: grid; min-width: 0; gap: 4px; }
+.usage-model-detail .ui-disclosure__label > span:last-child { flex: 0 0 auto; max-width: 48%; text-align: right; }
+.usage-model-detail strong { display: block; overflow: hidden; color: var(--text); font-size: var(--fs-sm); font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.usage-model-detail .ui-disclosure__label small { color: var(--text-faint); font-size: var(--fs-xs); }
+.usage-model-detail b { color: var(--text); font-family: var(--font-mono); font-size: var(--fs-sm); font-weight: 500; }
+.usage-token-breakdown { display: grid; gap: 6px; margin: 12px 0 0; font-size: var(--fs-xs); }
+.usage-token-breakdown > div { display: flex; justify-content: space-between; gap: 8px; }
+.usage-token-breakdown dt { color: var(--text-faint); }
+.usage-token-breakdown dd { margin: 0; color: var(--text-muted); font-family: var(--font-mono); }
+.usage-price-sources p { display: grid; gap: 3px; margin: 8px 0 0; color: var(--text-faint); font-size: var(--fs-xs); line-height: 1.5; overflow-wrap: anywhere; }
+.usage-disclosure { padding: 11px 0; border-top: 1px solid var(--border); }
+.usage-disclosure > .ui-disclosure__trigger { padding: 2px 0; color: var(--text-muted); font-size: var(--fs-xs); }
+.usage-disclosure .ui-disclosure__chevron { color: var(--text-faint); }
+.usage-disclosure .ui-disclosure__label small { color: var(--text-faint); font-size: inherit; }
+.usage-disclosure[data-open="true"] > .ui-disclosure__trigger { margin-bottom: 10px; }
+.usage-project-list { display: grid; gap: 3px; margin: 0; padding: 0; list-style: none; }
+.usage-project-list button { display: flex; width: 100%; min-width: 0; align-items: baseline; justify-content: space-between; gap: 10px; padding: 6px 5px; border: 0; border-radius: var(--radius-xs); background: transparent; color: var(--text-muted); font-size: var(--fs-xs); text-align: left; cursor: pointer; }
+.usage-project-list button:is(:hover, [aria-pressed="true"]) { background: var(--surface-hover); color: var(--text); }
+.usage-project-list span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.usage-project-list b { flex: 0 0 auto; font-family: var(--font-mono); font-weight: 400; }
+.usage-body :is(button, input, textarea):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.usage-sources .usage-quota { margin: 12px 0; }
+.usage-show-more { padding: 6px 0; border: 0; color: var(--text-faint); background: transparent; font-size: var(--fs-xs); cursor: pointer; }
+.usage-show-more:hover { color: var(--text); }
+@media (prefers-reduced-motion: reduce) { .usage-trend__plot i { transition: none; } }

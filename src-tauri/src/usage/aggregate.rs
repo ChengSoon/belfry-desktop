@@ -5,6 +5,7 @@ use std::path::Path;
 
 use crate::agent::AgentKind;
 
+use super::analytics::aggregate::{AnalyticsAccumulator, UsageObservation};
 use super::contracts::{ModelUsage, ProjectUsage, TokenTotals};
 
 /// 一次扫描的累加结果。
@@ -12,6 +13,7 @@ use super::contracts::{ModelUsage, ProjectUsage, TokenTotals};
 pub struct UsageAccumulator {
     models: HashMap<(AgentKind, String), ModelBucket>,
     projects: HashMap<String, TokenTotals>,
+    analytics: Option<AnalyticsAccumulator>,
 }
 
 #[derive(Debug, Default)]
@@ -24,6 +26,25 @@ struct ModelBucket {
 }
 
 impl UsageAccumulator {
+    pub(super) fn fail_analytics(&mut self, note: &str, at: Option<i64>) {
+        if let Some(analytics) = &mut self.analytics {
+            analytics.fail_at(note, at);
+        }
+    }
+
+    pub(super) fn with_analytics(analytics: AnalyticsAccumulator) -> Self {
+        Self {
+            analytics: Some(analytics),
+            ..Self::default()
+        }
+    }
+
+    pub(super) fn finish_analytics(
+        self,
+    ) -> Result<super::analytics::contracts::AnalyticsBuckets, String> {
+        self.analytics.ok_or("未初始化用量明细扫描")?.finish()
+    }
+
     /// 记一笔用量。`raw_model` 用原始写法传入，归一在内部做。
     pub fn record(
         &mut self,
@@ -33,6 +54,16 @@ impl UsageAccumulator {
         at: Option<i64>,
         cwd: Option<&str>,
     ) {
+        if let Some(analytics) = &mut self.analytics {
+            analytics.record(UsageObservation {
+                agent,
+                model: raw_model,
+                tokens,
+                at,
+                cwd,
+            });
+            return;
+        }
         if tokens.is_empty() {
             return;
         }

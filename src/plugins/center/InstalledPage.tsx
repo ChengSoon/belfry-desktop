@@ -1,8 +1,9 @@
 // Adapted from PI-Desktop PluginsPage.tsx, LGPL-3.0; see third_party/pi-desktop/NOTICE.md.
+import { Disclosure } from "../../components/controls/Disclosure";
 import { usePluginsPage } from "./context";
 import { GROUP_LABEL_KEYS, installedGroups } from "./helpers";
 import { Button, cx } from "./ui";
-import { IconChevronDown, IconCircleAlert, IconPlug, IconSearch } from "./icons";
+import { IconCircleAlert, IconPlug, IconSearch } from "./icons";
 import { t } from "./i18n";
 import { inspectLocal } from "./useCenterActions";
 import { CapabilityChips, FsScopeChips, PermissionChips, ServiceChips } from "./PermissionChips";
@@ -55,11 +56,11 @@ function PluginRowDetails({ plugin }: { plugin: PluginSummary }) {
     { key: "fileAccessTitle", show: plugin.fs && Object.keys(plugin.fs).length, content: <FsScopeChips policy={plugin.fs} /> },
   ].filter((row) => row.show);
   if (!rows.length) return null;
-  return <details className="plugins-row-details"><summary className="plugins-row-details-toggle" aria-label={t("plugins.viewDetailsOf", { name: plugin.name })}>
-    <IconChevronDown size={13} aria-hidden="true" /><span>{t("plugins.details")}</span></summary>
+  return <Disclosure className="plugins-row-details" triggerClassName="plugins-row-details-toggle" ariaLabel={t("plugins.viewDetailsOf", { name: plugin.name })} title={<>
+    <span>{t("plugins.details")}</span></>}>
     <div className="plugins-row-details-body">{rows.map((row) => <div key={row.key} className="plugins-row-detail">
       <span className="plugins-row-detail-label">{t(`plugins.${row.key}`)}</span>{row.content}</div>)}
       {plugin.permissions.some((key) => key.endsWith(".workspace")) ? <p className="plugins-row-detail-note">{t("plugins.legacyFsDowngraded")}</p> : null}
     </div>
-  </details>;
+  </Disclosure>;
 }

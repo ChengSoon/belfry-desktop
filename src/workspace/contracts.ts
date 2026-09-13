@@ -1,4 +1,6 @@
 import type { LaunchProfileId, SessionActivity, SshLaunch, TerminalPhase } from "../terminal/contracts";
+import type { HookSnapshot } from "../agent/hooks/contracts";
+import type { ProjectLaunch } from "./projects/contracts";
 import type {
   AgentKind,
   AgentSessionRef,
@@ -22,6 +24,10 @@ export interface ProjectWorkspace {
 
 export interface WorkspaceTab {
   id: string;
+  /** 后台终端身份随工作区保存，不含 IPC 凭据。 */
+  daemonSessionId?: string | null;
+  /** 只在重开时设置，运行快照更新不会触发终端重新挂载。 */
+  restoreSessionId?: string | null;
   /** 会话自带项目归属：不同会话可以指向不同目录，改它会重启该会话的 PTY。 */
   project: ProjectWorkspace;
   kind: WorkspaceTabKind;
@@ -39,6 +45,8 @@ export interface WorkspaceTab {
    */
   agentName: string | null;
   profileId: LaunchProfileId;
+  /** 新会话使用的项目配置快照；启动意图不随工作区存档。 */
+  projectLaunch?: ProjectLaunch;
   /** true 表示该 Agent 由 Otty 协作调度器独占管理。 */
   collaborationMode: boolean;
   /** SSH 会话的连接目标；其他会话为 null。 */
@@ -50,6 +58,7 @@ export interface WorkspaceTab {
   phase: TerminalPhase;
   /** 与 phase 正交：phase 说进程活着没，activity 说它眼下在干什么。 */
   activity: SessionActivity;
+  agentState?: HookSnapshot | null;
   error: string | null;
 }
 

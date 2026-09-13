@@ -1,61 +1,31 @@
-/* 让标题栏根据实际剩余宽度响应，而不是根据整个窗口宽度猜测。 */
+/* 固定一条工具栏：项目名占剩余空间，工具不再通过绝对坐标叠在路径上。 */
 .workbench { container-type: inline-size; }
-
-/* 工作区变窄时，标题和工具按钮按优先级收缩，避免互相覆盖。 */
-@container (max-width: 760px) {
-  .workbench .stage-caption {
-    justify-content: flex-start;
-    padding-right: 172px;
-    padding-left: 10px;
-  }
-
-  .stage-caption .stage-switcher {
-    width: 100%;
-    min-width: 0;
-    max-width: 100%;
-  }
-
-  .stage-caption .project-trigger {
-    width: 100%;
-    min-width: 0;
-  }
-
-  .stage-caption .project-trigger__name {
-    flex: 1 1 auto;
-    min-width: 0;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
+.workbench-toolbar { position: relative; z-index: 8; display: flex; min-width: 0; align-items: center; gap: 10px; padding: var(--titlebar-inset) 14px 0; }
+.workbench-toolbar__project { flex: 1; min-width: 0; }
+.workbench-toolbar .stage-switcher { width: fit-content; min-width: 0; max-width: 100%; }
+.workbench-toolbar .project-trigger { display: flex; min-width: 0; max-width: 100%; align-items: center; gap: 7px; padding: 5px 7px; }
+.workbench-toolbar .project-trigger__name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.workbench-toolbar .project-trigger__path { display: none; }
+.workbench-toolbar .stage-switcher .popover--project { left: 0; right: auto; transform: none; width: min(350px, calc(100vw - 40px)); min-width: 240px; }
+.project-location { margin: 0; padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--text-faint); font-family: var(--font-mono); font-size: var(--fs-xs); line-height: 1.6; overflow-wrap: anywhere; }
+.workbench-toolbar__tools { display: flex; flex: 0 0 auto; align-items: center; gap: 3px; }
+.workbench-toolbar .icon-button[aria-expanded="true"] { color: var(--text); background: var(--surface-hover); }
+.workbench-more { position: relative; display: flex; }
+.workbench-more__badge { position: absolute; top: 3px; right: 3px; width: 5px; height: 5px; border-radius: 50%; background: var(--warning); pointer-events: none; }
+.workbench-menu { position: absolute; top: calc(100% + 8px); right: 0; z-index: 40; width: 248px; max-width: calc(100vw - 28px); max-height: calc(100vh - 110px); overflow-y: auto; padding: 6px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-raised); box-shadow: var(--shadow-lg); animation: tool-menu-in 110ms var(--ease); }
+.workbench-menu__item { display: flex; width: 100%; align-items: center; gap: 10px; padding: 9px 10px; border: 0; border-radius: var(--radius-xs); background: transparent; color: var(--text-muted); font-size: var(--fs-sm); text-align: left; cursor: pointer; }
+.workbench-menu__item > svg { flex: 0 0 auto; color: var(--text-faint); }
+.workbench-menu__item > span { display: flex; flex: 1; align-items: center; justify-content: space-between; gap: 8px; }
+.workbench-menu__item:is(:hover, [aria-pressed="true"]) { color: var(--text); background: var(--surface-hover); }
+.workbench-menu__item kbd, .workbench-menu__item small { color: var(--text-faint); font-family: inherit; font-size: var(--fs-xs); font-weight: 400; }
+.workbench-menu__item:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
+.workbench-menu__divider { height: 1px; margin: 5px 6px; background: var(--border); }
+.workbench-menu__narrow { display: none; }
+@container (max-width: 280px) {
+  .workbench-toolbar { padding-right: 6px; padding-left: 6px; gap: 4px; }
+  .workbench-toolbar .workbench-search { display: none; }
+  .workbench-menu__narrow { display: block; }
 }
-
-@container (max-width: 560px) {
-  .stage-caption .project-trigger__path { display: none; }
-}
-
-/* 极窄舞台收起标题，并把工具按钮压紧到右侧。 */
-@container (max-width: 300px) {
-  .stage-caption .stage-switcher { display: none; }
-  .workbench .collab-trigger { right: 100px; }
-  .workbench .quick-open-trigger { right: 68px; }
-  .workbench .file-preview-trigger { right: 36px; }
-  .workbench .shortcut-help-trigger { right: 4px; }
-}
-
-/* 再窄就按优先级逐个隐藏：最靠左的最少用，先走。 */
-@container (max-width: 160px) {
-  .workbench .collab-trigger { display: none; }
-}
-
-@container (max-width: 96px) {
-  .workbench .quick-open-trigger { display: none; }
-}
-
-@container (max-width: 64px) {
-  .workbench .file-preview-trigger { display: none; }
-}
-
-@container (max-width: 32px) {
-  .workbench .shortcut-help-trigger { display: none; }
-}
+@container (max-width: 180px) { .workbench-toolbar .workbench-inspector { display: none; } }
+@keyframes tool-menu-in { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .workbench-menu { animation: none; } }

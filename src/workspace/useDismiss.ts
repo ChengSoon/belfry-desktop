@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { ownsTarget } from "../components/controls/layerOwnership";
 
 /** 浮层通用退出手势：点击外部或 Escape 关闭。 */
 export function useDismiss<T extends HTMLElement>(open: boolean, close: () => void) {
@@ -7,10 +8,10 @@ export function useDismiss<T extends HTMLElement>(open: boolean, close: () => vo
   useEffect(() => {
     if (!open) return;
     const onPointerDown = (event: MouseEvent) => {
-      if (!ref.current?.contains(event.target as Node)) close();
+      if (!ownsTarget(ref.current, event.target as Node)) close();
     };
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") close();
+      if (event.key === "Escape" && !event.defaultPrevented && !event.isComposing) close();
     };
     document.addEventListener("mousedown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);

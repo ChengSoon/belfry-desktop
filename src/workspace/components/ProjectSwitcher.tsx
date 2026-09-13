@@ -1,10 +1,15 @@
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
-import { Check, ChevronsUpDown, FolderOpen, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { Check, ChevronsUpDown, FolderOpen, Settings2, Star, Trash2 } from "lucide-react";
+import { useRef, useState } from "react";
 import { ICON } from "../../theme/sizing";
 import type { ProjectWorkspace, RecentProject } from "../contracts";
 import { normalizePath, pathKey, shortPath } from "../path";
 import { useDismiss } from "../useDismiss";
+import { createProfile, favoriteGroups, findProfile, unpinnedRecent } from "../projects/model";
+import { useProjectCatalog } from "../projects/useProjectCatalog";
+import { errorMessage } from "../projects/storage";
+import { ProjectLibraryDialog } from "../projects/ProjectLibraryDialog";
+import type { ProjectCatalog } from "../projects/contracts";
 
 interface ProjectSwitcherProps {
   project: ProjectWorkspace | null;
@@ -28,6 +33,10 @@ export function ProjectSwitcher({
   onRequestRemove,
 }: ProjectSwitcherProps) {
   const [open, setOpen] = useState(false);
+  const [manage, setManage] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const library = useProjectCatalog();
   const ref = useDismiss<HTMLDivElement>(open, () => setOpen(false));
 
   const pick = (next: string | null) => {
@@ -48,12 +57,23 @@ export function ProjectSwitcher({
   };
 
   const currentKey = project ? pathKey(project.rootPath) : null;
+  const recent = unpinnedRecent(library.catalog, recentProjects);
+  const favorite = project ? findProfile(library.catalog, project.rootPath)?.favorite : false;
+  const toggleFavorite = () => {
+    if (!project) return;
+    try {
+      const entry = findProfile(library.catalog, project.rootPath) ?? createProfile(project);
+      library.save({ ...entry, favorite: !entry.favorite }); setError(null);
+    } catch (error) { setError(errorMessage(error)); }
+  };
+  const showManagement = () => { trigger.current?.focus(); setOpen(false); setManage(true); };
 
   return (
-    <div className="popover-host stage-switcher" ref={ref}>
+    <><div className="popover-host stage-switcher" ref={ref}>
       <button
         aria-expanded={open}
         className="project-trigger"
+        ref={trigger}
         onClick={() => setOpen((value) => !value)}
         title={project ? `${normalizePath(project.rootPath)}（点击在新会话中切换目录）` : "选择项目"}
         type="button"
@@ -65,9 +85,12 @@ export function ProjectSwitcher({
 
       {open ? (
         <div className="popover popover--project" role="dialog" aria-label="在新会话中切换目录">
-          {recentProjects.length > 0 ? (
+          {project ? <p className="project-location" title={normalizePath(project.rootPath)}>{normalizePath(project.rootPath)}</p> : null}
+          {library.error || error ? <p className="project-library__error" role="alert">{library.error ?? error}</p> : null}
+          <FavoriteProjects catalog={library.catalog} onPick={pick} currentKey={currentKey} />
+          {recent.length > 0 ? (
             <div className="popover-list">
-              {recentProjects.map((item) => (
+              {recent.map((item) => (
                 <div className="popover-list__item" key={item.id}>
                   <button className="popover-list__main" onClick={() => pick(item.rootPath)} type="button">
                     <span className="popover-list__text">
@@ -97,8 +120,24 @@ export function ProjectSwitcher({
             <FolderOpen aria-hidden="true" size={ICON.md} />
             <span>浏览目录…</span>
           </button>
+          <div className="project-picker-actions">
+            <button type="button" disabled={!project || !!library.error} aria-pressed={!!favorite} onClick={toggleFavorite}>
+              <Star size={14} className={favorite ? "project-favorites__star" : undefined} />{favorite ? "取消收藏" : "收藏当前项目"}</button>
+            <button type="button" onClick={showManagement}><Settings2 size={14} />项目设置</button>
+          </div>
         </div>
       ) : null}
-    </div>
+    </div>{manage ? <ProjectLibraryDialog project={project} onClose={() => setManage(false)} /> : null}</>
   );
+}
+
+function FavoriteProjects({ catalog, onPick, currentKey }: { catalog: ProjectCatalog; onPick: (path: string) => void; currentKey: string | null }) {
+  const groups = favoriteGroups(catalog);
+  if (!groups.length) return null;
+  return <div className="project-favorites">{groups.map(([name, entries]) => <section key={name} aria-label={`收藏分组：${name}`}>
+    <h3>{name}</h3><div className="popover-list">{entries.map((entry) => <div className="popover-list__item" key={entry.id}>
+      <button type="button" className="popover-list__main" onClick={() => onPick(entry.project.rootPath)}>
+        <span className="popover-list__text"><strong>{entry.project.name}</strong><small>{shortPath(entry.project.rootPath)}</small></span></button>
+      {pathKey(entry.project.rootPath) === currentKey ? <Check size={14} className="popover-list__check" /> : <Star size={12} className="project-favorites__star" />}
+    </div>)}</div></section>)}</div>;
 }
