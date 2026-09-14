@@ -65,9 +65,7 @@ export function useTheme() {
   return controller;
 }
 
-/** 首帧脚本已经把结果写进 data-theme，优先读它，保证 React 状态与已渲染画面一致。 */
+/** 首帧脚本之后可能执行备份恢复，React 以恢复后的存档或系统偏好为准。 */
 function initialMode(): ThemeMode {
-  const applied = document.documentElement.dataset.theme;
-  if (applied === "dark" || applied === "light") return applied;
   return loadThemeMode() ?? (window.matchMedia(LIGHT_QUERY).matches ? "light" : "dark");
 }

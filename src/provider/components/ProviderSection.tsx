@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowLeft, Check, Pencil, Plus, RefreshCcw, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Check, Pencil, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ICON } from "../../theme/sizing";
 import type { AgentKind } from "../../workspace/contracts";
@@ -17,6 +17,7 @@ import { useProviders } from "../useProviders";
 import { type DraftIssue, maskKey, validateDraft } from "../validate";
 import { ProviderConfigEditor } from "./ProviderConfigEditor";
 import { ProviderForm } from "./ProviderForm";
+import { ProviderSettingsHeader } from "./ProviderSettingsHeader";
 import "../provider.css";
 
 /**
@@ -217,8 +218,10 @@ export function ProviderSection({ onGuardChange }: { onGuardChange: (guarded: bo
   };
 
   return (
-    <>
-      <div className="provider-segments" role="tablist">
+    <section aria-label="全局 Provider 设置" className="provider-section">
+      <ProviderSettingsHeader busy={providers.loading} editing={draft !== null}
+        onAdd={() => openDraft({ ...EMPTY_DRAFT })} onReload={() => void providers.reload()} />
+      <div className="provider-segments" role="tablist" aria-label="Agent CLI">
         {(["claude", "codex"] as const).map((value) => (
           <button
             aria-selected={kind === value}
@@ -235,15 +238,6 @@ export function ProviderSection({ onGuardChange }: { onGuardChange: (guarded: bo
             {AGENT_LABEL[value]}
           </button>
         ))}
-        <button
-          className="provider-segments__reload"
-          disabled={providers.loading || draft !== null}
-          onClick={() => void providers.reload()}
-          title="重新读取 provider 列表"
-          type="button"
-        >
-          <RefreshCcw aria-hidden="true" size={ICON.xs} />
-        </button>
       </div>
 
       {conflicts.length > 0 ? (
@@ -270,7 +264,7 @@ export function ProviderSection({ onGuardChange }: { onGuardChange: (guarded: bo
           <div className="provider-editor__heading">
             <div>
               <p className="provider-editor__eyebrow">{AGENT_LABEL[kind]}</p>
-              <h2>{draft.name.trim() || "未命名 provider"}</h2>
+              <h3>{draft.name.trim() || "未命名 provider"}</h3>
             </div>
             <span
               className={`provider-editor__status${
@@ -349,17 +343,6 @@ export function ProviderSection({ onGuardChange }: { onGuardChange: (guarded: bo
                   />
                 ))}
               </div>
-
-              <button
-                className="provider-add"
-                onClick={() => {
-                  openDraft({ ...EMPTY_DRAFT });
-                }}
-                type="button"
-              >
-                <Plus aria-hidden="true" size={ICON.sm} />
-                <span>新增 provider</span>
-              </button>
             </>
           )}
         </>
@@ -383,7 +366,7 @@ export function ProviderSection({ onGuardChange }: { onGuardChange: (guarded: bo
           }}
         />
       ) : null}
-    </>
+    </section>
   );
 }
 

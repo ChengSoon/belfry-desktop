@@ -1,0 +1,134 @@
+/* 设置页共用的正文、页头与分组规格。正文填满导航右侧，只由内容区保留边距。 */
+.settings-content > * {
+  width: 100%;
+  min-width: 0;
+}
+
+.settings-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px 16px;
+  margin: 0;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-head__copy {
+  display: grid;
+  flex: 1 1 240px;
+  min-width: 0;
+  gap: 2px;
+}
+
+.settings-head h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--fs-lg);
+  font-weight: 500;
+  line-height: 32px;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+.settings-head p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-relaxed);
+  overflow-wrap: anywhere;
+}
+
+.settings-head__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  max-width: 100%;
+  min-height: 32px;
+  gap: 8px;
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+.settings-head__actions button { white-space: nowrap; }
+
+/* 分组间距叠加分区自身的 gap，避免重复留出两份空白。 */
+.settings-group + .settings-group {
+  margin-top: 8px;
+}
+
+.settings-group__label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  padding-left: 2px;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+
+.settings-group__label h3 { margin: 0; font: inherit; }
+
+.settings-card {
+  overflow: hidden;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  background: var(--card);
+}
+
+/* 标准行：左侧说明，右侧控件；分隔线留在卡片内部。 */
+.settings-row {
+  display: grid;
+  align-items: center;
+  gap: 4px 16px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 11px 14px;
+  transition: background var(--duration) var(--ease);
+}
+
+.settings-row + .settings-row {
+  border-top: 1px solid var(--border);
+}
+
+.settings-row__label {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 9px;
+  color: var(--text);
+  font-size: var(--fs-sm);
+}
+
+/* 「默认 / 自定义 / 已停用」这类状态注记跟在标题后面，降一档灰。 */
+.settings-row__label small {
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+}
+
+.settings-row__control {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* 整行说明文字（占满两列，压在标题下面）。 */
+.settings-row__hint {
+  margin: 0;
+  grid-column: 1 / -1;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-normal);
+}
+
+/* 按实际正文宽度换行，兼顾窄窗口和侧栏占用的空间。 */
+@container settings (max-width: 560px) {
+  .settings-row { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .settings-row__control { justify-content: flex-start; }
+}

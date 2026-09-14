@@ -15,7 +15,7 @@ export function InstalledPage() {
   const groups = installedGroups(data.plugins, query);
   return <div id="plugins-panel-installed" role="tabpanel" aria-labelledby="plugins-tab-installed" className="plugins-panel">
     {!groups.length ? <InstalledEmpty /> : groups.map((group) => <section key={group.id} className="plugins-group">
-      <header className="plugins-group-head"><h2 className="plugins-group-label">{t(GROUP_LABEL_KEYS[group.id])}</h2><span className="plugins-group-count">{group.rows.length}</span></header>
+      <header className="plugins-group-head"><h3 className="plugins-group-label">{t(GROUP_LABEL_KEYS[group.id])}</h3><span className="plugins-group-count">{group.rows.length}</span></header>
       <div className="plugins-list" role="list" aria-label={t(GROUP_LABEL_KEYS[group.id])}>
         {group.rows.map((plugin) => <InstalledRow key={plugin.id} plugin={plugin} broken={group.id === "attention"} />)}
       </div>

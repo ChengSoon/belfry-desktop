@@ -289,7 +289,6 @@ export function mountTerminal(
       if (value.status === "exited") { callbacks.onPhase("exited"); return; }
       current = value;
       callbacks.onPhase("running");
-      terminal.focus();
       void runStartupOnce({ intent: value.reconnected ? undefined : launch.projectLaunch?.startup, sessionId: value.id,
         current: () => !disposed && current?.id === value.id, write: writeTerminal })
         .catch((error) => callbacks.onError(`启动命令发送失败，未自动重试：${errorMessage(error)}`));

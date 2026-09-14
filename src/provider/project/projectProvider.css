@@ -1,7 +1,6 @@
-.project-provider { display: grid; gap: 16px; max-width: 800px; width: 100%; }
-.project-provider__header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-.project-provider__header h2 { margin: 0; font-size: var(--fs-lg); font-weight: 500; color: var(--text); }
-.project-provider__header p { margin: 6px 0 0; font-size: var(--fs-sm); color: var(--text-muted); }
+.project-provider { display: grid; gap: 16px; }
+/* 页头走 settings/settingsShell.css 的 .settings-head；原先的
+   .project-provider__header 两条（容器 + h2/p 字号）已随之作废。 */
 .project-provider__project { display: flex; align-items: center; gap: 10px; padding: 10px 0 18px; border-bottom: 1px solid var(--border); }
 .project-provider__project svg { flex-shrink: 0; color: var(--text-faint); }
 .project-provider__project > div { display: grid; gap: 4px; min-width: 0; }

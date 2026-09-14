@@ -1,32 +1,11 @@
 .environment-section {
   display: grid;
-  width: min(820px, 100%);
   gap: 12px;
 }
 
-.environment-section__header {
-  display: flex;
-  min-height: 34px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.environment-section__header h2 {
-  margin: 0;
-  color: var(--text);
-  /* 分区标题档，与其它设置页对齐。原先是展示档(20px)——整个设置页只有这一页
-     标题这么大，切过去像换了个应用。展示档留给数字（用量那个总计）。 */
-  font-size: var(--fs-lg);
-  font-weight: 500;
-  letter-spacing: 0;
-}
-
-.environment-section__actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
+/* 页头（标题 + 右侧动作）走 settings/settingsShell.css 的 .settings-head，
+   原先的 .environment-section__header / __actions 两条已随之作废。
+   动作区间距改由骨架统一给，这一页不再自己定。 */
 
 .environment-action {
   display: inline-flex;
@@ -181,7 +160,6 @@
 }
 
 @media (max-width: 680px) {
-  .environment-section__header { align-items: flex-start; }
   .environment-summary { grid-template-columns: 24px minmax(0, 1fr); }
   .environment-summary span:last-child { grid-column: 2; white-space: normal; }
 }

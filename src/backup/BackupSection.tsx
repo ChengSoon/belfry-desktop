@@ -1,6 +1,7 @@
 import { Download, Upload, Undo2 } from "lucide-react";
 import { useEffect } from "react";
 import { Checkbox } from "../components/controls/Checkbox";
+import { SettingsHeader } from "../settings/SettingsHeader";
 import { DOMAIN_LABELS, type BackupDomain } from "./contracts";
 import { useBackup } from "./useBackup";
 import "./backup.css";
@@ -9,11 +10,14 @@ export function BackupSection({ onGuardChange }: { onGuardChange: (value: boolea
   const model = useBackup();
   useEffect(() => { onGuardChange(model.busy); return () => onGuardChange(false); }, [model.busy, onGuardChange]);
   return <section className="backup-section" aria-label="本地备份">
-    <header><h2>本地备份</h2><p>把工作区与外观带到下一次开始。</p></header>
-    <div className="backup-actions">
-      <button type="button" disabled={model.busy} onClick={() => void model.exportFile()}><Download size={16} />导出备份</button>
-      <button type="button" disabled={model.busy || !!model.status.pending} onClick={() => void model.importFile()}><Upload size={16} />选择备份</button>
-    </div>
+    <SettingsHeader
+      actions={<>
+        <button type="button" disabled={model.busy} onClick={() => void model.exportFile()}><Download size={16} />导出备份</button>
+        <button type="button" disabled={model.busy || !!model.status.pending} onClick={() => void model.importFile()}><Upload size={16} />选择备份</button>
+      </>}
+      description="把工作区与外观带到下一次开始。"
+      title="本地备份"
+    />
     <p className="backup-note">包含会话目标、分组、布局、主题和显示参数。壁纸与字体文件需在本机导入；凭据、启动脚本、终端记录和插件数据不导出。</p>
     {model.status.pending ? <div className="backup-card" role="status">
       <strong>下次启动将{model.status.pending === "undo" ? "撤回恢复" : "恢复所选数据"}</strong>

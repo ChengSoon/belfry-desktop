@@ -5,7 +5,8 @@
 .pi-plugins button { cursor: pointer; border: 0; background: transparent; color: inherit; }
 .pi-plugins button:disabled { cursor: default; opacity: .5; }
 .pi-plugins .page-header { display: flex; justify-content: space-between; }
-.pi-plugins .plugins-page { width: 100%; padding: 2px 0 24px; }
+.pi-plugins .plugins-page { width: 100%; padding: 0 0 24px; }
+.pi-plugins .plugins-header-actions { flex-wrap: wrap; max-width: 100%; }
 .pi-plugins .settings-toggle { width: 30px; height: 18px; border-radius: var(--radius-full); padding: 2px; background: var(--ds-switch-track-off); box-shadow: inset 0 0 0 1px var(--ds-switch-ring-off); }
 .pi-plugins .settings-toggle-thumb { display: block; width: 14px; height: 14px; border-radius: var(--radius-full); background: var(--ds-switch-knob-off); transition: transform 150ms; }
 .pi-plugins .settings-toggle.on { background: var(--ds-accent); box-shadow: none; }

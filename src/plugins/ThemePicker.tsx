@@ -40,7 +40,7 @@ export function ThemePicker() {
   const input = useRef<HTMLInputElement>(null);
   useEffect(() => { if (picker.open) input.current?.focus(); }, [picker.open]);
   return <div className="pi-plugins plugin-theme-row">
-    <div><h2>主题</h2><p>选择应用外观，也可以使用插件提供的主题。</p></div>
+    <div><h3>主题</h3><p>选择应用外观，也可以使用插件提供的主题。</p></div>
     <div className="settings-theme-anchor" ref={picker.ref} onKeyDown={(event) => {
       if (event.key === "Escape" && picker.open) { event.stopPropagation(); picker.close(); trigger.current?.focus(); }
     }}>

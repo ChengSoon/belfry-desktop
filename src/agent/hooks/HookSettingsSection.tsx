@@ -1,6 +1,7 @@
 import { Disclosure } from "../../components/controls/Disclosure";
 import { RefreshCw } from "lucide-react";
 import { useEffect } from "react";
+import { SettingsHeader } from "../../settings/SettingsHeader";
 import { HookAgentCard, HookPreviewCard } from "./HookCards";
 import { useHookSettings } from "./useHookSettings";
 import { ICON } from "../../theme/sizing";
@@ -13,10 +14,11 @@ export function HookSettingsSection({ onGuardChange }: { onGuardChange: (guarded
     return () => onGuardChange(false);
   }, [state.busy, state.preview, onGuardChange]);
   return <section className="hook-settings" aria-label="会话状态设置">
-    <header className="hook-settings__head">
-      <div><h2>会话状态</h2><p>直接接收 CLI 事件，让等待、完成和失败更清楚。</p></div>
-      <button className="icon-button" disabled={state.busy || Boolean(state.preview)} onClick={state.reload} title="刷新 Hook 状态" type="button"><RefreshCw size={ICON.md} /></button>
-    </header>
+    <SettingsHeader
+      actions={<button className="icon-button" disabled={state.busy || Boolean(state.preview)} onClick={state.reload} title="刷新 Hook 状态" type="button"><RefreshCw size={ICON.md} /></button>}
+      description="直接接收 CLI 事件，让等待、完成和失败更清楚。"
+      title="会话状态"
+    />
     <p className="hook-settings__intro">未连接时，终端会标注“屏幕推断”。Hook 只影响此后启动的本地 Agent 会话；Shell 和 SSH 保持原有行为。</p>
     {state.error ? <p className="hook-error" role="alert">{state.error}</p> : null}
     {state.preview ? <HookPreviewCard preview={state.preview} busy={state.busy} onCancel={state.cancel} onConfirm={state.confirm} /> : null}

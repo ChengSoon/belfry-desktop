@@ -18,8 +18,13 @@
 - [x] 所有权、预览过期、状态变化、创建隔离、冲突和安全清理测试与实现。
 - [x] 简洁 Git 入口、创建与收尾向导、正确项目启动及依赖提示。
 - [x] 临时真实仓库 8 项、前端 2 项测试；后台保留会话占用和跨实例创建租约整合。
+- [x] 桌面复现非法分支错误为空；新增回归并修复为明确提示，9 项 Worktree 测试通过。
 - [ ] 最新 QA 桌面临时仓库创建→提交→合并→清理验收。
 - [ ] 分别更新 CM-07 / CM-08 待办并重开回读。
 
 后台正在运行且未 attach 的会话也计入目录占用；daemon 查询失败按占用处理。
 Worktree 执行持有后台租约，期间拒绝新建进程，允许既有会话重新连接；所有 Git 变更测试仅作用专用临时仓库。
+
+桌面已创建“CM07 任务 A” / `belfry/cm07-ui-a`，重复名称与非法分支均被阻止。
+任务 A 目录：`/Users/cheng/Library/Application Support/io.appmakes.belfry.controls-qa/worktree-manager/trees/01m2en0qgm87m0ec28z1xn3ndx`。
+任务 B 尚未创建；桌面连接中断后保留现场。提示修复的 QA 新包构建通过，当前旧 UI 尚未重启；重连控制器后仍报 cgWindowNotFound，待桌面恢复可访问后继续。

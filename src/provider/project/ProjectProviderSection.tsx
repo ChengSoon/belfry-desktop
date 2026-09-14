@@ -1,5 +1,6 @@
 import { FolderGit2, RefreshCcw } from "lucide-react";
 import { ICON } from "../../theme/sizing";
+import { SettingsHeader } from "../../settings/SettingsHeader";
 import type { AgentKind, ProjectWorkspace } from "../../workspace/contracts";
 import { AGENT_LABEL } from "../contracts";
 import type { ProjectAgentProvider } from "./contracts";
@@ -12,11 +13,12 @@ import { Disclosure } from "../../components/controls/Disclosure";
 export function ProjectProviderSection({ project }: { project: ProjectWorkspace | null }) {
   const model = useProjectProviders(project?.rootPath ?? null);
   return <section className="project-provider" aria-label="项目 Provider 设置">
-    <header className="project-provider__header">
-      <div><h2>项目 Provider</h2><p>为这个项目选择独立的模型服务。</p></div>
-      <button type="button" className="icon-button" aria-label="刷新项目 Provider" title="刷新项目 Provider"
-        disabled={!project || model.busy} onClick={model.reload}><RefreshCcw size={ICON.md} aria-hidden="true" /></button>
-    </header>
+    <SettingsHeader
+      actions={<button type="button" className="icon-button" aria-label="刷新项目 Provider" title="刷新项目 Provider"
+        disabled={!project || model.busy} onClick={model.reload}><RefreshCcw size={ICON.md} aria-hidden="true" /></button>}
+      description="为这个项目选择独立的模型服务。"
+      title="项目 Provider"
+    />
     {!project ? <p className="project-provider__empty">先打开一个本地项目，再设置项目 Provider。SSH 会话不使用本机覆盖。</p> : <>
       <div className="project-provider__project"><FolderGit2 size={ICON.md} aria-hidden="true" />
         <div><strong>{project.name}</strong><span title={project.rootPath}>{project.rootPath}</span></div>

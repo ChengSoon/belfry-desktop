@@ -49,10 +49,17 @@ pub fn worktrees(root: &Path) -> Result<Vec<ExistingWorktree>, AppError> {
 }
 
 pub fn validate_branch(root: &Path, branch: &str) -> Result<(), AppError> {
+    const INVALID_REF_EXIT_CODE: i32 = 1;
+    const INVALID_BRANCH: &str = "分支名称无效，请修改后重试";
     if branch.is_empty() || branch.len() > 160 || branch.starts_with('-') || branch.chars().any(char::is_whitespace) {
-        return Err(AppError::invalid_argument("分支名称无效"));
+        return Err(AppError::invalid_argument(INVALID_BRANCH));
     }
-    text(root, &["check-ref-format", &format!("refs/heads/{branch}")]).map(|_| ())
+    let output = command::run(root, &["check-ref-format", &format!("refs/heads/{branch}")], READ_LIMIT)?;
+    // Git 校验失败时可能没有 stderr，不能只展示一个空的通用错误。
+    if output.status.code() == Some(INVALID_REF_EXIT_CODE) {
+        return Err(AppError::invalid_argument(INVALID_BRANCH));
+    }
+    success(output)
 }
 
 pub fn branch_head(root: &Path, branch: &str) -> Result<String, AppError> {

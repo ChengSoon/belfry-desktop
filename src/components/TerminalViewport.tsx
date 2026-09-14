@@ -28,6 +28,7 @@ export interface TerminalSnapshot {
 interface TerminalViewportProps {
   /** 会话是否落在某个窗格里。不可见的会话照旧挂着，PTY 不能断。 */
   visible: boolean;
+  focused: boolean;
   launch: TerminalLaunch;
   onSnapshot: (snapshot: TerminalSnapshot) => void;
   onCommandTarget?: (target: TerminalCommandTarget | null) => void;
@@ -37,6 +38,7 @@ interface TerminalViewportProps {
 
 export function TerminalViewport({
   visible,
+  focused,
   launch,
   onSnapshot,
   onCommandTarget,
@@ -60,6 +62,11 @@ export function TerminalViewport({
   const requestSearch = useCallback(() => setSearchOpen(true), []);
   const session = useTerminalSession(terminalHost, stableLaunch, requestSearch, onOpenFile, onOutput);
   const dormant = session.phase === "exited" || session.phase === "error";
+
+  useEffect(() => {
+    // 多窗格恢复按保存的焦点接收输入，不由 PTY 连接完成顺序决定。
+    if (focused && visible && !searchOpen) session.commandTarget.focus();
+  }, [focused, visible, searchOpen, session.commandTarget, session.search]);
 
   useEffect(() => {
     onCommandTarget?.(session.commandTarget);

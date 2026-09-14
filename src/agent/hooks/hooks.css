@@ -1,6 +1,6 @@
-.hook-settings { display: grid; gap: 18px; max-width: 940px; }
-.hook-settings__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
-.hook-settings h2 { margin: 0 0 6px; font-size: var(--fs-lg); font-weight: 500; }
+.hook-settings { display: grid; gap: 18px; }
+/* 页头走 settings/settingsShell.css 的 .settings-head（.hook-settings__head 与
+   这里的 h2 规则已随之作废）。正文段落仍是这一页自己的排版。 */
 .hook-settings p { margin: 0; color: var(--text-muted); font-size: var(--fs-sm); line-height: 1.7; }
 .hook-settings__intro, .hook-settings__footnote { padding: 2px 0; }
 .hook-agent-card, .hook-preview { display: grid; gap: 12px; padding: 18px; border: 1px solid var(--border); border-radius: var(--radius-md); }

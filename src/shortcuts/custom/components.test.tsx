@@ -10,11 +10,30 @@ const context = { platform: "macos" as const, plugins: [] };
 const editor = { edit: null, error: null, message: null, begin: vi.fn(), change: vi.fn(), cancel: vi.fn(), save: vi.fn() };
 afterEach(() => vi.unstubAllGlobals());
 
-it("每个会话动作单独展示，停用和自定义的状态清楚可见", () => {
-  const html = renderToStaticMarkup(<ShortcutRows context={context} editor={editor}
+it("每个会话动作都落进折叠组，展开后停用和自定义的状态清楚可见", () => {
+  const html = renderToStaticMarkup(<ShortcutRows context={context} editor={editor} expanded={["sessions"]}
     overrides={{ "new-shell": null, "activate-session-2": { code: "KeyY", shift: true } }} />);
   for (const text of ["已停用", "未分配", "自定义", "⌘+Shift+Y", "切换第 1 个会话", "切换第 9 个会话"]) expect(html).toContain(text);
   expect((html.match(/shortcut-edit-activate-session/g) ?? []).length).toBe(9);
+});
+
+it("九条切换会话默认折成一行，不铺满整页", () => {
+  const html = renderToStaticMarkup(<ShortcutRows context={context} editor={editor} overrides={{}} />);
+  // 组标签还在，说明这一组没丢；但里面的九条设置不渲染。
+  expect(html).toContain("切换会话");
+  expect(html).toContain("9 项");
+  expect(html).not.toContain("切换第 1 个会话");
+  expect((html.match(/shortcut-edit-activate-session/g) ?? []).length).toBe(0);
+  // 折叠只作用于序号族；别的组照常平铺。
+  expect(html).toContain("新建 Shell 会话");
+  expect(html).toContain("显示 / 隐藏侧栏");
+});
+
+it("正在编辑的设置在折叠组里也要露出来，不能让编辑器消失", () => {
+  const editing = { ...editor, edit: { kind: "binding" as const, draft: { action: "activate-session-3" as const, binding: undefined, original: undefined } } };
+  const html = renderToStaticMarkup(<ShortcutRows context={context} editor={editing} overrides={{}} />);
+  expect(html).toContain("切换第 3 个会话");
+  expect(html).toContain("shortcut-editor");
 });
 
 it("录制区域显示冲突并禁用保存，同时保留取消和恢复入口", () => {

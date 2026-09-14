@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Channel } from "@tauri-apps/api/core";
+import { Terminal } from "@xterm/xterm";
 import { createTerminal, detachTerminal, writeTerminal } from "./api";
 import { mountTerminal, type MountCallbacks, type TerminalHandle } from "./terminalController";
 import type { TerminalEvent, TerminalLaunch, TerminalSession } from "./contracts";
@@ -56,6 +57,16 @@ function fixture() {
 }
 
 describe("terminal attachment lifecycle", () => {
+  it("does not steal the selected pane's focus when attachments become ready", async () => {
+    const focus = vi.spyOn(Terminal.prototype, "focus");
+    const selected = fixture();
+    const background = fixture();
+    selected.handle.focus();
+    await selected.ready({ reconnected: true });
+    await background.ready({ reconnected: true });
+    expect(focus).toHaveBeenCalledTimes(1);
+  });
+
   it.each([
     { kind: "disconnected", sessionId: "qa-pty", message: "后台连接已中断" } as const,
     { kind: "output", sessionId: "qa-pty", sequence: 99, bytes: [120], eof: false } as const,

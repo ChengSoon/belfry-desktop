@@ -50,6 +50,20 @@ fn stale_duplicate_invalid_and_consumed_creations_are_rejected() {
 }
 
 #[test]
+fn invalid_git_branch_names_have_actionable_errors_without_creating_worktrees() {
+    let mut f = Fixture::new();
+    for branch in ["bad..branch", "task/@{invalid", "task/.hidden", "task/ending.lock"] {
+        let error = f.service.preview(CreateInput {
+            root_path: f.repo.path().into(), name: "invalid branch".into(),
+            branch: branch.into(), base_branch: "main".into(),
+        }).unwrap_err();
+        assert_eq!("分支名称无效，请修改后重试", error.message);
+        assert!(f.service.list(f.repo.path()).unwrap().managed.is_empty());
+        assert_eq!(1, f.service.list(f.repo.path()).unwrap().worktrees.len());
+    }
+}
+
+#[test]
 fn dirty_target_blocks_merge_and_unmerged_or_busy_tree_blocks_cleanup() {
     let mut f = Fixture::new(); let tree = f.create("dirty");
     std::fs::write(PathBuf::from(&tree.root_path).join("hello.txt"), "task\n").unwrap();

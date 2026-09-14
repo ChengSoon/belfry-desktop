@@ -70,6 +70,7 @@ export function TerminalStage({
             tab={tab}
           >
             <SessionTerminal
+              focused={tab.id === activeTabId}
               onCommandTarget={onCommandTarget}
               onOpenFile={onOpenFile}
               onSnapshot={onSnapshot}
@@ -107,12 +108,14 @@ function DropIndicator({ rect, edge }: { rect: Rect; edge: DropEdge }) {
 function SessionTerminal({
   tab,
   visible,
+  focused,
   onCommandTarget,
   onOpenFile,
   onSnapshot,
 }: {
   tab: WorkspaceTab;
   visible: boolean;
+  focused: boolean;
   onCommandTarget: (id: string, target: TerminalCommandTarget | null) => void;
   onOpenFile: (tabId: string, path: string, line: number | null) => void;
   onSnapshot: (id: string, snapshot: TerminalSnapshot) => void;
@@ -155,6 +158,7 @@ function SessionTerminal({
   );
   return (
     <TerminalViewport
+      focused={focused}
       launch={launch}
       onCommandTarget={registerTarget}
       onOpenFile={openFile}

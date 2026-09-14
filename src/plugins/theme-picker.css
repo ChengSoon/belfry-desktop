@@ -173,7 +173,9 @@
 }
 
 .plugin-theme-row { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
-.plugin-theme-row h2 { margin: 0; font-size: var(--fs-lg); font-weight: 500; }
+/* h3 而不是 h2：外观页现在有统一页头（h2 = 页面标题），「主题」是页内小节，
+   跟「字体与字号」平级。字号照旧，只是层次降一档。 */
+.plugin-theme-row h3 { margin: 0; font-size: var(--fs-lg); font-weight: 500; }
 .plugin-theme-row p { margin: 5px 0 0; font-size: var(--fs-xs); color: var(--text-muted); }
 .plugin-theme-row .settings-theme-anchor { width: min(240px, 48%); flex-shrink: 0; }
 .plugin-theme-row .settings-theme-trigger { cursor: pointer; border: 0; font: inherit; }

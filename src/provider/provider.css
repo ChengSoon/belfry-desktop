@@ -4,6 +4,16 @@
   gap: 10px;
 }
 
+/* 分区根节点。此前这个组件返回裸 fragment，几个孩子直接落在 .settings-content
+   的栅格上、借它的 gap 排布；补了根节点就得自己撑起同样的行距，
+   否则切到这一页时几块会挤在一起。 */
+.provider-section {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  min-width: 0;
+}
+
 /* 两个 agent 的切换。样式跟用量面板、外观里那两组分段器保持一致，
    但宽度按内容走：满宽的话选中那块 accent 实心色面积太大，压过了下面的列表。 */
 .provider-segments {
@@ -29,21 +39,6 @@
 .provider-segments button:hover:not(:disabled) { color: var(--text); }
 .provider-segments button.is-active { color: var(--accent-contrast); background: var(--accent); }
 .provider-segments button:disabled { cursor: default; }
-
-/* 列表刷新：跟 tab 同排的轻量动作，列表状态异常时不用重开设置就能重拉。
-   用 `.provider-segments button` 双类把 padding/颜色盖回，避免 !important。 */
-.provider-segments button.provider-segments__reload {
-  margin-left: auto;
-  display: grid;
-  width: 24px;
-  height: 24px;
-  place-items: center;
-  padding: 0;
-  color: var(--text-faint);
-}
-
-.provider-segments button.provider-segments__reload:hover:not(:disabled) { color: var(--text); }
-.provider-segments button.provider-segments__reload:disabled { opacity: 0.5; cursor: default; }
 
 /* 列表区域的辅助文字：加载中 / 数据缺失时的占位，避免列表静默空白。 */
 .provider-hint {
@@ -154,21 +149,23 @@
 .provider-row__act--danger:hover { color: var(--danger); }
 
 .provider-add {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 7px;
-  border: 1px dashed var(--border);
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  color: var(--text-muted);
-  background: transparent;
+  color: var(--text);
+  background: var(--surface);
   font-size: var(--fs-sm);
   cursor: pointer;
   transition: border-color var(--duration) var(--ease), color var(--duration) var(--ease);
 }
 
-.provider-add:hover { border-color: var(--border-strong); color: var(--text); }
+.provider-add:hover:not(:disabled) { border-color: var(--border-strong); background: var(--surface-hover); }
+.provider-add:disabled { opacity: 0.45; cursor: default; }
 
 /* 编辑态：列表和原始配置分成两个明确的层级。常态页面不会渲染这一块，
    进入新增/编辑后再用双栏把表单与配置文件并排放下。 */
@@ -224,12 +221,14 @@
   text-transform: uppercase;
 }
 
-.provider-editor__heading h2 {
+.provider-editor__heading > div { min-width: 0; }
+.provider-editor__heading h3 {
   margin: 0;
   color: var(--text);
   font-size: calc(var(--fs-display) + 6px);
   font-weight: 500;
   letter-spacing: -0.025em;
+  overflow-wrap: anywhere;
 }
 
 .provider-editor__status {
@@ -492,7 +491,7 @@
   font-size: var(--fs-xs);
 }
 
-@media (max-width: 820px) {
+@container settings (max-width: 720px) {
   .provider-editor__body { grid-template-columns: minmax(0, 1fr); }
   .provider-config__editor { height: clamp(240px, 45vh, 560px); }
 }
