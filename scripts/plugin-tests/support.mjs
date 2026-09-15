@@ -66,14 +66,18 @@ export async function host(t, root, options = {}) {
   }
   t.after(async () => {
     if (child.exitCode !== null) return;
+    const closed = once(child, "close");
     await call("shutdown").catch(() => {});
     child.stdin.end();
-    // 宿主会 fork worker，worker 继承了这里的 stdout/stderr 管道。只杀宿主本身的话，
-    // Windows 上留下的 worker 会一直攥着管道，让测试进程在用例全通过后仍无法退出。
-    if (child.exitCode !== null) return;
-    child.kill("SIGKILL");
-    if (process.platform === "win32") terminate(child, "SIGKILL");
-    await once(child, "close");
+    // 宿主 fork 的 worker 继承了这里的 stdout/stderr 管道，也攥着插件目录的文件句柄。
+    // 先给 stdin 关闭后的优雅退出留出时间：worker 释放句柄，随后 temporary() 的 rm
+    // 才不会在 Windows 上撞上 EBUSY。超时未退再杀整棵进程树兜底，避免残留 worker
+    // 攥着管道、让测试进程在用例全通过后仍无法退出。
+    const timer = setTimeout(() => {
+      child.kill("SIGKILL");
+      if (process.platform === "win32") terminate(child, "SIGKILL");
+    }, 5000);
+    await closed; clearTimeout(timer);
   });
   await call("hello");
   return { call, child };
