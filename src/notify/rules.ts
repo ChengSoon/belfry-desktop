@@ -5,7 +5,7 @@ import type { WorkspaceTabKind } from "../workspace/contracts";
  * 只有两件事值得打断用户：Agent 把活干完了，或者它卡在一个非你点头不可的问题上。
  * 其余跃迁一律沉默——通知误报一次，用户就再也不会认真看第二次。
  */
-export type NotifyReason = "finished" | "awaiting-choice";
+export type NotifyReason = "finished" | "awaiting-choice" | "failed";
 
 /**
  * `talking → idle` 不能当场认定是"干完了"。
@@ -52,6 +52,7 @@ export interface NotifyContent {
 const REASON_TITLE: Record<NotifyReason, string> = {
   finished: "已跑完",
   "awaiting-choice": "在等你确认",
+  failed: "本轮未完成",
 };
 
 /**

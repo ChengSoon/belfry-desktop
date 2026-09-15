@@ -260,7 +260,7 @@
   height: 20px;
   place-items: center;
   border: 0;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   color: var(--text-faint);
   background: transparent;
   opacity: 0;
@@ -309,7 +309,7 @@
   height: 20px;
   place-items: center;
   border: 0;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   color: var(--text-faint);
   background: transparent;
   opacity: 0;
@@ -478,7 +478,7 @@
   height: 20px;
   place-items: center;
   border: 0;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   color: var(--text-faint);
   background: transparent;
   opacity: 0;

@@ -1,0 +1,8 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.59s
+     Running unittests src/lib.rs (src-tauri/target/debug/deps/belfry_desktop_lib-af773d99e54bc5b5)
+
+running 1 test
+{"mode":"debug/test","scenario":"oversized-duplicate-log","files":1,"records":1024,"uniqueMessages":1,"sourceBytes":67382272,"appendBytes":65803,"referenceMs":738.776125,"coldMs":729.970292,"hotMs":723.400083,"appendMs":727.398458,"cold":{"readBytes":84290560,"validationBytes":512,"parsedLines":1280,"cacheHits":0,"appendedFiles":0,"skippedLines":0},"hot":{"readBytes":84290560,"validationBytes":512,"parsedLines":1280,"cacheHits":0,"appendedFiles":0,"skippedLines":0},"append":{"readBytes":84356363,"validationBytes":512,"parsedLines":1281,"cacheHits":0,"appendedFiles":0,"skippedLines":0},"cacheBytes":0,"cacheEntries":0,"semanticComparison":"equal","note":"默认预算；同一 debug/test 构建、合成重复日志、页缓存已暖；超预算文件不缓存，后续查询完整流式重读"}
+test usage::analytics::performance::oversized_duplicate_log_benchmark ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 577 filtered out; finished in 3.62s

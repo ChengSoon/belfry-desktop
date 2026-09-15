@@ -3,8 +3,10 @@ import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { centerApi } from "./api";
 import { pluginNotice } from "../PluginRuntimeBridge";
+import { Checkbox } from "../../components/controls/Checkbox";
 
 const components: Components = {
+  input: ({ checked }) => <Checkbox checked={!!checked} readOnly ariaLabel={checked ? "已完成" : "未完成"} />,
   a: ({ href, children }) => href && /^https?:\/\//i.test(href)
     ? <a href={href} rel="noopener noreferrer" onClick={(event) => {
       event.preventDefault(); void centerApi.openExternal(href).catch((error) => pluginNotice(String(error)));

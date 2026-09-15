@@ -32,11 +32,16 @@ export function CollabPanel({ collab, onClose }: CollabPanelProps) {
   return (
     <aside aria-labelledby="collab-panel-title" className="collab-panel" ref={ref}>
       <header className="collab-panel__head">
-        <span aria-hidden="true" className="collab-panel__mark"><Users size={ICON.md} /></span>
-        <div className="collab-panel__title">
-          <strong id="collab-panel-title">会话协作</strong>
-          <span>{waiting.length > 0 ? `${waiting.length} 条等你确认` : "Agent 之间互相派活"}</span>
-        </div>
+        <Users aria-hidden="true" size={ICON.md} />
+        <h2 id="collab-panel-title">会话协作</h2>
+        {/* 等确认的条数原先是标题下面的第二行说明文字，那行把头部撑到 56px，
+            右侧四个面板的标题行因此对不齐。改成与历史面板同款的计数徽标：
+            同一件事（这一列现在有多少条要紧的）用同一种表达。
+            没有等确认的活时不显示——"Agent 之间互相派活"那句是功能介绍，
+            空态里已经讲得更清楚，头部不必再说一遍。 */}
+        {waiting.length > 0 ? (
+          <span className="panel-count panel-count--alert">{waiting.length}</span>
+        ) : null}
         <button aria-label="关闭协作面板" className="icon-button icon-button--sm" onClick={onClose} title="关闭" type="button">
           <X aria-hidden="true" size={ICON.md} />
         </button>

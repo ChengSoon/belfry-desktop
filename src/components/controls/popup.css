@@ -1,0 +1,46 @@
+.ui-popover {
+  position: fixed;
+  z-index: 240;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 5px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-md);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  animation: ui-popover-in 110ms var(--ease);
+}
+.ui-options { display: grid; gap: 2px; }
+.ui-popover .ui-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 33px;
+  width: 100%;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ui-popover .ui-option.is-active:not(:disabled), .ui-popover .ui-option:hover:not(:disabled) { background: var(--surface-hover); color: var(--text); }
+.ui-popover .ui-option[aria-selected="true"] { color: var(--text); }
+.ui-option > span { display: grid; gap: 3px; min-width: 0; }
+.ui-option strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 400; }
+.ui-option small { color: var(--text-faint); font-size: var(--fs-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.4; }
+.ui-option > svg { color: var(--accent); flex: none; }
+.ui-popover .ui-option:disabled { opacity: .4; cursor: default; }
+.ui-popover__empty { margin: 12px 8px; color: var(--text-faint); font-size: var(--fs-xs); }
+.ui-popover__search { display: flex; align-items: center; gap: 7px; position: sticky; top: -5px; padding: 8px; margin: -5px -5px 4px; border-bottom: 1px solid var(--border); background: var(--surface-raised); color: var(--text-faint); }
+.ui-popover__search input { min-width: 0; width: 100%; border: 0; background: transparent; color: var(--text); font: inherit; outline: none; }
+.ui-popover__search input::placeholder { color: var(--text-faint); }
+.ui-popover__search:focus-within { color: var(--accent); border-bottom-color: var(--accent); }
+.ui-popover__search input:focus-visible { outline: none; }
+@keyframes ui-popover-in { from { opacity: 0; } to { opacity: 1; } }

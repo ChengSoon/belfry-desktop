@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { ICON } from "../theme/sizing";
+import { SettingsHeader } from "../settings/SettingsHeader";
 import { failureLabel, toAppFailure } from "../workspace/errors";
 import { diagnoseEnvironment, installBelfrySkill } from "./api";
 import {
@@ -91,9 +92,8 @@ interface HeaderProps {
 
 function EnvironmentHeader({ busy, onDiagnose, onInstall }: HeaderProps) {
   return (
-    <header className="environment-section__header">
-      <h2>协作环境</h2>
-      <div className="environment-section__actions">
+    <SettingsHeader
+      actions={<>
         <button
           className="environment-action environment-action--primary"
           disabled={busy !== null}
@@ -118,8 +118,9 @@ function EnvironmentHeader({ busy, onDiagnose, onInstall }: HeaderProps) {
             size={ICON.sm}
           />
         </button>
-      </div>
-    </header>
+      </>}
+      title="协作环境"
+    />
   );
 }
 

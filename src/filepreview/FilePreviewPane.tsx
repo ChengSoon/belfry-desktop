@@ -6,6 +6,7 @@ import {
   FileSearch,
   Folder,
   FolderOpen,
+  GitBranch,
   RefreshCcw,
   Search,
   X,
@@ -27,6 +28,7 @@ interface FilePreviewPaneProps {
   onClose: () => void;
   requestedLine?: number | null;
   requestedPath?: string | null;
+  onGit?: () => void;
 }
 
 export function FilePreviewPane({
@@ -34,6 +36,7 @@ export function FilePreviewPane({
   onClose,
   requestedLine = null,
   requestedPath = null,
+  onGit,
 }: FilePreviewPaneProps) {
   const preview = useFilePreview(project);
   const { commitWidth, resetWidth, setWidth, width } = usePanelWidth(FILE_PREVIEW_WIDTH);
@@ -55,6 +58,9 @@ export function FilePreviewPane({
       <header className="file-preview__head">
         <FileSearch aria-hidden="true" size={ICON.md} />
         <h2>文件预览</h2>
+        {onGit ? <button className="icon-button icon-button--sm" onClick={onGit} title="查看 Git 变更" aria-label="查看 Git 变更" type="button">
+          <GitBranch aria-hidden="true" size={ICON.sm} />
+        </button> : null}
         <button className="icon-button icon-button--sm" disabled={!project || preview.loadingDirectory} onClick={preview.refresh} title="刷新文件" type="button">
           <RefreshCcw aria-hidden="true" size={ICON.sm} />
         </button>

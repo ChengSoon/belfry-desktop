@@ -152,6 +152,7 @@ mod tests {
             host: "example.com".to_string(),
             user: Some("root".to_string()),
             port: Some(22),
+            remote_path: None,
             password: None,
             remember_password: None,
         };
@@ -178,6 +179,7 @@ mod tests {
             host: "example.com".to_string(),
             user: None,
             port: None,
+            remote_path: None,
             password: Some("typed".to_string()),
             remember_password: Some(false),
         };
@@ -190,6 +192,7 @@ mod tests {
             host: "example.com".to_string(),
             user: None,
             port: None,
+            remote_path: None,
             password: Some(" secret ".to_string()),
             remember_password: Some(false),
         };

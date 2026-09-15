@@ -14,18 +14,35 @@ pub async fn terminal_create(
     identities: State<'_, std::sync::Arc<SessionIdentities>>,
     endpoint: State<'_, CollabEndpoint>,
     mut request: CreateTerminalRequest,
+    attachment: Option<String>,
+    flow_control: Option<bool>,
     on_event: Channel<TerminalEvent>,
 ) -> Result<TerminalSession, AppError> {
+    request.launch_overlay.attachment = attachment;
+    if let Some(tab) = &request.tab_id {
+        request.launch_overlay.launch_epoch = app.state::<TerminalRuntime>().launch_epoch(tab);
+    }
     issue_collab_identity(&identities, endpoint.0.as_deref(), &mut request);
     tauri::async_runtime::spawn_blocking(move || {
+        let launch_epoch = request.launch_overlay.launch_epoch;
+        let runtime = app.state::<TerminalRuntime>();
+        runtime.prepare_attachment(&mut request)?;
+        if request.launch_overlay.attachment.is_none() {
+            crate::provider::project::prepare(&app, &mut request)?;
+        }
+        request.launch_overlay.launch_epoch = launch_epoch;
+        if !runtime.uses_daemon() {
+            app.state::<crate::agent::hooks::HookRuntime>()
+                .prepare(&mut request, on_event.clone());
+        }
         let ticket = crate::plugins::agent_connection::attach(&app, &mut request);
-        let result = app.state::<TerminalRuntime>().create(request, on_event);
-        match &result {
-            Ok(session) => crate::plugins::agent_connection::bind(&app, &session.id, ticket),
-            Err(_) => {
-                if let Some(ticket) = ticket {
-                    crate::plugins::agent_connection::revoke(&app, &ticket);
-                }
+        request.launch_overlay.output_acknowledgements = flow_control.unwrap_or(false);
+        let result = runtime.create(request, on_event, |session| {
+            crate::plugins::agent_connection::bind(&app, &session.id, ticket.clone());
+        });
+        if result.is_err() {
+            if let Some(ticket) = ticket {
+                crate::plugins::agent_connection::revoke(&app, &ticket);
             }
         }
         result
@@ -144,6 +161,7 @@ mod tests {
             cwd: Some("file:///tmp/project".to_string()),
             command: None,
             env: HashMap::new(),
+            launch_overlay: Default::default(),
             collaboration_mode: false,
             resume: None,
             ssh: None,

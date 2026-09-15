@@ -1,6 +1,6 @@
 .harness-registry { display: grid; gap: 12px; min-width: 0; color: var(--text); }
 .harness-registry__head { display: flex; align-items: start; justify-content: space-between; gap: 16px; }
-.harness-registry h2 { margin: 0; font-size: var(--fs-lg); font-weight: 560; letter-spacing: -.02em; }
+.harness-registry h2 { margin: 0; font-size: var(--fs-lg); font-weight: 500; letter-spacing: -.02em; }
 .harness-registry__head p, .harness-registry__list p { margin: 4px 0 0; color: var(--text-muted); font-size: var(--fs-sm); }
 .harness-registry button { display: inline-flex; align-items: center; gap: 5px; min-height: 30px; padding: 5px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); background: var(--surface); cursor: pointer; }
 .harness-registry button:hover:not(:disabled) { background: var(--surface-hover); }

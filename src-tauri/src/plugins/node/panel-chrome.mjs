@@ -29,9 +29,14 @@ export function installPanelChrome(bridge, css) {
     }
     chrome.append(drag, controls); shadow.append(chrome); document.body.append(host);
     const interactive = 'a,button,input,label,select,summary,textarea,[contenteditable],[draggable="true"],[role="button"],[tabindex],[data-pi-plugin-no-drag]';
-    document.addEventListener("mousedown", (event) => {
+    const startDrag = (event) => {
       if (event.button !== 0 || event.clientY > HEIGHT || event.composedPath().some((node) => node instanceof Element && node.matches(interactive))) return;
       event.preventDefault(); void invoke("drag");
+    };
+    // 封闭 Shadow DOM 外看不到内部按钮，必须在内部判断是否可拖拽。
+    shadow.addEventListener("mousedown", startDrag, true);
+    document.addEventListener("mousedown", (event) => {
+      if (!event.composedPath().includes(host)) startDrag(event);
     }, true);
     drag.ondblclick = () => void invoke("toggleMaximize");
     const tint = () => {
@@ -40,8 +45,7 @@ export function installPanelChrome(bridge, css) {
       host.style.setProperty("--pi-plugin-panel-page-background", body.backgroundColor === "rgba(0, 0, 0, 0)" ? root.backgroundColor : body.backgroundColor);
       host.style.setProperty("--pi-plugin-panel-page-foreground", body.color);
     };
-    tint(); bridge.on("appearance:changed", () => setTimeout(tint));
-    window.addEventListener("pi-plugin-appearance", tint);
+    tint(); bridge.on("appearance:changed", () => setTimeout(tint)); window.addEventListener("pi-plugin-appearance", tint);
   };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", mount, { once: true }); else mount();
 }

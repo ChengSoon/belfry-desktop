@@ -45,7 +45,7 @@ impl AgentCapabilities {
             resume: true,
             history: true,
             prompt: true,
-            // Hooks are not wired yet; screen text remains an approximation.
+            // 仅在 CLI 版本探测通过后声明 Hook 能力；连接前仍采用屏幕推断。
             structured_state: false,
         }
     }

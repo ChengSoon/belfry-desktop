@@ -24,7 +24,7 @@ Run Codex and Claude Code through one interface on macOS and Windows, and see wh
 </div>
 
 > [!WARNING]
-> **Early development.** What works today is one vertical slice: open a project → detect agents → launch switchable agent/shell tabs. That's a long way from the full shape described in the roadmap below. Interfaces and data formats may change incompatibly.
+> **Under active development.** The app includes local workspaces, background terminals, session collaboration, history and usage, and an optional PI plugin system. See the [implementation record](docs/cli-manager-implementation.md) for outstanding native and Windows acceptance work. Interfaces and data formats may still change.
 
 ## Download
 
@@ -62,6 +62,7 @@ Neither agent detected? Doesn't matter. Shell sessions don't depend on them, and
 - Open a local directory as a project; recents are remembered
 - Sidebar groups by project, folds, and has a draggable width (`⌘B` collapses it entirely)
 - Each session carries its own project, so different sessions can point at different directories
+- Named workspaces preserve session groups, split layouts and active focus; reopening restores background session identities
 - Quick Open (`⌘K`) searches sessions and recent projects, and runs common workspace actions
 - The file preview pane browses the active project, opens read-only code previews, follows file paths from terminal output, and surfaces disk-change notices
 
@@ -70,8 +71,7 @@ Neither agent detected? Doesn't matter. Shell sessions don't depend on them, and
 - Detects Codex and Claude Code automatically: executable path, version, and a reason when unavailable
 - Session state separates process lifecycle (creating / running / exited / error) from current behavior (idle / talking / awaiting choice)
 - Tab titles are extracted from your first prompt; the untruncated original stays in the tooltip
-- Prompt Composer (`⌘J`; `Ctrl+Shift+J` on Windows / Linux) sends multiline prompts to a selected Codex or Claude session
-- New prompts queue per session while an agent is talking or awaiting confirmation, then dispatch in order when it returns to idle; queued items can be removed or sent manually
+- Collaboration tasks queue per target Agent while it is busy or awaiting confirmation, then dispatch in order when it returns to idle
 
 **Activity notifications**
 
@@ -106,6 +106,13 @@ Neither agent detected? Doesn't matter. Shell sessions don't depend on them, and
 - Broken down by model and by project; window selectable as last 7 days / last 30 days / all time
 - Quota windows and plan type (only Codex logs carry these fields; Claude's don't)
 
+**Optional plugins**
+
+- Install `.piplug` packages, load development directories, or choose plugins from a marketplace
+- Panels, commands, Agent tools, Skills, settings and themes; executable plugins require local Node.js 20 or newer
+- Templates, validation, packaging and a local personal marketplace, with independent online catalogs also supported
+- See the [PI plugin guide](docs/plugins/pi-runtime-guide.md) and [personal marketplace guide](docs/plugins/own-market-guide.md) for capabilities and permissions
+
 **Appearance**
 
 - Light/dark theme, with theme colors fed through to the terminal palette
@@ -113,9 +120,9 @@ Neither agent detected? Doesn't matter. Shell sessions don't depend on them, and
 - Multiple persistent TTF / OTF / WOFF / WOFF2 imports, each independently selectable and removable, with instant switching back to system fonts
 - JetBrains Mono and HarmonyOS Sans SC bundled
 
-Belfry shortcuts: `⌘T` opens a Shell, `⌘B` toggles the sidebar, `⌘J` opens Prompt Composer, `⌘K` opens Quick Open, `⌘U` toggles usage,
+Belfry shortcuts: `⌘T` opens a Shell, `⌘B` toggles the sidebar, `⌘K` opens Quick Open, `⌘U` toggles usage,
 `⌘⇧H` toggles history, `⌘,` opens settings, `⌘1–9` switches sessions, and `⌘/` opens
-the shortcut guide. Windows and Linux use `Ctrl+Shift` chords so Codex and Claude keep
+the shortcut guide. Windows uses `Ctrl+Shift` chords so Codex and Claude keep
 their native `Ctrl` shortcuts.
 
 ## UI
@@ -124,7 +131,7 @@ their native `Ctrl` shortcuts.
 
 ## Principles
 
-**No model requests are proxied.** Belfry embeds no inference client — requests go straight from the CLI agent to whichever provider you picked, never through Belfry. Switching providers rewrites the agent's own config files, touching only the routing keys and leaving everything else byte-for-byte intact; API keys are stored in plain text on your machine (owner-readable only), the same way the CLIs store them.
+**CLI requests are sent by the Agent.** Provider switching updates the CLI's own routing configuration, with API keys stored locally as the CLI expects. Optional plugins can call configured services through the host model API; the plugin guide documents those capabilities and permissions. The main interface remains focused on terminals and sessions.
 
 **Full degradation to a plain terminal when agents are unavailable.** Agent integration is an enhancement, not a prerequisite. Failed detection should never stop you from opening a shell.
 
@@ -132,7 +139,7 @@ their native `Ctrl` shortcuts.
 
 **Pixel parity across platforms is a non-goal.** Menus, shortcuts, and window behavior follow each platform's conventions.
 
-Explicit non-goals: iOS / Android / web builds; built-in model inference; cloud sync, accounts, team collaboration, a plugin marketplace, LSP, and debuggers; silent privilege escalation.
+The product is a local terminal and CLI Agent workspace for macOS and Windows. It does not currently provide iOS / Android / web builds, cloud sync, accounts, cloud team collaboration, LSP or debuggers, and never elevates privileges silently.
 
 ## Stack
 
@@ -145,22 +152,46 @@ Explicit non-goals: iOS / Android / web builds; built-in model inference; cloud 
 
 ## Development
 
-Requires the [Rust toolchain](https://rustup.rs), Node.js LTS, and pnpm 10.
+Requires [Rust stable](https://rustup.rs), Node.js LTS, and pnpm 10.34.4 as pinned in `package.json`.
+Native development also needs the [Tauri platform prerequisites](https://v2.tauri.app/start/prerequisites/), including MSVC and the Windows SDK on Windows.
+
+Run from the repository root:
 
 ```bash
-pnpm install
-
-pnpm desktop:dev      # desktop app, dev mode
-pnpm desktop:build    # package
-pnpm test             # frontend tests (vitest)
-pnpm build            # typecheck + frontend build
+pnpm install --frozen-lockfile
+pnpm desktop:dev      # desktop dev; prepares the control CLI sidecar
+pnpm desktop:build    # native bundle; builds frontend and target CLI sidecar
+pnpm test             # frontend unit and model regression
+pnpm build            # type check and frontend production build
 ```
 
-Rust-side tests:
+Rust and plugin regression also run from the repository root:
 
 ```bash
-cd src-tauri && cargo test
+node scripts/bundle-cli.mjs
+cargo test --manifest-path src-tauri/Cargo.toml --workspace --locked
+pnpm build
+node .github/workflows/verify-plugins.mjs
+node --test .github/workflows/release-assets.case.mjs scripts/bundle-cli.case.mjs
 ```
+
+`bundle-cli.mjs` prepares a real host CLI for Tauri's `externalBin` with `cargo build --locked`;
+an outdated lock fails preparation without being updated. Sidecar tests verify this in an isolated, offline temporary Cargo workspace.
+Plugin regression requires Chrome, Chromium or Edge;
+set `BELFRY_BROWSER_EXECUTABLE` to an absolute path if needed. Tests use temporary browser instances and fail if no browser is available.
+The runner also serves `dist` directly to test production panel JS, CSS and shared dependency failures while preserving terminals.
+Run `pnpm build` first; a missing production build fails the checks. To run only these cases:
+`node --test src/components/lazy/testing/production-panels.case.mjs`.
+Four original PI interoperability cases additionally need `BELFRY_PI_SOURCE` pointing to upstream commit
+`4fb58d36f4b0f05e4527d8bdf2da874e31933134`, plus `market-fixtures/pi.gitlens`, `pi.log-viewer` and `pi.todo`.
+Without those fixtures the runner explicitly reports that acceptance gap; it does not count those cases as passed.
+Run `./scripts/test-windows-installer.ps1` in PowerShell for the Windows installer script regression.
+
+[PR/branch checks](.github/workflows/checks.yml) configure these regressions on macOS and Windows, then reuse the build
+for targeted release asset, sidecar lock and production panel tests under Node 20.
+The [release workflow](.github/workflows/release.yml) reuses the checks, builds three targets, and publishes the draft
+only after all platform installers, signatures and `latest.json` are present. Manual reruns must select an existing
+`v*` tag matching the app version. A configured workflow is not evidence of native Windows or remote release acceptance.
 
 ### Layout
 
@@ -168,10 +199,13 @@ cd src-tauri && cargo test
 src/                  frontend
   workspace/          project workspace, tabs, sidebar
   terminal/           PTY sessions and xterm control
-  prompt/             Prompt Composer and per-agent queue
+  prompt/             background collaboration delivery queues per Agent
   quickopen/          fast search across sessions, projects, and actions
   provider/           provider switching for the agent CLIs
-  settings/           settings dialog (appearance, providers)
+  settings/           settings (appearance, providers, Hooks, backup, plugins)
+  plugins/            plugin center, runtime bridge and workspace views
+  history/            local history search and resume
+  git/                Git inspection and guarded Worktree operations
   notify/             activity notifications and badge
   usage/              token usage aggregation and display
   panel/              panel width and dragging
@@ -184,34 +218,33 @@ src-tauri/src/        Rust backend
   provider/           surgical rewrites of both CLIs' config files
   terminal/           PTY backend, launch profiles, OSC replies
   usage/              Codex / Claude session log parsing
-.codestable/          requirements, roadmap, architecture decisions, feature designs
+  plugins/            plugin management, Node host and MCP integration
+scripts/              CLI bundling and native/plugin regression scripts
+docs/                 design, implementation and acceptance records
+.github/workflows/    PR checks and draft release pipeline
 ```
 
-`.codestable/` is this project's documentation base — where requirements came from, how modules were split, and the design plus acceptance checklist for every feature. Worth a look before changing code.
+Start with the [CLI implementation record](docs/cli-manager-implementation.md) and [PI plugin guide](docs/plugins/pi-runtime-guide.md). Step-by-step plans live in `docs/superpowers/plans/`.
 
 ## Roadmap
 
-Past the delivered vertical slice, work proceeds along the split in [`.codestable/roadmap/belfry-desktop/`](.codestable/roadmap/belfry-desktop/):
+See the [CLI feature backlog](docs/cli-manager-feature-backlog.md) and [implementation record](docs/cli-manager-implementation.md) for planned work and acceptance status. The version entries below retain their historical context:
 
 ### Shipped versions
 
 - **v0.10.0 · Terminal foundation**: cross-platform Shell Profiles, terminal search, clickable HTTP(S) links, Unicode width support, and backwards-compatible workspace archives.
 - **v0.11.0 · Workspace navigation**: Quick Open search across sessions, projects, and actions, with keyboard navigation and common workspace commands.
-- **v0.12.0 · Prompt Composer & Queue**: choose a Codex or Claude session, submit multiline prompts from a dedicated Composer, queue per session while the agent is busy, dispatch serially when idle, and recover queued work across target remounts, send failures, and session closure.
+- **v0.12.0 · Prompt Composer & Queue**: introduced per-session queues, idle dispatch and recovery across target remounts. The dedicated Composer and Recipe panels have since been removed; background queues continue to serve session collaboration.
 - **v0.13.0 · File Preview Pane**: browse the project tree, open size-limited read-only text previews, jump from terminal paths, add lightweight syntax highlighting, protect binary files, and surface external changes.
 - **v0.14.0 · Agent adapter foundation**: unify Codex / Claude detection, launch, state, history, and resume behind one adapter layer, with explicit session identity validation, safe resume planning, and a responsive two-column shortcut guide.
 - **v0.15.0 · Session collaboration**: give Agent sessions stable names, delegate and settle work between same-project sessions with the bundled `belfry` CLI, and track approvals, safety limits, queued delivery, and task state in the collaboration panel.
 - **v0.16.0 · Collaboration setup**: diagnose the Belfry skill, Codex login and feature state, doctor results, and the collaboration channel from Settings, with automatic synchronization and manual updates for the bundled skill.
 - **v0.17.0 · Multi-client collaboration setup**: extend collaboration diagnostics and bundled skill synchronization to both Codex and Claude Code, report each client independently, and preserve partial-success results.
 
-### Next milestones
-
-- **v0.18.0 · Recipe workspace**: save reusable multi-step Agent instructions with variables, target-session selection, queued execution, retry handling, and run history.
-
 ### Long-term tracks
 
-- **Shared UI** — split panes, settings, prompt composer and queue, quick open, file preview panes (v0.13)
-- **Shared Core** — session persistence and restore, agent adapter foundation, history and resume, recipe replay, import/export
+- **Shared UI** — split panes, settings, quick open, file preview panes (v0.13)
+- **Shared Core** — session persistence and restore, agent adapter foundation, history and resume, collaboration delivery, import/export
 - **Terminal Runtime** — cross-platform shell profiles (zsh/bash/fish, PowerShell/CMD/WSL/Git Bash), SSH
 - **Platform Services** — notifications, Dock / Taskbar, credentials (Keychain / Credential Manager), global shortcuts, control CLI
 - **Content & Git** — file editing and Git integration
@@ -221,7 +254,7 @@ Past the delivered vertical slice, work proceeds along the split in [`.codestabl
 
 Issues and PRs welcome. Opening an issue first to align on direction is a good idea — interfaces shift often at this stage, and it saves wasted work.
 
-Before opening a PR, please confirm `pnpm test`, `pnpm build`, and `cargo test` are all green.
+Before opening a PR, run the frontend, Rust workspace and Node plugin commands above, and report any missing native or upstream acceptance environment.
 
 ## Disclaimer
 

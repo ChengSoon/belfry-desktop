@@ -1,0 +1,22 @@
+.usage-pricing > .ui-disclosure__content > button, .usage-price-form :is(footer, .usage-price-remove) button { padding: 6px 9px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: transparent; color: var(--text-muted); font-size: var(--fs-xs); cursor: pointer; }
+.usage-pricing button:hover:not(:disabled) { background: var(--surface-hover); color: var(--text); }
+.usage-pricing button:disabled { opacity: .45; cursor: default; }
+.usage-price-list { display: grid; gap: 3px; margin: 10px 0; padding: 0; max-height: 260px; overflow-y: auto; list-style: none; }
+.usage-price-list button { display: grid; width: 100%; gap: 4px; padding: 8px 6px; border: 0; border-radius: var(--radius-sm); background: transparent; text-align: left; cursor: pointer; }
+.usage-price-list strong { color: var(--text); font-size: var(--fs-sm); font-weight: 500; overflow-wrap: anywhere; }
+.usage-price-list span, .usage-price-list small { color: var(--text-faint); font-size: var(--fs-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.usage-price-form { display: grid; gap: 12px; padding-top: 10px; }
+.usage-price-form label { display: grid; min-width: 0; gap: 6px; color: var(--text-muted); font-size: var(--fs-xs); }
+.usage-price-form label > :is(input, textarea) { min-width: 0; width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); background: var(--surface); font: inherit; font-size: var(--fs-sm); }
+.usage-price-form__pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.usage-price-form__pair--date { grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); }
+.usage-price-form fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+.usage-price-form legend { margin-bottom: 8px; color: var(--text-faint); font-size: var(--fs-xs); }
+.usage-price-form .ui-disclosure__trigger { padding: 3px 0; color: var(--text-muted); font-size: var(--fs-xs); }
+.usage-price-form .ui-disclosure[data-open="true"] > .ui-disclosure__trigger { margin-bottom: 8px; }
+.usage-price-form footer { display: flex; justify-content: flex-end; gap: 6px; }
+.usage-price-form button[type="submit"] { background: var(--accent-soft); color: var(--text); }
+.usage-price-error { margin: 8px 0; color: var(--danger); font-size: var(--fs-xs); line-height: 1.6; overflow-wrap: anywhere; }
+.usage-price-remove { padding-top: 6px; border-top: 1px solid var(--border); }
+.usage-price-remove p { color: var(--text-muted); font-size: var(--fs-xs); line-height: 1.6; }
+.usage-price-remove button { margin-right: 5px; border: 0; }

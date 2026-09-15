@@ -3,7 +3,7 @@ import { useBackground } from "../background/BackgroundProvider";
 import { useTheme } from "../theme/ThemeProvider";
 import { xtermTheme } from "../theme/xtermTheme";
 import { useTypography } from "../typography/TypographyProvider";
-import { closeTerminal } from "./api";
+import { closeTerminal, closeTerminalTab } from "./api";
 import {
   type SessionActivity,
   type TerminalCommandTarget,
@@ -13,8 +13,12 @@ import {
 } from "./contracts";
 import { errorMessage, mountTerminal, type TerminalHandle } from "./terminalController";
 import type { TerminalSearchController } from "./search";
+import type { HookSnapshot } from "../agent/hooks/contracts";
 
 interface TerminalViewModel {
+  daemonSessionId?: string;
+  canReconnect: boolean;
+  reconnect: () => void;
   phase: TerminalPhase;
   error: string | null;
   shell: string;
@@ -24,10 +28,12 @@ interface TerminalViewModel {
   lastInput: string | null;
   /** 会话在生成 / 等按键 / 闲着。Shell 会话恒为 idle。 */
   activity: SessionActivity;
+  agentState: HookSnapshot | null;
   search: TerminalSearchController | null;
   commandTarget: TerminalCommandTarget;
   restart: () => void;
   close: () => void;
+  dismissError: () => void;
 }
 
 export function useTerminalSession(
@@ -55,8 +61,11 @@ export function useTerminalSession(
   const [session, setSession] = useState<TerminalSession | null>(null);
   const [lastInput, setLastInput] = useState<string | null>(null);
   const [activity, setActivity] = useState<SessionActivity>("idle");
+  const [agentState, setAgentState] = useState<HookSnapshot | null>(null);
   const [search, setSearch] = useState<TerminalSearchController | null>(null);
   const sessionId = useRef<string | null>(null);
+  const attachment = useRef(launch.attachmentId ?? null);
+  const target = useRef(launch);
   const handle = useRef<TerminalHandle | null>(null);
   // 主题、背景和字体都不能进挂载 effect 的依赖，否则设置外观会重挂终端、连带杀掉 PTY 会话。
   const themeMode = useRef(mode);
@@ -72,21 +81,28 @@ export function useTerminalSession(
   useEffect(() => {
     const host = container.current;
     if (!host) return;
+    let active = true;
+    const guard = <T,>(write: (value: T) => void) => (value: T) => { if (active) write(value); };
+    if (target.current.cwd !== launch.cwd || target.current.profileId !== launch.profileId || target.current.ssh !== launch.ssh) {
+      attachment.current = launch.attachmentId ?? null;
+    }
+    target.current = launch;
     const mounted = mountTerminal(
       host,
-      launch,
+      { ...launch, attachmentId: attachment.current },
       xtermTheme(themeMode.current),
       transparentMode.current,
       typographyConfig.current,
       {
-        onPhase: setPhase,
-        onError: setError,
+        onPhase: guard(setPhase),
+        onError: guard(setError),
         onSession: (value) => {
-          sessionId.current = value?.id ?? null;
-          setSession(value);
+          if (!active) return;
+          if (value) { sessionId.current = value.id; attachment.current = value.id; setSession(value); }
         },
-        onInput: setLastInput,
-        onActivity: setActivity,
+        onInput: guard(setLastInput),
+        onActivity: guard(setActivity),
+        onAgentState: guard(setAgentState),
         onOpenFile: (path, line) => fileRequest.current?.(path, line),
         onOutput: (text) => outputRequest.current?.(text),
         onSearchRequest: () => searchRequest.current?.(),
@@ -95,11 +111,12 @@ export function useTerminalSession(
     handle.current = mounted;
     setSearch(mounted.search);
     return () => {
+      active = false;
       handle.current = null;
       setSearch(null);
       mounted.dispose();
     };
-  }, [container, generation, launch.collaborationMode, launch.cwd, launch.profileId, launch.resumeSessionId, launch.ssh]);
+  }, [container, generation, launch.collaborationMode, launch.cwd, launch.profileId, launch.resumeSessionId, launch.ssh, launch.projectLaunch, launch.attachmentId]);
 
   useEffect(() => {
     themeMode.current = mode;
@@ -112,7 +129,12 @@ export function useTerminalSession(
     handle.current?.applyTypography(typography);
   }, [typography]);
 
-  const restart = useCallback(() => setGeneration((value) => value + 1), []);
+  const restart = useCallback(() => {
+    const stop = launch.tabId ? closeTerminalTab(launch.tabId) : sessionId.current ? closeTerminal(sessionId.current) : Promise.resolve();
+    void stop.then(() => { attachment.current = null; sessionId.current = null; setSession(null); setError(null); setGeneration((value) => value + 1); })
+      .catch((error) => setError(errorMessage(error)));
+  }, [launch.tabId]);
+  const reconnect = useCallback(() => { setError(null); setGeneration((value) => value + 1); }, []);
   const focus = useCallback(() => handle.current?.focus(), []);
   const sendText = useCallback((text: string) => handle.current?.sendText(text) ?? false, []);
   const commandTarget = useMemo(() => ({ focus, sendText }), [focus, sendText]);
@@ -124,6 +146,9 @@ export function useTerminalSession(
   }, []);
 
   return {
+    daemonSessionId: session?.id ?? attachment.current ?? undefined,
+    canReconnect: phase === "error" && !!attachment.current,
+    reconnect,
     phase,
     error,
     shell: session?.shell ?? "system-default",
@@ -131,9 +156,11 @@ export function useTerminalSession(
     rows: session?.rows ?? 0,
     lastInput,
     activity,
+    agentState,
     search,
     commandTarget,
     restart,
     close,
+    dismissError: () => setError(null),
   };
 }

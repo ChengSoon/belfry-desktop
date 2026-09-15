@@ -12,27 +12,9 @@
   grid-template-rows: auto auto auto minmax(0, 1fr);
   padding-top: var(--titlebar-inset);
   border-left: 1px solid var(--border);
-  background: var(--surface);
 }
 
-.usage-head {
-  display: flex;
-  height: 44px;
-  align-items: center;
-  gap: 7px;
-  padding: 0 8px 0 12px;
-  border-bottom: 1px solid var(--border);
-}
-
-.usage-head > svg { flex: 0 0 auto; color: var(--text-faint); }
-
-.usage-head h2 {
-  flex: 1;
-  margin: 0;
-  font-size: var(--fs-md);
-  font-weight: 500;
-  letter-spacing: -0.01em;
-}
+/* 底色与头部规格（44px / padding / 标题字号 / 图标色）统一在 panel/panelShell.css。 */
 
 .usage-filters {
   display: grid;

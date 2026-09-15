@@ -31,6 +31,26 @@ DLL 搜索的第一站是 exe 所在目录，所以两个文件都要落在 `Ott
 失败路径都是软的：架构不对则 `LoadLibrary` 失败、少了 `OpenConsole.exe` 则回落系统 conhost，
 两种情况都只是退回旧行为，不会崩。
 
+## 安装与升级时的文件占用
+
+`OpenConsole.exe` 是独立进程，可能在 Belfry 退出后短暂存活并锁住安装目录中的文件。
+`windows/installer-hooks.nsh` 在安装和卸载前先执行 Tauri 的主程序关闭检查，再调用
+`windows/stop-openconsole.ps1`，只终止完整路径与本次安装目录匹配的宿主。
+
+NSIS 通常是 32 位进程，因此必须优先通过 `Sysnative` 启动系统原生位数的 PowerShell。
+32 位 PowerShell 查询 64 位进程时，`Get-Process.Path` 会为空，导致按路径筛选失效。
+清理后还会最多等待 5 秒，使用不截断、不写入内容的文件打开操作确认锁已释放；失败时
+在复制或删除应用文件前停止，交互安装可重试，静默和被动安装返回失败。
+
+在仓库根目录运行脚本回归（不依赖 Pester）：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/test-windows-installer.ps1
+```
+
+也可用 `pwsh` 执行。这些用例模拟进程枚举与终止，并用真实文件句柄验证锁等待；
+Windows 发布前仍需验证旧版运行中覆盖安装、卸载，以及其他目录的同名宿主不受影响。
+
 ## 怎么升级
 
 ```sh

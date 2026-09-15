@@ -1,0 +1,30 @@
+.hook-settings { display: grid; gap: 18px; }
+/* 页头走 settings/settingsShell.css 的 .settings-head（.hook-settings__head 与
+   这里的 h2 规则已随之作废）。正文段落仍是这一页自己的排版。 */
+.hook-settings p { margin: 0; color: var(--text-muted); font-size: var(--fs-sm); line-height: 1.7; }
+.hook-settings__intro, .hook-settings__footnote { padding: 2px 0; }
+.hook-agent-card, .hook-preview { display: grid; gap: 12px; padding: 18px; border: 1px solid var(--border); border-radius: var(--radius-md); }
+.hook-agent-card { padding: 4px 0 20px; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; }
+.hook-config-details, .hook-settings__footnote { color: var(--text-faint); font-size: var(--fs-xs); line-height: 1.7; }
+.hook-settings .ui-disclosure__trigger { padding: 3px 0; }
+.hook-settings .ui-disclosure[data-open="true"] > .ui-disclosure__trigger { margin-bottom: 8px; }
+.hook-agent-card header { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: var(--fs-sm); }
+.hook-agent-card header > span { color: var(--text-muted); }
+.hook-agent-card__summary { display: flex; flex-wrap: wrap; gap: 12px; color: var(--text-muted); font-size: var(--fs-xs); }
+.hook-agent-card__summary > span:first-child { color: var(--accent); }
+.hook-config-path { overflow-wrap: anywhere; color: var(--text-muted); font-size: var(--fs-xs); line-height: 1.7; }
+.hook-settings footer { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 3px; }
+.hook-settings footer button { padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); background: var(--surface); font-size: var(--fs-sm); cursor: pointer; }
+.hook-settings footer button:hover:not(:disabled) { background: var(--surface-hover); }
+.hook-settings footer button:disabled { opacity: .45; cursor: default; }
+.hook-settings footer .hook-primary { color: var(--accent); border-color: var(--accent); }
+.hook-preview { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); background: color-mix(in srgb, var(--accent) 4%, transparent); }
+.hook-preview pre { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; padding: 12px; border-radius: var(--radius-sm); background: var(--canvas); color: var(--text); font-size: var(--fs-xs); line-height: 1.6; }
+.hook-event-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.hook-event-list code { padding: 3px 6px; border-radius: var(--radius-xs); background: var(--surface); color: var(--text-muted); font-size: var(--fs-xs); }
+.hook-settings .hook-error { color: var(--danger, #cf6262); }
+.terminal-workspace--agent { display: grid; grid-template-rows: 24px minmax(0, 1fr); }
+.hook-status-bar { display: flex; min-width: 0; align-items: center; gap: 8px; padding: 0 14px; color: var(--text-muted); font-size: var(--fs-xs); overflow: hidden; white-space: nowrap; }
+.hook-status-bar > span:last-child { overflow: hidden; text-overflow: ellipsis; }
+.hook-status-bar__source { flex-shrink: 0; color: var(--text-muted); opacity: .8; }
+.hook-status-bar[data-source="hook"] .hook-status-bar__source { color: var(--accent); opacity: 1; }

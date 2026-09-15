@@ -1,7 +1,8 @@
 // Adapted from PI-Desktop PluginsPage.tsx, LGPL-3.0; see third_party/pi-desktop/NOTICE.md.
 import { usePluginsPage } from "./context";
 import { Button } from "./ui";
-import { IconCloudDown, IconDownload, IconMore, IconPlug } from "./icons";
+import { IconCloudDown, IconDownload, IconMore } from "./icons";
+import { SettingsHeader } from "../../settings/SettingsHeader";
 import { t } from "./i18n";
 import { usePopover } from "./usePopover";
 import { centerApi } from "./api";
@@ -13,16 +14,12 @@ export function PageHeader() {
   const { tab, setTab, market, actions, data } = usePluginsPage();
   const updates = data.plugins.filter((plugin) => plugin.updateAvailable).length;
   return <>
-    <div className="page-header plugins-page-header">
-      <div className="plugins-title-block"><span className="plugins-title-icon" aria-hidden><IconPlug size={14} /></span>
-        <div className="plugins-title-copy"><h1 className="page-title">{t("plugins.title")}</h1></div></div>
-      <div className="plugins-header-actions">
+    <SettingsHeader title="插件" actions={<div className="plugins-header-actions">
         {tab === "market" ? <Button variant="primary" size="sm" disabled={market.loading} onClick={() => void market.refresh(true)}>
           <IconCloudDown size={14} />{t("plugins.refreshMarket")}</Button> :
           <Button variant="primary" size="sm" onClick={() => setTab("market")}><IconDownload size={14} />{t("plugins.browseMarket")}</Button>}
         <HeaderMenu />
-      </div>
-    </div>
+      </div>} />
     {updates > 0 ? <div className="plugins-alert" role="status">
       <span className="plugins-alert-icon" aria-hidden><IconCloudDown size={15} /></span>
       <div className="plugins-alert-copy"><span className="plugins-alert-title">{t("plugins.updatesReady", { count: updates })}</span></div>
@@ -50,7 +47,10 @@ function HeaderMenu() {
     <button type="button" className="plugins-icon-btn plugins-header-menu" aria-label={t("plugins.moreActions")}
       title={t("plugins.moreActions")} aria-haspopup="menu" aria-expanded={menu.open} disabled={actions.busy} onClick={() => menu.setOpen(!menu.open)}><IconMore size={16} /></button>
     {menu.open ? <div className="plugins-menu is-end" role="menu">{entries.map((entry) =>
-      <button key={entry.key} type="button" role="menuitem" onClick={() => { menu.setOpen(false); void entry.run(); }}>{entry.label ?? t(`plugins.${entry.key}`)}</button>)}
+      <button key={entry.key} type="button" role="menuitem" onClick={() => {
+        menu.ref.current?.querySelector<HTMLButtonElement>(".plugins-header-menu")?.focus();
+        menu.setOpen(false); void entry.run();
+      }}>{entry.label ?? t(`plugins.${entry.key}`)}</button>)}
     </div> : null}
   </div>;
 }

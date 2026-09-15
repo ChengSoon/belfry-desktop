@@ -190,6 +190,7 @@ fn native_backend_spawns_the_system_ssh_client() {
         host: "127.0.0.1".to_string(),
         user: Some("root".to_string()),
         port: Some(1),
+        remote_path: None,
         password: None,
         remember_password: None,
     });
@@ -237,6 +238,7 @@ fn default_request() -> CreateTerminalRequest {
         cwd: None,
         command: None,
         env: HashMap::new(),
+        launch_overlay: Default::default(),
         collaboration_mode: false,
         resume: None,
         ssh: None,
@@ -308,7 +310,7 @@ fn wait_for_events(
     false
 }
 
-fn lock_native_test() -> MutexGuard<'static, ()> {
+pub(super) fn lock_native_test() -> MutexGuard<'static, ()> {
     NATIVE_TEST_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner())
@@ -338,7 +340,11 @@ fn output_bytes(events: &[TerminalEvent]) -> Vec<u8> {
         .iter()
         .filter_map(|event| match event {
             TerminalEvent::Output { bytes, .. } => Some(bytes.as_slice()),
-            TerminalEvent::Exit { .. } => None,
+            TerminalEvent::Exit { .. }
+            | TerminalEvent::AgentState { .. }
+            | TerminalEvent::ReplayGap { .. }
+            | TerminalEvent::Disconnected { .. }
+            | TerminalEvent::OutputBatch { .. } => None,
         })
         .flatten()
         .copied()
@@ -350,7 +356,11 @@ fn assert_sequences_are_ordered(events: &[TerminalEvent]) {
         .iter()
         .filter_map(|event| match event {
             TerminalEvent::Output { sequence, .. } => Some(*sequence),
-            TerminalEvent::Exit { .. } => None,
+            TerminalEvent::Exit { .. }
+            | TerminalEvent::AgentState { .. }
+            | TerminalEvent::ReplayGap { .. }
+            | TerminalEvent::Disconnected { .. }
+            | TerminalEvent::OutputBatch { .. } => None,
         })
         .collect();
     assert_eq!(sequences, (0..sequences.len() as u64).collect::<Vec<_>>());
@@ -380,7 +390,11 @@ fn event_contains_exit_marker(event: &TerminalEvent) -> bool {
         TerminalEvent::Output { bytes, .. } => {
             String::from_utf8_lossy(bytes).contains("__BELFRY_EXIT__")
         }
-        TerminalEvent::Exit { .. } => false,
+        TerminalEvent::Exit { .. }
+        | TerminalEvent::AgentState { .. }
+        | TerminalEvent::ReplayGap { .. }
+        | TerminalEvent::Disconnected { .. }
+        | TerminalEvent::OutputBatch { .. } => false,
     }
 }
 
@@ -389,6 +403,10 @@ fn event_contains_marker(event: &TerminalEvent) -> bool {
         TerminalEvent::Output { bytes, .. } => {
             String::from_utf8_lossy(bytes).contains("__BELFRY_OK__")
         }
-        TerminalEvent::Exit { .. } => false,
+        TerminalEvent::Exit { .. }
+        | TerminalEvent::AgentState { .. }
+        | TerminalEvent::ReplayGap { .. }
+        | TerminalEvent::Disconnected { .. }
+        | TerminalEvent::OutputBatch { .. } => false,
     }
 }

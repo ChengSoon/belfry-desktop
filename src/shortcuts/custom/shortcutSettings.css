@@ -1,0 +1,52 @@
+.shortcut-settings { display: grid; gap: 16px; }
+/* 页头（标题 + 说明 + 「全部恢复默认」）走 settings/settingsShell.css 的
+   .settings-head。原先这里是 `.shortcut-settings > header` 自定的 flex 布局，
+   特异性比骨架高一档，留着会把统一页头压回去，所以整条撤掉。 */
+.shortcut-settings h3 { margin: 0; font-size: var(--fs-sm); font-weight: 500; }
+.shortcut-settings p { margin: 0; color: var(--text-muted); font-size: var(--fs-sm); line-height: 1.7; }
+.shortcut-settings button { padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); background: var(--surface); font-size: var(--fs-sm); cursor: pointer; }
+.shortcut-settings button:hover:not(:disabled) { background: var(--surface-hover); }
+.shortcut-settings button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.shortcut-settings button:disabled { opacity: .45; cursor: default; }
+.shortcut-settings__scope { padding-bottom: 4px; }
+
+/* 分组切换键。压在组标签右端，做成无边框的小字——它是「这一组怎么显示」，
+   不是一条设置，长得跟下面的「更改」按钮一样会被当成操作项。 */
+.shortcut-settings button.shortcut-settings__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border: 0;
+  color: var(--text-faint);
+  background: transparent;
+  font-size: var(--fs-xs);
+  font-weight: 400;
+}
+.shortcut-settings button.shortcut-settings__toggle:hover:not(:disabled) { color: var(--text); background: var(--surface-hover); }
+
+/* 行与卡片容器走 settings/settingsShell.css 的 .settings-card / .settings-row
+   （卡片负责圆角与描边、行之间那条发丝线也由它给）。这里只补快捷键特有的部分。 */
+.shortcut-settings__rows { display: grid; margin: 0; padding: 0; list-style: none; }
+.shortcut-settings__rows[hidden] { display: none; }
+.shortcut-settings__keys { flex-wrap: wrap; }
+.shortcut-settings .settings-row__label .shortcut-settings__error { width: 100%; }
+.shortcut-settings kbd { padding: 4px 7px; border: 1px solid var(--border); border-radius: var(--radius-xs); background: var(--canvas); color: var(--text-muted); font-family: inherit; font-size: var(--fs-xs); white-space: nowrap; }
+.shortcut-editor, .shortcut-reset { display: grid; gap: 12px; padding: 16px; border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border)); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--accent) 4%, transparent); }
+.shortcut-editor { grid-column: 1 / -1; margin-top: 14px; }
+.shortcut-settings .shortcut-editor__recorder { min-height: 42px; border-style: dashed; color: var(--accent); background: var(--canvas); }
+.shortcut-settings .shortcut-editor__recorder[data-shortcut-recorder="true"] { border-style: solid; border-color: var(--accent); }
+.shortcut-editor__preview strong { color: var(--text); font-weight: 500; }
+.shortcut-settings footer { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.shortcut-editor__spacer { flex: 1; }
+.shortcut-settings button.shortcut-settings__primary { border-color: var(--accent); color: var(--accent); }
+.shortcut-settings .shortcut-settings__error { color: var(--danger, #cf6262); }
+.shortcut-settings .shortcut-settings__saved { color: var(--accent); }
+.shortcut-reset ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; color: var(--text-muted); font-size: var(--fs-xs); }
+.shortcut-reset li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
+
+/* 窄窗口：键位挪到标题下面一行，不再和说明挤在同一格。 */
+@media (max-width: 780px) {
+  .shortcut-settings .settings-row { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .shortcut-settings__keys { justify-content: flex-start; }
+}

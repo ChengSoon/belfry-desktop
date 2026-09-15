@@ -73,6 +73,10 @@ export function createProjectSwitchTab(
  * 全程没变就返回原对象，避免 phase 抖动时白白重渲染整条侧栏。
  */
 export function applySnapshot(tab: WorkspaceTab, snapshot: TerminalSnapshot): WorkspaceTab {
+  const daemonSessionId = snapshot.daemonSessionId === undefined ? tab.daemonSessionId : snapshot.daemonSessionId;
+  const agentState = snapshot.agentState === undefined ? tab.agentState : snapshot.agentState;
+  const incoming = agentState?.session;
+  const agentSessionRef = incoming?.agent === tab.kind ? incoming : tab.agentSessionRef;
   // SSH 标签认连接目标，不随远程命令改名；手动改过的名字同样不再被自动顶掉。
   // toSessionTitle 返回 null 同理保留上一个。
   const title = tab.kind === "ssh" || tab.customTitle
@@ -80,14 +84,20 @@ export function applySnapshot(tab: WorkspaceTab, snapshot: TerminalSnapshot): Wo
     : (snapshot.lastInput && toSessionTitle(snapshot.lastInput)) || tab.title;
   if (
     tab.phase === snapshot.phase
+    && tab.daemonSessionId === daemonSessionId
     && tab.error === snapshot.error
     && tab.activity === snapshot.activity
+    && tab.agentState === agentState
+    && tab.agentSessionRef?.id === agentSessionRef?.id
     && title === tab.title
   ) return tab;
   return {
     ...tab,
+    daemonSessionId,
     phase: snapshot.phase,
     activity: snapshot.activity,
+    ...(agentState === undefined ? {} : { agentState }),
+    agentSessionRef,
     error: snapshot.error,
     title,
     titleHint: title === tab.title ? tab.titleHint : snapshot.lastInput,
@@ -100,6 +110,8 @@ export function updateSshTarget(tab: WorkspaceTab, target: SshLaunch): Workspace
   return {
     ...tab,
     sshTarget: target,
+    daemonSessionId: null,
+    restoreSessionId: null,
     title: tab.customTitle ? tab.title : sshDisplayName(target),
     titleHint: null,
     phase: "idle",

@@ -101,13 +101,7 @@ fn resolve_ssh_launch(
 }
 
 fn ssh_arguments(target: &SshTarget) -> Vec<String> {
-    let mut args = Vec::new();
-    if let Some(port) = target.port {
-        args.push("-p".to_string());
-        args.push(port.to_string());
-    }
-    args.push(ssh_destination(target));
-    args
+    crate::ssh::launch_arguments(target)
 }
 
 fn ssh_destination(target: &SshTarget) -> String {
@@ -118,7 +112,7 @@ fn ssh_destination(target: &SshTarget) -> String {
 }
 
 #[cfg(target_os = "macos")]
-fn resolve_ssh_executable() -> Result<String, AppError> {
+pub(crate) fn resolve_ssh_executable() -> Result<String, AppError> {
     const SSH_PATH: &str = "/usr/bin/ssh";
     Path::new(SSH_PATH)
         .is_file()
@@ -129,7 +123,7 @@ fn resolve_ssh_executable() -> Result<String, AppError> {
 /// Windows 上 OpenSSH 客户端是可选功能：先查系统自带位置，找不到再走 PATH，
 /// 覆盖用户自装的客户端。与 resolve_default_shell 同理，能给绝对路径就不给裸名。
 #[cfg(target_os = "windows")]
-fn resolve_ssh_executable() -> Result<String, AppError> {
+pub(crate) fn resolve_ssh_executable() -> Result<String, AppError> {
     let system_root = std::env::var("SystemRoot").unwrap_or_else(|_| "C:\\Windows".to_string());
     let bundled = Path::new(&system_root).join("System32\\OpenSSH\\ssh.exe");
     if bundled.is_file() {
@@ -764,6 +758,7 @@ mod tests {
             host: "example.com".to_string(),
             user: Some("root".to_string()),
             port: Some(2222),
+            remote_path: None,
             password: None,
             remember_password: None,
         };
@@ -777,6 +772,7 @@ mod tests {
             host: "bastion".to_string(),
             user: None,
             port: None,
+            remote_path: None,
             password: None,
             remember_password: None,
         };

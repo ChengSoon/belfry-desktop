@@ -71,8 +71,14 @@ pub fn bind(app: &AppHandle, terminal_id: &str, ticket: Option<String>) {
     let Some(ticket) = ticket else {
         return;
     };
-    if let Ok(mut sessions) = app.state::<PluginRuntime>().sessions.lock() {
-        sessions.insert(terminal_id.into(), ticket);
+    let previous = app
+        .state::<PluginRuntime>()
+        .sessions
+        .lock()
+        .ok()
+        .and_then(|mut sessions| sessions.insert(terminal_id.into(), ticket));
+    if let Some(previous) = previous {
+        revoke(app, &previous);
     }
 }
 pub fn revoke(app: &AppHandle, ticket: &str) {

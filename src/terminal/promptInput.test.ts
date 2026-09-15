@@ -18,6 +18,33 @@ function setup() {
 afterEach(() => vi.useRealTimers());
 
 describe("PromptInput", () => {
+  it("dispose 立即清除解析窗口计时器且不再自动回车", async () => {
+    vi.useFakeTimers();
+    const { input, write } = setup();
+    input.sendText("task");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(vi.getTimerCount()).toBe(1);
+    input.dispose();
+    expect(vi.getTimerCount()).toBe(0);
+    await vi.runAllTimersAsync();
+    expect(write).toHaveBeenCalledTimes(1);
+    expect(input.sendText("late")).toBe(false);
+  });
+
+  it("dispose 之后迟到的粘贴写入完成不会新建计时器", async () => {
+    vi.useFakeTimers();
+    const { input, write } = setup();
+    let finish!: () => void;
+    write.mockImplementationOnce(() => new Promise<void>((resolve) => { finish = resolve; }));
+    input.sendText("task");
+    await vi.advanceTimersByTimeAsync(0);
+    input.dispose();
+    finish();
+    await vi.runAllTimersAsync();
+    expect(vi.getTimerCount()).toBe(0);
+    expect(write).toHaveBeenCalledTimes(1);
+  });
+
   it("等待实际粘贴写入完成，再经过解析窗口只提交一次", async () => {
     vi.useFakeTimers();
     const { input, write } = setup();

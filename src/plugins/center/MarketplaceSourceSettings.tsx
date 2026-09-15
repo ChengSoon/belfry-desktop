@@ -21,6 +21,7 @@ export function MarketplaceSourceSettings() {
   const { data, actions, market } = usePluginsPage();
   const settings = data.management.settings;
   const [customUrl, setCustomUrl] = useState(settings.pluginMarketCustomUrl);
+  const [urlError, setUrlError] = useState("");
   useEffect(() => setCustomUrl(settings.pluginMarketCustomUrl), [settings.pluginMarketCustomUrl]);
   const apply = (patch: Partial<MarketSettings>) => actions.run(async () => {
     const next = { ...settings, ...patch };
@@ -28,7 +29,13 @@ export function MarketplaceSourceSettings() {
     data.setManagement((current) => ({ ...current, settings: next }));
     await market.refresh();
   });
-  const commit = () => void apply({ pluginMarketCustomUrl: customUrl.trim() });
+  const commit = () => {
+    try {
+      const url = new URL(customUrl.trim());
+      if (!["http:", "https:"].includes(url.protocol)) throw new Error("protocol");
+      setUrlError(""); void apply({ pluginMarketCustomUrl: customUrl.trim() });
+    } catch { setUrlError("请输入完整的 http:// 或 https:// 市场地址"); }
+  };
   const active = SOURCES.find((source) => source.value === settings.pluginMarketSource);
   return <section className="plugins-market-settings" aria-labelledby="plugins-market-settings-title">
     <div className="plugins-market-settings-head"><div className="plugins-market-settings-copy">
@@ -39,10 +46,11 @@ export function MarketplaceSourceSettings() {
         onChange={(value) => void apply({ pluginMarketSource: value })} /></div></div>
     {settings.pluginMarketSource === "custom" ? <div className="plugins-market-settings-row"><div className="plugins-market-settings-copy">
       <div className="settings-row-title">{t("settings.marketCustomUrl")}</div><div className="settings-row-desc">{t("settings.marketCustomUrlDesc")}</div></div>
-      <form className="plugins-market-settings-control plugins-market-url-form" onSubmit={(event) => { event.preventDefault(); commit(); }}>
-        <Input type="url" required value={customUrl} disabled={actions.busy}
-        placeholder={t("settings.marketCustomUrlPlaceholder")} aria-label={t("settings.marketCustomUrl")} onChange={(event) => setCustomUrl(event.target.value)}
-        /><Button type="submit" disabled={actions.busy}>{actions.busy ? "正在连接…" : "保存并连接"}</Button></form></div> : null}
+      <form className="plugins-market-settings-control plugins-market-url-form" noValidate onSubmit={(event) => { event.preventDefault(); commit(); }}>
+        <Input type="text" inputMode="url" aria-required="true" value={customUrl} disabled={actions.busy} aria-invalid={!!urlError}
+        placeholder={t("settings.marketCustomUrlPlaceholder")} aria-label={t("settings.marketCustomUrl")} onChange={(event) => { setCustomUrl(event.target.value); setUrlError(""); }}
+        /><Button type="submit" disabled={actions.busy}>{actions.busy ? "正在连接…" : "保存并连接"}</Button>
+        {urlError ? <p className="plugins-settings-error" role="alert">{urlError}</p> : null}</form></div> : null}
     {settings.pluginMarketSource === "personal" ? <PersonalMarketControls /> : null}
   </section>;
 }

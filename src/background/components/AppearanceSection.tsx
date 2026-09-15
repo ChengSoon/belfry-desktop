@@ -1,5 +1,6 @@
 import { RotateCcw } from "lucide-react";
 import { ICON } from "../../theme/sizing";
+import { SettingsHeader } from "../../settings/SettingsHeader";
 import { useTheme } from "../../theme/ThemeProvider";
 import {
   DEFAULT_TYPOGRAPHY,
@@ -13,6 +14,7 @@ import { FontFamilyField, useFontChoice } from "./FontFamilyField";
 import { FontImportCard } from "./FontImportCard";
 import { ThemePicker } from "../../plugins/ThemePicker";
 import "./appearance.css";
+import { Slider as CustomSlider } from "../../components/controls/Slider";
 
 const FIT_LABEL: Record<BackgroundFit, string> = {
   cover: "覆盖",
@@ -29,6 +31,10 @@ export function AppearanceSection() {
 
   return (
     <section aria-label="外观" className="appearance">
+      {/* 这一页原先直接甩控件、没有页面标题，在八页里是唯一一个「进去不知道
+          自己在哪」的。标题走统一页头；不凑说明文案——外观一进去就看得懂，
+          硬加一句是 filler 不是说明。 */}
+      <SettingsHeader title="外观" />
       <ThemePicker />
       <div className="appearance__divider" />
       <TypographyControls />
@@ -93,7 +99,9 @@ function TypographyControls() {
 function TypographyHeading({ disabled, onReset }: { disabled: boolean; onReset: () => void }) {
   return (
     <div className="appearance__heading">
-      <h2>字体与字号</h2>
+      {/* 页面标题已经是 h2（统一页头），这条是页内小节的标题，降一档到 h3，
+          免得和页面标题平级、读起来像两个并列的页面名。 */}
+      <h3>字体与字号</h3>
       <button
         aria-label="恢复默认排版"
         className="icon-button icon-button--sm"
@@ -223,21 +231,20 @@ interface SliderProps {
   onChange: (value: number) => void;
 }
 
-/* React 把 range 的 onChange 接到原生 input 事件上，拖动过程中就会连续触发，
-   所见即所得不用额外接 onInput。落盘在 Provider 那侧，见那里关于不做防抖的说明。 */
 function Slider({ label, value, min, max, step, format, onChange }: SliderProps) {
   return (
-    <label className="appearance__row">
+    <div className="appearance__row">
       <span className="appearance__label">{label}</span>
-      <input
+      <CustomSlider
         max={max}
         min={min}
-        onChange={(event) => onChange(Number(event.target.value))}
+        onChange={onChange}
         step={step}
-        type="range"
+        ariaLabel={label}
+        valueText={format(value)}
         value={value}
       />
       <span className="appearance__value">{format(value)}</span>
-    </label>
+    </div>
   );
 }

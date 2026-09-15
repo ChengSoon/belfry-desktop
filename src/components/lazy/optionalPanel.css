@@ -1,0 +1,65 @@
+.optional-panel-fallback {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  padding-top: var(--titlebar-inset);
+  border-left: 1px solid var(--border);
+  background: var(--panel);
+}
+
+.optional-panel-fallback--settings {
+  z-index: 1;
+  grid-column: 1 / -1;
+  grid-row: 1 / -1;
+  border-left: 0;
+  background: var(--canvas);
+}
+
+.optional-panel-fallback__head {
+  display: flex;
+  height: 44px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+  padding: 0 8px 0 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.optional-panel-fallback__head h2 {
+  flex: 1;
+  margin: 0;
+  color: var(--text);
+  font-size: var(--fs-lg);
+  font-weight: 500;
+}
+
+.optional-panel-fallback__body { padding: 16px 12px; }
+.optional-panel-fallback__body p {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-relaxed);
+}
+
+.optional-panel-fallback__retry,
+.optional-panel-fallback__return {
+  margin-top: 12px;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  background: var(--surface-raised);
+  cursor: pointer;
+}
+
+.optional-panel-fallback__retry:hover,
+.optional-panel-fallback__return:hover { background: var(--surface-hover); }
+.optional-panel-fallback__body svg { flex: none; }
+.optional-panel-fallback__spinner { flex: none; animation: optional-panel-spin 1s linear infinite; }
+@keyframes optional-panel-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .optional-panel-fallback__spinner { animation: none; } }

@@ -59,7 +59,7 @@ pub fn roll_up(projects: Vec<ProjectUsage>) -> Vec<ProjectUsage> {
 /// 不能用"最近的带标记祖先"：子目录常自带清单（`belfry-win/src-tauri/Cargo.toml`），
 /// 那样会把子目录判成独立项目。所以先找到最近的带标记目录，再沿父链继续上移，
 /// 直到父目录不再带标记为止。父目录一旦没有标记就停，避免一路归拢到家目录。
-fn resolve_root(path: &str) -> String {
+pub(super) fn resolve_root(path: &str) -> String {
     let mut nearest: Option<&Path> = None;
     let mut current = Some(Path::new(path));
 
@@ -92,7 +92,7 @@ fn has_marker(directory: &Path) -> bool {
         .any(|marker| directory.join(marker).exists())
 }
 
-fn display_name(root: &str) -> String {
+pub(super) fn display_name(root: &str) -> String {
     Path::new(root)
         .file_name()
         .and_then(|value| value.to_str())

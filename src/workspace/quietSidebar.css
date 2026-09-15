@@ -1,0 +1,8 @@
+.sidebar-context { display: flex; align-items: flex-start; gap: 2px; min-height: 36px; margin-bottom: 12px; }
+.sidebar-context__collapse { flex: 0 0 auto; margin-top: 3px; opacity: 0; transition: opacity var(--duration) var(--ease); }
+.sidebar-context:is(:hover, :focus-within) .sidebar-context__collapse { opacity: 1; }
+.sidebar .sessions-head { height: 28px; margin-bottom: 5px; letter-spacing: .02em; }
+.sidebar .session-row.is-active { border-color: transparent; box-shadow: none; }
+.sidebar .session-row { min-height: 34px; }
+.sidebar .sidebar-foot__actions { width: 100%; justify-content: flex-end; gap: 10px; }
+.sidebar:has(.named-workspaces__popover) { z-index: 12; }

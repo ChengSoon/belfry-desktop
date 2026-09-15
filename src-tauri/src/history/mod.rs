@@ -6,7 +6,12 @@
 
 pub(crate) mod claude;
 pub(crate) mod codex;
+#[cfg(test)]
+mod codex_identity_tests;
 pub mod commands;
 pub(crate) mod contracts;
+pub(crate) mod details;
+mod line_reader;
 pub(crate) mod scan;
+pub(crate) mod search;
 mod service;

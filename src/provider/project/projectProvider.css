@@ -1,0 +1,22 @@
+.project-provider { display: grid; gap: 16px; }
+/* 页头走 settings/settingsShell.css 的 .settings-head；原先的
+   .project-provider__header 两条（容器 + h2/p 字号）已随之作废。 */
+.project-provider__project { display: flex; align-items: center; gap: 10px; padding: 10px 0 18px; border-bottom: 1px solid var(--border); }
+.project-provider__project svg { flex-shrink: 0; color: var(--text-faint); }
+.project-provider__project > div { display: grid; gap: 4px; min-width: 0; }
+.project-provider__project strong { font-size: var(--fs-sm); font-weight: 500; }
+.project-provider__project span { overflow: hidden; font-size: var(--fs-xs); color: var(--text-faint); white-space: nowrap; text-overflow: ellipsis; }
+.project-provider__agent { display: grid; gap: 8px; padding: 4px 0 20px; border-bottom: 1px solid var(--border); }
+.project-provider__agent label { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+.project-provider__agent label strong { font-size: var(--fs-sm); font-weight: 500; }
+.project-provider__agent .ui-select { flex: 0 1 260px; width: 260px; max-width: 100%; }
+.project-provider__agent dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 12px; margin: 0; font-size: var(--fs-xs); }
+.project-provider__agent dt { color: var(--text-faint); }
+.project-provider__agent dd { margin: 0; color: var(--text-muted); overflow-wrap: anywhere; }
+.project-provider__source { margin: 0; font-size: var(--fs-xs); color: var(--text-muted); }
+.project-provider__notice, .project-provider__empty { margin: 0; font-size: var(--fs-sm); color: var(--text-faint); line-height: 1.7; }
+.project-provider__error { margin: 0; font-size: var(--fs-sm); color: var(--danger); line-height: 1.7; }
+.project-provider__conflicts { font-size: var(--fs-xs); color: var(--text-muted); line-height: 1.7; overflow-wrap: anywhere; }
+.project-provider__conflicts .ui-disclosure__trigger { color: var(--text-muted); }
+.project-provider__conflicts .ui-disclosure__chevron { color: var(--warning); }
+.project-provider__conflicts p { margin: 8px 0 0; }

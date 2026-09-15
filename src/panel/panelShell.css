@@ -1,0 +1,88 @@
+/* 面板外壳：右侧那一列（用量 / 历史 / 文件预览 / 会话协作）共用的一份规格。
+   四个面板此前各写各的头部——44 / 44 / 42px 和一个纯靠 padding 撑起来的，
+   来回切换时标题行会跳一两像素；字号、图标色、关闭键大小也各不相同。
+   这里只定外壳（底色、头部、分区、卡片），面板各自的内容排版仍在自己的 CSS 里。
+
+   选择器用「列出四个类名」而不是加一个公共类：面板都是活着的组件，
+   改 JSX 会动到无障碍标签和测试选择器，而外壳本来就该由样式层统一。 */
+
+.usage-panel,
+.history-panel,
+.file-preview-panel,
+.collab-panel {
+  /* 三层里的第二层。此前用 --surface：暗色下它与侧栏同色（#0f1012），
+     亮色下是纯白，卡片因此无处可浮——整块面板摊成一个色。 */
+  background: var(--panel);
+}
+
+/* 头部：图标 + 标题 + 若干动作键 + 关闭键。四个面板结构本来就是平行的。 */
+.usage-head,
+.history-head,
+.file-preview__head,
+.collab-panel__head {
+  display: flex;
+  height: 44px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+  padding: 0 8px 0 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* 标题统一到分区标题档（15px）：此前是正文档 14px，与下面的内容同大，
+   头部读起来不像"这一列的名字"，倒像列表的第一行。 */
+.usage-head h2,
+.history-head h2,
+.file-preview__head h2,
+.collab-panel__head h2 {
+  overflow: hidden;
+  flex: 1;
+  margin: 0;
+  color: var(--text);
+  font-size: var(--fs-lg);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 头部计数徽标。历史面板的 .history-count 此前没有任何样式，是一个裸数字贴在标题后面。
+   协作面板的"N 条等你确认"原先是标题下的第二行文字，把头部撑到 56px。
+   两处说的是同一件事——这一列现在有多少条要紧的，统一成这一枚。 */
+.panel-count,
+.history-count {
+  flex: 0 0 auto;
+  min-width: 18px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  color: var(--text-muted);
+  background: var(--surface-hover);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+/* 等人确认是唯一需要立刻动手的状态，沿用侧栏那套琥珀语义。 */
+.panel-count--alert {
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 16%, transparent);
+}
+
+/* 头部那枚图标退到最淡一档，让标题自己承担重量。
+   文件预览原先用 --accent 画它——四个面板里只有它是彩色的。 */
+.usage-head > svg,
+.history-head > svg,
+.file-preview__head > svg,
+.collab-panel__head > svg {
+  flex: 0 0 auto;
+  color: var(--text-faint);
+}
+
+/* 卡片：第三层。靠明度差浮起来，边框只是收边。
+   .usage-total 原先用 --surface-raised，亮色下等于纯白 = 面板底色，等于没有卡片。 */
+.panel-card {
+  padding: 11px 12px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  background: var(--card);
+}

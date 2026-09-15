@@ -11,17 +11,24 @@ import type {
 import { useTerminalSession } from "../terminal/useTerminalSession";
 import type { TerminalSearchState } from "../terminal/search";
 import { ICON } from "../theme/sizing";
+import type { HookSnapshot } from "../agent/hooks/contracts";
+import { HookStatusBar } from "../agent/hooks/HookStatusBar";
+import { SessionStatisticsControl } from "../usage/session/SessionStatisticsControl";
+import { statisticsTarget } from "../usage/session/target";
 
 export interface TerminalSnapshot {
+  daemonSessionId?: string | null;
   phase: TerminalPhase;
   error: string | null;
   lastInput: string | null;
   activity: SessionActivity;
+  agentState?: HookSnapshot | null;
 }
 
 interface TerminalViewportProps {
   /** 会话是否落在某个窗格里。不可见的会话照旧挂着，PTY 不能断。 */
   visible: boolean;
+  focused: boolean;
   launch: TerminalLaunch;
   onSnapshot: (snapshot: TerminalSnapshot) => void;
   onCommandTarget?: (target: TerminalCommandTarget | null) => void;
@@ -31,6 +38,7 @@ interface TerminalViewportProps {
 
 export function TerminalViewport({
   visible,
+  focused,
   launch,
   onSnapshot,
   onCommandTarget,
@@ -49,11 +57,16 @@ export function TerminalViewport({
   // resumeSessionId 与 cwd/profileId 一样会触发 PTY 重启，必须一起参与记忆。
   const stableLaunch = useMemo(
     () => launch,
-    [launch.collaborationMode, launch.cwd, launch.profileId, launch.resumeSessionId, launch.ssh],
+    [launch.collaborationMode, launch.cwd, launch.profileId, launch.resumeSessionId, launch.ssh, launch.projectLaunch, launch.attachmentId],
   );
   const requestSearch = useCallback(() => setSearchOpen(true), []);
   const session = useTerminalSession(terminalHost, stableLaunch, requestSearch, onOpenFile, onOutput);
   const dormant = session.phase === "exited" || session.phase === "error";
+
+  useEffect(() => {
+    // 多窗格恢复按保存的焦点接收输入，不由 PTY 连接完成顺序决定。
+    if (focused && visible && !searchOpen) session.commandTarget.focus();
+  }, [focused, visible, searchOpen, session.commandTarget, session.search]);
 
   useEffect(() => {
     onCommandTarget?.(session.commandTarget);
@@ -103,11 +116,17 @@ export function TerminalViewport({
       error: session.error,
       lastInput: session.lastInput,
       activity: session.activity,
+      agentState: session.agentState,
+      daemonSessionId: session.daemonSessionId,
     });
-  }, [onSnapshot, session.activity, session.error, session.lastInput, session.phase]);
+  }, [onSnapshot, session.activity, session.agentState, session.error, session.lastInput, session.phase, session.daemonSessionId]);
 
   return (
-    <section className="terminal-workspace" aria-hidden={!visible}>
+    <section className={`terminal-workspace${launch.profileId.startsWith("agent:") ? " terminal-workspace--agent" : ""}`} aria-hidden={!visible}>
+      {launch.profileId.startsWith("agent:") ? <div className="agent-session-toolbar">
+        <HookStatusBar snapshot={session.agentState} activity={session.activity} phase={session.phase} />
+        <SessionStatisticsControl {...statisticsTarget(launch, session.agentState)} visible={visible} />
+      </div> : null}
       <div className="terminal-canvas" ref={terminalHost} />
       {searchOpen ? (
         <div className="terminal-search" role="search" onPointerDown={(event) => event.stopPropagation()}>
@@ -162,10 +181,12 @@ export function TerminalViewport({
           </button>
         </div>
       ) : null}
-      {dormant ? (
+      {dormant || session.error ? (
         <div className="terminal-alert" role="status">
           <span>{session.error ?? "进程已退出"}</span>
-          <button onClick={session.restart} type="button">重启</button>
+          {session.canReconnect ? <button onClick={session.reconnect} type="button">重新连接</button> : null}
+          {dormant ? <button onClick={session.restart} type="button">重启</button>
+            : <button onClick={session.dismissError} type="button">关闭提示</button>}
         </div>
       ) : null}
     </section>

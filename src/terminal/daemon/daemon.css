@@ -1,0 +1,21 @@
+.modal-scrim.terminal-exit-backdrop { position: fixed; z-index: 500; }
+.modal.terminal-exit { width: min(410px, calc(100vw - 32px)); padding: 28px; display: block; }
+.terminal-exit header { display: flex; justify-content: space-between; align-items: center; color: var(--text-muted); }
+.terminal-exit h2 { margin: 20px 0 10px; font-size: 21px; font-weight: 600; letter-spacing: -.025em; }
+.terminal-exit p { color: var(--text-muted); line-height: 1.65; margin: 0 0 22px; }
+.terminal-exit__choices { display: grid; gap: 9px; }
+.terminal-exit__choices button { min-height: 40px; justify-content: center; }
+.daemon-button { display: inline-flex; align-items: center; gap: 8px; padding: 8px 13px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); font: inherit; font-size: var(--fs-sm); color: var(--text); background: var(--surface); cursor: pointer; }
+.daemon-button:not(:disabled):hover { background: var(--surface-hover); }
+.daemon-button--primary { color: var(--surface); background: var(--text); border-color: transparent; }
+.daemon-button--primary:not(:disabled):hover { background: var(--text-muted); }
+.daemon-button:disabled { opacity: .5; cursor: default; }
+.daemon-button:focus-visible, .terminal-exit__cancel:focus-visible, .background-sessions__toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.terminal-exit p.terminal-exit__error { color: var(--danger); overflow-wrap: anywhere; margin-top: 16px; }
+.terminal-exit__cancel { border: 0; background: transparent; color: var(--text-muted); display: block; padding: 12px 16px 0; margin: 6px auto 0; cursor: pointer; }
+.background-sessions { border-top: 1px solid var(--border); margin-top: 28px; padding-top: 20px; }
+.background-sessions__toggle { display: flex; align-items: center; gap: 8px; color: var(--text); background: none; border: 0; padding: 6px 0; cursor: pointer; font-weight: 500; }
+.background-sessions__list { list-style: none; padding: 0; margin: 12px 0; }
+.background-sessions__list li { display: flex; align-items: center; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.background-sessions__list li > div { flex: 1; min-width: 0; }
+.background-sessions__list small { display: block; color: var(--text-muted); overflow-wrap: anywhere; margin-top: 5px; }

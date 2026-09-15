@@ -1,0 +1,43 @@
+@import "./fields.css";
+@import "./popup.css";
+@import "./choices.css";
+@import "./calendar.css";
+
+.ui-control {
+  --ui-fill: color-mix(in srgb, var(--surface-hover) 48%, var(--surface));
+  min-width: 0;
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  color: var(--text);
+}
+.ui-control [hidden], .ui-disclosure > [hidden] { display: none !important; }
+.ui-control button { font: inherit; }
+.ui-control :disabled, .ui-control [aria-disabled="true"] { opacity: .45; cursor: default; }
+.ui-control :focus-visible, .ui-popover :focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.ui-control__error { margin: 6px 0 0; color: var(--danger); font-size: var(--fs-xs); line-height: 1.5; }
+
+.ui-disclosure { min-width: 0; }
+.ui-disclosure > .ui-disclosure__trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ui-disclosure__trigger:hover { color: var(--text); }
+.ui-disclosure__chevron { flex: none; transition: transform var(--duration) var(--ease); }
+.ui-disclosure[data-open="true"] > .ui-disclosure__trigger > .ui-disclosure__chevron { transform: rotate(90deg); }
+.ui-disclosure__label { flex: 1; display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+.ui-disclosure__content { min-width: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .ui-control *, .ui-popover *, .ui-disclosure__chevron { transition: none !important; animation: none !important; }
+}

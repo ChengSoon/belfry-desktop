@@ -3,6 +3,9 @@ import type { PiSetting } from "./runtimeContracts";
 import { pluginHost } from "./useDirectoryRegistry";
 import { pluginError } from "./hostClient";
 import { parseSettingDraft, settingDraft } from "./settingDraft";
+import { Checkbox } from "../components/controls/Checkbox";
+import { Select } from "../components/controls/Select";
+import { NumericField } from "../components/controls/NumericField";
 
 export function PluginSettings({ pluginId, settings }: { pluginId: string; settings: PiSetting[] }) {
   const [values, setValues] = useState<Record<string, unknown> | null>(null);
@@ -31,8 +34,11 @@ export function PluginSettings({ pluginId, settings }: { pluginId: string; setti
   </form>;
 }
 function SettingInput({ setting, value, disabled, onChange }: { setting: PiSetting; value: string; disabled: boolean; onChange: (value: string) => void }) {
-  if (setting.type === "boolean") return <input type="checkbox" checked={value === "true"} disabled={disabled} onChange={(event) => onChange(String(event.target.checked))} />;
-  if (setting.type === "select") return <select value={value} disabled={disabled} onChange={(event) => onChange(event.target.value)}><option value="-1" disabled>请选择</option>{setting.enum?.map((option, index) => <option key={index} value={String(index)}>{option.label}</option>)}</select>;
+  const ariaLabel = setting.title ?? setting.key;
+  if (setting.type === "boolean") return <Checkbox ariaLabel={ariaLabel} checked={value === "true"} disabled={disabled} onChange={(checked) => onChange(String(checked))} />;
+  if (setting.type === "select") return <Select ariaLabel={ariaLabel} value={value} disabled={disabled} onChange={onChange}
+    options={setting.enum?.map((option, index) => ({ value: String(index), label: option.label })) ?? []} />;
+  if (setting.type === "number") return <NumericField ariaLabel={ariaLabel} value={value} disabled={disabled} onChange={onChange} />;
   if (setting.type === "json") return <textarea value={value} disabled={disabled} rows={4} onChange={(event) => onChange(event.target.value)} spellCheck={false} />;
-  return <input type={setting.type === "number" ? "number" : "text"} step={setting.type === "number" ? "any" : undefined} value={value} disabled={disabled} onChange={(event) => onChange(event.target.value)} />;
+  return <input type="text" value={value} disabled={disabled} onChange={(event) => onChange(event.target.value)} />;
 }

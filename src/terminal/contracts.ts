@@ -1,11 +1,13 @@
 export type Platform = "macos" | "windows";
+import type { HookSnapshot } from "../agent/hooks/contracts";
+import type { ProjectLaunch } from "../workspace/projects/contracts";
+
 export type TerminalPhase = "idle" | "creating" | "running" | "exited" | "error";
 /**
  * 会话在干什么，和 TerminalPhase（进程生命周期）正交：phase 一直是 running 的会话，
  * activity 会在生成 / 等按键 / 闲着之间来回翻。
  *
- * 刻意不叫 AgentState，也不用 awaiting_input——roadmap 的 AgentLifecycleEvent 占了那套词，
- * 那是 hooks 通道就绪后的精确事件源。这里是屏幕文本猜出来的近似值，两者不能混。
+ * 由 Hook 状态映射；Hook 未连接时由屏幕推断。来源和原生会话身份保存在独立快照中。
  */
 export type SessionActivity = "idle" | "talking" | "awaiting-choice";
 export type ShellProfileId =
@@ -61,6 +63,8 @@ export interface SshTarget {
   host: string;
   user: string | null;
   port: number | null;
+  /** 仅用于远端 SSH 启动，绝不作为本地项目路径。 */
+  remotePath?: string | null;
 }
 
 /** 一次 SSH 启动的完整参数：目标 + 本次密码与「记住密码」开关。 */
@@ -77,6 +81,8 @@ export function sshDisplayName(target: SshTarget): string {
 }
 
 export interface TerminalLaunch {
+  /** 已保存的后台 PTY 身份；恢复只连接这个进程。 */
+  attachmentId?: string | null;
   profileId: LaunchProfileId;
   cwd: string | null;
   /**
@@ -92,6 +98,7 @@ export interface TerminalLaunch {
   resumeSessionId: string | null;
   /** SSH 会话的连接目标；其他会话为 null。 */
   ssh: SshLaunch | null;
+  projectLaunch?: ProjectLaunch;
 }
 
 /**
@@ -131,6 +138,8 @@ export interface TerminalSession {
   rows: number;
   status: "starting" | "running" | "exited" | "failed";
   exitCode: number | null;
+  reconnected?: boolean;
+  connectionId?: string | null;
 }
 
 /** 可由 Composer 等宿主 UI 驱动的最小终端输入面。 */
@@ -140,7 +149,10 @@ export interface TerminalCommandTarget {
   sendText: (text: string) => boolean;
 }
 
-export type TerminalEvent =
+export type TerminalStreamEvent =
+  | { kind: "disconnected"; sessionId: string; message: string }
+  | { kind: "replay_gap"; sessionId: string; nextSequence: number; droppedEvents: number }
+  | { kind: "agent_state"; sessionId: string; snapshot: HookSnapshot }
   | {
       kind: "output";
       sessionId: string;
@@ -155,6 +167,20 @@ export type TerminalEvent =
       reason: "normal" | "terminated" | "spawn_failed" | "io_failed";
     };
 
+/** 消费确认属于一次 UI 连接，不能拿上一连接的回执恢复本连接额度。 */
+export interface OutputReceipt {
+  sessionId: string;
+  connectionId: string;
+  deliveryId: number;
+}
+
+export interface TerminalOutputBatch extends OutputReceipt {
+  kind: "output_batch";
+  events: TerminalStreamEvent[];
+}
+
+export type TerminalEvent = TerminalStreamEvent | TerminalOutputBatch;
+
 export function createTerminalRequest(
   cols: number,
   rows: number,
@@ -168,7 +194,7 @@ export function createTerminalRequest(
     tabId: launch.tabId,
     cwd: launch.cwd,
     command: null,
-    env: {},
+    env: { ...launch.projectLaunch?.env },
     collaborationMode: launch.collaborationMode,
     resume: launch.resumeSessionId,
     ssh: launch.ssh,

@@ -1,3 +1,9 @@
+import { effectiveBindings } from "./custom/bindings";
+import { SHORTCUT_ACTIONS, shortcutForAction } from "./custom/actions";
+import { bindingChord, composingInput, codeForLabel, hasHostModifiers } from "./custom/chord";
+import { loadShortcutSettings } from "./custom/storage";
+import type { KeyInput, ShortcutOverrides } from "./custom/contracts";
+
 export type ShortcutPlatform = "macos" | "control";
 
 export type AppShortcut =
@@ -10,36 +16,23 @@ export type AppShortcut =
   | { kind: "new-shell" }
   | { kind: "activate-session"; index: number };
 
-type ShortcutEvent = Pick<
-  KeyboardEvent,
-  "altKey" | "code" | "ctrlKey" | "isComposing" | "metaKey" | "repeat" | "shiftKey"
->;
+type ShortcutEvent = KeyInput;
 
 /** Belfry 在 Windows/Linux 统一加 Shift，避免抢走 Agent TUI 的 Ctrl 组合键。 */
 export function resolveAppShortcut(
   event: ShortcutEvent,
   platform: ShortcutPlatform,
+  overrides?: ShortcutOverrides,
 ): AppShortcut | null {
-  if (event.isComposing || event.repeat || event.altKey) return null;
-  if (!hasAppModifiers(event, platform)) return null;
-
-  const code = event.code;
-  if (platform === "macos" && event.shiftKey && code !== "KeyH" && code !== "Slash") return null;
-  if (platform === "macos" && !event.shiftKey && code === "KeyH") return null;
-  if (code === "KeyB") return { kind: "toggle-sidebar" };
-  if (code === "KeyU") return { kind: "toggle-usage" };
-  if (code === "KeyH") return { kind: "toggle-history" };
-  if (code === "Slash") return { kind: "toggle-shortcuts" };
-  if (code === "KeyK") return { kind: "toggle-quick-open" };
-  if (code === "Comma") return { kind: "open-settings" };
-  if (code === "KeyT") return { kind: "new-shell" };
-  if (/^Digit[1-9]$/.test(code)) return { kind: "activate-session", index: Number(code.at(-1)) - 1 };
-  return null;
+  if (composingInput(event) || event.repeat || !hasHostModifiers(event, platform)) return null;
+  const bindings = effectiveBindings(platform, overrides ?? loadShortcutSettings().settings[platform]);
+  const matches = bindings.filter((item) => item.bindings.some((binding) => binding.code === event.code && binding.shift === event.shiftKey));
+  return matches.length === 1 ? shortcutForAction(matches[0].action.id) : null;
 }
 
 // 原面板使用的刷新组合键仍需拦截，避免 WebView 重载导致终端会话丢失。
 export function shouldPreventWebviewReload(event: ShortcutEvent, platform: ShortcutPlatform) {
-  return event.code === "KeyR" && !event.altKey && !event.isComposing
+  return event.code === "KeyR" && !event.altKey && !composingInput(event)
     && hasAppModifiers(event, platform);
 }
 
@@ -52,6 +45,11 @@ export function appShortcutChord(
   key: string,
   shiftOnMac = false,
 ) {
+  const action = SHORTCUT_ACTIONS.find((action) => action.code === codeForLabel(key));
+  if (action) {
+    const configured = effectiveBindings(platform, loadShortcutSettings().settings[platform]).find((item) => item.action.id === action.id);
+    return bindingChord(configured?.bindings[0], platform);
+  }
   const modifiers = platform === "macos" ? ["⌘"] : ["Ctrl", "Shift"];
   if (platform === "macos" && shiftOnMac) modifiers.push("Shift");
   return [...modifiers, key];

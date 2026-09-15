@@ -1,7 +1,6 @@
-/* 控制区保持适合扫读的行长；宽屏不再把预览拉成横跨整页的巨幅色块。 */
+/* 跟随设置内容区铺满宽度，内部控件按可用空间排布。 */
 .appearance {
   display: grid;
-  width: min(640px, 100%);
   gap: 14px;
 }
 
@@ -17,10 +16,12 @@
   justify-content: space-between;
 }
 
-.appearance__heading h2 {
+.appearance__heading h3 {
   margin: 0;
   color: var(--text);
-  font-size: var(--fs-md);
+  /* 分区标题档，与同页「主题」那条（.plugin-theme-row h3）对齐——
+     两者是同一层级的分区名，此前一个 15px 一个 14px。 */
+  font-size: var(--fs-lg);
   font-weight: 500;
   letter-spacing: 0;
 }
@@ -236,8 +237,4 @@
   background: var(--accent);
 }
 
-.appearance__row input[type="range"] {
-  width: 100%;
-  accent-color: var(--accent);
-  cursor: pointer;
-}
+.appearance__row .ui-slider { width: 100%; }

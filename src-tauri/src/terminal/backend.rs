@@ -12,6 +12,10 @@ use super::contracts::TerminalStatus;
 
 pub trait TerminalEventSink: Send + Sync {
     fn send(&self, event: TerminalEvent) -> Result<(), AppError>;
+
+    fn uses_output_acknowledgements(&self) -> bool {
+        false
+    }
 }
 
 pub trait PtyBackend: Send + Sync {
@@ -58,6 +62,8 @@ impl PtyBackend for StubBackend {
             rows: request.rows,
             status: TerminalStatus::Running,
             exit_code: None,
+            reconnected: false,
+            connection_id: None,
         })
     }
 
@@ -122,6 +128,7 @@ mod tests {
             cwd: Some("file:///tmp".to_string()),
             command: None,
             env: HashMap::new(),
+            launch_overlay: Default::default(),
             collaboration_mode: false,
             resume: None,
             ssh: None,

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppBackground } from "./background/AppBackground";
 import { AppOverlays } from "./components/AppOverlays";
 import { Workbench } from "./components/Workbench";
-import { FilePreviewPane } from "./filepreview/FilePreviewPane";
+import { ProjectInspector } from "./git/ProjectInspector";
 import { projectRelativePath } from "./filepreview/path";
 import { WindowTitlebar } from "./components/WindowTitlebar";
 import "./workspace/workspace.css";
@@ -25,6 +25,7 @@ import { pathKey } from "./workspace/path";
 import { groupTabsByProject } from "./workspace/tabs";
 import { useFoldedProjects } from "./workspace/useFoldedProjects";
 import { useProjectWorkspace } from "./workspace/useProjectWorkspace";
+import { NamedWorkspaceControls } from "./workspace/named/NamedWorkspaceControls";
 import { useSessionRoster } from "./collab/useSessionRoster";
 import { useTaskDelivery } from "./collab/useTaskDelivery";
 import { resolveAgentRename } from "./collab/naming";
@@ -56,7 +57,8 @@ export default function App() {
   const updater = useAppUpdater();
   const stageRef = useRef<HTMLDivElement>(null);
   const sidebarRef = useRef<HTMLElement>(null);
-  const layout = useSplitLayout(workspace.tabs, workspace.activeTabId, workspace.setActiveTabId);
+  const layout = useSplitLayout({ tabs: workspace.visibleTabs, activeTabId: workspace.activeTabId,
+    setActiveTabId: workspace.setActiveTabId, root: workspace.named.current.layout, onChange: workspace.named.setLayout });
   const { drag, startDrag, consumedClick } = useSessionDrag(stageRef, sidebarRef, layout.panes, {
     onDrop: layout.dropTab,
     onEject: layout.closePane,
@@ -216,7 +218,7 @@ export default function App() {
     blocked: Boolean(pendingClose || pendingRemove || updater.open),
     quickOpenOpen: quickOpen.open,
     onActivateSession: (index) => {
-      const tab = groupTabsByProject(workspace.tabs).flatMap((group) => group.tabs)[index];
+      const tab = groupTabsByProject(workspace.visibleTabs).flatMap((group) => group.tabs)[index];
       if (tab) layout.activateTab(tab.id);
     },
     onNewShell: () => launch("shell"),
@@ -253,6 +255,10 @@ export default function App() {
 
       {collapsed ? null : (
         <Sidebar
+          workspaceControls={<NamedWorkspaceControls model={workspace.named}
+            activeTab={workspace.tabs.find((tab) => tab.id === workspace.activeTabId) ?? null}
+            onRepair={workspace.repairProject} persistenceError={workspace.persistenceError}
+            onRetryPersistence={workspace.retryPersistence} />}
           activeId={workspace.activeTabId}
           agents={workspace.agents}
           shellProfiles={workspace.shellProfiles}
@@ -278,7 +284,7 @@ export default function App() {
           onOpenSettings={() => setSettingsOpen(true)}
           settingsOpen={settingsOpen}
           ref={sidebarRef}
-          tabs={workspace.tabs}
+          tabs={workspace.visibleTabs}
           updaterOpen={updater.open}
           updaterState={updater.state}
           usageOpen={usageOpen}
@@ -325,7 +331,8 @@ export default function App() {
       <PluginDock visible={pluginDockOpen && !settingsOpen} onClose={() => setPluginDockOpen(false)} />
 
       {previewOpen ? (
-        <FilePreviewPane
+        <ProjectInspector
+          onOpenProject={workspace.selectProject}
           onClose={() => {
             setPreviewOpen(false);
             setPreviewRequest(null);

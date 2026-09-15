@@ -276,3 +276,20 @@ Rust 格式与差异检查通过；顺手按格式工具调整了 `provider/mod.
 签名，未做 Apple 公证；未发布远程版本。截图及参考包记录在 `/tmp/belfry-todo-sync-qa/`。
 当前运行的应用和会话仍使用旧运行时，安装新构建并重新打开会话一次后载入新增入口；
 此后安装或启用插件无需再为工具发现重建会话。未宣称完成新包的原生窗口或 Windows 验收。
+
+## 2026-09-14 插件窗口按钮与拖拽冲突
+
+针对 Windows 插件窗口无法关闭的反馈，真实 Chromium 复现三个标题栏模式点击关闭时均先发出
+`drag` 再发出 `close`。外层 document 捕获监听看不到封闭 Shadow DOM 内的按钮，将点击误判为拖拽；
+主窗口退出拦截仅针对 `main`，不影响插件窗口。
+
+在 Shadow DOM 内判断窗控是否可拖拽，document 监听跳过该宿主来源事件，继续处理插件页面的
+空白标题栏。保留封闭 Shadow DOM、空白区拖拽、双击最大化、页面交互控件及嵌入视图的行为。
+
+- 新增 6 项真实鼠标回归，先复现失败再通过；覆盖关闭、最小化、最大化及拖拽边界。
+- `BELFRY_REQUIRE_BROWSER_TESTS=1 node --test --test-concurrency=2 scripts/plugin-tests/panel*.case.mjs scripts/plugin-tests/surfaces.case.mjs`：15 项通过、0 跳过。
+- `cargo test --locked --manifest-path src-tauri/Cargo.toml plugins::engine::tests:: -- --test-threads=2`：3 项通过。
+- 两个相关 JS 文件的语法、AST 结构和差异检查通过；改动未涉及根配置、依赖或公共契约。
+
+本机为 macOS，证据覆盖 Chromium 点击到宿主回调及 Rust 嵌入运行时；Windows 原生窗口尚待实机
+复验。修复需重新构建 Windows 应用后生效，本轮未生成或发布 Windows 安装包。

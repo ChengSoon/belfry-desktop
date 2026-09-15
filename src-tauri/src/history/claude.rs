@@ -11,9 +11,7 @@ use crate::agent::{AgentKind, AgentSessionRef};
 use crate::usage::timestamp::parse_rfc3339;
 
 use super::contracts::HistorySession;
-use super::scan::{
-    claude_sessions_root, collect_jsonl_files, modified_epoch, normalize_title, read_lines_until,
-};
+use super::scan::{claude_sessions_root, collect_jsonl_files, modified_epoch, normalize_title};
 
 const MAX_SCAN_LINES: usize = 4_000;
 
@@ -36,11 +34,22 @@ pub fn find_files(root: &Path, session_id: &str) -> Vec<PathBuf> {
         .collect()
 }
 
-fn scan_file(path: &Path) -> Option<HistorySession> {
+pub(super) fn scan_file(path: &Path) -> Option<HistorySession> {
+    scan_file_checked(path, &|| Ok(())).ok().flatten()
+}
+
+pub(super) fn scan_file_checked(
+    path: &Path,
+    check: super::line_reader::Check<'_>,
+) -> Result<Option<HistorySession>, crate::terminal::AppError> {
     let last_active_at = modified_epoch(path);
-    let id = path.file_stem()?.to_str()?.to_string();
     let mut meta = Meta::default();
-    read_lines_until(path, MAX_SCAN_LINES, |line| {
+    let request = super::scan::LineScan {
+        path,
+        max_lines: MAX_SCAN_LINES,
+        check,
+    };
+    super::scan::read_lines_checked(request, |line| {
         let Ok(record) = serde_json::from_str::<Value>(line) else {
             return meta.done();
         };
@@ -48,8 +57,12 @@ fn scan_file(path: &Path) -> Option<HistorySession> {
             take_user(&record, &mut meta);
         }
         meta.done()
-    });
+    })?;
+    Ok(session_from_meta(path, meta, last_active_at))
+}
 
+fn session_from_meta(path: &Path, meta: Meta, last_active_at: i64) -> Option<HistorySession> {
+    let id = path.file_stem()?.to_str()?.to_string();
     let session_ref = AgentSessionRef {
         agent: AgentKind::Claude,
         id,
@@ -78,7 +91,14 @@ fn take_user(record: &Value, meta: &mut Meta) {
     if meta.title.is_some() {
         return;
     }
-    let Some(parts) = record["message"]["content"].as_array() else {
+    let content = &record["message"]["content"];
+    if let Some(text) = content.as_str() {
+        if !text.trim().is_empty() {
+            meta.title = Some(normalize_title(text));
+        }
+        return;
+    }
+    let Some(parts) = content.as_array() else {
         return;
     };
     let text = parts

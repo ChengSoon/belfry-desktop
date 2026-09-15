@@ -1,77 +1,127 @@
 name: release
 
-# 推 v* tag 触发。workflow_dispatch 留着手动重跑用：
-# 某个平台单独挂掉时不必删 tag 重推。
 on:
   push:
-    tags:
-      - "v*"
+    tags: ["v*"]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
+  checks:
+    uses: ./.github/workflows/checks.yml
+
+  prepare:
+    needs: checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      release-id: ${{ steps.draft.outputs.release-id }}
+      tag: ${{ steps.draft.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Prepare an unpublished release for this tag
+        id: draft
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const fs = require('node:fs');
+            const version = JSON.parse(fs.readFileSync('package.json', 'utf8')).version;
+            const tauriVersion = JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json', 'utf8')).version;
+            const tag = `v${version}`;
+            if (tauriVersion !== version || context.ref !== `refs/tags/${tag}`) {
+              throw new Error('发布必须选择与 package.json / Tauri 版本一致的已有 v* tag');
+            }
+            const repo = context.repo;
+            const releases = await github.paginate(github.rest.repos.listReleases, { ...repo, per_page: 100 });
+            let release = releases.find(item => item.tag_name === tag);
+            if (release && !release.draft) throw new Error('这个版本已经公开，不能向公开版本追加不完整产物');
+            if (!release) {
+              release = (await github.rest.repos.createRelease({ ...repo, tag_name: tag,
+                target_commitish: context.sha, name: `Belfry ${tag}`, draft: true, prerelease: false,
+                body: '提供 macOS Apple Silicon / Intel 与 Windows 安装包。macOS 使用 ad-hoc 签名但未经 Apple 公证；Windows 未签名。'
+              })).data;
+            }
+            core.setOutput('release-id', String(release.id));
+            core.setOutput('tag', tag);
+
   build:
+    needs: prepare
     permissions:
       contents: write
     strategy:
-      # 一个平台挂掉不该带走其余两个的产物。
       fail-fast: false
-      # 三个平台共用同一个 Release；串行可避免并行创建出多个草案。
+      # tauri-action 会合并同一个 latest.json，串行上传避免平台条目互相覆盖。
       max-parallel: 1
       matrix:
         include:
-          # Linux 暂不出包：agent/detection.rs 与 terminal/launch.rs 里
-          # resolve_default_shell、agent_command 等函数只有 macos / windows
-          # 两份 cfg 实现，Linux 下无定义，编译不过。补齐后再加回矩阵。
           - platform: macos-latest
             target: aarch64-apple-darwin
           - platform: macos-latest
             target: x86_64-apple-darwin
           - platform: windows-latest
-            target: ""
-
+            target: x86_64-pc-windows-msvc
     runs-on: ${{ matrix.platform }}
-
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
-
       - uses: pnpm/action-setup@v6
-
       - uses: actions/setup-node@v7
         with:
           node-version: lts/*
           cache: pnpm
-
-      # Darwin 双架构只在 macOS runner 上装，省掉另两个平台的无用下载。
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
-
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-          # 同一 runner 上两个 Darwin 架构的产物不能共用一份缓存。
-          key: ${{ matrix.target }}
-
+          key: release-${{ matrix.target }}
       - run: pnpm install --frozen-lockfile
-
-      - run: pnpm test
-
+      # beforeBuildCommand 先构建前端，再按 TAURI_ENV_TARGET_TRIPLE 构建真实 CLI sidecar。
       - uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: v__VERSION__
-          releaseName: Belfry v__VERSION__
-          releaseBody: |
-            各平台安装包见下方 Assets。本版提供 macOS 与 Windows，暂无 Linux 版。
-
-            macOS 选 `aarch64`（Apple Silicon）或 `x64`（Intel）。
-            二进制未做代码签名，首次打开需在「系统设置 → 隐私与安全性」里放行；
-            Windows 上 SmartScreen 会提示"未知发布者"，选「更多信息 → 仍要运行」。
-          # 三个平台串行上传，全部完成后直接发布正式版本。
-          releaseDraft: false
+          releaseId: ${{ needs.prepare.outputs.release-id }}
+          tagName: ${{ needs.prepare.outputs.tag }}
+          releaseDraft: true
           prerelease: false
           updaterJsonPreferNsis: true
-          args: ${{ matrix.target && format('--target {0}', matrix.target) || '' }}
+          args: --target ${{ matrix.target }}
+
+  publish:
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - name: Publish only after every platform and updater asset is ready
+        uses: actions/github-script@v8
+        env:
+          RELEASE_ID: ${{ needs.prepare.outputs.release-id }}
+        with:
+          script: |
+            const { pathToFileURL } = require('node:url');
+            const { resolve } = require('node:path');
+            const { parseUpdaterManifest, validateReleaseAssets } = await import(pathToFileURL(resolve('.github/workflows/release-assets.mjs')).href);
+            const repo = context.repo;
+            const release_id = Number(process.env.RELEASE_ID);
+            const release = (await github.rest.repos.getRelease({ ...repo, release_id })).data;
+            const assets = await github.paginate(github.rest.repos.listReleaseAssets, { ...repo, release_id, per_page: 100 });
+            const latest = assets.find(asset => asset.name === 'latest.json' && asset.size > 0);
+            if (!latest) throw new Error('缺少 latest.json，保留草稿');
+            const response = await github.rest.repos.getReleaseAsset({ ...repo, asset_id: latest.id,
+              headers: { accept: 'application/octet-stream' } });
+            const manifest = parseUpdaterManifest(response.data);
+            validateReleaseAssets({ release, assets, manifest });
+            await github.rest.repos.updateRelease({ ...repo, release_id, draft: false, make_latest: 'true' });

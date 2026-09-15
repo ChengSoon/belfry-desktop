@@ -12,6 +12,7 @@ import {
   type SshTarget,
 } from "../terminal/contracts";
 import { pathKey } from "./path";
+import { cleanTarget } from "./ssh/model";
 
 export const RECENT_PROJECTS_KEY = "belfry.recent-projects.v1";
 export const RECENT_PROJECTS_LIMIT = 6;
@@ -38,8 +39,8 @@ export function saveRecentProjects(
 }
 
 /**
- * 会话进程不能跨应用重启存活，这里只恢复足以重新拉起它的稳定信息。
- * phase/activity/error 一律回到初始态，随后由新 PTY 的快照接管。
+ * 优先恢复保存的后台 PTY 身份。phase/activity/error 回到初始态，
+ * 随后由原进程回放接管；旧存档没有后台身份时保留原来的启动方式。
  */
 export function loadWorkspaceState(
   storage: Pick<Storage, "getItem"> = localStorage,
@@ -58,8 +59,10 @@ export function saveWorkspaceState(
 ) {
   try {
     storage.setItem(WORKSPACE_STATE_KEY, serializeWorkspaceState(tabs, activeTabId));
-  } catch {
-    // localStorage 被禁用时退化为本次运行内有效，不影响终端本身。
+    return null;
+  } catch (error) {
+    // 当前终端继续运行，界面明确提示重启恢复尚未保存。
+    return error instanceof Error ? error.message : String(error);
   }
 }
 
@@ -78,6 +81,7 @@ export function serializeWorkspaceState(tabs: WorkspaceTab[], activeTabId: strin
       resumeSessionId,
       agentSessionRef,
       sshTarget,
+      daemonSessionId,
     }) => ({
       id,
       project,
@@ -88,10 +92,11 @@ export function serializeWorkspaceState(tabs: WorkspaceTab[], activeTabId: strin
       agentName,
       profileId,
       collaborationMode,
-      resumeSessionId,
+      resumeSessionId: agentSessionRef?.id ?? resumeSessionId,
       agentSessionRef,
+      daemonSessionId: validDaemonId(daemonSessionId),
       // 密码只进系统钥匙串：工作区存档只保留连接目标本身。
-      sshTarget: sshTarget ? { host: sshTarget.host, user: sshTarget.user, port: sshTarget.port } : null,
+      sshTarget: sshTarget ? cleanTarget(sshTarget) : null,
     })),
     activeTabId: tabs.some((tab) => tab.id === activeTabId) ? activeTabId : tabs[0]?.id ?? null,
   });
@@ -109,6 +114,8 @@ export function parseWorkspaceState(value: string | null): PersistedWorkspaceSta
     const sessionRef = sessionRefForPersistedTab(value);
     return [{
       id: value.id,
+      daemonSessionId: validDaemonId(value.daemonSessionId),
+      restoreSessionId: validDaemonId(value.daemonSessionId),
       project: value.project,
       kind: value.kind,
       title: value.title,
@@ -120,7 +127,7 @@ export function parseWorkspaceState(value: string | null): PersistedWorkspaceSta
       profileId: profileIdForKind(value.kind, value.profileId),
       collaborationMode: value.collaborationMode ?? false,
       sshTarget: value.kind === "ssh" && value.sshTarget
-        ? { ...value.sshTarget, password: null, rememberPassword: false }
+        ? { ...cleanTarget(value.sshTarget), password: null, rememberPassword: false }
         : null,
       phase: "idle",
       activity: "idle",
@@ -179,6 +186,7 @@ function isRecentProject(value: unknown): value is RecentProject {
 
 interface PersistedTab {
   id: string;
+  daemonSessionId?: unknown;
   project: ProjectWorkspace;
   kind: WorkspaceTabKind;
   title: string;
@@ -254,11 +262,7 @@ function isAgentSessionIdForKind(kind: WorkspaceTabKind, value: string) {
 }
 
 function isSshTarget(value: unknown): value is SshTarget {
-  if (!isRecord(value)) return false;
-  return typeof value.host === "string"
-    && value.host.length > 0
-    && (value.user === undefined || value.user === null || typeof value.user === "string")
-    && (value.port === undefined || value.port === null || typeof value.port === "number");
+  try { cleanTarget(value); return true; } catch { return false; }
 }
 
 function isProjectWorkspace(value: unknown): value is ProjectWorkspace {
@@ -273,4 +277,8 @@ function isWorkspaceTabKind(value: unknown): value is WorkspaceTabKind {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function validDaemonId(value: unknown): string | null {
+  return typeof value === "string" && /^[0-9a-hjkmnp-tv-z]{26}$/i.test(value) ? value : null;
 }

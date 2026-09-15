@@ -136,9 +136,9 @@ describe("typography config persistence", () => {
   });
 
   it("scales every UI text token from the selected size", () => {
-    expect(typographySizeTokens(15)).toEqual({ xs: 12, sm: 13, md: 14, display: 20 });
-    expect(typographySizeTokens(20)).toEqual({ xs: 17, sm: 18, md: 19, display: 25 });
-    expect(typographySizeTokens(10)).toEqual({ xs: 10, sm: 10, md: 10, display: 15 });
+    expect(typographySizeTokens(15)).toEqual({ xs: 12, sm: 13, md: 14, lg: 15, display: 20 });
+    expect(typographySizeTokens(20)).toEqual({ xs: 17, sm: 18, md: 19, lg: 20, display: 25 });
+    expect(typographySizeTokens(10)).toEqual({ xs: 10, sm: 10, md: 10, lg: 10, display: 15 });
   });
 
   it("falls back to defaults when storage throws", () => {

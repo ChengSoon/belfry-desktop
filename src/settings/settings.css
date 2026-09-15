@@ -84,9 +84,9 @@
 .settings-nav > button:disabled { opacity: 0.4; cursor: default; }
 .settings-nav > button > svg { flex: none; }
 
-/* 内容区。宽度随窗口自适应：窄窗口单列，宽窗口由各分区内部的
-   响应式规则（表单两列、预览加高等）把空间用起来，不再锁死一个固定宽度。 */
+/* 各分区填满右侧可用空间；容器查询让内部控件按正文宽度适配。 */
 .settings-content {
+  container: settings / inline-size;
   display: grid;
   align-content: start;
   min-width: 0;
@@ -95,6 +95,12 @@
   grid-auto-rows: max-content;
   gap: 8px;
   overflow-y: auto;
+  scrollbar-gutter: stable;
   padding: 18px 24px;
   scrollbar-color: var(--scrollbar) transparent;
+}
+
+@media (max-width: 800px) {
+  .settings-view { grid-template-columns: 176px minmax(0, 1fr); }
+  .settings-content { padding-inline: 16px; }
 }
