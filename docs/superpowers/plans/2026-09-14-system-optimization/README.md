@@ -181,3 +181,9 @@ Windows 插件回归持续超过 20 分钟未结束；原运行器缓冲全部�
 2026-09-15 继续发布：现有诊断改动本机复验 171/171 插件回归通过、0 跳过（`/tmp/otty-ci-verify.log`），
 发布资产与 sidecar 11/11 通过（`/tmp/otty-release-tests.log`）；独立审查未发现阻止诊断提交的回归。
 这些改动仅补实时日志与超时现场，尚不代表远程失败根因已修复；下一步推送诊断并根据 Windows 日志处理。
+
+诊断提交 `e41dbb5` 的 CI `34936035962`：macOS 全部通过；Windows 在插件步骤之前，
+`native_backend_emits_output_before_a_single_exit` 等待 PowerShell 提示符超时。检查发现测试只等 DSR
+就合并回复 CPR 与 DA，未等待 DA 查询，存在提前回复被消费的时序缺口。改为逐项查询后回复；
+独立审查确认修改范围仅为测试辅助函数。本机原生终端定向回归通过（`/tmp/otty-native-tests.log`），
+Windows 分支无法在 macOS 执行，需推送 CI 验证，尚不宣称此问题已解决。
