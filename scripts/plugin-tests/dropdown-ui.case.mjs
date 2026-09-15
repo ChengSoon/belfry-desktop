@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { browserAvailable } from "./panel-support.mjs";
-import { marketUiFixture, click, clickOption, press, waitFor, screenshot } from "./market-ui-support.mjs";
+import { marketUiFixture, click, clickOption, fill, press, waitFor, screenshot } from "./market-ui-support.mjs";
 
 const MODE = 'button[aria-label="设置类型"]';
 const MENU = '[role=listbox]';
+const SURFACE = '.ui-popover';
 const values = async (view) => JSON.parse(await view.cdp.evaluate("document.querySelector('#settings-values').textContent"));
 
 async function fixture(t) {
@@ -44,14 +45,18 @@ test("plugin dropdown options stay clickable outside a scrolling settings body",
   await screenshot(view, "dropdown-settings");
   await clickOption(view, "关闭");
   assert.equal(false, (await values(view)).mode);
-  await click(view, MODE); await click(view, "#after-settings");
+  // Portal 允许覆盖底栏；点确实位于弹层之外的页头，验证外部点击关闭。
+  await click(view, MODE); await click(view, ".plugins-modal-head");
+  await waitFor(view, `!document.querySelector('${MENU}')`);
   assert.equal(false, await view.cdp.evaluate(`!!document.querySelector('${MENU}')`));
+  assert.equal(true, await view.cdp.evaluate("!!document.querySelector('[role=dialog]')"));
 });
 
 test("dropdown preserves unmatched values and closes when disabled or tabbing away", async (t) => {
   if (!await browserAvailable(t)) return;
   const { view } = await fixture(t);
-  assert.equal("", await view.cdp.evaluate("document.querySelector('button[aria-label=\"未匹配设置\"] .plugins-dropdown-value').textContent"));
+  assert.equal("请选择", await view.cdp.evaluate("document.querySelector('button[aria-label=\"未匹配设置\"] .ui-select__value').textContent"));
+  assert.equal("unknown", (await values(view)).missing, "占位提示不能覆盖未匹配的原始值");
   assert.equal(true, await view.cdp.evaluate("document.querySelector('button[aria-label=\"空选项\"]').disabled"));
   await click(view, MODE); await press(view, "Tab");
   assert.equal(false, await view.cdp.evaluate(`!!document.querySelector('${MENU}')`));
@@ -63,16 +68,20 @@ test("dropdown preserves unmatched values and closes when disabled or tabbing aw
   assert.equal(2, (await values(view)).mode);
 });
 
-test("long dropdowns stay inside narrow viewports and close when the settings body scrolls", async (t) => {
+test("long dropdowns stay inside narrow viewports and close when their anchor scrolls out of view", async (t) => {
   if (!await browserAvailable(t)) return;
   const { view } = await fixture(t);
   await view.bounds({ x: 0, y: 0, width: 390, height: 640 });
   await click(view, 'button[aria-label="较长选项"]');
-  const fits = await view.cdp.evaluate(`(()=>{const r=document.querySelector('${MENU}').getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight;})()`);
+  // 长列表内容可以超出视口；必须检查负责裁剪和滚动的弹层外框。
+  const fits = await view.cdp.evaluate(`(()=>{const r=document.querySelector('${SURFACE}').getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight;})()`);
   assert.equal(true, fits);
+  assert.equal(true, await view.cdp.evaluate(`(()=>{const el=document.querySelector('${SURFACE}');return el.scrollHeight>el.clientHeight;})()`));
   await view.cdp.evaluate("document.querySelector('.plugins-settings-body').dispatchEvent(new Event('scroll'))");
   assert.equal(true, await view.cdp.evaluate(`!!document.querySelector('${MENU}')`), "锚点未移动时忽略晚到的滚动通知");
-  await press(view, "End"); await press(view, "Enter");
+  await fill(view, 'input[aria-label="较长选项：搜索选项"]', "选项 19");
+  await waitFor(view, `document.querySelectorAll('${MENU} [role=option]').length===1`);
+  await press(view, "ArrowDown"); await press(view, "Enter");
   assert.equal(19, (await values(view)).long);
   await click(view, 'button[aria-label="较长选项"]');
   await screenshot(view, "dropdown-narrow");

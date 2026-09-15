@@ -310,7 +310,7 @@ fn wait_for_events(
     false
 }
 
-fn lock_native_test() -> MutexGuard<'static, ()> {
+pub(super) fn lock_native_test() -> MutexGuard<'static, ()> {
     NATIVE_TEST_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner())
@@ -340,7 +340,11 @@ fn output_bytes(events: &[TerminalEvent]) -> Vec<u8> {
         .iter()
         .filter_map(|event| match event {
             TerminalEvent::Output { bytes, .. } => Some(bytes.as_slice()),
-            TerminalEvent::Exit { .. } | TerminalEvent::AgentState { .. } | TerminalEvent::ReplayGap { .. } | TerminalEvent::Disconnected { .. } => None,
+            TerminalEvent::Exit { .. }
+            | TerminalEvent::AgentState { .. }
+            | TerminalEvent::ReplayGap { .. }
+            | TerminalEvent::Disconnected { .. }
+            | TerminalEvent::OutputBatch { .. } => None,
         })
         .flatten()
         .copied()
@@ -352,7 +356,11 @@ fn assert_sequences_are_ordered(events: &[TerminalEvent]) {
         .iter()
         .filter_map(|event| match event {
             TerminalEvent::Output { sequence, .. } => Some(*sequence),
-            TerminalEvent::Exit { .. } | TerminalEvent::AgentState { .. } | TerminalEvent::ReplayGap { .. } | TerminalEvent::Disconnected { .. } => None,
+            TerminalEvent::Exit { .. }
+            | TerminalEvent::AgentState { .. }
+            | TerminalEvent::ReplayGap { .. }
+            | TerminalEvent::Disconnected { .. }
+            | TerminalEvent::OutputBatch { .. } => None,
         })
         .collect();
     assert_eq!(sequences, (0..sequences.len() as u64).collect::<Vec<_>>());
@@ -382,7 +390,11 @@ fn event_contains_exit_marker(event: &TerminalEvent) -> bool {
         TerminalEvent::Output { bytes, .. } => {
             String::from_utf8_lossy(bytes).contains("__BELFRY_EXIT__")
         }
-        TerminalEvent::Exit { .. } | TerminalEvent::AgentState { .. } | TerminalEvent::ReplayGap { .. } | TerminalEvent::Disconnected { .. } => false,
+        TerminalEvent::Exit { .. }
+        | TerminalEvent::AgentState { .. }
+        | TerminalEvent::ReplayGap { .. }
+        | TerminalEvent::Disconnected { .. }
+        | TerminalEvent::OutputBatch { .. } => false,
     }
 }
 
@@ -391,6 +403,10 @@ fn event_contains_marker(event: &TerminalEvent) -> bool {
         TerminalEvent::Output { bytes, .. } => {
             String::from_utf8_lossy(bytes).contains("__BELFRY_OK__")
         }
-        TerminalEvent::Exit { .. } | TerminalEvent::AgentState { .. } | TerminalEvent::ReplayGap { .. } | TerminalEvent::Disconnected { .. } => false,
+        TerminalEvent::Exit { .. }
+        | TerminalEvent::AgentState { .. }
+        | TerminalEvent::ReplayGap { .. }
+        | TerminalEvent::Disconnected { .. }
+        | TerminalEvent::OutputBatch { .. } => false,
     }
 }

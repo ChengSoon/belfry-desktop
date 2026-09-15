@@ -1,0 +1,78 @@
+name: checks
+
+on:
+  pull_request:
+  push:
+    branches: ["**"]
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: verify (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.platform }}
+    timeout-minutes: 45
+    env:
+      BELFRY_REQUIRE_BROWSER_TESTS: "1"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: pnpm install --frozen-lockfile
+      - name: Frontend regression
+        run: pnpm test
+      - name: Type check and production chunks
+        run: pnpm build
+      # cargo test 也执行 tauri-build，必须先准备 externalBin；这里用真实 debug CLI。
+      - name: Prepare host CLI sidecar
+        run: node scripts/bundle-cli.mjs
+        env:
+          TAURI_ENV_DEBUG: "true"
+      - name: Rust workspace regression
+        working-directory: src-tauri
+        run: cargo test --workspace --locked
+      # 生产面板回归直接服务上面构建的 dist；缺少构建或浏览器时失败，不回退到 dev server。
+      - name: Plugin and browser regression, including production recovery (browser required)
+        run: node .github/workflows/verify-plugins.mjs
+        env:
+          BELFRY_PANEL_ARTIFACTS: ${{ runner.temp }}/belfry-panel-qa
+      # 复用上面生成的 dist，在两个平台验证 Node 20 的定向兼容性。
+      - name: Set up Node 20 compatibility runtime
+        uses: actions/setup-node@v7
+        with:
+          node-version: 20.x
+      - name: Node 20 release, sidecar lock and production panel regression
+        run: node --test --test-concurrency=1 .github/workflows/release-assets.case.mjs scripts/bundle-cli.case.mjs src/components/lazy/testing/production-panels.case.mjs
+        env:
+          BELFRY_PANEL_ARTIFACTS: ${{ runner.temp }}/belfry-panel-qa/node20
+      - name: Windows installer script regression
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/test-windows-installer.ps1
+      - name: Upload regression logs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: checks-${{ matrix.platform }}
+          path: |
+            plugin-tests.tap
+            ${{ runner.temp }}/belfry-panel-qa
+          if-no-files-found: ignore

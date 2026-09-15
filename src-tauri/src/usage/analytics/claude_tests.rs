@@ -25,7 +25,15 @@ fn copied_messages_keep_four_categories_and_original_bytes() {
     ));
     let mut seen = HashMap::new();
     for path in [&initial, &copied] {
-        assert!(scan_file(path, &mut acc, None, None, &mut seen));
+        assert!(scan_file(
+            path,
+            &mut acc,
+            FileRequest {
+                cutoff: None,
+                project_root: None,
+                seen: &mut seen
+            }
+        ));
         assert_eq!(message, std::fs::read_to_string(path).unwrap());
     }
     let result = acc.finish_analytics().unwrap();
@@ -56,7 +64,15 @@ fn streamed_usage_updates_count_only_the_increase() {
     let mut acc = UsageAccumulator::with_analytics(AnalyticsAccumulator::new(
         UsagePeriod::new(&UsageQuery::default(), now).unwrap(),
     ));
-    assert!(scan_file(&path, &mut acc, None, None, &mut HashMap::new()));
+    assert!(scan_file(
+        &path,
+        &mut acc,
+        FileRequest {
+            cutoff: None,
+            project_root: None,
+            seen: &mut HashMap::new()
+        }
+    ));
     let rows = acc.finish_analytics().unwrap().rows;
     assert_eq!(69, rows[0].tokens.total());
     assert_eq!(9, rows[0].tokens.output);

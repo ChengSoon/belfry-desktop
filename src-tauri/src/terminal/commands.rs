@@ -15,6 +15,7 @@ pub async fn terminal_create(
     endpoint: State<'_, CollabEndpoint>,
     mut request: CreateTerminalRequest,
     attachment: Option<String>,
+    flow_control: Option<bool>,
     on_event: Channel<TerminalEvent>,
 ) -> Result<TerminalSession, AppError> {
     request.launch_overlay.attachment = attachment;
@@ -35,6 +36,7 @@ pub async fn terminal_create(
                 .prepare(&mut request, on_event.clone());
         }
         let ticket = crate::plugins::agent_connection::attach(&app, &mut request);
+        request.launch_overlay.output_acknowledgements = flow_control.unwrap_or(false);
         let result = runtime.create(request, on_event, |session| {
             crate::plugins::agent_connection::bind(&app, &session.id, ticket.clone());
         });

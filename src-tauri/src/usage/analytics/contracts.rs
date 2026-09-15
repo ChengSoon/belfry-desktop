@@ -20,7 +20,7 @@ pub struct AnalyticsBuckets {
     pub undated_records: u64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AnalyticsReport {
     pub rows: Vec<UsageBucket>,
@@ -33,4 +33,16 @@ pub struct AnalyticsReport {
     pub start_at: Option<i64>,
     pub end_at: i64,
     pub generated_at: i64,
+    pub diagnostics: ScanDiagnostics,
+}
+
+#[derive(Clone, Debug, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScanDiagnostics {
+    pub read_bytes: u64,
+    pub validation_bytes: u64,
+    pub parsed_lines: u64,
+    pub cache_hits: u32,
+    pub appended_files: u32,
+    pub skipped_lines: u64,
 }

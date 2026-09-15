@@ -1,9 +1,10 @@
 use super::contracts::{AnalyticsBuckets, UsageBucket};
+use super::memory::{optional_string, table_bytes};
 use super::range::{DAY_SECONDS, UsagePeriod};
 use crate::agent::AgentKind;
 use crate::usage::contracts::TokenTotals;
 use crate::usage::roots;
-use std::collections::HashMap;
+use std::collections::{HashMap, hash_map::Entry};
 
 const MAX_BUCKETS: usize = 100_000;
 const MAX_EXACT_TOKENS: u128 = 9_007_199_254_740_991;
@@ -29,6 +30,7 @@ pub struct AnalyticsAccumulator {
     undated_records: u64,
     exact_tokens: u128,
     error: Option<String>,
+    heap_bytes: usize,
 }
 
 impl AnalyticsAccumulator {
@@ -48,6 +50,7 @@ impl AnalyticsAccumulator {
             undated_records: 0,
             exact_tokens: 0,
             error: None,
+            heap_bytes: 0,
         }
     }
 
@@ -66,35 +69,62 @@ impl AnalyticsAccumulator {
             self.error = Some("日志中的模型名或项目路径过长，无法统计".into());
             return;
         }
-        let project_root = item.cwd.filter(|path| !path.is_empty()).map(|path| {
-            self.roots
-                .entry(path.to_string())
-                .or_insert_with(|| roots::resolve_root(path))
-                .clone()
-        });
+        let project_root = self.project_root(item.cwd);
         let day = item.at.map(|at| at.div_euclid(DAY_SECONDS) * DAY_SECONDS);
-        let key = (
-            item.agent,
-            item.model.to_string(),
-            day,
-            project_root.clone(),
-        );
-        if self.buckets.len() >= MAX_BUCKETS && !self.buckets.contains_key(&key) {
-            self.error = Some("用量明细过多，请缩小统计范围后重试".into());
+        let key = (item.agent, item.model.to_string(), day, project_root);
+        let Some(bucket) = self.bucket(key) else {
             return;
-        }
-        let bucket = self.buckets.entry(key).or_insert_with(|| UsageBucket {
-            agent: item.agent,
-            model: item.model.to_string(),
-            day,
-            project_name: project_root.as_deref().map(roots::display_name),
-            project_root,
-            tokens: TokenTotals::default(),
-            requests: 0,
-        });
+        };
         bucket.tokens.add(item.tokens);
         bucket.requests += 1;
         self.exact_tokens += count;
+    }
+
+    pub(crate) fn heap_bytes(&self) -> usize {
+        self.heap_bytes
+            + table_bytes::<(BucketKey, UsageBucket)>(self.buckets.capacity())
+            + table_bytes::<(String, String)>(self.roots.capacity())
+            + optional_string(&self.error)
+    }
+
+    fn project_root(&mut self, cwd: Option<&str>) -> Option<String> {
+        cwd.filter(|path| !path.is_empty())
+            .map(|path| match self.roots.entry(path.to_string()) {
+                Entry::Occupied(entry) => entry.get().clone(),
+                Entry::Vacant(entry) => {
+                    let root = roots::resolve_root(path);
+                    self.heap_bytes += entry.key().capacity() + root.capacity();
+                    entry.insert(root).clone()
+                }
+            })
+    }
+
+    fn bucket(&mut self, key: BucketKey) -> Option<&mut UsageBucket> {
+        if self.buckets.len() >= MAX_BUCKETS && !self.buckets.contains_key(&key) {
+            self.error = Some("用量明细过多，请缩小统计范围后重试".into());
+            return None;
+        }
+        Some(match self.buckets.entry(key) {
+            Entry::Occupied(entry) => entry.into_mut(),
+            Entry::Vacant(entry) => {
+                let (agent, model, day, project_root) = entry.key();
+                let bucket = UsageBucket {
+                    agent: *agent,
+                    model: model.clone(),
+                    day: *day,
+                    project_name: project_root.as_deref().map(roots::display_name),
+                    project_root: project_root.clone(),
+                    tokens: TokenTotals::default(),
+                    requests: 0,
+                };
+                self.heap_bytes += model.capacity()
+                    + optional_string(project_root)
+                    + bucket.model.capacity()
+                    + optional_string(&bucket.project_root)
+                    + optional_string(&bucket.project_name);
+                entry.insert(bucket)
+            }
+        })
     }
 
     fn accept_date(&mut self, at: Option<i64>) -> bool {

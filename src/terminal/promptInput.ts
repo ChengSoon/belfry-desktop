@@ -20,6 +20,9 @@ export class PromptInput {
   private failed = false;
   private emitting = false;
   private revision = 0;
+  private disposed = false;
+  private settleTimer: ReturnType<typeof setTimeout> | undefined;
+  private finishSettle: (() => void) | undefined;
 
   constructor(private readonly ports: PromptInputPorts) {}
 
@@ -28,21 +31,21 @@ export class PromptInput {
   }
 
   onData(data: string) {
-    const sessionId = this.ports.session();
+    const sessionId = this.session();
     if (!sessionId) return;
     this.lastWrite = this.tail.then(() => {
-      if (this.ports.session() !== sessionId) throw new Error("终端会话已变更，已取消输入");
+      if (this.session() !== sessionId) throw new Error("终端会话已变更，已取消输入");
       return this.ports.write(sessionId, data);
     });
     this.tail = this.lastWrite.catch((error) => {
-      if (this.ports.session() !== sessionId) return;
+      if (this.session() !== sessionId) return;
       this.failed = true;
       this.ports.error(error);
     });
   }
 
   sendText(text: string): boolean {
-    const sessionId = this.ports.session();
+    const sessionId = this.session();
     if (!sessionId || !text || this.pending || this.failed) return false;
     this.pending = true;
     const revision = this.revision;
@@ -55,19 +58,36 @@ export class PromptInput {
     try { action(); } finally { this.emitting = false; }
   }
 
+  dispose() {
+    this.disposed = true;
+    this.revision += 1;
+    clearTimeout(this.settleTimer);
+    this.finishSettle?.();
+  }
+
+  private session() { return this.disposed ? null : this.ports.session(); }
+
+  private settle() {
+    return new Promise<void>((resolve) => {
+      this.finishSettle = () => { this.finishSettle = undefined; this.settleTimer = undefined; resolve(); };
+      this.settleTimer = setTimeout(this.finishSettle, PASTE_SETTLE_MS);
+    });
+  }
+
   private async submit(text: string, sessionId: string, revision: number) {
     try {
       this.emit(() => this.ports.paste(text));
       await this.lastWrite;
-      await new Promise<void>((resolve) => setTimeout(resolve, PASTE_SETTLE_MS));
-      if (this.ports.session() !== sessionId || this.failed) return;
+      if (this.session() !== sessionId) return;
+      await this.settle();
+      if (this.session() !== sessionId || this.failed) return;
       // 用户在等待窗口输入或手动回车后，不再自动提交，以免提交两次或混入其他输入。
       if (this.revision !== revision) return;
       this.emit(() => this.ports.enter());
       await this.lastWrite;
     } catch (error) {
       // write 的失败已由队列报告；paste/input 同步异常也必须可见。
-      if (!this.failed && this.ports.session() === sessionId) {
+      if (!this.failed && this.session() === sessionId) {
         this.failed = true;
         this.ports.error(error);
       }

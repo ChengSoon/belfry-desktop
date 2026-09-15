@@ -24,7 +24,7 @@
 </div>
 
 > [!WARNING]
-> **早期开发中。** 目前跑通的是「打开项目 → 检测 Agent → 启动可切换的 Agent/Shell 标签」这一条垂直切片，离下面路线图描述的完整形态还很远。接口和数据格式都可能不兼容地变。
+> **持续开发中。** 当前包含本地工作区、后台终端、会话协作、历史与用量，以及可选的 PI 插件系统。原生功能与 Windows 的剩余验收见[实施记录](docs/cli-manager-implementation.md)；接口和数据格式仍可能变化。
 
 ## 下载
 
@@ -62,6 +62,7 @@ claude --version
 - 打开本地目录作为项目，记住最近打开过的
 - 侧栏按项目分组，可折叠，宽度可拖拽（`⌘B` 整体收起）
 - 会话自带项目归属，不同会话可以指向不同目录
+- 命名工作区保留会话分组、分屏布局与活动焦点，重开时恢复后台会话身份
 - Quick Open（`⌘K`）可搜索并切换会话、打开最近项目或执行常用工作区动作
 - 文件预览窗格可浏览当前项目目录，打开只读代码预览；终端输出中的文件路径可直接跳转，并提示磁盘变更
 
@@ -107,6 +108,13 @@ claude --version
 - 按模型、按项目两个维度拆分；时间窗口可选近 7 天 / 近 30 天 / 全部
 - 配额窗口与套餐类型（目前只有 Codex 的日志带这些字段，Claude 的不带）
 
+**可选插件**
+
+- 在设置中安装 `.piplug`、加载开发目录，或从插件市场选择插件
+- 支持面板、命令、Agent 工具、Skill、设置与主题；可执行插件需要本机 Node.js 20 或更新版本
+- 提供模板创建、校验、打包与本地“我的插件市场”，也可使用独立在线目录
+- 具体能力与权限边界见 [PI 插件使用与开发](docs/plugins/pi-runtime-guide.md) 和[自有市场指南](docs/plugins/own-market-guide.md)
+
 **外观**
 
 - 亮/暗主题切换，主题色同步喂给终端调色板
@@ -115,7 +123,7 @@ claude --version
 - 内置 JetBrains Mono 与 HarmonyOS Sans SC
 
 Belfry 快捷键：`⌘T` 新建 Shell，`⌘B` 折叠侧栏，`⌘K` 打开 Quick Open，`⌘U` 开关用量，`⌘⇧H` 开关历史，
-`⌘,` 打开设置，`⌘1–9` 切换会话，`⌘/` 打开快捷指令。Windows / Linux 统一使用
+`⌘,` 打开设置，`⌘1–9` 切换会话，`⌘/` 打开快捷指令。Windows 使用
 `Ctrl+Shift` 组合，避免占用 Codex 与 Claude 的原生 `Ctrl` 快捷键。
 
 <!-- 界面截图待补：需要在两个平台各截一张主工作台（亮/暗）。
@@ -127,7 +135,7 @@ Belfry 快捷键：`⌘T` 新建 Shell，`⌘B` 折叠侧栏，`⌘K` 打开 Qui
 
 ## 设计取向
 
-**不代理模型请求。** Belfry 不内置推理客户端，请求直接从 CLI Agent 发往你选的服务商，不过 Belfry 的手。切换 provider 改的是 Agent 自己的配置文件，只动路由相关的那几个字段，其余逐字不动；填进来的 API Key 明文存在本机配置里（仅本人可读），和 CLI 自己的存法一致。
+**CLI 请求由 Agent 直接发送。** Provider 切换修改 CLI 自己的路由配置；API Key 按 CLI 的方式保存在本机配置中。可选插件可通过宿主的模型 API 调用已配置服务，能力与权限见插件文档。Belfry 的主界面仍以终端和会话管理为中心。
 
 **Agent 不可用时完整退化为普通终端。** Agent 集成是增强，不是前置条件。检测失败不该让你打不开一个 Shell。
 
@@ -135,7 +143,7 @@ Belfry 快捷键：`⌘T` 新建 Shell，`⌘B` 折叠侧栏，`⌘K` 打开 Qui
 
 **不追求两端逐像素相同。** 菜单、快捷键、窗口行为跟随各自平台的习惯。
 
-明确不做：iOS / Android / Web 版；内置模型推理；云同步、账号体系、团队协作、插件市场、LSP 与调试器；静默提权。
+产品范围是 macOS / Windows 的本地终端与 CLI Agent 工作台。暂不提供 iOS / Android / Web 版、云同步、账号体系、云端团队协作、LSP 或调试器；不执行静默提权。
 
 ## 技术栈
 
@@ -148,22 +156,46 @@ Belfry 快捷键：`⌘T` 新建 Shell，`⌘B` 折叠侧栏，`⌘K` 打开 Qui
 
 ## 开发
 
-需要 [Rust 工具链](https://rustup.rs)、Node.js LTS 与 pnpm 10。
+需要 [Rust stable 工具链](https://rustup.rs)、Node.js LTS，以及 `package.json` 固定的 pnpm 10.34.4。
+原生开发还需要 [Tauri 平台前置环境](https://v2.tauri.app/start/prerequisites/)；Windows 使用 MSVC 与 Windows SDK。
+
+在仓库根目录运行：
 
 ```bash
-pnpm install
-
-pnpm desktop:dev      # 桌面应用，开发模式
-pnpm desktop:build    # 打包
-pnpm test             # 前端测试（vitest）
-pnpm build            # 类型检查 + 前端构建
+pnpm install --frozen-lockfile
+pnpm desktop:dev      # 桌面开发；自动准备控制 CLI sidecar
+pnpm desktop:build    # 原生打包；自动构建前端与目标架构 sidecar
+pnpm test             # 前端单元与模型回归
+pnpm build            # 类型检查与前端生产构建
 ```
 
-Rust 侧测试：
+Rust 与插件回归也从仓库根目录执行：
 
 ```bash
-cd src-tauri && cargo test
+node scripts/bundle-cli.mjs
+cargo test --manifest-path src-tauri/Cargo.toml --workspace --locked
+pnpm build
+node .github/workflows/verify-plugins.mjs
+node --test .github/workflows/release-assets.case.mjs scripts/bundle-cli.case.mjs
 ```
+
+`bundle-cli.mjs` 为 Tauri 的 `externalBin` 准备真实本机 CLI，始终使用 `cargo build --locked`；
+过期锁文件会使准备失败，不会自动更新。sidecar 回归在独立、离线的临时 Cargo workspace 验证锁文件保护。
+插件回归需要 Chrome、Chromium 或 Edge；
+可用 `BELFRY_BROWSER_EXECUTABLE` 指定绝对路径。测试只启动临时浏览器实例，缺少浏览器会失败。
+运行器还直接服务 `dist`，验证面板生产 JS、CSS 和共享依赖加载失败时的恢复边界与终端保留；
+必须先运行 `pnpm build`，缺少生产构建会失败。仅运行该集合：
+`node --test src/components/lazy/testing/production-panels.case.mjs`。
+4 项原版 PI 互操作另需 `BELFRY_PI_SOURCE` 指向固定上游提交
+`4fb58d36f4b0f05e4527d8bdf2da874e31933134` 的源码，并准备 `market-fixtures/pi.gitlens`、
+`pi.log-viewer`、`pi.todo`；未提供时运行器明确报告该验收边界，不将其算作通过。
+Windows 安装脚本回归：在 PowerShell 中运行 `./scripts/test-windows-installer.ps1`。
+
+[PR/分支检查](.github/workflows/checks.yml) 为 macOS、Windows 配置上述回归，并复用构建在 Node 20 下
+定向运行发布资产、sidecar 锁文件和生产面板测试。
+[发布流程](.github/workflows/release.yml) 复用检查，再构建三个目标；所有平台的安装包、签名与
+`latest.json` 齐全后才公开草稿。手动重跑需选择与应用版本一致的已有 `v*` tag。
+CI 配置不代表 Windows 原生交互或远程发布已经验收。
 
 ### 目录结构
 
@@ -174,7 +206,10 @@ src/                  前端
   prompt/             按 Agent 分流的后台协作任务队列
   quickopen/          会话、项目与动作的快速搜索
   provider/           Agent CLI 的 provider 切换
-  settings/           设置对话框（外观、Provider）
+  settings/           设置页（外观、Provider、Hook、备份、插件等）
+  plugins/            插件中心、运行桥接与工作区视图
+  history/            本地历史搜索与恢复
+  git/                Git 检视与受控 Worktree 操作
   notify/             活动通知与角标
   usage/              token 用量聚合与展示
   panel/              面板宽度与拖拽
@@ -187,14 +222,17 @@ src-tauri/src/        Rust 后端
   provider/           精准改写两个 CLI 的配置文件
   terminal/           PTY 后端、启动 profile、OSC 应答
   usage/              解析 Codex / Claude 会话日志
-.codestable/          需求、路线图、架构决策与 feature 设计
+  plugins/            插件管理、Node 宿主与 MCP 接入
+scripts/              CLI 打包与原生/插件回归脚本
+docs/                 设计、实施与验收记录
+.github/workflows/    PR 检查与草稿发布流水线
 ```
 
-`.codestable/` 是这个项目的文档基座——需求怎么来的、模块怎么切的、每个 feature 的设计与验收清单都在里面。改代码之前值得先翻一眼。
+当前工作与验收边界见 [CLI 管理实施记录](docs/cli-manager-implementation.md)，插件现行说明见 [PI 插件指南](docs/plugins/pi-runtime-guide.md)。分步计划位于 `docs/superpowers/plans/`。
 
 ## 路线图
 
-已交付的垂直切片之后，按 [`.codestable/roadmap/belfry-desktop/`](.codestable/roadmap/belfry-desktop/) 的划分推进：
+功能规划见 [CLI 管理功能清单](docs/cli-manager-feature-backlog.md)，实现与待验收状态以[实施记录](docs/cli-manager-implementation.md)为准。下列版本条目保留历史背景：
 
 ### 已交付版本
 
@@ -220,7 +258,7 @@ src-tauri/src/        Rust 后端
 
 Issue 和 PR 都欢迎。动手之前建议先开个 issue 对一下方向——早期阶段接口变动频繁，避免白做。
 
-提 PR 前请确认 `pnpm test`、`pnpm build` 与 `cargo test` 都是绿的。
+提 PR 前请运行开发章节中的前端、Rust workspace 与 Node 插件回归，并如实记录缺少的原生或上游验收环境。
 
 ## 免责声明
 

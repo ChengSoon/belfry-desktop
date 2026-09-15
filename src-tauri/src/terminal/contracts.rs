@@ -180,7 +180,10 @@ impl SshTarget {
                 "ssh host must be 1 to 255 characters",
             ));
         }
-        if self.host.chars().any(|c| c.is_whitespace() || c.is_control())
+        if self
+            .host
+            .chars()
+            .any(|c| c.is_whitespace() || c.is_control())
             || self.host.contains(['/', '\\'])
             || self.host.starts_with('-')
         {
@@ -389,8 +392,22 @@ pub struct TerminalSession {
     rename_all_fields = "camelCase"
 )]
 pub enum TerminalEvent {
-    Disconnected { session_id: String, message: String },
-    ReplayGap { session_id: String, next_sequence: u64, dropped_events: u64 },
+    /// 仅宿主向支持消费确认的 WebView 发送；不写入 daemon 回放或持久化。
+    OutputBatch {
+        session_id: String,
+        connection_id: String,
+        delivery_id: u64,
+        events: Vec<TerminalEvent>,
+    },
+    Disconnected {
+        session_id: String,
+        message: String,
+    },
+    ReplayGap {
+        session_id: String,
+        next_sequence: u64,
+        dropped_events: u64,
+    },
     AgentState {
         session_id: String,
         snapshot: crate::agent::hooks::HookSnapshot,

@@ -57,19 +57,11 @@ impl TerminalRuntime {
         bind: impl FnOnce(&TerminalSession),
     ) -> Result<TerminalSession, AppError> {
         let _guard = self.lock_workspace();
-        if self.closing.load(Ordering::Acquire) {
-            return Err(AppError::io("正在退出，已停止创建新任务"));
-        }
-        if request
-            .tab_id
-            .as_ref()
-            .is_some_and(|id| self.launch_epoch(id) != request.launch_overlay.launch_epoch)
-        {
-            return Err(AppError::io("会话已关闭，已取消迟到的创建请求"));
-        }
+        self.validate_launch(&request)?;
         let cwd = super::launch::resolve_cwd(request.cwd.as_deref())?;
         let exited = Arc::new(AtomicBool::new(false));
         let hook = request.launch_overlay.hook.clone();
+        let output_acknowledgements = request.launch_overlay.output_acknowledgements;
         let result = self.backend.spawn(
             request,
             Arc::new(TauriSink {
@@ -77,6 +69,7 @@ impl TerminalRuntime {
                 hook: hook.clone(),
                 sessions: self.sessions.clone(),
                 exited: exited.clone(),
+                output_acknowledgements,
             }),
         );
         if let Ok(session) = &result {
@@ -92,6 +85,20 @@ impl TerminalRuntime {
             bind(session);
         }
         result
+    }
+
+    fn validate_launch(&self, request: &CreateTerminalRequest) -> Result<(), AppError> {
+        if self.closing.load(Ordering::Acquire) {
+            return Err(AppError::io("正在退出，已停止创建新任务"));
+        }
+        if request
+            .tab_id
+            .as_ref()
+            .is_some_and(|id| self.launch_epoch(id) != request.launch_overlay.launch_epoch)
+        {
+            return Err(AppError::io("会话已关闭，已取消迟到的创建请求"));
+        }
+        Ok(())
     }
 
     pub(crate) fn lock_workspace(&self) -> MutexGuard<'_, ()> {
@@ -190,6 +197,12 @@ impl TerminalRuntime {
         }
     }
 
+    pub fn acknowledge_output(&self, id: &str, connection: &str, delivery: u64) -> bool {
+        self.daemon
+            .as_ref()
+            .is_some_and(|daemon| daemon.acknowledge(id, connection, delivery))
+    }
+
     pub fn prepare_exit(&self, terminate: bool) -> Result<(), AppError> {
         let _guard = self.lock_workspace();
         self.closing.store(true, Ordering::Release);
@@ -232,10 +245,30 @@ struct TauriSink {
     hook: Option<Arc<crate::agent::hooks::HookConnection>>,
     sessions: Arc<Mutex<HashMap<String, PathBuf>>>,
     exited: Arc<AtomicBool>,
+    output_acknowledgements: bool,
 }
 
 impl TerminalEventSink for TauriSink {
+    fn uses_output_acknowledgements(&self) -> bool {
+        self.output_acknowledgements
+    }
+
     fn send(&self, event: TerminalEvent) -> Result<(), AppError> {
+        if let TerminalEvent::OutputBatch { events, .. } = &event {
+            for event in events {
+                self.observe_exit(event);
+            }
+        } else {
+            self.observe_exit(&event);
+        }
+        self.channel
+            .send(event)
+            .map_err(|error| AppError::io(error.to_string()))
+    }
+}
+
+impl TauriSink {
+    fn observe_exit(&self, event: &TerminalEvent) {
         if let TerminalEvent::Exit { session_id, .. } = &event {
             let mut sessions = self.sessions.lock().unwrap();
             self.exited.store(true, Ordering::Release);
@@ -256,8 +289,5 @@ impl TerminalEventSink for TauriSink {
                 *reason == super::contracts::TerminalExitReason::Terminated,
             );
         }
-        self.channel
-            .send(event)
-            .map_err(|error| AppError::io(error.to_string()))
     }
 }

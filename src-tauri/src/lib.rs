@@ -62,6 +62,7 @@ pub fn run() {
         .manage(history::details::HistoryDetailState::default())
         .manage(agent::hooks::HookRuntime::default())
         .manage(usage::session::SessionStatisticsState::default())
+        .manage(usage::analytics::UsageAnalyticsState::default())
         .manage(ssh::SshRequests::default())
         .manage(git::worktrees::WorktreeState::default())
         .manage(collab::CollabEndpoint(endpoint))
@@ -121,12 +122,14 @@ pub fn run() {
             history::details::commands::history_detail_close,
             usage::commands::usage_report,
             usage::analytics::commands::usage_analytics,
+            usage::analytics::commands::usage_cancel_analytics,
             usage::session::commands::session_statistics,
             setup::commands::setup_diagnose,
             setup::commands::setup_install_skill,
             commands::terminal_shell_profiles,
             commands::terminal_create,
             commands::terminal_write,
+            terminal::output_commands::terminal_ack_output,
             commands::terminal_resize,
             commands::terminal_set_palette,
             commands::terminal_close,

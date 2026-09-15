@@ -12,6 +12,10 @@ use super::contracts::TerminalStatus;
 
 pub trait TerminalEventSink: Send + Sync {
     fn send(&self, event: TerminalEvent) -> Result<(), AppError>;
+
+    fn uses_output_acknowledgements(&self) -> bool {
+        false
+    }
 }
 
 pub trait PtyBackend: Send + Sync {

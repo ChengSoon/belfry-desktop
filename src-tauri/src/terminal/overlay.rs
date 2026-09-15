@@ -15,6 +15,8 @@ pub(crate) struct LaunchOverlay {
     pub hook: Option<Arc<crate::agent::hooks::HookConnection>>,
     pub attachment: Option<String>,
     pub launch_epoch: u64,
+    /// 宿主 IPC 的能力协商，不进入 daemon 启动参数或存档。
+    pub output_acknowledgements: bool,
 }
 
 impl std::fmt::Debug for LaunchOverlay {

@@ -131,13 +131,14 @@ impl Slot {
     pub fn poll(&self, id: &str, cursor: u64) -> Result<PollResult, String> {
         let mut data = self.data.lock().unwrap();
         let page = data.replay.read(id, cursor)?;
-        if page.frames.is_empty() && page.gap.is_none() && data.exit_code.is_none() {
-            data = self
-                .changed
-                .wait_timeout(data, Duration::from_millis(500))
-                .unwrap()
-                .0;
+        if !page.frames.is_empty() || page.gap.is_some() || data.exit_code.is_some() {
+            return Ok(page);
         }
+        data = self
+            .changed
+            .wait_timeout(data, Duration::from_millis(500))
+            .unwrap()
+            .0;
         data.replay.read(id, cursor)
     }
 

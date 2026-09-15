@@ -6,6 +6,7 @@ import type {
   TerminalEvent,
   TerminalPalette,
   TerminalSession,
+  OutputReceipt,
 } from "./contracts";
 
 export function listShellProfiles() {
@@ -17,7 +18,11 @@ export function createTerminal(
   onEvent: Channel<TerminalEvent>,
   attachment?: string | null,
 ) {
-  return invoke<TerminalSession>("terminal_create", { request, onEvent, attachment: attachment ?? null });
+  return invoke<TerminalSession>("terminal_create", { request, onEvent, attachment: attachment ?? null, flowControl: true });
+}
+
+export function acknowledgeTerminalOutput(receipt: OutputReceipt) {
+  return invoke<boolean>("terminal_ack_output", { ...receipt });
 }
 
 export function writeTerminal(sessionId: string, bytes: Uint8Array) {
@@ -41,7 +46,7 @@ export function closeTerminal(sessionId: string) {
 
 export function closeTerminalTab(tabId: string) { return invoke<void>("terminal_close_tab", { tabId }); }
 
-export function detachTerminal(session: TerminalSession) {
+export function detachTerminal(session: Pick<TerminalSession, "id" | "connectionId">) {
   return session.connectionId
     ? invoke<void>("terminal_detach", { sessionId: session.id, connectionId: session.connectionId })
     : closeTerminal(session.id);

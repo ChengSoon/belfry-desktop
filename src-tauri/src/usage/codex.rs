@@ -20,6 +20,7 @@ use super::aggregate::UsageAccumulator;
 use super::claude::matches_project;
 use super::contracts::{QuotaWindow, TokenTotals};
 use super::scan::ScanTally;
+#[cfg(test)]
 use super::timestamp::parse_rfc3339;
 
 pub fn sessions_dir() -> Option<PathBuf> {
@@ -42,23 +43,43 @@ pub struct CodexScan {
 #[path = "codex_scan.rs"]
 mod scanning;
 pub use scanning::scan;
+#[cfg(test)]
+pub(super) fn scan_fixture(
+    root: &std::path::Path,
+    accumulator: &mut UsageAccumulator,
+    project_root: Option<&str>,
+) -> CodexScan {
+    scanning::scan_at(
+        root,
+        accumulator,
+        scanning::ScanOptions {
+            cutoff: None,
+            project_root,
+        },
+    )
+}
 #[path = "codex_pending.rs"]
 mod pending;
 use pending::PendingUsage;
+#[path = "codex_record.rs"]
+mod record;
+pub(super) use record::CodexRecord;
+#[path = "codex_memory.rs"]
+mod memory;
 
 /// 单个会话文件的扫描状态。
-struct FileScan<'a> {
+pub(super) struct FileScan<'a> {
     project_root: Option<&'a str>,
     model: Option<String>,
     cwd: Option<String>,
     previous: TokenTotals,
-    quota: Option<QuotaSnapshot>,
+    pub(super) quota: Option<QuotaSnapshot>,
     seen: HashSet<u64>,
     pending: Option<PendingUsage>,
 }
 
 impl<'a> FileScan<'a> {
-    fn new(project_root: Option<&'a str>) -> Self {
+    pub(super) fn new(project_root: Option<&'a str>) -> Self {
         Self {
             project_root,
             model: None,
@@ -74,32 +95,53 @@ impl<'a> FileScan<'a> {
         let Ok(record) = serde_json::from_str::<Value>(line) else {
             return;
         };
-        let payload = &record["payload"];
-        let at = record["timestamp"].as_str().and_then(parse_rfc3339);
-
-        match record["type"].as_str() {
-            Some("session_meta") => {
-                self.take_cwd(payload);
-            }
-            Some("turn_context") => {
-                self.take_cwd(payload);
-                if let Some(model) = payload["model"].as_str().filter(|v| !v.is_empty()) {
-                    self.model = Some(model.to_string());
-                }
-            }
-            _ if payload["type"].as_str() == Some("token_count") => {
-                self.take_quota(payload, at);
-                if self.seen.insert(fingerprint(&record)) {
-                    self.take_usage(payload, accumulator, cutoff, at);
-                }
-            }
-            _ => {}
+        if let Some(record) = CodexRecord::parse(&record) {
+            self.consume_record(&record, accumulator, cutoff);
         }
     }
 
-    fn take_cwd(&mut self, payload: &Value) {
-        if let Some(cwd) = payload["cwd"].as_str().filter(|v| !v.is_empty()) {
-            self.cwd = Some(cwd.to_string());
+    pub(super) fn consume_record(
+        &mut self,
+        record: &CodexRecord,
+        accumulator: &mut UsageAccumulator,
+        cutoff: Option<i64>,
+    ) {
+        match record {
+            CodexRecord::Meta { cwd, .. } => self.update_context(cwd, &None),
+            CodexRecord::Context { cwd, model } => self.update_context(cwd, model),
+            CodexRecord::Usage {
+                at,
+                tokens,
+                quota,
+                fingerprint,
+            } => {
+                if let Some(quota) = quota {
+                    self.take_quota(quota);
+                }
+                if self.seen.insert(*fingerprint) {
+                    if let Some(tokens) = tokens {
+                        self.take_usage(
+                            PendingUsage {
+                                tokens: *tokens,
+                                model: self.model.clone(),
+                                cwd: self.cwd.clone(),
+                                at: *at,
+                            },
+                            accumulator,
+                            cutoff,
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    fn update_context(&mut self, cwd: &Option<String>, model: &Option<String>) {
+        if cwd.is_some() {
+            self.cwd.clone_from(cwd);
+        }
+        if model.is_some() {
+            self.model.clone_from(model);
         }
     }
 
@@ -107,21 +149,10 @@ impl<'a> FileScan<'a> {
     /// 否则窗口内第一条会把窗口前的历史全算进来。
     fn take_usage(
         &mut self,
-        payload: &Value,
+        next: PendingUsage,
         accumulator: &mut UsageAccumulator,
         cutoff: Option<i64>,
-        at: Option<i64>,
     ) {
-        let usage = &payload["info"]["total_token_usage"];
-        if !usage.is_object() {
-            return;
-        }
-        let next = PendingUsage {
-            tokens: read_raw_cumulative(usage),
-            model: self.model.clone(),
-            cwd: self.cwd.clone(),
-            at,
-        };
         if let Some(pending) = self
             .pending
             .as_mut()
@@ -136,7 +167,7 @@ impl<'a> FileScan<'a> {
         self.pending = Some(next);
     }
 
-    fn flush(&mut self, accumulator: &mut UsageAccumulator, cutoff: Option<i64>) {
+    pub(super) fn flush(&mut self, accumulator: &mut UsageAccumulator, cutoff: Option<i64>) {
         let Some(item) = self.pending.take() else {
             return;
         };
@@ -164,29 +195,13 @@ impl<'a> FileScan<'a> {
         accumulator.record(AgentKind::Codex, model, delta, item.at, item.cwd.as_deref());
     }
 
-    fn take_quota(&mut self, payload: &Value, at: Option<i64>) {
-        let limits = &payload["rate_limits"];
-        if !limits.is_object() {
-            return;
-        }
-        let primary = read_window(&limits["primary"]);
-        let secondary = read_window(&limits["secondary"]);
-        // 字段常为 null，全空的快照没有展示价值，不覆盖已有的有效快照。
-        if primary.is_none() && secondary.is_none() {
-            return;
-        }
-        let snapshot = QuotaSnapshot {
-            plan_type: limits["plan_type"].as_str().map(ToOwned::to_owned),
-            primary,
-            secondary,
-            observed_at: at,
-        };
+    fn take_quota(&mut self, snapshot: &QuotaSnapshot) {
         if self
             .quota
             .as_ref()
             .is_none_or(|current| snapshot.observed_at >= current.observed_at)
         {
-            self.quota = Some(snapshot);
+            self.quota = Some(snapshot.clone());
         }
     }
 }
@@ -274,156 +289,5 @@ fn number(value: &Value, key: &str) -> u64 {
 mod analytics_tests;
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn usage(input: u64, cached: u64, output: u64) -> Value {
-        serde_json::json!({
-            "input_tokens": input,
-            "cached_input_tokens": cached,
-            "cache_write_input_tokens": 0,
-            "output_tokens": output,
-            "reasoning_output_tokens": output / 2,
-            "total_tokens": input + output
-        })
-    }
-
-    #[test]
-    fn strips_cached_tokens_out_of_codex_input_to_match_shared_shape() {
-        // 真实样本：input 含 cached，total_tokens = input + output
-        let tokens = read_cumulative(&usage(117906, 90112, 1000));
-        assert_eq!(tokens.input, 27794);
-        assert_eq!(tokens.cached_input, 90112);
-        assert_eq!(tokens.output, 1000);
-        // 归一后总量必须等于日志自报的 total_tokens
-        assert_eq!(tokens.total(), 118906);
-    }
-
-    #[test]
-    fn reasoning_tokens_are_not_double_counted() {
-        let tokens = read_cumulative(&usage(100, 0, 40));
-        assert_eq!(tokens.output, 40);
-        assert_eq!(tokens.total(), 140);
-    }
-
-    #[test]
-    fn consecutive_snapshots_yield_only_the_increment() {
-        let first = read_cumulative(&usage(1000, 400, 100));
-        let second = read_cumulative(&usage(2500, 900, 250));
-        let delta = diff(first, second);
-        // 剥离缓存后 600 → 1600
-        assert_eq!(delta.input, 1000);
-        assert_eq!(delta.cached_input, 500);
-        assert_eq!(delta.output, 150);
-        // 增量之和与两次 total_tokens 之差一致
-        assert_eq!(delta.total(), second.total() - first.total());
-    }
-
-    #[test]
-    fn treats_a_dropping_total_as_a_session_reset() {
-        let before = read_cumulative(&usage(9000, 5000, 800));
-        let after = read_cumulative(&usage(1200, 600, 90));
-        // compact 后累计归零重算，整条当增量而不是负数回绕
-        assert_eq!(diff(before, after), after);
-    }
-
-    #[test]
-    fn first_snapshot_counts_in_full() {
-        let first = read_cumulative(&usage(500, 100, 50));
-        assert_eq!(diff(TokenTotals::default(), first), first);
-    }
-
-    #[test]
-    fn reads_quota_window_and_tolerates_null_fields() {
-        let limits = serde_json::json!({
-            "used_percent": 63.0, "window_minutes": 10080, "resets_at": 1786880097
-        });
-        let window = read_window(&limits).unwrap();
-        assert_eq!(window.used_percent, 63.0);
-        assert_eq!(window.window_minutes, Some(10080));
-        assert_eq!(window.resets_at, Some(1786880097));
-
-        // secondary 实测恒为 null
-        assert!(read_window(&Value::Null).is_none());
-        // 只有 used_percent 时其余字段可缺
-        let partial = read_window(&serde_json::json!({ "used_percent": 5.5 })).unwrap();
-        assert_eq!(partial.window_minutes, None);
-    }
-
-    #[test]
-    fn attributes_increments_to_the_model_active_at_that_time() {
-        let mut accumulator = UsageAccumulator::default();
-        let mut scan = FileScan::new(None);
-        let lines = [
-            r#"{"timestamp":"2026-08-09T10:00:00Z","type":"turn_context","payload":{"model":"gpt-5.6-sol","cwd":"/work/belfry"}}"#,
-            r#"{"timestamp":"2026-08-09T10:01:00Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":1000,"cached_input_tokens":0,"output_tokens":100}}}}"#,
-            // 中途换模型：后续增量必须记给新模型
-            r#"{"timestamp":"2026-08-09T10:02:00Z","type":"turn_context","payload":{"model":"gpt-5.6-mini","cwd":"/work/belfry"}}"#,
-            r#"{"timestamp":"2026-08-09T10:03:00Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":1500,"cached_input_tokens":0,"output_tokens":160}}}}"#,
-        ];
-        for line in lines {
-            scan.consume(line, &mut accumulator, None);
-        }
-
-        scan.flush(&mut accumulator, None);
-        let models = accumulator.models();
-        assert_eq!(models.len(), 2);
-        let sol = models.iter().find(|m| m.model == "gpt-5.6-sol").unwrap();
-        let mini = models.iter().find(|m| m.model == "gpt-5.6-mini").unwrap();
-        assert_eq!(sol.tokens.output, 100);
-        // 只记增量 60，不是累计 160
-        assert_eq!(mini.tokens.output, 60);
-        assert_eq!(mini.tokens.input, 500);
-    }
-
-    #[test]
-    fn skips_usage_recorded_before_any_turn_context() {
-        let mut accumulator = UsageAccumulator::default();
-        let mut scan = FileScan::new(None);
-        scan.consume(
-            r#"{"timestamp":"2026-08-09T10:00:00Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":10,"output_tokens":5}}}}"#,
-            &mut accumulator,
-            None,
-        );
-        scan.flush(&mut accumulator, None);
-        assert!(accumulator.models().is_empty());
-    }
-
-    #[test]
-    fn window_filter_keeps_the_delta_baseline_moving() {
-        let mut accumulator = UsageAccumulator::default();
-        let mut scan = FileScan::new(None);
-        let cutoff = parse_rfc3339("2026-08-09T10:02:00Z");
-        let lines = [
-            r#"{"timestamp":"2026-08-09T10:00:00Z","type":"turn_context","payload":{"model":"m","cwd":"/work/belfry"}}"#,
-            // 窗口外：不计入，但必须推进基线
-            r#"{"timestamp":"2026-08-09T10:01:00Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":8000,"cached_input_tokens":0,"output_tokens":900}}}}"#,
-            r#"{"timestamp":"2026-08-09T10:03:00Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":8100,"cached_input_tokens":0,"output_tokens":950}}}}"#,
-        ];
-        for line in lines {
-            scan.consume(line, &mut accumulator, cutoff);
-        }
-
-        scan.flush(&mut accumulator, cutoff);
-        let models = accumulator.models();
-        assert_eq!(models.len(), 1);
-        // 只算窗口内的 50/100，不把窗口前的 900/8000 带进来
-        assert_eq!(models[0].tokens.output, 50);
-        assert_eq!(models[0].tokens.input, 100);
-    }
-
-    #[test]
-    fn project_filter_excludes_sessions_from_other_directories() {
-        let mut accumulator = UsageAccumulator::default();
-        let mut scan = FileScan::new(Some("/work/other"));
-        let lines = [
-            r#"{"timestamp":"2026-08-09T10:00:00Z","type":"turn_context","payload":{"model":"m","cwd":"/work/belfry"}}"#,
-            r#"{"timestamp":"2026-08-09T10:01:00Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":10,"output_tokens":5}}}}"#,
-        ];
-        for line in lines {
-            scan.consume(line, &mut accumulator, None);
-        }
-        scan.flush(&mut accumulator, None);
-        assert!(accumulator.models().is_empty());
-    }
-}
+#[path = "codex_unit_tests.rs"]
+mod tests;

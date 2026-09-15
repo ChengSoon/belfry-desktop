@@ -21,7 +21,7 @@ const triple = process.env.TAURI_ENV_TARGET_TRIPLE ?? hostTriple();
 const debug = process.env.TAURI_ENV_DEBUG === "true";
 const exeSuffix = triple.includes("windows") ? ".exe" : "";
 
-const args = ["build", "-p", "belfry-cli"];
+const args = ["build", "--locked", "-p", "belfry-cli"];
 if (!debug) args.push("--release");
 // 只在打包时按 triple 交叉编译。dev 只在本机跑，传了 --target 反而会把产物
 // 放进 target/{triple}/debug/，而主程序在 target/debug/——cli_directory()

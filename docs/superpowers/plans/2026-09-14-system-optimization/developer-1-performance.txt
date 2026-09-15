@@ -1,0 +1,8 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.57s
+     Running unittests src/lib.rs (src-tauri/target/debug/deps/belfry_desktop_lib-af773d99e54bc5b5)
+
+running 1 test
+{"mode":"debug/test","files":247,"sourceBytes":66383801,"referenceMs":608.6775829999999,"coldMs":501.61858299999994,"hotMs":15.189417,"appendMs":12.956624999999999,"cold":{"readBytes":66383801,"validationBytes":126464,"parsedLines":2224,"cacheHits":0,"appendedFiles":0,"skippedLines":0},"hot":{"readBytes":0,"validationBytes":0,"parsedLines":0,"cacheHits":247,"appendedFiles":0,"skippedLines":0},"append":{"readBytes":218,"validationBytes":1024,"parsedLines":1,"cacheHits":246,"appendedFiles":1,"skippedLines":0},"cacheBytes":1345114,"cacheEntries":247,"semanticComparison":"equal","note":"合成临时日志；冷指解析缓存未建立，操作系统页缓存已暖；未读取用户日志正文"}
+test usage::analytics::performance::incremental_cache_benchmark ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 577 filtered out; finished in 1.79s

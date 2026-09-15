@@ -26,6 +26,12 @@ struct ModelBucket {
 }
 
 impl UsageAccumulator {
+    pub(super) fn analytics_heap_bytes(&self) -> usize {
+        self.analytics
+            .as_ref()
+            .map_or(0, AnalyticsAccumulator::heap_bytes)
+    }
+
     pub(super) fn fail_analytics(&mut self, note: &str, at: Option<i64>) {
         if let Some(analytics) = &mut self.analytics {
             analytics.fail_at(note, at);

@@ -1,21 +1,18 @@
 use super::super::{
     AppError, CreateTerminalRequest,
     backend::{PtyBackend, TerminalEventSink},
-    contracts::{TerminalEvent, TerminalPalette, TerminalSession, TerminalSize},
+    contracts::{TerminalPalette, TerminalSession, TerminalSize},
 };
 use super::{
     endpoint, files,
-    protocol::{Command, Endpoint, FLAG, PollResult, SessionInfo},
+    protocol::{Command, Endpoint, FLAG, SessionInfo},
+    subscriptions::Subscriptions,
     transport,
 };
 use std::{
-    collections::HashMap,
     path::{Path, PathBuf},
     process::{Command as Process, Stdio},
-    sync::{
-        Arc, Mutex,
-        atomic::{AtomicBool, Ordering},
-    },
+    sync::{Arc, Mutex},
     thread,
     time::{Duration, Instant},
 };
@@ -23,7 +20,7 @@ use std::{
 pub struct DaemonClient {
     root: PathBuf,
     endpoint: Mutex<Option<Endpoint>>,
-    polls: Mutex<HashMap<String, (String, Arc<AtomicBool>)>>,
+    polls: Subscriptions,
 }
 
 impl DaemonClient {
@@ -31,7 +28,7 @@ impl DaemonClient {
         Self {
             root,
             endpoint: Mutex::new(None),
-            polls: Mutex::new(HashMap::new()),
+            polls: Subscriptions::default(),
         }
     }
 
@@ -80,21 +77,15 @@ impl DaemonClient {
     }
 
     pub fn detach(&self, id: &str, connection: &str) {
-        let mut polls = self.polls.lock().unwrap();
-        if polls
-            .get(id)
-            .is_some_and(|(current, _)| current == connection)
-        {
-            if let Some((_, active)) = polls.remove(id) {
-                active.store(false, Ordering::Release);
-            }
-        }
+        self.polls.detach(id, connection);
     }
 
     pub fn detach_all(&self) {
-        for (_, (_, active)) in self.polls.lock().unwrap().drain() {
-            active.store(false, Ordering::Release);
-        }
+        self.polls.detach_all();
+    }
+
+    pub fn acknowledge(&self, id: &str, connection: &str, delivery: u64) -> bool {
+        self.polls.acknowledge(id, connection, delivery)
     }
 
     pub fn shutdown(&self) -> Result<(), AppError> {
@@ -107,19 +98,7 @@ impl DaemonClient {
         sink: Arc<dyn TerminalEventSink>,
     ) -> Result<(), AppError> {
         let endpoint = self.endpoint()?;
-        let active = Arc::new(AtomicBool::new(true));
-        let connection = ulid::Ulid::generate().to_string();
-        session.connection_id = Some(connection.clone());
-        if let Some((_, previous)) = self
-            .polls
-            .lock()
-            .unwrap()
-            .insert(session.id.clone(), (connection, active.clone()))
-        {
-            previous.store(false, Ordering::Release);
-        }
-        let id = session.id.clone();
-        thread::spawn(move || poll(endpoint, id, sink, active));
+        self.polls.start(session, endpoint, sink);
         Ok(())
     }
 }
@@ -164,6 +143,7 @@ impl PtyBackend for DaemonClient {
     }
     fn close_all(&self) {
         let _ = self.shutdown();
+        self.detach_all();
     }
 }
 
@@ -171,50 +151,6 @@ impl Drop for DaemonClient {
     fn drop(&mut self) {
         self.detach_all();
     }
-}
-
-fn poll(endpoint: Endpoint, id: String, sink: Arc<dyn TerminalEventSink>, active: Arc<AtomicBool>) {
-    let mut cursor = 0;
-    while active.load(Ordering::Acquire) {
-        let page = transport::call::<PollResult>(
-            &endpoint,
-            Command::Poll {
-                id: id.clone(),
-                cursor,
-            },
-        );
-        if !active.load(Ordering::Acquire) {
-            break;
-        }
-        let page = match page {
-            Ok(page) => page,
-            Err(_) => {
-                let _ = sink.send(TerminalEvent::Disconnected {
-                    session_id: id.clone(),
-                    message: "后台连接已中断。可重新连接；原任务不会被自动重启。".into(),
-                });
-                break;
-            }
-        };
-        cursor = page.cursor;
-        if page.gap.is_some_and(|gap| sink.send(gap).is_err()) {
-            break;
-        }
-        if forward(page.frames, &sink) {
-            break;
-        }
-    }
-    active.store(false, Ordering::Release);
-}
-
-fn forward(frames: Vec<super::protocol::Frame>, sink: &Arc<dyn TerminalEventSink>) -> bool {
-    for frame in frames {
-        let ended = matches!(frame.event, TerminalEvent::Exit { .. });
-        if sink.send(frame.event).is_err() || ended {
-            return true;
-        }
-    }
-    false
 }
 
 fn connect_or_start(root: &Path) -> Result<Endpoint, String> {

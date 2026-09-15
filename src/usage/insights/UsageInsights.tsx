@@ -25,6 +25,11 @@ export function UsageInsights({ report, project }: { report: AnalyticsReport; pr
   const estimate = estimateRows(rows, prices.book);
   const undated = projectRows.some((row) => row.day === null);
   return <>
+    {report.skippedFiles || report.diagnostics?.skippedLines ? <p className="usage-note" role="status">
+      {report.skippedFiles ? `${report.skippedFiles} 个日志暂时无法读取。` : ""}
+      {report.diagnostics?.skippedLines ? `跳过 ${report.diagnostics.skippedLines} 条损坏、未写完或超大的记录。` : ""}
+      统计可能不完整，可稍后刷新。
+    </p> : null}
     <InsightSelection filter={filter} report={report} onChange={setFilter} />
     <div className="usage-insight-summary">
       <span>总用量 <small>Token</small></span><strong title={formatExact(total) + " Token"}>{formatTokens(total)}</strong>

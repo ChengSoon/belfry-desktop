@@ -1,0 +1,67 @@
+   Compiling belfry-desktop v0.20.2 (/Users/cheng/work/Project/tool/otty-win/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 8.79s
+     Running unittests src/lib.rs (src-tauri/target/debug/deps/belfry_desktop_lib-af773d99e54bc5b5)
+
+running 3 tests
+test terminal::daemon::native_subscription_tests::native_pty_detach_reconnect_preserves_process_and_rejects_stale_ack ... native ACK isolation: rejected_old_delivery=1, rejected_pending_delivery=2, duplicate_rejected=true
+native ACK reconnect: same_pty_pid=60477, startup_count=1, old_delivery=1, offline_input_replayed=true
+native ACK reconnect: delivered_bytes=1056086, batches=19, gaps=0, dropped_events=0, peak_bytes=131471, peak_batches=2, EOF=1, Exit=1
+ok
+test terminal::daemon::native_subscription_tests::native_pty_poll_ack_preserves_output_and_waits_for_final_exit_ack ... native ACK ordered: produced_bytes=1056000, exited_before_first_ack=true, production_ms=97.83, stalled_bytes=131471, stalled_batches=2
+native ACK ordered: delivered_bytes=1056028, batches=19, gaps=0, dropped_events=0, peak_bytes=131471, peak_batches=2, EOF=1, Exit=1
+ok
+test terminal::daemon::native_subscription_tests::native_pty_slow_ack_reports_gap_and_keeps_real_input_working ... native ACK slow: produced_bytes=8448000, input_file_roundtrip_ms=36.25, stalled_bytes=131471, stalled_batches=2, exact_tail_bytes=1863218
+native ACK slow: delivered_bytes=1979969, batches=33, gaps=1, dropped_events=6321, peak_bytes=261903, peak_batches=3, EOF=1, Exit=1
+ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 581 filtered out; finished in 2.32s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.18s
+     Running unittests src/lib.rs (src-tauri/target/debug/deps/belfry_desktop_lib-af773d99e54bc5b5)
+
+running 7 tests
+test terminal::native_tests::native_backend_answers_color_queries_from_the_reader_thread ... ok
+test terminal::native_tests::native_backend_emits_output_before_a_single_exit ... ok
+test terminal::native_tests::native_backend_input_echo_p95_stays_under_budget ... terminal input echo p95: 0.39 ms
+ok
+test terminal::native_tests::native_backend_preserves_one_mebibyte_of_ordered_output ... ok
+test terminal::native_tests::native_backend_runs_default_shell ... ok
+test terminal::native_tests::native_backend_spawns_the_system_ssh_client ... ok
+test terminal::native_tests::native_backend_uses_requested_project_cwd ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 577 filtered out; finished in 2.42s
+
+   Compiling belfry-desktop v0.20.2 (/Users/cheng/work/Project/tool/otty-win/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.15s
+     Running unittests src/lib.rs (src-tauri/target/debug/deps/belfry_desktop_lib-af773d99e54bc5b5)
+
+running 15 tests
+test terminal::daemon::service_tests::a_saved_attachment_and_duplicate_create_keep_the_original_pty ... ok
+test terminal::daemon::service_tests::closed_tabs_remain_occupied_until_the_native_process_exits ... ok
+test terminal::daemon::service_tests::output_survives_without_a_consumer_and_replays_in_order ... ok
+test terminal::daemon::service_tests::private_overlay_copies_live_past_the_ui_owned_snapshot ... ok
+test terminal::daemon::service_tests::worktree_execution_holds_new_spawns_but_can_reconnect_existing_sessions ... ok
+native ACK isolation: rejected_old_delivery=1, rejected_pending_delivery=2, duplicate_rejected=true
+native ACK reconnect: same_pty_pid=65664, startup_count=1, old_delivery=1, offline_input_replayed=true
+native ACK reconnect: delivered_bytes=1056086, batches=19, gaps=0, dropped_events=0, peak_bytes=131471, peak_batches=2, EOF=1, Exit=1
+test terminal::daemon::native_subscription_tests::native_pty_detach_reconnect_preserves_process_and_rejects_stale_ack ... ok
+native ACK slow: produced_bytes=8448000, input_file_roundtrip_ms=37.46, stalled_bytes=131471, stalled_batches=2, exact_tail_bytes=1863218
+native ACK slow: delivered_bytes=1979969, batches=33, gaps=1, dropped_events=6321, peak_bytes=261903, peak_batches=3, EOF=1, Exit=1
+test terminal::daemon::native_subscription_tests::native_pty_slow_ack_reports_gap_and_keeps_real_input_working ... ok
+native ACK ordered: produced_bytes=1056000, exited_before_first_ack=true, production_ms=94.32, stalled_bytes=131471, stalled_batches=2
+native ACK ordered: delivered_bytes=1056028, batches=19, gaps=0, dropped_events=0, peak_bytes=131471, peak_batches=2, EOF=1, Exit=1
+test terminal::daemon::native_subscription_tests::native_pty_poll_ack_preserves_output_and_waits_for_final_exit_ack ... ok
+test terminal::native_tests::native_backend_answers_color_queries_from_the_reader_thread ... ok
+test terminal::native_tests::native_backend_emits_output_before_a_single_exit ... ok
+terminal input echo p95: 0.37 ms
+test terminal::native_tests::native_backend_input_echo_p95_stays_under_budget ... ok
+test terminal::native_tests::native_backend_preserves_one_mebibyte_of_ordered_output ... ok
+test terminal::native_tests::native_backend_runs_default_shell ... ok
+test terminal::native_tests::native_backend_spawns_the_system_ssh_client ... ok
+test terminal::native_tests::native_backend_uses_requested_project_cwd ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 569 filtered out; finished in 4.76s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.49s
+     Running unittests src/lib.rs (src-tauri/target/debug/deps/belfry_desktop_lib-af773d99e54bc5b5)
+0 tests, 0 benchmarks

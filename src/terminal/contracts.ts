@@ -149,7 +149,7 @@ export interface TerminalCommandTarget {
   sendText: (text: string) => boolean;
 }
 
-export type TerminalEvent =
+export type TerminalStreamEvent =
   | { kind: "disconnected"; sessionId: string; message: string }
   | { kind: "replay_gap"; sessionId: string; nextSequence: number; droppedEvents: number }
   | { kind: "agent_state"; sessionId: string; snapshot: HookSnapshot }
@@ -166,6 +166,20 @@ export type TerminalEvent =
       exitCode: number;
       reason: "normal" | "terminated" | "spawn_failed" | "io_failed";
     };
+
+/** 消费确认属于一次 UI 连接，不能拿上一连接的回执恢复本连接额度。 */
+export interface OutputReceipt {
+  sessionId: string;
+  connectionId: string;
+  deliveryId: number;
+}
+
+export interface TerminalOutputBatch extends OutputReceipt {
+  kind: "output_batch";
+  events: TerminalStreamEvent[];
+}
+
+export type TerminalEvent = TerminalStreamEvent | TerminalOutputBatch;
 
 export function createTerminalRequest(
   cols: number,

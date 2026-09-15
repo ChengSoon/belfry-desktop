@@ -23,6 +23,14 @@ export interface AnalyticsReport {
   startAt: number | null;
   endAt: number;
   generatedAt: number;
+  diagnostics?: {
+    readBytes: number;
+    validationBytes: number;
+    parsedLines: number;
+    cacheHits: number;
+    appendedFiles: number;
+    skippedLines: number;
+  };
 }
 
 export interface InsightFilter {

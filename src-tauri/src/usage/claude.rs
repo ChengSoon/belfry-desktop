@@ -10,18 +10,54 @@ use std::path::{Path, PathBuf};
 
 use serde_json::Value;
 
-use crate::agent::AgentKind;
 use crate::resource::strip_verbatim_prefix;
 
 use super::aggregate::UsageAccumulator;
 use super::contracts::TokenTotals;
 use super::scan::{ScanTally, collect_jsonl_files, for_each_line, is_stale};
+#[cfg(test)]
 use super::timestamp::parse_rfc3339;
+
+#[path = "claude_record.rs"]
+mod record;
+pub(super) use record::ClaudeRecord;
 
 const SYNTHETIC_MODEL: &str = "<synthetic>";
 
+struct FileRequest<'a> {
+    cutoff: Option<i64>,
+    project_root: Option<&'a str>,
+    seen: &'a mut HashMap<(String, String), TokenTotals>,
+}
+
 pub fn sessions_dir() -> Option<PathBuf> {
     crate::history::scan::claude_sessions_root()
+}
+
+#[cfg(test)]
+pub(super) fn scan_fixture(
+    root: &Path,
+    accumulator: &mut UsageAccumulator,
+    project_root: Option<&str>,
+) -> ScanTally {
+    let mut tally = ScanTally::default();
+    let mut seen = HashMap::new();
+    for path in collect_jsonl_files(root) {
+        if scan_file(
+            &path,
+            accumulator,
+            FileRequest {
+                cutoff: None,
+                project_root,
+                seen: &mut seen,
+            },
+        ) {
+            tally.scanned += 1;
+        } else {
+            tally.skipped += 1;
+        }
+    }
+    tally
 }
 
 /// 累加 Claude 用量。`cutoff` 为窗口起点 epoch 秒，`project_root` 非空时只统计该目录下的会话。
@@ -41,7 +77,15 @@ pub fn scan(
             tally.skipped += 1;
             continue;
         }
-        if scan_file(&path, accumulator, cutoff, project_root, &mut seen) {
+        if scan_file(
+            &path,
+            accumulator,
+            FileRequest {
+                cutoff,
+                project_root,
+                seen: &mut seen,
+            },
+        ) {
             tally.scanned += 1;
         } else {
             tally.skipped += 1;
@@ -50,51 +94,20 @@ pub fn scan(
     tally
 }
 
-fn scan_file(
-    path: &Path,
-    accumulator: &mut UsageAccumulator,
-    cutoff: Option<i64>,
-    project_root: Option<&str>,
-    seen: &mut HashMap<(String, String), TokenTotals>,
-) -> bool {
+fn scan_file(path: &Path, accumulator: &mut UsageAccumulator, request: FileRequest<'_>) -> bool {
     for_each_line(path, &["\"usage\""], |line| {
         let Ok(record) = serde_json::from_str::<Value>(line) else {
             return;
         };
-        let message = &record["message"];
-        if message["role"].as_str() != Some("assistant") {
+        let Some(record) = ClaudeRecord::parse(&record) else {
             return;
-        }
-        let usage = &message["usage"];
-        if !usage.is_object() {
-            return;
-        }
-        let model = message["model"].as_str().unwrap_or_default();
-        if model.is_empty() || model == SYNTHETIC_MODEL {
-            return;
-        }
-
-        let at = record["timestamp"].as_str().and_then(parse_rfc3339);
-        if let (Some(cutoff), Some(at)) = (cutoff, at) {
+        };
+        if let (Some(cutoff), Some(at)) = (request.cutoff, record.at) {
             if at < cutoff {
                 return;
             }
         }
-
-        let cwd = record["cwd"].as_str();
-        if !matches_project(cwd, project_root) {
-            return;
-        }
-
-        // 缺 id 的记录退化成按内容去重不现实，用空串占位；同一 (None, None) 只会计一次，
-        // 这类记录实测不存在，宁可少算也不重复算。
-        let key = (
-            message["id"].as_str().unwrap_or_default().to_string(),
-            record["requestId"].as_str().unwrap_or_default().to_string(),
-        );
-        let previous = seen.entry(key).or_default();
-        let delta = message_delta(previous, read_tokens(usage));
-        accumulator.record(AgentKind::Claude, model, delta, at, cwd);
+        record.accumulate(accumulator, request.seen, request.project_root);
     })
 }
 

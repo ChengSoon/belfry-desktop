@@ -1,21 +1,24 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Channel } from "@tauri-apps/api/core";
 import { Terminal } from "@xterm/xterm";
-import { createTerminal, detachTerminal, writeTerminal } from "./api";
+import { acknowledgeTerminalOutput, createTerminal, detachTerminal, writeTerminal } from "./api";
 import { mountTerminal, type MountCallbacks, type TerminalHandle } from "./terminalController";
 import type { TerminalEvent, TerminalLaunch, TerminalSession } from "./contracts";
 
 vi.mock("@tauri-apps/api/core", () => ({ Channel: class { onmessage = (_: unknown) => {}; } }));
 vi.mock("@tauri-apps/api/webview", () => ({ getCurrentWebview: () => ({ onDragDropEvent: async () => () => {} }) }));
-vi.mock("./api", () => ({ createTerminal: vi.fn(), detachTerminal: vi.fn(), writeTerminal: vi.fn(), resizeTerminal: vi.fn(), setTerminalPalette: vi.fn() }));
+vi.mock("./api", () => ({ acknowledgeTerminalOutput: vi.fn(), createTerminal: vi.fn(), detachTerminal: vi.fn(), writeTerminal: vi.fn(), resizeTerminal: vi.fn(), setTerminalPalette: vi.fn() }));
 vi.mock("@xterm/addon-fit", () => ({ FitAddon: class { fit() {} } }));
 vi.mock("@xterm/addon-webgl", () => ({ WebglAddon: class { onContextLoss() {} dispose() {} } }));
 vi.mock("@xterm/xterm", () => ({ Terminal: class {
   cols = 80; rows = 24; options: Record<string, unknown>;
+  private data: ((text: string) => void) | undefined;
   constructor(options: Record<string, unknown>) { this.options = options; }
   loadAddon() {} open() {} attachCustomKeyEventHandler() {} focus() {} dispose() {}
-  onData() { return { dispose() {} }; }
-  write() {} reset() {} clearTextureAtlas() {} refresh() {}
+  onData(callback: (text: string) => void) { this.data = callback; return { dispose() {} }; }
+  paste(text: string) { this.data?.(`\x1b[200~${text}\x1b[201~`); }
+  input(text: string) { this.data?.(text); }
+  write(_data: unknown, parsed?: () => void) { parsed?.(); } reset() {} clearTextureAtlas() {} refresh() {}
 } }));
 vi.mock("./unicode", () => ({ configureUnicode() {} }));
 vi.mock("./links", () => ({ registerHttpLinkProvider: () => ({ dispose() {} }), registerFileLinkProvider: () => ({ dispose() {} }) }));
@@ -27,12 +30,15 @@ const handles: TerminalHandle[] = [];
 beforeEach(() => {
   vi.resetAllMocks(); vi.useFakeTimers();
   vi.stubGlobal("window", globalThis);
+  vi.stubGlobal("navigator", { userAgent: "Mac" });
   vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
   vi.mocked(detachTerminal).mockResolvedValue(undefined);
   vi.mocked(writeTerminal).mockResolvedValue(undefined);
+  vi.mocked(acknowledgeTerminalOutput).mockResolvedValue(true);
 });
 afterEach(() => {
   handles.splice(0).forEach((handle) => handle.dispose());
+  vi.restoreAllMocks();
   vi.useRealTimers(); vi.unstubAllGlobals();
 });
 
@@ -57,6 +63,73 @@ function fixture() {
 }
 
 describe("terminal attachment lifecycle", () => {
+  it("detaches an early batch immediately when disposed before create resolves", async () => {
+    vi.spyOn(Terminal.prototype, "write").mockImplementation(() => {});
+    const test = fixture();
+    test.emit({ kind: "output_batch", sessionId: test.session.id, connectionId: test.session.connectionId!, deliveryId: 1,
+      events: [{ kind: "output", sessionId: test.session.id, sequence: 0, bytes: [120], eof: false }] });
+    test.handle.dispose();
+    expect(detachTerminal).toHaveBeenCalledWith({ id: test.session.id, connectionId: test.session.connectionId });
+    expect(acknowledgeTerminalOutput).not.toHaveBeenCalled();
+    await test.ready();
+    expect(writeTerminal).not.toHaveBeenCalled();
+  });
+
+  it("acknowledges early output with its own connection only after xterm consumes it", async () => {
+    let parsed!: () => void;
+    vi.spyOn(Terminal.prototype, "write").mockImplementation((_data, done) => { parsed = done!; });
+    const test = fixture();
+    test.emit({ kind: "output_batch", sessionId: test.session.id, connectionId: test.session.connectionId!, deliveryId: 1,
+      events: [{ kind: "output", sessionId: test.session.id, sequence: 0, bytes: [120], eof: false }] });
+    await test.ready({ reconnected: true });
+    expect(acknowledgeTerminalOutput).not.toHaveBeenCalled();
+    parsed();
+    await vi.runAllTimersAsync();
+    expect(acknowledgeTerminalOutput).toHaveBeenCalledWith({ sessionId: test.session.id,
+      connectionId: test.session.connectionId, deliveryId: 1 });
+  });
+
+  it("keeps prompt input responsive while output awaits the parser", async () => {
+    vi.spyOn(Terminal.prototype, "write").mockImplementation(() => {});
+    const test = fixture();
+    await test.ready({ reconnected: true });
+    test.emit({ kind: "output_batch", sessionId: test.session.id, connectionId: test.session.connectionId!, deliveryId: 1,
+      events: [{ kind: "output", sessionId: test.session.id, sequence: 0, bytes: [120], eof: false }] });
+    expect(test.handle.sendText("still responsive")).toBe(true);
+    await vi.runAllTimersAsync();
+    expect(writeTerminal).toHaveBeenCalledTimes(2);
+    expect(acknowledgeTerminalOutput).not.toHaveBeenCalled();
+  });
+
+  it("detach cancels an outstanding parse and suppresses its late acknowledgement", async () => {
+    let parsed!: () => void;
+    vi.spyOn(Terminal.prototype, "write").mockImplementation((_data, done) => { parsed = done!; });
+    const test = fixture();
+    await test.ready({ reconnected: true });
+    test.emit({ kind: "output_batch", sessionId: test.session.id, connectionId: test.session.connectionId!, deliveryId: 1,
+      events: [{ kind: "output", sessionId: test.session.id, sequence: 0, bytes: [120], eof: false }] });
+    test.handle.dispose();
+    parsed();
+    await vi.runAllTimersAsync();
+    expect(acknowledgeTerminalOutput).not.toHaveBeenCalled();
+    expect(detachTerminal).toHaveBeenCalledWith({ ...test.session, reconnected: true });
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("an acknowledgement error detaches without restarting the agent", async () => {
+    vi.mocked(acknowledgeTerminalOutput).mockRejectedValue(new Error("bridge closed"));
+    const test = fixture();
+    await test.ready({ reconnected: true });
+    test.emit({ kind: "output_batch", sessionId: test.session.id, connectionId: test.session.connectionId!, deliveryId: 1,
+      events: [{ kind: "output", sessionId: test.session.id, sequence: 0, bytes: [120], eof: false }] });
+    await vi.runAllTimersAsync();
+    expect(test.callbacks.onPhase).toHaveBeenLastCalledWith("error");
+    expect(detachTerminal).toHaveBeenCalledWith({ ...test.session, reconnected: true });
+    expect(createTerminal).toHaveBeenCalledOnce();
+    expect(writeTerminal).not.toHaveBeenCalled();
+    expect(test.handle.sendText("late")).toBe(false);
+  });
+
   it("does not steal the selected pane's focus when attachments become ready", async () => {
     const focus = vi.spyOn(Terminal.prototype, "focus");
     const selected = fixture();

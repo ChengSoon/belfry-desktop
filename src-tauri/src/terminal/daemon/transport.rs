@@ -47,15 +47,23 @@ pub fn connect(port: u16) -> Result<TcpStream, String> {
 
 pub fn call<T: DeserializeOwned>(endpoint: &Endpoint, command: Command) -> Result<T, String> {
     let mut stream = connect(endpoint.port)?;
+    exchange(endpoint, command, &mut stream)
+}
+
+pub(super) fn exchange<T: DeserializeOwned>(
+    endpoint: &Endpoint,
+    command: Command,
+    stream: &mut TcpStream,
+) -> Result<T, String> {
     write(
-        &mut stream,
+        stream,
         &Request {
             version: VERSION,
             token: endpoint.token.clone(),
             command,
         },
     )?;
-    let reply: Reply = read(&mut stream)?;
+    let reply: Reply = read(stream)?;
     if let Some(error) = reply.error {
         return Err(error);
     }

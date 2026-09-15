@@ -79,7 +79,7 @@ impl Replay {
     }
 }
 
-fn event_size(event: &TerminalEvent) -> usize {
+pub(super) fn event_size(event: &TerminalEvent) -> usize {
     match event {
         TerminalEvent::Output { bytes, .. } => bytes.len() + 128,
         TerminalEvent::AgentState { snapshot, .. } => {
