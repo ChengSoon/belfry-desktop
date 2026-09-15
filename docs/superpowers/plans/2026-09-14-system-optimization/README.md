@@ -131,3 +131,36 @@
 
 Rust 默认忽略项和未提供上游 fixture 的 4 项 PI 互操作不计入通过数；Windows 原生交互、
 Hook / Worktree 剩余桌面步骤仍以实施记录为准。远程检查与发布结果将在实际运行后记录。
+
+## 2026-09-15 CI 回归修复
+
+已核对分支检查 [34915032782](https://github.com/ChengSoon/belfry-desktop/actions/runs/34915032782)、
+PR 检查 [34916470206](https://github.com/ChengSoon/belfry-desktop/actions/runs/34916470206) 和合并后
+主分支检查 [34916486517](https://github.com/ChengSoon/belfry-desktop/actions/runs/34916486517)。
+主分支 macOS 检查通过，Windows 检查仍失败；本节记录的是待推送修复的本机验证。
+
+- Worktree 测试继承 Git 的 `core.autocrlf`，Windows 检出内容为 CRLF，与 LF 断言不同。
+  临时测试仓库显式设置 `core.autocrlf=false`；本机注入独立的 `autocrlf=true` 配置，先复现失败再验证修复。
+- 身份注入和 PATH 测试写死 Unix 路径及冒号分隔。改用平台匹配的 URI、路径和 `join_paths`，
+  并校验原 PATH 的全部条目、空格和顺序。
+- 插件重启测试在服务启动后 30ms 自动退出，可能抢在 `load` 握手完成前发生。
+  人为延迟启动可复现 `PLUGIN_EXITED`；改为握手完成后终止测试自己的 worker，验证重启后再退出、禁用及取消待执行重启。
+- PR 检查额外暴露同长度日志连续改写的时间戳假设：缓存依赖文件身份、大小和时间戳，
+  连续写入未必推进文件时钟刻度。测试显式递增修改时间，验证可观测元数据变化时的缓存失效；缓存策略保持原状。
+
+改动限于五处测试及本文记录。本机实跑结果如下，各通过项命令均退出 0：
+
+| 验证 | 结果 | 日志 |
+| --- | --- | --- |
+| `pnpm test` | 144 文件、816 通过 | `/tmp/belfry-ci-frontend.log` |
+| `pnpm build` | 类型检查、生产构建通过；保留原有大 chunk 提示 | `/tmp/belfry-ci-build.log` |
+| Rust workspace，`--offline --locked`，独立 Git 配置设 `autocrlf=true` | 597 通过、10 原有忽略、0 失败 | `/tmp/belfry-ci-rust-after.log` |
+| 完整插件和真实浏览器回归 | 171 通过、0 失败、0 跳过 | `/tmp/belfry-ci-plugins-after.log` |
+| Node 20 发布资产、sidecar、生命周期和生产面板回归 | 19 通过、0 失败、0 跳过 | `/tmp/belfry-ci-node20.log` |
+| 生命周期套件连续重复 10 轮 | 40 次测试通过 | `/tmp/belfry-ci-lifecycle-repeat.log` |
+| PATH 定向测试，临时目录分别不放/放入真实 CLI | 4 次调用通过，CLI 存在时的断言实际执行、未跳过 | 本次命令输出 |
+
+Windows 目标的 `cargo check --workspace --tests --target x86_64-pc-windows-msvc --offline --locked`
+（`BELFRY_CROSS_CHECK=1`）退出 101：本机缺少 Windows SDK，`ring` 的 C 编译找不到 `assert.h`；
+日志为 `/tmp/belfry-ci-windows-check.log`，不计为通过。用户已授权提交、推送本次修复并复跑 CI；
+Windows 原生验证以修复提交的远程检查结果为准，后续发布仍待完成。

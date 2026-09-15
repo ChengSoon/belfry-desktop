@@ -152,13 +152,28 @@ mod tests {
     use belfry_protocol::{ENV_PROJECT, ENV_TAB_ID, ENV_TOKEN};
     use std::collections::HashMap;
 
+    const PROJECT_URI: &str = if cfg!(windows) {
+        "file:///C:/tmp/project"
+    } else {
+        "file:///tmp/project"
+    };
+    const PROJECT_PATH: &str = if cfg!(windows) {
+        r"C:\tmp\project"
+    } else {
+        "/tmp/project"
+    };
+
     /// `cwd` 按真实契约给 `file://` URI——前端传的是 `tab.project.rootUri`。
     fn request(profile_id: &str, tab_id: Option<&str>) -> CreateTerminalRequest {
         CreateTerminalRequest {
-            platform: super::super::contracts::Platform::Macos,
+            platform: if cfg!(windows) {
+                super::super::contracts::Platform::Windows
+            } else {
+                super::super::contracts::Platform::Macos
+            },
             profile_id: profile_id.to_string(),
             tab_id: tab_id.map(str::to_string),
-            cwd: Some("file:///tmp/project".to_string()),
+            cwd: Some(PROJECT_URI.to_string()),
             command: None,
             env: HashMap::new(),
             launch_overlay: Default::default(),
@@ -182,8 +197,8 @@ mod tests {
         assert_eq!(req.env.get(ENV_TAB_ID).map(String::as_str), Some("tab-1"));
         // URI 要落成真实路径，Agent 才能拿它 cd。
         assert_eq!(
-            req.env.get(ENV_PROJECT).map(String::as_str),
-            Some("/tmp/project")
+            Some(PROJECT_PATH),
+            req.env.get(ENV_PROJECT).map(String::as_str)
         );
         let token = req.env.get(ENV_TOKEN).expect("应该发了 token");
         assert!(identities.verify("tab-1", token));

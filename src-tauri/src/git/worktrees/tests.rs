@@ -5,7 +5,10 @@ use std::path::PathBuf;
 struct Fixture { repo: Repository, data: PathBuf, service: WorktreeService }
 impl Fixture {
     fn new() -> Self {
-        let repo = Repository::new(); repo.write("hello.txt", "base\n"); repo.commit();
+        let repo = Repository::new();
+        // 工作树会重新检出文件，固定夹具换行，避免继承 Windows 的 CRLF 配置。
+        repo.git(&["config", "core.autocrlf", "false"]);
+        repo.write("hello.txt", "base\n"); repo.commit();
         let data = std::env::temp_dir().join(format!("belfry-worktree-test-{}", ulid::Ulid::generate()));
         let service = WorktreeService::new(data.clone());
         Self { repo, data, service }

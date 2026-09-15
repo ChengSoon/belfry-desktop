@@ -26,18 +26,31 @@ test("development code reloads automatically and disabling cancels further reloa
   assert.deepEqual((await runtime.call("catalog")).plugins, []);
 });
 test("resident services restart a crashed worker, while disable cancels restart", async (t) => {
+  const restartObservationMs = 1000;
   const root = await temporary(t);
   const entry = await plugin(root, "local.restart", { code: `module.exports.onLoad = async () => {
     const settings = await pi.plugin.getSettings(); await pi.plugin.setSettings({ starts: (settings.starts || 0) + 1 });
-    pi.services.register({ id: "background", start() { if (!settings.starts) setTimeout(() => process.exit(7), 30); }, stop() {} });
+    pi.services.register({ id: "background", start() {}, stop() {} });
   };`, manifest: { permissions: ["background.service"], contributes: { services: [{ id: "background" }] } } });
-  const runtime = await host(t, root);
-  await runtime.call("load", entry);
+  const crashes = [];
+  const runtime = await host(t, root, { event: (event) => {
+    if (event.name === "error" && event.pluginId === entry.manifest.id) crashes.push(event);
+  } });
+  // 先完成启动握手，再终止本测试创建的 worker，避免退出定时器抢在 load 之前触发。
+  const loaded = await runtime.call("load", entry);
+  process.kill(loaded.pid);
   await eventually(async () => {
     try { return (await runtime.call("settings.get", { pluginId: entry.manifest.id })).starts === 2; } catch { return false; }
   }, "服务未重启");
+  const restarted = (await runtime.call("catalog")).plugins.find((item) => item.id === entry.manifest.id);
+  assert.equal(restarted.status, "ready");
+  process.kill(restarted.pid);
+  await eventually(() => crashes.length === 2, "宿主未观察到第二次退出");
   await runtime.call("unload", { pluginId: entry.manifest.id });
-  assert.deepEqual((await runtime.call("catalog")).services, []);
+  await new Promise((resolve) => setTimeout(resolve, restartObservationMs));
+  const catalog = await runtime.call("catalog");
+  assert.deepEqual(catalog.plugins, []);
+  assert.deepEqual(catalog.services, []);
 });
 test("parallel partial setting writes preserve all submitted keys", async (t) => {
   const root = await temporary(t), entry = await plugin(root, "local.settings", { code: "module.exports = {};" });
