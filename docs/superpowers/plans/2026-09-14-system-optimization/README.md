@@ -164,3 +164,20 @@ Windows 目标的 `cargo check --workspace --tests --target x86_64-pc-windows-ms
 （`BELFRY_CROSS_CHECK=1`）退出 101：本机缺少 Windows SDK，`ring` 的 C 编译找不到 `assert.h`；
 日志为 `/tmp/belfry-ci-windows-check.log`，不计为通过。用户已授权提交、推送本次修复并复跑 CI；
 Windows 原生验证以修复提交的远程检查结果为准，后续发布仍待完成。
+
+### 修复提交 `42f8e23` 的远程复跑
+
+分支推送触发 [34918121787](https://github.com/ChengSoon/belfry-desktop/actions/runs/34918121787)。
+Windows 已通过 Rust workspace 回归；macOS 的生命周期测试通过，但嵌入浏览器键盘输入测试出现一次
+`Runtime.evaluate` 超时。该浏览器用例在本机以两个并发进程重复 12 次均通过，尚未确定远程超时的具体阶段。
+Windows 插件回归持续超过 20 分钟未结束；原运行器缓冲全部输出，子进程退出前无法得到逐项结果。
+
+为继续定位，CI 运行器准备改用 spec 实时日志和持续写入的 TAP 文件，并设置 5 分钟单项测试超时、
+20 分钟整套测试进程超时。单项超时不能结束“测试已通过但仍有活动句柄”的进程，整套进程超时覆盖该情况。
+新的运行器在本机完成全部 171 项测试，0 失败、0 跳过（`/tmp/belfry-ci-streaming-runner.log`）；
+另用独立临时夹具在 Node 24 / Node 20 验证残留句柄会触发进程超时，并保留已完成用例的 TAP 输出。
+此处新增 CI 运行器改动，推送后仍需继续定位 Windows 卡点和确认两平台完整结果。
+
+2026-09-15 继续发布：现有诊断改动本机复验 171/171 插件回归通过、0 跳过（`/tmp/otty-ci-verify.log`），
+发布资产与 sidecar 11/11 通过（`/tmp/otty-release-tests.log`）；独立审查未发现阻止诊断提交的回归。
+这些改动仅补实时日志与超时现场，尚不代表远程失败根因已修复；下一步推送诊断并根据 Windows 日志处理。

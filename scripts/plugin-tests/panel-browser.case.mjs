@@ -42,6 +42,8 @@ test("the embedded browser streams its page into plugin chrome and forwards keyb
   const value = await view.cdp.evaluate(`pluginBridge.invoke('browser.evaluate',{expression: \`new Promise(resolve => {
     const input=document.querySelector('input');
     if(input.value)resolve(input.value); else input.addEventListener('input',()=>resolve(input.value),{once:true});
+    // 键盘事件没转发进来时交代输入框现状，否则这层嵌套 evaluate 会一路空等到 CDP 兜底。
+    setTimeout(()=>resolve('keyboard timeout: value='+JSON.stringify(input.value)+' focused='+(document.activeElement===input)),12000);
   })\`})`);
   assert.equal(value, "a");
 });
