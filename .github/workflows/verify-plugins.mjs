@@ -29,7 +29,11 @@ const suiteTimeoutMs = 20 * 60 * 1000;
 const outputPath = process.env.GITHUB_ACTIONS ? "plugin-tests.tap"
   : join(process.env.TMPDIR ?? process.env.TEMP ?? "/tmp", "belfry-developer3-plugin-tests.tap");
 // 实时打印进度，同时持续写入 TAP；测试卡住时也能保留最后完成的用例和超时结果。
+// --test-force-exit：用例判定完成后立即退出。否则残留句柄（Windows 上 kill 父进程留下的
+// 孙子进程会继承管道）会让运行器在全部通过后静默挂起，--test-timeout 也管不到，
+// 直到外层 spawnSync 超时才被杀掉，且此时结果按文件顺序积压、后续文件一条都打不出来。
 const result = spawnSync(process.execPath, ["--test", "--test-concurrency=2", `--test-timeout=${testTimeoutMs}`,
+  "--test-force-exit",
   "--test-reporter=spec", "--test-reporter-destination=stdout",
   "--test-reporter=tap", `--test-reporter-destination=${outputPath}`, ...suites.sort()], {
   stdio: "inherit", timeout: suiteTimeoutMs,

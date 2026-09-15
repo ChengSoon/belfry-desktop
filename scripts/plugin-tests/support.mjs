@@ -1,8 +1,10 @@
 import { spawn } from "node:child_process";
+import { once } from "node:events";
 import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createInterface } from "node:readline";
+import { terminate } from "../../src-tauri/src/plugins/node/process-tree.mjs";
 
 export function cleanupScope(t) {
   const cleanups = [];
@@ -66,7 +68,12 @@ export async function host(t, root, options = {}) {
     if (child.exitCode !== null) return;
     await call("shutdown").catch(() => {});
     child.stdin.end();
-    if (child.exitCode === null) child.kill();
+    // 宿主会 fork worker，worker 继承了这里的 stdout/stderr 管道。只杀宿主本身的话，
+    // Windows 上留下的 worker 会一直攥着管道，让测试进程在用例全通过后仍无法退出。
+    if (child.exitCode !== null) return;
+    child.kill("SIGKILL");
+    if (process.platform === "win32") terminate(child, "SIGKILL");
+    await once(child, "close");
   });
   await call("hello");
   return { call, child };
