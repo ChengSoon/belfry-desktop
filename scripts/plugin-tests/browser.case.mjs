@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
+import { once } from "node:events";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
 import { cleanupScope, temporary } from "./support.mjs";
 import { PluginBrowser } from "../../src-tauri/src/plugins/node/browser.mjs";
 import { BrowserPreview } from "../../src-tauri/src/plugins/node/browser-preview.mjs";
+import { terminate } from "../../src-tauri/src/plugins/node/process-tree.mjs";
 
 test("PI browser APIs operate a real isolated guest and keep workspace sessions separate", async (t) => {
   const lifetime = cleanupScope(t);
@@ -52,7 +54,11 @@ test("a crashed browser releases stale targets and restarts on the next navigati
   await navigate();
   const original = await browser.target(entry, context); lifetime.after(() => original.close());
   const engine = await browser.starting;
-  engine.child.kill("SIGKILL"); await engine.exited;
+  const closed = once(engine.child, "close");
+  // Windows 的 Chrome 子进程会继承调试管道；只杀主进程会让测试 worker 永远等不到管道关闭。
+  terminate(engine.child, "SIGKILL"); await engine.exited;
+  // exit 只表示主进程退出；close 才能确认子进程继承的管道也已释放。
+  await closed;
   assert.equal((await navigate()).title, "Recovered");
   assert.notEqual((await browser.starting).child.pid, engine.child.pid);
 });
