@@ -18,9 +18,22 @@ export function cleanupScope(t) {
   return { after: (cleanup) => { cleanups.push(cleanup); } };
 }
 
+// t.after 是先注册先执行：temporary() 的删除总排在 host() 的清理之前。
+// Windows 上被宿主/worker 占着的插件目录删不掉（EBUSY），所以这里按 test 记下
+// 待停的宿主，删目录前先把它们等干净。
+const hostsByTest = new WeakMap();
+function stopHostsFirst(t) {
+  let stops = hostsByTest.get(t);
+  if (!stops) { stops = []; hostsByTest.set(t, stops); }
+  return stops;
+}
+
 export async function temporary(t) {
   const root = await mkdtemp(join(tmpdir(), "belfry-runtime-test-"));
-  t.after(() => rm(root, { recursive: true, force: true }));
+  t.after(async () => {
+    for (const stop of stopHostsFirst(t).splice(0)) await stop().catch(() => {});
+    await rm(root, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+  });
   return root;
 }
 export async function plugin(root, id, { code, manifest: extra = {} }) {
@@ -64,21 +77,23 @@ export async function host(t, root, options = {}) {
       child.stdin.write(JSON.stringify({ id, method, params }) + "\n");
     });
   }
-  t.after(async () => {
+  const stop = async () => {
     if (child.exitCode !== null) return;
     const closed = once(child, "close");
     await call("shutdown").catch(() => {});
     child.stdin.end();
-    // 宿主 fork 的 worker 继承了这里的 stdout/stderr 管道，也攥着插件目录的文件句柄。
-    // 先给 stdin 关闭后的优雅退出留出时间：worker 释放句柄，随后 temporary() 的 rm
-    // 才不会在 Windows 上撞上 EBUSY。超时未退再杀整棵进程树兜底，避免残留 worker
-    // 攥着管道、让测试进程在用例全通过后仍无法退出。
+    // 宿主 fork 的 worker 继承了这里的管道，也攥着插件目录的文件句柄；等 close
+    // 才能确认句柄真的放开。超时未退再杀整棵进程树兜底，避免残留 worker 攥着管道，
+    // 让测试进程在用例全部通过后仍无法退出。
     const timer = setTimeout(() => {
       child.kill("SIGKILL");
       if (process.platform === "win32") terminate(child, "SIGKILL");
     }, 5000);
     await closed; clearTimeout(timer);
-  });
+  };
+  // 同一个 test 里若有 temporary()，删目录前会先执行这里；否则由下面的 t.after 兜底。
+  stopHostsFirst(t).push(stop);
+  t.after(stop);
   await call("hello");
   return { call, child };
 }
