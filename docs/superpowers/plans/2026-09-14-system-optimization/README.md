@@ -131,3 +131,59 @@
 
 Rust 默认忽略项和未提供上游 fixture 的 4 项 PI 互操作不计入通过数；Windows 原生交互、
 Hook / Worktree 剩余桌面步骤仍以实施记录为准。远程检查与发布结果将在实际运行后记录。
+
+## 2026-09-15 CI 回归修复
+
+已核对分支检查 [34915032782](https://github.com/ChengSoon/belfry-desktop/actions/runs/34915032782)、
+PR 检查 [34916470206](https://github.com/ChengSoon/belfry-desktop/actions/runs/34916470206) 和合并后
+主分支检查 [34916486517](https://github.com/ChengSoon/belfry-desktop/actions/runs/34916486517)。
+主分支 macOS 检查通过，Windows 检查仍失败；本节记录的是待推送修复的本机验证。
+
+- Worktree 测试继承 Git 的 `core.autocrlf`，Windows 检出内容为 CRLF，与 LF 断言不同。
+  临时测试仓库显式设置 `core.autocrlf=false`；本机注入独立的 `autocrlf=true` 配置，先复现失败再验证修复。
+- 身份注入和 PATH 测试写死 Unix 路径及冒号分隔。改用平台匹配的 URI、路径和 `join_paths`，
+  并校验原 PATH 的全部条目、空格和顺序。
+- 插件重启测试在服务启动后 30ms 自动退出，可能抢在 `load` 握手完成前发生。
+  人为延迟启动可复现 `PLUGIN_EXITED`；改为握手完成后终止测试自己的 worker，验证重启后再退出、禁用及取消待执行重启。
+- PR 检查额外暴露同长度日志连续改写的时间戳假设：缓存依赖文件身份、大小和时间戳，
+  连续写入未必推进文件时钟刻度。测试显式递增修改时间，验证可观测元数据变化时的缓存失效；缓存策略保持原状。
+
+改动限于五处测试及本文记录。本机实跑结果如下，各通过项命令均退出 0：
+
+| 验证 | 结果 | 日志 |
+| --- | --- | --- |
+| `pnpm test` | 144 文件、816 通过 | `/tmp/belfry-ci-frontend.log` |
+| `pnpm build` | 类型检查、生产构建通过；保留原有大 chunk 提示 | `/tmp/belfry-ci-build.log` |
+| Rust workspace，`--offline --locked`，独立 Git 配置设 `autocrlf=true` | 597 通过、10 原有忽略、0 失败 | `/tmp/belfry-ci-rust-after.log` |
+| 完整插件和真实浏览器回归 | 171 通过、0 失败、0 跳过 | `/tmp/belfry-ci-plugins-after.log` |
+| Node 20 发布资产、sidecar、生命周期和生产面板回归 | 19 通过、0 失败、0 跳过 | `/tmp/belfry-ci-node20.log` |
+| 生命周期套件连续重复 10 轮 | 40 次测试通过 | `/tmp/belfry-ci-lifecycle-repeat.log` |
+| PATH 定向测试，临时目录分别不放/放入真实 CLI | 4 次调用通过，CLI 存在时的断言实际执行、未跳过 | 本次命令输出 |
+
+Windows 目标的 `cargo check --workspace --tests --target x86_64-pc-windows-msvc --offline --locked`
+（`BELFRY_CROSS_CHECK=1`）退出 101：本机缺少 Windows SDK，`ring` 的 C 编译找不到 `assert.h`；
+日志为 `/tmp/belfry-ci-windows-check.log`，不计为通过。用户已授权提交、推送本次修复并复跑 CI；
+Windows 原生验证以修复提交的远程检查结果为准，后续发布仍待完成。
+
+### 修复提交 `42f8e23` 的远程复跑
+
+分支推送触发 [34918121787](https://github.com/ChengSoon/belfry-desktop/actions/runs/34918121787)。
+Windows 已通过 Rust workspace 回归；macOS 的生命周期测试通过，但嵌入浏览器键盘输入测试出现一次
+`Runtime.evaluate` 超时。该浏览器用例在本机以两个并发进程重复 12 次均通过，尚未确定远程超时的具体阶段。
+Windows 插件回归持续超过 20 分钟未结束；原运行器缓冲全部输出，子进程退出前无法得到逐项结果。
+
+为继续定位，CI 运行器准备改用 spec 实时日志和持续写入的 TAP 文件，并设置 5 分钟单项测试超时、
+20 分钟整套测试进程超时。单项超时不能结束“测试已通过但仍有活动句柄”的进程，整套进程超时覆盖该情况。
+新的运行器在本机完成全部 171 项测试，0 失败、0 跳过（`/tmp/belfry-ci-streaming-runner.log`）；
+另用独立临时夹具在 Node 24 / Node 20 验证残留句柄会触发进程超时，并保留已完成用例的 TAP 输出。
+此处新增 CI 运行器改动，推送后仍需继续定位 Windows 卡点和确认两平台完整结果。
+
+2026-09-15 继续发布：现有诊断改动本机复验 171/171 插件回归通过、0 跳过（`/tmp/otty-ci-verify.log`），
+发布资产与 sidecar 11/11 通过（`/tmp/otty-release-tests.log`）；独立审查未发现阻止诊断提交的回归。
+这些改动仅补实时日志与超时现场，尚不代表远程失败根因已修复；下一步推送诊断并根据 Windows 日志处理。
+
+诊断提交 `e41dbb5` 的 CI `34936035962`：macOS 全部通过；Windows 在插件步骤之前，
+`native_backend_emits_output_before_a_single_exit` 等待 PowerShell 提示符超时。检查发现测试只等 DSR
+就合并回复 CPR 与 DA，未等待 DA 查询，存在提前回复被消费的时序缺口。改为逐项查询后回复；
+独立审查确认修改范围仅为测试辅助函数。本机原生终端定向回归通过（`/tmp/otty-native-tests.log`），
+Windows 分支无法在 macOS 执行，需推送 CI 验证，尚不宣称此问题已解决。

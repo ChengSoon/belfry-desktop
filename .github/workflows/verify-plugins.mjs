@@ -1,6 +1,6 @@
 // Node 枚举文件，避免 PowerShell 与 POSIX shell 对 glob 的不同处理。
 import { spawnSync } from "node:child_process";
-import { appendFileSync, existsSync, readdirSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { browserExecutable } from "../../src-tauri/src/plugins/node/browser-process.mjs";
 
@@ -23,15 +23,21 @@ for (const directory of ["src/components/lazy/testing", "src/workspace/testing"]
   suites.push(...readdirSync(directory).filter((name) => name.endsWith(".case.mjs")).map((name) => join(directory, name)));
 }
 suites.push("scripts/test-command-library.mjs");
-const result = spawnSync(process.execPath, ["--test", "--test-reporter=tap", "--test-concurrency=2", ...suites.sort()], {
-  encoding: "utf8", maxBuffer: 16 * 1024 * 1024,
+const testTimeoutMs = 5 * 60 * 1000;
+// macOS 全量约 3.5 分钟，Windows 惯常慢 2~3 倍；留到 20 分钟既不误杀，也远早于 45 分钟的 job 上限。
+const suiteTimeoutMs = 20 * 60 * 1000;
+const outputPath = process.env.GITHUB_ACTIONS ? "plugin-tests.tap"
+  : join(process.env.TMPDIR ?? process.env.TEMP ?? "/tmp", "belfry-developer3-plugin-tests.tap");
+// 实时打印进度，同时持续写入 TAP；测试卡住时也能保留最后完成的用例和超时结果。
+const result = spawnSync(process.execPath, ["--test", "--test-concurrency=2", `--test-timeout=${testTimeoutMs}`,
+  "--test-reporter=spec", "--test-reporter-destination=stdout",
+  "--test-reporter=tap", `--test-reporter-destination=${outputPath}`, ...suites.sort()], {
+  stdio: "inherit", timeout: suiteTimeoutMs,
   env: { ...process.env, BELFRY_REQUIRE_BROWSER_TESTS: "1" },
 });
-const output = (result.stdout ?? "") + (result.stderr ?? "");
-writeFileSync(process.env.GITHUB_ACTIONS ? "plugin-tests.tap" : join(process.env.TMPDIR ?? process.env.TEMP ?? "/tmp", "belfry-developer3-plugin-tests.tap"), output);
-process.stdout.write(output);
 if (result.error) throw result.error;
 if (result.status !== 0) process.exit(result.status ?? 1);
+const output = readFileSync(outputPath, "utf8");
 if (/^# (?:SKIP|skip\b)|# SKIP\b|^# skipped [1-9]/m.test(output)) throw new Error("必跑回归出现跳过项，请检查浏览器或测试环境");
 
 function checkUpstreamFixtures(root) {

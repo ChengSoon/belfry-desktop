@@ -104,12 +104,22 @@ fn copied_claude_messages_and_codex_resume_fragments_stay_deduplicated() {
 
 #[test]
 fn truncation_same_length_rewrite_atomic_replacement_and_deletion_invalidate() {
+    const REWRITE_TIME_STEP: std::time::Duration = std::time::Duration::from_secs(1);
     let fixture = Fixture::new();
     let path = fixture.write("claude/one.jsonl", &[claude("one", 40)]);
+    let mut modified = fs::metadata(&path).unwrap().modified().unwrap();
     let mut cache = FileCache::default();
     fixture.query(&mut cache, &UsageQuery::default());
     for output in [5, 6] {
         fs::write(&path, lines(&[claude("one", output)])).unwrap();
+        // 连续写入可能落在同一文件时钟刻度，显式推进时间以验证元数据变更失效。
+        modified += REWRITE_TIME_STEP;
+        fs::OpenOptions::new()
+            .write(true)
+            .open(&path)
+            .unwrap()
+            .set_modified(modified)
+            .unwrap();
         let report = fixture.query(&mut cache, &UsageQuery::default());
         assert_eq!(60 + output, total(&report));
         assert_eq!(0, report.diagnostics.cache_hits);

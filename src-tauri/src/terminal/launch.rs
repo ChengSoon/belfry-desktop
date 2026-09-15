@@ -839,29 +839,36 @@ mod tests {
             eprintln!("跳过：belfry 还没构建");
             return;
         };
-        let base = std::ffi::OsString::from("/usr/bin:/bin");
+        let original = base_path_entries();
+        let base = std::env::join_paths(&original).expect("夹具 PATH 应使用当前平台的分隔符");
 
         let resolved = with_cli_on_path(Some(base)).expect("应该拼得出 PATH");
 
         let mut parts = std::env::split_paths(&resolved);
         // 必须在最前：用户机器上可能装着同名的旧版本，排后面就等于没注入。
-        assert_eq!(parts.next().as_deref(), Some(dir.as_path()));
-        assert!(
-            std::env::split_paths(&resolved).any(|p| p == std::path::Path::new("/bin")),
-            "原有条目不能丢"
+        assert_eq!(Some(dir.as_path()), parts.next().as_deref());
+        assert_eq!(
+            original.to_vec(),
+            parts.collect::<Vec<_>>(),
+            "原有条目及顺序不能丢"
         );
     }
 
     #[test]
     fn a_missing_cli_leaves_path_untouched() {
         // cli_directory 找不到文件时返回 None，此时不该造出一个只含无效目录的 PATH。
-        let base = std::ffi::OsString::from("/usr/bin:/bin");
+        let base = std::env::join_paths(base_path_entries()).unwrap();
         let resolved = with_cli_on_path(Some(base.clone()));
 
         match cli_directory() {
             Some(_) => assert_ne!(resolved.as_ref(), Some(&base)),
             None => assert_eq!(resolved.as_ref(), Some(&base)),
         }
+    }
+
+    fn base_path_entries() -> [std::path::PathBuf; 2] {
+        let root = std::env::temp_dir();
+        [root.join("original-bin"), root.join("original bin")]
     }
 
     #[test]

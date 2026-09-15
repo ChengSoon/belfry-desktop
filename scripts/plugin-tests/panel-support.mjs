@@ -31,15 +31,20 @@ export async function browserAvailable(t) {
   catch (error) { if (process.env.BELFRY_REQUIRE_BROWSER_TESTS === "1") throw error; t.skip(error.message); return false; }
 }
 
+// 画面帧迟迟不来时返回现场而不是空等：CDP 的 20s 兜底只会报一句 Runtime.evaluate 超时，看不出卡在哪。
+const GUEST_FRAME_TIMEOUT = 15_000;
+
 export async function showGuest(view, path = "guest.html") {
   return view.cdp.evaluate(`(async () => {
     await pluginBridge.invoke('browser.navigate',{path:${JSON.stringify(path)}});
     await pluginBridge.invoke('browser.setBounds',{x:0,y:80,width:500,height:300});
     await pluginBridge.invoke('browser.setVisible',{visible:true});
-    return await new Promise(resolve=>{
-      const image=document.querySelector('[role=application] img');
+    const image=document.querySelector('[role=application] img');
+    const painted=new Promise(resolve=>{
       if(image.complete&&image.naturalWidth)resolve(true); else image.addEventListener('load',()=>resolve(image.naturalWidth>0),{once:true});
     });
+    return await Promise.race([painted, new Promise(resolve=>setTimeout(()=>resolve({ frameTimeout:${GUEST_FRAME_TIMEOUT},
+      complete:image.complete, naturalWidth:image.naturalWidth, src:String(image.getAttribute('src')||'').slice(0,48) }),${GUEST_FRAME_TIMEOUT}))]);
   })()`);
 }
 
