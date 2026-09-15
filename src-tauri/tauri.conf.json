@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Belfry",
-  "version": "0.20.2",
+  "version": "0.21.0",
   "identifier": "io.appmakes.belfry.desktop",
   "build": {
     "beforeDevCommand": "node scripts/bundle-cli.mjs && pnpm dev",
