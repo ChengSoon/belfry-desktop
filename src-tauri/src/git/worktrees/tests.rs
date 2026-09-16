@@ -148,3 +148,29 @@ fn changed_target_or_source_branch_requires_a_new_review() {
     assert!(output.status.success());
     assert!(f.action(&tree, Action::Commit).is_err());
 }
+
+/// Windows 上常见的旧 Git 不支持 `worktree list -z`，解析必须基于换行分隔的 porcelain。
+#[test]
+fn worktree_listing_parses_branches_detached_heads_and_locked_trees() {
+    let mut f = Fixture::new();
+    let linked = f.create("列表解析");
+    let trees = super::repository::worktrees(&f.repo.root).unwrap();
+    assert_eq!(2, trees.len(), "主工作树与新建工作树都应列出：{trees:?}");
+
+    let main = trees.iter().find(|tree| tree.branch.as_deref() == Some("main")).expect("主工作树应解析出分支");
+    assert_eq!(40, main.head.len(), "HEAD 应是完整提交号：{}", main.head);
+    assert!(!main.locked);
+
+    let created = trees.iter().find(|tree| tree.branch.as_deref() == Some("task/列表解析"))
+        .unwrap_or_else(|| panic!("新建工作树应在列表中：{trees:?}"));
+    // Git 报的是规范化路径（macOS 上带 /private 前缀），不能直接比对创建时的字符串。
+    let created_path = created.root_path.clone();
+
+    // 分离 HEAD 没有 branch 行，且 locked 要如实反映，否则界面会误判可清理。
+    f.repo.try_git(&["-C", &linked.root_path, "checkout", "--detach"]);
+    f.repo.try_git(&["worktree", "lock", &linked.root_path]);
+    let locked = super::repository::worktrees(&f.repo.root).unwrap()
+        .into_iter().find(|tree| tree.root_path == created_path).expect("锁定后仍应列出");
+    assert_eq!(None, locked.branch, "分离 HEAD 不应带分支");
+    assert!(locked.locked, "锁定的工作树必须标记为 locked");
+}

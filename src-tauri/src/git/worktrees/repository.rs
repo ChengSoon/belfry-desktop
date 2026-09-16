@@ -36,16 +36,25 @@ pub fn report(path: &str) -> Result<(Repository, WorktreeReport), AppError> {
 }
 
 pub fn worktrees(root: &Path) -> Result<Vec<ExistingWorktree>, AppError> {
-    let raw = text(root, &["worktree", "list", "--porcelain", "-z"])?;
-    Ok(raw.split("\0\0").filter_map(|entry| {
-        let fields: Vec<_> = entry.split('\0').collect();
-        let path = fields.iter().find_map(|line| line.strip_prefix("worktree "))?;
-        Some(ExistingWorktree { root_path: path.into(),
-            branch: fields.iter().find_map(|line| line.strip_prefix("branch refs/heads/")).map(str::to_owned),
-            head: fields.iter().find_map(|line| line.strip_prefix("HEAD ")).unwrap_or("").into(),
-            locked: fields.iter().any(|line| line.starts_with("locked") || line.starts_with("prunable")),
-        })
-    }).collect())
+    // 不用 `-z`：该开关是 Git 2.36 才加的，Windows 上常见的旧版本会报 unknown switch。
+    // 换行分隔的 porcelain 格式很久之前就稳定了；lines() 一并处理 Windows 的 CRLF。
+    // 逐行以 `worktree ` 开头启动新记录，比按空行切分更稳：即便某条记录字段异常，
+    // 也不会把相邻 worktree 混进同一条。
+    let raw = text(root, &["worktree", "list", "--porcelain"])?;
+    let mut result = Vec::new();
+    let mut current: Option<ExistingWorktree> = None;
+    for line in raw.lines() {
+        if let Some(path) = line.strip_prefix("worktree ") {
+            if let Some(tree) = current.take() { result.push(tree); }
+            current = Some(ExistingWorktree { root_path: path.into(), branch: None, head: String::new(), locked: false });
+        } else if let Some(tree) = current.as_mut() {
+            if let Some(head) = line.strip_prefix("HEAD ") { tree.head = head.into(); }
+            else if let Some(branch) = line.strip_prefix("branch refs/heads/") { tree.branch = Some(branch.into()); }
+            else if line.starts_with("locked") || line.starts_with("prunable") { tree.locked = true; }
+        }
+    }
+    if let Some(tree) = current.take() { result.push(tree); }
+    Ok(result)
 }
 
 pub fn validate_branch(root: &Path, branch: &str) -> Result<(), AppError> {
