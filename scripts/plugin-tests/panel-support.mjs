@@ -32,20 +32,27 @@ export async function browserAvailable(t) {
 }
 
 // 画面帧迟迟不来时返回现场而不是空等：CDP 的 20s 兜底只会报一句 Runtime.evaluate 超时，看不出卡在哪。
-const GUEST_FRAME_TIMEOUT = 15_000;
+// 分次轮询而不是在一次 evaluate 里长等：单次调用远低于 CDP 上限，诊断信息得以保留，
+// 总时长又能覆盖 Windows CI 冷启动首帧（各文件第一个用例要新建引擎和 profile，最慢）。
+const GUEST_FRAME_TIMEOUT = 40_000, GUEST_FRAME_INTERVAL = 250;
 
 export async function showGuest(view, path = "guest.html") {
-  return view.cdp.evaluate(`(async () => {
+  await view.cdp.evaluate(`(async () => {
     await pluginBridge.invoke('browser.navigate',{path:${JSON.stringify(path)}});
     await pluginBridge.invoke('browser.setBounds',{x:0,y:80,width:500,height:300});
     await pluginBridge.invoke('browser.setVisible',{visible:true});
-    const image=document.querySelector('[role=application] img');
-    const painted=new Promise(resolve=>{
-      if(image.complete&&image.naturalWidth)resolve(true); else image.addEventListener('load',()=>resolve(image.naturalWidth>0),{once:true});
-    });
-    return await Promise.race([painted, new Promise(resolve=>setTimeout(()=>resolve({ frameTimeout:${GUEST_FRAME_TIMEOUT},
-      complete:image.complete, naturalWidth:image.naturalWidth, src:String(image.getAttribute('src')||'').slice(0,48) }),${GUEST_FRAME_TIMEOUT}))]);
   })()`);
+  const deadline = Date.now() + GUEST_FRAME_TIMEOUT;
+  for (;;) {
+    const state = await view.cdp.evaluate(`(() => {
+      const image=document.querySelector('[role=application] img');
+      return { painted: !!(image.complete&&image.naturalWidth), complete: image.complete,
+        naturalWidth: image.naturalWidth, src:String(image.getAttribute('src')||'').slice(0,48) };
+    })()`);
+    if (state.painted) return true;
+    if (Date.now() >= deadline) return { frameTimeout: GUEST_FRAME_TIMEOUT, ...state };
+    await new Promise((resolve) => setTimeout(resolve, GUEST_FRAME_INTERVAL));
+  }
 }
 
 export async function clickGuest(view) {

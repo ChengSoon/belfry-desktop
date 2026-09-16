@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
-import { host, plugin, temporary } from "./support.mjs";
+import { host, plugin, temporary, waitFor } from "./support.mjs";
 
 test("declared file scopes allow intended writes and reject protected or escaping paths", async (t) => {
   const root = await temporary(t);
@@ -56,13 +56,12 @@ test("resident services start and stop, and bus messages reach other subscribed 
   await runtime.call("load", listener); await runtime.call("load", publisher);
   assert.equal((await runtime.call("settings.get", { pluginId: listener.manifest.id })).running, true);
   await runtime.call("command", { pluginId: publisher.manifest.id, commandId: "send" });
-  let settings;
-  for (let attempt = 0; attempt < 20; attempt++) {
-    settings = await runtime.call("settings.get", { pluginId: listener.manifest.id });
-    if (settings.received) break;
-    await new Promise((resolve) => setTimeout(resolve, 10));
-  }
-  assert.equal(settings.received, "delivered");
+  // 总线消息跨进程投递后还要落盘设置，Windows CI 上远超原先写死的 200ms。
+  const settings = await waitFor(async () => {
+    const value = await runtime.call("settings.get", { pluginId: listener.manifest.id });
+    return value.received ? value : null;
+  });
+  assert.equal(settings?.received, "delivered");
   assert.equal((await runtime.call("catalog")).services[0].status, "running");
 });
 

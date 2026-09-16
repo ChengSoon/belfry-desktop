@@ -6,6 +6,18 @@ import { join, resolve } from "node:path";
 import { createInterface } from "node:readline";
 import { terminate } from "../../src-tauri/src/plugins/node/process-tree.mjs";
 
+// 轮询到 read() 返回真值为止。按墙钟超时而不是固定次数：写死次数等于把等待时长
+// 绑在开发机速度上，Windows CI 慢 2~3 倍时就会误判成功能失败。
+export async function waitFor(read, { timeout = 10_000, interval = 25 } = {}) {
+  const deadline = Date.now() + timeout;
+  let value = await read();
+  while (!value && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, interval));
+    value = await read();
+  }
+  return value;
+}
+
 export function cleanupScope(t) {
   const cleanups = [];
   t.after(async () => {

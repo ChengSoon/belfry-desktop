@@ -71,14 +71,17 @@ fn cancellation_and_timeout_terminate_only_the_managed_process_group() {
     for cancelled in [true, false] {
         let flag = Arc::new(AtomicBool::new(false));
         let signal = flag.clone();
+        // 取消路径要在超时之前稳稳命中，两者间距必须容得下 CI 的调度抖动：
+        // 原先 40ms 取消 / 150ms 超时只差 110ms，跑满负载时会先超时，误判成功能坏了。
+        let timeout = if cancelled { Duration::from_secs(10) } else { Duration::from_millis(150) };
         if cancelled {
             std::thread::spawn(move || { std::thread::sleep(Duration::from_millis(40)); signal.store(true, Ordering::Release); });
         }
         let mut command = std::process::Command::new("/bin/sh");
         command.args(["-c", "sleep 30 & wait"]);
         let started = Instant::now();
-        let result = process::run(command, &flag, Duration::from_millis(150));
-        assert!(started.elapsed() < Duration::from_secs(3));
+        let result = process::run(command, &flag, timeout);
+        assert!(started.elapsed() < Duration::from_secs(9));
         assert!(result.unwrap_err().message.contains(if cancelled { "取消" } else { "超时" }));
     }
 }
