@@ -55,12 +55,15 @@ test("resident services start and stop, and bus messages reach other subscribed 
   const runtime = await host(t, root);
   await runtime.call("load", listener); await runtime.call("load", publisher);
   assert.equal((await runtime.call("settings.get", { pluginId: listener.manifest.id })).running, true);
-  await runtime.call("command", { pluginId: publisher.manifest.id, commandId: "send" });
-  // 总线消息跨进程投递后还要落盘设置，Windows CI 上远超原先写死的 200ms。
+  // publish 是即发即忘：只投给当时已登记的订阅，不重投。而 load 返回不保证订阅已登记
+  // ——services.register 是同步的，bus.subscribe 还要 await 一次 IPC 往返，所以
+  // running=true 并不代表订阅就绪。CI 慢时首条消息会发空，之后等多久都不会来。
+  // 这里重发直到送达，验的是"消息能到达订阅者"，不是"首发必达"。
   const settings = await waitFor(async () => {
+    await runtime.call("command", { pluginId: publisher.manifest.id, commandId: "send" });
     const value = await runtime.call("settings.get", { pluginId: listener.manifest.id });
     return value.received ? value : null;
-  });
+  }, { interval: 100 });
   assert.equal(settings?.received, "delivered");
   assert.equal((await runtime.call("catalog")).services[0].status, "running");
 });
