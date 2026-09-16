@@ -320,14 +320,16 @@ pub(super) fn lock_native_test() -> MutexGuard<'static, ()> {
 /// 终端模拟器，必须补上同样的最小握手，否则 PowerShell 会等查询超时后才处理测试输入。
 #[cfg(target_os = "windows")]
 fn complete_startup_handshake(backend: &NativePtyBackend, session_id: &str, sink: &RecordingSink) {
-    assert!(wait_for_text(sink, "\x1b[6n", Duration::from_secs(3)));
+    // 等待窗口按 CI 冷启动留余量：PowerShell 要先打完横幅才出提示符，原先 3s/5s 会把
+    // 「启动慢」误判成「握手坏了」——失败日志里横幅齐全、只差提示符就是这种情形。
+    assert!(wait_for_text(sink, "\x1b[6n", Duration::from_secs(15)));
     backend.write(session_id, b"\x1b[1;1R").unwrap();
     // DA 查询可能晚于光标查询到达；提前合并回复可能被上一阶段的读取丢弃。
-    assert!(wait_for_text(sink, "\x1b[c", Duration::from_secs(3)));
+    assert!(wait_for_text(sink, "\x1b[c", Duration::from_secs(15)));
     backend.write(session_id, b"\x1b[?1;2c").unwrap();
     // 等到提示符出现再发测试命令，避免响应与命令被 ConPTY 合并为同一输入块，
     // 被 PowerShell 的终端查询读取逻辑一并消费掉。
-    assert!(wait_for_text(sink, "PS ", Duration::from_secs(5)));
+    assert!(wait_for_text(sink, "PS ", Duration::from_secs(30)));
 }
 
 #[cfg(not(target_os = "windows"))]
