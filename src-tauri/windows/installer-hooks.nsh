@@ -21,6 +21,16 @@
   ${If} $0 != 0
     nsExec::ExecToLog /TIMEOUT=${BELFRY_OPENCONSOLE_TIMEOUT_MS} '"$1" -NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File "$PLUGINSDIR\belfry-stop-openconsole.ps1"'
     Pop $0
+    ${If} $0 == "error"
+      ; nsExec can fail before PowerShell starts. Retry using NSIS's native
+      ; launcher; never treat a launcher failure as proof of a locked file.
+      DetailPrint "OpenConsole cleanup launcher failed; retrying with ExecWait."
+      ClearErrors
+      ExecWait '"$1" -NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File "$PLUGINSDIR\belfry-stop-openconsole.ps1"' $0
+      ${If} ${Errors}
+        StrCpy $0 "launch failed"
+      ${EndIf}
+    ${EndIf}
   ${Else}
     StrCpy $0 "environment setup failed"
   ${EndIf}
@@ -30,12 +40,21 @@
     DetailPrint "OpenConsole cleanup failed ($0)."
     ${IfNot} ${Silent}
     ${AndIf} $PassiveMode != 1
-      MessageBox MB_ICONEXCLAMATION|MB_RETRYCANCEL "Unable to release $INSTDIR\OpenConsole.exe.$\r$\n$\r$\nClose Belfry and any terminals using this installation, then retry. See Show details for the error." /SD IDCANCEL IDRETRY belfry_openconsole_retry
+      MessageBox MB_ICONEXCLAMATION|MB_RETRYCANCEL "OpenConsole cleanup did not complete ($0).$\r$\n$\r$\nSee Show details for the error. If the file is in use, close Belfry and terminals using this installation, then retry. If PowerShell could not start, check that Windows PowerShell is available and allowed to run." /SD IDCANCEL IDRETRY belfry_openconsole_retry
+    ${EndIf}
+    ${If} $0 == "launch failed"
+      DetailPrint "Unable to start PowerShell for OpenConsole cleanup: $1"
+    ${ElseIf} $0 == "timeout"
+      DetailPrint "OpenConsole cleanup timed out."
+    ${ElseIf} $0 == "environment setup failed"
+      DetailPrint "Unable to prepare the OpenConsole cleanup environment."
+    ${Else}
+      DetailPrint "OpenConsole cleanup failed; the host may still be in use or not writable."
     ${EndIf}
     Pop $1
     Pop $0
     SetErrorLevel 1
-    Abort "OpenConsole.exe is still in use or cannot be written."
+    Abort "OpenConsole cleanup did not complete. See the details above."
   ${EndIf}
   Pop $1
   Pop $0
