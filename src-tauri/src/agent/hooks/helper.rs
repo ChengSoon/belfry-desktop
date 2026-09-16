@@ -1,9 +1,10 @@
 use super::{
-    contracts::HookMessage,
+    contracts::{HookInput, HookMessage},
     input, machine,
     server::{IO_TIMEOUT, MAX_MESSAGE_BYTES},
 };
 use crate::agent::AgentKind;
+use serde::Deserialize;
 use std::{
     io::{BufRead, BufReader, Read, Write},
     net::{Ipv4Addr, SocketAddr, TcpStream},
@@ -46,26 +47,29 @@ fn forward_stdin(agent: AgentKind) {
         return;
     };
     let at = machine::now();
-    let mut bytes = Vec::new();
-    if std::io::stdin()
-        .take(MAX_PAYLOAD_BYTES + 1)
-        .read_to_end(&mut bytes)
-        .is_err()
-        || bytes.len() > MAX_PAYLOAD_BYTES as usize
-    {
+    let Some(input) = read_input(std::io::stdin().lock(), at) else {
         return;
-    }
-    if let Some(input) = input::from_payload(&bytes, at) {
-        let _ = send(
-            port,
-            &HookMessage {
-                version: 1,
-                token,
-                agent,
-                input,
-            },
-        );
-    }
+    };
+    let _ = send(
+        port,
+        &HookMessage {
+            version: 1,
+            token,
+            agent,
+            input,
+        },
+    );
+}
+
+// Codex 写完 payload 不关闭管道，read_to_end 那样等 EOF 会一直阻塞到 hook 超时被杀
+//（`hook timed out after 1s`）。改成流式取第一个 JSON 值：读到闭合括号就停，不依赖对端关闭。
+pub(super) fn read_input<R: Read>(reader: R, at: i64) -> Option<HookInput> {
+    // 用单值反序列化而不是 StreamDeserializer：后者为判断「还有没有下一个值」会多读一次，
+    // 在不关闭的管道上同样会阻塞。单值解析读到闭合括号即返回，尾部不做检查。
+    let mut stream =
+        serde_json::Deserializer::from_reader(BufReader::new(reader.take(MAX_PAYLOAD_BYTES)));
+    let value = serde_json::Value::deserialize(&mut stream).ok()?;
+    input::from_value(&value, at)
 }
 
 pub(super) fn send(port: u16, message: &HookMessage) -> bool {

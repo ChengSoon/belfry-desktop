@@ -249,6 +249,8 @@ dependencies = [
  "belfry-protocol",
  "dunce",
  "portable-pty",
+ "reqwest",
+ "rustls",
  "security-framework",
  "serde",
  "serde_json",

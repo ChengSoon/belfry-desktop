@@ -71,3 +71,9 @@ pub fn provider_config_save(
 pub fn provider_sync_live(app: AppHandle, kind: AgentKind) -> Result<ProviderCatalog, AppError> {
     service::sync_live(&app, kind)
 }
+
+/// 读取草稿端点公布的模型，不修改 Provider 或 CLI 配置。
+#[tauri::command]
+pub async fn provider_models(kind: AgentKind, base_url: String, api_key: String) -> Result<Vec<String>, AppError> {
+    super::models::fetch(kind, &base_url, &api_key).await
+}

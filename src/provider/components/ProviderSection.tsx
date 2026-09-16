@@ -1,23 +1,16 @@
-import { AlertTriangle, ArrowLeft, Check, Pencil, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useRef } from "react";
+import { AlertTriangle, ArrowLeft } from "lucide-react";
 import { ICON } from "../../theme/sizing";
-import type { AgentKind } from "../../workspace/contracts";
-import { failureLabel, toAppFailure } from "../../workspace/errors";
-import { useDismiss } from "../../workspace/useDismiss";
-import { configPreview, configSave } from "../api";
-import {
-  AGENT_LABEL,
-  EMPTY_DRAFT,
-  type ConfigFilePreview,
-  type ProviderConfig,
-  type ProviderDraft,
-  toDraft,
-} from "../contracts";
-import { useProviders } from "../useProviders";
-import { type DraftIssue, maskKey, validateDraft } from "../validate";
+import { failureLabel } from "../../workspace/errors";
+import { AGENT_LABEL, EMPTY_DRAFT, toDraft } from "../contracts";
 import { ProviderConfigEditor } from "./ProviderConfigEditor";
 import { ProviderForm } from "./ProviderForm";
+import { ProviderOfficial } from "./ProviderOfficial";
+import { ProviderCard } from "./ProviderCard";
 import { ProviderSettingsHeader } from "./ProviderSettingsHeader";
+import { RemoveConfirm } from "./RemoveConfirm";
+import { shatterCard } from "./shatterCard";
+import { useProviderEditor } from "./useProviderEditor";
 import "../provider.css";
 
 /**
@@ -25,208 +18,42 @@ import "../provider.css";
  *
  * 改的是 CLI 自己的配置文件，所以在 Belfry 之外直接敲 `claude` / `codex` 一样生效。
  */
-export function ProviderSection({ onGuardChange }: { onGuardChange: (guarded: boolean) => void }) {
-  const providers = useProviders(true);
-  const [kind, setKind] = useState<AgentKind>("claude");
-  const [draft, setDraft] = useState<ProviderDraft | null>(null);
-  const [issue, setIssue] = useState<DraftIssue | null>(null);
-  const [pendingRemove, setPendingRemove] = useState<ProviderConfig | null>(null);
-  const [configFiles, setConfigFiles] = useState<ConfigFilePreview[] | null>(null);
-  const [configLoading, setConfigLoading] = useState(false);
-  const [configFailure, setConfigFailure] = useState<string | null>(null);
-  const [copiedPath, setCopiedPath] = useState<string | null>(null);
-  const [formNotice, setFormNotice] = useState<string | null>(null);
-  const configRequest = useRef(0);
-  /** 正在编辑的文件原文，按 agent 分开存。
-      path → 编辑中的内容。与 configFiles 里的原文不一致才算脏。 */
-  const [editsByKind, setEditsByKind] = useState<Record<AgentKind, Record<string, string>>>({
-    claude: {},
-    codex: {},
-  });
-  const edits = editsByKind[kind];
-  const setEdits = (updater: (current: Record<string, string>) => Record<string, string>) => {
-    setEditsByKind((all) => ({ ...all, [kind]: updater(all[kind]) }));
-  };
-  const [savingPath, setSavingPath] = useState<string | null>(null);
-  const [saveFailure, setSaveFailure] = useState<string | null>(null);
-  const [savedPath, setSavedPath] = useState<string | null>(null);
-
-  const dirtyPaths = useMemo(() => {
-    const paths = new Set<string>();
-    for (const file of configFiles ?? []) {
-      const edited = edits[file.path];
-      if (edited !== undefined && edited !== file.content) paths.add(file.path);
-    }
-    return paths;
-  }, [configFiles, edits]);
-  const hasDirty = dirtyPaths.size > 0;
-
-  // 表单或配置编辑到一半时，一次误触关闭就把改动全丢了，所以让外壳先别响应退出手势。
-  useEffect(() => {
-    onGuardChange(draft !== null || hasDirty);
-    return () => onGuardChange(false);
-  }, [draft, hasDirty, onGuardChange]);
-
-  const group = providers.catalog?.agents.find((item) => item.kind === kind);
-  const list = useMemo(() => group?.providers ?? [], [group]);
-
-  const conflicts = useMemo(
-    () => providers.catalog?.envConflicts.filter((item) => item.kind === kind) ?? [],
-    [kind, providers.catalog],
-  );
-
-  const submit = () => {
-    if (!draft) return;
-    if (savingPath !== null) {
-      setFormNotice("配置文件正在保存，请稍候再保存 provider 信息。");
-      return;
-    }
-    if (hasDirty) {
-      setFormNotice("配置文件还有未保存的修改，请先保存或还原，再保存 provider 信息。");
-      return;
-    }
-    const found = validateDraft(draft, list);
-    setIssue(found);
-    if (found) return;
-    setFormNotice(null);
-    void providers.save(kind, draft).then((catalog) => {
-      if (catalog) closeDraft();
-    });
-  };
-
-  const loadConfig = useCallback((agentKind: AgentKind, previewDraft?: ProviderDraft) => {
-    const request = ++configRequest.current;
-    setConfigLoading(true);
-    setConfigFailure(null);
-    configPreview(agentKind, previewDraft)
-      .then((files) => {
-        if (request === configRequest.current) setConfigFiles(files);
-      })
-      .catch((error) => {
-        if (request === configRequest.current) setConfigFailure(failureLabel(toAppFailure(error)));
-      })
-      .finally(() => {
-        if (request === configRequest.current) setConfigLoading(false);
-      });
+function useProviderCardNodes() {
+  const nodes = useRef(new Map<string, HTMLElement>());
+  const callbacks = useRef(new Map<string, (node: HTMLElement | null) => void>());
+  const register = useCallback((id: string) => {
+    const cached = callbacks.current.get(id);
+    if (cached) return cached;
+    const register = (node: HTMLElement | null) => {
+      if (node) nodes.current.set(id, node);
+      else nodes.current.delete(id);
+    };
+    callbacks.current.set(id, register);
+    return register;
   }, []);
+  return { nodes: nodes.current, register };
+}
 
-  const clearConfigEditor = () => {
-    configRequest.current += 1;
-    setConfigFiles(null);
-    setConfigLoading(false);
-    setConfigFailure(null);
-    setSaveFailure(null);
-    setCopiedPath(null);
-    setSavedPath(null);
-    setEditsByKind((all) => ({ ...all, [kind]: {} }));
-  };
+export function ProviderSection({ onGuardChange }: { onGuardChange: (guarded: boolean) => void }) {
+  const {
+    providers, kind, setKind, draft, issue, setIssue, pendingRemove, setPendingRemove,
+    configFiles, configLoading, configFailure, copiedPath, formNotice, edits, setEdits,
+    savingPath, saveFailure, savedPath, dirtyPaths, group, list, conflicts, submit,
+    loadConfig, closeDraft, openDraft, copyConfig, saveConfigFile, revertConfigFile,
+    setDraft, setFormNotice,
+  } = useProviderEditor(onGuardChange);
 
-  const closeDraft = () => {
-    setDraft(null);
-    setIssue(null);
-    setFormNotice(null);
-    clearConfigEditor();
-  };
-
-  const openDraft = (next: ProviderDraft) => {
-    providers.dismissNotice();
-    setIssue(null);
-    setFormNotice(null);
-    setDraft(next);
-    clearConfigEditor();
-  };
-
-  // 左侧字段是 Provider 草稿的主来源。输入变化后重新生成一份内存预览，
-  // 右侧因此始终显示同一个 Base URL / Key / model，而不会继续沿用旧 live 文件。
-  const draftPreviewKey = draft ? JSON.stringify(draft) : null;
-  useEffect(() => {
-    if (!draft) return;
-    const previewDraft = { ...draft };
-    configRequest.current += 1;
-    setConfigFiles(null);
-    setConfigLoading(true);
-    setConfigFailure(null);
-    setSaveFailure(null);
-    setSavedPath(null);
-    setEditsByKind((all) => ({ ...all, [kind]: {} }));
-    const timer = window.setTimeout(() => {
-      loadConfig(kind, previewDraft);
-    }, 180);
-    return () => window.clearTimeout(timer);
-  }, [draftPreviewKey, kind, loadConfig]);
-
-  const copyConfig = async (file: ConfigFilePreview) => {
-    const text = edits[file.path] ?? file.content;
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopiedPath(file.path);
-      window.setTimeout(() => {
-        setCopiedPath((current) => (current === file.path ? null : current));
-      }, 1200);
-    } catch {
-      // 剪贴板不可用时静默失败，不影响查看。
-    }
-  };
-
-  const saveConfigFile = async (file: ConfigFilePreview) => {
-    const next = edits[file.path];
-    if (next === undefined) return;
-    setSavingPath(file.path);
-    setSaveFailure(null);
-    try {
-      await configSave(kind, file.path, next);
-      // 文件已经改了，把当前生效的 live 配置同步进库，列表才能看到刚配置的 provider。
-      const synced = await providers.syncLive(kind);
-      if (!synced) {
-        throw new Error("配置文件已保存，但 provider 列表同步失败，请重新读取");
-      }
-      // 直接改原始文件后，当前条目的表单值也要跟着 live 配置走，避免用户
-      // 紧接着点「保存 provider」时又把刚改好的 JSON/TOML 覆盖回去。
-      const liveGroup = synced.agents.find((item) => item.kind === kind);
-      const liveProvider = liveGroup?.providers.find((item) => item.id === liveGroup.currentId);
-      if (liveProvider) {
-        setDraft(toDraft(liveProvider));
-      }
-      setConfigFiles(
-        (current) =>
-          current?.map((item) => (item.path === file.path ? { ...item, content: next } : item)) ??
-          null,
-      );
-      setEdits((current) => {
-        const rest = { ...current };
-        delete rest[file.path];
-        return rest;
-      });
-      setSavedPath(file.path);
-      window.setTimeout(() => {
-        setSavedPath((current) => (current === file.path ? null : current));
-      }, 1500);
-    } catch (error) {
-      setSaveFailure(failureLabel(toAppFailure(error)));
-    } finally {
-      setSavingPath(null);
-    }
-  };
-
-  const revertConfigFile = (path: string) => {
-    setEdits((current) => {
-      const rest = { ...current };
-      delete rest[path];
-      return rest;
-    });
-    setSaveFailure(null);
-  };
-
+  const { nodes: nodeById, register: registerCardNode } = useProviderCardNodes();
   return (
     <section aria-label="全局 Provider 设置" className="provider-section">
       <ProviderSettingsHeader busy={providers.loading} editing={draft !== null}
         onAdd={() => openDraft({ ...EMPTY_DRAFT })} onReload={() => void providers.reload()} />
-      <div className="provider-segments" role="tablist" aria-label="Agent CLI">
+      <div className="provider-segments" data-active={kind} role="tablist" aria-label="Agent CLI">
         {(["claude", "codex"] as const).map((value) => (
           <button
             aria-selected={kind === value}
             className={kind === value ? "is-active" : undefined}
-            disabled={draft !== null}
+            disabled={draft !== null || providers.loading}
             key={value}
             onClick={() => {
               setKind(value);
@@ -255,7 +82,7 @@ export function ProviderSection({ onGuardChange }: { onGuardChange: (guarded: bo
       {draft ? (
         <div className="provider-editor">
           <div className="provider-editor__toolbar">
-            <button className="provider-editor__back" onClick={closeDraft} type="button">
+            <button className="provider-editor__back" disabled={providers.loading || savingPath !== null} onClick={closeDraft} type="button">
               <ArrowLeft aria-hidden="true" size={ICON.sm} />
               <span>返回 provider 列表</span>
             </button>
@@ -271,24 +98,28 @@ export function ProviderSection({ onGuardChange }: { onGuardChange: (guarded: bo
                 draft.id !== null && group?.currentId === draft.id ? " is-current" : ""
               }`}
             >
-              {draft.id !== null && group?.currentId === draft.id ? "当前使用" : "未启用"}
+              {draft.id !== null && group?.currentId === draft.id ? "已选用" : "未启用"}
             </span>
           </div>
           <div className="provider-editor__body">
             <div className="provider-editor__form-column">
               <ProviderForm
-                busy={providers.loading}
+                kind={kind}
+                busy={providers.loading || savingPath !== null}
                 draft={draft}
                 issue={issue}
                 onCancel={closeDraft}
                 onChange={(next) => {
                   setDraft(next);
+                  setIssue(null);
                   setFormNotice(null);
                 }}
                 onSubmit={submit}
               />
               {formNotice ? <p className="provider-notice">{formNotice}</p> : null}
             </div>
+            <details className="provider-advanced">
+              <summary>高级配置 <span>查看与编辑 CLI 原始文件</span></summary>
             <ProviderConfigEditor
               copiedPath={copiedPath}
               dirtyPaths={dirtyPaths}
@@ -309,6 +140,7 @@ export function ProviderSection({ onGuardChange }: { onGuardChange: (guarded: bo
               savedPath={savedPath}
               savingPath={savingPath}
             />
+            </details>
           </div>
         </div>
       ) : (
@@ -317,21 +149,23 @@ export function ProviderSection({ onGuardChange }: { onGuardChange: (guarded: bo
             <p className="provider-hint">正在读取 provider…</p>
           ) : (
             <>
+              <div className="provider-routing-summary">
+                <span>当前选择</span>
+                <strong>{group ? (group.currentId === null ? "官方登录" : list.find((item) => item.id === group.currentId)?.name || "配置不可用") : "尚未读取"}</strong>
+                <p>已选用表示 CLI 路由配置，不代表连接已通过验证。</p>
+              </div>
+              <ProviderOfficial active={group !== undefined && group.currentId === null}
+                busy={providers.loading || group === undefined} onSelect={() => void providers.select(kind, null)} />
+              <div className="provider-library-heading"><h3>自定义服务 <span>{list.length}</span></h3><span>保存配置后，手动启用</span></div>
               <div className="provider-list">
-                <ProviderRow
-                  active={group?.currentId == null}
-                  busy={providers.loading}
-                  label="官方端点"
-                  onSelect={() => void providers.select(kind, null)}
-                  subtitle="使用 CLI 自己的登录态"
-                />
                 {providers.catalog !== null && group === undefined ? (
                   <p className="provider-hint">
                     没有读到 {AGENT_LABEL[kind]} 的 provider 数据，点上方刷新重试。
                   </p>
                 ) : null}
+                {group && list.length === 0 ? <p className="provider-empty">还没有自定义服务。点击右上角「新增 Provider」添加 API 端点。</p> : null}
                 {list.map((config) => (
-                  <ProviderRow
+                  <ProviderCard
                     active={group?.currentId === config.id}
                     busy={providers.loading}
                     key={config.id}
@@ -339,10 +173,14 @@ export function ProviderSection({ onGuardChange }: { onGuardChange: (guarded: bo
                     onEdit={() => openDraft(toDraft(config))}
                     onRemove={() => setPendingRemove(config)}
                     onSelect={() => void providers.select(kind, config.id)}
-                    subtitle={`${hostOf(config.baseUrl)} · ${maskKey(config.apiKey)}`}
+                    endpoint={config.baseUrl}
+                    model={config.model || "沿用 CLI 模型"}
+                    apiKey={config.apiKey}
+                    nodeRef={registerCardNode(config.id)}
                   />
                 ))}
               </div>
+              <p className="provider-hint">{kind === "codex" ? "切换后，新开的 Codex 会话使用所选服务。" : "切换后，Claude Code 的后续请求使用所选服务。"} 保存新配置后，点击「启用」应用。</p>
             </>
           )}
         </>
@@ -361,93 +199,16 @@ export function ProviderSection({ onGuardChange }: { onGuardChange: (guarded: bo
           isCurrent={group?.currentId === pendingRemove.id}
           onCancel={() => setPendingRemove(null)}
           onConfirm={() => {
-            void providers.remove(kind, pendingRemove.id);
+            const target = nodeById.get(pendingRemove.id) ?? null;
+            const id = pendingRemove.id;
             setPendingRemove(null);
+            const shatter = target ? shatterCard(target) : null;
+            void providers.remove(kind, id).then((ok) => {
+              if (ok === undefined) shatter?.cancel();
+            });
           }}
         />
       ) : null}
     </section>
   );
-}
-
-interface ProviderRowProps {
-  active: boolean;
-  busy: boolean;
-  label: string;
-  onEdit?: () => void;
-  onRemove?: () => void;
-  onSelect: () => void;
-  subtitle: string;
-}
-
-function ProviderRow({ active, busy, label, onEdit, onRemove, onSelect, subtitle }: ProviderRowProps) {
-  return (
-    <div className={`provider-row${active ? " is-active" : ""}`}>
-      <button className="provider-row__main" disabled={busy} onClick={onSelect} type="button">
-        <span className="provider-row__text">
-          <strong>{label}</strong>
-          <small>{subtitle}</small>
-        </span>
-      </button>
-      <span className="provider-row__tail">
-        {active ? <Check aria-hidden="true" className="provider-row__check" size={ICON.sm} /> : null}
-        {onEdit ? (
-          <button className="provider-row__act" onClick={onEdit} title={`编辑 ${label}`} type="button">
-            <Pencil aria-hidden="true" size={ICON.xs} />
-          </button>
-        ) : null}
-      </span>
-      <span className="provider-row__tail">
-        {onRemove ? (
-          <button
-            className="provider-row__act provider-row__act--danger"
-            onClick={onRemove}
-            title={`删除 ${label}`}
-            type="button"
-          >
-            <Trash2 aria-hidden="true" size={ICON.xs} />
-          </button>
-        ) : null}
-      </span>
-    </div>
-  );
-}
-
-function RemoveConfirm({
-  config,
-  isCurrent,
-  onCancel,
-  onConfirm,
-}: {
-  config: ProviderConfig;
-  isCurrent: boolean;
-  onCancel: () => void;
-  onConfirm: () => void;
-}) {
-  const ref = useDismiss<HTMLDivElement>(true, onCancel);
-  return (
-    <div className="modal-scrim provider-confirm">
-      <div aria-modal="true" className="modal" ref={ref} role="dialog">
-        <strong className="modal__title">删除 {config.name}？</strong>
-        <p className="modal__body">
-          {isCurrent
-            ? "它正在生效，删除后会先切回官方端点。API Key 一并删掉，撤不回来。"
-            : "API Key 会一并删掉，撤不回来。"}
-        </p>
-        <div className="modal__actions">
-          <button onClick={onCancel} type="button">取消</button>
-          <button className="modal__danger" onClick={onConfirm} type="button">删除</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/** 列表里只显示主机名：完整 URL 太长会把这一行挤没。 */
-function hostOf(baseUrl: string): string {
-  try {
-    return new URL(baseUrl).host;
-  } catch {
-    return baseUrl;
-  }
 }

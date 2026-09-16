@@ -20,23 +20,27 @@ pub(super) const EVENTS: &[&str] = &[
 ];
 const MAX_FIELD_BYTES: usize = 4096;
 
+#[cfg(test)]
 pub(super) fn from_payload(payload: &[u8], occurred_at: i64) -> Option<HookInput> {
-    let value: Value = serde_json::from_slice(payload).ok()?;
-    let event = field(&value, "hook_event_name")?;
-    let session_id = field(&value, "session_id")?;
+    from_value(&serde_json::from_slice(payload).ok()?, occurred_at)
+}
+
+pub(super) fn from_value(value: &Value, occurred_at: i64) -> Option<HookInput> {
+    let event = field(value, "hook_event_name")?;
+    let session_id = field(value, "session_id")?;
     if !EVENTS.contains(&event.as_str()) || validate_agent_session_id(&session_id).is_err() {
         return None;
     }
-    let tool_name = field(&value, "tool_name");
+    let tool_name = field(value, "tool_name");
     Some(HookInput {
         event,
         session_id,
         occurred_at,
-        turn_id: field(&value, "turn_id"),
-        source: field(&value, "source"),
-        agent_id: field(&value, "agent_id"),
-        transcript_path: field(&value, "transcript_path"),
-        notification_type: field(&value, "notification_type"),
+        turn_id: field(value, "turn_id"),
+        source: field(value, "source"),
+        agent_id: field(value, "agent_id"),
+        transcript_path: field(value, "transcript_path"),
+        notification_type: field(value, "notification_type"),
         tool_key: tool_name
             .as_ref()
             .map(|name| tool_key(name, &value["tool_input"])),

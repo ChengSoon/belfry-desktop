@@ -36,3 +36,8 @@ export function configSave(kind: AgentKind, path: string, content: string) {
 export function syncLiveProvider(kind: AgentKind) {
   return invoke<ProviderCatalog>("provider_sync_live", { kind });
 }
+
+/** 读取草稿端点公布的模型，不保存配置。 */
+export function fetchProviderModels(kind: AgentKind, baseUrl: string, apiKey: string) {
+  return invoke<string[]>("provider_models", { kind, baseUrl, apiKey });
+}

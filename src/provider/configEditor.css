@@ -1,0 +1,184 @@
+/* 编辑态的 CLI 原始配置。头排是标题、刷新、路径、格式、复制，下面是代码块。 */
+.provider-config {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface) 72%, var(--canvas));
+}
+
+.provider-config__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.provider-config__head > div { flex: 1; min-width: 0; }
+
+.provider-config__head h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--fs-md);
+  font-weight: 500;
+}
+
+.provider-config__reload {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-xs);
+  color: var(--text-faint);
+  background: transparent;
+  cursor: pointer;
+}
+
+.provider-config__reload:hover:not(:disabled) { color: var(--text); background: var(--surface-hover); }
+.provider-config__reload:disabled { opacity: 0.5; cursor: default; }
+
+.provider-config__hint {
+  margin: 0;
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-relaxed);
+}
+
+.provider-config__identity {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--border);
+}
+
+.provider-config__identity > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+  padding: 8px 9px;
+  background: var(--surface);
+}
+
+.provider-config__identity span {
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+}
+
+.provider-config__identity strong,
+.provider-config__identity code {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.provider-config__identity code { font-family: var(--font-mono); font-weight: 400; }
+
+.provider-config__file {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.provider-config__file-head {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.provider-config__path {
+  overflow: hidden;
+  flex: 1;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.provider-config__badge {
+  flex: none;
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  background: var(--surface-hover);
+  font-size: var(--fs-xs);
+}
+
+.provider-config__copy {
+  flex: none;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  background: transparent;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  transition: color var(--duration) var(--ease), border-color var(--duration) var(--ease);
+}
+
+.provider-config__copy:hover { border-color: var(--border-strong); color: var(--text); }
+
+/* 可编辑的配置文件。等宽字体、随窗口响应的显示高度，用户也可以自己拖高。 */
+.provider-config__editor {
+  width: 100%;
+  min-width: 0;
+  /* 高度跟着窗口走：窗口越高给越多空间看完整配置，避免长 JSON 只露一小截。 */
+  height: clamp(280px, 50vh, 720px);
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  background: var(--canvas);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  line-height: 1.55;
+  resize: vertical;
+  scrollbar-color: var(--scrollbar) transparent;
+}
+
+.provider-config__editor:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.provider-config__save {
+  flex: none;
+  padding: 2px 10px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  color: var(--accent);
+  background: transparent;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  transition: color var(--duration) var(--ease), border-color var(--duration) var(--ease);
+}
+
+.provider-config__save:hover:not(:disabled) {
+  border-color: var(--accent-hover);
+  color: var(--accent-hover);
+}
+
+.provider-config__save:disabled { opacity: 0.55; cursor: default; }
+
+.provider-config__saved {
+  flex: none;
+  color: var(--success);
+  font-size: var(--fs-xs);
+}
+
+
+@container settings (max-width: 520px) {
+ .provider-config__identity { grid-template-columns: minmax(0, 1fr); }
+ .provider-config__file-head { flex-wrap: wrap; }
+ .provider-config__path { flex-basis: 100%; }
+}

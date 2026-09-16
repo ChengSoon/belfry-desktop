@@ -31,6 +31,8 @@ tauri-build = { version = "2.6.3", features = [] }
 # 而漂移的症状是「命令静默地不生效」。
 belfry-protocol = { path = "crates/belfry-protocol" }
 portable-pty = "0.9.0"
+reqwest = { version = "0.13.4", default-features = false, features = ["rustls-no-provider"] }
+rustls = { version = "0.23", default-features = false, features = ["ring"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tauri = { version = "2.11.5", features = [] }

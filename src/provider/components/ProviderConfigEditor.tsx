@@ -1,3 +1,4 @@
+import "../configEditor.css";
 import { RefreshCcw } from "lucide-react";
 import type { AgentKind } from "../../workspace/contracts";
 import { ICON } from "../../theme/sizing";
@@ -85,8 +86,8 @@ export function ProviderConfigEditor({
 
       <p className="provider-config__hint">
         这里显示将当前 Provider 套用到 CLI 配置后的完整预览（含密钥，仅保存在本机），
-        路由之外的配置字段保持原样；左侧字段会实时同步到这里。
-        可直接编辑保存；保存前会校验 JSON/TOML，改坏了不会落盘。未启用的条目保存后，仍需从列表选中才会写入 CLI。
+        路由之外的配置字段保持原样；表单字段会实时同步到这里。
+        直接保存原始文件会写入当前 CLI 配置并同步服务列表。仅保存上方表单时，未启用的条目仍需在列表点击「启用」。
       </p>
 
       {failure ? <p className="provider-error" role="alert">{failure}</p> : null}

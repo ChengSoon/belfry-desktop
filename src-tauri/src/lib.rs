@@ -103,6 +103,7 @@ pub fn run() {
             git::worktrees::commands::worktree_preview_action,
             git::worktrees::commands::worktree_execute,
             provider::commands::provider_list,
+            provider::commands::provider_models,
             provider::commands::provider_remove,
             provider::commands::provider_config_save,
             provider::commands::provider_config_preview,
