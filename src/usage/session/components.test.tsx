@@ -22,6 +22,13 @@ it("没有原生身份时解释获取统计的前提", () => {
   expect(html).toContain("会话状态");
 });
 
+it("未绑定的原因由调用方给出时按原因显示", () => {
+  const note = "尚未绑定原生会话。Hook 指向的应用已不存在，请重新预览并启用。也可从历史记录继续会话。";
+  const html = renderToStaticMarkup(<StatisticsBody bound={false} note={note} state={{ report: null, loading: false, error: null }} />);
+  expect(html).toContain("Hook 指向的应用已不存在");
+  expect(html).not.toContain("设置 → 会话状态");
+});
+
 it("大日志继续读取和损坏记录都有可见提示", () => {
   const html = renderToStaticMarkup(<StatisticsBody bound state={{ loading: false, error: null,
     report: { ...report, pending: true, note: "跳过 2 条损坏记录，合计可能不完整" } }} />);

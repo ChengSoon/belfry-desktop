@@ -7,9 +7,9 @@ import { StatisticsBody } from "./StatisticsBody";
 import { useSessionStatistics } from "./useSessionStatistics";
 import "./sessionStatistics.css";
 
-interface Props { session: AgentSessionRef | null; transcriptPath: string | null; visible: boolean }
+interface Props { session: AgentSessionRef | null; transcriptPath: string | null; note: string | null; visible: boolean }
 
-export function SessionStatisticsControl({ session, transcriptPath, visible }: Props) {
+export function SessionStatisticsControl({ session, transcriptPath, note, visible }: Props) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
@@ -31,15 +31,15 @@ export function SessionStatisticsControl({ session, transcriptPath, visible }: P
       aria-expanded={open} onClick={() => setOpen((value) => !value)}>
       <ChartNoAxesColumnIncreasing aria-hidden="true" size={ICON.xs} /><span>统计</span>
     </button>
-    {open && visible ? <StatisticsPopover state={state} bound={Boolean(session)} onClose={close} /> : null}
+    {open && visible ? <StatisticsPopover state={state} bound={Boolean(session)} note={note} onClose={close} /> : null}
   </div>;
 }
 
-function StatisticsPopover({ state, bound, onClose }: { state: StatisticsView; bound: boolean; onClose: () => void }) {
+function StatisticsPopover({ state, bound, note, onClose }: { state: StatisticsView; bound: boolean; note: string | null; onClose: () => void }) {
   return <section className="session-stats-popover" role="dialog" aria-label="当前会话统计">
     <header><h3>当前会话统计</h3><button type="button" className="icon-button icon-button--sm" autoFocus title="关闭会话统计" onClick={onClose}>
       <X aria-hidden="true" size={ICON.sm} />
     </button></header>
-    <StatisticsBody state={state} bound={bound} />
+    <StatisticsBody state={state} bound={bound} note={note} />
   </section>;
 }

@@ -1,8 +1,8 @@
 import type { SessionStatistics, SessionTokens, StatisticsView } from "./contracts";
 import { formatExact, formatMoment, formatTokens } from "../format";
 
-export function StatisticsBody({ state, bound }: { state: StatisticsView; bound: boolean }) {
-  if (!bound) return <p className="session-stats-note">尚未绑定原生会话。可在设置 → 会话状态中启用 Hook，或从历史记录继续会话。</p>;
+export function StatisticsBody({ state, bound, note }: { state: StatisticsView; bound: boolean; note?: string | null }) {
+  if (!bound) return <p className="session-stats-note">{note ?? "尚未绑定原生会话。可在设置 → 会话状态中启用 Hook，或从历史记录继续会话。"}</p>;
   return <div className="session-stats-body">
     {state.error ? <p className="session-stats-error" role="alert">{state.error}</p> : null}
     {!state.report && state.loading ? <p className="session-stats-note" role="status">正在读取会话日志…</p> : null}

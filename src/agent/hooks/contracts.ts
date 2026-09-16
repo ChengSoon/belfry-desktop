@@ -18,6 +18,7 @@ export interface AgentHookReport {
   configPath: string | null;
   installed: number;
   expected: number;
+  stale: number;
   disabled: boolean;
   note: string;
   error: string | null;

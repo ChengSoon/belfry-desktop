@@ -5,7 +5,7 @@ import { HookStatusBar } from "./HookStatusBar";
 import type { AgentHookReport } from "./contracts";
 
 const report: AgentHookReport = { kind: "codex", version: "codex-cli 0.154.0", supported: true,
-  configPath: "/config/hooks.json", installed: 0, expected: 10, disabled: false, note: "尚未连接", error: null };
+  configPath: "/config/hooks.json", installed: 0, expected: 10, stale: 0, disabled: false, note: "尚未连接", error: null };
 
 it("尚未安装时提供预览入口，不把已支持接口说成已连接", () => {
   const html = renderToStaticMarkup(<HookAgentCard report={report} busy={false} onPreview={() => {}} />);

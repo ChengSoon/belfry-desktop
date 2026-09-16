@@ -124,6 +124,22 @@ fn remove_owned(hooks: &mut Map<String, Value>, kind: AgentKind) {
 }
 
 pub(super) fn owned_count(value: &Value, kind: AgentKind) -> usize {
+    owned_handlers(value, kind).count()
+}
+
+// 装好的 Hook 指向安装时的可执行文件；构建被清理或应用被移动后命令会静默失败。
+pub(super) fn stale_count(value: &Value, kind: AgentKind) -> usize {
+    owned_handlers(value, kind)
+        .filter(|handler| {
+            handler["command"]
+                .as_str()
+                .and_then(|command| command_path(command, kind))
+                .is_none_or(|path| !Path::new(&path).exists())
+        })
+        .count()
+}
+
+fn owned_handlers(value: &Value, kind: AgentKind) -> impl Iterator<Item = &Value> {
     value["hooks"]
         .as_object()
         .into_iter()
@@ -132,8 +148,21 @@ pub(super) fn owned_count(value: &Value, kind: AgentKind) -> usize {
         .flatten()
         .filter_map(|group| group["hooks"].as_array())
         .flatten()
-        .filter(|handler| owned(handler, kind))
-        .count()
+        .filter(move |handler| owned(handler, kind))
+}
+
+pub(super) fn command_path(command: &str, kind: AgentKind) -> Option<String> {
+    let quoted = command.strip_suffix(&format!(" --belfry-hook {}", kind.command_name()))?;
+    if let Some(inner) = quoted
+        .strip_prefix('"')
+        .and_then(|rest| rest.strip_suffix('"'))
+    {
+        return Some(inner.into());
+    }
+    quoted
+        .strip_prefix('\'')
+        .and_then(|rest| rest.strip_suffix('\''))
+        .map(|inner| inner.replace("'\"'\"'", "'"))
 }
 
 pub(super) fn command(path: &Path, kind: AgentKind, windows: bool) -> Result<String, AppError> {

@@ -15,6 +15,7 @@ pub(crate) struct AgentHookReport {
     pub config_path: Option<String>,
     pub installed: usize,
     pub expected: usize,
+    pub stale: usize,
     pub disabled: bool,
     pub note: String,
     pub error: Option<String>,
@@ -22,7 +23,11 @@ pub(crate) struct AgentHookReport {
 
 impl AgentHookReport {
     pub fn enabled(&self) -> bool {
-        self.supported && !self.disabled && self.error.is_none() && self.installed >= self.expected
+        self.supported
+            && !self.disabled
+            && self.error.is_none()
+            && self.stale == 0
+            && self.installed >= self.expected
     }
 }
 
@@ -49,41 +54,42 @@ pub(super) fn report(kind: AgentKind) -> AgentHookReport {
         config_path: None,
         installed: 0,
         expected: config::events(kind).len(),
+        stale: 0,
         disabled: false,
         note: String::new(),
         error: None,
     };
-    match inspect_config(kind) {
-        Ok((path, count, disabled)) => {
-            report.config_path = Some(path);
-            report.installed = count;
-            report.disabled = disabled;
-        }
-        Err(error) => report.error = Some(error.message),
+    if let Err(error) = inspect_config(kind, &mut report) {
+        report.error = Some(error.message);
     }
     report.note = status_note(&report).into();
     report
 }
 
-fn inspect_config(kind: AgentKind) -> Result<(String, usize, bool), AppError> {
+fn inspect_config(kind: AgentKind, report: &mut AgentHookReport) -> Result<(), AppError> {
     let path = config_path(kind)?;
     let value = config::parse(&read_config(&path)?)?;
-    let disabled = if kind == AgentKind::Claude {
+    report.config_path = Some(path.to_string_lossy().into());
+    report.installed = config::owned_count(&value, kind);
+    report.stale = config::stale_count(&value, kind);
+    report.disabled = if kind == AgentKind::Claude {
         value["disableAllHooks"] == true
     } else {
         codex_disabled(&path)
     };
-    Ok((
-        path.to_string_lossy().into(),
-        config::owned_count(&value, kind),
-        disabled,
-    ))
+    Ok(())
 }
 
 fn codex_disabled(path: &Path) -> bool {
     path.parent()
         .and_then(|directory| read_config(&directory.join("config.toml")).ok())
-        .and_then(|text| text.parse::<toml_edit::DocumentMut>().ok())
+        .is_some_and(|text| codex_hooks_disabled(&text))
+}
+
+// hooks 在 Codex 是 stable 特性、默认开启，键缺失不等于关闭；`codex features list` 可核对。
+fn codex_hooks_disabled(text: &str) -> bool {
+    text.parse::<toml_edit::DocumentMut>()
+        .ok()
         .and_then(|doc| {
             doc.get("features")
                 .and_then(|features| {
@@ -112,9 +118,54 @@ fn status_note(report: &AgentHookReport) -> &'static str {
     if report.installed < report.expected {
         return "Hook 安装不完整，可重新预览并启用";
     }
+    if report.stale > 0 {
+        return "Hook 指向的应用已不存在，可能移动过应用或清理过构建；请重新预览并启用";
+    }
     if report.kind == AgentKind::Codex {
         "已安装；重开会话后，在 Codex /hooks 中审阅并信任这些命令"
     } else {
         "已安装；重开会话后接收 Hook，未连接前仍显示屏幕推断"
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn codex_hooks_stay_on_unless_the_config_turns_them_off() {
+        assert!(codex_hooks_disabled("[features]\nhooks = false\n"));
+        for text in [
+            "",
+            "[features]\njs_repl = false\n",
+            "[features]\nhooks = true\n",
+            "[features]\nhooks = \"false\"\n",
+            "not = valid = toml",
+        ] {
+            assert!(!codex_hooks_disabled(text), "{text:?}");
+        }
+    }
+
+    #[test]
+    fn a_report_that_points_at_a_removed_build_does_not_advertise_hooks() {
+        let mut report = AgentHookReport {
+            kind: AgentKind::Claude,
+            version: None,
+            supported: true,
+            config_path: None,
+            installed: 3,
+            expected: 3,
+            stale: 0,
+            disabled: false,
+            note: String::new(),
+            error: None,
+        };
+        assert!(report.enabled());
+        report.stale = 1;
+        assert!(!report.enabled());
+        assert_eq!(
+            "Hook 指向的应用已不存在，可能移动过应用或清理过构建；请重新预览并启用",
+            status_note(&report)
+        );
     }
 }
