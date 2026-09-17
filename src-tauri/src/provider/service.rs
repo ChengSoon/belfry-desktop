@@ -14,7 +14,7 @@ use super::contracts::{
     SwitchOutcome,
 };
 use super::store::StoreFile;
-use super::{claude, codex, envcheck, store};
+use super::{claude, codex, envcheck, pi, store};
 use crate::atomic::read_text_optional;
 
 /// 首次接管时给导入条目起的名字。
@@ -146,6 +146,7 @@ fn write_live(
             claude::apply(&mut settings, target)?;
             claude::write_settings(&settings)
         }
+        AgentKind::Pi => pi::apply_live(target),
         AgentKind::Codex => {
             let mut auth = store.codex_official_auth.take();
             let result = codex::switch(target, &mut auth);
@@ -172,6 +173,7 @@ pub(super) fn config_files(kind: AgentKind) -> Result<Vec<ConfigFilePreview>, Ap
             }])
         }
         AgentKind::Codex => codex::config_files(),
+        AgentKind::Pi => pi::config_files(),
     }
 }
 
@@ -195,6 +197,7 @@ pub(super) fn config_files_for_draft(
     match kind {
         AgentKind::Claude => preview_claude(&provider),
         AgentKind::Codex => preview_codex(&provider),
+        AgentKind::Pi => pi::config_files_for_provider(&provider),
     }
 }
 
@@ -226,6 +229,7 @@ pub(super) fn save_config_file(
     match kind {
         AgentKind::Claude => claude::save_config_file(&path, &content),
         AgentKind::Codex => codex::save_config_file(&path, &content),
+        AgentKind::Pi => pi::save_config_file(&path, &content),
     }
 }
 
@@ -351,6 +355,12 @@ fn detect_live(kind: AgentKind) -> Result<LiveProvider, AppError> {
         AgentKind::Codex => {
             let doc = codex::read_config()?;
             Ok(codex::detect_live(&doc)
+                .map(|(name, base_url, model, api_key)| (name, base_url, api_key, model)))
+        }
+        AgentKind::Pi => {
+            let models = pi::read_models()?;
+            let settings = pi::read_settings()?;
+            Ok(pi::detect_live(&models, &settings)
                 .map(|(name, base_url, model, api_key)| (name, base_url, api_key, model)))
         }
     }

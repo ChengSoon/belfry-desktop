@@ -16,6 +16,8 @@ impl Record {
         Ok(match agent {
             AgentKind::Claude => ClaudeRecord::parse(&value).map(Self::Claude),
             AgentKind::Codex => CodexRecord::parse(&value).map(Self::Codex),
+            // Pi 的用量在会话视图里统计（usage/session），聚合扫描不重复解析。
+            AgentKind::Pi => None,
         })
     }
 
@@ -31,6 +33,7 @@ pub(super) fn relevant(agent: AgentKind, bytes: &[u8]) -> bool {
     let keywords: &[&str] = match agent {
         AgentKind::Claude => &["\"usage\""],
         AgentKind::Codex => &["\"session_meta\"", "\"turn_context\"", "token_count"],
+        AgentKind::Pi => &["\"usage\""],
     };
     std::str::from_utf8(bytes).map_or(true, |line| keywords.iter().any(|key| line.contains(key)))
 }

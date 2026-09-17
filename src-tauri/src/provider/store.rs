@@ -24,6 +24,7 @@ pub(super) fn storage_key(kind: AgentKind) -> &'static str {
     match kind {
         AgentKind::Codex => "codex",
         AgentKind::Claude => "claude",
+        AgentKind::Pi => "pi",
     }
 }
 

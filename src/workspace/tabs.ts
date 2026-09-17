@@ -170,6 +170,6 @@ function tabTitle(kind: WorkspaceTabKind, ordinal: number, sshTarget: SshLaunch 
   if (kind === "ssh") {
     return sshTarget ? sshDisplayName(sshTarget) : `SSH ${String(ordinal).padStart(2, "0")}`;
   }
-  const label = { shell: "Shell", codex: "Codex", claude: "Claude" }[kind];
+  const label = { shell: "Shell", codex: "Codex", claude: "Claude", pi: "Pi" }[kind];
   return `${label} ${String(ordinal).padStart(2, "0")}`;
 }

@@ -23,6 +23,22 @@ pub fn claude_sessions_root() -> Option<PathBuf> {
     cli_root("CLAUDE_CONFIG_DIR", ".claude").map(|root| root.join("projects"))
 }
 
+/// Pi 的会话目录：`PI_CODING_AGENT_SESSION_DIR` 优先，否则取配置目录下的 sessions。
+pub fn pi_sessions_root() -> Option<PathBuf> {
+    std::env::var_os("PI_CODING_AGENT_SESSION_DIR")
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from)
+        .or_else(|| pi_config_dir().map(|root| root.join("sessions")))
+}
+
+/// Pi 的配置目录（`~/.pi/agent`）：models.json / settings.json / auth.json 都在这下面。
+pub fn pi_config_dir() -> Option<PathBuf> {
+    std::env::var_os("PI_CODING_AGENT_DIR")
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from)
+        .or_else(|| home_dir().map(|home| home.join(".pi").join("agent")))
+}
+
 fn cli_root(variable: &str, directory: &str) -> Option<PathBuf> {
     std::env::var_os(variable).filter(|value| !value.is_empty()).map(PathBuf::from)
         .or_else(|| home_dir().map(|home| home.join(directory)))

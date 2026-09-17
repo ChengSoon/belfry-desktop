@@ -2,7 +2,7 @@ import { Server, SquareTerminal, X } from "lucide-react";
 import type { CSSProperties, PointerEvent, ReactNode } from "react";
 import { ICON } from "../../theme/sizing";
 import type { WorkspaceTab } from "../../workspace/contracts";
-import { ClaudeIcon, CodexIcon } from "../../workspace/components/AgentIcons";
+import { ClaudeIcon, CodexIcon, PiIcon } from "../../workspace/components/AgentIcons";
 import type { Rect } from "../contracts";
 
 interface TerminalPaneProps {
@@ -45,6 +45,8 @@ export function TerminalPane({
       ? CodexIcon
       : tab.kind === "claude"
         ? ClaudeIcon
+        : tab.kind === "pi"
+          ? PiIcon
         : Server;
   const style = {
     left: `${rect.left}%`,

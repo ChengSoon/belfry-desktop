@@ -20,6 +20,15 @@ impl SessionTokens {
         }
     }
 
+    pub(super) fn pi(value: &Value) -> Self {
+        Self {
+            input: value["input"].as_u64(),
+            cached_input: value["cacheRead"].as_u64(),
+            cache_write: value["cacheWrite"].as_u64(),
+            output: value["output"].as_u64(),
+        }
+    }
+
     pub(super) fn maximum(&mut self, next: &Self) {
         self.input = self.input.max(next.input);
         self.cached_input = self.cached_input.max(next.cached_input);

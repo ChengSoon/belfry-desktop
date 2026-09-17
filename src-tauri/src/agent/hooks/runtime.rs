@@ -54,6 +54,7 @@ impl HookRuntime {
         let agent = match request.profile_id.as_str() {
             "agent:codex" => AgentKind::Codex,
             "agent:claude" => AgentKind::Claude,
+            "agent:pi" => AgentKind::Pi,
             _ => return,
         };
         let report = settings::report(agent);

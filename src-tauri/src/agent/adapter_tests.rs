@@ -8,8 +8,9 @@ fn registry_is_complete_and_stable() {
         .into_iter()
         .map(|kind| adapter_for(kind).descriptor().kind)
         .collect::<Vec<_>>();
-    assert_eq!(kinds, vec![AgentKind::Codex, AgentKind::Claude]);
+    assert_eq!(kinds, vec![AgentKind::Codex, AgentKind::Claude, AgentKind::Pi]);
     assert_eq!(descriptors()[0].id, "agent:codex");
+    assert_eq!(descriptors()[2].id, "agent:pi");
 }
 
 #[test]
@@ -31,6 +32,27 @@ fn resume_plans_keep_cli_specific_arguments() {
     assert_eq!(
         claude.arguments,
         ["--dangerously-skip-permissions", "--resume", "session-2"]
+    );
+}
+
+#[test]
+fn pi_resumes_by_session_without_extra_flags() {
+    // Pi 没有权限开关，新会话不带参数；续接用 --session <id>。
+    assert!(arguments_for(AgentKind::Pi, None, false).unwrap().is_empty());
+    let pi = adapter_for(AgentKind::Pi).plan_resume("019ff0d5-dbaf").unwrap();
+    assert_eq!(pi.arguments, ["--session", "019ff0d5-dbaf"]);
+}
+
+#[test]
+fn collaboration_mode_adds_no_flags_for_pi() {
+    // Pi 没有子 agent，协作模式不需要（也没有）可关闭的能力。
+    assert!(arguments_for(AgentKind::Pi, None, true).unwrap().is_empty());
+    assert_eq!(
+        adapter_for(AgentKind::Pi)
+            .plan_resume("session-3")
+            .unwrap()
+            .arguments,
+        ["--session", "session-3"]
     );
 }
 

@@ -50,7 +50,7 @@ const defaults: ComponentProps<typeof AppOverlays> = {
   onCancelClose: noop, onCancelRemove: noop, onCheckUpdate: noop, onCloseHistory: noop,
   onCloseQuickOpen: noop, onCloseSettings: noop, onCloseShortcutGuide: noop, onCloseUpdater: noop,
   onCloseUsage: noop, onConfirmClose: noop, onConfirmRemove: noop, onDismissFailure: noop,
-  onInstallUpdate: noop, onResumeHistory: noop, onSelectQuickOpen: noop,
+  onInstallUpdate: noop, onOpenUpdater: noop, onResumeHistory: noop, onSelectQuickOpen: noop,
 };
 
 function PersistentWorkbench() {

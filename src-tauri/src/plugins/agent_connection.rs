@@ -16,7 +16,7 @@ pub fn attach(app: &AppHandle, request: &mut CreateTerminalRequest) -> Option<St
     if request.command.is_some()
         || !matches!(
             LaunchProfileId::parse(&request.profile_id),
-            Ok(LaunchProfileId::AgentCodex | LaunchProfileId::AgentClaude)
+            Ok(LaunchProfileId::AgentCodex | LaunchProfileId::AgentClaude | LaunchProfileId::AgentPi)
         )
     {
         return None;
@@ -118,6 +118,9 @@ pub(crate) fn arguments(kind: AgentKind, env: &HashMap<String, String>) -> Vec<S
             }
             arguments
         }
+        // Pi 的 MCP 服务器由扩展（pi package）装配，没有 CLI 标志可以注入，
+        // 插件连接对 Pi 暂不生效，启动参数保持原样。
+        AgentKind::Pi => Vec::new(),
         AgentKind::Codex => {
             let entries = [
                 ("command", json!(node)),

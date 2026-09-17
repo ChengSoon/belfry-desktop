@@ -14,7 +14,7 @@ use super::contracts::{
     AgentSessionRef, AgentStateSnapshot,
 };
 use super::detection::detect_agent;
-use super::history_adapter::{AgentHistoryAdapter, ClaudeHistoryAdapter, CodexHistoryAdapter};
+use super::history_adapter::{AgentHistoryAdapter, ClaudeHistoryAdapter, CodexHistoryAdapter, PiHistoryAdapter};
 use super::state::{RawAgentEvent, normalize_event, state_snapshot};
 
 pub(crate) struct AgentLaunchContext<'a> {
@@ -71,15 +71,19 @@ pub(crate) trait AgentAdapter: Send + Sync {
 
 struct CodexAdapter;
 struct ClaudeAdapter;
+struct PiAdapter;
 static CODEX: CodexAdapter = CodexAdapter;
 static CLAUDE: ClaudeAdapter = ClaudeAdapter;
+static PI: PiAdapter = PiAdapter;
 static CODEX_HISTORY: CodexHistoryAdapter = CodexHistoryAdapter;
 static CLAUDE_HISTORY: ClaudeHistoryAdapter = ClaudeHistoryAdapter;
+static PI_HISTORY: PiHistoryAdapter = PiHistoryAdapter;
 
 pub(crate) fn adapter_for(kind: AgentKind) -> &'static dyn AgentAdapter {
     match kind {
         AgentKind::Codex => &CODEX,
         AgentKind::Claude => &CLAUDE,
+        AgentKind::Pi => &PI,
     }
 }
 
@@ -177,6 +181,8 @@ fn collaboration_arguments(kind: AgentKind) -> impl Iterator<Item = String> {
     match kind {
         AgentKind::Codex => ["--disable", "multi_agent"].as_slice(),
         AgentKind::Claude => ["--disallowedTools", "Agent", "Task"].as_slice(),
+        // Pi 没有子 agent / plan mode，协作模式不需要关掉任何能力。
+        AgentKind::Pi => [].as_slice(),
     }
     .iter()
     .map(|value| (*value).to_string())
@@ -195,6 +201,7 @@ fn resume_plan(
     match kind {
         AgentKind::Codex => arguments.extend(["resume".to_string(), session.id.clone()]),
         AgentKind::Claude => arguments.extend(["--resume".to_string(), session.id.clone()]),
+        AgentKind::Pi => arguments.extend(["--session".to_string(), session.id.clone()]),
     }
     Ok(AgentResumePlan {
         schema_version: 1,
@@ -202,6 +209,33 @@ fn resume_plan(
         supported: true,
         arguments,
     })
+}
+
+impl AgentAdapter for PiAdapter {
+    fn kind(&self) -> AgentKind {
+        AgentKind::Pi
+    }
+
+    fn history(&self) -> &'static dyn AgentHistoryAdapter {
+        &PI_HISTORY
+    }
+
+    fn descriptor(&self) -> AgentDescriptor {
+        AgentDescriptor::for_kind(self.kind())
+    }
+
+    fn launch(&self, context: AgentLaunchContext<'_>) -> Result<AgentLaunchSpec, AppError> {
+        resolve_launch(self.kind(), context, self.new_session_arguments())
+    }
+
+    // Pi 自身不做权限拦截（官方文档明说不内置权限系统），新会话不需要额外开关。
+    fn new_session_arguments(&self) -> Vec<String> {
+        Vec::new()
+    }
+
+    fn plan_resume(&self, session_id: &str) -> Result<AgentResumePlan, AppError> {
+        resume_plan(self.kind(), session_id, &[])
+    }
 }
 
 impl AgentAdapter for CodexAdapter {

@@ -10,7 +10,7 @@ export function WorktreeReminder({ project, tabs, onOpen }: {
 }) {
   const flyout = useFlyout();
   const [manager, setManager] = useState(false);
-  const count = project ? tabs.filter((tab) => (tab.kind === "codex" || tab.kind === "claude")
+  const count = project ? tabs.filter((tab) => (tab.kind === "codex" || tab.kind === "claude" || tab.kind === "pi")
     && tab.phase !== "exited" && tab.phase !== "error" && pathKey(tab.project.rootPath) === pathKey(project.rootPath)).length : 0;
   if (!project || count < 2) return null;
   return <div className="worktree-reminder" ref={flyout.root}>

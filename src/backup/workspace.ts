@@ -8,7 +8,7 @@ import { record, type WorkspaceBackup } from "./contracts";
 
 const MAX_LABEL_LENGTH = 200;
 const MAX_PATH_LENGTH = 4096;
-const DISPLAY_NAME = { shell: "Shell", ssh: "SSH", claude: "Claude", codex: "Codex" };
+const DISPLAY_NAME = { shell: "Shell", ssh: "SSH", claude: "Claude", codex: "Codex", pi: "Pi" };
 
 export function cleanWorkspace(input: unknown): WorkspaceBackup {
   if (!record(input) || !record(input.state) || !Array.isArray(input.state.tabs)) throw new Error("工作区数据无效");

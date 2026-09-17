@@ -77,5 +77,5 @@ export function formatRelative(epochSeconds: number | null, now = Date.now()) {
 }
 
 export function agentLabel(agent: string) {
-  return agent === "codex" ? "Codex" : agent === "claude" ? "Claude" : agent;
+  return agent === "codex" ? "Codex" : agent === "claude" ? "Claude" : agent === "pi" ? "Pi" : agent;
 }

@@ -9,7 +9,7 @@ import {
 } from "../../terminal/contracts";
 import type { AgentAvailability, WorkspaceTabKind } from "../contracts";
 import { useDismiss } from "../useDismiss";
-import { ClaudeIcon, CodexIcon } from "./AgentIcons";
+import { ClaudeIcon, CodexIcon, PiIcon } from "./AgentIcons";
 import { SshDialog } from "./SshDialog";
 
 interface NewSessionMenuProps {
@@ -114,8 +114,9 @@ export function NewSessionMenu({
               <span>SSH</span>
             </button>
             {agents.map((agent) => {
-              const label = agent.kind === "codex" ? "Codex" : "Claude";
-              const Icon = agent.kind === "codex" ? CodexIcon : ClaudeIcon;
+              const label = agent.descriptor.displayName;
+              const Icon = agent.kind === "codex" ? CodexIcon
+                : agent.kind === "claude" ? ClaudeIcon : PiIcon;
               return (
                 <button
                   disabled={!agent.available}

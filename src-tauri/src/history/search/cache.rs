@@ -4,7 +4,7 @@ use std::time::SystemTime;
 
 use crate::agent::AgentKind;
 use crate::history::contracts::HistorySession;
-use crate::history::{claude, codex};
+use crate::history::{claude, codex, pi};
 use crate::terminal::AppError;
 
 use super::{query, reader, SearchCancellation};
@@ -124,6 +124,7 @@ fn read_session(request: &FileRequest<'_>) -> Result<HistorySession, AppError> {
     match request.agent {
         AgentKind::Codex => codex::scan_file_checked(request.path, &|| request.cancel.check()),
         AgentKind::Claude => claude::scan_file_checked(request.path, &|| request.cancel.check()),
+        AgentKind::Pi => pi::scan_file_checked(request.path, &|| request.cancel.check()),
     }?
     .ok_or_else(|| AppError::invalid_argument("无法识别历史会话身份"))
 }

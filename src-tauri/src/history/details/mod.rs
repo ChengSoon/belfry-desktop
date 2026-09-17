@@ -1,6 +1,7 @@
 mod cancel;
 mod claude;
 mod codex;
+mod pi;
 pub mod commands;
 pub mod contracts;
 mod cursor;

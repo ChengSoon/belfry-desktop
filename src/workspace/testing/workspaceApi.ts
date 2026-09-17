@@ -33,7 +33,7 @@ Object.assign(window, { qa, __TAURI_INTERNALS__: {
     }
     if (command === "agent_detect") {
       await agentGate;
-      return (["codex", "claude"] as const).map((kind) => ({ kind, descriptor: agentDescriptor(kind),
+      return (["codex", "claude", "pi"] as const).map((kind) => ({ kind, descriptor: agentDescriptor(kind),
         available: true, executable: `/qa/${kind}`, version: "1", reason: null }));
     }
     if (command === "terminal_shell_profiles") return [{ id: "system-default", available: true, executable: "/bin/sh", isDefault: true, reason: null }];

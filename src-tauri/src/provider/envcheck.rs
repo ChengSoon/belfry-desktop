@@ -23,6 +23,8 @@ fn watched(kind: AgentKind) -> &'static [&'static str] {
             "ANTHROPIC_MODEL",
         ],
         AgentKind::Codex => &["OPENAI_API_KEY", "OPENAI_BASE_URL"],
+        // Pi 的路由落在 models.json 里，shell 里的 key 不会盖过它，没有可报的冲突。
+        AgentKind::Pi => &[],
     }
 }
 

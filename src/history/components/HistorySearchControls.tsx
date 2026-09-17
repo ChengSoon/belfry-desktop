@@ -16,10 +16,10 @@ export function HistorySearchControls({ filters, projects, tags, onChange }: Pro
   return <div className="history-filters history-search-controls">
     <SearchInput value={filters.text} onChange={(text) => onChange({ text })} />
     <div className="history-segments" role="group" aria-label="筛选 Agent">
-      {(["all", "codex", "claude"] as const).map((agent) => <button key={agent} type="button"
+      {(["all", "codex", "claude", "pi"] as const).map((agent) => <button key={agent} type="button"
         className={filters.agent === agent ? "is-active" : undefined} aria-pressed={filters.agent === agent}
         onClick={() => onChange({ agent, project: "" })}>
-        {agent === "all" ? "全部" : agent === "codex" ? "Codex" : "Claude"}
+        {agent === "all" ? "全部" : agent === "codex" ? "Codex" : agent === "claude" ? "Claude" : "Pi"}
       </button>)}
     </div>
     <Select ariaLabel="筛选项目" value={filters.project} onChange={(project) => onChange({ project })}

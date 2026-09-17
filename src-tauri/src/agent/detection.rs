@@ -72,9 +72,9 @@ pub(crate) fn detect_agent(kind: AgentKind) -> AgentAvailability {
     availability
 }
 
-fn find_agent(kind: AgentKind) -> Option<PathBuf> {
+pub(crate) fn find_agent(kind: AgentKind) -> Option<PathBuf> {
     find_in_path(kind.command_name())
-        .or_else(|| find_in_user_environment(kind))
+        .or_else(|| find_in_user_environment(kind.command_name()))
         // 解析失败就保留原路径：能找到文件就已经可执行，规范化只是锦上添花。
         .and_then(|path| canonicalize(&path).ok().or(Some(path)))
 }
@@ -103,9 +103,9 @@ fn command_candidates(directory: &Path, command: &str) -> Vec<PathBuf> {
 const COMMAND_EXTENSIONS: &[&str] = &["exe", "cmd", "bat", "com"];
 
 #[cfg(target_os = "macos")]
-fn find_in_user_environment(kind: AgentKind) -> Option<PathBuf> {
+pub(crate) fn find_in_user_environment(command: &str) -> Option<PathBuf> {
     let shell = login_shell();
-    let lookup = format!("command -v {}", kind.command_name());
+    let lookup = format!("command -v {command}");
     let output = Command::new(shell).args(["-lic", &lookup]).output().ok()?;
     String::from_utf8_lossy(&output.stdout)
         .lines()
@@ -153,12 +153,12 @@ fn parse_login_shell_env(output: &[u8]) -> HashMap<String, String> {
 }
 
 #[cfg(target_os = "windows")]
-fn find_in_user_environment(kind: AgentKind) -> Option<PathBuf> {
+pub(crate) fn find_in_user_environment(command: &str) -> Option<PathBuf> {
     user_install_dirs()
         .into_iter()
-        .flat_map(|directory| command_candidates(&directory, kind.command_name()))
+        .flat_map(|directory| command_candidates(&directory, command))
         .find(|path| is_executable(path))
-        .or_else(|| where_command(kind.command_name()))
+        .or_else(|| where_command(command))
 }
 
 /// Windows 上各包管理器默认的全局 bin 目录。npm 之外还有 pnpm / bun / scoop，
@@ -286,9 +286,10 @@ mod tests {
     #[test]
     fn detection_always_reports_both_supported_agents() {
         let result = super::super::adapter::detect_all();
-        assert_eq!(result.len(), 2);
+        assert_eq!(result.len(), 3);
         assert_eq!(result[0].kind, AgentKind::Codex);
         assert_eq!(result[1].kind, AgentKind::Claude);
+        assert_eq!(result[2].kind, AgentKind::Pi);
     }
 
     #[test]

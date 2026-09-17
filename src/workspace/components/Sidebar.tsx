@@ -20,7 +20,7 @@ import type { AgentAvailability, WorkspaceTab, WorkspaceTabKind } from "../contr
 import { shortPath } from "../path";
 import { SIDEBAR_WIDTH } from "../sidebarWidth";
 import { groupTabsByProject, type ProjectGroup } from "../tabs";
-import { ClaudeIcon, CodexIcon } from "./AgentIcons";
+import { ClaudeIcon, CodexIcon, PiIcon } from "./AgentIcons";
 import { NewSessionMenu } from "./NewSessionMenu";
 import { SshDialog } from "./SshDialog";
 import "../sidebar.css";
@@ -330,7 +330,9 @@ function SessionRow({
       ? CodexIcon
       : tab.kind === "claude"
         ? ClaudeIcon
-        : Server;
+        : tab.kind === "pi"
+          ? PiIcon
+          : Server;
   // 两种会话都能改名，但改的是两样东西：SSH 改显示标题，Agent 改协作里的寻址名。
   const renamesAgent = isAgentKind(tab.kind);
   const renamable = renamesAgent || tab.kind === "ssh";

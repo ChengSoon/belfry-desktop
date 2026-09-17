@@ -1,4 +1,5 @@
 import type { WorkspaceTab, WorkspaceTabKind } from "../workspace/contracts";
+import type { AgentKind } from "../agent/contracts";
 
 export interface PromptQueueItem {
   id: string;
@@ -9,8 +10,8 @@ export interface PromptQueueItem {
 
 export type PromptSubmitResult = "sent" | "queued" | "unavailable";
 
-export function isAgentKind(kind: WorkspaceTabKind): kind is "codex" | "claude" {
-  return kind === "codex" || kind === "claude";
+export function isAgentKind(kind: WorkspaceTabKind): kind is AgentKind {
+  return kind === "codex" || kind === "claude" || kind === "pi";
 }
 
 export function isPromptBusy(tab: Pick<WorkspaceTab, "activity">) {

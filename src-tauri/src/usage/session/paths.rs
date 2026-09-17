@@ -21,6 +21,7 @@ pub(super) fn root(agent: AgentKind) -> Result<PathBuf, AppError> {
     let (variable, directory, child) = match agent {
         AgentKind::Codex => ("CODEX_HOME", ".codex", "sessions"),
         AgentKind::Claude => ("CLAUDE_CONFIG_DIR", ".claude", "projects"),
+        AgentKind::Pi => ("PI_CODING_AGENT_DIR", ".pi/agent", "sessions"),
     };
     std::env::var_os(variable)
         .filter(|value| !value.is_empty())
@@ -119,6 +120,10 @@ fn matches_name(path: &Path, session: &AgentSessionRef) -> bool {
         .unwrap_or_default();
     name == session.id
         || (session.agent == AgentKind::Codex && name.ends_with(&format!("-{}", session.id)))
+        || (session.agent == AgentKind::Pi
+            && name
+                .split_once('_')
+                .is_some_and(|(_, id)| id == session.id))
 }
 
 fn belongs(path: &Path, session: &AgentSessionRef) -> bool {
@@ -127,6 +132,7 @@ fn belongs(path: &Path, session: &AgentSessionRef) -> bool {
         AgentKind::Codex => {
             crate::history::codex::session_id_from_meta(path).as_deref() == Some(&session.id)
         }
+        AgentKind::Pi => crate::history::pi::session_id_from_path(path).as_deref() == Some(&session.id),
     }
 }
 

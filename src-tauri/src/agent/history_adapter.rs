@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use crate::history::contracts::HistorySession;
-use crate::history::{claude, codex};
+use crate::history::{claude, codex, pi};
 use crate::terminal::AppError;
 
 pub(crate) trait AgentHistoryAdapter: Send + Sync {
@@ -13,6 +13,7 @@ pub(crate) trait AgentHistoryAdapter: Send + Sync {
 
 pub(crate) struct CodexHistoryAdapter;
 pub(crate) struct ClaudeHistoryAdapter;
+pub(crate) struct PiHistoryAdapter;
 
 impl AgentHistoryAdapter for CodexHistoryAdapter {
     fn list(&self) -> Vec<HistorySession> {
@@ -25,6 +26,24 @@ impl AgentHistoryAdapter for CodexHistoryAdapter {
 
     fn find_files(&self, root: &Path, session_id: &str) -> Vec<PathBuf> {
         codex::find_files(root, session_id)
+    }
+
+    fn clear(&self) -> Result<u32, AppError> {
+        clear_jsonl_root(self.sessions_root())
+    }
+}
+
+impl AgentHistoryAdapter for PiHistoryAdapter {
+    fn list(&self) -> Vec<HistorySession> {
+        pi::scan()
+    }
+
+    fn sessions_root(&self) -> Option<PathBuf> {
+        crate::history::scan::pi_sessions_root()
+    }
+
+    fn find_files(&self, root: &Path, session_id: &str) -> Vec<PathBuf> {
+        pi::find_files(root, session_id)
     }
 
     fn clear(&self) -> Result<u32, AppError> {

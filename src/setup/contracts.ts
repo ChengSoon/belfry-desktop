@@ -13,7 +13,7 @@ export interface EnvironmentReport {
   checks: EnvironmentCheck[];
 }
 
-export type AgentKind = "codex" | "claude";
+export type AgentKind = "codex" | "claude" | "pi";
 export type SkillInstallAction = "installed" | "updated" | "unchanged" | "failed";
 
 export interface SkillInstallTargetOutcome {
@@ -48,6 +48,7 @@ export function countChecks(report: EnvironmentReport): CheckCounts {
 const AGENT_LABEL: Record<AgentKind, string> = {
   codex: "Codex",
   claude: "Claude Code",
+  pi: "Pi",
 };
 
 export function summarizeSkillInstall(outcome: SkillInstallOutcome): SkillInstallFeedback {

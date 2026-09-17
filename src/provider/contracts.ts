@@ -57,6 +57,7 @@ export const EMPTY_DRAFT: ProviderDraft = {
 export const AGENT_LABEL: Record<AgentKind, string> = {
   codex: "Codex",
   claude: "Claude Code",
+  pi: "Pi",
 };
 
 export function toDraft(config: ProviderConfig): ProviderDraft {

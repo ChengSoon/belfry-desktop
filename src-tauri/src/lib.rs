@@ -73,6 +73,8 @@ pub fn run() {
             agent::commands::agent_detect,
             agent::commands::agent_descriptors,
             agent::commands::agent_resume_plan,
+            agent::release::commands::agent_release_report,
+            agent::release::commands::agent_release_install,
             agent::hooks::commands::agent_hooks_report,
             agent::hooks::commands::agent_hooks_preview,
             agent::hooks::commands::agent_hooks_apply,

@@ -4,6 +4,7 @@ mod contracts;
 mod detection;
 mod history_adapter;
 pub(crate) mod hooks;
+pub(crate) mod release;
 mod state;
 
 #[cfg(test)]

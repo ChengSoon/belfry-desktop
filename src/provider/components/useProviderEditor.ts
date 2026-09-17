@@ -23,6 +23,7 @@ export function useProviderEditor(onGuardChange: (guarded: boolean) => void) {
   const [editsByKind, setEditsByKind] = useState<Record<AgentKind, Record<string, string>>>({
     claude: {},
     codex: {},
+    pi: {},
   });
   const edits = editsByKind[kind];
   const setEdits = (updater: (current: Record<string, string>) => Record<string, string>) => {

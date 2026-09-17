@@ -67,7 +67,7 @@ fn issue_collab_identity(
     };
     if !matches!(
         LaunchProfileId::parse(&request.profile_id),
-        Ok(LaunchProfileId::AgentCodex | LaunchProfileId::AgentClaude)
+        Ok(LaunchProfileId::AgentCodex | LaunchProfileId::AgentClaude | LaunchProfileId::AgentPi)
     ) {
         return;
     }

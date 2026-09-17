@@ -42,6 +42,7 @@ interface AppOverlaysProps {
   quickOpenOpen: boolean;
   quickOpenShortcut: string;
   settingsOpen: boolean;
+  settingsSection?: string;
   shortcutGuideOpen: boolean;
   shortcutPlatform: ShortcutPlatform;
   updaterOpen: boolean;
@@ -54,6 +55,7 @@ interface AppOverlaysProps {
   onCloseQuickOpen: () => void;
   onCloseSettings: () => void;
   onCloseShortcutGuide: () => void;
+  onOpenUpdater: () => void;
   onCloseUpdater: () => void;
   onCloseUsage: () => void;
   onConfirmClose: () => void;
@@ -76,7 +78,16 @@ export function AppOverlays(props: AppOverlaysProps) {
 function PrimaryPanels(props: AppOverlaysProps) {
   return (
     <>
-      {props.settingsOpen ? <SettingsPanel onClose={props.onCloseSettings} project={props.project} /> : null}
+      {props.settingsOpen ? (
+        <SettingsPanel
+          initialSection={props.settingsSection}
+          updaterOpen={props.updaterOpen}
+          onClose={props.onCloseSettings}
+          onOpenUpdater={props.onOpenUpdater}
+          project={props.project}
+          updaterState={props.updaterState}
+        />
+      ) : null}
 
       {props.quickOpenOpen ? (
         <QuickOpen

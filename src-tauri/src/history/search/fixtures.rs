@@ -15,6 +15,7 @@ impl Fixture {
         let roots = SearchRoots {
             codex: Some(root.join("codex")),
             claude: Some(root.join("claude")),
+            pi: Some(root.join("pi")),
         };
         Self { root, roots }
     }

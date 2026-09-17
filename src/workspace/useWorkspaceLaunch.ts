@@ -70,7 +70,7 @@ function launchFailure(environment: Pick<LaunchOptions["environment"], "agents" 
   if (shell && !shell.available) {
     return { code: "NOT_FOUND", message: shell.reason ?? `${profileId} 不可用`, retryable: true };
   }
-  const agent = kind === "codex" || kind === "claude"
+  const agent = kind === "codex" || kind === "claude" || kind === "pi"
     ? environment.agents.find((item) => item.kind === kind) : null;
   return agent && !agent.available
     ? { code: "NOT_FOUND", message: agent.reason ?? `${kind} 不可用`, retryable: true } : null;

@@ -40,6 +40,7 @@ impl HistorySearchState {
         let roots = SearchRoots {
             codex: scan::codex_sessions_root(),
             claude: scan::claude_sessions_root(),
+            pi: scan::pi_sessions_root(),
         };
         tauri::async_runtime::spawn_blocking(move || {
             let mut index = index.lock().map_err(|_| AppError::io("历史索引暂不可用"))?;
@@ -100,6 +101,7 @@ fn source_files(
     for (agent, root) in [
         (AgentKind::Codex, &roots.codex),
         (AgentKind::Claude, &roots.claude),
+        (AgentKind::Pi, &roots.pi),
     ] {
         cancel.check()?;
         if let Some(root) = root {

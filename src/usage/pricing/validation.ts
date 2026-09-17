@@ -23,7 +23,7 @@ function text(value: unknown, max: number): value is string {
 
 function ruleError(rule: unknown): string | null {
   if (!object(rule) || !text(rule.id, 128) || !text(rule.model, MAX_MODEL_LENGTH)) return "价格条目缺少有效标识或模型名";
-  if (rule.agent !== "codex" && rule.agent !== "claude") return "请选择 Codex 或 Claude Code";
+  if (rule.agent !== "codex" && rule.agent !== "claude" && rule.agent !== "pi") return "请选择 Codex、Claude Code 或 Pi";
   if (rule.projectRoot !== null && !text(rule.projectRoot, MAX_PATH_LENGTH)) return "项目路径无效";
   if (!text(rule.source, MAX_SOURCE_LENGTH)) return "请填写价格来源";
   if (typeof rule.effectiveFrom !== "string" || !validDate(rule.effectiveFrom)) return "生效日期无效";

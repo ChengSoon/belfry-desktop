@@ -6,6 +6,7 @@
 
 pub(crate) mod claude;
 pub(crate) mod codex;
+pub(crate) mod pi;
 #[cfg(test)]
 mod codex_identity_tests;
 pub mod commands;

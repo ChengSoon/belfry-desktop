@@ -9,6 +9,11 @@ pub(super) fn record_text(agent: AgentKind, record: &Value) -> Vec<String> {
             Some("user" | "assistant") => content_text(&record["message"]["content"]),
             _ => Vec::new(),
         },
+        AgentKind::Pi => match record["role"].as_str() {
+            Some("user" | "assistant" | "toolResult") => content_text(&record["content"]),
+            Some("bashExecution") => content_text(&record["output"]),
+            _ => Vec::new(),
+        },
     }
 }
 

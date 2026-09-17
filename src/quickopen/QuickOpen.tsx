@@ -8,6 +8,7 @@ import {
   FolderOpen,
   Gauge,
   History,
+  Info,
   Keyboard,
   ListChecks,
   PanelLeft,
@@ -182,6 +183,7 @@ function iconComponent(icon: QuickOpenIcon | undefined, kind: QuickOpenItemKind)
   if (icon === "bot") return Bot;
   if (icon === "settings") return Settings;
   if (icon === "history") return History;
+  if (icon === "info") return Info;
   if (icon === "gauge") return Gauge;
   if (icon === "sidebar") return PanelLeft;
   if (icon === "keyboard") return Keyboard;

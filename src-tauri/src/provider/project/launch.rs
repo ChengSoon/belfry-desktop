@@ -25,6 +25,7 @@ pub(super) fn prepare(
     match kind {
         AgentKind::Codex => Ok(codex(provider)),
         AgentKind::Claude => claude(base, provider),
+        AgentKind::Pi => pi(base, provider),
     }
 }
 
@@ -87,6 +88,46 @@ fn claude(base: &Path, provider: &ProviderConfig) -> Result<LaunchOverlay, AppEr
         ],
         environment,
         retained_files: vec![file],
+        ..Default::default()
+    })
+}
+
+/// Pi 没有逐次覆盖 base URL 的 CLI 标志，项目隔离用一整套临时配置目录：
+/// 指向项目自己的 provider，又不碰用户全局的 `~/.pi/agent`。
+/// 会话目录单独指回真实位置，隔离的是路由与凭据，不是用户的历史记录。
+fn pi(base: &Path, provider: &ProviderConfig) -> Result<LaunchOverlay, AppError> {
+    let dir = LaunchFile::create_dir(base)?;
+    let mut models = serde_json::json!({});
+    let mut settings = serde_json::json!({});
+    super::super::pi::apply(&mut models, &mut settings, Some(provider))?;
+    let write = |name: &str, contents: String, secret: bool| -> Result<(), AppError> {
+        crate::atomic::write_atomic(&dir.path().join(name), &contents, secret)
+    };
+    write(
+        "models.json",
+        serde_json::to_string_pretty(&models).unwrap(),
+        true,
+    )?;
+    write(
+        "settings.json",
+        serde_json::to_string_pretty(&settings).unwrap(),
+        false,
+    )?;
+    let mut environment = std::collections::HashMap::new();
+    environment.insert(
+        "PI_CODING_AGENT_DIR".into(),
+        dir.path().to_string_lossy().into_owned(),
+    );
+    if let Some(sessions) = crate::history::scan::pi_sessions_root() {
+        environment.insert(
+            "PI_CODING_AGENT_SESSION_DIR".into(),
+            sessions.to_string_lossy().into_owned(),
+        );
+    }
+    Ok(LaunchOverlay {
+        arguments: Vec::new(),
+        environment,
+        retained_files: vec![dir],
         ..Default::default()
     })
 }

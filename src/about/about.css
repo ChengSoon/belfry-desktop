@@ -1,0 +1,223 @@
+/* 关于页：应用卡片 + Agent CLI 卡片网格。卡片规格沿用 provider.css，
+   只补 about 专属的排版，不引入新色板。 */
+.about-section {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+}
+
+/* 应用卡片 */
+.about-app {
+  flex-wrap: wrap;
+}
+
+.about-app__icon {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+}
+
+.about-app__copy {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.about-app__version {
+  display: inline-flex;
+  margin-top: 8px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+
+.about-app__version--available {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: transparent;
+}
+
+/* 按钮组贴卡片最右。.provider-official > div 的优先级 (0,1,1) 高于本文件里的
+   单类名规则，会把这里写死的 flex: none 覆盖成 flex: 1，于是按钮组和文案区
+   平分宽度、按钮堆在平分区的左侧，GitHub/更新日志就飘到了卡片中间。
+   用 .about-app 祖先前缀抬到 (0,2,0) 才压得住；文案区负责吃掉所有剩余宽度，
+   把按钮组顶到最右。 */
+.about-app .about-app__actions {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.about-app__actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  background: transparent;
+  cursor: pointer;
+  font-size: var(--fs-sm);
+}
+
+.about-app__actions button:hover:not(:disabled) {
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+}
+
+/* 「Agent CLI」子标题行 */
+.about-cli-heading__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.about-cli-heading__actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 28px;
+  padding: 4px 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-muted);
+  background: transparent;
+  cursor: pointer;
+  font-size: var(--fs-sm);
+}
+
+.about-cli-heading__actions button:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+
+.about-cli-heading__actions span {
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+}
+
+/* CLI 卡片网格：紧凑三列，贴合参考图的 430×140 卡 + 12px 间距 */
+.about-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 12px;
+}
+
+.about-card {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  padding: 16px;
+}
+
+/* 名称在左、版本号在右，同一行 */
+.about-card__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+}
+
+.about-card__name {
+  overflow: hidden;
+  font-size: var(--fs-md);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.about-card__state {
+  flex: none;
+  display: inline-flex;
+}
+
+.about-card[data-state="ready"] .about-card__state { color: var(--success); }
+.about-card[data-state="upgradable"] .about-card__state { color: var(--accent); }
+.about-card[data-state="missing"] .about-card__state { color: var(--text-faint); }
+.about-card[data-state="unmanaged"] .about-card__state { color: var(--warning); }
+.about-card[data-state="unknown"] .about-card__state { color: var(--text-faint); }
+
+.about-card__version {
+  margin-left: auto;
+  flex: none;
+  overflow: hidden;
+  color: var(--text);
+  font: var(--fs-xs)/1.6 var(--font-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.about-card[data-state="missing"] .about-card__version { color: var(--text-faint); }
+.about-card[data-state="upgradable"] .about-card__version { color: var(--accent); }
+
+.about-card__meta {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+}
+
+.about-card__meta > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.about-card__meta dt {
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+}
+
+.about-card__meta dd {
+  margin: 0;
+  overflow: hidden;
+  color: var(--text);
+  font: var(--fs-xs)/1.6 var(--font-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.about-card .provider-card__actions {
+  border-top: 0;
+  padding-top: 0;
+  justify-content: flex-end;
+}
+
+.about-card__notice {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-normal);
+  overflow-wrap: anywhere;
+}
+
+.about-card__log {
+  max-height: 96px;
+  margin: 0;
+  padding: 8px;
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font: var(--fs-xs)/1.5 var(--font-mono);
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.about-error {
+  margin: 0;
+  color: var(--danger);
+  font-size: var(--fs-sm);
+}
+
+@container settings (max-width: 560px) {
+  .about-app .about-app__actions { flex-basis: 100%; }
+}

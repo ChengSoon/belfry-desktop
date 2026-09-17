@@ -8,15 +8,17 @@ pub(crate) const MAX_SESSION_ID_LENGTH: usize = 512;
 pub enum AgentKind {
     Codex,
     Claude,
+    Pi,
 }
 
 impl AgentKind {
-    pub const ALL: [Self; 2] = [Self::Codex, Self::Claude];
+    pub const ALL: [Self; 3] = [Self::Codex, Self::Claude, Self::Pi];
 
     pub fn command_name(self) -> &'static str {
         match self {
             Self::Codex => "codex",
             Self::Claude => "claude",
+            Self::Pi => "pi",
         }
     }
 
@@ -24,6 +26,7 @@ impl AgentKind {
         match self {
             Self::Codex => "Codex",
             Self::Claude => "Claude Code",
+            Self::Pi => "Pi",
         }
     }
 }

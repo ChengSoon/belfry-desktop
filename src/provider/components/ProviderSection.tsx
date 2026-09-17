@@ -49,7 +49,7 @@ export function ProviderSection({ onGuardChange }: { onGuardChange: (guarded: bo
       <ProviderSettingsHeader busy={providers.loading} editing={draft !== null}
         onAdd={() => openDraft({ ...EMPTY_DRAFT })} onReload={() => void providers.reload()} />
       <div className="provider-segments" data-active={kind} role="tablist" aria-label="Agent CLI">
-        {(["claude", "codex"] as const).map((value) => (
+        {(["claude", "codex", "pi"] as const).map((value) => (
           <button
             aria-selected={kind === value}
             className={kind === value ? "is-active" : undefined}
@@ -180,7 +180,7 @@ export function ProviderSection({ onGuardChange }: { onGuardChange: (guarded: bo
                   />
                 ))}
               </div>
-              <p className="provider-hint">{kind === "codex" ? "切换后，新开的 Codex 会话使用所选服务。" : "切换后，Claude Code 的后续请求使用所选服务。"} 保存新配置后，点击「启用」应用。</p>
+              <p className="provider-hint">{kind === "codex" ? "切换后，新开的 Codex 会话使用所选服务。" : kind === "claude" ? "切换后，Claude Code 的后续请求使用所选服务。" : "切换后，新开的 Pi 会话使用所选服务。"} 保存新配置后，点击「启用」应用。</p>
             </>
           )}
         </>

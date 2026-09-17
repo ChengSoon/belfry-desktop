@@ -39,6 +39,7 @@ pub(super) fn root(agent: AgentKind) -> Result<PathBuf, AppError> {
     let path = match agent {
         AgentKind::Codex => crate::history::scan::codex_sessions_root(),
         AgentKind::Claude => crate::history::scan::claude_sessions_root(),
+        AgentKind::Pi => crate::history::scan::pi_sessions_root(),
     };
     path.ok_or_else(|| AppError::not_found("找不到 CLI 日志目录"))
 }

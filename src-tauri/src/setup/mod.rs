@@ -1,10 +1,11 @@
 mod claude;
 mod client;
 mod codex;
+mod pi;
 pub mod commands;
 mod contracts;
 mod diagnostics;
-mod process;
+pub(crate) mod process;
 mod skill;
 
 pub(crate) fn install_skill_on_startup() {

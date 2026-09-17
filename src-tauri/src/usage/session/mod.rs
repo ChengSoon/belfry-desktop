@@ -2,6 +2,7 @@ mod aggregate;
 mod cache;
 mod claude;
 mod codex;
+mod pi;
 pub(crate) mod commands;
 mod contracts;
 mod details;

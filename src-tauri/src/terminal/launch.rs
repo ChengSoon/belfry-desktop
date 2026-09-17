@@ -39,6 +39,9 @@ pub(super) fn resolve_launch(
         LaunchProfileId::AgentClaude => {
             resolve_agent_launch(AgentKind::Claude, cwd, env, resume, collaboration_mode)
         }
+        LaunchProfileId::AgentPi => {
+            resolve_agent_launch(AgentKind::Pi, cwd, env, resume, collaboration_mode)
+        }
         LaunchProfileId::Ssh => resolve_ssh_launch(cwd, env, ssh),
         _ => Err(AppError::invalid_argument(
             "unsupported terminal launch profile",
@@ -171,6 +174,7 @@ fn resolve_named_shell_launch(
         LaunchProfileId::SystemDefault
         | LaunchProfileId::AgentCodex
         | LaunchProfileId::AgentClaude
+        | LaunchProfileId::AgentPi
         | LaunchProfileId::Ssh => {
             return Err(AppError::invalid_argument("profile is not a named shell"));
         }
@@ -192,7 +196,10 @@ fn resolve_shell_executable(profile: LaunchProfileId) -> Result<String, AppError
         LaunchProfileId::ShellCmd => resolve_windows_cmd(),
         LaunchProfileId::ShellWsl => resolve_windows_wsl(),
         LaunchProfileId::ShellGitBash => resolve_git_bash(),
-        LaunchProfileId::AgentCodex | LaunchProfileId::AgentClaude | LaunchProfileId::Ssh => {
+        LaunchProfileId::AgentCodex
+        | LaunchProfileId::AgentClaude
+        | LaunchProfileId::AgentPi
+        | LaunchProfileId::Ssh => {
             Err(AppError::invalid_argument("profile is not a shell"))
         }
     }

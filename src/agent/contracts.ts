@@ -1,4 +1,4 @@
-export type AgentKind = "codex" | "claude";
+export type AgentKind = "codex" | "claude" | "pi";
 
 export type AgentLifecycleState =
   | "starting"
@@ -69,7 +69,7 @@ export interface AgentResumePlan {
 const MAX_SESSION_ID_LENGTH = 512;
 
 export function isAgentKind(value: string): value is AgentKind {
-  return value === "codex" || value === "claude";
+  return value === "codex" || value === "claude" || value === "pi";
 }
 
 export function isAgentSessionRef(value: unknown): value is AgentSessionRef {
@@ -97,7 +97,7 @@ export function agentDescriptor(kind: AgentKind): AgentDescriptor {
   return {
     id: agentProfileId(kind),
     kind,
-    displayName: kind === "codex" ? "Codex" : "Claude Code",
+    displayName: kind === "codex" ? "Codex" : kind === "claude" ? "Claude Code" : "Pi",
     command: kind,
     capabilities: {
       launch: true,

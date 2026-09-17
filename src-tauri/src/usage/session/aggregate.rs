@@ -1,5 +1,6 @@
 use super::{
     claude::ClaudeUsage, codex::CodexUsage, contracts::SessionStatistics, details::Details,
+    pi::PiUsage,
 };
 use crate::agent::{AgentKind, AgentSessionRef};
 use serde_json::Value;
@@ -14,6 +15,7 @@ pub(super) struct Accumulator {
     session: AgentSessionRef,
     codex: CodexUsage,
     claude: ClaudeUsage,
+    pi: PiUsage,
     details: Details,
     seen: HashSet<u64>,
     limited: bool,
@@ -25,6 +27,7 @@ impl Accumulator {
             session,
             codex: CodexUsage::default(),
             claude: ClaudeUsage::default(),
+            pi: PiUsage::default(),
             details: Details::default(),
             seen: HashSet::new(),
             limited: false,
@@ -46,6 +49,7 @@ impl Accumulator {
         match self.session.agent {
             AgentKind::Codex => self.codex.consume(record, &mut self.details),
             AgentKind::Claude => self.claude.consume(record, &mut self.details),
+            AgentKind::Pi => self.pi.consume(record, &mut self.details),
         }
     }
 
@@ -61,6 +65,7 @@ impl Accumulator {
         let tokens = match self.session.agent {
             AgentKind::Codex => self.codex.tokens(),
             AgentKind::Claude => self.claude.tokens(),
+            AgentKind::Pi => self.pi.tokens(),
         };
         SessionStatistics {
             session: self.session.clone(),

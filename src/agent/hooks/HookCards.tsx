@@ -8,7 +8,7 @@ interface AgentProps {
 }
 interface PreviewProps { preview: HookInstallPreview; busy: boolean; onConfirm: () => void; onCancel: () => void }
 
-const label = (kind: AgentKind) => kind === "codex" ? "Codex" : "Claude Code";
+const label = (kind: AgentKind) => kind === "codex" ? "Codex" : kind === "claude" ? "Claude Code" : "Pi";
 
 export function HookAgentCard({ report, busy, onPreview }: AgentProps) {
   const name = label(report.kind);

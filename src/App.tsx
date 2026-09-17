@@ -48,6 +48,7 @@ export default function App() {
   const [usageOpen, setUsageOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsSection, setSettingsSection] = useState<string | undefined>(undefined);
   const [collabOpen, setCollabOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [pluginDockOpen, setPluginDockOpen] = useState(false);
@@ -222,7 +223,7 @@ export default function App() {
       if (tab) layout.activateTab(tab.id);
     },
     onNewShell: () => launch("shell"),
-    onOpenSettings: () => setSettingsOpen(true),
+    onOpenSettings: () => { setSettingsSection(undefined); setSettingsOpen(true); },
     onToggleHistory: toggleHistory,
     onToggleQuickOpen: toggleQuickOpen,
     onToggleSidebar: () => setCollapsed((value) => !value),
@@ -235,7 +236,8 @@ export default function App() {
         case "action:new-shell": launch("shell"); break;
         case "action:collab": toggleCollab(); break;
         case "action:file-preview": openPreview(); break;
-        case "action:settings": setSettingsOpen(true); break;
+        case "action:settings": setSettingsSection(undefined); setSettingsOpen(true); break;
+        case "action:about": setSettingsSection("about"); setSettingsOpen(true); break;
         case "action:history": toggleHistory(); break;
         case "action:usage": toggleUsage(); break;
         case "action:sidebar": setCollapsed((value) => !value); break;
@@ -281,7 +283,7 @@ export default function App() {
           onToggleHistory={toggleHistory}
           historyOpen={historyOpen}
           onOpenUpdater={updater.openPanel}
-          onOpenSettings={() => setSettingsOpen(true)}
+          onOpenSettings={() => { setSettingsSection(undefined); setSettingsOpen(true); }}
           settingsOpen={settingsOpen}
           ref={sidebarRef}
           tabs={workspace.visibleTabs}
@@ -352,6 +354,7 @@ export default function App() {
         onCloseHistory={() => setHistoryOpen(false)}
         onCloseQuickOpen={quickOpen.close}
         onCloseSettings={() => setSettingsOpen(false)}
+        onOpenUpdater={updater.openPanel}
         onCloseShortcutGuide={shortcuts.closeGuide}
         onCloseUpdater={updater.closePanel}
         onCloseUsage={() => setUsageOpen(false)}
@@ -374,6 +377,7 @@ export default function App() {
         quickOpenOpen={quickOpen.open}
         quickOpenShortcut={formatShortcutChord(appShortcutChord(shortcuts.platform, "K"))}
         settingsOpen={settingsOpen}
+        settingsSection={settingsSection}
         shortcutGuideOpen={shortcuts.guideOpen}
         shortcutPlatform={shortcuts.platform}
         updaterOpen={updater.open}

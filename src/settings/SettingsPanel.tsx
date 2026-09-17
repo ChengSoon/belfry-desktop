@@ -1,14 +1,16 @@
-import { Activity, Archive, Boxes, FolderGit2, HeartPulse, Image, Keyboard, Waypoints, X } from "lucide-react";
+import { Activity, Archive, Boxes, FolderGit2, HeartPulse, Image, Info, Keyboard, Waypoints, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { AppearanceSection } from "../background/components/AppearanceSection";
 import { ProviderSection } from "../provider/components/ProviderSection";
 import { ProjectProviderSection } from "../provider/project/ProjectProviderSection";
 import type { ProjectWorkspace } from "../workspace/contracts";
+import type { UpdaterState } from "../updater/contracts";
 import { EnvironmentSection } from "../setup/EnvironmentSection";
 import { PluginPanel } from "../plugins/PluginPanel";
 import { ICON } from "../theme/sizing";
 import { HookSettingsSection } from "../agent/hooks/HookSettingsSection";
 import { ShortcutSettingsSection } from "../shortcuts/custom/ShortcutSettingsSection";
+import { AboutSection } from "../about/AboutSection";
 import { BackupSection } from "../backup/BackupSection";
 import { BackgroundSessions } from "../terminal/daemon/BackgroundSessions";
 import "./settings.css";
@@ -22,6 +24,7 @@ const SECTIONS = [
   { icon: Archive, key: "backup", label: "本地备份" },
   { icon: HeartPulse, key: "environment", label: "协作环境" },
   { icon: Boxes, key: "plugins", label: "插件" },
+  { icon: Info, key: "about", label: "关于" },
 ] as const;
 
 type SectionKey = (typeof SECTIONS)[number]["key"];
@@ -37,7 +40,14 @@ export function normalizeSettingsSection(value: string | undefined): SectionKey 
  * 各个分区自己决定「现在能不能被关掉」——provider 那边表单填到一半时，
  * 关闭按钮和 Escape 先不响应，防止误触把输入全丢了。
  */
-export function SettingsPanel({ onClose, initialSection, project = null }: { onClose: () => void; initialSection?: string; project?: ProjectWorkspace | null }) {
+export function SettingsPanel({ onClose, initialSection, project = null, updaterState, updaterOpen, onOpenUpdater }: {
+  onClose: () => void;
+  initialSection?: string;
+  project?: ProjectWorkspace | null;
+  updaterState: UpdaterState;
+  updaterOpen: boolean;
+  onOpenUpdater: () => void;
+}) {
   const [active, setActive] = useState<SectionKey>(() => normalizeSettingsSection(initialSection));
   const [guarded, setGuarded] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -96,6 +106,14 @@ export function SettingsPanel({ onClose, initialSection, project = null }: { onC
         {active === "backup" ? <BackupSection onGuardChange={setGuarded} /> : null}
         {active === "environment" ? <EnvironmentSection /> : null}
         {active === "plugins" ? <PluginPanel onGuardChange={setGuarded} /> : null}
+        {active === "about" ? (
+          <AboutSection
+            onGuardChange={setGuarded}
+            onOpenUpdater={onOpenUpdater}
+            updaterOpen={updaterOpen}
+            updaterState={updaterState}
+          />
+        ) : null}
       </div>
     </section>
   );

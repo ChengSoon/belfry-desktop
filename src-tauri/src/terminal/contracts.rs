@@ -301,6 +301,7 @@ pub enum LaunchProfileId {
     ShellGitBash,
     AgentCodex,
     AgentClaude,
+    AgentPi,
     Ssh,
 }
 
@@ -318,6 +319,7 @@ impl LaunchProfileId {
             "shell:git-bash" => Ok(Self::ShellGitBash),
             "agent:codex" => Ok(Self::AgentCodex),
             "agent:claude" => Ok(Self::AgentClaude),
+            "agent:pi" => Ok(Self::AgentPi),
             "ssh" => Ok(Self::Ssh),
             _ => Err(AppError::unsupported(format!(
                 "unsupported terminal launch profile: {value}"
@@ -338,6 +340,7 @@ impl LaunchProfileId {
             Self::ShellGitBash => "shell:git-bash",
             Self::AgentCodex => "agent:codex",
             Self::AgentClaude => "agent:claude",
+            Self::AgentPi => "agent:pi",
             Self::Ssh => "ssh",
         }
     }
@@ -483,6 +486,7 @@ mod tests {
             LaunchProfileId::ShellGitBash,
             LaunchProfileId::AgentCodex,
             LaunchProfileId::AgentClaude,
+            LaunchProfileId::AgentPi,
             LaunchProfileId::Ssh,
         ];
         for id in ids {

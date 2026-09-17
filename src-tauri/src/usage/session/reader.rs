@@ -29,8 +29,13 @@ pub(super) struct Cursor {
 
 impl Cursor {
     pub fn new(path: PathBuf, session: AgentSessionRef) -> Self {
-        let verified = session.agent == AgentKind::Claude
-            && path.file_stem().and_then(|value| value.to_str()) == Some(&session.id);
+        // Claude 与 Pi 的会话 id 就在文件名里（Pi 是 `<timestamp>_<id>` 后缀），
+        // 文件名对上即属于该会话；Codex 要读首行 session_meta 才能确认。
+        let verified = matches!(session.agent, AgentKind::Claude | AgentKind::Pi)
+            && path
+                .file_stem()
+                .and_then(|value| value.to_str())
+                .is_some_and(|name| name == session.id || name.ends_with(&format!("_{}", session.id)));
         Self {
             path,
             session,

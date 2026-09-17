@@ -29,5 +29,5 @@ it("未绑定时转述 Hook 给出的安装状态，而不是一律让用户去�
   expect(note).toContain("hooks = true");
   expect(note).toContain("历史记录");
   expect(statisticsTarget(unbound, null).note).toContain("设置 → 会话状态");
-  expect(statisticsTarget({ ...unbound, profileId: "shell:zsh" }, null).note).toContain("不是 Claude 或 Codex 会话");
+  expect(statisticsTarget({ ...unbound, profileId: "shell:zsh" }, null).note).toContain("没有原生会话可统计");
 });

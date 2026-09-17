@@ -20,7 +20,7 @@ export type ShellProfileId =
   | "shell:cmd"
   | "shell:wsl"
   | "shell:git-bash";
-export type LaunchProfileId = ShellProfileId | "agent:codex" | "agent:claude" | "ssh";
+export type LaunchProfileId = ShellProfileId | "agent:codex" | "agent:claude" | "agent:pi" | "ssh";
 
 export interface ShellProfile {
   id: ShellProfileId;

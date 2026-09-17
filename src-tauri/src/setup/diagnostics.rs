@@ -36,6 +36,10 @@ fn from_skill_inspection(inspection: skill::SkillInspection) -> EnvironmentCheck
         SkillState::Current => {
             EnvironmentCheck::new(kind, CheckState::Ok, format!("已同步到 {path}"))
         }
+        // pi 会扫 `~/.agents/skills/`，那份已是当前版本时不必再装一遍。
+        SkillState::Shared => {
+            EnvironmentCheck::new(kind, CheckState::Ok, format!("已由共享目录提供：{path}"))
+        }
         SkillState::Missing => {
             EnvironmentCheck::new(kind, CheckState::Warning, format!("尚未安装到 {path}"))
         }

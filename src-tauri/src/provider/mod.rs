@@ -9,6 +9,7 @@
 
 mod claude;
 mod codex;
+mod pi;
 pub mod commands;
 mod contracts;
 mod envcheck;

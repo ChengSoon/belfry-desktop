@@ -18,6 +18,8 @@ pub(super) fn events(kind: AgentKind) -> Vec<&'static str> {
     events.extend(match kind {
         AgentKind::Codex => vec!["Interrupt", "PreCompact", "PostCompact"],
         AgentKind::Claude => vec!["Notification", "StopFailure", "PostToolUseFailure"],
+        // Pi 不支持 Hook，没有可注册的事件。
+        AgentKind::Pi => Vec::new(),
     });
     events
 }

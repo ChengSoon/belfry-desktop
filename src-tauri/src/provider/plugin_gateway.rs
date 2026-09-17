@@ -4,7 +4,7 @@ use serde::Serialize;
 use serde_json::{Value, json};
 use tauri::AppHandle;
 
-use super::{claude, codex, contracts::ProviderConfig, store};
+use super::{claude, codex, contracts::ProviderConfig, pi, store};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -118,6 +118,16 @@ fn live(kind: AgentKind) -> (String, Option<ProviderConfig>) {
                 .unwrap_or_default()
                 .to_owned();
             (model, codex::detect_live(&doc))
+        }
+        AgentKind::Pi => {
+            let (Ok(models), Ok(settings)) = (pi::read_models(), pi::read_settings()) else {
+                return (String::new(), None);
+            };
+            let model = settings["defaultModel"]
+                .as_str()
+                .unwrap_or_default()
+                .to_owned();
+            (model, pi::detect_live(&models, &settings))
         }
         AgentKind::Claude => {
             let Ok(settings) = claude::read_settings() else {

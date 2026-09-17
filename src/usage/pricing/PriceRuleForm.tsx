@@ -59,7 +59,7 @@ function PriceIdentityFields({ draft, update, rows, projects }: {
   const hasProject = projects.some((project) => project.root === draft.projectRoot);
   return <>
     <label>Agent<Select<PriceRule["agent"]> value={draft.agent} ariaLabel="Agent" onChange={(agent) => update({ agent })}
-      options={[{ value: "codex", label: "Codex" }, { value: "claude", label: "Claude Code" }]} /></label>
+      options={[{ value: "codex", label: "Codex" }, { value: "claude", label: "Claude Code" }, { value: "pi", label: "Pi" }]} /></label>
     <label>模型名<Combobox value={draft.model} required maxLength={512} ariaLabel="模型名" placeholder="输入或选择模型"
       options={models.map((model) => ({ value: model, label: model, description: agentLabel(draft.agent) }))}
       onChange={(model) => update({ model })} /></label>

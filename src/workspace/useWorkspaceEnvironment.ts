@@ -36,7 +36,7 @@ export function useWorkspaceEnvironment(requestVersion: RefObject<number>) {
 }
 
 function pendingAgents(): AgentAvailability[] {
-  return (["codex", "claude"] as AgentKind[]).map((kind) => ({
+  return (["codex", "claude", "pi"] as AgentKind[]).map((kind) => ({
     descriptor: agentDescriptor(kind), kind, available: false, executable: null, version: null,
     reason: "正在检测用户命令环境…",
   }));

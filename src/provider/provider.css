@@ -1,12 +1,14 @@
 .provider-section { display: grid; align-content: start; gap: 24px; min-width: 0; max-width: 1120px; width: 100%; }
 .provider-segments {
+  /* 格数：宽度与滑块位移都由它推导，加 agent 时只改这里 + 补一条 data-active 规则。 */
+  --segment-count: 3;
   --segment-gap: 4px;
   --segment-padding: 4px;
   --segment-duration: 240ms;
   position: relative;
   isolation: isolate;
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(var(--segment-count), 1fr);
   justify-self: start;
   gap: var(--segment-gap);
   padding: var(--segment-padding);
@@ -21,13 +23,18 @@
   pointer-events: none;
   inset-block: var(--segment-padding);
   left: var(--segment-padding);
-  width: calc((100% - 2 * var(--segment-padding) - var(--segment-gap)) / 2);
+  width: calc(
+    (100% - 2 * var(--segment-padding) - (var(--segment-count) - 1) * var(--segment-gap)) /
+    var(--segment-count)
+  );
   border-radius: 6px;
   background: var(--accent-soft);
   transform: translateX(0);
   transition: transform var(--segment-duration) cubic-bezier(0.22, 1, 0.36, 1);
 }
+/* 位移按格序算：100% 是滑块自身宽度，即一格宽。顺序同 ProviderSection 的 tab 数组。 */
 .provider-segments[data-active="codex"]::before { transform: translateX(calc(100% + var(--segment-gap))); }
+.provider-segments[data-active="pi"]::before { transform: translateX(calc(200% + 2 * var(--segment-gap))); }
 .provider-segments button {
   padding: 8px 20px;
   border: 0;

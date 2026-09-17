@@ -4,6 +4,8 @@ pub(crate) fn supported(kind: AgentKind, version: Option<&str>) -> bool {
     let minimum = match kind {
         AgentKind::Codex => (0, 154, 0),
         AgentKind::Claude => (2, 1, 201),
+        // Pi 没有 Hook 接口，任何版本都不声明 structured_state。
+        AgentKind::Pi => return false,
     };
     version
         .and_then(|text| text.split_whitespace().find_map(parse))

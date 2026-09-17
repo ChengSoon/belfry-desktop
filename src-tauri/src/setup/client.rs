@@ -3,7 +3,7 @@ use std::path::Path;
 use crate::agent::{AgentKind, resolve_agent};
 
 use super::contracts::{CheckKind, CheckState, EnvironmentCheck};
-use super::{claude, codex, process};
+use super::{claude, codex, pi, process};
 
 pub fn checks(agent: AgentKind) -> Vec<EnvironmentCheck> {
     let executable = match resolve_agent(agent) {
@@ -14,6 +14,7 @@ pub fn checks(agent: AgentKind) -> Vec<EnvironmentCheck> {
     match agent {
         AgentKind::Codex => checks.extend(codex::checks(&executable)),
         AgentKind::Claude => checks.extend(claude::checks(&executable)),
+        AgentKind::Pi => checks.extend(pi::checks(&executable)),
     }
     checks
 }

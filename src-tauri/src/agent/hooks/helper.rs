@@ -22,6 +22,7 @@ pub(crate) fn run_if_requested() -> bool {
     let kind = match args.get(1).map(String::as_str) {
         Some("codex") => Some(AgentKind::Codex),
         Some("claude") => Some(AgentKind::Claude),
+        Some("pi") => Some(AgentKind::Pi),
         _ => None,
     };
     if let Some(kind) = kind {

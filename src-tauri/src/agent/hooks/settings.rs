@@ -35,6 +35,8 @@ pub(super) fn config_path(kind: AgentKind) -> Result<PathBuf, AppError> {
     let (variable, directory, file) = match kind {
         AgentKind::Codex => ("CODEX_HOME", ".codex", "hooks.json"),
         AgentKind::Claude => ("CLAUDE_CONFIG_DIR", ".claude", "settings.json"),
+        // Pi 没有 Hook 配置文件；report() 会因 supported=false 提前不走到这里。
+        AgentKind::Pi => return Err(AppError::unsupported("Pi 不支持 Hook")),
     };
     let base = std::env::var_os(variable)
         .filter(|value| !value.is_empty())
@@ -67,6 +69,11 @@ pub(super) fn report(kind: AgentKind) -> AgentHookReport {
 }
 
 fn inspect_config(kind: AgentKind, report: &mut AgentHookReport) -> Result<(), AppError> {
+    // Pi 没有 Hook 接口，也没有可读的 Hook 配置文件；在这里停下，才不会把
+    // 「不支持」报成「配置不可读取」。
+    if kind == AgentKind::Pi {
+        return Ok(());
+    }
     let path = config_path(kind)?;
     let value = config::parse(&read_config(&path)?)?;
     report.config_path = Some(path.to_string_lossy().into());
@@ -103,6 +110,9 @@ fn codex_hooks_disabled(text: &str) -> bool {
 }
 
 fn status_note(report: &AgentHookReport) -> &'static str {
+    if report.kind == AgentKind::Pi {
+        return "Pi 尚未提供 Hook 接口，会话状态保持屏幕推断";
+    }
     if report.error.is_some() {
         return "配置不可读取，保持屏幕推断，原文件未改动";
     }

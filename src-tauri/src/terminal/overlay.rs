@@ -54,12 +54,25 @@ impl LaunchFile {
     pub fn path(&self) -> &Path {
         &self.0
     }
+
+    /// 创建一个临时目录，用于需要一整套配置文件的 agent（启动结束后递归删除）。
+    pub fn create_dir(base: &Path) -> Result<Arc<Self>, AppError> {
+        let root = base.join("launch-overlays");
+        private_directory(&root)?;
+        let path = root.join(ulid::Ulid::generate().to_string());
+        private_directory(&path)?;
+        Ok(Arc::new(Self(path)))
+    }
 }
 
 impl Drop for LaunchFile {
     fn drop(&mut self) {
         // 仅清理本次启动创建的临时快照，最后一个 PTY 持有者释放后才删除。
-        let _ = std::fs::remove_file(&self.0);
+        if self.0.is_dir() {
+            let _ = std::fs::remove_dir_all(&self.0);
+        } else {
+            let _ = std::fs::remove_file(&self.0);
+        }
     }
 }
 

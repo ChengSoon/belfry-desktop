@@ -24,12 +24,12 @@ pub fn first_output_line(output: &Output) -> Option<String> {
 }
 
 #[cfg(not(target_os = "windows"))]
-fn command_for(executable: &Path) -> Command {
+pub(crate) fn command_for(executable: &Path) -> Command {
     Command::new(executable)
 }
 
 #[cfg(target_os = "windows")]
-fn command_for(executable: &Path) -> Command {
+pub(crate) fn command_for(executable: &Path) -> Command {
     use std::os::windows::process::CommandExt;
     const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
