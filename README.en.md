@@ -12,6 +12,7 @@ Run Codex and Claude Code through one interface on macOS and Windows, and see wh
 
 **English** · [简体中文](README.md)
 
+[![Docs](https://img.shields.io/badge/Docs-Online%20Manual-24C8DB?logo=readthedocs&logoColor=white)](https://chengsoon.github.io/belfry-desktop/en/)
 [![Open Source](https://img.shields.io/badge/Open%20Source-GitHub-181717?logo=github&logoColor=white)](https://github.com/ChengSoon/belfry-desktop)
 [![Release](https://img.shields.io/github/v/release/ChengSoon/belfry-desktop?label=Release&color=1f6feb&include_prereleases)](https://github.com/ChengSoon/belfry-desktop/releases)
 [![License](https://img.shields.io/badge/License-LGPL--3.0-4caf50)](LICENSE)

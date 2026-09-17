@@ -12,6 +12,7 @@
 
 [English](README.en.md) · **简体中文**
 
+[![文档](https://img.shields.io/badge/%E6%96%87%E6%A1%A3-%E5%9C%A8%E7%BA%BF%E6%89%8B%E5%86%8C-24C8DB?logo=readthedocs&logoColor=white)](https://chengsoon.github.io/belfry-desktop/)
 [![Open Source](https://img.shields.io/badge/Open%20Source-GitHub-181717?logo=github&logoColor=white)](https://github.com/ChengSoon/belfry-desktop)
 [![Release](https://img.shields.io/github/v/release/ChengSoon/belfry-desktop?label=Release&color=1f6feb&include_prereleases)](https://github.com/ChengSoon/belfry-desktop/releases)
 [![License](https://img.shields.io/badge/License-LGPL--3.0-4caf50)](LICENSE)
@@ -229,7 +230,7 @@ docs/                 设计、实施与验收记录
 
 ### 文档站点
 
-用户手册是 `website/` 下的 Docusaurus 站点，中英双语、本地搜索，部署在 GitHub Pages：
+用户手册是 `website/` 下的 Docusaurus 站点，中英双语、本地搜索，已部署在 GitHub Pages：<https://chengsoon.github.io/belfry-desktop/>（英文版在 `/en` 路径）：
 
 ```bash
 cd website
