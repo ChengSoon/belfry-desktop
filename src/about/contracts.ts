@@ -34,6 +34,7 @@ export const RELEASE_LABEL: Record<ReleaseState, string> = {
 
 export const REPO_URL = "https://github.com/ChengSoon/belfry-desktop";
 export const CHANGELOG_URL = "https://github.com/ChengSoon/belfry-desktop/releases";
+export const DOCS_URL = "https://chengsoon.github.io/belfry-desktop/";
 
 /** 可一键升级的 CLI 数量，驱动「全部升级」按钮。 */
 export function countUpgradable(releases: readonly AgentRelease[]): number {

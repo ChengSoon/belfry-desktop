@@ -18,6 +18,7 @@ import appIconUrl from "../../src-tauri/icons/128x128.png";
 import {
   CHANGELOG_URL,
   countUpgradable,
+  DOCS_URL,
   openExternal,
   platformLabel,
   RELEASE_LABEL,
@@ -70,6 +71,9 @@ export function AboutSection({ updaterState, updaterOpen, onOpenUpdater, onGuard
           </span>
         </div>
         <div className="about-app__actions">
+          <button onClick={() => openExternal(DOCS_URL)} type="button">
+            <ExternalLink aria-hidden="true" size={ICON.xs} />用户手册
+          </button>
           <button onClick={() => openExternal(REPO_URL)} type="button">
             <ExternalLink aria-hidden="true" size={ICON.xs} />GitHub 仓库
           </button>
