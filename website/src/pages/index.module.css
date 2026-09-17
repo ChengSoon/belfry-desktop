@@ -1,0 +1,58 @@
+.heroBanner {
+  padding: 5rem 0;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.heroTitle {
+  font-size: 3rem;
+  margin-bottom: 0.5rem;
+}
+
+.heroSubtitle {
+  font-size: 1.25rem;
+  opacity: 0.85;
+  margin-bottom: 2rem;
+}
+
+.heroButtons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.5rem;
+  padding: 3rem 0;
+  width: 100%;
+}
+
+.featureCard {
+  border: 1px solid var(--ifm-color-emphasis-200);
+  border-radius: 12px;
+  padding: 1.5rem;
+  background: var(--ifm-card-background-color, var(--ifm-background-color));
+  transition: border-color 0.2s, transform 0.2s;
+}
+
+.featureCard:hover {
+  border-color: var(--ifm-color-primary);
+  transform: translateY(-2px);
+}
+
+.featureTitle {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.featureText {
+  opacity: 0.8;
+  font-size: 0.92rem;
+  line-height: 1.6;
+}

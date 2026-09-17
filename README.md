@@ -19,7 +19,7 @@
 [![Tauri](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)](https://tauri.app)
 [![Stars](https://img.shields.io/github/stars/ChengSoon/belfry-desktop?color=f5a623)](https://github.com/ChengSoon/belfry-desktop/stargazers)
 
-[下载](#下载) · [快速开始](#快速开始) · [功能](#功能) · [界面](#界面) · [设计取向](#设计取向) · [开发](#开发) · [路线图](#路线图) · [许可证](#许可证)
+[文档](https://chengsoon.github.io/belfry-desktop/) · [下载](#下载) · [快速开始](#快速开始) · [功能](#功能) · [界面](#界面) · [设计取向](#设计取向) · [开发](#开发) · [路线图](#路线图) · [许可证](#许可证)
 
 </div>
 
@@ -110,7 +110,7 @@ claude --version
 - 在设置中安装 `.piplug`、加载开发目录，或从插件市场选择插件
 - 支持面板、命令、Agent 工具、Skill、设置与主题；可执行插件需要本机 Node.js 20 或更新版本
 - 提供模板创建、校验、打包与本地“我的插件市场”，也可使用独立在线目录
-- 具体能力与权限边界见 [PI 插件使用与开发](docs/plugins/pi-runtime-guide.md) 和[自有市场指南](docs/plugins/own-market-guide.md)
+- 具体能力与权限边界见[用户手册 · 插件](https://chengsoon.github.io/belfry-desktop/docs/plugins)
 
 **外观**
 
@@ -225,11 +225,24 @@ docs/                 设计、实施与验收记录
 .github/workflows/    PR 检查与草稿发布流水线
 ```
 
-当前工作与验收边界见 [CLI 管理实施记录](docs/cli-manager-implementation.md)，插件现行说明见 [PI 插件指南](docs/plugins/pi-runtime-guide.md)。分步计划位于 `docs/superpowers/plans/`。
+面向用户的文档位于 `website/`（中英双语 Docusaurus 站点，见下文「文档站点」）。设计、评审与实施记录位于 `docs/`。
+
+### 文档站点
+
+用户手册是 `website/` 下的 Docusaurus 站点，中英双语、本地搜索，部署在 GitHub Pages：
+
+```bash
+cd website
+pnpm install --frozen-lockfile
+pnpm start                       # 本地预览；默认中文，/en 为英文
+pnpm exec docusaurus build       # 生产构建，输出到 website/build
+```
+
+推送 `main` 后 `.github/workflows/docs.yml` 自动构建并发布。新增文档只需在 `website/docs/` 加 Markdown，英文版放 `website/i18n/en/docusaurus-plugin-content-docs/current/` 的同名文件；侧栏顺序在 `website/sidebars.ts` 维护。
 
 ## 路线图
 
-功能规划见 [CLI 管理功能清单](docs/cli-manager-feature-backlog.md)，实现与待验收状态以[实施记录](docs/cli-manager-implementation.md)为准。下列版本条目保留历史背景：
+下列版本条目保留历史背景：
 
 ### 已交付版本
 

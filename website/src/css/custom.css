@@ -1,0 +1,35 @@
+:root {
+  --ifm-color-primary: #1592a6;
+  --ifm-color-primary-dark: #12828f;
+  --ifm-color-primary-darker: #107a86;
+  --ifm-color-primary-darkest: #0d646f;
+  --ifm-color-primary-light: #1aa7bd;
+  --ifm-color-primary-lighter: #1cb2c9;
+  --ifm-color-primary-lightest: #27c4dc;
+  --ifm-code-font-size: 92%;
+}
+
+[data-theme='dark'] {
+  --ifm-color-primary: #27c4dc;
+  --ifm-color-primary-dark: #21a9be;
+  --ifm-color-primary-darker: #1f9db1;
+  --ifm-color-primary-darkest: #197f90;
+  --ifm-color-primary-light: #4ad4e7;
+  --ifm-color-primary-lighter: #57d9ea;
+  --ifm-color-primary-lightest: #7fe5f1;
+  --docusaurus-highlighted-code-line-bg: rgba(39, 196, 220, 0.18);
+}
+
+.heroBanner {
+  padding: 5rem 0;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.features {
+  display: flex;
+  align-items: center;
+  padding: 3rem 0;
+  width: 100%;
+}

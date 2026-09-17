@@ -1,0 +1,34 @@
+{
+  "version.label": {
+    "message": "Next",
+    "description": "The label for version current"
+  },
+  "sidebar.docs.category.开始": {
+    "message": "开始",
+    "description": "The label for category '开始' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.工作区": {
+    "message": "工作区",
+    "description": "The label for category '工作区' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Agent 托管": {
+    "message": "Agent 托管",
+    "description": "The label for category 'Agent 托管' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.终端": {
+    "message": "终端",
+    "description": "The label for category '终端' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.统计与扩展": {
+    "message": "统计与扩展",
+    "description": "The label for category '统计与扩展' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.外观": {
+    "message": "外观",
+    "description": "The label for category '外观' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.帮助": {
+    "message": "帮助",
+    "description": "The label for category '帮助' in sidebar 'docs'"
+  }
+}
