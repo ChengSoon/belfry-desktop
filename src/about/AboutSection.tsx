@@ -8,7 +8,7 @@ import {
   LoaderCircle,
   RefreshCw,
 } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, type CSSProperties } from "react";
 import { ClaudeIcon, CodexIcon, PiIcon } from "../workspace/components/AgentIcons";
 import { SettingsHeader } from "../settings/SettingsHeader";
 import { ICON } from "../theme/sizing";
@@ -111,7 +111,12 @@ export function AboutSection({ updaterState, updaterOpen, onOpenUpdater, onGuard
       {model.releases === null ? (
         <p className="provider-empty">{model.loading ? "正在检测本地 CLI 与 registry 版本…" : "暂无检测结果。"}</p>
       ) : (
-        <div className="about-list">
+        <div
+          className="about-list"
+          // 列数上限交给 CSS：按实际卡片数等分，宽屏下不会 auto-fill 出空列。
+          // 取 max(1, …) 兜底，卡片数为 0 时别让 calc 除以 0 把整条列定义作废。
+          style={{ "--about-columns": Math.max(1, model.releases.length) } as CSSProperties}
+        >
           {model.releases.map((release) => (
             <AgentCard
               installing={model.installing}

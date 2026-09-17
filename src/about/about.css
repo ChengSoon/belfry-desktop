@@ -1,9 +1,15 @@
 /* 关于页：应用卡片 + Agent CLI 卡片网格。卡片规格沿用 provider.css，
    只补 about 专属的排版，不引入新色板。 */
+/* 整页跟随设置面板宽度自适应，不设正文宽度上限：宽屏下右侧不再留出大片空白。
+   曾经为了避免 .about-list 的 auto-fill 在宽屏算出 4~5 列（而 CLI 只有 3 个，
+   右侧空出整整两列）而封顶 1120px，代价是标题、分割线、应用卡片一起被钉死。
+   现在把这个约束下放到 .about-list 自己的列数公式里解决。 */
 .about-section {
   display: grid;
   align-content: start;
   gap: 16px;
+  min-width: 0;
+  width: 100%;
 }
 
 /* 应用卡片 */
@@ -105,17 +111,40 @@
   font-size: var(--fs-xs);
 }
 
-/* CLI 卡片网格：紧凑三列，贴合参考图的 430×140 卡 + 12px 间距 */
+/* CLI 卡片网格：列宽自适应，但列数不超过实际卡片数。
+   --about-columns 由 AboutSection 按 releases.length 注入（缺省 3）。
+   每列下限取「按卡片数等分后的理想宽度」与 300px 的较大值：
+   - 容器够宽时理想宽度 > 300px，auto-fill 最多只塞得下 N 列，不会多出空列；
+   - 容器变窄时 300px 接管，列数自然退化成 2 列、1 列；
+   - 极窄容器由 min(100%, …) 兜底，避免单列超出容器产生横向滚动。 */
 .about-list {
+  --about-gap: 12px;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(
+      min(
+        100%,
+        max(
+          300px,
+          calc((100% - (var(--about-columns, 3) - 1) * var(--about-gap)) / var(--about-columns, 3))
+        )
+      ),
+      1fr
+    )
+  );
+  gap: var(--about-gap);
 }
 
+/* 必须是 flex 列向，不能用 grid：grid 配 align-content:start 会把所有行压到
+   顶部，剩余高度整块落在卡片底部，于是内容行数不同的卡片（Pi 比其它多一行
+   notice）按钮各自停在不同高度。换成 flex 后底部操作区可以用 margin-top:auto
+   吃掉剩余空间，同一行卡片又有 .about-list 的 stretch 保证等高，按钮就必然
+   落在同一条水平线上。 */
 .about-card {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 10px;
-  align-content: start;
   padding: 16px;
 }
 
@@ -185,10 +214,25 @@
   white-space: nowrap;
 }
 
+/* margin-top:auto 吃掉卡片内的剩余高度，把操作区压到底边，配合 .about-list
+   的等高拉伸让三张卡的按钮对齐。 */
 .about-card .provider-card__actions {
+  margin-top: auto;
   border-top: 0;
   padding-top: 0;
   justify-content: flex-end;
+}
+
+/* provider.css 给操作区首个子元素设了 margin-right:auto（provider 卡片要主按钮
+   靠左、更多菜单靠右），而 auto margin 的优先级高于 justify-content，上面那行
+   flex-end 在 about 卡片上其实是失效的，按钮仍被顶回左边，跟上方右对齐的版本号
+   和取值割裂成两条对齐轴。这里显式清零把它收回右侧。
+   同时解掉写死的 flex:0 0 76px —— 「正在安装」带 spinner 时 76px 装不下会被压扁，
+   改成按内容撑开、仅保留 76px 下限，短文案（安装/升级）的宽度保持不变。 */
+.about-card .provider-card__actions > :first-child {
+  flex: 0 0 auto;
+  min-width: 76px;
+  margin-right: 0;
 }
 
 .about-card__notice {

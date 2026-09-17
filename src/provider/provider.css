@@ -1,4 +1,5 @@
-.provider-section { display: grid; align-content: start; gap: 24px; min-width: 0; max-width: 1120px; width: 100%; }
+/* 跟随设置面板宽度自适应，与其它设置分区一致，不再封顶 1120px。 */
+.provider-section { display: grid; align-content: start; gap: 24px; min-width: 0; width: 100%; }
 .provider-segments {
   /* 格数：宽度与滑块位移都由它推导，加 agent 时只改这里 + 补一条 data-active 规则。 */
   --segment-count: 3;
@@ -53,7 +54,27 @@
 .provider-library-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: -12px; }
 .provider-library-heading h3 { margin: 0; font-size: var(--fs-md); font-weight: 600; }
 .provider-library-heading span { color: var(--text-muted); font-size: var(--fs-xs); }
-.provider-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr)); gap: 16px; }
+/* 列宽自适应，列数不超过实际服务商数（--provider-columns 由 ProviderSection 注入）。
+   下限取「按卡片数等分的理想宽度」与 290px 的较大值：服务商多时 290px 接管、按原来
+   的方式排满多列；服务商少时理想宽度更大，auto-fill 只塞得下 N 列，右侧不留空轨道。 */
+.provider-list {
+  --provider-gap: 16px;
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(
+      min(
+        100%,
+        max(
+          290px,
+          calc((100% - (var(--provider-columns, 3) - 1) * var(--provider-gap)) / var(--provider-columns, 3))
+        )
+      ),
+      1fr
+    )
+  );
+  gap: var(--provider-gap);
+}
 .provider-card { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; min-width: 0; padding: 20px; position: relative; border: 1px solid var(--border); border-radius: 10px; background: color-mix(in srgb, var(--surface) 28%, transparent); }
 .provider-card:hover { border-color: var(--border-strong); }
 .provider-card.is-active { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); background: color-mix(in srgb, var(--accent) 5%, transparent); }
@@ -93,7 +114,6 @@
 .provider-section button:disabled { cursor: default; }
 .provider-add:disabled { opacity: 0.45; }
 .provider-section button:focus-visible, .provider-advanced summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-.provider-section:has(.provider-editor) { max-width: none; }
 .provider-editor { display: grid; gap: 24px; min-width: 0; width: 100%; }
 .provider-editor__toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .provider-editor__back { display: inline-flex; align-items: center; gap: 6px; border: 0; padding: 0; background: transparent; color: var(--text-muted); font-size: var(--fs-sm); cursor: pointer; }

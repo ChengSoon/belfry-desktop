@@ -1,4 +1,4 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, type CSSProperties } from "react";
 import { AlertTriangle, ArrowLeft } from "lucide-react";
 import { ICON } from "../../theme/sizing";
 import { failureLabel } from "../../workspace/errors";
@@ -157,7 +157,12 @@ export function ProviderSection({ onGuardChange }: { onGuardChange: (guarded: bo
               <ProviderOfficial active={group !== undefined && group.currentId === null}
                 busy={providers.loading || group === undefined} onSelect={() => void providers.select(kind, null)} />
               <div className="provider-library-heading"><h3>自定义服务 <span>{list.length}</span></h3><span>保存配置后，手动启用</span></div>
-              <div className="provider-list">
+              <div
+                className="provider-list"
+                // 列数上限交给 CSS：按实际服务商数等分，宽屏下不会 auto-fill 出空列。
+                // 列表为空时这里渲染的是提示文案，退回 1 列让它占满宽度。
+                style={{ "--provider-columns": Math.max(1, list.length) } as CSSProperties}
+              >
                 {providers.catalog !== null && group === undefined ? (
                   <p className="provider-hint">
                     没有读到 {AGENT_LABEL[kind]} 的 provider 数据，点上方刷新重试。

@@ -23,9 +23,6 @@
 
 </div>
 
-> [!WARNING]
-> **持续开发中。** 当前包含本地工作区、后台终端、会话协作、历史与用量，以及可选的 PI 插件系统。原生功能与 Windows 的剩余验收见[实施记录](docs/cli-manager-implementation.md)；接口和数据格式仍可能变化。
-
 ## 下载
 
 安装包在 [Releases](https://github.com/ChengSoon/belfry-desktop/releases) 页面，三个构建目标：macOS Apple Silicon (`aarch64`)、macOS Intel (`x64`) 和 Windows。
