@@ -195,9 +195,11 @@
   cursor: pointer;
 }
 
-/* 图标退到最淡的一档：一栏里六行图标，和会话名同灰度时先看到的是那排方框而不是名字。
+/* 图标退到名字之后，但不退到最淡：品牌标是小块实心填充，和 --text-faint 同档时
+   先糊掉的是它们（暗色下 π 最明显），用 --text-icon 保住可认性。一栏六行图标
+   若和会话名同灰度，扫过去先看到的是那排方框而不是名字，所以仍低于名字一档。
    活动行的图标跟着名字提亮，让"选中"这件事整行一起表达。 */
-.session-row__main > svg { flex: 0 0 auto; color: var(--text-faint); }
+.session-row__main > svg { flex: 0 0 auto; color: var(--text-icon); }
 
 .session-row__main > span {
   overflow: hidden;

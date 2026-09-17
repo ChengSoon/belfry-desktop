@@ -74,6 +74,8 @@
   transition: color var(--duration) var(--ease), border-color var(--duration) var(--ease);
 }
 
+.terminal-pane__bar > svg { color: var(--text-icon); }
+
 .terminal-pane.is-focused .terminal-pane__bar {
   color: var(--text-muted);
   border-color: var(--border-strong);

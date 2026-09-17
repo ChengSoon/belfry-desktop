@@ -112,6 +112,11 @@
   --text: #ededef;
   --text-muted: #9a9ba2;
   --text-faint: #6a6b73;
+  /* 会话图标专用的第四档：agent 品牌标是小块实心填充，比文字更需要被认出来，
+     --text-faint 的 3.1~3.7:1 在暗色底上已低于 AA，π 的三块方形最先糊成黑影。
+     提到 #85868e 后各暗色底均为 4.6~5.5:1，且仍明显低于 --text-muted，
+     「图标退在名字之后」的层级保留。亮色侧 faint 本就达标，沿用同值。 */
+  --text-icon: #85868e;
   --accent: #6e8bff;
   --accent-hover: #8ba2ff;
   --accent-contrast: #0a0a0b;
@@ -163,6 +168,7 @@
      三层底色铺开后面板那档也掉到 4.12，索性一次按最暗的那个底取值。
      暗色那侧的 3.7:1 不动：浅字在暗底上有光渗，同样的数字看起来更实。 */
   --text-faint: #6c6e76;
+  --text-icon: #6c6e76;
   --accent: #3b5bdb;
   --accent-hover: #2f4bc4;
   --accent-contrast: #fff;
