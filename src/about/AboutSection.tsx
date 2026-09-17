@@ -71,13 +71,13 @@ export function AboutSection({ updaterState, updaterOpen, onOpenUpdater, onGuard
           </span>
         </div>
         <div className="about-app__actions">
-          <button onClick={() => openExternal(DOCS_URL)} type="button">
+          <button onClick={() => void openExternal(DOCS_URL)} type="button">
             <ExternalLink aria-hidden="true" size={ICON.xs} />用户手册
           </button>
-          <button onClick={() => openExternal(REPO_URL)} type="button">
+          <button onClick={() => void openExternal(REPO_URL)} type="button">
             <ExternalLink aria-hidden="true" size={ICON.xs} />GitHub 仓库
           </button>
-          <button onClick={() => openExternal(CHANGELOG_URL)} type="button">
+          <button onClick={() => void openExternal(CHANGELOG_URL)} type="button">
             <ExternalLink aria-hidden="true" size={ICON.xs} />更新日志
           </button>
           <button className="provider-add" disabled={busy} onClick={onOpenUpdater} type="button">

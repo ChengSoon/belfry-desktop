@@ -1,3 +1,4 @@
+import { openExternal } from "../utils/openExternal";
 import type {
   IBufferLine,
   IBufferRange,
@@ -82,7 +83,7 @@ function linksForLine(line: IBufferLine, lineNumber: number): ILink[] {
       text: url,
       range,
       decorations: { pointerCursor: true, underline: true },
-      activate: (_event, value) => openHttpUrl(value),
+      activate: (_event, value) => void openHttpUrl(value),
     }];
   });
 }
@@ -200,11 +201,11 @@ function count(value: string, needle: string) {
   return [...value].filter((character) => character === needle).length;
 }
 
-function openHttpUrl(value: string) {
+async function openHttpUrl(value: string) {
   try {
     const url = new URL(value);
     if (url.protocol !== "http:" && url.protocol !== "https:") return;
-    window.open(url.href, "_blank", "noopener,noreferrer");
+    await openExternal(url.href);
   } catch {
     // A link can become invalid while the buffer is being rewritten; ignore it.
   }

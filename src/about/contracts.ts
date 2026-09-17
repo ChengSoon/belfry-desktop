@@ -46,6 +46,4 @@ export function platformLabel(): string {
   return document.documentElement.dataset.platform === "windows" ? "Windows" : "macOS";
 }
 
-export function openExternal(href: string) {
-  window.open(href, "_blank", "noopener,noreferrer");
-}
+export { openExternal } from "../utils/openExternal";
