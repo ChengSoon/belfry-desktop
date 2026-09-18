@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "belfry.command-library",
+  "name": "命令与 Prompt 收藏库",
+  "version": "0.1.0",
+  "description": "按项目整理常用 Prompt 和命令，填充变量、预览编辑后复制。",
+  "main": "main.mjs",
+  "ui": { "panel": "renderer/index.html", "title": "收藏库" },
+  "contributes": { "commands": [{ "id": "belfry.command-library.open", "title": "打开命令与 Prompt 收藏库" }] },
+  "permissions": ["ui.panel", "clipboard.write"],
+  "engines": { "piDesktop": ">=0.14.6" },
+  "activationEvents": ["onStartup"]
+}

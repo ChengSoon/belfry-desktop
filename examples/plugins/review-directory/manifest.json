@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "example.review-directory",
+  "name": "Review Kit",
+  "version": "1.0.0",
+  "description": "静态审查命令、Skill 与设置默认值的目录插件示例。",
+  "author": "Belfry",
+  "compatibility": { "pluginApi": 1, "minAppVersion": "0.19.0" },
+  "permissions": ["commands", "skills", "settings"],
+  "activationEvents": ["onEnable"],
+  "contributes": {
+    "commands": [{ "id": "review", "title": "审查当前改动", "text": "请审查当前工作区改动，优先报告可复现的缺陷，并提供文件位置与验证建议。" }],
+    "skills": [{ "id": "review-guide", "title": "审查指南", "path": "SKILL.md" }],
+    "settings": [{ "id": "review-style", "title": "审查风格", "description": "插件建议的审查输出风格。", "default": "简洁，问题优先" }]
+  }
+}
