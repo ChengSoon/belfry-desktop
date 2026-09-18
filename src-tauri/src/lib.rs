@@ -5,6 +5,7 @@ mod agent;
 mod atomic;
 mod background;
 mod backup;
+mod external;
 mod collab;
 mod collaboration_protocol;
 mod git;
@@ -41,7 +42,6 @@ pub fn run() {
     let app = tauri::Builder::default()
         .manage(plugins::PluginRuntime::default())
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(plugins::launcher::init())
         .plugin(tauri_plugin_process::init())
@@ -130,6 +130,7 @@ pub fn run() {
             usage::session::commands::session_statistics,
             setup::commands::setup_diagnose,
             setup::commands::setup_install_skill,
+            external::commands::open_external,
             commands::terminal_shell_profiles,
             commands::terminal_create,
             commands::terminal_write,

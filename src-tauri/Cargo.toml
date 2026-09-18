@@ -41,7 +41,7 @@ tauri-plugin-notification = "2.3.3"
 tauri-plugin-global-shortcut = "2.3.2"
 tauri-plugin-process = "2.3.1"
 tauri-plugin-updater = "2.10.1"
-tauri-plugin-opener = "2"
+
 # 同理，Codex 的 config.toml 里有 MCP 定义和项目信任记录，改 provider 不能动它们。
 # toml_edit 保留注释、空行与键序，toml 的 Value 往返会全丢。
 toml_edit = "0.25"
@@ -60,3 +60,5 @@ windows-sys = { version = "0.61.2", features = [
 [target.'cfg(target_os = "macos")'.dependencies]
 # SSH 会话记住密码：macOS 存登录钥匙串（Keychain）。
 security-framework = "3.7.0"
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSWorkspace", "NSRunningApplication", "block2"] }
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSURL", "NSString", "NSBundle"] }

@@ -11,10 +11,6 @@
     "core:window:allow-close",
     "core:window:allow-set-badge-count",
     "dialog:allow-open",
-    {
-      "identifier": "opener:allow-open-url",
-      "allow": [{ "url": "http://*" }, { "url": "https://*" }]
-    },
     "notification:default",
     "process:allow-restart",
     "updater:allow-check",
