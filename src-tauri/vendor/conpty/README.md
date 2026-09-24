@@ -22,7 +22,7 @@ VS Code / node-pty 也是这么做的。
 ## 怎么被加载
 
 `portable-pty` 会先试 `LoadLibrary("conpty.dll")`，命中就用它，否则退回 `kernel32`。
-DLL 搜索的第一站是 exe 所在目录，所以两个文件都要落在 `Otty.exe` 旁边——
+DLL 搜索的第一站是 exe 所在目录，所以两个文件都要落在 `Belfry.exe` 旁边——
 `conpty.dll` 自己会在**它所在的目录**里找 `OpenConsole.exe`，找不到就回落到系统 conhost。
 
 落地由 `build.rs` 按目标架构挑一份放进 `active/`（构建产物，已 gitignore），

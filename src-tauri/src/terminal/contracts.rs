@@ -129,8 +129,8 @@ pub struct CreateTerminalRequest {
     /// Rust 为本次启动解析的私有覆盖，前端不能直接传入，也不进入工作区存档。
     #[serde(skip)]
     pub(crate) launch_overlay: super::overlay::LaunchOverlay,
-    /// Otty 调度的专用 Agent 会话。开启后禁用 Provider 自带的子 Agent 工具，
-    /// 避免绕过 Otty 的任务分派、状态跟踪和结果汇总。
+    /// Belfry 调度的专用 Agent 会话。开启后禁用 Provider 自带的子 Agent 工具，
+    /// 避免绕过 Belfry 的任务分派、状态跟踪和结果汇总。
     #[serde(default)]
     pub collaboration_mode: bool,
     /// 继续某条历史会话：Codex / Claude 各自 CLI 的 resume 参数。仅 Agent profile 可用。

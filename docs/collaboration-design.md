@@ -149,9 +149,9 @@ Agent 提交 `TaskResult`：
 ## 事件与并发边界
 
 - Agent 的原生 JSONL 会话日志是结构化事件的主来源；PTY 屏幕输出只作为低延迟备用来源。全屏 TUI 会插入 ANSI、换行和重绘，不能再作为唯一协议通道。
-- 每个 Agent 首条消息都会注入唯一的 `otty-collab-session:<runId>:<agentId>` marker。后端只读取该 marker 之后的 assistant 消息，忽略 user/tool 内容，防止任务说明里的示例帧被误执行。
+- 每个 Agent 首条消息都会注入唯一的 `belfry-collab-session:<runId>:<agentId>` marker。后端只读取该 marker 之后的 assistant 消息，忽略 user/tool 内容，防止任务说明里的示例帧被误执行。
 - JSONL 按文件路径和字节 offset 增量读取；不推进未写完的行，日志截断后会重新定位 marker，并拒绝读取 Provider 会话根目录之外的路径。
-- 每个终端会话独立维护 PTY 协议缓冲区，支持跨输出块的 `<otty-collab>` 帧；已解析帧不会留在 remainder 中再次执行。
+- 每个终端会话独立维护 PTY 协议缓冲区，支持跨输出块的 `<belfry-collab>` 帧；已解析帧不会留在 remainder 中再次执行。
 - 两个事件源统一按 `agentId + payload` 去重，因此同一 Spawn 或 TaskResult 即使同时出现在日志和终端中也只执行一次。
 - 同一终端的多个协议帧按顺序处理；全局 ready 调度也串行化，避免多个回传同时触发重复领取。
 - 协议运行时带 Run generation。清空或创建新 Run 后，旧日志轮询和旧队列的迟到结果会被丢弃，不会写入新 Run。
@@ -163,7 +163,7 @@ Agent 提交 `TaskResult`：
 
 - 默认不复用当前普通 Agent，而是新建独立 Coordinator 终端；用户仍可在高级设置中显式选择已有 Agent Tab。
 - Coordinator 和 Worker 的新终端都会标记 `collaborationMode=true`，沿工作区、TerminalStage、前端请求传到 Rust PTY 启动器。
-- Codex 协作会话前置 `--disable multi_agent`；Claude Code 协作会话前置 `--disallowedTools Agent Task`。这样 Provider 自带的子 Agent 不会绕过 Otty 的任务列表、并发限制、工作区隔离和结果汇总。
+- Codex 协作会话前置 `--disable multi_agent`；Claude Code 协作会话前置 `--disallowedTools Agent Task`。这样 Provider 自带的子 Agent 不会绕过 Belfry 的任务列表、并发限制、工作区隔离和结果汇总。
 - Codex 协作会话额外使用独立的 `CODEX_SQLITE_HOME` 临时目录，避免宿主权限或损坏的用户状态库让协作终端在启动阶段退出；配置、认证和 JSONL 会话日志仍使用用户原有的 `CODEX_HOME`。
 - 普通 Agent、Shell 和 SSH 启动参数保持原样；Rust 会拒绝在非 Agent profile 上开启 collaboration mode。
 - 如果 25 秒内仍未收到 Coordinator 的 Spawn 帧，控制台显示规划超时，并允许重新注入 Coordinator 指令。
@@ -188,4 +188,4 @@ Agent 提交 `TaskResult`：
 - Worker 输出 `task_result` 后进入提交、审查和验收流程；Coordinator 收到结构化汇总后继续调度。
 - 用户可以在控制台验收、要求修改、重试、批准 Spawn 或停止 Run。
 
-调度器不依赖具体 Provider。Git worktree 会保留在项目同级的 `.项目名-otty-workspaces/<run>/<task>`，便于查看和回收；后续可增加 Run 级清理策略。
+调度器不依赖具体 Provider。Git worktree 会保留在项目同级的 `.项目名-belfry-workspaces/<run>/<task>`，便于查看和回收；后续可增加 Run 级清理策略。

@@ -47,7 +47,7 @@ export interface WorkspaceTab {
   profileId: LaunchProfileId;
   /** 新会话使用的项目配置快照；启动意图不随工作区存档。 */
   projectLaunch?: ProjectLaunch;
-  /** true 表示该 Agent 由 Otty 协作调度器独占管理。 */
+  /** true 表示该 Agent 由 Belfry 协作调度器独占管理。 */
   collaborationMode: boolean;
   /** SSH 会话的连接目标；其他会话为 null。 */
   sshTarget: SshLaunch | null;

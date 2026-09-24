@@ -18,12 +18,12 @@ fn temp_root(tag: &str) -> PathBuf {
 #[test]
 fn reads_only_codex_assistant_messages_after_marker() {
     let bytes = b"{\"type\":\"response_item\",\"payload\":{\"type\":\"message\",\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"marker-1\"}]}}\n\
-        {\"type\":\"response_item\",\"payload\":{\"type\":\"message\",\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"<otty-collab>{fake}</otty-collab>\"}]}}\n\
-        {\"type\":\"response_item\",\"payload\":{\"type\":\"message\",\"role\":\"assistant\",\"content\":[{\"type\":\"output_text\",\"text\":\"<otty-collab>{real}</otty-collab>\"}]}}\n";
+        {\"type\":\"response_item\",\"payload\":{\"type\":\"message\",\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"<belfry-collab>{fake}</belfry-collab>\"}]}}\n\
+        {\"type\":\"response_item\",\"payload\":{\"type\":\"message\",\"role\":\"assistant\",\"content\":[{\"type\":\"output_text\",\"text\":\"<belfry-collab>{real}</belfry-collab>\"}]}}\n";
     let result = find_marker_in_bytes(Path::new("/tmp/session.jsonl"), bytes, "marker-1")
         .unwrap()
         .unwrap();
-    assert_eq!(result.chunks, vec!["<otty-collab>{real}</otty-collab>"]);
+    assert_eq!(result.chunks, vec!["<belfry-collab>{real}</belfry-collab>"]);
     assert!(result.offset as usize <= bytes.len());
 }
 

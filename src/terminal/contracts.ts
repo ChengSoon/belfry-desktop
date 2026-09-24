@@ -92,7 +92,7 @@ export interface TerminalLaunch {
    * 会话发牌，所以这里给了也不代表一定会拿到身份。
    */
   tabId: string | null;
-  /** Otty 调度的专用 Agent 会话；后端会禁用 Provider 自带的子 Agent 工具。 */
+  /** Belfry 调度的专用 Agent 会话；后端会禁用 Provider 自带的子 Agent 工具。 */
   collaborationMode: boolean;
   /** 继续某条历史会话：Codex/Claude 的 resume 参数。null 表示普通新会话。 */
   resumeSessionId: string | null;

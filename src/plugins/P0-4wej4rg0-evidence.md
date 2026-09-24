@@ -1,6 +1,6 @@
 # P0 任务 4wej4rg0 核查证据
 
-日期：2026-09-08。执行目录：`/Users/cheng/work/Project/tool/otty-win`。
+日期：2026-09-08。执行目录：`/Users/cheng/work/Project/tool/belfry-win`。
 
 ## 当前实现与边界
 
