@@ -21,6 +21,10 @@ export class BrowserTarget extends EventEmitter {
       await this.cdp.initialize();
       await this.files.initialize();
       await this.send("Emulation.setDeviceMetricsOverride", { ...this.viewport, deviceScaleFactor: 1, mobile: false });
+      // 无头页面靠截屏投到面板，始终当作前台标签页处理：document.hasFocus() 恒真、:focus 样式生效，
+      // 编程 focus 后的 paste/编辑命令才能可靠落到焦点元素。否则在窗口未被激活的 CI（无头无焦点）上，
+      // 「focus() 再粘贴」会被丢弃，粘贴永远到不了页面处理器。
+      await this.send("Emulation.setFocusEmulationEnabled", { enabled: true });
       await this.send("Runtime.addBinding", { name: "__belfryBrowserState" });
       await this.send("Page.addScriptToEvaluateOnNewDocument", { source: `addEventListener('DOMContentLoaded',()=>{
         const title=document.querySelector('title'); if(title)new MutationObserver(()=>window.__belfryBrowserState('')).observe(title,{childList:true,subtree:true,characterData:true});
