@@ -1,7 +1,7 @@
 {
   "name": "belfry-desktop",
   "private": true,
-  "version": "0.21.5",
+  "version": "0.21.6",
   "type": "module",
   "packageManager": "pnpm@10.34.4",
   "scripts": {

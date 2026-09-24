@@ -1,5 +1,8 @@
 use std::io::Write;
 
+#[cfg(any(target_os = "windows", test))]
+mod windows;
+
 pub mod commands {
     use super::open_url;
     use tauri::command;
@@ -11,7 +14,7 @@ pub mod commands {
     /// 真正打开失败时前端看不到错误。
     #[command]
     pub fn open_external(url: String, app: tauri::AppHandle) -> Result<(), String> {
-        // arg() 不经 shell，无注入风险；这里只做业务约束，只允许网页协议。
+        // 仅允许网页协议；各平台直接传递 URL，不经命令解释器。
         if !url.starts_with("http://") && !url.starts_with("https://") {
             return Err(format!("仅支持 http/https 链接: {url}"));
         }
@@ -98,20 +101,12 @@ fn open_url(url: &str, app: tauri::AppHandle) -> Result<(), String> {
 
 #[cfg(target_os = "windows")]
 fn open_url(url: &str, _app: tauri::AppHandle) -> Result<(), String> {
-    use std::process::Command;
-    // start 后第一组引号是窗口标题（空），URL 包引号避免 & 等字符被 cmd 截断。
-    let quoted = format!("\"{url}\"");
-    let out = Command::new("cmd")
-        .args(["/C", "start", ""])
-        .arg(&quoted)
-        .output()
-        .map_err(|error| format!("执行 start 失败: {error}"))?;
-    log_call(url, &format!("exit={:?}", out.status.code()));
-    if out.status.success() {
-        Ok(())
-    } else {
-        Err(format!("start 退出码 {:?}", out.status.code()))
+    let result = windows::open(url);
+    match &result {
+        Ok(()) => log_call(url, "ok ShellExecuteW"),
+        Err(error) => log_call(url, &format!("fail:{error}")),
     }
+    result
 }
 
 #[cfg(target_os = "linux")]
