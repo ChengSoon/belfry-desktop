@@ -244,7 +244,7 @@ dependencies = [
 
 [[package]]
 name = "belfry-desktop"
-version = "0.21.6"
+version = "0.21.7"
 dependencies = [
  "belfry-protocol",
  "dunce",
