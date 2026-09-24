@@ -6,6 +6,8 @@
   width: var(--sidebar-width, 228px);
   min-width: 184px;
   max-width: 392px;
+  /* 允许侧栏收缩到窗口高度，避免会话内容撑高父栅格而使列表无法滚动。 */
+  min-height: 0;
   grid-template-rows: minmax(0, 1fr) auto;
   padding-top: var(--titlebar-inset);
   border-right: 1px solid var(--border);
