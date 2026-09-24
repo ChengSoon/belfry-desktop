@@ -94,8 +94,14 @@ fn validate_groups(value: &Value) -> Result<(), AppError> {
     Ok(())
 }
 
+// 每次 Hook 触发都会冷启动一个 `belfry-hook` 进程，它得在超时前连上本机端口把状态发回。
+// macOS/Linux 的进程拉起很快,1s 绰绰有余;Windows 上这是个大号 GUI 二进制,PE 加载叠加
+// 杀软实时扫描,首次冷启动可能就逼近甚至越过 1s——超时后 CLI 会在状态发出前把它杀掉,
+// 表现成“装了却连不上”。给 Windows 留足冷启动余量,观察型 Hook 拖到几秒也不卡用户。
+const HOOK_TIMEOUT_SECS: u32 = if cfg!(windows) { 8 } else { 1 };
+
 fn handler(kind: AgentKind, event: &str, command: &str) -> Value {
-    let mut value = json!({"hooks":[{"type":"command", "command":command, "timeout":1,
+    let mut value = json!({"hooks":[{"type":"command", "command":command, "timeout":HOOK_TIMEOUT_SECS,
         "statusMessage":format!("{MARKER} · {}", kind.command_name())}]});
     if event == "Notification" {
         value["matcher"] = json!("permission_prompt|elicitation_dialog");
