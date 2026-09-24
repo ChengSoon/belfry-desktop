@@ -22,6 +22,10 @@ Run Codex and Claude Code through one interface on macOS and Windows, and see wh
 
 [Download](#download) · [Get started](#get-started) · [Features](#features) · [UI](#ui) · [Principles](#principles) · [Development](#development) · [Roadmap](#roadmap) · [License](#license)
 
+<br/>
+
+<img src="docs/screenshots/workspace-dark.png" width="880" alt="Belfry workspace: sessions grouped by project in the sidebar, a hosted Claude Code running in the terminal" />
+
 </div>
 
 > [!WARNING]
@@ -128,7 +132,28 @@ their native `Ctrl` shortcuts.
 
 ## UI
 
-> Screenshots pending.
+**Workspace** (see the banner above) — sessions grouped by project in the sidebar, tabs named after your first line; hosted Codex / Claude Code run right in the terminal. Below: light theme, usage, provider switching, and the plugin center.
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/workspace-light.png" alt="Light theme" /></td>
+    <td width="50%"><img src="docs/screenshots/usage.png" alt="Usage panel" /></td>
+  </tr>
+  <tr>
+    <td><sub><b>Light theme</b> · light/dark toggle, theme color fed into the terminal palette</sub></td>
+    <td><sub><b>Usage panel</b> (<code>⌘U</code>) · aggregated from local logs, split by model / project</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/provider.png" alt="Provider switching" /></td>
+    <td><img src="docs/screenshots/plugins.png" alt="Plugin center" /></td>
+  </tr>
+  <tr>
+    <td><sub><b>Provider switching</b> · rewrites the CLI's own routing config, toggling between official and third-party relays</sub></td>
+    <td><sub><b>Plugin center</b> · install <code>.piplug</code>, load a dev directory, or browse the market</sub></td>
+  </tr>
+</table>
+
+> Screenshots use sample data; the UI is the real frontend rendered.
 
 ## Principles
 

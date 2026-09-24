@@ -22,6 +22,10 @@
 
 [文档](https://chengsoon.github.io/belfry-desktop/) · [下载](#下载) · [快速开始](#快速开始) · [功能](#功能) · [界面](#界面) · [设计取向](#设计取向) · [开发](#开发) · [路线图](#路线图) · [许可证](#许可证)
 
+<br/>
+
+<img src="docs/screenshots/workspace-dark.png" width="880" alt="Belfry 主工作台：侧栏按项目分组会话，终端里跑着托管的 Claude Code" />
+
 </div>
 
 ## 下载
@@ -124,12 +128,30 @@ Belfry 快捷键：`⌘T` 新建 Shell，`⌘B` 折叠侧栏，`⌘K` 打开 Qui
 `⌘,` 打开设置，`⌘1–9` 切换会话，`⌘/` 打开快捷指令。Windows 使用
 `Ctrl+Shift` 组合，避免占用 Codex 与 Claude 的原生 `Ctrl` 快捷键。
 
-<!-- 界面截图待补：需要在两个平台各截一张主工作台（亮/暗）。
-     osascript 截不到原生窗口（缺辅助功能权限），得手动截。 -->
-
 ## 界面
 
-> 截图待补。
+**主工作台**（见页首大图）— 侧栏按项目分组会话，标签按你输入的第一句话命名；托管的 Codex / Claude Code 直接跑在终端里。以下覆盖浅色主题、用量、Provider 切换与插件中心：
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/workspace-light.png" alt="浅色主题" /></td>
+    <td width="50%"><img src="docs/screenshots/usage.png" alt="用量面板" /></td>
+  </tr>
+  <tr>
+    <td><sub><b>浅色主题</b> · 亮/暗切换，主题色同步喂给终端调色板</sub></td>
+    <td><sub><b>用量面板</b>（<code>⌘U</code>）· 读本地日志聚合，按模型 / 项目拆分 token</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/provider.png" alt="Provider 切换" /></td>
+    <td><img src="docs/screenshots/plugins.png" alt="插件中心" /></td>
+  </tr>
+  <tr>
+    <td><sub><b>Provider 切换</b> · 改写 CLI 自己的路由配置，在官方与三方中转间切换</sub></td>
+    <td><sub><b>插件中心</b> · 安装 <code>.piplug</code>、加载开发目录或浏览市场</sub></td>
+  </tr>
+</table>
+
+> 截图为示例数据，界面为真实前端渲染。
 
 ## 设计取向
 
