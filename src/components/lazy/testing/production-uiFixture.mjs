@@ -17,7 +17,10 @@ export async function uiFixture(t, options = {}) {
     assert.deepEqual({ browserErrors, ...health }, { browserErrors: [], errors: [], unhandled: [] }, "production browser must have no crashes, errors or unhandled native commands");
   });
   const nativeSource = await readFile(new URL("./production-uiNative.js", import.meta.url), "utf8");
-  fixture = await productionFixture(t, { nativeSource: nativeSource + (options.nativeExtension ?? ""), terminalCount: options.terminalCount ?? 2, beforeNavigate(view) {
+  fixture = await productionFixture(t, { nativeSource: nativeSource + (options.nativeExtension ?? ""), terminalCount: options.terminalCount ?? 2, async beforeNavigate(view) {
+    // CI hosts can default to reduced motion. Test normal motion deterministically;
+    // reduced-motion cases explicitly switch this media feature after their normal assertions.
+    await view.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
     const listener = ({ sessionId, method, params = {} }) => {
       if (sessionId !== view.sessionId && params.targetId !== view.targetId) return;
       if (method === 'Inspector.targetCrashed' || method === 'Target.targetCrashed') browserErrors.push({ method, params });
@@ -27,6 +30,8 @@ export async function uiFixture(t, options = {}) {
     t.after(() => view.process.off('protocol', listener));
   } });
   const { view } = fixture;
+  assert.equal(await view.cdp.evaluate("matchMedia('(prefers-reduced-motion: reduce)').matches"), false,
+    "UI fixture must start in normal-motion mode independently of the host preference");
   await resize(view, 1440, 960);
   const baseline = await view.cdp.evaluate("({token: __productionQA.token, creates: __productionQA.creates})");
   return { ...fixture, baseline };
