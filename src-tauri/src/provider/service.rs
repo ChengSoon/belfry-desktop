@@ -10,8 +10,8 @@ use crate::agent::AgentKind;
 use crate::terminal::AppError;
 
 use super::contracts::{
-    AgentProviderGroup, ConfigFilePreview, ProviderCatalog, ProviderConfig, ProviderDraft,
-    SwitchOutcome,
+    AgentProviderGroup, ApiKeyAction, ConfigFilePreview, ProviderCatalog, ProviderConfig,
+    ProviderDraft, ProviderSummary, SwitchOutcome,
 };
 use super::store::StoreFile;
 use super::{claude, codex, envcheck, pi, store};
@@ -21,6 +21,7 @@ use crate::atomic::read_text_optional;
 const ADOPTED_NAME: &str = "导入的配置";
 
 pub(super) fn catalog(app: &AppHandle) -> Result<ProviderCatalog, AppError> {
+    let _guard = store::lock()?;
     let mut store = store::load(app)?;
     if adopt_live(&mut store)? {
         store::save(app, &store)?;
@@ -34,9 +35,17 @@ pub(super) fn save_provider(
     draft: ProviderDraft,
 ) -> Result<ProviderCatalog, AppError> {
     draft.validate()?;
+    let _guard = store::lock()?;
 
     let mut store = store::load(app)?;
     adopt_live(&mut store)?;
+    validate_kept_endpoint(&store, kind, &draft)?;
+    store::ensure_available(app, &store)?;
+    if draft.api_key_action == ApiKeyAction::Clear {
+        if let Some(id) = &draft.id {
+            store.clear_api_key(kind, id);
+        }
+    }
 
     let agent = store.agent_mut(kind);
     let edited_id = match &draft.id {
@@ -48,7 +57,9 @@ pub(super) fn save_provider(
                 .ok_or_else(|| AppError::not_found(format!("找不到 provider：{id}")))?;
             existing.name = draft.name.trim().to_string();
             existing.base_url = draft.base_url.trim().to_string();
-            existing.api_key = draft.api_key.trim().to_string();
+            if draft.api_key_action != ApiKeyAction::Keep {
+                existing.api_key = draft.api_key.trim().to_string();
+            }
             existing.model = draft.model.trim().to_string();
             id.clone()
         }
@@ -70,8 +81,8 @@ pub(super) fn save_provider(
     // 改的正好是当前生效的那个，就得把新值推到 CLI 的配置文件里，
     // 否则界面显示已改、实际还在用旧 key。
     if store.agent(kind).current_id.as_deref() == Some(edited_id.as_str()) {
-        let target = store.agent(kind).find(&edited_id).cloned();
-        write_live(kind, target.as_ref(), &mut store)?;
+        let target = store.resolve_provider(app, kind, &edited_id)?;
+        write_live(app, kind, Some(&target), &mut store)?;
     }
 
     store::save(app, &store)?;
@@ -83,8 +94,10 @@ pub(super) fn remove_provider(
     kind: AgentKind,
     id: String,
 ) -> Result<ProviderCatalog, AppError> {
+    let _guard = store::lock()?;
     let mut store = store::load(app)?;
     adopt_live(&mut store)?;
+    store::ensure_available(app, &store)?;
 
     if store.agent(kind).find(&id).is_none() {
         return Err(AppError::not_found(format!("找不到 provider：{id}")));
@@ -92,7 +105,7 @@ pub(super) fn remove_provider(
 
     // 删的是当前生效的，先把 CLI 配置退回官方，不然会留下一份指向已删条目的路由。
     if store.agent(kind).current_id.as_deref() == Some(id.as_str()) {
-        write_live(kind, None, &mut store)?;
+        write_live(app, kind, None, &mut store)?;
         store.agent_mut(kind).current_id = None;
     }
 
@@ -106,22 +119,18 @@ pub(super) fn switch(
     kind: AgentKind,
     id: Option<String>,
 ) -> Result<SwitchOutcome, AppError> {
+    let _guard = store::lock()?;
     let mut store = store::load(app)?;
     adopt_live(&mut store)?;
+    store::ensure_available(app, &store)?;
 
     let target = match &id {
-        Some(id) => Some(
-            store
-                .agent(kind)
-                .find(id)
-                .cloned()
-                .ok_or_else(|| AppError::not_found(format!("找不到 provider：{id}")))?,
-        ),
+        Some(id) => Some(store.resolve_provider(app, kind, id)?),
         None => None,
     };
 
     // 先写文件。失败就在这里返回，库里的 currentId 一个字没动。
-    write_live(kind, target.as_ref(), &mut store)?;
+    write_live(app, kind, target.as_ref(), &mut store)?;
 
     store.agent_mut(kind).current_id = id;
     // 万一这一步失败：文件已经切了、库里还是旧的。用户再切一次即可（幂等），
@@ -136,6 +145,7 @@ pub(super) fn switch(
 }
 
 fn write_live(
+    app: &AppHandle,
     kind: AgentKind,
     target: Option<&ProviderConfig>,
     store: &mut StoreFile,
@@ -148,8 +158,13 @@ fn write_live(
         }
         AgentKind::Pi => pi::apply_live(target),
         AgentKind::Codex => {
+            store.resolve_official_auth(app)?;
             let mut auth = store.codex_official_auth.take();
-            let result = codex::switch(target, &mut auth);
+            let result = codex::switch(target, &mut auth, |backup| {
+                // OAuth 必须先加密持久化，再允许覆盖外部 auth.json。
+                // 用磁盘上的旧元数据保存备份，保持 CLI 写失败时 currentId 不变。
+                store.persist_official_backup(app, backup)
+            });
             // 无论成败都写回：codex::switch 在回滚时也会把备份恢复原状。
             store.codex_official_auth = auth;
             result
@@ -162,7 +177,11 @@ fn write_live(
 /// Claude Code 只有 `~/.claude/settings.json`；Codex 有 `config.toml` 和
 /// `auth.json` 两个文件。只读返回原文，不改写任何内容——用户自己的 hooks、
 /// MCP、token 都原样呈现，和 cc-switch 里打开配置文件看到的一样。
-pub(super) fn config_files(kind: AgentKind) -> Result<Vec<ConfigFilePreview>, AppError> {
+pub(super) fn config_files(
+    kind: AgentKind,
+    reveal_secrets: bool,
+) -> Result<Vec<ConfigFilePreview>, AppError> {
+    require_sensitive_preview(reveal_secrets)?;
     match kind {
         AgentKind::Claude => {
             let path = claude::settings_path()?;
@@ -182,14 +201,18 @@ pub(super) fn config_files(kind: AgentKind) -> Result<Vec<ConfigFilePreview>, Ap
 /// 右侧编辑器要展示的是「这个 Provider 套用后的配置」，而不是当前 live
 /// Provider 的旧文件；字段改写统一复用切换时的实现，避免两套规则漂移。
 pub(super) fn config_files_for_draft(
+    app: &AppHandle,
     kind: AgentKind,
     draft: ProviderDraft,
+    reveal_secrets: bool,
 ) -> Result<Vec<ConfigFilePreview>, AppError> {
+    require_sensitive_preview(reveal_secrets)?;
+    let api_key = draft_api_key(app, kind, &draft)?;
     let provider = ProviderConfig {
         id: draft.id.unwrap_or_else(|| "preview".to_string()),
         name: draft.name.trim().to_string(),
         base_url: draft.base_url.trim().to_string(),
-        api_key: draft.api_key.trim().to_string(),
+        api_key,
         model: draft.model.trim().to_string(),
         created_at: 0,
     };
@@ -198,6 +221,56 @@ pub(super) fn config_files_for_draft(
         AgentKind::Claude => preview_claude(&provider),
         AgentKind::Codex => preview_codex(&provider),
         AgentKind::Pi => pi::config_files_for_provider(&provider),
+    }
+}
+
+fn require_sensitive_preview(confirmed: bool) -> Result<(), AppError> {
+    if !confirmed {
+        return Err(AppError::invalid_argument("请先确认查看含密钥的原始配置"));
+    }
+    Ok(())
+}
+
+fn validate_kept_endpoint(
+    store: &StoreFile,
+    kind: AgentKind,
+    draft: &ProviderDraft,
+) -> Result<(), AppError> {
+    draft.validate_key_action()?;
+    if draft.api_key_action == ApiKeyAction::Keep {
+        let agent = store.agent(kind);
+        let existing = agent
+            .find(draft.id.as_deref().unwrap_or_default())
+            .ok_or_else(|| AppError::not_found("Provider 已不存在，请重新读取"))?;
+        if existing.base_url.trim() != draft.base_url.trim()
+            && store.has_api_key(kind, &existing.id)
+        {
+            return Err(AppError::invalid_argument(
+                "端点已修改，请明确替换或清除密钥，避免把已有密钥发送到新地址",
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// 模型请求与主动打开的敏感预览才需要解析草稿中的已有凭据。
+pub(super) fn draft_api_key(
+    app: &AppHandle,
+    kind: AgentKind,
+    draft: &ProviderDraft,
+) -> Result<String, AppError> {
+    draft.validate_key_action()?;
+    match draft.api_key_action {
+        ApiKeyAction::Keep => {
+            let _guard = store::lock()?;
+            let store = store::load(app)?;
+            validate_kept_endpoint(&store, kind, draft)?;
+            Ok(store
+                .resolve_provider(app, kind, draft.id.as_deref().unwrap_or_default())?
+                .api_key)
+        }
+        ApiKeyAction::Replace => Ok(draft.api_key.trim().to_string()),
+        ApiKeyAction::Clear => Ok(String::new()),
     }
 }
 
@@ -221,10 +294,14 @@ fn preview_codex(provider: &ProviderConfig) -> Result<Vec<ConfigFilePreview>, Ap
 
 /// 保存用户在界面上编辑后的配置文件全文。路径白名单和格式校验在各 agent 模块里。
 pub(super) fn save_config_file(
+    app: &AppHandle,
     kind: AgentKind,
     path: String,
     content: String,
 ) -> Result<(), AppError> {
+    let _guard = store::lock()?;
+    let store = store::load(app)?;
+    store::ensure_available(app, &store)?;
     let path = std::path::PathBuf::from(path);
     match kind {
         AgentKind::Claude => claude::save_config_file(&path, &content),
@@ -240,7 +317,9 @@ pub(super) fn save_config_file(
 /// base_url 匹配现有条目就更新它并设为当前，否则新建一条。检测不到
 /// （比如用户把 `model_provider` 摘掉切回官方）就不动库里已有内容。
 pub(super) fn sync_live(app: &AppHandle, kind: AgentKind) -> Result<ProviderCatalog, AppError> {
+    let _guard = store::lock()?;
     let mut store = store::load(app)?;
+    store::ensure_available(app, &store)?;
     apply_live_to_store(&mut store, kind, detect_live(kind)?);
     store::save(app, &store)?;
     Ok(build(&store))
@@ -264,6 +343,10 @@ fn apply_live_to_store(
         .map(|item| item.id.clone());
     let id = match matched_id {
         Some(id) => {
+            // 外部 CLI 中明确清除的密钥不能被旧引用复活。
+            if api_key.is_empty() {
+                store.clear_api_key(kind, &id);
+            }
             let entry = store
                 .agent_mut(kind)
                 .providers
@@ -306,8 +389,8 @@ fn adopt_live(store: &mut StoreFile) -> Result<bool, AppError> {
         // 跳过即可，等文件恢复后下次打开设置再同步。
         let detected = match detect_live(kind) {
             Ok(detected) => detected,
-            Err(err) => {
-                eprintln!("adopt_live: 跳过 {kind:?}，读配置失败：{err:?}");
+            Err(_) => {
+                eprintln!("adopt_live: 跳过 {kind:?}，配置不可读取（详情已脱敏）");
                 continue;
             }
         };
@@ -373,7 +456,16 @@ fn build(store: &StoreFile) -> ProviderCatalog {
             let agent = store.agent(kind);
             AgentProviderGroup {
                 kind,
-                providers: agent.providers,
+                providers: agent
+                    .providers
+                    .iter()
+                    .map(|provider| {
+                        ProviderSummary::from_config(
+                            provider,
+                            store.has_api_key(kind, &provider.id),
+                        )
+                    })
+                    .collect(),
                 current_id: agent.current_id,
             }
         })
@@ -483,3 +575,7 @@ mod tests {
         assert!(store.agent(AgentKind::Claude).current_id.is_none());
     }
 }
+
+#[cfg(test)]
+#[path = "service_security_tests.rs"]
+mod security_tests;

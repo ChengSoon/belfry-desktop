@@ -101,7 +101,7 @@ fn the_cli_talks_to_a_real_server() {
     let sent_text = String::from_utf8_lossy(&sent.stdout).to_string();
     assert!(sent.status.success(), "派活应该受理：{sent:?}");
     assert!(
-        sent_text.contains("已送给"),
+        sent_text.contains("已受理"),
         "同项目应该直接放行：{sent_text}"
     );
     let queued = board

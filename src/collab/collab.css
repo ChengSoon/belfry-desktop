@@ -29,6 +29,8 @@
   z-index: 12;
   display: flex;
   width: clamp(340px, 30vw, 460px);
+  max-width: 100%;
+  container: collab / inline-size;
   min-width: 0;
   min-height: 0;
   height: 100%;
@@ -52,13 +54,13 @@
 
 .collab-panel__error {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   padding: 9px 13px;
   border-bottom: 1px solid var(--border);
   color: var(--danger);
   background: color-mix(in srgb, var(--danger) 10%, transparent);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
 }
 
 .collab-panel__body {
@@ -67,7 +69,7 @@
   flex: 1 1 auto;
   align-content: start;
   gap: 16px;
-  padding: 13px;
+  padding: 16px;
   overflow-y: auto;
 }
 
@@ -77,13 +79,13 @@
   margin: 0;
   align-items: baseline;
   gap: 6px;
-  color: var(--text-faint);
+  color: var(--text-muted);
   font-size: var(--fs-xs);
   font-weight: 500;
   letter-spacing: 0.04em;
 }
 .collab-group__count { margin-left: auto; font-variant-numeric: tabular-nums; }
-.collab-group--quiet { opacity: 0.62; }
+.collab-group--quiet { color: var(--text-muted); }
 
 /* 事件之间不留 gap：轨道线要连成一条，间距由事件内容列的 padding-bottom 撑
    （见下面 .collab-event__body），线才能穿过那段空白接上下一个节点。 */
@@ -264,31 +266,26 @@
 /* 3｜指令行。用 --text 不用 --text-muted：指令是任务的主体，该是卡片上最实的一行；
    和路由行的层级靠字号拉开（xs vs sm），不靠把它压暗。 */
 .collab-event__instruction {
-  display: -webkit-box;
+  display: block;
   margin: 0;
   overflow: hidden;
   color: var(--text);
-  font-size: var(--fs-sm);
-  line-height: 1.45;
+  font-size: var(--fs-md);
+  line-height: 1.6;
   overflow-wrap: anywhere;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
 }
 
 /* 4｜结果块。对方交差时唯一的解释，值一个引用块而不是底部一行小字。
    不加 border-top：轨道已经承担了分隔。 */
 .collab-event__result {
-  display: -webkit-box;
-  margin: 0;
-  overflow: hidden;
+  display: block;
+  margin: 8px 0 0;
   border-left: 2px solid var(--border-strong);
   padding-left: 8px;
   color: var(--text-muted);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-md);
   line-height: 1.5;
   overflow-wrap: anywhere;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 4;
 }
 
 .collab-event__actions { display: flex; justify-content: flex-end; gap: 6px; }
@@ -423,6 +420,8 @@
 
 .collab-panel__foot {
   display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   padding: 10px 13px;
@@ -433,6 +432,7 @@
 .collab-button {
   display: inline-flex;
   align-items: center;
+  min-height: 30px;
   gap: 4px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -444,7 +444,24 @@
   transition: background var(--duration) var(--ease), color var(--duration) var(--ease);
 }
 .collab-button:hover { background: var(--surface-hover); }
-.collab-button--primary { border-color: color-mix(in srgb, var(--accent) 55%, var(--border-strong)); color: var(--accent); background: var(--accent-soft); }
+.collab-button--primary { border-color: transparent; color: var(--accent-contrast); background: var(--accent); }
+.collab-button--primary:hover { background: var(--accent-hover); }
 .collab-button--quiet { color: var(--text-faint); }
 .collab-button--danger { margin-left: auto; border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); color: var(--danger); }
 .collab-button--danger:hover { background: color-mix(in srgb, var(--danger) 12%, transparent); }
+
+.collab-panel__context { flex-shrink: 0; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+.collab-panel__context p { margin: 0 0 10px; color: var(--text-muted); font-size: var(--fs-xs); }
+.collab-filters { display: flex; flex-wrap: wrap; gap: 4px; }
+.collab-filters button { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 4px 7px; border: 0; border-radius: var(--radius-sm); color: var(--text-muted); background: var(--surface); font-size: var(--fs-xs); cursor: pointer; }
+.collab-filters button:hover { background: var(--surface-hover); }
+.collab-filters button[aria-pressed="true"] { color: var(--accent); background: var(--accent-soft); }
+.collab-filters span { font-variant-numeric: tabular-nums; }
+.collab-panel__empty-filter { color: var(--text-muted); font-size: var(--fs-sm); line-height: 1.6; }
+.collab-panel__error > svg { flex-shrink: 0; }
+.collab-panel__error div { min-width: 0; overflow-wrap: anywhere; }
+.collab-panel__error small { display: block; margin-top: 4px; color: var(--text-muted); font-size: var(--fs-xs); }
+.collab-event__result-detail { min-width: 0; font-size: var(--fs-xs); color: var(--text-muted); }
+.collab-event__result-detail summary { padding-block: 4px; cursor: pointer; color: var(--accent); }
+.collab-panel :is(button, summary):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .collab-panel { animation: none; } }

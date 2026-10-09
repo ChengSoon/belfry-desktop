@@ -16,6 +16,9 @@ use belfry_protocol::{
 };
 
 fn main() -> ExitCode {
+    if belfry_protocol::hooks::run_if_requested() {
+        return ExitCode::SUCCESS;
+    }
     let args: Vec<String> = std::env::args().skip(1).collect();
     match run(&args) {
         Ok(output) => {
@@ -361,7 +364,7 @@ fn render(data: ResponseData) -> String {
                 // 说清「还没送到」，否则 Agent 会当成对方已经开工，接着去等结果。
                 format!("任务 {task} 已提交给「{to}」，等用户确认后才会送达")
             } else {
-                format!("任务 {task} 已送给「{to}」")
+                format!("任务 {task} 已受理，等待投递给「{to}」（目标空闲时自动提交；受理不等于已开始处理）")
             }
         }
         ResponseData::Settled { task } => format!("任务 {task} 已结"),

@@ -30,7 +30,10 @@ export function GitPanel(props: Props) {
   const open = (path: string) => { if (report) props.onOpenFile({ rootPath: report.rootPath, path }); };
   return <section className="file-preview-panel git-panel" aria-label="Git 变更" style={{ "--file-preview-width": `${width.width}px` } as CSSProperties}>
     <GitHeader loading={model.status.loading || model.diff.loading} onRefresh={model.refresh} onClose={props.onClose} onFiles={props.onFiles} />
-    {props.failure || model.status.failure ? <p className="git-error" role="alert">{props.failure ?? model.status.failure}</p> : null}
+    {props.failure || model.status.failure ? <div className="git-error" role="alert">
+      <span>{props.failure ?? model.status.failure}</span>
+      {model.status.failure ? <button type="button" disabled={model.status.loading} onClick={model.refresh}>重试读取</button> : null}
+    </div> : null}
     {model.status.loading && !report ? <p className="git-hint" role="status">正在读取 Git 状态…</p> : null}
     {!props.project ? <p className="git-empty">先打开一个本地项目</p> : null}
     {report && !report.repository ? <p className="git-empty">当前目录不是 Git 工作树。可切换到文件视图继续浏览。</p> : null}
@@ -71,6 +74,6 @@ function BranchSummary({ report }: { report: GitStatus }) {
     <div><GitBranch size={ICON.sm} aria-hidden="true" /><strong>{branch}</strong>
       {!report.head ? <small>尚无提交</small> : null}
       {report.upstream ? <small title={report.upstream}>↑{report.ahead} ↓{report.behind}</small> : null}
-    </div><span title={report.rootPath}>{report.rootPath}</span>
+    </div><span title={report.rootPath}>{report.rootPath}</span><small>本地工作树 · 暂存区与工作区差异</small>
   </div>;
 }

@@ -1,0 +1,57 @@
+/* Belfry-owned plugin surfaces only. Do not inject these tokens into plugin frames. */
+.pi-plugins {
+  --ds-bg-primary: var(--panel);
+  --ds-bg-secondary: var(--surface);
+  --ds-bg-tertiary: var(--surface-hover);
+  --ds-bg-sidebar: var(--sidebar);
+  --ds-bg-inset: var(--canvas);
+  --ds-bg-under: var(--canvas);
+  --ds-bg-elevated: var(--surface-raised);
+  --ds-bg-elevated-opaque: var(--surface-raised);
+  --ds-bg-hover: var(--surface-hover);
+  --ds-bg-active: var(--sidebar-active);
+  --ds-bg-chip: var(--surface);
+  --ds-text-primary: var(--text);
+  --ds-text-secondary: var(--text-muted);
+  --ds-text-muted: var(--text-muted);
+  --ds-text-faint: var(--text-faint);
+  --ds-border-default: var(--border);
+  --ds-border-subtle: var(--border);
+  --ds-border-strong: var(--border-strong);
+  --ds-tile: var(--surface);
+  --ds-tile-hover: var(--surface-hover);
+  --ds-tile-deep: var(--surface-hover);
+  --ds-raised: var(--surface-raised);
+  --ds-raised-shadow: none;
+  --ds-accent: var(--accent);
+  --ds-accent-hover: var(--accent-hover);
+  --ds-accent-soft: var(--accent-soft);
+  --ds-switch-track-off: var(--border-strong);
+  --ds-switch-ring-off: var(--border-strong);
+  --ds-switch-knob-off: var(--text-muted);
+  --ds-switch-knob-on: var(--accent-contrast);
+  --ds-success: var(--success);
+  --ds-warning: var(--warning);
+  --ds-error: var(--danger);
+  --ds-shadow-dialog: var(--shadow-lg);
+  --text-base: var(--fs-md);
+  --text-sm: var(--fs-sm);
+  --text-sm-plus: var(--fs-md);
+  --text-md: var(--fs-md);
+  --text-xs: var(--fs-xs);
+  --text-xs-plus: var(--fs-sm);
+  --text-lg: var(--fs-display);
+}
+.pi-plugins .plugins-page { gap: 20px; }
+.pi-plugins .plugins-page > .plugins-page-header { align-items: flex-start; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+.pi-plugins .plugins-title-copy .page-title { font-size: var(--fs-display); line-height: 1.4; font-weight: 500; }
+.pi-plugins .plugins-title-icon { background: none; color: var(--text-muted); }
+.pi-plugins .plugins-header-actions > .btn { min-height: 36px; font-size: var(--fs-sm); }
+.pi-plugins .btn-primary, .pi-plugins .btn-primary:hover:not(:disabled) { color: var(--accent-contrast); }
+.pi-plugins :is(.field-input, .field-select, .field-textarea) { min-height: 38px; background: var(--canvas); border: 1px solid var(--border); border-radius: 6px; }
+.pi-plugins :is(.plugins-card, .plugins-row, .panel-card) { border-radius: 8px; }
+.pi-plugins .plugins-page-description { margin-top: 6px; color: var(--text-muted); font-size: var(--fs-sm); line-height: 1.6; }
+.pi-plugins .plugin-launcher-surface { border-radius: 10px; }
+.pi-plugins .plugin-launcher-search-row { border-bottom: 1px solid var(--border); }
+.pi-plugins .plugin-launcher-option.active { color: var(--text); background: var(--accent-soft); }
+.pi-plugins .plugin-launcher-results { overflow-y: auto; }

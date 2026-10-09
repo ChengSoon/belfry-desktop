@@ -1,7 +1,6 @@
 import { Check, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { shouldDismissOnBlur } from "../../components/controls/layerOwnership";
-import { maskKey } from "../validate";
 
 interface ProviderCardProps {
   nodeRef?: (node: HTMLElement | null) => void;
@@ -10,14 +9,14 @@ interface ProviderCardProps {
   label: string;
   endpoint: string;
   model: string;
-  apiKey?: string;
+  hasApiKey?: boolean;
   onEdit?: () => void;
   onRemove?: () => void;
   onSelect: () => void;
 }
 
 export function ProviderCard(props: ProviderCardProps) {
-  const { nodeRef, active, busy, label, endpoint, model, apiKey, onEdit, onRemove, onSelect } = props;
+  const { nodeRef, active, busy, label, endpoint, model, hasApiKey, onEdit, onRemove, onSelect } = props;
   const cardRef = useCardSwitchMotion(active);
   const setCardRef = (node: HTMLElement | null) => {
     cardRef.current = node;
@@ -30,7 +29,7 @@ export function ProviderCard(props: ProviderCardProps) {
         <p className="provider-card__endpoint" title={endpoint}>{endpoint}</p>
       </div>
       <div className="provider-card__model"><span>模型</span><code title={model}>{model}</code></div>
-      <div className="provider-card__auth"><span>认证</span><code>{maskKey(apiKey ?? "")}</code></div>
+      <div className="provider-card__auth"><span>认证</span><code>{hasApiKey ? "已配置密钥" : "未配置密钥"}</code></div>
       <div className="provider-card__actions">
         <div className="provider-card__selection" data-active={active}>
           <button className="provider-card__activate" disabled={busy || active} onClick={onSelect}

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, type CSSProperties, type PointerEvent, type RefObject } from "react";
+import { memo, useCallback, useMemo, type CSSProperties, type PointerEvent, type RefObject } from "react";
 import { TerminalViewport, type TerminalSnapshot } from "../../components/TerminalViewport";
 import type { TerminalCommandTarget } from "../../terminal/contracts";
 import type { WorkspaceTab } from "../../workspace/contracts";
@@ -105,7 +105,8 @@ function DropIndicator({ rect, edge }: { rect: Rect; edge: DropEdge }) {
   return <div className={`drop-indicator drop-indicator--${edge}`} style={style} aria-hidden="true" />;
 }
 
-function SessionTerminal({
+// 指针坐标只影响窗格与落区；无关终端不必跟着舞台的每次拖拽提交重渲染。
+const SessionTerminal = memo(function SessionTerminal({
   tab,
   visible,
   focused,
@@ -166,4 +167,4 @@ function SessionTerminal({
       visible={visible}
     />
   );
-}
+});

@@ -19,11 +19,12 @@ import {
   SquareTerminal,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ICON } from "../theme/sizing";
-import { useDismiss } from "../workspace/useDismiss";
+import { useDialog } from "../components/controls/useDialog";
 import { searchQuickOpen, type QuickOpenIcon, type QuickOpenItem, type QuickOpenItemKind } from "./model";
 import "./quickOpen.css";
+import { useMotionActive, useMotionState } from "../components/motion/Presence";
 
 interface QuickOpenProps {
   items: readonly QuickOpenItem[];
@@ -33,42 +34,50 @@ interface QuickOpenProps {
 }
 
 export function QuickOpen({ items, shortcutLabel, onClose, onSelect }: QuickOpenProps) {
+  const active = useMotionActive();
+  const motion = useMotionState();
+  const chosen = useRef(false);
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
-  const returnFocusRef = useRef<HTMLElement | null>(
-    document.activeElement instanceof HTMLElement ? document.activeElement : null,
-  );
-  const panelRef = useDismiss<HTMLDivElement>(true, onClose);
+  const panelRef = useDialog(onClose);
   const matches = useMemo(() => searchQuickOpen(items, query), [items, query]);
+  const enabledIndices = useMemo(() => matches.flatMap(({ item }, index) => item.disabled ? [] : [index]), [matches]);
+  const selectedIndex = enabledIndices.includes(activeIndex) ? activeIndex : enabledIndices[0] ?? -1;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    if (!active) return;
+    chosen.current = false;
+    // Presence can reopen before exit finishes, without remounting this instance.
+    setQuery("");
+    setActiveIndex(0);
     inputRef.current?.focus();
-    return () => returnFocusRef.current?.focus();
-  }, []);
+  }, [active]);
 
   useEffect(() => {
-    setActiveIndex((current) => Math.min(current, Math.max(matches.length - 1, 0)));
-  }, [matches.length]);
-
-  useEffect(() => {
-    document.getElementById(`quick-open-option-${activeIndex}`)?.scrollIntoView({ block: "nearest" });
-  }, [activeIndex]);
+    if (active && selectedIndex >= 0) {
+      document.getElementById(`quick-open-option-${selectedIndex}`)?.scrollIntoView({ block: "nearest" });
+    }
+  }, [active, selectedIndex, matches]);
 
   const choose = (index: number) => {
+    if (!active || chosen.current) return;
     const match = matches[index];
     if (!match || match.item.disabled) return;
+    chosen.current = true;
     onSelect(match.item);
   };
 
   const move = (offset: number) => {
-    if (matches.length === 0) return;
-    setActiveIndex((current) => (current + offset + matches.length) % matches.length);
+    if (enabledIndices.length === 0) return;
+    const current = enabledIndices.indexOf(selectedIndex);
+    setActiveIndex(enabledIndices[(current + offset + enabledIndices.length) % enabledIndices.length]);
   };
 
   return (
     <div
       className="modal-scrim quick-open__scrim"
+      {...motion}
       onPointerDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
@@ -82,11 +91,10 @@ export function QuickOpen({ items, shortcutLabel, onClose, onSelect }: QuickOpen
         role="dialog"
       >
         <header className="quick-open__head">
-          <span className="quick-open__mark" aria-hidden="true"><Search size={ICON.md} /></span>
           <div className="quick-open__search-wrap">
             <Search aria-hidden="true" className="quick-open__search-icon" size={ICON.sm} />
             <input
-              aria-activedescendant={matches.length > 0 ? `quick-open-option-${activeIndex}` : undefined}
+              aria-activedescendant={selectedIndex >= 0 ? `quick-open-option-${selectedIndex}` : undefined}
               aria-controls="quick-open-results"
               aria-expanded="true"
               aria-label="搜索会话、项目或动作"
@@ -105,13 +113,13 @@ export function QuickOpen({ items, shortcutLabel, onClose, onSelect }: QuickOpen
                   move(-1);
                 } else if (event.key === "Home") {
                   event.preventDefault();
-                  setActiveIndex(0);
+                  setActiveIndex(enabledIndices[0] ?? -1);
                 } else if (event.key === "End") {
                   event.preventDefault();
-                  setActiveIndex(Math.max(matches.length - 1, 0));
+                  setActiveIndex(enabledIndices.at(-1) ?? -1);
                 } else if (event.key === "Enter") {
                   event.preventDefault();
-                  choose(activeIndex);
+                  choose(selectedIndex);
                 } else if (event.key === "Escape") {
                   event.preventDefault();
                   event.stopPropagation();
@@ -129,6 +137,9 @@ export function QuickOpen({ items, shortcutLabel, onClose, onSelect }: QuickOpen
             <X aria-hidden="true" size={ICON.md} />
           </button>
         </header>
+        <div className="quick-open__context" role="status" aria-live="polite">
+          <span>会话 / 项目 / 动作</span><span>{matches.length} 个结果</span>
+        </div>
 
         <div
           aria-label="Quick Open 结果"
@@ -138,13 +149,15 @@ export function QuickOpen({ items, shortcutLabel, onClose, onSelect }: QuickOpen
         >
           {matches.length > 0 ? matches.map(({ item }, index) => (
             <button
-              aria-selected={index === activeIndex}
-              className={`quick-open__item${index === activeIndex ? " is-active" : ""}`}
+              aria-selected={index === selectedIndex}
+              className={`quick-open__item${index === selectedIndex ? " is-active" : ""}`}
               disabled={item.disabled}
               id={`quick-open-option-${index}`}
               key={item.id}
               onClick={() => choose(index)}
-              onMouseMove={() => setActiveIndex(index)}
+              onMouseEnter={() => { if (!item.disabled) setActiveIndex(index); }}
+              onPointerDown={(event) => event.preventDefault()}
+              tabIndex={-1}
               role="option"
               type="button"
             >

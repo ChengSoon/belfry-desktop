@@ -47,7 +47,7 @@ pub enum TerminalExitReason {
     IoFailed,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 #[allow(dead_code)] // Shared error contract is intentionally wider than the vertical slice.
 pub enum AppErrorCode {
@@ -61,9 +61,10 @@ pub enum AppErrorCode {
     IoError,
     AdapterError,
     ConfirmationRequired,
+    SessionMissing,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppError {
     pub code: AppErrorCode,
@@ -83,6 +84,14 @@ impl AppError {
 
     pub fn not_found(message: impl Into<String>) -> Self {
         Self::new(AppErrorCode::NotFound, message, false)
+    }
+
+    pub fn session_missing() -> Self {
+        Self::new(
+            AppErrorCode::SessionMissing,
+            "原后台任务已不存在。可继续历史对话或启动新会话；未自动重复执行任务。",
+            false,
+        )
     }
 
     pub fn process_exited() -> Self {

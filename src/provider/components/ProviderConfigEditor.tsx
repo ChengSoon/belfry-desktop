@@ -3,11 +3,13 @@ import { RefreshCcw } from "lucide-react";
 import type { AgentKind } from "../../workspace/contracts";
 import { ICON } from "../../theme/sizing";
 import { AGENT_LABEL, type ConfigFilePreview, type ProviderDraft } from "../contracts";
-import { maskKey } from "../validate";
 
 interface ProviderConfigEditorProps {
   kind: AgentKind;
   draft: ProviderDraft;
+  hasApiKey?: boolean;
+  revealSecrets: boolean;
+  onRevealSecrets: () => void;
   files: ConfigFilePreview[] | null;
   loading: boolean;
   failure: string | null;
@@ -31,6 +33,9 @@ interface ProviderConfigEditorProps {
 export function ProviderConfigEditor({
   kind,
   draft,
+  hasApiKey = false,
+  revealSecrets,
+  onRevealSecrets,
   files,
   loading,
   failure,
@@ -56,7 +61,7 @@ export function ProviderConfigEditor({
         <button
           aria-label="重新读取配置文件"
           className="provider-config__reload"
-          disabled={loading || dirtyPaths.size > 0}
+          disabled={!revealSecrets || loading || dirtyPaths.size > 0}
           onClick={onReload}
           title={dirtyPaths.size > 0 ? "有未保存的修改，先保存或还原" : "重新读取"}
           type="button"
@@ -76,7 +81,7 @@ export function ProviderConfigEditor({
         </div>
         <div>
           <span>API Key</span>
-          <code>{maskKey(draft.apiKey)}</code>
+          <code>{draft.apiKeyAction === "keep" ? (hasApiKey ? "已配置密钥（保留）" : "未配置密钥（保留）") : draft.apiKeyAction === "clear" ? "将清除密钥" : "将替换密钥"}</code>
         </div>
         <div>
           <span>模型</span>
@@ -85,11 +90,14 @@ export function ProviderConfigEditor({
       </div>
 
       <p className="provider-config__hint">
-        这里显示将当前 Provider 套用到 CLI 配置后的完整预览（含密钥，仅保存在本机），
-        路由之外的配置字段保持原样；表单字段会实时同步到这里。
+        原始配置包含外部 CLI 的完整密钥及其他敏感字段，外部 CLI 配置仍可能为明文。
+        查看后表单字段会实时同步到预览；复制会将全部原文（含密钥）放入剪贴板，请勿分享或粘贴到不可信位置。
         直接保存原始文件会写入当前 CLI 配置并同步服务列表。仅保存上方表单时，未启用的条目仍需在列表点击「启用」。
       </p>
 
+      {!revealSecrets ? (
+        <button className="provider-config__copy" type="button" onClick={onRevealSecrets}>查看含密钥的原始配置</button>
+      ) : <>
       {failure ? <p className="provider-error" role="alert">{failure}</p> : null}
       {saveFailure ? <p className="provider-error" role="alert">{saveFailure}</p> : null}
       {loading && files === null ? <p className="provider-config__hint">正在读取…</p> : null}
@@ -138,6 +146,7 @@ export function ProviderConfigEditor({
           />
         </div>
       ))}
+      </>}
     </section>
   );
 }

@@ -5,6 +5,7 @@ import type { TerminalSession } from "../contracts";
 import { closeTerminal } from "../api";
 import { errorMessage } from "../terminalController";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
+import { Presence } from "../../components/motion/Presence";
 import "./daemon.css";
 
 interface BackgroundSession { session: TerminalSession; tabId: string | null; profileId: string }
@@ -39,6 +40,8 @@ export function BackgroundSessions() {
         <button className="daemon-button" type="button" disabled={busy} onClick={() => setPending(entry)}>{entry.session.status === "running" ? "结束" : "清除"}</button>
       </li>)}</ul>
     </> : null}
+    <Presence open={!!pending}>
     {pending ? <ConfirmDialog title="结束这条后台会话？" body="对应进程会结束，保留的终端输出也会清除。" confirmLabel="结束会话" onConfirm={end} onCancel={() => setPending(null)} /> : null}
+    </Presence>
   </section>;
 }

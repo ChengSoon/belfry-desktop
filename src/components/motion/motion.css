@@ -1,0 +1,80 @@
+:root {
+  --motion-fast: 120ms;
+  --motion-enter: 220ms;
+  --motion-exit: 180ms;
+  --motion-ease: cubic-bezier(.2, .8, .2, 1);
+}
+
+/* Explicit scope: native window controls, resize handles and plugin UIs stay untouched.
+   scale is independent of transform, so positioning/drag transforms are preserved. */
+:is(.sidebar, .workbench-toolbar, .modal, .quick-open, .collab-panel, .history-panel) button:not(:disabled) {
+  transition: color var(--motion-fast) var(--motion-ease), background-color var(--motion-fast) var(--motion-ease),
+    opacity var(--motion-fast) var(--motion-ease), scale var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-fast) var(--motion-ease);
+}
+:is(.sidebar, .workbench-toolbar, .modal, .quick-open, .collab-panel, .history-panel) button:active:not(:disabled):not([aria-disabled="true"]) {
+  scale: .98;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 16%, transparent);
+}
+body.is-dragging-session .session-row button { scale: none; box-shadow: none; }
+.sidebar .session-row { transition: background-color var(--motion-fast) var(--motion-ease), box-shadow var(--motion-fast) var(--motion-ease); }
+.sidebar .session-row:has(.session-row__main:active) { background: var(--sidebar-active); }
+.sidebar .session-row:focus-within { box-shadow: inset 0 0 0 1px var(--border-strong); }
+
+/* Natural-height disclosure, no guessed max-height. Only the list is clipped. */
+.session-group__collapse { display: grid; grid-template-rows: 1fr; opacity: 1;
+  transition: grid-template-rows var(--motion-enter) var(--motion-ease), opacity var(--motion-exit) var(--motion-ease); }
+.session-group__rows { display: grid; gap: 2px; min-height: 0; overflow: hidden; }
+.session-group.is-folded .session-group__collapse { grid-template-rows: 0fr; opacity: 0; }
+.session-group__chevron { transition: transform var(--motion-enter) var(--motion-ease); }
+
+/* One rail while open. On exit it leaves flow immediately: only one terminal resize.
+   Outgoing and incoming rails can briefly overlap, never create a fourth column. */
+.motion-drawer { display: grid; min-width: 0; min-height: 0; height: 100%;
+  animation: motion-drawer-in var(--motion-enter) var(--motion-ease); }
+.motion-drawer > :is(.collab-panel, .history-panel) { height: 100%; animation: none; }
+.motion-drawer[data-motion-state="exit"] { position: absolute; z-index: 10; inset: 0 0 0 auto;
+  pointer-events: none; animation: motion-drawer-out var(--motion-exit) var(--motion-ease) both; }
+.app-shell.is-settings > .motion-drawer { display: none; }
+
+.modal-scrim[data-motion-state] { animation: motion-fade-in var(--motion-enter) var(--motion-ease); }
+.modal-scrim[data-motion-state] > :is(.modal, .quick-open) {
+  animation: motion-dialog-in var(--motion-enter) var(--motion-ease);
+}
+.modal-scrim[data-motion-state="exit"] { pointer-events: none; animation: motion-fade-out var(--motion-exit) var(--motion-ease) both; }
+.modal-scrim[data-motion-state="exit"] > :is(.modal, .quick-open) {
+  animation: motion-dialog-out var(--motion-exit) var(--motion-ease) both;
+}
+@keyframes motion-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes motion-fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes motion-dialog-in { from { transform: translateY(6px) scale(.985); } to { transform: none; } }
+@keyframes motion-dialog-out { from { transform: none; } to { transform: translateY(3px) scale(.99); } }
+@keyframes motion-drawer-in { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
+@keyframes motion-drawer-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateX(24px); } }
+
+/* Local menu feedback: no backdrop or terminal layout animation. */
+.new-session-menu, .new-session-menu .popover-menu__submenu {
+  animation: motion-menu-in var(--motion-fast) var(--motion-ease);
+  transform-origin: top right;
+}
+.new-session-menu [role="menuitem"]:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: -2px;
+  background: var(--surface-hover);
+}
+.new-session-menu [aria-busy="true"] { color: var(--text-muted); cursor: progress; }
+.new-session-menu [aria-busy="true"] > svg { animation: motion-refresh 900ms linear infinite; }
+.new-session-menu__error, .session-row__name-error {
+  margin: 0; padding: 4px 8px; color: var(--danger); font-size: var(--fs-xs);
+  overflow-wrap: anywhere;
+}
+@keyframes motion-menu-in { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+@keyframes motion-refresh { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.sidebar, .workbench-toolbar, .modal, .quick-open, .collab-panel, .history-panel) button,
+  .sidebar .session-row, .session-group__collapse, .session-group__chevron { transition: none !important; scale: none !important; }
+  .motion-drawer, .modal-scrim[data-motion-state],
+  .modal-scrim[data-motion-state] > :is(.modal, .quick-open) { animation: none !important; }
+  .new-session-menu, .new-session-menu .popover-menu__submenu,
+  .new-session-menu [aria-busy="true"] > svg { animation: none !important; }
+}

@@ -1,17 +1,21 @@
 .modal--updater {
   width: min(440px, 100%);
-  gap: 14px;
-  padding: 18px;
+  gap: 0;
+  padding: 0;
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
 }
 
 .updater-dialog__head {
   display: flex;
   align-items: center;
   gap: 12px;
+  padding: 20px;
+  border-bottom: 1px solid var(--border);
 }
 
 .updater-dialog__head > div { display: grid; gap: 2px; min-width: 0; }
-.updater-dialog__head p { margin: 0; color: var(--text-faint); font-size: var(--fs-sm); }
+.updater-dialog__head p { margin: 0; color: var(--text-muted); font-family: var(--font-mono); font-size: var(--fs-xs); overflow-wrap: anywhere; }
 
 .updater-dialog__mark {
   display: grid;
@@ -32,8 +36,8 @@
   min-height: 44px;
   margin: 0;
   padding: 11px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border: 0;
+  border-left: 2px solid var(--border-strong);
   color: var(--text-muted);
   line-height: var(--lh-relaxed);
   background: var(--surface);
@@ -127,3 +131,8 @@
   .updater-trigger--installing > svg,
   .updater-dialog__progress.is-indeterminate > i { animation: none; }
 }
+.updater-dialog__body { min-width: 0; padding: 20px; }
+.updater-dialog__message--error { border-left-color: var(--danger); overflow-wrap: anywhere; }
+.updater-dialog__message small { display: block; margin-top: 8px; color: var(--text-muted); font-size: var(--fs-xs); }
+.modal--updater .modal__actions { flex-wrap: wrap; padding: 16px 20px; border-top: 1px solid var(--border); }
+.updater-dialog__progress-label { flex-wrap: wrap; }

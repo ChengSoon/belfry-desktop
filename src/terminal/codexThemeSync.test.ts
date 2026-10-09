@@ -4,8 +4,9 @@ import { CodexThemeSync } from "./codexThemeSync";
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
-const DARK_COMPOSER = "\x1b[48;2;39;39;40m";
-const LIGHT_COMPOSER = "\x1b[48;2;240;240;240m";
+// Codex compositor blends Graphite backgrounds: dark 12% white, light 4% black.
+const DARK_COMPOSER = "\x1b[48;2;50;53;52m";
+const LIGHT_COMPOSER = "\x1b[48;2;241;240;237m";
 const DEFAULT_BACKGROUND = "\x1b[49m";
 
 describe("CodexThemeSync", () => {
@@ -20,19 +21,19 @@ describe("CodexThemeSync", () => {
   it("rewrites the background inside a combined SGR sequence", () => {
     const sync = new CodexThemeSync(xtermTheme("dark"));
     sync.setTheme(xtermTheme("light"));
-    const combined = "\x1b[1;38;2;237;237;239;48;2;39;39;40m";
+    const combined = "\x1b[1;38;2;237;237;239;48;2;50;53;52m";
 
     expect(text(sync.rewrite(bytes(combined), true)))
-      .toBe("\x1b[1;38;2;237;237;239;48;2;240;240;240m");
+      .toBe("\x1b[1;38;2;237;237;239;48;2;241;240;237m");
   });
 
   it("supports colon-delimited true-color backgrounds", () => {
     const sync = new CodexThemeSync(xtermTheme("light"));
     sync.setTheme(xtermTheme("dark"));
-    const combined = "\x1b[38:2::23:24:27;48:2::240:240:240m";
+    const combined = "\x1b[38:2::23:24:27;48:2::241:240:237m";
 
     expect(text(sync.rewrite(bytes(combined), true)))
-      .toBe("\x1b[38:2::23:24:27;48:2::39:39:40m");
+      .toBe("\x1b[38:2::23:24:27;48:2::50:53:52m");
   });
 
   it("preserves a real startup redraw while replacing cleared composer rows", () => {
@@ -42,13 +43,13 @@ describe("CodexThemeSync", () => {
       "\x1b[?2026h\x1b[1;1H\x1b[J",
       `\x1b[9;2H\x1b[0m${DARK_COMPOSER}\x1b[K`,
       `\x1b[10;27H\x1b[0m${DARK_COMPOSER}\x1b[K`,
-      `\x1b[11;1H\x1b[39;48;2;39;39;40m `,
+      `\x1b[11;1H\x1b[39;48;2;50;53;52m `,
       "\x1b[39m\x1b[49m\x1b[?2026l",
     ].join("");
 
     const rewritten = text(sync.rewrite(bytes(redraw), true));
-    expect(rewritten).not.toContain("48;2;39;39;40");
-    expect(rewritten.match(/48;2;240;240;240/g)).toHaveLength(3);
+    expect(rewritten).not.toContain("48;2;50;53;52");
+    expect(rewritten.match(/48;2;241;240;237/g)).toHaveLength(3);
     expect(rewritten).toContain("\x1b[?2026h\x1b[1;1H\x1b[J");
   });
 

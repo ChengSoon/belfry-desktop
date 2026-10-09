@@ -47,7 +47,7 @@ impl Service {
     pub fn handle(&self, command: Command) -> Reply {
         match self.dispatch(command) {
             Ok(value) => Reply::ok(value),
-            Err(error) => Reply::error(error.message),
+            Err(error) => Reply::failure(error),
         }
     }
 
@@ -205,14 +205,24 @@ impl Service {
         attachment: Option<&str>,
     ) -> Result<Option<Arc<Slot>>, AppError> {
         let slots = self.slots.lock().unwrap();
-        let found = match attachment {
-            Some(id) => Some(slots.get(id).cloned().ok_or_else(missing)?),
-            None => request.tab_id.as_ref().and_then(|id| {
+        let by_tab = || {
+            request.tab_id.as_ref().and_then(|id| {
                 slots
                     .values()
                     .find(|slot| !slot.is_closed() && slot.tab_id.as_ref() == Some(id))
                     .cloned()
-            }),
+            })
+        };
+        let found = match attachment {
+            Some(id) => Some(
+                slots
+                    .get(id)
+                    .filter(|slot| !slot.is_closed())
+                    .cloned()
+                    .or_else(by_tab)
+                    .ok_or_else(missing)?,
+            ),
+            None => by_tab(),
         };
         if found.as_ref().is_some_and(|slot| !slot.matches(request)) {
             return Err(AppError::invalid_argument(
@@ -290,5 +300,5 @@ impl Service {
 }
 
 fn missing() -> AppError {
-    AppError::not_found("原后台任务已不存在。请点击「重启」明确启动新进程")
+    AppError::session_missing()
 }

@@ -3,25 +3,50 @@
   display: grid;
   width: 100%;
   height: 100%;
-  grid-template-columns: auto minmax(0, 1fr);
+  --sidebar-track: auto;
+  grid-template-columns: var(--sidebar-track) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   background: var(--canvas);
 }
 
-/* 折叠时侧栏整体不渲染，栅格必须同步收成单列：
-   否则 .workbench 会落回第一条固定轨道，终端被压成十几列。
-   这里不做宽度过渡——动画期间 ResizeObserver 会连发 resize，PTY 跟着抖。 */
-.app-shell.is-collapsed { grid-template-columns: minmax(0, 1fr); }
+/* 侧栏保持挂载：收起后仍保留零宽轨道，工作台不能掉到下一行。
+   宽度一次到位，只动画侧栏本身，避免逐帧触发终端 fit / PTY resize。 */
+.app-shell.is-collapsed { --sidebar-track: 0px; }
 
-/* 用量 / 历史 / 文件预览 / 协作面板统一占右侧一列。同样不加宽度过渡，理由同上。
-   这些面板在 App 里互斥，所以这里不需要四列布局。 */
-.app-shell.has-usage,
-.app-shell.has-history,
-.app-shell.has-preview,
-.app-shell.has-collab { grid-template-columns: auto minmax(0, 1fr) auto; }
-.app-shell.is-collapsed.has-collab { grid-template-columns: minmax(0, 1fr) auto; }
-.app-shell.is-collapsed.has-usage,
-.app-shell.is-collapsed.has-history,
-.app-shell.is-collapsed.has-preview,
+.sidebar-shell {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  grid-template-rows: minmax(0, 1fr);
+  /* 不能 overflow:hidden：工作区菜单需要伸到侧栏外。 */
+}
+
+.sidebar-shell > .sidebar {
+  height: 100%;
+  transform: translateX(0);
+  opacity: 1;
+  visibility: visible;
+  transition: transform 220ms var(--ease), opacity 160ms var(--ease),
+    visibility 0s, background var(--duration) var(--ease), border-color var(--duration) var(--ease);
+}
+
+.sidebar-shell.is-collapsed > .sidebar {
+  transform: translateX(-100%);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition-delay: 0s, 0s, 220ms, 0s, 0s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-shell > .sidebar { transition: none; }
+}
+
+/* 右侧面板互斥，统一占第三列；设置页始终独占整窗。 */
+.app-shell:not(.is-settings):is(.has-usage, .has-history, .has-preview, .has-collab, .has-plugin-dock) {
+  grid-template-columns: var(--sidebar-track) minmax(0, 1fr) auto;
+}
 
 /* 设置视图整窗铺开：主界面整片隐藏但保持挂载——PTY 和滚动缓冲不能因为
    切视图被卸载（见 TerminalPane 的注释）。终端容器瞬时坍缩时
@@ -29,6 +54,7 @@
 .app-shell.is-settings { grid-template-columns: minmax(0, 1fr); }
 
 .app-shell.is-settings > .sidebar,
+.app-shell.is-settings > .sidebar-shell,
 .app-shell.is-settings > .workbench,
 .app-shell.is-settings > .usage-panel,
 .app-shell.is-settings > .history-panel,
@@ -116,7 +142,7 @@
   display: grid;
   min-width: 0;
   min-height: 0;
-  grid-template-rows: calc(42px + var(--titlebar-inset)) minmax(0, 1fr);
+  grid-template-rows: calc(60px + var(--titlebar-inset)) minmax(0, 1fr);
 }
 
 .stage-caption {
@@ -155,26 +181,32 @@
 
 .empty-stage {
   position: absolute;
-  inset: calc(42px + var(--titlebar-inset)) 0 0;
+  inset: calc(60px + var(--titlebar-inset)) 0 0;
   display: grid;
   place-content: center;
   justify-items: center;
-  gap: 14px;
-  color: var(--text-faint);
+  gap: 18px;
+  padding: 32px;
+  color: var(--text-muted);
+  text-align: center;
 }
 
 .empty-stage button {
-  padding: 7px 15px;
-  border: 1px solid var(--border);
+  padding: 10px 20px;
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
-  color: var(--text-muted);
-  background: transparent;
+  color: var(--accent-contrast);
+  background: var(--accent);
   font-size: var(--fs-md);
   cursor: pointer;
   transition: border-color var(--duration) var(--ease), color var(--duration) var(--ease);
 }
 
-.empty-stage button:hover { border-color: var(--border-strong); color: var(--text); }
+.empty-stage button:hover { border-color: transparent; color: var(--accent-contrast); background: var(--accent-hover); }
+.empty-stage__eyebrow { color: var(--accent); font-size: var(--fs-xs); letter-spacing: .06em; }
+.empty-stage h1 { margin: 0; font-size: calc(var(--fs-display) * 1.2); font-weight: 500; }
+.empty-stage p { margin: 0; line-height: var(--lh-relaxed); }
+.empty-stage small { max-width: 32ch; font-size: var(--fs-xs); line-height: var(--lh-relaxed); }
 
 /* 浮层 */
 
@@ -227,17 +259,19 @@
 
 .modal {
   display: grid;
-  width: min(360px, 100%);
-  gap: 7px;
-  padding: 16px;
+  width: min(440px, 100%);
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
+  gap: 16px;
+  padding: 24px;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface-raised);
   box-shadow: var(--shadow-lg);
 }
 
-/* 标题与正文同字号，层级交给颜色——和侧栏、浮层里一样的做法。 */
-.modal__title { color: var(--text); font-size: var(--fs-md); }
+/* Dialog title / explanation / decision: distinct hierarchy without extra chrome. */
+.modal__title { color: var(--text); font-size: var(--fs-display); font-weight: 500; }
 .modal__body {
   margin: 0;
   color: var(--text-muted);
@@ -248,12 +282,16 @@
 .modal__actions {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
-  padding-top: 6px;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
 }
 
 .modal__actions button {
-  padding: 6px 14px;
+  min-height: 36px;
+  padding: 8px 16px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--text-muted);

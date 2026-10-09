@@ -14,7 +14,7 @@ export function PageHeader() {
   const { tab, setTab, market, actions, data } = usePluginsPage();
   const updates = data.plugins.filter((plugin) => plugin.updateAvailable).length;
   return <>
-    <SettingsHeader title="插件" actions={<div className="plugins-header-actions">
+    <SettingsHeader title="插件" description="管理本机扩展、来源与权限。安装前请核对权限和来源；插件不等同于 OS 沙箱。" actions={<div className="plugins-header-actions">
         {tab === "market" ? <Button variant="primary" size="sm" disabled={market.loading} onClick={() => void market.refresh(true)}>
           <IconCloudDown size={14} />{t("plugins.refreshMarket")}</Button> :
           <Button variant="primary" size="sm" onClick={() => setTab("market")}><IconDownload size={14} />{t("plugins.browseMarket")}</Button>}

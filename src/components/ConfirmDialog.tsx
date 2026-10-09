@@ -1,6 +1,7 @@
-import { useId } from "react";
+import { useEffect, useId, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useDialog } from "./controls/useDialog";
+import { useMotionActive, useMotionState } from "./motion/Presence";
 
 interface ConfirmDialogProps {
   title: string;
@@ -17,8 +18,17 @@ interface ConfirmDialogProps {
 export function ConfirmDialog({ title, body, confirmLabel, onConfirm, onCancel }: ConfirmDialogProps) {
   const panelRef = useDialog(onCancel);
   const id = useId();
+  const active = useMotionActive();
+  const motion = useMotionState();
+  const decided = useRef(false);
+  useEffect(() => { if (active) decided.current = false; }, [active]);
+  const decide = (action: () => void) => {
+    if (!active || decided.current) return;
+    decided.current = true;
+    action();
+  };
   const content = (
-    <div className="modal-scrim" onMouseDown={(event) => { if (event.target === event.currentTarget) onCancel(); }}>
+    <div className="modal-scrim" {...motion} onMouseDown={(event) => { if (event.target === event.currentTarget) decide(onCancel); }}>
       <div
         aria-describedby={`${id}-body`}
         aria-labelledby={`${id}-title`}
@@ -30,8 +40,8 @@ export function ConfirmDialog({ title, body, confirmLabel, onConfirm, onCancel }
         <strong className="modal__title" id={`${id}-title`}>{title}</strong>
         <p className="modal__body" id={`${id}-body`}>{body}</p>
         <div className="modal__actions">
-          <button onClick={onCancel} type="button">取消</button>
-          <button className="modal__danger" onClick={onConfirm} type="button">{confirmLabel}</button>
+          <button onClick={() => decide(onCancel)} type="button">取消</button>
+          <button className="modal__danger" onClick={() => decide(onConfirm)} type="button">{confirmLabel}</button>
         </div>
       </div>
     </div>

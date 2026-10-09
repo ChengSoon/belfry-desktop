@@ -1,8 +1,15 @@
+import type { PromptDeliveryOptions, PromptDeliveryResult } from "./contracts";
+
 /**
  * 从 PTY 粘贴写入完成后留出解析窗口。Codex 的非 bracketed paste Enter 抑制为 120ms，
  * 这里取 200ms 余量；PTY 写入完成不是应用解析完成的回执，不据此重复补发 Enter。
  */
 export const PASTE_SETTLE_MS = 200;
+export const WINDOWS_PASTE_SETTLE_MS = 600;
+
+export function pasteSettleMs(userAgent: string) {
+  return /Windows/iu.test(userAgent) ? WINDOWS_PASTE_SETTLE_MS : PASTE_SETTLE_MS;
+}
 
 interface PromptInputPorts {
   session: () => string | null;
@@ -10,6 +17,7 @@ interface PromptInputPorts {
   enter: () => void;
   write: (sessionId: string, data: string) => Promise<void>;
   error: (error: unknown) => void;
+  settleMs?: number;
 }
 
 /** 同步返回是否接管输入；异步失败只报告，不重贴或补发 Enter。 */
@@ -19,6 +27,7 @@ export class PromptInput {
   private pending = false;
   private failed = false;
   private emitting = false;
+  private writeAttempts = 0;
   private revision = 0;
   private disposed = false;
   private settleTimer: ReturnType<typeof setTimeout> | undefined;
@@ -27,7 +36,10 @@ export class PromptInput {
   constructor(private readonly ports: PromptInputPorts) {}
 
   onUserInput() {
-    if (!this.emitting) this.revision += 1;
+    if (!this.emitting) {
+      this.revision += 1;
+      this.failed = false;
+    }
   }
 
   onData(data: string) {
@@ -35,6 +47,7 @@ export class PromptInput {
     if (!sessionId) return;
     this.lastWrite = this.tail.then(() => {
       if (this.session() !== sessionId) throw new Error("终端会话已变更，已取消输入");
+      this.writeAttempts += 1;
       return this.ports.write(sessionId, data);
     });
     this.tail = this.lastWrite.catch((error) => {
@@ -44,12 +57,15 @@ export class PromptInput {
     });
   }
 
-  sendText(text: string): boolean {
+  sendText(text: string, options?: PromptDeliveryOptions): boolean {
     const sessionId = this.session();
     if (!sessionId || !text || this.pending || this.failed) return false;
     this.pending = true;
     const revision = this.revision;
-    void this.submit(text, sessionId, revision).finally(() => { this.pending = false; });
+    void this.submit(text, sessionId, revision).then((result) => {
+      this.pending = false;
+      options?.onResult?.(result);
+    });
     return true;
   }
 
@@ -70,27 +86,32 @@ export class PromptInput {
   private settle() {
     return new Promise<void>((resolve) => {
       this.finishSettle = () => { this.finishSettle = undefined; this.settleTimer = undefined; resolve(); };
-      this.settleTimer = setTimeout(this.finishSettle, PASTE_SETTLE_MS);
+      this.settleTimer = setTimeout(this.finishSettle, this.ports.settleMs ?? PASTE_SETTLE_MS);
     });
   }
 
-  private async submit(text: string, sessionId: string, revision: number) {
+  private async submit(text: string, sessionId: string, revision: number): Promise<PromptDeliveryResult> {
+    const attempts = this.writeAttempts;
+    const detached = (): PromptDeliveryResult => this.writeAttempts === attempts ? "not-written" : "detached";
     try {
       this.emit(() => this.ports.paste(text));
       await this.lastWrite;
-      if (this.session() !== sessionId) return;
+      if (this.session() !== sessionId) return detached();
       await this.settle();
-      if (this.session() !== sessionId || this.failed) return;
+      if (this.session() !== sessionId) return detached();
+      if (this.failed) return "failed";
       // 用户在等待窗口输入或手动回车后，不再自动提交，以免提交两次或混入其他输入。
-      if (this.revision !== revision) return;
+      if (this.revision !== revision) return "cancelled";
       this.emit(() => this.ports.enter());
       await this.lastWrite;
+      return "submitted";
     } catch (error) {
       // write 的失败已由队列报告；paste/input 同步异常也必须可见。
       if (!this.failed && this.session() === sessionId) {
         this.failed = true;
         this.ports.error(error);
       }
+      return this.session() === sessionId ? "failed" : detached();
     }
   }
 }

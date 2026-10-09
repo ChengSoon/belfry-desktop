@@ -1,4 +1,4 @@
-.worktree-dialog { display: flex; flex-direction: column; width: min(820px, calc(100vw - 40px)); height: min(640px, calc(100dvh - 64px)); color: var(--text); background: var(--canvas); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; box-shadow: 0 24px 80px #0005; }
+.worktree-dialog { display: flex; flex-direction: column; width: min(820px, calc(100vw - 40px)); height: min(640px, calc(100dvh - 64px)); color: var(--text); background: var(--canvas); border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; box-shadow: var(--shadow-lg); }
 .worktree-dialog h2, .worktree-dialog h3, .worktree-dialog p { margin: 0; }
 .worktree-dialog h2 { font-size: var(--fs-lg); font-weight: 500; }
 .worktree-dialog h3 { font-size: var(--fs-md); font-weight: 500; }
@@ -25,7 +25,7 @@
 .worktree-dialog input { width: 100%; min-width: 0; box-sizing: border-box; padding: 9px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font: inherit; }
 .worktree-dialog input:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
 .worktree-dialog footer { display: flex; justify-content: flex-end; gap: 8px; padding-top: 12px; border-top: 1px solid var(--border); }
-.worktree-dialog button.is-primary { border-color: var(--accent) !important; color: var(--accent) !important; }
+.worktree-dialog button.is-primary { border-color: transparent !important; color: var(--accent-contrast) !important; background: var(--accent); }
 .worktree-task > button { justify-self: start; }
 .worktree-steps { display: flex; gap: 4px; border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-top: 4px; }
 .worktree-steps button { flex: 1; justify-content: center; border-color: transparent !important; background: transparent !important; }
@@ -39,9 +39,12 @@
 .worktree-entry { margin: 0 14px 10px; justify-content: center; color: var(--text-muted); background: transparent; }
 .worktree-reminder { position: relative; }
 .worktree-reminder > button { width: auto; gap: 3px; padding: 4px; }
-.worktree-reminder small { font-size: 10px; color: var(--text-faint); }
+.worktree-reminder small { font-size: var(--fs-xs); color: var(--text-muted); }
 .worktree-reminder__popover { position: absolute; top: calc(100% + 8px); right: 0; width: 240px; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-raised); box-shadow: var(--shadow-lg); }
 .worktree-reminder__popover p { margin: 0 0 12px; color: var(--text-muted); font-size: var(--fs-xs); line-height: 1.7; }
 .worktree-reminder__popover button { background: transparent; border: 0; color: var(--accent); padding: 0; font-size: var(--fs-xs); cursor: pointer; }
 @media (max-width: 720px) { .worktree-body { grid-template-columns: 155px minmax(0, 1fr); }.worktree-body main { padding: 16px; }.worktree-head { padding: 14px 16px; } }
 @media (max-width: 520px) { .worktree-body { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }.worktree-body aside { max-height: 120px; border-right: 0; border-bottom: 1px solid var(--border); }.worktree-dialog { width: calc(100vw - 20px); } }
+.worktree-head > div { min-width: 0; }
+.worktree-dialog footer, .worktree-steps { flex-wrap: wrap; }
+.worktree-dialog .worktree-error { padding: 10px; border-left: 2px solid var(--danger); background: var(--surface); }

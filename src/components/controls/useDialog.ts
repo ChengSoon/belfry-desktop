@@ -1,12 +1,15 @@
-import { useEffect, useRef } from "react";
+import { useLayoutEffect, useRef } from "react";
 import { focusableControls, isTopLayer, ownsTarget, registerLayer } from "./layerOwnership";
+import { useMotionActive } from "../motion/Presence";
 
 /** 模态框与内层控件共用层级，只由最上层处理 Esc / Tab。 */
 export function useDialog(close: () => void, disabled = false) {
+  const active = useMotionActive();
   const ref = useRef<HTMLDivElement>(null);
   const latest = useRef({ close, disabled });
   latest.current = { close, disabled };
-  useEffect(() => {
+  useLayoutEffect(() => {
+    if (!active) return;
     const root = ref.current;
     if (!root) return;
     const previous = document.activeElement as HTMLElement | null;
@@ -27,8 +30,11 @@ export function useDialog(close: () => void, disabled = false) {
     window.addEventListener("keydown", key, true);
     return () => {
       window.removeEventListener("keydown", key, true); unregister();
-      if (previous?.isConnected) previous.focus({ preventScroll: true });
+      const focused = document.activeElement;
+      if (previous?.isConnected && (!focused || focused === document.body || root.contains(focused))) {
+        previous.focus({ preventScroll: true });
+      }
     };
-  }, []);
+  }, [active]);
   return ref;
 }

@@ -5,12 +5,12 @@
   gap: 8px;
   width: 100%;
   min-width: 0;
-  min-height: 34px;
+  min-height: 38px;
   margin: 0;
-  padding: 7px 10px;
+  padding: 9px 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  background: var(--ui-fill, var(--surface));
+  background: var(--ui-fill, var(--canvas));
   box-shadow: none;
   color: var(--text);
   font: inherit;

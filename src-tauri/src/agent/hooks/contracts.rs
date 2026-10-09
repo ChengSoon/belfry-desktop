@@ -14,28 +14,5 @@ pub(crate) struct HookSnapshot {
     pub transcript_path: Option<String>,
 }
 
-#[derive(Clone, Default, Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub(super) struct HookInput {
-    pub event: String,
-    pub session_id: String,
-    pub turn_id: Option<String>,
-    pub source: Option<String>,
-    pub agent_id: Option<String>,
-    pub tool_key: Option<String>,
-    pub tool_name: Option<String>,
-    pub transcript_path: Option<String>,
-    pub notification_type: Option<String>,
-    pub is_interrupt: bool,
-    pub background_work: bool,
-    pub occurred_at: i64,
-}
-
-#[derive(Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub(super) struct HookMessage {
-    pub version: u16,
-    pub token: String,
-    pub agent: AgentKind,
-    pub input: HookInput,
-}
+pub(super) use belfry_protocol::hooks::HookInput;
+pub(super) type HookMessage = belfry_protocol::hooks::HookMessage<AgentKind>;

@@ -124,7 +124,7 @@ export function TerminalViewport({
   return (
     <section className={`terminal-workspace${launch.profileId.startsWith("agent:") ? " terminal-workspace--agent" : ""}`} aria-hidden={!visible}>
       {launch.profileId.startsWith("agent:") ? <div className="agent-session-toolbar">
-        <HookStatusBar snapshot={session.agentState} activity={session.activity} phase={session.phase} />
+        <HookStatusBar snapshot={session.agentState} activity={session.activity} phase={session.phase} recovering={!!launch.attachmentId || !!launch.resumeSessionId} />
         <SessionStatisticsControl {...statisticsTarget(launch, session.agentState)} visible={visible} />
       </div> : null}
       <div className="terminal-canvas" ref={terminalHost} />

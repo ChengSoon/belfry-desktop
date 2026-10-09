@@ -42,3 +42,11 @@ it("未连接的终端明确标注推断，等待输入由 Hook 标注", () => {
   expect(connected).toContain("等待确认或输入");
   expect(connected).toContain("native-session");
 });
+
+it("恢复连接与初次启动使用不同文案，连接异常不误报启动失败", () => {
+  const restoring = renderToStaticMarkup(<HookStatusBar snapshot={null} activity="idle" phase="creating" recovering />);
+  expect(restoring).toContain("正在恢复会话");
+  const failed = renderToStaticMarkup(<HookStatusBar snapshot={null} activity="idle" phase="error" />);
+  expect(failed).toContain("会话异常");
+  expect(failed).not.toContain("启动失败");
+});

@@ -10,12 +10,12 @@
 .history-detail__warning { color: var(--danger); }
 .history-detail__empty { padding: 14px 0; }
 .history-messages { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
-.history-message { padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-raised); min-width: 0; }
+.history-message { padding: 12px 0 16px; border: 0; border-bottom: 1px solid var(--border); background: transparent; min-width: 0; }
 .history-message.is-target { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
 .history-message > header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px; font-size: var(--fs-xs); color: var(--text-muted); }
 .history-message > header strong { font-weight: 500; color: var(--accent); }
 .history-message time { font-size: var(--fs-xs); }
-.history-message__text { margin: 10px 0 0; font-size: var(--fs-sm); line-height: 1.75; white-space: pre-wrap; overflow-wrap: anywhere; }
+.history-message__text { margin: 10px 0 0; font-size: var(--fs-md); line-height: 1.75; white-space: pre-wrap; overflow-wrap: anywhere; }
 .history-message mark { color: inherit; background: var(--accent-soft); }
 .history-message .history-detail__note, .history-message .history-detail__warning { margin-top: 10px; margin-bottom: 0; }
 .history-tool { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; min-width: 0; }
@@ -24,7 +24,7 @@
 .history-tool pre, .history-change pre { margin: 10px 0 0; padding: 10px; max-height: 340px; overflow: auto; border-radius: var(--radius-xs); background: var(--canvas); color: var(--text-muted); font-size: var(--fs-xs); line-height: 1.7; tab-size: 2; }
 .history-changes { display: grid; gap: 10px; }
 .history-changes > p { margin: 0; }
-.history-change { min-width: 0; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-raised); }
+.history-change { min-width: 0; padding: 12px; border: 0; border-left: 2px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface); }
 .history-change .ui-disclosure__trigger { padding: 0; align-items: flex-start; font-size: var(--fs-xs); }
 .history-change .ui-disclosure__chevron { margin-top: 4px; }
 .history-change .ui-disclosure__label { display: block; }

@@ -3,15 +3,17 @@ import { expect, it } from "vitest";
 import { ProviderCard } from "./ProviderCard";
 import { ProviderOfficial } from "./ProviderOfficial";
 import { ProviderForm } from "./ProviderForm";
+import { ProviderConfigEditor } from "./ProviderConfigEditor";
 import { ModelInput } from "./ProviderModelField";
 import { EMPTY_DRAFT } from "../contracts";
 
 const noop = () => {};
-const card = { label: "团队服务", endpoint: "https://example.invalid/v1", model: "test-model", apiKey: "sk-test-never-display-the-full-key", onSelect: noop, onEdit: noop, onRemove: noop };
+const card = { label: "团队服务", endpoint: "https://example.invalid/v1", model: "test-model", hasApiKey: true, onSelect: noop, onEdit: noop, onRemove: noop };
 
-it("服务卡片隐藏完整密钥，分别提供编辑和显式启用入口", () => {
+it("服务卡片只展示密钥配置状态，分别提供编辑和显式启用入口", () => {
   const html = renderToStaticMarkup(<ProviderCard {...card} active={false} busy={false} />);
-  expect(html).not.toContain(card.apiKey);
+  expect(html).toContain("已配置密钥");
+  expect(renderToStaticMarkup(<ProviderCard {...card} hasApiKey={false} active={false} busy={false} />)).toContain("未配置密钥");
   expect(html).toContain(card.endpoint);
   expect(html).toContain(card.model);
   expect(html).toContain('aria-label="启用 团队服务"');
@@ -79,4 +81,49 @@ it("获取模型后原位置使用自定义可输入选择框，不生成原生�
   expect(html).toContain('aria-autocomplete="list"');
   expect(html).not.toContain("<select");
   expect(html.match(/<input /g)).toHaveLength(1);
+});
+
+it("原始配置必须显式查看，未授权时即使收到原文或错误也不渲染", () => {
+  const props = { kind: "claude" as const, draft: EMPTY_DRAFT, hasApiKey: true,
+    files: [{ path: "/cli/config.json", format: "json" as const, content: "external-cli-secret" }],
+    loading: false, failure: "sensitive-preview-error", edits: {}, dirtyPaths: new Set<string>(),
+    savingPath: null, saveFailure: "sensitive-save-error", savedPath: null, copiedPath: null,
+    onReload: noop, onChange: noop, onCopy: noop, onSave: noop, onRevert: noop, onRevealSecrets: noop };
+  const hidden = renderToStaticMarkup(<ProviderConfigEditor {...props} revealSecrets={false} />);
+  expect(hidden).toContain("查看含密钥的原始配置");
+  expect(hidden).toContain("外部 CLI 的完整密钥");
+  expect(hidden).toContain("剪贴板");
+  expect(hidden).not.toContain("external-cli-secret");
+  expect(hidden).not.toContain("sensitive-preview-error");
+  expect(hidden).not.toContain("sensitive-save-error");
+  expect(hidden).not.toContain("textarea");
+  const revealed = renderToStaticMarkup(<ProviderConfigEditor {...props} revealSecrets />);
+  expect(revealed).toContain("external-cli-secret");
+  expect(revealed).toContain("textarea");
+  expect(revealed).toContain("复制");
+});
+
+it("密钥操作显式提供保留、替换、清除，并说明存储边界", () => {
+  const html = renderToStaticMarkup(<ProviderForm kind="claude" busy={false}
+    draft={{ ...EMPTY_DRAFT, id: "saved", apiKeyAction: "keep" }} hasApiKey
+    issue={null} onCancel={noop} onChange={noop} onSubmit={noop} />);
+  expect(html).toContain('<option value="keep" selected="">保留现有密钥</option>');
+  expect(html).toContain('<option value="replace">替换密钥</option>');
+  expect(html).toContain('<option value="clear">清除密钥（无需认证）</option>');
+  expect(html).toContain("已配置密钥");
+  expect(html).toContain("系统凭据存储保护");
+  expect(html).toContain("外部 CLI 配置仍可能以明文");
+});
+
+it("服务卡片仅展示密钥配置状态，不引入额外 Graphite 作用域文案", () => {
+  const configured = renderToStaticMarkup(<ProviderCard {...card} active={false} busy={false} />);
+  expect(configured).toContain("已配置密钥");
+  expect(configured).not.toContain("全局 · 自定义");
+  expect(configured).not.toContain("连接未验证");
+  const selected = renderToStaticMarkup(<ProviderCard {...card} hasApiKey={false} active busy={false} />);
+  expect(selected).toContain("未配置密钥");
+  expect(selected).toContain("已选用");
+  const official = renderToStaticMarkup(<ProviderOfficial active busy={false} onSelect={noop} />);
+  expect(official).toContain("官方登录");
+  expect(official).not.toContain("全局 · CLI 登录");
 });

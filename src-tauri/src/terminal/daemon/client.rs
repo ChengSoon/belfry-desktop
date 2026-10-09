@@ -41,7 +41,7 @@ impl DaemonClient {
     }
 
     pub fn call<T: serde::de::DeserializeOwned>(&self, command: Command) -> Result<T, AppError> {
-        transport::call(&self.endpoint()?, command).map_err(AppError::io)
+        transport::call_app(&self.endpoint()?, command)
     }
 
     pub fn refresh(&self) -> Result<(), AppError> {

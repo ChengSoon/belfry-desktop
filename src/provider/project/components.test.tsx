@@ -40,3 +40,17 @@ it("未配置独立凭据的条目不可选择，来源可退回全局", () => {
   expect(projectProviderOptions(unconfigured)[1]).toMatchObject({ value: "a", disabled: true, description: "未配置独立 API Key" });
   expect(projectProviderOptions(unconfigured)[0].disabled).not.toBe(true);
 });
+
+it("keeps project source, independent credential and connection status separate", () => {
+  const html = render(group);
+  expect(html).toContain("项目覆盖 · 服务 A");
+  expect(html).toContain("项目已选用 · 已配置独立密钥");
+  expect(html).toContain("连接未验证");
+  const inherited = render({ ...group, source: "global", providerId: null });
+  expect(inherited).toContain("路由与凭据跟随全局 CLI");
+  expect(inherited).not.toContain("已配置独立密钥");
+  const missing = render({ ...group, missing: true });
+  expect(missing).toContain("项目选择不可用");
+  expect(missing).not.toContain("项目已选用");
+  expect(missing).not.toContain("路由与凭据跟随全局 CLI");
+});

@@ -20,10 +20,19 @@ export function WorkbenchToolbar(props: WorkbenchProps) {
         onRequestRemove={props.onRequestRemove} opening={props.opening} project={props.activeProject} recentProjects={props.recentProjects} /></div>
       <div className="workbench-toolbar__tools">
         <WorktreeReminder project={props.activeProject} tabs={props.tabs} onOpen={props.onOpenProject} />
-        <button className="icon-button icon-button--sm workbench-search" aria-label="Quick Open" aria-expanded={props.quickOpenOpen}
-          title={`搜索会话与操作 ${shortcut("K")}`} onClick={props.onToggleQuickOpen} type="button"><Search size={ICON.md} /></button>
+        <button className="workbench-search" aria-label="Quick Open" aria-expanded={props.quickOpenOpen}
+          title={`搜索会话与操作 ${shortcut("K")}`} onClick={props.onToggleQuickOpen} type="button">
+          <Search aria-hidden="true" size={ICON.md} /><span>快速打开</span><kbd>{shortcut("K")}</kbd>
+        </button>
         <button className="icon-button icon-button--sm workbench-inspector" aria-label="文件预览" aria-expanded={props.previewOpen}
           title="文件与 Git 改动" onClick={props.onTogglePreview} type="button"><FileSearch size={ICON.md} /></button>
+        <button className={`workbench-collab${props.collabWaiting ? " has-waiting" : ""}`} aria-label="会话协作"
+          aria-expanded={props.collabOpen} title={props.collabWaiting ? `${props.collabWaiting} 条协作待确认` : "会话协作"}
+          onClick={props.onToggleCollab} type="button">
+          <Users aria-hidden="true" size={ICON.md} />
+          <span>{props.collabWaiting ? `${props.collabWaiting} 待确认` : "协作"}</span>
+        </button>
+        <ThemeToolbarButton />
         <div className="workbench-more" ref={flyout.root}>
           <button className="icon-button icon-button--sm" ref={flyout.trigger} aria-label={props.collabWaiting ? `更多工具，${props.collabWaiting} 条协作待确认` : "更多工具"}
             aria-controls={flyout.id} aria-expanded={flyout.open} aria-haspopup="dialog" title="更多工具" onClick={flyout.toggle} type="button">
@@ -54,6 +63,15 @@ export function WorkbenchMenuItems(props: WorkbenchProps & { onSelect: () => voi
     <ToolItem icon={Keyboard} active={props.shortcutGuideOpen} onClick={run(props.onOpenShortcutGuide)}>快捷指令</ToolItem>
     <ThemeMenuItem onSelect={props.onSelect} />
   </>;
+}
+
+function ThemeToolbarButton() {
+  const { mode, toggle } = useTheme();
+  return <button className="icon-button icon-button--sm workbench-theme" type="button"
+    aria-label={mode === "light" ? "切换到暗色主题" : "切换到亮色主题"}
+    title={mode === "light" ? "切换到暗色主题" : "切换到亮色主题"} onClick={toggle}>
+    {mode === "light" ? <Moon aria-hidden="true" size={ICON.md} /> : <Sun aria-hidden="true" size={ICON.md} />}
+  </button>;
 }
 
 function ThemeMenuItem({ onSelect }: { onSelect: () => void }) {

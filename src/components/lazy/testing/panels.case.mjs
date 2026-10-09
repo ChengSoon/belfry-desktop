@@ -124,6 +124,11 @@ test("lazy styles preserve the shared panel shell at narrow and wide window size
     for (const [name, selector] of [["settings", ".settings-nav"], ["history", ".history-head"], ["usage", ".usage-head"]]) {
       await view.cdp.evaluate(`qa.open(${JSON.stringify(name)})`);
       await waitFor(view, `!!document.querySelector(${JSON.stringify(selector)})`);
+      // Cached panels appear before the drawer's enter motion has settled.
+      // This assertion checks the loaded shell's final geometry, not its transient transform.
+      await view.cdp.evaluate(`Promise.all(document.querySelector('.app-shell').getAnimations({subtree:true})
+        .filter(animation => animation.effect?.getTiming().iterations !== Infinity)
+        .map(animation => animation.finished.catch(() => {})))`);
       const fits = await view.cdp.evaluate(`(()=>{
         const element=document.querySelector(${JSON.stringify(name === "settings" ? ".settings-view" : `.${name}-panel`)});
         const rect=element.getBoundingClientRect();

@@ -1,13 +1,11 @@
-.app-shell.has-plugin-dock { grid-template-columns: auto minmax(0, 1fr) auto; }
-.app-shell.is-collapsed.has-plugin-dock { grid-template-columns: minmax(0, 1fr) auto; }
 .app-shell.is-settings > .plugin-dock, .plugin-dock[hidden], .plugin-dock-frame[hidden] { display: none; }
-.plugin-dock { display: flex; flex-direction: column; min-width: 300px; width: clamp(300px, 39vw, 680px); height: 100%; min-height: 0; padding-top: var(--titlebar-inset); border-left: 1px solid var(--border); background: var(--canvas); color: var(--text); }
-.plugin-dock-header { display: flex; align-items: center; height: 34px; flex: 0 0 auto; gap: 7px; padding: 0 8px 0 12px; border-bottom: 1px solid var(--border); }
+.plugin-dock { display: flex; flex-direction: column; min-width: 300px; width: clamp(300px, 39vw, 680px); height: 100%; min-height: 0; padding-top: var(--titlebar-inset); border-left: 1px solid var(--border); background: var(--panel); color: var(--text); }
+.plugin-dock-header { display: flex; align-items: center; min-height: 48px; flex: 0 0 auto; gap: 10px; padding: 8px 12px 8px 16px; border-bottom: 1px solid var(--border); }
 .plugin-dock-view-picker { min-width: 0; flex: 1; }
 .plugin-dock-view-picker > .plugins-dropdown-wrap { display: flex; width: 100%; }
-.plugin-dock-view-picker .plugins-dropdown { min-width: 0; height: 26px; padding: 0 6px; border-radius: var(--radius-3xs); background: transparent; font-size: var(--fs-sm); }
+.plugin-dock-view-picker .plugins-dropdown { min-width: 0; height: 32px; padding: 0 8px; border-radius: var(--radius-sm); background: transparent; font-size: var(--fs-md); }
 .plugin-dock-view-picker .plugins-dropdown:hover:not(:disabled),
-.plugin-dock-view-picker .plugins-dropdown[aria-expanded="true"] { background: var(--ds-tile-hover); }
+.plugin-dock-view-picker .plugins-dropdown[aria-expanded="true"] { background: var(--surface-hover); }
 .plugin-dock-frame { width: 100%; flex: 1; border: 0; min-height: 0; background: var(--canvas); }
 .plugin-dock-empty { margin: auto; display: grid; gap: 8px; padding: 28px; justify-items: center; text-align: center; color: var(--text-muted); font-size: var(--fs-sm); line-height: 1.6; }
 .plugin-dock-empty p { margin: 4px 0; color: var(--text); }

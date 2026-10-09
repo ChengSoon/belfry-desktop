@@ -142,7 +142,9 @@ pub(super) fn stale_count(value: &Value, kind: AgentKind) -> usize {
             handler["command"]
                 .as_str()
                 .and_then(|command| command_path(command, kind))
-                .is_none_or(|path| !Path::new(&path).exists())
+                .is_none_or(|path| {
+                    !Path::new(&path).is_file() || (cfg!(windows) && !is_windows_helper(&path))
+                })
         })
         .count()
 }
@@ -189,4 +191,28 @@ pub(super) fn command(path: &Path, kind: AgentKind, windows: bool) -> Result<Str
         format!("'{}'", path.replace('\'', "'\"'\"'"))
     };
     Ok(format!("{quoted} --belfry-hook {}", kind.command_name()))
+}
+
+fn is_windows_helper(path: &str) -> bool {
+    path.rsplit(['/', '\\'])
+        .next()
+        .is_some_and(|name| name.eq_ignore_ascii_case("belfry.exe"))
+}
+
+// The GUI executable pulls in WebView/Tauri dependencies even in hook mode. On Windows
+// use the already-bundled console CLI, which starts quickly and has ordinary piped stdio.
+pub(super) fn executable_path(
+    desktop: &Path,
+    windows: bool,
+) -> Result<std::path::PathBuf, AppError> {
+    if !windows {
+        return Ok(desktop.to_path_buf());
+    }
+    let helper = desktop.with_file_name("belfry.exe");
+    if !helper.is_file() {
+        return Err(AppError::not_found(
+            "缺少轻量 Hook 程序 belfry.exe，请修复安装；开发模式请先构建 belfry-cli",
+        ));
+    }
+    Ok(helper)
 }

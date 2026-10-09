@@ -1,4 +1,4 @@
-import { Activity, Archive, Boxes, FolderGit2, HeartPulse, Image, Info, Keyboard, Waypoints, X } from "lucide-react";
+import { Activity, Archive, Boxes, FolderGit2, HeartPulse, Image, Info, Keyboard, Search, Waypoints, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { AppearanceSection } from "../background/components/AppearanceSection";
 import { ProviderSection } from "../provider/components/ProviderSection";
@@ -16,16 +16,25 @@ import { BackgroundSessions } from "../terminal/daemon/BackgroundSessions";
 import "./settings.css";
 
 const SECTIONS = [
-  { icon: Image, key: "appearance", label: "外观" },
-  { icon: Waypoints, key: "provider", label: "全局 Provider" },
-  { icon: FolderGit2, key: "project-provider", label: "项目 Provider" },
-  { icon: Activity, key: "agent-hooks", label: "会话状态" },
-  { icon: Keyboard, key: "shortcuts", label: "快捷键" },
-  { icon: Archive, key: "backup", label: "本地备份" },
-  { icon: HeartPulse, key: "environment", label: "协作环境" },
-  { icon: Boxes, key: "plugins", label: "插件" },
-  { icon: Info, key: "about", label: "关于" },
+  { icon: Image, key: "appearance", label: "外观", group: "工作环境", keywords: "主题 字体 字号 壁纸 背景 theme font wallpaper" },
+  { icon: Keyboard, key: "shortcuts", label: "快捷键", group: "工作环境", keywords: "键盘 按键 keyboard" },
+  { icon: Waypoints, key: "provider", label: "全局 Provider", group: "Agent 与连接", keywords: "claude codex pi 模型 服务 API 密钥" },
+  { icon: FolderGit2, key: "project-provider", label: "项目 Provider", group: "Agent 与连接", keywords: "claude codex pi 项目覆盖 模型 服务 API" },
+  { icon: Activity, key: "agent-hooks", label: "会话状态", group: "Agent 与连接", keywords: "hooks 后台会话 background session" },
+  { icon: Boxes, key: "plugins", label: "插件", group: "扩展", keywords: "安装 市场 plugin" },
+  { icon: Archive, key: "backup", label: "本地备份", group: "数据与安全", keywords: "恢复 导入 导出 数据 backup" },
+  { icon: HeartPulse, key: "environment", label: "协作环境", group: "帮助与诊断", keywords: "检查 安装 诊断 环境 environment" },
+  { icon: Info, key: "about", label: "关于", group: "帮助与诊断", keywords: "版本 更新 CLI 帮助 update" },
 ] as const;
+
+export const settingsGroups = ["工作环境", "Agent 与连接", "扩展", "数据与安全", "帮助与诊断"] as const;
+export function filterSettingsNavigation(query: string) {
+  const words = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+  return settingsGroups.map((label) => ({ label, sections: SECTIONS.filter((section) =>
+    section.group === label && words.every((word) =>
+      `${section.label} ${section.group} ${section.key} ${section.keywords}`.toLocaleLowerCase().includes(word)))
+  })).filter((group) => group.sections.length > 0);
+}
 
 type SectionKey = (typeof SECTIONS)[number]["key"];
 export const settingsSectionKeys = SECTIONS.map((section) => section.key);
@@ -33,13 +42,8 @@ export function normalizeSettingsSection(value: string | undefined): SectionKey 
   return value && settingsSectionKeys.includes(value as SectionKey) ? (value as SectionKey) : "appearance";
 }
 
-/**
- * 设置视图。整窗铺开，像 Codex 桌面版那样「左侧分类导航，右侧内容」。
- * 打开时主界面整片隐藏（保持挂载，PTY 不断），见 workspace.css 的 is-settings 规则。
- *
- * 各个分区自己决定「现在能不能被关掉」——provider 那边表单填到一半时，
- * 关闭按钮和 Escape 先不响应，防止误触把输入全丢了。
- */
+/** Settings replaces only the visible shell; workspace terminals remain mounted.
+ * Search filters navigation, never the current editor or its unsaved guard. */
 export function SettingsPanel({ onClose, initialSection, project = null, updaterState, updaterOpen, onOpenUpdater }: {
   onClose: () => void;
   initialSection?: string;
@@ -50,6 +54,7 @@ export function SettingsPanel({ onClose, initialSection, project = null, updater
 }) {
   const [active, setActive] = useState<SectionKey>(() => normalizeSettingsSection(initialSection));
   const [guarded, setGuarded] = useState(false);
+  const [query, setQuery] = useState("");
   const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -82,19 +87,8 @@ export function SettingsPanel({ onClose, initialSection, project = null, updater
           </button>
         </div>
 
-        {SECTIONS.map(({ icon: Icon, key, label }) => (
-          <button
-            aria-current={active === key}
-            className={active === key ? "is-active" : undefined}
-            disabled={guarded && active !== key}
-            key={key}
-            onClick={() => setActive(key)}
-            type="button"
-          >
-            <Icon aria-hidden="true" size={ICON.sm} />
-            <span>{label}</span>
-          </button>
-        ))}
+        <SettingsNavigation active={active} guarded={guarded} query={query} onQuery={setQuery}
+          onSelect={(key) => { if (!guarded) setActive(key); }} />
       </nav>
 
       <div className="settings-content">
@@ -117,4 +111,30 @@ export function SettingsPanel({ onClose, initialSection, project = null, updater
       </div>
     </section>
   );
+}
+
+export function SettingsNavigation({ active, guarded, query, onQuery, onSelect }: {
+  active: SectionKey; guarded: boolean; query: string;
+  onQuery: (query: string) => void; onSelect: (key: SectionKey) => void;
+}) {
+  const groups = filterSettingsNavigation(query);
+  return <>
+    <label className="settings-search">
+      <Search aria-hidden="true" size={ICON.sm} />
+      <input aria-label="搜索设置分类" type="search" value={query} placeholder="搜索设置…"
+        onChange={(event) => onQuery(event.target.value)} />
+    </label>
+    {groups.map(({ label, sections }) => <div className="settings-nav__group" role="group" aria-label={label} key={label}>
+      <h3>{label}</h3>
+      {sections.map(({ icon: Icon, key, label: sectionLabel }) => <button
+        aria-current={active === key ? "page" : undefined}
+        className={active === key ? "is-active" : undefined}
+        disabled={guarded && active !== key} key={key}
+        onClick={() => { if (!guarded) onSelect(key); }} type="button">
+        <Icon aria-hidden="true" size={ICON.sm} /><span>{sectionLabel}</span>
+      </button>)}
+    </div>)}
+    {groups.length === 0 ? <p className="settings-nav__empty" role="status">没有匹配的设置分类。当前内容保持打开。</p> : null}
+    {guarded ? <p className="settings-nav__guard" role="status">当前操作尚未完成，请在内容区保存或取消后离开。</p> : null}
+  </>;
 }

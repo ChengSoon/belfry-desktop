@@ -15,8 +15,11 @@
 .usage-price-form .ui-disclosure__trigger { padding: 3px 0; color: var(--text-muted); font-size: var(--fs-xs); }
 .usage-price-form .ui-disclosure[data-open="true"] > .ui-disclosure__trigger { margin-bottom: 8px; }
 .usage-price-form footer { display: flex; justify-content: flex-end; gap: 6px; }
-.usage-price-form button[type="submit"] { background: var(--accent-soft); color: var(--text); }
+.usage-price-form button[type="submit"] { background: var(--accent); color: var(--accent-contrast); border-color: transparent; }
 .usage-price-error { margin: 8px 0; color: var(--danger); font-size: var(--fs-xs); line-height: 1.6; overflow-wrap: anywhere; }
 .usage-price-remove { padding-top: 6px; border-top: 1px solid var(--border); }
 .usage-price-remove p { color: var(--text-muted); font-size: var(--fs-xs); line-height: 1.6; }
 .usage-price-remove button { margin-right: 5px; border: 0; }
+.usage-price-list li + li { border-top: 1px solid var(--border); }
+.usage-price-form footer { flex-wrap: wrap; }
+.usage-price-error { padding: 10px; border-left: 2px solid var(--danger); background: var(--surface); }

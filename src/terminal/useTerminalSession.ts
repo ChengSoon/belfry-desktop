@@ -14,9 +14,10 @@ import {
 import { errorMessage, mountTerminal, type TerminalHandle } from "./terminalController";
 import type { TerminalSearchController } from "./search";
 import type { HookSnapshot } from "../agent/hooks/contracts";
+import { isMissingTerminalSession } from "./controller/diagnostics";
 
 interface TerminalViewModel {
-  daemonSessionId?: string;
+  daemonSessionId?: string | null;
   canReconnect: boolean;
   reconnect: () => void;
   phase: TerminalPhase;
@@ -96,6 +97,11 @@ export function useTerminalSession(
       {
         onPhase: guard(setPhase),
         onError: guard(setError),
+        onAttachmentLost: () => {
+          if (!active) return;
+          attachment.current = null; sessionId.current = null;
+          setSession(null); setAgentState(null);
+        },
         onSession: (value) => {
           if (!active) return;
           if (value) { sessionId.current = value.id; attachment.current = value.id; setSession(value); }
@@ -136,8 +142,11 @@ export function useTerminalSession(
   }, [launch.tabId]);
   const reconnect = useCallback(() => { setError(null); setGeneration((value) => value + 1); }, []);
   const focus = useCallback(() => handle.current?.focus(), []);
-  const sendText = useCallback((text: string) => handle.current?.sendText(text) ?? false, []);
-  const commandTarget = useMemo(() => ({ focus, sendText }), [focus, sendText]);
+  const sendText = useCallback<TerminalCommandTarget["sendText"]>((text, options) => handle.current?.sendText(text, options) ?? false, []);
+  const commandTarget = useMemo(() => ({ focus, sendText, notifyInputIssue: setError,
+    getSessionId: () => sessionId.current }),
+  [focus, sendText, generation, launch.collaborationMode, launch.cwd, launch.profileId,
+    launch.resumeSessionId, launch.ssh, launch.projectLaunch, launch.attachmentId]);
   const close = useCallback(() => {
     const current = sessionId.current;
     if (current) {
@@ -146,8 +155,8 @@ export function useTerminalSession(
   }, []);
 
   return {
-    daemonSessionId: session?.id ?? attachment.current ?? undefined,
-    canReconnect: phase === "error" && !!attachment.current,
+    daemonSessionId: session?.id ?? attachment.current ?? null,
+    canReconnect: phase === "error" && !!attachment.current && !isMissingTerminalSession(error),
     reconnect,
     phase,
     error,

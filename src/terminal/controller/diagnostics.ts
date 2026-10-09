@@ -25,3 +25,14 @@ export function errorMessage(error: unknown) {
   }
   return String(error);
 }
+
+/** 只在后台明确确认任务已丢失时允许重建；网络或权限错误不能触发新进程。 */
+export function isMissingTerminalSession(error: unknown): boolean {
+  if (typeof error === "object" && error && "code" in error) {
+    if (error.code === "SESSION_MISSING") return true;
+    if (error.code !== "IO_ERROR") return false;
+  }
+  const message = error instanceof Error ? error.message
+    : typeof error === "object" && error && "message" in error ? String(error.message) : String(error);
+  return /^(?:\[(?:IO_ERROR|SESSION_MISSING)\]\s*)?原后台任务已不存在。/u.test(message);
+}

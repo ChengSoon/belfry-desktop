@@ -6,6 +6,8 @@
 //! 传输是一来一回的单行 JSON：请求一行、响应一行、关闭连接。不做长连接，
 //! 也不做流式——CLI 的每次调用都是一次性的，多余的状态只会带来重连语义。
 
+pub mod hooks;
+
 use serde::{Deserialize, Serialize};
 
 /// 协议版本。

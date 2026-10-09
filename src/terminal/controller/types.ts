@@ -1,13 +1,15 @@
 import type { HookSnapshot } from "../../agent/hooks/contracts";
 import type { TerminalTheme } from "../../theme/xtermTheme";
 import type { TypographyRuntime } from "../../typography/contracts";
-import type { SessionActivity, TerminalPhase, TerminalSession } from "../contracts";
+import type { SessionActivity, TerminalCommandTarget, TerminalPhase, TerminalSession } from "../contracts";
 import type { TerminalSearchController } from "../search";
 
 export interface MountCallbacks {
   onPhase: (phase: TerminalPhase) => void;
   onError: (error: string | null) => void;
   onSession: (session: TerminalSession | null) => void;
+  /** 后台已确认旧 PTY 丢失，清除其持久化身份后尝试恢复一次。 */
+  onAttachmentLost?: () => void;
   /** 用户提交的一行原始输入，供上层提炼会话名。 */
   onInput: (line: string) => void;
   /** 终端输出的文本片段，供协作协议等结构化通道消费。 */
@@ -35,6 +37,6 @@ export interface TerminalHandle {
   search: TerminalSearchController;
   focus: () => void;
   /** Composer 走可信的 xterm 输入通道提交多行文本，不直接绕过终端写 PTY。 */
-  sendText: (text: string) => boolean;
+  sendText: TerminalCommandTarget["sendText"];
   dispose: () => void;
 }

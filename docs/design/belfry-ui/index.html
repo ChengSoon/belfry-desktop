@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark" data-variant="graphite">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>Belfry · 工作台设计原型</title>
+  <link rel="icon" href="assets/belfry.png">
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <div id="app" class="app-shell">
+    <aside id="sidebar" class="sidebar" aria-label="工作台导航"></aside>
+    <div class="main-shell">
+      <header id="toolbar" class="toolbar"></header>
+      <main id="content" tabindex="-1"></main>
+    </div>
+    <footer class="statusbar"><span class="prototype-label">设计原型 · 演示数据 · 不连接真实服务</span><span id="status-context"></span><span class="status-version">Belfry / UI study 01</span></footer>
+  </div>
+  <dialog id="modal" aria-labelledby="modal-title"></dialog>
+  <dialog id="confirm-modal" aria-labelledby="confirm-title"></dialog>
+  <div id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

@@ -132,9 +132,9 @@
 .provider-form legend small { margin-left: 8px; color: var(--text-faint); font-weight: 400; }
 .provider-form__row { display: grid; gap: 8px; min-width: 0; }
 .provider-form__row > label { color: var(--text); font-size: var(--fs-sm); }
-.provider-form__row input { width: 100%; min-width: 0; box-sizing: border-box; padding: 11px 12px; border: 1px solid var(--border); border-radius: 7px; color: var(--text); background: var(--canvas); font-size: var(--fs-sm); }
+.provider-form__row input, .provider-form__row select { width: 100%; min-width: 0; box-sizing: border-box; padding: 11px 12px; border: 1px solid var(--border); border-radius: 7px; color: var(--text); background: var(--canvas); font-size: var(--fs-sm); }
 .provider-form__row input::placeholder { color: var(--text-faint); }
-.provider-form__row input:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+.provider-form__row input:focus, .provider-form__row select:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
 .provider-form__row input[aria-invalid="true"] { border-color: var(--danger); }
 .provider-form__secret { position: relative; }
 .provider-form__secret input { padding-right: 48px; }

@@ -14,6 +14,7 @@ interface Props {
 
 export function HistorySearchControls({ filters, projects, tags, onChange }: Props) {
   return <div className="history-filters history-search-controls">
+    <p className="history-source">本地会话日志 · 搜索与恢复</p>
     <SearchInput value={filters.text} onChange={(text) => onChange({ text })} />
     <div className="history-segments" role="group" aria-label="筛选 Agent">
       {(["all", "codex", "claude", "pi"] as const).map((agent) => <button key={agent} type="button"

@@ -48,7 +48,7 @@ export interface WorkbenchProps {
 
 export function Workbench(props: WorkbenchProps) {
   return (
-    <section className="workbench">
+    <section className="workbench" aria-label="工作台">
       <WorkbenchToolbar {...props} />
       <TerminalStage
         activeTabId={props.activeTabId}
@@ -74,7 +74,11 @@ export function Workbench(props: WorkbenchProps) {
 function EmptyStage({ onLaunch }: { onLaunch: () => void }) {
   return (
     <div className="empty-stage">
+      <span className="empty-stage__eyebrow">你的工作台</span>
+      <h1>从一个会话开始</h1>
+      <p>打开 Shell，或从侧栏新建 Agent 会话。<br />已有会话会保留在工作区中。</p>
       <button onClick={onLaunch} type="button">打开 Shell</button>
+      <small>拖动会话标题可分屏，在同一项目里并行工作。</small>
     </div>
   );
 }

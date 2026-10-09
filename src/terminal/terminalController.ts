@@ -46,7 +46,7 @@ function createHandle({ view, lifecycle, layout }: {
     },
     search: view.search,
     focus: () => { if (lifecycle.alive) view.terminal.focus(); },
-    sendText: (text) => lifecycle.sendText(text),
+    sendText: (text, options) => lifecycle.sendText(text, options),
     dispose: () => {
       if (!lifecycle.alive) return;
       lifecycle.dispose();

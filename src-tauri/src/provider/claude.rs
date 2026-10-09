@@ -45,10 +45,10 @@ pub(super) fn read_settings() -> Result<Value, AppError> {
     if text.trim().is_empty() {
         return Ok(Value::Object(Map::new()));
     }
-    serde_json::from_str(&text).map_err(|err| {
+    serde_json::from_str(&text).map_err(|_| {
         // 解析不了就停手。这里要是猜着写，用户的 hooks 就没了。
         AppError::invalid_argument(format!(
-            "{} 不是合法的 JSON，请先修好再切换 provider：{err}",
+            "{} 不是合法的 JSON，请先修好再切换 provider（解析详情已脱敏）",
             path.display()
         ))
     })
@@ -120,9 +120,9 @@ pub(super) fn save_config_file(path: &std::path::Path, content: &str) -> Result<
             expected.display()
         )));
     }
-    serde_json::from_str::<Value>(content).map_err(|err| {
+    serde_json::from_str::<Value>(content).map_err(|_| {
         AppError::invalid_argument(format!(
-            "{} 不是合法的 JSON，文件没有改动：{err}",
+            "{} 不是合法的 JSON，文件没有改动（解析详情已脱敏）",
             expected.display()
         ))
     })?;

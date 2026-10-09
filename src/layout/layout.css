@@ -60,14 +60,15 @@
 .terminal-pane__bar {
   display: flex;
   align-items: center;
-  gap: 6px;
-  height: 24px;
-  padding: 0 4px 0 8px;
+  gap: 9px;
+  height: 36px;
+  flex: 0 0 36px;
+  padding: 0 8px 0 14px;
   border: 1px solid var(--border);
   border-bottom: none;
   border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-  color: var(--text-faint);
-  background: var(--surface-raised);
+  color: var(--text-muted);
+  background: var(--panel);
   font-size: var(--fs-sm);
   cursor: grab;
   user-select: none;
@@ -77,13 +78,13 @@
 .terminal-pane__bar > svg { color: var(--text-icon); }
 
 .terminal-pane.is-focused .terminal-pane__bar {
-  color: var(--text-muted);
+  color: var(--text);
   border-color: var(--border-strong);
 }
 
 .terminal-pane:not(.is-split) .terminal-pane__bar {
-  height: 28px;
-  padding-left: 21px;
+  height: 36px;
+  padding-left: 22px;
   border: 0;
   border-bottom: 1px solid var(--border);
   border-radius: 0;
@@ -104,8 +105,8 @@
 .terminal-pane__close {
   display: grid;
   place-items: center;
-  width: 18px;
-  height: 18px;
+  width: 26px;
+  height: 26px;
   padding: 0;
   border: none;
   border-radius: var(--radius-sm);

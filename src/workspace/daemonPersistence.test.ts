@@ -25,6 +25,18 @@ describe("daemon workspace identity", () => {
     expect(creating.daemonSessionId).toBe(daemonSessionId);
   });
 
+  it("clears a missing PTY from storage without discarding the Agent's native history", () => {
+    const tab = { ...createWorkspaceTab(project, "codex", 1, "native-history"), daemonSessionId,
+      restoreSessionId: daemonSessionId };
+    const lost = applySnapshot(tab, { phase: "creating", activity: "idle", error: null,
+      lastInput: null, daemonSessionId: null });
+    expect(lost.restoreSessionId).toBe(daemonSessionId); // 不因保存快照重新挂载终端。
+    const restored = parseWorkspaceState(serializeWorkspaceState([lost], lost.id))!.tabs[0];
+    expect(restored.daemonSessionId).toBeNull();
+    expect(restored.restoreSessionId).toBeNull();
+    expect(restored.resumeSessionId).toBe("native-history");
+  });
+
   it("ignores a malformed identity while retaining the user's session definition", () => {
     const tab = { ...createWorkspaceTab(project, "shell", 1), daemonSessionId: "../../private" };
     const restored = parseWorkspaceState(JSON.stringify({ tabs: [tab], activeTabId: tab.id }))!.tabs[0];

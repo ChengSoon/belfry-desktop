@@ -5,8 +5,8 @@ import type { TerminalTheme } from "../../theme/xtermTheme";
 import { runStartupOnce } from "../../workspace/projects/launch";
 import { acknowledgeTerminalOutput, createTerminal, detachTerminal, resizeTerminal, setTerminalPalette, writeTerminal } from "../api";
 import type { CodexThemeSync } from "../codexThemeSync";
-import { createTerminalRequest, type TerminalEvent, type TerminalLaunch, type TerminalSession } from "../contracts";
-import { diagnoseTerminalExit, errorMessage } from "./diagnostics";
+import { createTerminalRequest, type PromptDeliveryOptions, type TerminalEvent, type TerminalLaunch, type TerminalSession } from "../contracts";
+import { diagnoseTerminalExit, errorMessage, isMissingTerminalSession } from "./diagnostics";
 import { TerminalInput } from "./input";
 import { TerminalOutput } from "./output";
 import { OutputQueue } from "./outputQueue";
@@ -33,6 +33,7 @@ export class TerminalLifecycle {
   private failed = false;
   private exited = false;
   private readonly channel = new Channel<TerminalEvent>();
+  private restoredMissingAttachment = false;
   private readonly activity;
   private readonly input;
   private readonly output;
@@ -62,7 +63,17 @@ export class TerminalLifecycle {
     callbacks.onSession(null);
     try {
       fit.fit();
-      const session = await createTerminal(createTerminalRequest(terminal.cols, terminal.rows, launch, palette(theme)), this.channel, launch.attachmentId);
+      const request = createTerminalRequest(terminal.cols, terminal.rows, launch, palette(theme));
+      let session: TerminalSession;
+      try {
+        session = await createTerminal(request, this.channel, launch.attachmentId);
+      } catch (error) {
+        if (!launch.attachmentId || !isMissingTerminalSession(error) || this.disposed || this.failed) throw error;
+        // 后台已经确认旧身份不存在。只恢复一次，保留 native resume，且不重发启动脚本。
+        this.restoredMissingAttachment = true;
+        callbacks.onAttachmentLost?.();
+        session = await createTerminal(request, this.channel, null);
+      }
       this.attach(session);
     } catch (error) { this.fail(error); }
   }
@@ -73,7 +84,7 @@ export class TerminalLifecycle {
     this.ports.callbacks.onSession(session);
   }
 
-  sendText(text: string) { return this.input.sendText(text); }
+  sendText(text: string, options?: PromptDeliveryOptions) { return this.input.sendText(text, options); }
 
   updatePalette(theme: TerminalTheme) {
     if (!this.current) return;
@@ -122,7 +133,12 @@ export class TerminalLifecycle {
     this.current = session;
     this.ports.callbacks.onPhase("running");
     this.ports.onReady();
-    void runStartupOnce({ intent: session.reconnected ? undefined : this.ports.launch.projectLaunch?.startup,
+    if (this.restoredMissingAttachment && !session.reconnected) {
+      this.ports.callbacks.onError(this.ports.launch.resumeSessionId
+        ? "原后台进程已结束，已重新启动 Agent 并恢复历史对话；未重发旧指令。"
+        : "原后台进程已结束，已自动重新建立会话；未重发旧指令。");
+    }
+    void runStartupOnce({ intent: session.reconnected || this.restoredMissingAttachment ? undefined : this.ports.launch.projectLaunch?.startup,
       sessionId: session.id, current: () => !this.disposed && !this.failed && this.current?.id === session.id,
       write: writeTerminal,
     }).catch((error) => {

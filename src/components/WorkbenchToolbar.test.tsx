@@ -14,11 +14,11 @@ function props(): WorkbenchProps {
     onResize: vi.fn(), onRevealSidebar: vi.fn(), onSnapshot: vi.fn(), onToggleCollab: vi.fn(), onTogglePreview: vi.fn(), onToggleQuickOpen: vi.fn() };
 }
 
-it("常态保留项目、搜索、文件和更多入口，协作提醒在收起时仍可见", () => {
+it("常态保留项目、搜索、文件、协作、主题和更多入口，待确认可直接进入", () => {
   const html = renderToStaticMarkup(<WorkbenchToolbar {...props()} />);
-  expect((html.match(/<button/g) ?? []).length).toBe(4);
-  for (const label of ["很长的项目名称", "Quick Open", "文件预览", "更多工具，2 条协作待确认"]) expect(html).toContain(label);
-  for (const label of ["插件启动器", "快捷指令", "切换到亮色主题"]) expect(html).not.toContain(label);
+  expect((html.match(/<button/g) ?? []).length).toBe(6);
+  for (const label of ["很长的项目名称", "Quick Open", "快速打开", "文件预览", "更多工具，2 条协作待确认", "2 待确认", "切换到亮色主题"]) expect(html).toContain(label);
+  for (const label of ["插件启动器", "快捷指令"]) expect(html).not.toContain(label);
 });
 
 it("更多面板保留原工具和主题入口，窄舞台仍有搜索与文件入口", () => {

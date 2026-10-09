@@ -1,11 +1,10 @@
 .usage-body { grid-row: 4; min-height: 0; }
-/* 总用量是这一列的头条数字，给它一张卡片浮到面板底色之上（三层里的第三层）。
-   原先只有一条下边框，整列从头到尾是一个平面，靠分隔线切段。 */
-.usage-insight-summary { margin: 12px 0 14px; padding: 12px 13px 14px; border: 1px solid var(--card-border); border-radius: var(--radius-md); background: var(--card); }
+/* Log-backed totals remain a compact reading surface, not a dashboard KPI. */
+.usage-insight-summary { margin: 12px 0 16px; padding: 12px 0 16px; border: 0; border-bottom: 1px solid var(--border); background: transparent; }
 .usage-insight-summary > span { color: var(--text-muted); font-size: var(--fs-xs); }
 .usage-insight-summary > span small { margin-left: 4px; color: var(--text-faint); font-size: inherit; }
-.usage-insight-summary > strong { display: block; margin: 4px 0 15px; color: var(--text); font-family: var(--font-mono); font-size: calc(var(--fs-display) * 1.6); font-weight: 500; letter-spacing: -.045em; }
-.usage-insight-summary > div { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: var(--fs-sm); }
+.usage-insight-summary > strong { display: block; margin: 4px 0 12px; color: var(--text); font-family: var(--font-mono); font-size: calc(var(--fs-display) * 1.4); font-weight: 500; letter-spacing: -.025em; overflow-wrap: anywhere; }
+.usage-insight-summary > div { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; font-size: var(--fs-md); }
 .usage-insight-summary > div > span:first-child { flex-shrink: 0; color: var(--text-muted); }
 .usage-insight-summary > p { margin: 6px 0 0; color: var(--text-faint); font-size: var(--fs-xs); line-height: 1.6; }
 .usage-insight-muted { color: var(--text-muted); font-size: var(--fs-xs); }

@@ -16,7 +16,7 @@ export function ProjectProviderSection({ project }: { project: ProjectWorkspace 
     <SettingsHeader
       actions={<button type="button" className="icon-button" aria-label="刷新项目 Provider" title="刷新项目 Provider"
         disabled={!project || model.busy} onClick={model.reload}><RefreshCcw size={ICON.md} aria-hidden="true" /></button>}
-      description="为这个项目选择独立的模型服务。"
+      description="作用域 · 当前本地项目。覆盖全局默认路由，不改写全局 CLI 配置。"
       title="项目 Provider"
     />
     {!project ? <p className="project-provider__empty">先打开一个本地项目，再设置项目 Provider。SSH 会话不使用本机覆盖。</p> : <>
@@ -47,6 +47,10 @@ export function ProjectProviderRow({ group, disabled, onSelect }: {
         onChange={(value) => onSelect(group.kind, value || null)} options={projectProviderOptions(group)} />
     </label>
     <p className={group.missing ? "project-provider__error" : "project-provider__source"} role={group.missing ? "alert" : "status"}>{providerSource(group)}</p>
+    <p className="project-provider__notice">{group.missing ? "项目选择不可用，请重新选择。"
+      : group.source === "project"
+        ? `项目已选用 · ${group.choices.find((choice) => choice.id === group.providerId)?.configured ? "已配置独立密钥" : "未配置独立密钥"}`
+        : "路由与凭据跟随全局 CLI；此处不验证全局凭据。"} 连接未验证。</p>
     {detail ? <dl><dt>端点</dt><dd>{detail.endpoint}</dd><dt>模型</dt><dd>{detail.model}</dd></dl> : null}
     {!group.choices.length ? <p className="project-provider__notice">尚未保存 Provider，可先在“全局 Provider”中添加。</p> : null}
   </article>;

@@ -17,7 +17,10 @@ export function usePromptQueue({ tabs, targets }: PromptQueueOptions) {
   }, [tabs, targets]);
 
   useEffect(() => {
-    runtime.current.sync(tabs, targets);
+    const sync = () => runtime.current.sync(tabs, targets);
+    sync();
+    const timer = window.setInterval(sync, 1_000);
+    return () => window.clearInterval(timer);
   }, [tabs, targets]);
 
   return { submit };

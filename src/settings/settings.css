@@ -1,106 +1,89 @@
-/* 设置视图：整窗铺开，布局沿用 Codex 桌面版设置那种「左侧分类导航，右侧内容」。
-   打开时主界面整片隐藏（保持挂载，PTY 不断），见 workspace.css 的 is-settings 规则。
-   没有背景图时使用主题画布；有背景图时由下面的覆盖规则让背景连续透出。 */
+/* Graphite settings: a stable purpose-based rail and independently scrolling content.
+   Wallpaper and user typography remain opt-in and are never reset by this shell. */
 .settings-view {
   position: relative;
   z-index: 1;
   display: grid;
   grid-column: 1 / -1;
   grid-row: 1 / -1;
+  grid-template-columns: 220px minmax(0, 1fr);
   min-width: 0;
   min-height: 0;
-  grid-template-columns: 200px minmax(0, 1fr);
   isolation: isolate;
   overflow: hidden;
   padding-top: var(--titlebar-inset);
   background: var(--canvas);
+  container: settings-shell / inline-size;
 }
-
-/* 设置页正文密、字号小，直接透图会读不成句。铺同一套面板玻璃（见 background.css）：
-   图案被 blur 抹匀、色彩留下来，右侧那张不透明的预览白卡也不再孤立。 */
 :root[data-background="on"] .settings-view {
   background: var(--app-bg-glass, var(--canvas));
   -webkit-backdrop-filter: var(--app-bg-glass-filter, none);
   backdrop-filter: var(--app-bg-glass-filter, none);
 }
-
 .settings-nav {
-  display: grid;
-  align-content: start;
-  min-height: 0;
-  gap: 2px;
-  overflow-y: auto;
-  padding: 14px 10px;
-  border-right: 1px solid var(--border);
-  background: var(--sidebar);
-  scrollbar-color: var(--scrollbar) transparent;
-}
-
-/* 导航列叠在 settings-view 的玻璃上，只补一层半透明侧栏色分出左右两区。
-   不再叠一层 backdrop-filter：嵌套毛玻璃的采样行为两个 WebView 不一致。 */
-:root[data-background="on"] .settings-nav {
-  border-right-color: var(--app-bg-divider);
-  background: color-mix(in srgb, var(--sidebar) 45%, transparent);
-}
-
-.settings-nav__head {
-  display: flex;
-  height: 32px;
-  align-items: center;
-  gap: 7px;
-  margin-bottom: 8px;
-  padding: 0 9px;
-}
-
-.settings-nav__head strong {
-  flex: 1;
-  color: var(--text);
-  font-size: var(--fs-md);
-  font-weight: 500;
-  letter-spacing: -0.01em;
-}
-
-.settings-nav > button {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 6px 9px;
-  border: 0;
-  border-radius: var(--radius-sm);
-  color: var(--text-muted);
-  background: transparent;
-  font-size: var(--fs-sm);
-  text-align: left;
-  cursor: pointer;
-  transition: color var(--duration) var(--ease), background var(--duration) var(--ease);
-}
-
-.settings-nav > button:hover:not(:disabled) { color: var(--text); background: var(--surface-hover); }
-.settings-nav > button.is-active,
-.settings-nav > button.is-active:hover:not(:disabled) {
-  color: var(--text);
-  background: var(--accent-soft);
-}
-.settings-nav > button:disabled { opacity: 0.4; cursor: default; }
-.settings-nav > button > svg { flex: none; }
-
-/* 各分区填满右侧可用空间；容器查询让内部控件按正文宽度适配。 */
-.settings-content {
-  container: settings / inline-size;
   display: grid;
   align-content: start;
   min-width: 0;
   min-height: 0;
-  /* WebKit 会把带 overflow 的隐式 auto 行压到 0，高度不足时 provider 列表会被裁掉。 */
-  grid-auto-rows: max-content;
-  gap: 8px;
+  gap: 20px;
   overflow-y: auto;
-  scrollbar-gutter: stable;
-  padding: 18px 24px;
+  padding: 24px 12px;
+  border-right: 1px solid var(--border);
+  background: var(--sidebar);
   scrollbar-color: var(--scrollbar) transparent;
 }
-
-@media (max-width: 800px) {
-  .settings-view { grid-template-columns: 176px minmax(0, 1fr); }
-  .settings-content { padding-inline: 16px; }
+:root[data-background="on"] .settings-nav {
+  border-right-color: var(--app-bg-divider);
+  background: color-mix(in srgb, var(--sidebar) 78%, transparent);
+}
+.settings-nav__head { display: flex; align-items: center; gap: 8px; padding-inline: 8px; }
+.settings-nav__head strong { flex: 1; color: var(--text); font-size: var(--fs-display); font-weight: 500; }
+.settings-search { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 0 10px; border: 1px solid var(--border); border-radius: 6px; color: var(--text-muted); background: var(--surface); }
+.settings-search svg { flex: none; }
+.settings-search input { min-width: 0; width: 100%; min-height: 38px; padding: 8px 0; border: 0; outline: none; color: var(--text); background: transparent; font: inherit; font-size: var(--fs-sm); }
+.settings-search input::placeholder { color: var(--text-muted); }
+.settings-search:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.settings-nav__group { display: grid; gap: 4px; min-width: 0; }
+.settings-nav__group h3 { margin: 0 8px 4px; color: var(--text-muted); font-size: var(--fs-xs); font-weight: 500; letter-spacing: .04em; }
+.settings-nav__group button { display: flex; width: 100%; min-height: 40px; align-items: center; gap: 10px; padding: 9px 10px; border: 0; border-radius: 6px; color: var(--text-muted); background: transparent; font-size: var(--fs-md); text-align: left; cursor: pointer; transition: color 140ms ease, background 140ms ease; }
+.settings-nav__group button svg { flex: none; }
+.settings-nav__group button span { overflow-wrap: anywhere; }
+.settings-nav__group button:hover:not(:disabled) { color: var(--text); background: var(--surface-hover); }
+.settings-nav__group button.is-active { color: var(--text); background: var(--surface-raised); }
+.settings-nav__group button.is-active svg { color: var(--accent); }
+.settings-nav__group button:disabled { opacity: .45; cursor: default; }
+.settings-nav__group button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.settings-nav__empty, .settings-nav__guard { margin: 0; padding: 8px; color: var(--text-muted); font-size: var(--fs-xs); line-height: 1.7; overflow-wrap: anywhere; }
+.settings-nav__guard { border-left: 2px solid var(--warning); }
+.settings-content {
+  container: settings / inline-size;
+  display: grid;
+  align-content: start;
+  grid-auto-rows: max-content;
+  min-width: 0;
+  min-height: 0;
+  gap: 24px;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  padding: 32px clamp(20px, 4vw, 48px) 48px;
+  scrollbar-color: var(--scrollbar) transparent;
+}
+.settings-content > * { max-width: 980px; }
+@media (max-width: 1024px) {
+  .settings-view { grid-template-columns: 196px minmax(0, 1fr); }
+  .settings-content { padding: 24px; }
+}
+@container settings-shell (max-width: 640px) {
+  .settings-nav { padding: 12px; gap: 12px; }
+  .settings-nav__group { display: flex; flex-wrap: wrap; }
+  .settings-nav__group h3 { flex-basis: 100%; }
+  .settings-nav__group button { width: auto; min-height: 36px; padding: 6px 8px; }
+  .settings-content { padding: 24px 16px; }
+}
+@media (max-width: 640px) {
+  .settings-view { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(120px, 36%) minmax(0, 1fr); }
+  .settings-nav { border-right: 0; border-bottom: 1px solid var(--border); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .settings-nav__group button { transition: none; }
 }

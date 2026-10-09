@@ -3,10 +3,10 @@ import type { Terminal } from "@xterm/xterm";
 import { writeTerminal } from "../api";
 import { consumeWebClipboardPaste, listenForClipboardImagePaste, usesWebClipboardFallback } from "../clipboardPaste";
 import type { CodexThemeSync } from "../codexThemeSync";
-import type { TerminalLaunch, TerminalSession } from "../contracts";
+import type { PromptDeliveryOptions, TerminalLaunch, TerminalSession } from "../contracts";
 import { formatDroppedPaths, pointInsideRect } from "../fileDrop";
 import { emptyInputLine, feedInputLine, muteInputLine } from "../inputLine";
-import { PromptInput } from "../promptInput";
+import { pasteSettleMs, PromptInput } from "../promptInput";
 import { listenForPromptUserInput } from "../promptUserInput";
 import { errorMessage } from "./diagnostics";
 import type { MountCallbacks } from "./types";
@@ -39,6 +39,7 @@ export class TerminalInput {
       enter: () => terminal.input("\r", true),
       write: (id, data) => writeTerminal(id, new TextEncoder().encode(data)),
       error: (error) => callbacks.onError(`终端输入失败，已停止自动提交：${errorMessage(error)}`),
+      settleMs: pasteSettleMs(navigator.userAgent),
     });
     this.input = terminal.onData((data) => this.onData(data));
     this.removeUserInput = listenForPromptUserInput({ terminal, host, onInput: () => this.prompt.onUserInput() });
@@ -55,10 +56,10 @@ export class TerminalInput {
 
   mute() { this.inputLine = muteInputLine(this.inputLine); }
 
-  sendText(text: string) {
+  sendText(text: string, options?: PromptDeliveryOptions) {
     if (!this.session() || !text) return false;
-    this.ports.terminal.focus();
-    return this.prompt.sendText(text);
+    if (!options?.background) this.ports.terminal.focus();
+    return this.prompt.sendText(text, options);
   }
 
   stop() { this.stopped = true; this.prompt.dispose(); }

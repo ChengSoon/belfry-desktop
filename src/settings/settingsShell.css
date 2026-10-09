@@ -10,7 +10,7 @@
   align-items: flex-start;
   gap: 12px 16px;
   margin: 0;
-  padding-bottom: 16px;
+  padding-bottom: 24px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -18,13 +18,13 @@
   display: grid;
   flex: 1 1 240px;
   min-width: 0;
-  gap: 2px;
+  gap: 8px;
 }
 
 .settings-head h2 {
   margin: 0;
   color: var(--text);
-  font-size: var(--fs-lg);
+  font-size: var(--fs-display);
   font-weight: 500;
   line-height: 32px;
   letter-spacing: -0.01em;
@@ -34,7 +34,7 @@
 .settings-head p {
   margin: 0;
   color: var(--text-muted);
-  font-size: var(--fs-sm);
+  font-size: var(--fs-md);
   line-height: var(--lh-relaxed);
   overflow-wrap: anywhere;
 }
@@ -50,11 +50,11 @@
   app-region: no-drag;
 }
 
-.settings-head__actions button { white-space: nowrap; }
+.settings-head__actions button { white-space: normal; }
 
 /* 分组间距叠加分区自身的 gap，避免重复留出两份空白。 */
 .settings-group + .settings-group {
-  margin-top: 8px;
+  margin-top: 16px;
 }
 
 .settings-group__label {
@@ -72,20 +72,20 @@
 
 .settings-group__label h3 { margin: 0; font: inherit; }
 
+/* Quiet lists, rather than a stack of nested cards. */
 .settings-card {
-  overflow: hidden;
-  border: 1px solid var(--card-border);
-  border-radius: var(--radius-md);
-  background: var(--card);
+  min-width: 0;
+  border-block: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
 }
 
-/* 标准行：左侧说明，右侧控件；分隔线留在卡片内部。 */
 .settings-row {
   display: grid;
   align-items: center;
   gap: 4px 16px;
   grid-template-columns: minmax(0, 1fr) auto;
-  padding: 11px 14px;
+  padding: 18px 4px;
   transition: background var(--duration) var(--ease);
 }
 
@@ -100,12 +100,12 @@
   align-items: baseline;
   gap: 4px 9px;
   color: var(--text);
-  font-size: var(--fs-sm);
+  font-size: var(--fs-md);
 }
 
 /* 「默认 / 自定义 / 已停用」这类状态注记跟在标题后面，降一档灰。 */
 .settings-row__label small {
-  color: var(--text-faint);
+  color: var(--text-muted);
   font-size: var(--fs-xs);
 }
 
@@ -131,4 +131,19 @@
 @container settings (max-width: 560px) {
   .settings-row { grid-template-columns: minmax(0, 1fr); gap: 10px; }
   .settings-row__control { justify-content: flex-start; }
+}
+
+/* Shared readable notices, fields and keyboard focus across every settings page. */
+.settings-content :where(input, select, textarea, button, summary):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.settings-content :where(input, select, textarea) { max-width: 100%; }
+.settings-content :where(h3, h4, p, dd, label) { overflow-wrap: anywhere; }
+.settings-content :where(button) { max-width: 100%; }
+@media (prefers-reduced-motion: reduce) {
+  .settings-content *, .settings-content *::before, .settings-content *::after {
+    animation: none !important;
+    transition: none !important;
+  }
 }

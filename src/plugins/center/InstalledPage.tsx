@@ -38,7 +38,8 @@ function InstalledRow({ plugin, broken }: { plugin: PluginSummary; broken: boole
   return <div role="listitem" className={cx("plugins-row", !plugin.enabled && "off", broken && "broken")}>
     <span className="plugins-glyph" aria-hidden>{broken ? <IconCircleAlert size={15} /> : <IconPlug size={15} />}</span>
     <div className="plugins-row-copy"><div className="plugins-row-title"><span className="plugins-row-name">{plugin.name}</span>
-      {plugin.source === "dev" ? <span className="plugins-tag">{t("plugins.tagLocal")}</span> : null}</div>
+      <span className={cx("plugins-tag", plugin.enabled && !broken && "is-enabled", broken && "is-error")}>{broken ? "需处理" : plugin.enabled ? "已启用" : "已停用"}</span>
+      <span className="plugins-tag">{plugin.source === "dev" ? t("plugins.tagLocal") : "已安装包"}</span></div>
       <div className="plugins-row-meta"><span className="plugins-row-id">{plugin.id}</span><span className="plugins-dot" aria-hidden>·</span><span>v{plugin.version}</span></div>
       {plugin.errorMessage ? <p className="plugins-row-error">{plugin.errorMessage}</p> : null}<PluginRowDetails plugin={plugin} />
     </div><PluginRowControls plugin={plugin} />

@@ -69,15 +69,27 @@ fn a_saved_attachment_and_duplicate_create_keep_the_original_pty() {
             )
             .is_err()
     );
-    assert!(
-        fixture
-            .service
-            .create(
-                fixture.request("tab"),
-                WireOverlay::default(),
-                Some("missing".into())
-            )
-            .is_err()
+    let recovered = fixture
+        .service
+        .create(
+            fixture.request("tab"),
+            WireOverlay::default(),
+            Some("missing".into()),
+        )
+        .unwrap();
+    assert_eq!(first.id, recovered.id);
+    assert!(recovered.reconnected);
+    let missing = fixture
+        .service
+        .create(
+            fixture.request("absent-tab"),
+            WireOverlay::default(),
+            Some("missing".into()),
+        )
+        .unwrap_err();
+    assert_eq!(
+        crate::terminal::contracts::AppErrorCode::SessionMissing,
+        missing.code
     );
     assert_eq!(1, fixture.service.list().len());
 }
@@ -250,4 +262,27 @@ fn worktree_execution_holds_new_spawns_but_can_reconnect_existing_sessions() {
             .create(fixture.request("new"), WireOverlay::default(), None)
             .is_ok()
     );
+}
+
+#[test]
+fn stale_attachment_lookup_does_not_cross_project_boundaries_or_spawn_a_duplicate() {
+    let fixture = Fixture::new();
+    let session = fixture
+        .service
+        .create(fixture.request("tab"), WireOverlay::default(), None)
+        .unwrap();
+    let mut changed = fixture.request("tab");
+    changed.cwd = Some(crate::resource::path_to_file_uri(
+        fixture.root.parent().unwrap(),
+    ));
+    let error = fixture
+        .service
+        .create(changed, WireOverlay::default(), Some("missing".into()))
+        .unwrap_err();
+    assert_eq!(
+        crate::terminal::contracts::AppErrorCode::InvalidArgument,
+        error.code
+    );
+    assert_eq!(1, fixture.service.list().len());
+    assert_eq!(session.id, fixture.service.list()[0].session.id);
 }

@@ -1,6 +1,7 @@
 import { AlertTriangle, Check, History, ListChecks, Play, RefreshCcw, Trash2, X } from "lucide-react";
 import { useState, type CSSProperties } from "react";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
+import { Presence } from "../../components/motion/Presence";
 import { PanelResizeHandle } from "../../panel/PanelResizeHandle";
 import { usePanelWidth } from "../../panel/usePanelWidth";
 import { ICON } from "../../theme/sizing";
@@ -36,9 +37,11 @@ export function HistoryPanel({ onClose, onResume }: Props) {
     <HistoryResults model={model} onResume={onResume} onInspect={setDetail} />
     <PanelResizeHandle label="调整历史会话面板宽度" onCommit={width.commitWidth} onReset={width.resetWidth}
       onResize={width.setWidth} spec={HISTORY_WIDTH} width={width.width} />
+    <Presence open={!!model.pendingDelete}>
     {model.pendingDelete ? <ConfirmDialog title={`删除这 ${model.pendingDelete.length} 条历史会话？`}
       body="将永久删除所列会话的原始日志及其续写分片，无法恢复。只处理此次选中的结果，正在运行的会话进程不受影响。"
       confirmLabel="删除会话日志" onCancel={() => model.setPendingDelete(null)} onConfirm={model.confirmDelete} /> : null}
+    </Presence>
   </section>;
 }
 
@@ -68,7 +71,10 @@ function HistoryStatus({ model }: { model: Model }) {
   const { history, metadata, query } = model;
   const errors = [query.error, metadata.error, history.failure ? failureLabel(history.failure) : null].filter(Boolean);
   return <>
-    {errors.map((error) => <p key={error} className="history-error" role="alert"><AlertTriangle size={ICON.sm} aria-hidden="true" />{error}</p>)}
+    {errors.map((error) => <div key={error} className="history-error" role="alert"><AlertTriangle size={ICON.sm} aria-hidden="true" />
+      <span>{error}</span></div>)}
+    {history.failure ? <button className="history-retry" type="button" disabled={history.loading}
+      onClick={() => void history.reload()}>重新扫描本地日志</button> : null}
     <div className="history-search-summary" aria-live="polite">
       <span>{history.loading ? "正在读取本地历史…" : `${model.hits.length} 条会话 · ${history.report.scannedFiles} 个日志`}</span>
       <button type="button" onClick={model.reset}>清除筛选</button>
@@ -94,7 +100,7 @@ function SelectionToolbar({ model, onResume }: { model: Model; onResume: Props["
 }
 
 function HistoryResults({ model, onResume, onInspect }: { model: Model; onResume: Props["onResume"]; onInspect: Props["onResume"] }) {
-  return <div className="history-body">
+  return <div className="history-body" aria-busy={model.history.loading}>
     {!model.history.loading && !model.hits.length && !model.history.failure && !model.query.error
       ? <div className="history-empty"><p>没有符合条件的会话</p><button type="button" onClick={model.reset}>清除筛选，查看全部历史</button></div> : null}
     <ul className="history-list">{model.visible.map((hit) => {

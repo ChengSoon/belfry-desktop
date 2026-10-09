@@ -23,6 +23,13 @@ export function CollabPanel({ collab, onClose }: CollabPanelProps) {
   const settled = collab.tasks.filter(
     (task) => !waiting.includes(task) && !active.includes(task),
   );
+  const [filter, setFilter] = useState<"all" | "waiting" | "active" | "settled">("all");
+  const filters = [
+    { id: "all", label: "全部", count: collab.tasks.length },
+    { id: "waiting", label: "待确认", count: waiting.length },
+    { id: "active", label: "进行中", count: active.length },
+    { id: "settled", label: "已结束", count: settled.length },
+  ] as const;
 
   // 每次渲染取一次「现在」，同一批事件共用，相对时长不会互相错开一秒。
   // 不用额外定时器：useCollabTasks 每 1.5s 就换一次 tasks 数组引用，
@@ -46,30 +53,39 @@ export function CollabPanel({ collab, onClose }: CollabPanelProps) {
           <X aria-hidden="true" size={ICON.md} />
         </button>
       </header>
+      <div className="collab-panel__context">
+        <p>本机 Agent 派活记录</p>
+        <div className="collab-filters" role="group" aria-label="筛选协作状态">
+          {filters.map(({ id, label, count }) => <button key={id} type="button" aria-pressed={filter === id}
+            onClick={() => setFilter(id)}>{label}<span>{count}</span></button>)}
+        </div>
+      </div>
 
       {collab.error ? (
         <div className="collab-panel__error" role="alert">
           <AlertTriangle aria-hidden="true" size={ICON.sm} />
-          <span>{collab.error}</span>
+          <div><span>{collab.error}</span><small>正在自动重试；下方保留上次读取的记录。</small></div>
         </div>
       ) : null}
 
       <div className="collab-panel__body">
         {collab.tasks.length === 0 ? <EmptyHint /> : null}
-        {waiting.length > 0 ? (
+        {collab.tasks.length > 0 && filters.find((item) => item.id === filter)?.count === 0 ?
+          <p className="collab-panel__empty-filter" role="status">此状态下没有任务。可切换到「全部」查看记录。</p> : null}
+        {(filter === "all" || filter === "waiting") && waiting.length > 0 ? (
           <TaskGroup title="等你确认" tasks={waiting}>
             {waiting.map((task) => (
               <TaskEvent key={task.id} now={now} onApprove={collab.approve} onReject={collab.reject} task={task} />
             ))}
           </TaskGroup>
         ) : null}
-        {active.length > 0 ? (
+        {(filter === "all" || filter === "active") && active.length > 0 ? (
           <TaskGroup title="进行中" tasks={active}>
             {active.map((task) => <TaskEvent key={task.id} now={now} task={task} />)}
           </TaskGroup>
         ) : null}
-        {settled.length > 0 ? (
-          <TaskGroup quiet title="已结" tasks={settled}>
+        {(filter === "all" || filter === "settled") && settled.length > 0 ? (
+          <TaskGroup quiet title="已结束" tasks={settled}>
             {settled.map((task) => <TaskEvent key={task.id} now={now} task={task} />)}
           </TaskGroup>
         ) : null}
@@ -260,7 +276,9 @@ function TaskEvent({
         <p className="collab-event__instruction" title={task.instruction}>{task.instruction}</p>
 
         {task.result ? (
-          <p className="collab-event__result" title={task.result}>{task.result}</p>
+          <details className="collab-event__result-detail"><summary>查看任务结果</summary>
+            <p className="collab-event__result">{task.result}</p>
+          </details>
         ) : null}
 
         {onApprove && onReject ? (

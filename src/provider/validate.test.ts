@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { ProviderConfig, ProviderDraft } from "./contracts";
-import { maskKey, validateDraft } from "./validate";
+import { EMPTY_DRAFT, toDraft, type ProviderConfig, type ProviderDraft } from "./contracts";
+import { validateDraft } from "./validate";
 
 function draft(overrides: Partial<ProviderDraft> = {}): ProviderDraft {
   return {
@@ -8,6 +8,7 @@ function draft(overrides: Partial<ProviderDraft> = {}): ProviderDraft {
     name: "Kimi",
     baseUrl: "https://api.moonshot.cn/anthropic",
     apiKey: "sk-test",
+    apiKeyAction: "replace",
     model: "",
     ...overrides,
   };
@@ -18,7 +19,7 @@ function existing(name: string, id = "other"): ProviderConfig {
     id,
     name,
     baseUrl: "https://example.com",
-    apiKey: "",
+    hasApiKey: false,
     model: "",
     createdAt: 0,
   };
@@ -70,19 +71,30 @@ describe("validateDraft", () => {
   });
 });
 
-describe("maskKey", () => {
-  it("keeps enough of a long key to tell two apart", () => {
-    const masked = maskKey("sk-abcdefghijklmnop1234");
-    expect(masked.startsWith("sk-abc")).toBe(true);
-    expect(masked.endsWith("1234")).toBe(true);
-    expect(masked).not.toContain("defghijklmnop");
+describe("secret draft contract", () => {
+  it("starts new entries with explicit clear and edits with empty keep, never a masked value", () => {
+    expect(EMPTY_DRAFT.apiKeyAction).toBe("clear");
+    expect(EMPTY_DRAFT.apiKey).toBe("");
+    for (const hasApiKey of [true, false]) {
+      const config = { ...existing("Kimi"), hasApiKey };
+      expect(toDraft(config)).toEqual({ id: config.id, name: config.name, baseUrl: config.baseUrl,
+        model: config.model, apiKey: "", apiKeyAction: "keep" });
+      expect(config).not.toHaveProperty("apiKey");
+    }
   });
 
-  it("does not leak a short key by showing most of it", () => {
-    expect(maskKey("sk-123")).toBe("sk······");
+  it("allows keep and explicit clear, but rejects blank replacement", () => {
+    expect(validateDraft(draft({ apiKey: "", apiKeyAction: "keep" }), [])).toBeNull();
+    expect(validateDraft(draft({ apiKey: "", apiKeyAction: "clear" }), [])).toBeNull();
+    expect(validateDraft(draft({ apiKey: "  ", apiKeyAction: "replace" }), [])?.field).toBe("apiKey");
   });
 
-  it("says so when there is no key at all", () => {
-    expect(maskKey("   ")).toBe("未填 key");
+  it("requires replace or clear after an endpoint change", () => {
+    const config = { ...existing("Kimi"), hasApiKey: true };
+    const changed = { ...toDraft(config), baseUrl: "https://other.example.com" };
+    expect(validateDraft(changed, [config])?.field).toBe("apiKey");
+    expect(validateDraft({ ...changed, apiKeyAction: "clear" }, [config])).toBeNull();
+    expect(validateDraft({ ...changed, apiKeyAction: "replace", apiKey: "new-key" }, [config])).toBeNull();
+    expect(validateDraft(toDraft(config), [config])).toBeNull();
   });
 });

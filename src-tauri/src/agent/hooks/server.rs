@@ -10,8 +10,7 @@ use std::{
     time::Duration,
 };
 
-pub(super) const MAX_MESSAGE_BYTES: u64 = 64 * 1024;
-pub(super) const IO_TIMEOUT: Duration = Duration::from_millis(400);
+pub(super) use belfry_protocol::hooks::{IO_TIMEOUT, MAX_MESSAGE_BYTES};
 const MAX_CONNECTIONS: usize = 8;
 const ACCEPT_INTERVAL: Duration = Duration::from_millis(10);
 

@@ -90,6 +90,7 @@ test("production shared dependency failure stops ineffective retries and keeps t
   assert.equal(false, await view.cdp.evaluate(`!!document.querySelector(${JSON.stringify(RETRY)})`), "关闭后重开也不能重置缓存失败状态");
   assert.equal(2, requests.filter((r) => /HistoryPanel-.*\.js/.test(r.url)).length, "关闭重开不能继续请求失效的入口图");
   await click(view, ".optional-panel-fallback__return");
+  await waitFor(view, "!document.querySelector('.history-panel')");
   await click(view, USAGE);
   await waitFor(view, `!!document.querySelector(${JSON.stringify(ALERT)})`);
   await click(view, RETRY);
@@ -98,6 +99,7 @@ test("production shared dependency failure stops ineffective retries and keeps t
   assert.equal(1, requests.filter((r) => sharedJs.test(r.url)).length, "同一文档缓存了失败的静态依赖");
   await assertTerminalIntact(view, token);
   await click(view, ".optional-panel-fallback__return");
+  await waitFor(view, "!document.querySelector('.usage-panel')");
   await click(view, SETTINGS);
   await waitFor(view, "!!document.querySelector('.settings-nav')");
   await assertTerminalIntact(view, token);

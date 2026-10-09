@@ -1,10 +1,10 @@
 .git-panel { overflow: hidden; }
-.git-readonly { padding: 2px 5px; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-faint); font-size: var(--fs-xs); }
-.git-branch { display: grid; gap: 5px; padding: 10px 14px; border-bottom: 1px solid var(--border); min-width: 0; }
+.git-readonly { padding: 2px 6px; border: 0; border-radius: var(--radius-xs); color: var(--text-muted); background: var(--surface-raised); font-size: var(--fs-xs); }
+.git-branch { display: grid; gap: 6px; padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--surface); min-width: 0; }
 .git-branch > div { display: flex; align-items: center; gap: 7px; min-width: 0; }
 .git-branch strong { color: var(--text); font-size: var(--fs-sm); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .git-branch small { color: var(--text-faint); font-size: var(--fs-xs); white-space: nowrap; }
-.git-branch > span { color: var(--text-faint); font-size: var(--fs-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.git-branch > span { color: var(--text-muted); font-family: var(--font-mono); font-size: var(--fs-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .git-branch svg { color: var(--accent); flex-shrink: 0; }
 .git-body { display: grid; grid-template-rows: minmax(120px, 38%) minmax(0, 1fr); min-height: 0; flex: 1; }
 .git-files { overflow: auto; min-height: 0; border-bottom: 1px solid var(--border); }
@@ -14,8 +14,8 @@
 .git-file { display: flex; min-width: 0; align-items: center; border-radius: var(--radius-sm); padding-right: 3px; }
 .git-file:hover { background: var(--surface-hover); }
 .git-file.is-selected { background: var(--accent-soft); }
-.git-file__select { display: flex; flex: 1; min-width: 0; align-items: flex-start; gap: 8px; padding: 7px 6px; border: 0; color: var(--text-muted); background: transparent; text-align: left; cursor: pointer; font: inherit; font-size: var(--fs-xs); }
-.git-file__status { flex-shrink: 0; min-width: 3em; color: var(--accent); }
+.git-file__select { display: flex; flex: 1; min-width: 0; min-height: 36px; align-items: flex-start; gap: 8px; padding: 8px; border: 0; color: var(--text-muted); background: transparent; text-align: left; cursor: pointer; font: inherit; font-size: var(--fs-sm); }
+.git-file__status { flex-shrink: 0; min-width: 3em; padding: 1px 4px; border-radius: var(--radius-xs); color: var(--accent); background: var(--accent-soft); font-size: var(--fs-xs); }
 .git-file__status.is-conflict { color: var(--warning); }
 .git-file__path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.4; }
 .git-file__path small { display: block; overflow: hidden; text-overflow: ellipsis; color: var(--text-faint); font-size: inherit; }
@@ -38,6 +38,11 @@
 .git-hint, .git-warning, .git-error { margin: 9px 12px; font-size: var(--fs-xs); line-height: 1.6; overflow-wrap: anywhere; }
 .git-hint { color: var(--text-faint); }
 .git-warning { color: var(--warning); }
-.git-error { color: var(--danger); }
+.git-error { color: var(--danger); padding: 10px; border-left: 2px solid var(--danger); background: var(--surface); display: flex; flex-wrap: wrap; gap: 8px; }
 .git-empty { display: grid; flex: 1; place-content: center; margin: 0; padding: 22px; color: var(--text-faint); font-size: var(--fs-sm); text-align: center; line-height: 1.7; }
 .git-more { border: 0; border-top: 1px solid var(--border); background: var(--surface-raised); color: var(--accent); padding: 7px; font-size: var(--fs-xs); cursor: pointer; width: 100%; }
+.git-error span { flex: 1; min-width: 0; }
+.git-error button { padding: 4px 7px; border: 1px solid var(--border); border-radius: var(--radius-xs); color: var(--accent); background: transparent; font: inherit; cursor: pointer; }
+.git-branch > small { color: var(--text-muted); font-size: var(--fs-xs); white-space: normal; }
+.git-file__path { font-family: var(--font-mono); }
+@container inspector (max-width: 380px) { .git-diff__head { flex-wrap: wrap; } .git-diff__head > div { flex-basis: 100%; } }

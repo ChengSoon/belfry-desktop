@@ -29,7 +29,7 @@ export async function productionFixture(t, options = {}) {
   const browser = await new BrowserProcess(join(root, "browser")).start();
   lifetime.after(() => browser.close());
   const origin = `http://127.0.0.1:${server.address().port}`;
-  const openWindow = () => openProductionWindow({ browser, lifetime, root, origin });
+  const openWindow = () => openProductionWindow({ browser, lifetime, root, origin, options });
   const view = await openWindow();
   return { view, requests, origin, openWindow };
 }
@@ -49,14 +49,17 @@ async function productionFiles() {
   return files;
 }
 
-async function openProductionWindow({ browser, lifetime, root, origin }) {
+async function openProductionWindow({ browser, lifetime, root, origin, options }) {
   const view = await new BrowserTarget(browser, { workspace: root, frame: () => {}, state: () => {} }).start();
   lifetime.after(() => view.close());
   await view.bounds({ x: 0, y: 0, width: 1080, height: 700 });
   const source = await readFile(new URL("./productionNative.js", import.meta.url), "utf8");
   await view.send("Page.addScriptToEvaluateOnNewDocument", { source });
+  if (options.nativeSource) await view.send("Page.addScriptToEvaluateOnNewDocument", { source: options.nativeSource });
+  await options.beforeNavigate?.(view);
   await view.navigate({ url: origin });
-  await waitFor(view, "document.querySelectorAll('.xterm').length === 1 && __productionQA.creates === 1");
+  const terminalCount = options.terminalCount ?? 1;
+  await waitFor(view, `document.querySelectorAll('.xterm').length === ${terminalCount} && __productionQA.creates === ${terminalCount}`);
   await view.cdp.evaluate(`__productionQA.terminals = [...document.querySelectorAll('.xterm')];
     __productionQA.input = document.querySelector('.xterm-helper-textarea');
     __productionQA.input.focus(); __productionQA.removed = 0;

@@ -1,5 +1,6 @@
+import appIconUrl from "../../../src-tauri/icons/32x32.png";
 import { ChevronRight, Download, Gauge, History, PanelLeftClose, Pencil, Server, Settings, Settings2, SquareTerminal, X } from "lucide-react";
-import { useRef, useState, type CSSProperties, type PointerEvent, type ReactNode, type Ref } from "react";
+import { useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode, type Ref } from "react";
 import { PanelResizeHandle } from "../../panel/PanelResizeHandle";
 import { usePanelWidth } from "../../panel/usePanelWidth";
 import { ICON } from "../../theme/sizing";
@@ -96,7 +97,7 @@ export function Sidebar({
   usageOpen,
   historyOpen,
 }: SidebarProps) {
-  const groups = groupTabsByProject(tabs);
+  const groups = useMemo(() => groupTabsByProject(tabs), [tabs]);
   const { commitWidth, resetWidth, setWidth, width } = usePanelWidth(SIDEBAR_WIDTH);
   const sidebarStyle = { "--sidebar-width": `${width}px` } as CSSProperties;
   const platform = shortcutPlatform(document.documentElement.dataset.platform);
@@ -110,6 +111,9 @@ export function Sidebar({
     >
       <div className="sidebar-sessions">
         <div>
+          <div className="sidebar-brand"><img src={appIconUrl} alt="" aria-hidden="true" />
+            <div><strong>Belfry</strong><span>本地优先的工作台</span></div>
+          </div>
           <div className="sidebar-context">
             {workspaceControls}
             <button className="icon-button icon-button--sm sidebar-context__collapse" onClick={onCollapse}
@@ -118,7 +122,7 @@ export function Sidebar({
             </button>
           </div>
           <div className="sessions-head">
-            <span>会话</span>
+            <span>会话 <small>{tabs.length}</small></span>
             <NewSessionMenu
               agents={agents}
               shellProfiles={shellProfiles}
@@ -152,6 +156,7 @@ export function Sidebar({
       </div>
 
       <div className="sidebar-foot">
+        <span className="sidebar-foot__label">工具</span>
         <div className="sidebar-foot__actions">
           {showUpdaterTrigger(updaterState, updaterOpen) ? (
             <button
@@ -174,6 +179,7 @@ export function Sidebar({
             type="button"
           >
             <Settings aria-hidden="true" size={ICON.md} />
+            <span>设置</span>
           </button>
           <button
             aria-pressed={usageOpen}
@@ -183,6 +189,7 @@ export function Sidebar({
             type="button"
           >
             <Gauge aria-hidden="true" size={ICON.md} />
+            <span>用量</span>
           </button>
           <button
             aria-pressed={historyOpen}
@@ -192,6 +199,7 @@ export function Sidebar({
             type="button"
           >
             <History aria-hidden="true" size={ICON.md} />
+            <span>历史会话</span>
           </button>
         </div>
       </div>
@@ -255,6 +263,7 @@ function SessionGroup({
   onDragStart: (id: string, event: PointerEvent) => void;
   onToggleFold: (projectId: string) => void;
 }) {
+  const rowsId = useId();
   // 折叠时组里的会话全藏起来了，标题上留个点，不然看不出这组里有正在跑的东西。
   const dot = folded ? foldedDot(group.tabs, activeId) : null;
 
@@ -262,6 +271,7 @@ function SessionGroup({
     <div className={`session-group${folded ? " is-folded" : ""}`}>
       {showHeading ? <button
         aria-expanded={!folded}
+        aria-controls={rowsId}
         aria-label={`${group.project.name}，${group.tabs.length} 个会话${dot === "awaiting" ? "，有会话等待选择" : ""}`}
         className="session-group__head"
         onClick={() => onToggleFold(group.project.id)}
@@ -274,7 +284,9 @@ function SessionGroup({
         {folded ? <i className="session-group__count" aria-hidden="true">{group.tabs.length}</i> : null}
         {dot ? <i className={`session-group__dot session-group__dot--${dot}`} aria-hidden="true" /> : null}
       </button> : null}
-      {folded ? null : group.tabs.map((tab) => (
+      <div className="session-group__collapse" inert={folded} aria-hidden={folded} id={rowsId}>
+        <div className="session-group__rows">
+      {group.tabs.map((tab) => (
         <SessionRow
           active={tab.id === activeId}
           dragging={tab.id === draggingId}
@@ -289,6 +301,8 @@ function SessionGroup({
           tab={tab}
         />
       ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -322,6 +336,15 @@ function SessionRow({
   const [nameError, setNameError] = useState<string | null>(null);
   const [sshEditorOpen, setSshEditorOpen] = useState(false);
   const sshEditRef = useRef<HTMLButtonElement>(null);
+  const mainRef = useRef<HTMLButtonElement>(null);
+  const restoreAfterEdit = useRef(false);
+  const nameErrorId = useId();
+  useLayoutEffect(() => {
+    if (!editing && restoreAfterEdit.current) {
+      restoreAfterEdit.current = false;
+      mainRef.current?.focus({ preventScroll: true });
+    }
+  }, [editing]);
   // Escape 取消后 input 卸载会补发一次 blur，不挡一下会把"取消"变成"提交"。
   const dismissed = useRef(false);
   const Icon = tab.kind === "shell"
@@ -342,7 +365,7 @@ function SessionRow({
     setDraft(renamesAgent ? tab.agentName ?? "" : tab.title);
     setEditing(true);
   };
-  const commit = () => {
+  const commit = (restoreFocus = false) => {
     if (dismissed.current) return;
     if (renamesAgent) {
       const error = onRenameAgent(tab.id, draft);
@@ -355,11 +378,13 @@ function SessionRow({
     } else {
       onRename(tab.id, draft.trim() || null);
     }
+    restoreAfterEdit.current = restoreFocus;
     dismissed.current = true;
     setNameError(null);
     setEditing(false);
   };
   const cancel = () => {
+    restoreAfterEdit.current = true;
     dismissed.current = true;
     setNameError(null);
     setEditing(false);
@@ -381,6 +406,7 @@ function SessionRow({
           <Icon aria-hidden="true" size={ICON.sm} />
           <input
             aria-invalid={nameError !== null}
+            aria-describedby={nameError ? nameErrorId : undefined}
             aria-label={renamesAgent ? "协作名字" : "会话显示名"}
             autoFocus
             maxLength={renamesAgent ? 32 : 64}
@@ -389,15 +415,20 @@ function SessionRow({
               // 一边打字一边把上次的红消掉，否则改对了还挂着旧理由。
               if (nameError) setNameError(null);
             }}
-            onBlur={commit}
+            onBlur={() => commit()}
             onKeyDown={(event) => {
               // 中文 / 日文输入法按 Enter 是「确认候选词」，不是「提交」。不放过这一下的话，
               // 用中文起名时存进去的是拼音（shencha），编辑框还当场关掉——用户以为没保存成功，
               // 其实存了个莫名的英文名。Escape 同理：组字时那是「取消候选」，不该连框一起关。
               if (event.nativeEvent.isComposing) return;
-              if (event.key === "Enter") commit();
+              if (event.key === "Enter") {
+                event.preventDefault();
+                event.stopPropagation();
+                commit(true);
+              }
               if (event.key === "Escape") {
                 event.preventDefault();
+                event.stopPropagation();
                 cancel();
               }
             }}
@@ -418,6 +449,10 @@ function SessionRow({
           }}
           onDoubleClick={renamable ? startEditing : undefined}
           onPointerDown={(event) => onDragStart(tab.id, event)}
+          onKeyDown={(event) => {
+            if (renamable && event.key === "F2") { event.preventDefault(); startEditing(); }
+          }}
+          ref={mainRef}
           title={rowTitle(tab)}
           type="button"
         >
@@ -462,6 +497,7 @@ function SessionRow({
         </button>
       </div>
       </div>
+      {nameError ? <span className="session-row__name-error" id={nameErrorId} role="alert">{nameError}</span> : null}
       {sshEditorOpen && tab.sshTarget ? (
         <SshDialog
           initialRememberPassword={tab.sshTarget.rememberPassword}

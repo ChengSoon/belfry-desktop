@@ -41,6 +41,7 @@ export function ProviderSection({ onGuardChange }: { onGuardChange: (guarded: bo
     savingPath, saveFailure, savedPath, dirtyPaths, group, list, conflicts, submit,
     loadConfig, closeDraft, openDraft, copyConfig, saveConfigFile, revertConfigFile,
     setDraft, setFormNotice,
+    revealSecrets, enableSensitivePreview, hasApiKey,
   } = useProviderEditor(onGuardChange);
 
   const { nodes: nodeById, register: registerCardNode } = useProviderCardNodes();
@@ -107,6 +108,7 @@ export function ProviderSection({ onGuardChange }: { onGuardChange: (guarded: bo
                 kind={kind}
                 busy={providers.loading || savingPath !== null}
                 draft={draft}
+                hasApiKey={hasApiKey}
                 issue={issue}
                 onCancel={closeDraft}
                 onChange={(next) => {
@@ -124,6 +126,9 @@ export function ProviderSection({ onGuardChange }: { onGuardChange: (guarded: bo
               copiedPath={copiedPath}
               dirtyPaths={dirtyPaths}
               draft={draft}
+              hasApiKey={hasApiKey}
+              revealSecrets={revealSecrets}
+              onRevealSecrets={enableSensitivePreview}
               edits={edits}
               failure={configFailure}
               files={configFiles}
@@ -180,7 +185,7 @@ export function ProviderSection({ onGuardChange }: { onGuardChange: (guarded: bo
                     onSelect={() => void providers.select(kind, config.id)}
                     endpoint={config.baseUrl}
                     model={config.model || "沿用 CLI 模型"}
-                    apiKey={config.apiKey}
+                    hasApiKey={config.hasApiKey}
                     nodeRef={registerCardNode(config.id)}
                   />
                 ))}

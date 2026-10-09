@@ -25,18 +25,14 @@ pub fn request_exit(app: &AppHandle) -> bool {
 
 #[tauri::command]
 pub async fn terminal_exit(app: AppHandle, choice: String) -> Result<(), AppError> {
-    if choice == "cancel" {
+    if !exit_choice(&choice)? {
         app.state::<ExitState>()
             .asking
             .store(false, Ordering::Release);
         return Ok(());
     }
-    if choice != "retain" && choice != "terminate" {
-        return Err(AppError::invalid_argument("退出选择无效"));
-    }
     tauri::async_runtime::spawn_blocking(move || {
-        app.state::<TerminalRuntime>()
-            .prepare_exit(choice == "terminate")?;
+        app.state::<TerminalRuntime>().prepare_exit(false)?;
         app.state::<ExitState>()
             .approved
             .store(true, Ordering::Release);
@@ -84,4 +80,26 @@ pub async fn terminal_background_sessions(
 #[tauri::command]
 pub fn terminal_exit_pending(state: tauri::State<'_, ExitState>) -> bool {
     state.asking.load(Ordering::Acquire)
+}
+
+fn exit_choice(choice: &str) -> Result<bool, AppError> {
+    match choice {
+        "cancel" => Ok(false),
+        "confirm" | "retain" => Ok(true),
+        _ => Err(AppError::invalid_argument("退出选择无效")),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn exiting_only_confirms_or_cancels_and_never_accepts_termination() {
+        assert!(!exit_choice("cancel").unwrap());
+        assert!(exit_choice("confirm").unwrap());
+        assert!(exit_choice("retain").unwrap()); // 兼容旧 UI 的保留请求。
+        assert!(exit_choice("terminate").is_err());
+        assert!(exit_choice("unknown").is_err());
+    }
 }

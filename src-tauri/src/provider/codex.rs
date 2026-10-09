@@ -46,9 +46,9 @@ fn read_config_in(dir: &Path) -> Result<DocumentMut, AppError> {
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => String::new(),
         Err(err) => return Err(AppError::io(format!("读不了 {}：{err}", path.display()))),
     };
-    text.parse::<DocumentMut>().map_err(|err| {
+    text.parse::<DocumentMut>().map_err(|_| {
         AppError::invalid_argument(format!(
-            "{} 不是合法的 TOML，请先修好再切换 provider：{err}",
+            "{} 不是合法的 TOML，请先修好再切换 provider（解析详情已脱敏）",
             path.display()
         ))
     })
@@ -121,8 +121,11 @@ fn read_auth_in(dir: &Path) -> Result<Option<Value>, AppError> {
     let path = dir.join("auth.json");
     match std::fs::read_to_string(&path) {
         Ok(text) if text.trim().is_empty() => Ok(None),
-        Ok(text) => serde_json::from_str(&text).map(Some).map_err(|err| {
-            AppError::invalid_argument(format!("{} 不是合法的 JSON：{err}", path.display()))
+        Ok(text) => serde_json::from_str(&text).map(Some).map_err(|_| {
+            AppError::invalid_argument(format!(
+                "{} 不是合法的 JSON（解析详情已脱敏）",
+                path.display()
+            ))
         }),
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(None),
         Err(err) => Err(AppError::io(format!("读不了 {}：{err}", path.display()))),
@@ -150,18 +153,18 @@ pub(super) fn save_config_file(path: &Path, content: &str) -> Result<(), AppErro
     let auth = dir.join("auth.json");
 
     if path == config {
-        content.parse::<DocumentMut>().map_err(|err| {
+        content.parse::<DocumentMut>().map_err(|_| {
             AppError::invalid_argument(format!(
-                "{} 不是合法的 TOML，文件没有改动：{err}",
+                "{} 不是合法的 TOML，文件没有改动（解析详情已脱敏）",
                 config.display()
             ))
         })?;
         return write_atomic(&config, content, true);
     }
     if path == auth {
-        serde_json::from_str::<Value>(content).map_err(|err| {
+        serde_json::from_str::<Value>(content).map_err(|_| {
             AppError::invalid_argument(format!(
-                "{} 不是合法的 JSON，文件没有改动：{err}",
+                "{} 不是合法的 JSON，文件没有改动（解析详情已脱敏）",
                 auth.display()
             ))
         })?;
@@ -178,15 +181,27 @@ pub(super) fn save_config_file(path: &Path, content: &str) -> Result<(), AppErro
 pub(super) fn switch(
     provider: Option<&ProviderConfig>,
     official_auth: &mut Option<Value>,
+    persist_backup: impl FnMut(&Option<Value>) -> Result<(), AppError>,
 ) -> Result<(), AppError> {
-    switch_in(&codex_home()?, provider, official_auth)
+    switch_in_with_backup(&codex_home()?, provider, official_auth, persist_backup)
 }
 
+#[cfg(test)]
 fn switch_in(
     dir: &Path,
     provider: Option<&ProviderConfig>,
     official_auth: &mut Option<Value>,
 ) -> Result<(), AppError> {
+    switch_in_with_backup(dir, provider, official_auth, |_| Ok(()))
+}
+
+pub(super) fn switch_in_with_backup(
+    dir: &Path,
+    provider: Option<&ProviderConfig>,
+    official_auth: &mut Option<Value>,
+    mut persist_backup: impl FnMut(&Option<Value>) -> Result<(), AppError>,
+) -> Result<(), AppError> {
+    let previous_backup = official_auth.clone();
     let mut doc = read_config_in(dir)?;
     apply(&mut doc, provider)?;
 
@@ -198,6 +213,11 @@ fn switch_in(
                 && is_oauth(current)
             {
                 *official_auth = Some(current.clone());
+                // 持久化失败时，外部 CLI 文件完全不动。
+                if let Err(error) = persist_backup(official_auth) {
+                    *official_auth = previous_backup;
+                    return Err(error);
+                }
             }
             let mut map = Map::new();
             map.insert(
@@ -211,7 +231,10 @@ fn switch_in(
     };
 
     if let Some(next) = &next_auth {
-        write_auth_in(dir, next)?;
+        if let Err(error) = write_auth_in(dir, next) {
+            *official_auth = previous_backup;
+            return Err(error);
+        }
     }
 
     // config.toml 写失败就把 auth.json 退回去，否则会留下
@@ -226,12 +249,8 @@ fn switch_in(
                     let _ = std::fs::remove_file(dir.join("auth.json"));
                 }
             }
-            // 备份也一并退回，保持内存与磁盘一致。
-            if provider.is_some() {
-                *official_auth = None;
-            } else {
-                *official_auth = next_auth;
-            }
+            // 回滚内存备份；已加密保存的新 OAuth 仍可供下次恢复。
+            *official_auth = previous_backup;
         }
         return Err(error);
     }
@@ -582,6 +601,91 @@ experimental_bearer_token = "sk-from-bearer"
             "tokens": { "access_token": "at-secret", "refresh_token": "rt-secret" },
             "last_refresh": "2026-08-15T00:00:00Z"
         })
+    }
+
+    #[test]
+    fn backup_failure_never_overwrites_live_oauth_or_config() {
+        let dir = sandbox("backup-denied");
+        let auth = oauth_auth().to_string();
+        std::fs::write(dir.join("config.toml"), LIVE).unwrap();
+        std::fs::write(dir.join("auth.json"), &auth).unwrap();
+        let previous = Some(serde_json::json!({"tokens": {"access_token": "older-synthetic"}}));
+        let mut backup = previous.clone();
+        let mut called = false;
+        let result = switch_in_with_backup(&dir, Some(&provider("test")), &mut backup, |pending| {
+            called = true;
+            assert_eq!(pending, &Some(oauth_auth()));
+            assert_eq!(
+                std::fs::read_to_string(dir.join("auth.json")).unwrap(),
+                auth
+            );
+            assert_eq!(
+                std::fs::read_to_string(dir.join("config.toml")).unwrap(),
+                LIVE
+            );
+            Err(AppError::io("synthetic secure-store failure"))
+        });
+        assert!(result.is_err());
+        assert!(called);
+        assert_eq!(backup, previous);
+        assert_eq!(
+            std::fs::read_to_string(dir.join("auth.json")).unwrap(),
+            auth
+        );
+        assert_eq!(
+            std::fs::read_to_string(dir.join("config.toml")).unwrap(),
+            LIVE
+        );
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn oauth_is_persisted_before_external_files_change() {
+        let dir = sandbox("backup-order");
+        std::fs::write(dir.join("config.toml"), LIVE).unwrap();
+        std::fs::write(dir.join("auth.json"), oauth_auth().to_string()).unwrap();
+        let mut backup = None;
+        let mut durable = None;
+        switch_in_with_backup(&dir, Some(&provider("test")), &mut backup, |pending| {
+            assert_eq!(read_auth_in(&dir).unwrap(), Some(oauth_auth()));
+            assert_eq!(
+                std::fs::read_to_string(dir.join("config.toml")).unwrap(),
+                LIVE
+            );
+            durable = pending.clone();
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(durable, Some(oauth_auth()));
+        assert_eq!(
+            read_auth_in(&dir).unwrap().unwrap()["OPENAI_API_KEY"],
+            "sk-new"
+        );
+        switch_in(&dir, None, &mut backup).unwrap();
+        assert_eq!(read_auth_in(&dir).unwrap(), durable);
+        assert!(backup.is_none());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn config_commit_failure_restores_auth_after_a_durable_backup() {
+        let dir = sandbox("backup-config-failure");
+        std::fs::write(dir.join("config.toml"), LIVE).unwrap();
+        std::fs::write(dir.join("auth.json"), oauth_auth().to_string()).unwrap();
+        let mut backup = None;
+        let mut durable = None;
+        let result = switch_in_with_backup(&dir, Some(&provider("test")), &mut backup, |pending| {
+            durable = pending.clone();
+            // Inject failure after successful reads, not before the switch begins.
+            std::fs::remove_file(dir.join("config.toml")).unwrap();
+            std::fs::create_dir(dir.join("config.toml")).unwrap();
+            Ok(())
+        });
+        assert!(result.is_err());
+        assert_eq!(durable, Some(oauth_auth()));
+        assert_eq!(read_auth_in(&dir).unwrap(), durable);
+        assert!(backup.is_none());
+        std::fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]

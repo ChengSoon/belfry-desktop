@@ -12,9 +12,9 @@
 .session-stats-model > span { color: var(--text-muted); }
 .session-stats-model strong { font-size: var(--fs-sm); font-weight: 500; overflow-wrap: anywhere; }
 .session-stats-tokens { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; }
-.session-stats-tokens > div { padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.session-stats-tokens > div { padding: 10px 12px; border: 0; border-radius: var(--radius-sm); background: var(--surface); }
 .session-stats-tokens dt { margin-bottom: 5px; color: var(--text-muted); font-size: var(--fs-xs); }
-.session-stats-tokens dd { margin: 0; font-size: var(--fs-display); font-weight: 500; font-variant-numeric: tabular-nums; }
+.session-stats-tokens dd { margin: 0; font-family: var(--font-mono); font-size: var(--fs-display); font-weight: 500; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .session-stats-unavailable { color: var(--text-muted); font-size: var(--fs-xs); font-weight: 400; }
 .session-stats-tools h4 { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 8px; font-size: var(--fs-xs); font-weight: 500; }
 .session-stats-tools h4 > span { color: var(--text-muted); font-weight: 400; }

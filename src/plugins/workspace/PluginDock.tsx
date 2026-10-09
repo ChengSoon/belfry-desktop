@@ -36,7 +36,8 @@ export function PluginDock({ visible, onClose }: { visible: boolean; onClose: ()
       <button className="icon-button icon-button--sm" type="button" aria-label="刷新插件视图" disabled={!active} onClick={refresh}><RefreshCw size={14} /></button>
       <button className="icon-button icon-button--sm" type="button" aria-label="关闭工作面板" onClick={onClose}><PanelRightClose size={16} /></button>
     </header>
-    {error ? <p className="plugin-dock-message" role="alert">{error}</p> : null}
+    {active ? <div className="plugin-dock-context"><span>插件视图</span><code title={active.pluginId}>{active.pluginId}</code></div> : null}
+    {error ? <div className="plugin-dock-message" role="alert"><span>{error}</span><button type="button" onClick={refresh}>重新加载视图</button></div> : null}
     {!active ? <div className="plugin-dock-empty"><Plug size={24} /><p>没有可用的插件视图</p><span>在插件页面安装并启用提供工作区视图的插件。</span></div> : null}
     {surfaces.map((surface) => <iframe key={`${surface.key}:${surface.pid}:${surface.revision}`} title={surface.title} src={surface.url}
       className="plugin-dock-frame" hidden={!visible || surface.key !== key} sandbox="allow-scripts allow-same-origin allow-forms" referrerPolicy="no-referrer" />)}

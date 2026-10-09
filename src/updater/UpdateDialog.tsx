@@ -41,7 +41,7 @@ export function UpdateDialog({ state, onCheck, onInstall, onClose }: UpdateDialo
           </div>
         </header>
 
-        <UpdateContent state={state} />
+        <div className="updater-dialog__body" aria-live="polite" aria-atomic="true"><UpdateContent state={state} /></div>
         <DialogActions
           closeRef={closeRef}
           onCheck={onCheck}
@@ -67,7 +67,7 @@ function UpdateContent({ state }: { state: UpdaterState }) {
   if (state.status === "checking") return <p className="updater-dialog__message">正在连接更新服务器…</p>;
   if (state.status === "current") return <p className="updater-dialog__message">当前已是最新版本。</p>;
   if (state.status === "error") {
-    return <p className="updater-dialog__message updater-dialog__message--error">{state.error}</p>;
+    return <p className="updater-dialog__message updater-dialog__message--error" role="alert">{state.error}<small>可再次检查，或关闭后稍后重试。</small></p>;
   }
   if (state.status === "downloading" || state.status === "installing") {
     return <DownloadProgress state={state} />;
@@ -76,7 +76,7 @@ function UpdateContent({ state }: { state: UpdaterState }) {
     return (
       <div className="updater-dialog__release">
         <span>版本说明</span>
-        <p>{state.notes ?? "此版本包含体验优化和问题修复。"}</p>
+        <p>{state.notes ?? "该版本未提供版本说明。"}</p>
       </div>
     );
   }

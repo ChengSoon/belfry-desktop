@@ -4,7 +4,7 @@ export interface ProviderConfig {
   id: string;
   name: string;
   baseUrl: string;
-  apiKey: string;
+  hasApiKey: boolean;
   /** 空串表示不覆盖模型，沿用 CLI 自己的默认。 */
   model: string;
   createdAt: number;
@@ -36,7 +36,9 @@ export interface ProviderDraft {
   id: string | null;
   name: string;
   baseUrl: string;
+  /** 仅新输入的密钥；编辑已有配置时始终为空，不接收掩码占位值。 */
   apiKey: string;
+  apiKeyAction: "keep" | "replace" | "clear";
   model: string;
 }
 
@@ -51,6 +53,7 @@ export const EMPTY_DRAFT: ProviderDraft = {
   name: "",
   baseUrl: "",
   apiKey: "",
+  apiKeyAction: "clear",
   model: "",
 };
 
@@ -65,7 +68,8 @@ export function toDraft(config: ProviderConfig): ProviderDraft {
     id: config.id,
     name: config.name,
     baseUrl: config.baseUrl,
-    apiKey: config.apiKey,
+    apiKey: "",
+    apiKeyAction: "keep",
     model: config.model,
   };
 }

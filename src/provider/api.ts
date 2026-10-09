@@ -20,11 +20,11 @@ export function switchProvider(kind: AgentKind, id: string | null) {
 }
 
 /** 读取配置预览；传入草稿时会先在内存中套用 Provider，不写入磁盘。 */
-export function configPreview(kind: AgentKind, draft?: ProviderDraft) {
+export function configPreview(kind: AgentKind, draft?: ProviderDraft, revealSecrets = false) {
   if (draft) {
-    return invoke<ConfigFilePreview[]>("provider_config_preview_for_draft", { kind, draft });
+    return invoke<ConfigFilePreview[]>("provider_config_preview_for_draft", { kind, draft, revealSecrets });
   }
-  return invoke<ConfigFilePreview[]>("provider_config_preview", { kind });
+  return invoke<ConfigFilePreview[]>("provider_config_preview", { kind, revealSecrets });
 }
 
 /** 保存编辑后的配置文件全文。服务端先校验格式，失败时原文件不动。 */
@@ -38,6 +38,6 @@ export function syncLiveProvider(kind: AgentKind) {
 }
 
 /** 读取草稿端点公布的模型，不保存配置。 */
-export function fetchProviderModels(kind: AgentKind, baseUrl: string, apiKey: string) {
-  return invoke<string[]>("provider_models", { kind, baseUrl, apiKey });
+export function fetchProviderModels(kind: AgentKind, draft: ProviderDraft) {
+  return invoke<string[]>("provider_models", { kind, draft });
 }

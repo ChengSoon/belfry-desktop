@@ -58,6 +58,7 @@ export function FilePreviewPane({
       <header className="file-preview__head">
         <FileSearch aria-hidden="true" size={ICON.md} />
         <h2>文件预览</h2>
+        <span className="file-preview__readonly">只读</span>
         {onGit ? <button className="icon-button icon-button--sm" onClick={onGit} title="查看 Git 变更" aria-label="查看 Git 变更" type="button">
           <GitBranch aria-hidden="true" size={ICON.sm} />
         </button> : null}
@@ -98,7 +99,7 @@ export function FilePreviewPane({
                 <input aria-label="筛选当前目录" onChange={(event) => setQuery(event.target.value)} placeholder="筛选当前目录" value={query} />
               </label>
               {preview.loadingDirectory ? <p className="file-preview__hint">正在读取…</p> : null}
-              {!preview.loadingDirectory && entries.length === 0 ? <p className="file-preview__hint">目录为空</p> : null}
+              {!preview.loadingDirectory && entries.length === 0 ? <p className="file-preview__hint" role="status">{query ? "没有匹配的文件，可清除筛选后重试。" : "目录为空"}</p> : null}
               <ul className="file-preview__entries">
                 {entries.map((entry) => <EntryRow entry={entry} key={entry.relativePath} onOpenDirectory={preview.openDirectory} onOpenFile={preview.openFile} selected={preview.selectedPath === entry.relativePath} />)}
               </ul>
@@ -112,7 +113,9 @@ export function FilePreviewPane({
               stale={preview.stale}
             />
           </div>
-          {preview.failure ? <div className="file-preview__error" role="alert"><AlertTriangle aria-hidden="true" size={ICON.sm} /><span>{preview.failure}</span><button onClick={preview.clearFailure} title="关闭错误" type="button"><X aria-hidden="true" size={ICON.xs} /></button></div> : null}
+          {preview.failure ? <div className="file-preview__error" role="alert"><AlertTriangle aria-hidden="true" size={ICON.sm} />
+            <span>{preview.failure}</span><button className="file-preview__retry" disabled={preview.loadingDirectory} onClick={preview.refresh} type="button">刷新目录</button>
+            <button onClick={preview.clearFailure} aria-label="关闭错误" title="关闭错误" type="button"><X aria-hidden="true" size={ICON.xs} /></button></div> : null}
         </>
       )}
 

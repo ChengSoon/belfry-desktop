@@ -48,7 +48,7 @@ describe("PromptQueueRuntime", () => {
     runtime.sync([tab()], targets(command));
 
     expect(command.sendText).toHaveBeenCalledTimes(2);
-    expect(command.sendText).toHaveBeenLastCalledWith("second");
+    expect(command.sendText).toHaveBeenLastCalledWith("second", expect.objectContaining({ background: true }));
     expect(runtime.items).toEqual([]);
   });
 
@@ -61,35 +61,37 @@ describe("PromptQueueRuntime", () => {
     expect(runtime.items).toHaveLength(1);
 
     runtime.sync([tab()], targets(command));
-    expect(command.sendText).toHaveBeenCalledWith("wait for target");
+    expect(command.sendText).toHaveBeenCalledWith("wait for target", expect.any(Object));
     expect(runtime.items).toEqual([]);
   });
 
-  it("restores an unconfirmed in-flight prompt when the terminal restarts", () => {
+  it("restores a definitely unwritten prompt when the terminal restarts", () => {
     const runtime = new PromptQueueRuntime();
     const firstTarget = target();
     const nextTarget = target();
 
     runtime.submit([tab()], targets(firstTarget), "agent-1", "survive restart");
+    vi.mocked(firstTarget.sendText).mock.calls[0][1]?.onResult?.("not-written");
     runtime.sync([tab({ phase: "creating" })], targets(firstTarget));
     expect(runtime.items.map((item) => item.text)).toEqual(["survive restart"]);
 
     runtime.sync([tab()], targets(nextTarget));
     expect(nextTarget.sendText).toHaveBeenCalledTimes(1);
-    expect(nextTarget.sendText).toHaveBeenCalledWith("survive restart");
+    expect(nextTarget.sendText).toHaveBeenCalledWith("survive restart", expect.any(Object));
   });
 
-  it("restores an in-flight prompt when xterm remounts without a phase transition", () => {
+  it("restores a definitely unwritten prompt when xterm remounts without a phase transition", () => {
     const runtime = new PromptQueueRuntime();
     const firstTarget = target();
     const nextTarget = target();
 
     runtime.submit([tab()], targets(firstTarget), "agent-1", "target replaced");
+    vi.mocked(firstTarget.sendText).mock.calls[0][1]?.onResult?.("not-written");
     runtime.sync([tab()], targets());
     expect(runtime.items.map((item) => item.text)).toEqual(["target replaced"]);
 
     runtime.sync([tab()], targets(nextTarget));
-    expect(nextTarget.sendText).toHaveBeenCalledWith("target replaced");
+    expect(nextTarget.sendText).toHaveBeenCalledWith("target replaced", expect.any(Object));
   });
 
   it("does not duplicate a prompt when the Agent is already busy during a target remount", () => {
@@ -139,7 +141,7 @@ describe("PromptQueueRuntime", () => {
     expect(runtime.items).toHaveLength(1);
 
     runtime.sync([tab()], targets(command));
-    expect(command.sendText).toHaveBeenCalledExactlyOnceWith("待处理任务");
+    expect(command.sendText).toHaveBeenCalledExactlyOnceWith("待处理任务", expect.any(Object));
     expect(runtime.items).toEqual([]);
   });
 });

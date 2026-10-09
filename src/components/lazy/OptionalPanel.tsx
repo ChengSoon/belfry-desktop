@@ -1,4 +1,4 @@
-import { Component, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Component, lazy, Suspense, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import panelShell from "../../panel/panelShell.css?inline";
 import settingsShell from "../../settings/settingsShell.css?inline";
 import { createPanelImport, type PanelModule } from "./panelImport";
@@ -12,14 +12,30 @@ interface PanelOptions<Props> extends PanelPresentation {
 
 export function createOptionalPanel<Props extends { onClose: () => void }>(options: PanelOptions<Props>) {
   const load = createPanelImport(options.load, options.exportName);
+  // Reuse the resolved lazy payload across close/reopen. A fresh lazy object would
+  // suspend again even when import() is cached, flashing the loading shell.
+  const freshPanel = () => lazy(async () => {
+    try { return await load(); }
+    catch (error) {
+      // Do not retain a rejected React.lazy payload after a recoverable import
+      // failure. Reopen and explicit retry must both be able to load it again.
+      CachedPanel = freshPanel();
+      throw error;
+    }
+  });
+  let CachedPanel = freshPanel();
   return function OptionalPanel(props: Props) {
     const [attempt, setAttempt] = useState(0);
-    // React.lazy 会缓存拒绝结果；每次显式重试必须建立新的 lazy 实例。
-    const Panel = useMemo(() => lazy(load), [attempt]);
+    const [Panel, setPanel] = useState(() => CachedPanel);
+    const retry = () => {
+      CachedPanel = freshPanel();
+      setPanel(() => CachedPanel);
+      setAttempt((value) => value + 1);
+    };
     const restoreFocus = usePanelFocusReturn();
     const fallback = (failed = false, error?: unknown) => <PanelLoadFallback {...options} failed={failed}
       recoveryRequired={error instanceof PanelRecoveryRequired}
-      onClose={props.onClose} onUnmount={restoreFocus} onRetry={() => setAttempt((value) => value + 1)} />;
+      onClose={props.onClose} onUnmount={restoreFocus} onRetry={retry} />;
     return <>
       <PanelErrorBoundary key={attempt} fallback={(error) => fallback(true, error)}>
         <Suspense fallback={fallback()}><Panel {...props} /></Suspense>

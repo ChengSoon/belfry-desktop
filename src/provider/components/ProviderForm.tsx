@@ -9,6 +9,7 @@ interface ProviderFormProps {
   busy: boolean;
   kind: AgentKind;
   draft: ProviderDraft;
+  hasApiKey?: boolean;
   issue: DraftIssue | null;
   onCancel: () => void;
   onChange: (draft: ProviderDraft) => void;
@@ -29,7 +30,7 @@ function FormField({ name, label, hint, children, issue }: {
   </div>;
 }
 
-export function ProviderForm({ kind, busy, draft, issue, onCancel, onChange, onSubmit }: ProviderFormProps) {
+export function ProviderForm({ kind, busy, draft, hasApiKey = false, issue, onCancel, onChange, onSubmit }: ProviderFormProps) {
   const [showKey, setShowKey] = useState(false);
   const field = (key: FieldName) => ({
     id: `provider-${key}`, value: draft[key], disabled: busy,
@@ -46,9 +47,22 @@ export function ProviderForm({ kind, busy, draft, issue, onCancel, onChange, onS
       <FormField name="baseUrl" label="Base URL" hint="填写服务商提供的完整 API 基础地址，保留要求的路径。" issue={issue}>
         <input placeholder="https://api.example.com" spellCheck={false} autoCapitalize="none" {...field("baseUrl")} />
       </FormField>
-      <FormField name="apiKey" label="API Key" hint="填写该端点的访问密钥；无需密钥的服务可留空。" issue={issue}>
+      <div className="provider-form__row">
+        <label htmlFor="provider-apiKeyAction">密钥操作（{hasApiKey ? "已配置密钥" : "未配置密钥"}）</label>
+        <select id="provider-apiKeyAction" value={draft.apiKeyAction}
+          onChange={(event) => {
+            setShowKey(false);
+            onChange({ ...draft, apiKey: "", apiKeyAction: event.target.value as ProviderDraft["apiKeyAction"] });
+          }}>
+          <option value="keep" disabled={draft.id === null}>保留现有密钥</option>
+          <option value="replace">替换密钥</option>
+          <option value="clear">清除密钥（无需认证）</option>
+        </select>
+      </div>
+      <FormField name="apiKey" label="API Key" hint="仅输入新密钥，输入即选择替换。留空不会清除已保存的密钥，请显式选择清除。更改 Base URL 后须替换或清除。" issue={issue}>
         <div className="provider-form__secret">
-          <input placeholder="输入 API Key" spellCheck={false} autoComplete="off" type={showKey ? "text" : "password"} {...field("apiKey")} />
+          <input placeholder="输入新 API Key" spellCheck={false} autoComplete="off" type={showKey ? "text" : "password"} {...field("apiKey")}
+            onChange={(event) => onChange({ ...draft, apiKey: event.target.value, apiKeyAction: "replace" })} />
           <button type="button" onClick={() => setShowKey(!showKey)} aria-label={showKey ? "隐藏 API Key" : "显示 API Key"} aria-pressed={showKey}>
             {showKey ? <EyeOff size={16} /> : <Eye size={16} />}
           </button>
@@ -60,7 +74,7 @@ export function ProviderForm({ kind, busy, draft, issue, onCancel, onChange, onS
       <ProviderModelField kind={kind} draft={draft} busy={busy} onChange={onChange} />
     </fieldset>
     <div className="provider-form__footer">
-      <p className="provider-form__hint">密钥以明文保存在本机配置中，仅本人可读。</p>
+      <p className="provider-form__hint">Belfry 加密保存密钥，由系统凭据存储保护；外部 CLI 配置仍可能以明文保存密钥。</p>
       <div className="modal__actions">
         <button disabled={busy} onClick={onCancel} type="button">取消</button>
         <button className="modal__primary" disabled={busy} type="submit">{busy ? "保存中…" : "保存配置"}</button>

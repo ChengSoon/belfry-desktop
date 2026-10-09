@@ -17,12 +17,12 @@ export function ProviderModelField({ kind, draft, busy, onChange }: {
     version.current += 1;
     setModels(null); setError(null); setLoading(false);
     return () => { version.current += 1; };
-  }, [kind, draft.baseUrl, draft.apiKey]);
+  }, [kind, draft.id, draft.baseUrl, draft.apiKey, draft.apiKeyAction]);
   const fetchModels = async () => {
     const request = ++version.current;
     setLoading(true); setError(null); setModels(null);
     try {
-      const result = await fetchProviderModels(kind, draft.baseUrl, draft.apiKey);
+      const result = await fetchProviderModels(kind, draft);
       if (request === version.current) setModels(result);
     } catch (failure) {
       if (request === version.current) setError(toAppFailure(failure).message);

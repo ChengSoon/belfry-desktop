@@ -8,7 +8,7 @@ import { type DraftIssue, validateDraft } from "../validate";
 
 export function useProviderEditor(onGuardChange: (guarded: boolean) => void) {
   const providers = useProviders(true);
-  const [kind, setKind] = useState<AgentKind>("claude");
+  const [kind, updateKind] = useState<AgentKind>("claude");
   const [draft, setDraft] = useState<ProviderDraft | null>(null);
   const [issue, setIssue] = useState<DraftIssue | null>(null);
   const [pendingRemove, setPendingRemove] = useState<ProviderConfig | null>(null);
@@ -18,6 +18,14 @@ export function useProviderEditor(onGuardChange: (guarded: boolean) => void) {
   const [copiedPath, setCopiedPath] = useState<string | null>(null);
   const [formNotice, setFormNotice] = useState<string | null>(null);
   const configRequest = useRef(0);
+  const [revealSecrets, setRevealSecrets] = useState(false);
+  const revealAllowed = useRef(false);
+  const editorSession = useRef(0);
+  useEffect(() => () => {
+    revealAllowed.current = false;
+    configRequest.current += 1;
+    editorSession.current += 1;
+  }, []);
   /** 正在编辑的文件原文，按 agent 分开存。
       path → 编辑中的内容。与 configFiles 里的原文不一致才算脏。 */
   const [editsByKind, setEditsByKind] = useState<Record<AgentKind, Record<string, string>>>({
@@ -77,10 +85,11 @@ export function useProviderEditor(onGuardChange: (guarded: boolean) => void) {
   };
 
   const loadConfig = useCallback((agentKind: AgentKind, previewDraft?: ProviderDraft) => {
+    if (!revealAllowed.current) return;
     const request = ++configRequest.current;
     setConfigLoading(true);
     setConfigFailure(null);
-    configPreview(agentKind, previewDraft)
+    configPreview(agentKind, previewDraft, true)
       .then((files) => {
         if (request === configRequest.current) setConfigFiles(files);
       })
@@ -93,14 +102,19 @@ export function useProviderEditor(onGuardChange: (guarded: boolean) => void) {
   }, []);
 
   const clearConfigEditor = () => {
+    revealAllowed.current = false;
+    setRevealSecrets(false);
+    editorSession.current += 1;
+    providers.dismissFailure();
     configRequest.current += 1;
     setConfigFiles(null);
     setConfigLoading(false);
     setConfigFailure(null);
     setSaveFailure(null);
+    setSavingPath(null);
     setCopiedPath(null);
     setSavedPath(null);
-    setEditsByKind((all) => ({ ...all, [kind]: {} }));
+    setEditsByKind({ claude: {}, codex: {}, pi: {} });
   };
 
   const closeDraft = () => {
@@ -118,10 +132,20 @@ export function useProviderEditor(onGuardChange: (guarded: boolean) => void) {
     clearConfigEditor();
   };
 
+  const setKind = (next: AgentKind) => {
+    closeDraft();
+    updateKind(next);
+  };
+  const enableSensitivePreview = () => {
+    if (!draft) return;
+    revealAllowed.current = true;
+    setRevealSecrets(true);
+  };
+
   // 表单是草稿的主来源，输入变化后重新生成高级区域的内存预览。
   const draftPreviewKey = draft ? JSON.stringify(draft) : null;
   useEffect(() => {
-    if (!draft) return;
+    if (!draft || !revealSecrets || hasDirty) return;
     const previewDraft = { ...draft };
     configRequest.current += 1;
     setConfigFiles(null);
@@ -133,13 +157,19 @@ export function useProviderEditor(onGuardChange: (guarded: boolean) => void) {
     const timer = window.setTimeout(() => {
       loadConfig(kind, previewDraft);
     }, 180);
-    return () => window.clearTimeout(timer);
-  }, [draftPreviewKey, kind, loadConfig]);
+    return () => {
+      window.clearTimeout(timer);
+      configRequest.current += 1;
+    };
+  }, [draftPreviewKey, kind, loadConfig, revealSecrets, hasDirty]);
 
   const copyConfig = async (file: ConfigFilePreview) => {
+    if (!revealAllowed.current) return;
+    const session = editorSession.current;
     const text = edits[file.path] ?? file.content;
     try {
       await navigator.clipboard.writeText(text);
+      if (session !== editorSession.current) return;
       setCopiedPath(file.path);
       window.setTimeout(() => {
         setCopiedPath((current) => (current === file.path ? null : current));
@@ -150,14 +180,18 @@ export function useProviderEditor(onGuardChange: (guarded: boolean) => void) {
   };
 
   const saveConfigFile = async (file: ConfigFilePreview) => {
+    if (!revealAllowed.current) return;
+    const session = editorSession.current;
     const next = edits[file.path];
     if (next === undefined) return;
     setSavingPath(file.path);
     setSaveFailure(null);
     try {
       await configSave(kind, file.path, next);
+      if (session !== editorSession.current) return;
       // 文件已经改了，把当前生效的 live 配置同步进库，列表才能看到刚配置的 provider。
       const synced = await providers.syncLive(kind);
+      if (session !== editorSession.current) return;
       if (!synced) {
         throw new Error("配置文件已保存，但 provider 列表同步失败，请重新读取");
       }
@@ -183,9 +217,9 @@ export function useProviderEditor(onGuardChange: (guarded: boolean) => void) {
         setSavedPath((current) => (current === file.path ? null : current));
       }, 1500);
     } catch (error) {
-      setSaveFailure(failureLabel(toAppFailure(error)));
+      if (session === editorSession.current) setSaveFailure(failureLabel(toAppFailure(error)));
     } finally {
-      setSavingPath(null);
+      if (session === editorSession.current) setSavingPath(null);
     }
   };
 
@@ -204,5 +238,7 @@ export function useProviderEditor(onGuardChange: (guarded: boolean) => void) {
     savingPath, saveFailure, savedPath, dirtyPaths, group, list, conflicts, submit,
     loadConfig, closeDraft, openDraft, copyConfig, saveConfigFile, revertConfigFile,
     setDraft, setFormNotice,
+    revealSecrets, enableSensitivePreview,
+    hasApiKey: list.find((item) => item.id === draft?.id)?.hasApiKey ?? false,
   };
 }

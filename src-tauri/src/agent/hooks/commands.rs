@@ -30,7 +30,10 @@ pub async fn agent_hooks_preview(
         }
         let command = if enabled {
             Some(config::command(
-                &std::env::current_exe().map_err(|error| AppError::io(error.to_string()))?,
+                &config::executable_path(
+                    &std::env::current_exe().map_err(|error| AppError::io(error.to_string()))?,
+                    cfg!(windows),
+                )?,
                 kind,
                 cfg!(windows),
             )?)

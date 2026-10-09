@@ -1,3 +1,4 @@
+import { Presence } from "../../components/motion/Presence";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { RefreshCw, ShieldCheck } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -85,9 +86,11 @@ export function RegistrySection({ client = defaultClient }: { client?: HarnessRe
           <div className="harness-registry__actions"><button disabled title="产品安装入口待信任链" type="button">更新</button><button disabled={!plugin.enabled || !!busy} onClick={() => setPending({ action: "disable", plugin })} type="button">禁用</button><button disabled={!!busy} onClick={() => setPending({ action: "uninstall", plugin })} type="button">卸载</button></div>
         </li>;
       })}</ul> : null}
+      <Presence open={!!pending}>
       {pending ? <ConfirmDialog title={pending.action === "disable" ? "禁用 Harness" : "卸载 Harness"}
         body={confirmText(pending.action, pending.plugin.pluginId)} confirmLabel={pending.action === "disable" ? "禁用" : "卸载"}
         onCancel={() => setPending(null)} onConfirm={() => { setPending(null); void mutate(pending.action, pending.plugin); }} /> : null}
+      </Presence>
     </section>
   );
 }

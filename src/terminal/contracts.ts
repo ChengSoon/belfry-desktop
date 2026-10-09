@@ -142,11 +142,20 @@ export interface TerminalSession {
   connectionId?: string | null;
 }
 
+export type PromptDeliveryResult = "submitted" | "cancelled" | "failed" | "detached" | "not-written";
+
+export interface PromptDeliveryOptions {
+  background?: boolean;
+  onResult?: (result: PromptDeliveryResult) => void;
+}
+
 /** 可由 Composer 等宿主 UI 驱动的最小终端输入面。 */
 export interface TerminalCommandTarget {
   focus: () => void;
   /** 通过 xterm 的 paste + 用户回车通道提交；PTY 未就绪时返回 false。 */
-  sendText: (text: string) => boolean;
+  sendText: (text: string, options?: PromptDeliveryOptions) => boolean;
+  notifyInputIssue?: (message: string) => void;
+  getSessionId?: () => string | null;
 }
 
 export type TerminalStreamEvent =

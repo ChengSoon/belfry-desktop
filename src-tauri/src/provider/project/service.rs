@@ -36,7 +36,7 @@ pub(super) fn select(
             .find(|group| group.kind == selection.kind)
             .and_then(|group| group.providers.iter().find(|provider| provider.id == *id))
             .ok_or_else(|| AppError::not_found("Provider 已不存在，请刷新列表后重新选择"))?;
-        if provider.api_key.trim().is_empty() {
+        if !provider.has_api_key {
             return Err(AppError::invalid_argument(
                 "请先为此 Provider 配置独立 API Key",
             ));
@@ -68,13 +68,15 @@ pub(crate) fn prepare(
     let Some(id) = choices.provider(&root, kind) else {
         return Ok(());
     };
-    let providers = store::load(app)?.agent(kind);
-    let provider = providers.find(id).ok_or_else(|| {
-        AppError::not_found(
+    let _guard = store::lock()?;
+    let store = store::load(app)?;
+    if store.agent(kind).find(id).is_none() {
+        return Err(AppError::not_found(
             "当前项目的 Provider 已被删除。请在项目 Provider 设置中重新选择或改为跟随全局",
-        )
-    })?;
-    request.launch_overlay = launch::prepare(&base, kind, provider)?;
+        ));
+    }
+    let provider = store.resolve_provider(app, kind, id)?;
+    request.launch_overlay = launch::prepare(&base, kind, &provider)?;
     Ok(())
 }
 
@@ -120,7 +122,7 @@ fn build_agent(group: &AgentProviderGroup, selected: Option<&str>) -> ProjectAge
                 name: provider.name.clone(),
                 base_url: provider.base_url.clone(),
                 model: provider.model.clone(),
-                configured: !provider.api_key.trim().is_empty(),
+                configured: provider.has_api_key,
             })
             .collect(),
     }
@@ -158,7 +160,9 @@ mod tests {
         let provider = super::super::tests::provider("test");
         let group = AgentProviderGroup {
             kind: AgentKind::Codex,
-            providers: vec![provider],
+            providers: vec![
+                super::super::super::contracts::ProviderSummary::from_config(&provider, true),
+            ],
             current_id: Some("test".into()),
         };
         let selected = build_agent(&group, Some("test"));

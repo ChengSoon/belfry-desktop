@@ -203,19 +203,15 @@
     letter-spacing, and border-radius are forbidden in component CSS
     and TSX (enforced by scripts/check-style-tokens.mjs).
   */
-  /*
-    Apple-inspired fixed-radius ladder for dense desktop UI. Compact controls
-    remain rounded rectangles; capsules and circles use the explicit shape
-    tokens below. The regular two-pixel rhythm keeps adjacent levels legible
-    and makes concentric nesting predictable.
-  */
+  /* Shared names match Belfry's Graphite radius ladder. Loading a plugin
+     surface must not change the workbench's control geometry. */
   --radius-3xs: 4px;
   --radius-2xs: 6px;
-  --radius-xs: 8px;
-  --radius-sm: 10px;
-  --radius-md: 12px;
-  --radius-md-plus: 14px;
-  --radius-lg: 16px;
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-md-plus: 10px;
+  --radius-lg: 10px;
   --radius-lg-plus: 18px;
   --radius-xl: 20px;
   --radius-2xl: 24px;

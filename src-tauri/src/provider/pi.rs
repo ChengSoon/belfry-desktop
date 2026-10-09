@@ -23,7 +23,8 @@ const TABLE: &str = "belfry";
 const API: &str = "openai-completions";
 
 fn config_dir() -> Result<PathBuf, AppError> {
-    crate::history::scan::pi_config_dir().ok_or_else(|| AppError::not_found("找不到当前用户的 home 目录"))
+    crate::history::scan::pi_config_dir()
+        .ok_or_else(|| AppError::not_found("找不到当前用户的 home 目录"))
 }
 
 pub(super) fn models_path() -> Result<PathBuf, AppError> {
@@ -54,9 +55,9 @@ fn read_json(path: &Path) -> Result<Value, AppError> {
     if text.trim().is_empty() {
         return Ok(Value::Object(Map::new()));
     }
-    serde_json::from_str(&text).map_err(|err| {
+    serde_json::from_str(&text).map_err(|_| {
         AppError::invalid_argument(format!(
-            "{} 不是合法的 JSON，请先修好再切换 provider：{err}",
+            "{} 不是合法的 JSON，请先修好再切换 provider（解析详情已脱敏）",
             path.display()
         ))
     })
@@ -81,9 +82,9 @@ pub(super) fn apply(
 
     let Some(provider) = provider else {
         providers.remove(TABLE);
-        let settings_root = settings.as_object_mut().ok_or_else(|| {
-            AppError::invalid_argument("settings.json 的顶层必须是一个对象")
-        })?;
+        let settings_root = settings
+            .as_object_mut()
+            .ok_or_else(|| AppError::invalid_argument("settings.json 的顶层必须是一个对象"))?;
         // defaultModel 是不带 provider 前缀的裸 id，认不出归属，只能靠 defaultProvider
         // 判断：指着我们时两个一起摘，否则是用户自己选的，一个都不动。
         if settings_root.get("defaultProvider").and_then(Value::as_str) == Some(TABLE) {
@@ -97,10 +98,18 @@ pub(super) fn apply(
         .entry(TABLE.to_string())
         .or_insert_with(|| Value::Object(Map::new()))
         .as_object_mut()
-        .ok_or_else(|| AppError::invalid_argument("models.json 的 providers.belfry 必须是一个对象"))?;
-    entry.insert("baseUrl".into(), Value::String(provider.base_url.trim().to_string()));
+        .ok_or_else(|| {
+            AppError::invalid_argument("models.json 的 providers.belfry 必须是一个对象")
+        })?;
+    entry.insert(
+        "baseUrl".into(),
+        Value::String(provider.base_url.trim().to_string()),
+    );
     entry.insert("api".into(), Value::String(API.to_string()));
-    entry.insert("apiKey".into(), Value::String(provider.api_key.trim().to_string()));
+    entry.insert(
+        "apiKey".into(),
+        Value::String(provider.api_key.trim().to_string()),
+    );
     // models[].id 的 schema 是 minLength 1，没填模型时写 [{"id":""}] 会让 pi 启动即报
     // 「Invalid models.json schema」。models 本身是可选的，此时整个字段省掉。
     let model = provider.model.trim();
@@ -129,7 +138,11 @@ fn write_json(path: &Path, value: &Value) -> Result<(), AppError> {
         .map_err(|err| AppError::io(format!("序列化 {} 失败：{err}", path.display())))?;
     text.push('\n');
     // models.json 里带着明文 API key，权限收紧到 0600。
-    write_atomic(path, &text, path.file_name().is_some_and(|n| n == "models.json"))
+    write_atomic(
+        path,
+        &text,
+        path.file_name().is_some_and(|n| n == "models.json"),
+    )
 }
 
 /// 切换的原子写：两个文件一起改。先写 models.json 再写 settings.json；
@@ -152,7 +165,7 @@ pub(super) fn save_config_file(path: &Path, content: &str) -> Result<(), AppErro
                 "只允许修改 {} 或 {}，不能动别的文件",
                 models_path()?.display(),
                 settings_path()?.display()
-            )))
+            )));
         }
     };
     if path != expected {
@@ -161,23 +174,33 @@ pub(super) fn save_config_file(path: &Path, content: &str) -> Result<(), AppErro
             expected.display()
         )));
     }
-    serde_json::from_str::<Value>(content).map_err(|err| {
+    serde_json::from_str::<Value>(content).map_err(|_| {
         AppError::invalid_argument(format!(
-            "{} 不是合法的 JSON，文件没有改动：{err}",
+            "{} 不是合法的 JSON，文件没有改动（解析详情已脱敏）",
             expected.display()
         ))
     })?;
-    write_atomic(&expected, content, path.file_name().is_some_and(|n| n == "models.json"))
+    write_atomic(
+        &expected,
+        content,
+        path.file_name().is_some_and(|n| n == "models.json"),
+    )
 }
 
 /// 从现有配置里认出一份 provider 设置，用于首次接管。返回 (name, base_url, model, api_key)。
-pub(super) fn detect_live(models: &Value, settings: &Value) -> Option<(String, String, String, String)> {
+pub(super) fn detect_live(
+    models: &Value,
+    settings: &Value,
+) -> Option<(String, String, String, String)> {
     let entry = models.get("providers")?.get(TABLE)?.as_object()?;
     let base_url = entry.get("baseUrl")?.as_str()?.trim();
     if base_url.is_empty() {
         return None;
     }
-    let api_key = entry.get("apiKey").and_then(Value::as_str).unwrap_or_default();
+    let api_key = entry
+        .get("apiKey")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
     if api_key.trim().is_empty() {
         return None;
     }
@@ -200,10 +223,7 @@ pub(super) fn detect_live(models: &Value, settings: &Value) -> Option<(String, S
 /// 当前生效的 Pi 配置文件原文。
 pub(super) fn config_files() -> Result<Vec<ConfigFilePreview>, AppError> {
     let mut files = Vec::new();
-    for (path, format) in [
-        (models_path()?, "json"),
-        (settings_path()?, "json"),
-    ] {
+    for (path, format) in [(models_path()?, "json"), (settings_path()?, "json")] {
         if path.exists() {
             files.push(ConfigFilePreview {
                 path: path.display().to_string(),
@@ -216,7 +236,9 @@ pub(super) fn config_files() -> Result<Vec<ConfigFilePreview>, AppError> {
 }
 
 /// Provider 套用后的内存预览，不写入磁盘。
-pub(super) fn config_files_for_provider(provider: &ProviderConfig) -> Result<Vec<ConfigFilePreview>, AppError> {
+pub(super) fn config_files_for_provider(
+    provider: &ProviderConfig,
+) -> Result<Vec<ConfigFilePreview>, AppError> {
     let mut models = read_models()?;
     let mut settings = read_settings()?;
     apply(&mut models, &mut settings, Some(provider))?;
@@ -285,7 +307,10 @@ mod tests {
         apply(&mut models, &mut settings, Some(&provider("  "))).unwrap();
 
         assert!(models["providers"][TABLE].get("models").is_none());
-        assert_eq!(models["providers"][TABLE]["baseUrl"], "https://relay.example.com/v1");
+        assert_eq!(
+            models["providers"][TABLE]["baseUrl"],
+            "https://relay.example.com/v1"
+        );
         assert_eq!(settings["defaultProvider"], TABLE);
         assert!(settings.get("defaultModel").is_none());
     }
@@ -341,7 +366,8 @@ mod tests {
     fn a_user_selected_model_survives_switching_back() {
         // defaultProvider 不是我们，defaultModel 就是用户自己选的，一个字都不动。
         let mut models = serde_json::json!({});
-        let mut settings = serde_json::json!({"defaultProvider":"anthropic","defaultModel":"claude-x"});
+        let mut settings =
+            serde_json::json!({"defaultProvider":"anthropic","defaultModel":"claude-x"});
 
         apply(&mut models, &mut settings, None).unwrap();
 
@@ -363,7 +389,8 @@ mod tests {
 
     #[test]
     fn detect_live_ignores_a_model_belonging_to_another_provider() {
-        let models = serde_json::json!({"providers":{TABLE:{"baseUrl":"https://x","apiKey":"sk-old"}}});
+        let models =
+            serde_json::json!({"providers":{TABLE:{"baseUrl":"https://x","apiKey":"sk-old"}}});
         let settings = serde_json::json!({"defaultProvider":"anthropic","defaultModel":"claude-x"});
 
         let (_, _, model, _) = detect_live(&models, &settings).unwrap();

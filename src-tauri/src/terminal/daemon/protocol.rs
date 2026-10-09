@@ -1,5 +1,5 @@
 use super::super::contracts::{
-    CreateTerminalRequest, TerminalEvent, TerminalPalette, TerminalSession,
+    AppError, CreateTerminalRequest, TerminalEvent, TerminalPalette, TerminalSession,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -108,6 +108,8 @@ pub struct PollResult {
 pub struct Reply {
     pub result: Option<serde_json::Value>,
     pub error: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failure: Option<AppError>,
 }
 impl Reply {
     pub fn ok(value: impl Serialize) -> Self {
@@ -115,6 +117,7 @@ impl Reply {
             Ok(result) => Self {
                 result: Some(result),
                 error: None,
+                failure: None,
             },
             Err(error) => Self::error(error.to_string()),
         }
@@ -123,6 +126,14 @@ impl Reply {
         Self {
             result: None,
             error: Some(error.into()),
+            failure: None,
+        }
+    }
+    pub fn failure(error: AppError) -> Self {
+        Self {
+            result: None,
+            error: Some(error.message.clone()),
+            failure: Some(error),
         }
     }
 }

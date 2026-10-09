@@ -107,6 +107,9 @@ def verify_reconnect(endpoint, root):
     attached = create(endpoint, root, attachment=session["id"])
     assert attached["reconnected"] and attached["id"] == session["id"]
     assert worker == int((root / "worker.pid").read_text()) and running(worker)
+    stale = create(endpoint, root, attachment="missing-old-id")
+    assert stale["reconnected"] and stale["id"] == session["id"]
+    assert worker == int((root / "worker.pid").read_text()) and running(worker)
     assert len(success(endpoint, {"kind": "list"})) == 1
     page = success(endpoint, {"kind": "poll", "id": session["id"], "cursor": 0})
     assert not page["gap"]
@@ -120,9 +123,10 @@ def verify_reconnect(endpoint, root):
 def verify_bounds(endpoint, root):
     assert call(endpoint, {"kind": "ping"}, token="incorrect")["error"]
     assert call(endpoint, {"kind": "ping"}, version=99)["error"]
-    invalid = {"kind": "create", "launch": launch_request(root), "attachment": "missing",
+    invalid = {"kind": "create", "launch": launch_request(root, "missing-tab"), "attachment": "missing",
                "overlay": {"arguments": [], "environment": {}, "unset": [], "files": []}}
-    assert call(endpoint, invalid)["error"]
+    missing = call(endpoint, invalid)
+    assert missing["error"] and missing["failure"]["code"] == "SESSION_MISSING"
     token = success(endpoint, {"kind": "acquire_workspace"})
     request = dict(invalid, launch=launch_request(root, "blocked"), attachment=None)
     assert call(endpoint, request)["error"]

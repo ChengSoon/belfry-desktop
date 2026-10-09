@@ -30,6 +30,7 @@ export function UsagePanel({ project, onClose }: UsagePanelProps) {
         </button>
       </header>
       <div className="usage-filters">
+        <p className="usage-context">本地日志统计 · {usage.scoped && project ? project.name : "所有项目"}</p>
         <div className="usage-segments" role="group" aria-label="统计窗口">
           {USAGE_WINDOWS.map((option) => <button aria-pressed={usage.windowDays === option.days}
             className={usage.windowDays === option.days ? "is-active" : undefined} key={option.label}
@@ -40,7 +41,8 @@ export function UsagePanel({ project, onClose }: UsagePanelProps) {
           <span>只看 {project?.name}</span>
         </label> : null}
       </div>
-      {usage.error ? <p className="usage-error" role="alert"><AlertTriangle aria-hidden="true" size={ICON.sm} />{usage.error}</p> : null}
+      {usage.error ? <div className="usage-error" role="alert"><AlertTriangle aria-hidden="true" size={ICON.sm} />
+        <span>{usage.error}</span><button type="button" disabled={usage.loading} onClick={() => void usage.reload()}>重试</button></div> : null}
       <div className="usage-body" aria-busy={usage.loading}>
         {usage.report ? <UsageInsights report={usage.report} project={project} /> : null}
         {usage.loading ? <p className="usage-hint" role="status">正在扫描会话日志…</p> : null}

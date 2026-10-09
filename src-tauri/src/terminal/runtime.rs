@@ -137,7 +137,20 @@ impl TerminalRuntime {
         };
         daemon.refresh()?;
         let info = if let Some(id) = &request.launch_overlay.attachment {
-            Some(daemon.attachment(id)?)
+            match daemon.attachment(id) {
+                Ok(info) => Some(info),
+                Err(error) if error.code == super::contracts::AppErrorCode::SessionMissing => {
+                    request
+                        .tab_id
+                        .as_deref()
+                        .map(|tab| daemon.lookup(tab))
+                        .transpose()?
+                        .flatten()
+                        .map(Some)
+                        .ok_or(error)?
+                }
+                Err(error) => return Err(error),
+            }
         } else if let Some(tab) = &request.tab_id {
             daemon.lookup(tab)?
         } else {

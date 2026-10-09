@@ -18,6 +18,8 @@ struct ModelInfo {
     thinking_levels: Vec<&'static str>,
 }
 struct ModelRoute {
+    kind: AgentKind,
+    stored: bool,
     info: ModelInfo,
     config: ProviderConfig,
     protocol: &'static str,
@@ -42,6 +44,8 @@ fn route(kind: AgentKind, config: ProviderConfig, fallback: &str) -> Option<Mode
         thinking_levels,
     };
     Some(ModelRoute {
+        kind,
+        stored: false,
         info,
         config,
         protocol: if kind == AgentKind::Codex {
@@ -154,30 +158,36 @@ fn live(kind: AgentKind) -> (String, Option<ProviderConfig>) {
     });
     (fallback, config)
 }
-fn routes(app: &AppHandle) -> Result<Vec<ModelRoute>, String> {
-    let store = store::load(app).map_err(|error| error.message)?;
+fn routes(store: &store::StoreFile) -> Result<Vec<ModelRoute>, String> {
     let mut result = vec![];
     for kind in AgentKind::ALL {
         let (fallback, active) = live(kind);
-        let mut providers = store.agent(kind).providers;
+        let providers = store.agent(kind).providers;
+        result.extend(providers.iter().cloned().filter_map(|config| {
+            let mut model = route(kind, config, &fallback)?;
+            model.stored = true;
+            Some(model)
+        }));
         if let Some(active) = active {
             if !providers.iter().any(|provider| {
                 provider.base_url == active.base_url
                     && (provider.model.is_empty() || provider.model == active.model)
             }) {
-                providers.push(active);
+                if let Some(model) = route(kind, active, &fallback) {
+                    result.push(model);
+                }
             }
         }
-        result.extend(
-            providers
-                .into_iter()
-                .filter_map(|config| route(kind, config, &fallback)),
-        );
     }
     Ok(result)
 }
 pub(crate) fn dispatch(app: &AppHandle, api: &str, args: &Value) -> Result<Value, String> {
-    let models = routes(app)?;
+    if !matches!(api, "models.list" | "models.resolve") {
+        return Err("不支持的模型操作".into());
+    }
+    let _guard = store::lock().map_err(|error| error.message)?;
+    let store = store::load(app).map_err(|error| error.message)?;
+    let models = routes(&store)?;
     if api == "models.list" {
         return serde_json::to_value(models.iter().map(|route| &route.info).collect::<Vec<_>>())
             .map_err(|error| error.to_string());
@@ -187,10 +197,20 @@ pub(crate) fn dispatch(app: &AppHandle, api: &str, args: &Value) -> Result<Value
         .into_iter()
         .find(|route| route.info.key == key)
         .ok_or("模型未配置或已移除，请在 Provider 中设置模型")?;
+    // 只向宿主的实际模型调用返回所选凭据；列表不携带秘密。
+    // store::load 仍会在存储层认证解密载荷，以便损坏时失败关闭。
+    let api_key = if model.stored {
+        store
+            .resolve_provider(app, model.kind, &model.config.id)
+            .map_err(|error| error.message)?
+            .api_key
+    } else {
+        model.config.api_key
+    };
     let mut value = serde_json::to_value(model.info).map_err(|error| error.to_string())?;
     value["protocol"] = json!(model.protocol);
     value["baseUrl"] = json!(model.config.base_url);
-    value["apiKey"] = json!(model.config.api_key);
+    value["apiKey"] = json!(api_key);
     Ok(value)
 }
 

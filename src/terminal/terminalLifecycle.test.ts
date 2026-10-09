@@ -16,7 +16,8 @@ vi.mock("@xterm/xterm", () => ({ Terminal: class {
   constructor(options: Record<string, unknown>) { this.options = options; }
   loadAddon() {} open() {} attachCustomKeyEventHandler() {} focus() {} dispose() {}
   onData(callback: (text: string) => void) { this.data = callback; return { dispose() {} }; }
-  paste(text: string) { this.data?.(`\x1b[200~${text}\x1b[201~`); }
+  onWriteParsed() { return { dispose() {} }; }
+  paste(text: string) { this.data?.(`\x1b[200~${text.replace(/\r?\n/gu, "\r")}\x1b[201~`); }
   input(text: string) { this.data?.(text); }
   write(_data: unknown, parsed?: () => void) { parsed?.(); } reset() {} clearTextureAtlas() {} refresh() {}
 } }));
@@ -42,16 +43,17 @@ afterEach(() => {
   vi.useRealTimers(); vi.unstubAllGlobals();
 });
 
-function fixture() {
+function fixture(launchPatch: Partial<TerminalLaunch> = {}, initialFailure?: unknown) {
   let resolve!: (session: TerminalSession) => void;
   let channel!: Channel<TerminalEvent>;
   const pending = new Promise<TerminalSession>((done) => { resolve = done; });
   vi.mocked(createTerminal).mockImplementation((_request, events) => { channel = events; return pending; });
-  const callbacks: MountCallbacks = { onPhase: vi.fn(), onError: vi.fn(), onSession: vi.fn(),
+  if (initialFailure !== undefined) vi.mocked(createTerminal).mockRejectedValueOnce(initialFailure);
+  const callbacks: MountCallbacks = { onPhase: vi.fn(), onError: vi.fn(), onSession: vi.fn(), onAttachmentLost: vi.fn(),
     onInput: vi.fn(), onActivity: vi.fn(), onAgentState: vi.fn(), onOpenFile: vi.fn(), onSearchRequest: vi.fn() };
   const launch: TerminalLaunch = { profileId: "shell:bash", tabId: "lifecycle-tab", cwd: "file:///tmp",
     collaborationMode: false, resumeSessionId: null, ssh: null,
-    projectLaunch: { env: {}, startup: { command: "printf qa-startup" } } };
+    projectLaunch: { env: {}, startup: { command: "printf qa-startup" } }, ...launchPatch };
   const session: TerminalSession = { id: "qa-pty", platform: "macos", shell: "bash", cwd: "file:///tmp",
     cols: 80, rows: 24, status: "running", exitCode: null, reconnected: false, connectionId: "qa-connection" };
   const host = { clientWidth: 0, classList: { remove() {} } } as unknown as HTMLDivElement;
@@ -63,6 +65,56 @@ function fixture() {
 }
 
 describe("terminal attachment lifecycle", () => {
+  it("restores a missing saved Agent automatically once, retaining native history and not rerunning startup", async () => {
+    const test = fixture({ attachmentId: "old-pty", profileId: "agent:codex", resumeSessionId: "native-history" },
+      { code: "SESSION_MISSING", message: "原后台任务已不存在。" });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(createTerminal).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(createTerminal).mock.calls[1][0].resume).toBe("native-history");
+    expect(vi.mocked(createTerminal).mock.calls[1][2]).toBeNull();
+    expect(test.callbacks.onAttachmentLost).toHaveBeenCalledOnce();
+    await test.ready();
+    expect(test.callbacks.onPhase).toHaveBeenLastCalledWith("running");
+    expect(test.callbacks.onError).toHaveBeenLastCalledWith(expect.stringContaining("历史对话"));
+    expect(writeTerminal).not.toHaveBeenCalled();
+  });
+
+  it("recovers a missing Shell once without replaying commands", async () => {
+    const test = fixture({ attachmentId: "old-pty" },
+      { code: "IO_ERROR", message: "原后台任务已不存在。请点击「重启」明确启动新进程" });
+    await vi.advanceTimersByTimeAsync(0);
+    await test.ready();
+    expect(createTerminal).toHaveBeenCalledTimes(2);
+    expect(test.callbacks.onError).toHaveBeenLastCalledWith(expect.stringContaining("重新建立会话"));
+    expect(writeTerminal).not.toHaveBeenCalled();
+  });
+
+  it.each(["IO_ERROR", "PERMISSION_DENIED", "INVALID_ARGUMENT"])("does not spawn a new process on %s", async (code) => {
+    const test = fixture({ attachmentId: "old-pty" }, { code, message: "connection unavailable" });
+    await vi.runAllTimersAsync();
+    expect(createTerminal).toHaveBeenCalledOnce();
+    expect(test.callbacks.onAttachmentLost).not.toHaveBeenCalled();
+    expect(test.callbacks.onPhase).toHaveBeenLastCalledWith("error");
+  });
+
+  it("does not loop when the single automatic recovery also fails", async () => {
+    const error = { code: "SESSION_MISSING", message: "原后台任务已不存在。" };
+    const test = fixture({ attachmentId: "old-pty" }, error);
+    vi.mocked(createTerminal).mockRejectedValueOnce(error);
+    await vi.runAllTimersAsync();
+    expect(createTerminal).toHaveBeenCalledTimes(2);
+    expect(test.callbacks.onPhase).toHaveBeenLastCalledWith("error");
+    expect(test.callbacks.onAttachmentLost).toHaveBeenCalledOnce();
+  });
+
+  it("does not recover a missing attachment after unmount", async () => {
+    const test = fixture({ attachmentId: "old-pty" }, { code: "SESSION_MISSING" });
+    test.handle.dispose();
+    await vi.runAllTimersAsync();
+    expect(createTerminal).toHaveBeenCalledOnce();
+    expect(test.callbacks.onAttachmentLost).not.toHaveBeenCalled();
+  });
+
   it("detaches an early batch immediately when disposed before create resolves", async () => {
     vi.spyOn(Terminal.prototype, "write").mockImplementation(() => {});
     const test = fixture();
@@ -138,6 +190,22 @@ describe("terminal attachment lifecycle", () => {
     await selected.ready({ reconnected: true });
     await background.ready({ reconnected: true });
     expect(focus).toHaveBeenCalledTimes(1);
+  });
+
+  it("Windows background submission preserves focus and reports completion after the Enter write", async () => {
+    vi.stubGlobal("navigator", { userAgent: "Windows NT 10.0" });
+    const focus = vi.spyOn(Terminal.prototype, "focus");
+    const test = fixture();
+    await test.ready({ platform: "windows", reconnected: true });
+    const onResult = vi.fn();
+    expect(test.handle.sendText("one\ntwo", { background: true, onResult })).toBe(true);
+    await vi.advanceTimersByTimeAsync(599);
+    expect(writeTerminal).toHaveBeenCalledTimes(1);
+    expect(onResult).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(writeTerminal).toHaveBeenCalledTimes(2);
+    expect(onResult).toHaveBeenCalledExactlyOnceWith("submitted");
+    expect(focus).not.toHaveBeenCalled();
   });
 
   it.each([

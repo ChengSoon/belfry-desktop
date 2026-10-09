@@ -12,6 +12,7 @@ vi.mock("../../components/TerminalViewport", () => ({ TerminalViewport: ({ launc
   <div data-terminal-id={launch.tabId} data-terminal-cwd={launch.cwd} />
 ) }));
 vi.mock("../../plugins/workspace/PluginWorkbenchActions", () => ({ PluginWorkbenchActions: () => null }));
+vi.mock("../../theme/ThemeProvider", () => ({ useTheme: () => ({ mode: "dark", toggle: vi.fn() }) }));
 
 const project = { id: "p", name: "项目", rootPath: "/demo", rootUri: "file:///demo" };
 const tabs = ["a", "e"].map((id) => ({ ...createWorkspaceTab(project, "shell", 1), id, phase: "running" as const }));

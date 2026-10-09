@@ -337,11 +337,11 @@
 /* 页脚 */
 
 .sidebar-foot {
-  display: flex;
-  height: 44px;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 12px;
+  display: grid;
+  min-width: 0;
+  height: auto;
+  align-content: start;
+  padding: 12px;
 }
 
 .sidebar-foot__actions { display: flex; align-items: center; gap: 2px; }

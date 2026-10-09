@@ -129,6 +129,13 @@ fn status_note(report: &AgentHookReport) -> &'static str {
         return "Hook 安装不完整，可重新预览并启用";
     }
     if report.stale > 0 {
+        if cfg!(windows) {
+            return if report.kind == AgentKind::Codex {
+                "Hook 路径失效或仍使用旧桌面入口；请重新预览并启用轻量 Hook，重开会话后在 Codex /hooks 中重新信任命令"
+            } else {
+                "Hook 路径失效或仍使用旧桌面入口；请重新预览并启用轻量 Hook，然后重开会话"
+            };
+        }
         return "Hook 指向的应用已不存在，可能移动过应用或清理过构建；请重新预览并启用";
     }
     if report.kind == AgentKind::Codex {
@@ -173,9 +180,6 @@ mod tests {
         assert!(report.enabled());
         report.stale = 1;
         assert!(!report.enabled());
-        assert_eq!(
-            "Hook 指向的应用已不存在，可能移动过应用或清理过构建；请重新预览并启用",
-            status_note(&report)
-        );
+        assert!(status_note(&report).contains("请重新预览并启用"));
     }
 }

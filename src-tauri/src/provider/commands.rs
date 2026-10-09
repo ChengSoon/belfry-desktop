@@ -42,28 +42,34 @@ pub fn provider_switch(
 /// 当前生效的配置文件原文（只读）。Claude Code 是 settings.json；
 /// Codex 是 config.toml + auth.json。
 #[tauri::command]
-pub fn provider_config_preview(kind: AgentKind) -> Result<Vec<ConfigFilePreview>, AppError> {
-    service::config_files(kind)
+pub fn provider_config_preview(
+    kind: AgentKind,
+    reveal_secrets: Option<bool>,
+) -> Result<Vec<ConfigFilePreview>, AppError> {
+    service::config_files(kind, reveal_secrets.unwrap_or(false))
 }
 
 /// 根据正在编辑的 Provider 草稿生成内存预览，不写入实际配置文件。
 #[tauri::command]
 pub fn provider_config_preview_for_draft(
+    app: AppHandle,
     kind: AgentKind,
     draft: ProviderDraft,
+    reveal_secrets: Option<bool>,
 ) -> Result<Vec<ConfigFilePreview>, AppError> {
-    service::config_files_for_draft(kind, draft)
+    service::config_files_for_draft(&app, kind, draft, reveal_secrets.unwrap_or(false))
 }
 
 /// 保存用户在界面上编辑后的配置文件全文。路径白名单与格式校验在服务端，
 /// 校验失败时原文件保持不动。
 #[tauri::command]
 pub fn provider_config_save(
+    app: AppHandle,
     kind: AgentKind,
     path: String,
     content: String,
 ) -> Result<(), AppError> {
-    service::save_config_file(kind, path, content)
+    service::save_config_file(&app, kind, path, content)
 }
 
 /// 配置文件被手动编辑后，把当前生效的 live 配置同步进库并返回新目录。
@@ -74,6 +80,11 @@ pub fn provider_sync_live(app: AppHandle, kind: AgentKind) -> Result<ProviderCat
 
 /// 读取草稿端点公布的模型，不修改 Provider 或 CLI 配置。
 #[tauri::command]
-pub async fn provider_models(kind: AgentKind, base_url: String, api_key: String) -> Result<Vec<String>, AppError> {
-    super::models::fetch(kind, &base_url, &api_key).await
+pub async fn provider_models(
+    app: AppHandle,
+    kind: AgentKind,
+    draft: ProviderDraft,
+) -> Result<Vec<String>, AppError> {
+    let api_key = service::draft_api_key(&app, kind, &draft)?;
+    super::models::fetch(kind, &draft.base_url, &api_key).await
 }

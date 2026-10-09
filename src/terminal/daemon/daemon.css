@@ -3,7 +3,7 @@
 .terminal-exit header { display: flex; justify-content: space-between; align-items: center; color: var(--text-muted); }
 .terminal-exit h2 { margin: 20px 0 10px; font-size: 21px; font-weight: 600; letter-spacing: -.025em; }
 .terminal-exit p { color: var(--text-muted); line-height: 1.65; margin: 0 0 22px; }
-.terminal-exit__choices { display: grid; gap: 9px; }
+.terminal-exit__choices { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
 .terminal-exit__choices button { min-height: 40px; justify-content: center; }
 .daemon-button { display: inline-flex; align-items: center; gap: 8px; padding: 8px 13px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); font: inherit; font-size: var(--fs-sm); color: var(--text); background: var(--surface); cursor: pointer; }
 .daemon-button:not(:disabled):hover { background: var(--surface-hover); }

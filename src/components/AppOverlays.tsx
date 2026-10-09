@@ -17,6 +17,7 @@ import { failureLabel } from "../workspace/errors";
 import { removeRecentConfirmBody } from "../workspace/removeRecentConfirm";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { createOptionalPanel } from "./lazy/OptionalPanel";
+import { Presence } from "./motion/Presence";
 
 const SettingsPanel = createOptionalPanel({ title: "设置", layout: "settings", exportName: "SettingsPanel",
   load: () => import("../settings/SettingsPanel").then((module) => ({ default: module.SettingsPanel })) });
@@ -89,22 +90,22 @@ function PrimaryPanels(props: AppOverlaysProps) {
         />
       ) : null}
 
-      {props.quickOpenOpen ? (
+      <Presence open={props.quickOpenOpen}>
         <QuickOpen
           items={props.quickOpenItems}
           onClose={props.onCloseQuickOpen}
           onSelect={props.onSelectQuickOpen}
           shortcutLabel={props.quickOpenShortcut}
         />
-      ) : null}
+      </Presence>
 
       {props.usageOpen ? (
         <UsagePanel onClose={props.onCloseUsage} project={props.project} />
       ) : null}
 
-      {props.historyOpen ? (
+      <Presence open={props.historyOpen} drawer>
         <HistoryPanel onClose={props.onCloseHistory} onResume={props.onResumeHistory} />
-      ) : null}
+      </Presence>
 
     </>
   );
@@ -113,6 +114,7 @@ function PrimaryPanels(props: AppOverlaysProps) {
 function WorkspaceConfirmations(props: AppOverlaysProps) {
   return (
     <>
+      <Presence open={!!props.pendingClose}>
       {props.pendingClose ? (
         <ConfirmDialog
           body={closeConfirmBody(props.pendingClose)}
@@ -122,7 +124,9 @@ function WorkspaceConfirmations(props: AppOverlaysProps) {
           title={`关闭 ${props.pendingClose.title}？`}
         />
       ) : null}
+      </Presence>
 
+      <Presence open={!!props.pendingRemove}>
       {props.pendingRemove ? (
         <ConfirmDialog
           body={removeRecentConfirmBody(props.pendingRemove, props.pendingRemoveTabCount)}
@@ -132,6 +136,7 @@ function WorkspaceConfirmations(props: AppOverlaysProps) {
           title={`删除 ${props.pendingRemove.name}？`}
         />
       ) : null}
+      </Presence>
 
     </>
   );

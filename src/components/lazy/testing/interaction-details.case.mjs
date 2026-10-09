@@ -1,0 +1,114 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { join } from 'node:path';
+import { createServer } from 'vite';
+import react from '@vitejs/plugin-react';
+import { cleanupScope, temporary } from '../../../../scripts/plugin-tests/support.mjs';
+import { BrowserProcess } from '../../../../src-tauri/src/plugins/node/browser-process.mjs';
+import { BrowserTarget } from '../../../../src-tauri/src/plugins/node/browser-target.mjs';
+import { click, enter, fill, press, waitFor } from '../../../../scripts/plugin-tests/market-ui-support.mjs';
+
+async function fixture(t) {
+  const scope = cleanupScope(t), root = await temporary(scope);
+  const server = await createServer({ configFile: false, plugins: [react()], logLevel: 'warn', cacheDir: join(root, 'vite'),
+    server: { host: '127.0.0.1', port: 0, hmr: false, watch: null } });
+  scope.after(() => server.close()); await server.listen();
+  const browser = await new BrowserProcess(join(root, 'browser')).start(); scope.after(() => browser.close());
+  const view = await new BrowserTarget(browser, { workspace: root, frame: () => {}, state: () => {} }).start();
+  scope.after(() => view.close());
+  await view.bounds({ x: 0, y: 0, width: 1440, height: 960 });
+  await view.send('Page.addScriptToEvaluateOnNewDocument', { source: `window.__interactionErrors=[];
+    window.addEventListener('error', e => __interactionErrors.push(e.message));
+    window.addEventListener('unhandledrejection', e => __interactionErrors.push(String(e.reason)));` });
+  await view.navigate({ url: `http://127.0.0.1:${server.httpServer.address().port}/src/components/lazy/testing/interaction-details.html` });
+  await waitFor(view, "!!document.querySelector('#open')");
+  scope.after(async () => assert.deepEqual(await view.cdp.evaluate('__interactionErrors'), []));
+  return view;
+}
+const trigger = 'button[title^="新建会话"]';
+const focused = view => view.cdp.evaluate('document.activeElement.textContent.trim()');
+const selected = view => view.cdp.evaluate("document.querySelector('.quick-open__item[aria-selected=true] strong')?.textContent ?? null");
+const gone = view => waitFor(view, "!document.querySelector('.new-session-menu')");
+
+test('interaction details: menu keyboard, submenu, disabled skipping, dismissal and return focus', { timeout: 60_000 }, async t => {
+  const view = await fixture(t);
+  await view.cdp.evaluate(`document.querySelector(${JSON.stringify(trigger)}).focus()`);
+  await press(view, 'ArrowDown'); assert.match(await focused(view), /^Shell/);
+  await press(view, 'ArrowRight'); assert.equal(await focused(view), '系统默认');
+  await press(view, 'ArrowDown'); assert.equal(await focused(view), 'bash');
+  await press(view, 'ArrowLeft'); assert.match(await focused(view), /^Shell/);
+  await press(view, 'ArrowRight'); await press(view, 'Escape');
+  assert.match(await focused(view), /^Shell/);
+  assert.equal(await view.cdp.evaluate("!!document.querySelector('.new-session-menu')"), true);
+  await press(view, 'End'); assert.equal(await focused(view), '重新检测');
+  await press(view, 'ArrowDown'); assert.match(await focused(view), /^Shell/);
+  await press(view, 'Escape'); await gone(view);
+  assert.equal(await view.cdp.evaluate(`document.activeElement === document.querySelector(${JSON.stringify(trigger)})`), true);
+  await press(view, 'ArrowUp'); assert.equal(await focused(view), '重新检测');
+  await click(view, '#outside'); await gone(view); assert.equal(await focused(view), 'Outside');
+  await click(view, trigger); await press(view, 'End'); await press(view, 'Tab');
+  await gone(view); assert.equal(await focused(view), 'Outside');
+  await click(view, trigger); await press(view, 'ArrowRight'); await press(view, 'ArrowDown');
+  assert.equal(await focused(view), 'bash'); await enter(view);
+  await gone(view);
+  assert.deepEqual(await view.cdp.evaluate('__interactionQA.launches'), ['shell:shell:bash']);
+  assert.equal(await view.cdp.evaluate(`document.activeElement === document.querySelector(${JSON.stringify(trigger)})`), true);
+  await view.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+  await click(view, trigger);
+  assert.equal(await view.cdp.evaluate("getComputedStyle(document.querySelector('.new-session-menu')).animationName"), 'none');
+});
+
+test('interaction details: one detection in flight, reopen busy state, failure retry and unmount', { timeout: 60_000 }, async t => {
+  const view = await fixture(t);
+  await click(view, trigger);
+  await view.cdp.evaluate("(() => {const b=document.querySelector('.popover-refresh'); b.click(); b.click(); b.click();})()");
+  await waitFor(view, "document.querySelector('.popover-refresh').getAttribute('aria-busy') === 'true'");
+  assert.equal(await view.cdp.evaluate('__interactionQA.refreshCalls'), 1);
+  await press(view, 'Escape'); await gone(view); await click(view, trigger);
+  assert.equal(await view.cdp.evaluate("document.querySelector('.popover-refresh').getAttribute('aria-busy')"), 'true');
+  await click(view, '.popover-refresh'); assert.equal(await view.cdp.evaluate('__interactionQA.refreshCalls'), 1);
+  await view.cdp.evaluate('__interactionQA.release(true)');
+  await waitFor(view, "!!document.querySelector('.new-session-menu__error')");
+  assert.match(await view.cdp.evaluate("document.querySelector('.new-session-menu__error').textContent"), /QA detection failed/);
+  assert.equal(await view.cdp.evaluate("document.querySelector('.popover-refresh').getAttribute('aria-busy')"), 'false');
+  await click(view, '.popover-refresh'); assert.equal(await view.cdp.evaluate('__interactionQA.refreshCalls'), 2);
+  await view.cdp.evaluate('__interactionQA.release()');
+  await waitFor(view, "document.querySelector('.popover-refresh').getAttribute('aria-busy') === 'false'");
+  assert.equal(await view.cdp.evaluate("!!document.querySelector('.new-session-menu__error')"), false);
+  await click(view, '.popover-refresh'); await click(view, '#unmount-menu');
+  await view.cdp.evaluate('__interactionQA.release(true)');
+  await gone(view);
+});
+
+test('interaction details: Quick Open focus loop, availability, no results, pointer focus and clean rapid reopen', { timeout: 60_000 }, async t => {
+  const view = await fixture(t);
+  await click(view, '#open');
+  assert.equal(await selected(view), 'First action');
+  assert.equal(await view.cdp.evaluate("document.querySelectorAll('.quick-open__item').length"), 2);
+  await press(view, 'ArrowDown'); assert.equal(await selected(view), 'Second action');
+  await press(view, 'ArrowDown'); assert.equal(await selected(view), 'First action');
+  await press(view, 'End'); assert.equal(await selected(view), 'Second action');
+  await press(view, 'Home'); assert.equal(await selected(view), 'First action');
+  await press(view, 'Tab'); assert.equal(await view.cdp.evaluate("document.activeElement.getAttribute('aria-label')"), '关闭 Quick Open');
+  await press(view, 'Tab'); assert.equal(await view.cdp.evaluate("document.activeElement.getAttribute('role')"), 'combobox');
+  await press(view, 'Tab', 8); assert.equal(await view.cdp.evaluate("document.activeElement.getAttribute('aria-label')"), '关闭 Quick Open');
+  await press(view, 'Tab');
+  await fill(view, '.quick-open input', 'no-match');
+  await press(view, 'Enter'); assert.deepEqual(await view.cdp.evaluate('__interactionQA.selections'), []);
+  assert.equal(await view.cdp.evaluate("document.querySelector('.quick-open input').hasAttribute('aria-activedescendant')"), false);
+  await press(view, 'Escape');
+  assert.equal(await view.cdp.evaluate("document.activeElement.id"), 'open');
+  await view.cdp.evaluate("document.querySelector('#open').click()");
+  await waitFor(view, "document.querySelector('.quick-open input')?.value === ''");
+  assert.equal(await selected(view), 'First action');
+  await view.cdp.evaluate("document.querySelector('.quick-open__item').dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,cancelable:true}))");
+  assert.equal(await view.cdp.evaluate("document.activeElement.getAttribute('role')"), 'combobox');
+  await view.cdp.evaluate("(() => {const b=document.querySelector('.quick-open__item');b.click();b.click();})()");
+  await waitFor(view, "!document.querySelector('.quick-open')");
+  assert.deepEqual(await view.cdp.evaluate('__interactionQA.selections'), ['one']);
+  await click(view, '#disable-options'); await click(view, '#open');
+  await press(view, 'ArrowDown'); await press(view, 'ArrowUp'); await press(view, 'Enter');
+  assert.equal(await selected(view), null);
+  assert.deepEqual(await view.cdp.evaluate('__interactionQA.selections'), ['one']);
+  await press(view, 'Escape'); await waitFor(view, "!document.querySelector('.quick-open')");
+});

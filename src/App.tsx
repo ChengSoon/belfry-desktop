@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppBackground } from "./background/AppBackground";
 import { AppOverlays } from "./components/AppOverlays";
 import { Workbench } from "./components/Workbench";
+import { Presence } from "./components/motion/Presence";
 import { ProjectInspector } from "./git/ProjectInspector";
 import { projectRelativePath } from "./filepreview/path";
 import { WindowTitlebar } from "./components/WindowTitlebar";
@@ -255,7 +256,7 @@ export default function App() {
       <WindowTitlebar />
       <PluginRuntimeBridge workspacePath={workspace.activeProject?.rootPath} sessionId={workspace.activeTabId} />
 
-      {collapsed ? null : (
+      <div className={`sidebar-shell${collapsed ? " is-collapsed" : ""}`} inert={collapsed} aria-hidden={collapsed}>
         <Sidebar
           workspaceControls={<NamedWorkspaceControls model={workspace.named}
             activeTab={workspace.tabs.find((tab) => tab.id === workspace.activeTabId) ?? null}
@@ -285,13 +286,13 @@ export default function App() {
           onOpenUpdater={updater.openPanel}
           onOpenSettings={() => { setSettingsSection(undefined); setSettingsOpen(true); }}
           settingsOpen={settingsOpen}
-          ref={sidebarRef}
+          ref={collapsed ? undefined : sidebarRef}
           tabs={workspace.visibleTabs}
           updaterOpen={updater.open}
           updaterState={updater.state}
           usageOpen={usageOpen}
         />
-      )}
+      </div>
 
       <Workbench
         activeProject={workspace.activeProject}
@@ -329,7 +330,7 @@ export default function App() {
         tabs={workspace.tabs}
       />
 
-      {collabOpen ? <CollabPanel collab={collab} onClose={() => setCollabOpen(false)} /> : null}
+      <Presence open={collabOpen} drawer><CollabPanel collab={collab} onClose={() => setCollabOpen(false)} /></Presence>
       <PluginDock visible={pluginDockOpen && !settingsOpen} onClose={() => setPluginDockOpen(false)} />
 
       {previewOpen ? (

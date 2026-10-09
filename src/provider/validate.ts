@@ -1,7 +1,7 @@
 import type { ProviderConfig, ProviderDraft } from "./contracts";
 
 export interface DraftIssue {
-  field: "name" | "baseUrl";
+  field: "name" | "baseUrl" | "apiKey";
   message: string;
 }
 
@@ -42,13 +42,12 @@ export function validateDraft(
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
     return { field: "baseUrl", message: "只支持 http / https" };
   }
+  if (draft.apiKeyAction === "replace" && !draft.apiKey.trim()) {
+    return { field: "apiKey", message: "请输入新密钥；如需移除密钥，请显式选择清除。" };
+  }
+  const original = existing.find((item) => item.id === draft.id);
+  if (draft.apiKeyAction === "keep" && original && original.baseUrl.trim() !== baseUrl) {
+    return { field: "apiKey", message: "更改 Base URL 后必须替换或清除密钥，不能保留原密钥。" };
+  }
   return null;
-}
-
-/** 列表里显示用：把 key 抹成只剩头尾，够认出是哪一把就行。 */
-export function maskKey(apiKey: string): string {
-  const value = apiKey.trim();
-  if (!value) return "未填 key";
-  if (value.length <= 12) return `${value.slice(0, 2)}${"·".repeat(6)}`;
-  return `${value.slice(0, 6)}${"·".repeat(6)}${value.slice(-4)}`;
 }

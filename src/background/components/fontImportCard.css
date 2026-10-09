@@ -5,10 +5,11 @@
   align-items: center;
   gap: 10px;
   margin-left: 70px;
-  padding: 10px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--surface) 74%, var(--canvas));
+  padding: 12px 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
 }
 
 .font-import-card__icon {
@@ -35,6 +36,7 @@
 .font-import-card__heading {
   display: flex;
   align-items: baseline;
+  flex-wrap: wrap;
   gap: 7px;
 }
 
@@ -54,7 +56,7 @@
 }
 
 .font-import-card__detail {
-  color: var(--text-faint);
+  color: var(--text-muted);
   font-size: var(--fs-xs);
   line-height: 1.35;
   overflow-wrap: anywhere;
@@ -122,4 +124,9 @@
 
 @media (max-width: 480px) {
   .font-import-card { margin-left: 0; }
+}
+
+@container settings (max-width: 760px) {
+  .font-import-card { grid-template-columns: 34px minmax(0, 1fr); }
+  .font-import-card__actions { grid-column: 1 / -1; flex-wrap: wrap; }
 }
