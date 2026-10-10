@@ -4,6 +4,19 @@ import { uiFixture, click, press, waitFor, resize, intact, evidence, theme, fill
 import { assertTerminalInput } from './productionFixture.mjs';
 
 const pause = (view, ms = 260) => view.cdp.evaluate(`new Promise(r => setTimeout(r, ${ms}))`);
+// Fixed wall-clock sleeps can observe the last fractional CSS frame on loaded CI.
+const settleTerminal = view => view.cdp.evaluate(`(async () => {
+  await document.fonts.ready;
+  await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  await new Promise((resolve, reject) => {
+    const start=performance.now();let last=-1,quiet=start;
+    const tick=()=>{const now=performance.now(),count=__productionQA.calls.filter(c=>c.command==='terminal_resize').length;
+      if(count!==last){last=count;quiet=now;}
+      if(now-quiet>=350 && now-start>=500)return resolve();
+      if(now-start>6000)return reject(new Error('terminal resize queue did not settle'));
+      setTimeout(tick,50);};tick();
+  });
+})()`);
 async function point(view, selector) {
   return view.cdp.evaluate(`(() => { const r = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect(); return {x:r.x+r.width/2,y:r.y+r.height/2}; })()`);
 }
@@ -36,10 +49,15 @@ test('motion: long grouped list, 12 interrupted folds, keyboard exclusion and re
   }
   await resize(view,1440,960);
   const full = await view.cdp.evaluate("document.querySelector('.session-group__collapse').getBoundingClientRect().height");
-  await click(view,'.session-group__head');
-  const frames = await view.cdp.evaluate(`new Promise(resolve => {const values=[];let n=0;const tick=()=>{
-    values.push(document.querySelector('.session-group__collapse').getBoundingClientRect().height);
-    if(++n<18) requestAnimationFrame(tick);else resolve(values);};tick();})`);
+  // Observe and trigger in the same browser turn so remote CDP latency cannot skip the transition.
+  const frames = await view.cdp.evaluate(`new Promise((resolve,reject) => {
+    const el=document.querySelector('.session-group__collapse'),values=[el.getBoundingClientRect().height];
+    const deadline=performance.now()+5000;
+    const tick=()=>{const height=el.getBoundingClientRect().height;values.push(height);
+      if(height===0)return resolve(values);
+      if(performance.now()>deadline)return reject(new Error('group collapse did not settle'));
+      requestAnimationFrame(tick);};
+    document.querySelector('.session-group__head').click();requestAnimationFrame(tick);})`);
   assert.ok(frames.some(h=>h>0 && h<full), 'collapse includes intermediate heights');
   assert.equal(frames.at(-1),0);
   const hidden = await view.cdp.evaluate(`(() => {const content=document.querySelector('.session-group__collapse');content.querySelector('button').focus();
@@ -48,9 +66,10 @@ test('motion: long grouped list, 12 interrupted folds, keyboard exclusion and re
   // Public DOM control, each click a separate event-loop turn; reverse before animation completes.
   await view.cdp.evaluate(`new Promise(resolve=>{let n=0;const go=()=>{document.querySelector('.session-group__head').click();
     if(++n<12)setTimeout(go,18);else resolve();};go();})`);
-  await pause(view);
+  await waitFor(view,"document.querySelector('.session-group__collapse').getBoundingClientRect().height === 0");
   assert.equal(await view.cdp.evaluate("document.querySelector('.session-group__collapse').getBoundingClientRect().height"),0);
-  await click(view,'.session-group__head'); await pause(view);
+  await click(view,'.session-group__head');
+  await waitFor(view,`document.querySelector('.session-group__collapse').getBoundingClientRect().height === ${full}`);
   assert.equal(await view.cdp.evaluate("document.querySelector('.session-group__collapse').getBoundingClientRect().height"),full);
   await click(view,'button[aria-label="设置协作名字"]');
   await fill(view,'input[aria-label="协作名字"]','motion-reviewer'); await press(view,'Enter');
@@ -158,9 +177,11 @@ test('motion: drawer switch/interruptions, terminal resize bounded and reduced-m
   for (const mode of ['dark','light']) {
     await theme(view,mode);
     for (const [width,height] of [[1888,1070],[1440,960],[820,500]]) {
-      await resize(view,width,height); await pause(view);
-      await view.cdp.evaluate(`(() => {__productionQA.resizeStart=__productionQA.calls.filter(c=>c.command==='terminal_resize').length;
-        __productionQA.sizes=[];__productionQA.observer=new ResizeObserver(entries=>__productionQA.sizes.push(entries[0].contentRect.width));
+      await resize(view,width,height); await settleTerminal(view);
+      await view.cdp.evaluate(`(() => {__productionQA.resizeStart=__productionQA.calls.length;
+        __productionQA.sizes=[];__productionQA.layoutSizes=[];
+        __productionQA.observer=new ResizeObserver(entries=>{const r=entries[0].contentRect;
+          __productionQA.sizes.push(r.width);__productionQA.layoutSizes.push({width:r.width,height:r.height});});
         __productionQA.observer.observe(document.querySelector('.terminal-stage'));})()`);
       await click(view,'button[aria-label="会话协作"]');
       await waitFor(view,"!!document.querySelector('.collab-panel')");
@@ -174,9 +195,11 @@ test('motion: drawer switch/interruptions, terminal resize bounded and reduced-m
       await click(view,'button[title="关闭历史会话"]');
       assert.equal(await view.cdp.evaluate("document.querySelector('.motion-drawer').dataset.motionState"),'exit');
       assert.equal(await view.cdp.evaluate("getComputedStyle(document.querySelector('.motion-drawer')).position"),'absolute');
-      await pause(view);
-      const counts=await view.cdp.evaluate(`(() => {__productionQA.observer.disconnect();return {sizes:__productionQA.sizes,
-        resizes:__productionQA.calls.filter(c=>c.command==='terminal_resize').length-__productionQA.resizeStart};})()`);
+      await waitFor(view,"!document.querySelector('.motion-drawer')");
+      await settleTerminal(view);
+      const counts=await view.cdp.evaluate(`(() => {__productionQA.observer.disconnect();
+        const resizeCalls=__productionQA.calls.slice(__productionQA.resizeStart).filter(c=>c.command==='terminal_resize');
+        return {sizes:__productionQA.sizes,layoutSizes:__productionQA.layoutSizes,resizes:resizeCalls.length,resizeCalls};})()`);
       assert.ok(counts.sizes.length<=5,JSON.stringify(counts)); assert.ok(counts.resizes<=6,JSON.stringify(counts));
       snapshots.push({mode,width,height,...counts}); await intact(view,baseline);
     }
