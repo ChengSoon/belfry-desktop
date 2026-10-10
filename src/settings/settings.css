@@ -68,7 +68,8 @@
   padding: 32px clamp(20px, 4vw, 48px) 48px;
   scrollbar-color: var(--scrollbar) transparent;
 }
-.settings-content > * { max-width: 980px; }
+/* Fill the rail's remaining space instead of leaving a fixed-width blank area. */
+.settings-content > * { width: 100%; min-width: 0; max-width: 100%; }
 @media (max-width: 1024px) {
   .settings-view { grid-template-columns: 196px minmax(0, 1fr); }
   .settings-content { padding: 24px; }
