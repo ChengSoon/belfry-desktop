@@ -18,10 +18,21 @@ const settleTerminal = view => view.cdp.evaluate(`(async () => {
   });
 })()`);
 async function point(view, selector) {
-  return view.cdp.evaluate(`(() => { const r = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect(); return {x:r.x+r.width/2,y:r.y+r.height/2}; })()`);
+  return view.cdp.evaluate(`new Promise((resolve,reject) => {
+    const el=document.querySelector(${JSON.stringify(selector)});if(!el)return reject(new Error('missing mouse target'));
+    el.scrollIntoView({block:'nearest'});
+    let previous='',stable=0;const deadline=performance.now()+5000;
+    const measure=()=>{const r=el.getBoundingClientRect(),position=[r.x,r.y,r.width,r.height].join(',');
+      stable=position===previous?stable+1:0;previous=position;
+      if(stable>=2)return resolve({x:r.x+r.width/2,y:r.y+r.height/2});
+      if(performance.now()>deadline)return reject(new Error('mouse target did not settle'));
+      requestAnimationFrame(measure);};requestAnimationFrame(measure);
+  })`);
 }
 async function mouse(view, type, selector) {
-  await view.send('Input.dispatchMouseEvent', { type, ...await point(view, selector), button:'left', clickCount:1 });
+  const moving = type === 'mouseMoved';
+  await view.send('Input.dispatchMouseEvent', { type, ...await point(view, selector),
+    button:moving ? 'none' : 'left', buttons:type === 'mousePressed' ? 1 : 0, clickCount:moving ? 0 : 1 });
 }
 const manySessions = `;(() => {
   const w = JSON.parse(localStorage.getItem('belfry.workspace.v1')), base = w.tabs[0];
@@ -101,14 +112,24 @@ test('motion: long grouped list, 12 interrupted folds, keyboard exclusion and re
 test('motion: hover and press feedback without layout movement, disabled and reduced motion', {timeout:45_000}, async t => {
   const {view,baseline} = await uiFixture(t);
   const row='.session-row:nth-child(2)';
+  await view.send('Page.bringToFront');
+  await mouse(view,'mouseMoved','.terminal-stage');
+  await waitFor(view,`!document.querySelector('${row}').matches(':hover')`);
   const before=await view.cdp.evaluate(`getComputedStyle(document.querySelector('${row}')).backgroundColor`);
-  await mouse(view,'mouseMoved',row); await pause(view,150);
+  const target=await point(view,row);
+  assert.equal(await view.cdp.evaluate(`document.querySelector('${row}').contains(document.elementFromPoint(${target.x},${target.y}))`),true,
+    'hover point must hit the session row, not an overlay or a stale position');
+  await mouse(view,'mouseMoved',row);
+  await waitFor(view,`document.querySelector('${row}').matches(':hover') &&
+    getComputedStyle(document.querySelector('${row}')).backgroundColor !== ${JSON.stringify(before)}`);
   const hover=await view.cdp.evaluate(`getComputedStyle(document.querySelector('${row}')).backgroundColor`);
   assert.notEqual(hover,before);
+  t.diagnostic(JSON.stringify({hoverPoint:target,before,hover}));
   const button=row+' .session-row__main';
   const measure=()=>view.cdp.evaluate(`(() => {const el=document.querySelector('${button}'),css=getComputedStyle(el);
     return {width:el.offsetWidth,height:el.offsetHeight,scale:css.scale,shadow:css.boxShadow};})()`);
-  const original=await measure(); await mouse(view,'mousePressed',button); await pause(view,150);
+  const original=await measure(); await mouse(view,'mousePressed',button);
+  await waitFor(view,`Math.abs(Number(getComputedStyle(document.querySelector('${button}')).scale)-.98)<.001`);
   const held=await measure(); assert.equal(held.width,original.width); assert.equal(held.height,original.height);
   assert.ok(Math.abs(Number(held.scale)-.98)<.001, JSON.stringify(held)); assert.notEqual(held.shadow,'none');
   await mouse(view,'mouseReleased',button);
