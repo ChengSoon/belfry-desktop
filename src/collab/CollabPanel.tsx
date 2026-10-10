@@ -17,7 +17,9 @@ interface CollabPanelProps {
 }
 
 export function CollabPanel({ collab, onClose }: CollabPanelProps) {
-  const ref = useDismiss<HTMLElement>(true, onClose);
+  // Other panel triggers switch on click. Closing on mousedown creates an empty
+  // rail between press/release and resizes every terminal twice unnecessarily.
+  const ref = useDismiss<HTMLElement>(true, onClose, "click");
   const waiting = awaitingApproval(collab.tasks);
   const active = activeTasks(collab.tasks);
   const settled = collab.tasks.filter(

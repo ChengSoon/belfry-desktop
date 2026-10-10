@@ -208,7 +208,13 @@ test('motion: drawer switch/interruptions, terminal resize bounded and reduced-m
       await waitFor(view,"!!document.querySelector('.collab-panel')");
       await pause(view);
       await evidence(view,`motion-collab-${mode}-${width}x${height}`,['button[aria-label="关闭协作面板"]']);
-      await click(view,'button[title^="历史会话"]');
+      // Holding the destination trigger must not close the old rail on mousedown.
+      // Otherwise remote click latency introduces a no-panel width and two extra PTY resizes.
+      await mouse(view,'mousePressed','button[title^="历史会话"]');
+      await pause(view,200);
+      assert.equal(await view.cdp.evaluate("document.querySelector('.collab-panel')?.closest('.motion-drawer')?.dataset.motionState ?? null"),'open',
+        'destination mousedown must keep the collaboration rail until the switch click');
+      await mouse(view,'mouseReleased','button[title^="历史会话"]');
       await waitFor(view,"!!document.querySelector('.history-head')");
       await pause(view);
       assert.equal(await view.cdp.evaluate("document.querySelectorAll('.motion-drawer').length"),1);
@@ -227,9 +233,25 @@ test('motion: drawer switch/interruptions, terminal resize bounded and reduced-m
   }
   await resize(view,1440,960);
   // The opener itself must close rather than outside-mousedown closing then click reopening.
+  // Some webviews do not focus buttons on mouse press. Opening must still survive
+  // its own bubbling click even when the captured focus is the terminal instead.
+  await view.cdp.evaluate(`(() => {
+    document.querySelector('.terminal-pane.is-onstage .xterm-helper-textarea').focus();
+    document.querySelector('button[aria-label="会话协作"]').addEventListener('mousedown',event=>event.preventDefault(),{once:true});
+  })()`);
   await click(view,'button[aria-label="会话协作"]'); await pause(view);
+  assert.equal(await view.cdp.evaluate("document.querySelector('.collab-panel')?.closest('.motion-drawer')?.dataset.motionState ?? null"),'open');
   await click(view,'button[aria-label="会话协作"]'); await pause(view);
   assert.equal(await view.cdp.evaluate("document.querySelectorAll('.motion-drawer').length"),0);
+  // Outside dismissal still works, but only after the completed click; Escape is unchanged.
+  await click(view,'button[aria-label="会话协作"]');
+  await waitFor(view,"document.querySelector('.collab-panel')?.closest('.motion-drawer')?.dataset.motionState === 'open'");
+  await mouse(view,'mousePressed','.terminal-stage'); await pause(view,200);
+  assert.equal(await view.cdp.evaluate("document.querySelector('.collab-panel')?.closest('.motion-drawer')?.dataset.motionState ?? null"),'open');
+  await mouse(view,'mouseReleased','.terminal-stage');
+  await waitFor(view,"!document.querySelector('.collab-panel')");
+  await click(view,'button[aria-label="会话协作"]'); await press(view,'Escape');
+  await waitFor(view,"!document.querySelector('.collab-panel')");
   // 12 rapid open/close pairs; no ghosts or occupied track after the final close.
   await view.cdp.evaluate(`new Promise(resolve=>{let n=0;const toggle=()=>{document.querySelector('button[title^="历史会话"]').click();
     if(++n<24)setTimeout(toggle,20);else resolve();};toggle();})`); await pause(view);
