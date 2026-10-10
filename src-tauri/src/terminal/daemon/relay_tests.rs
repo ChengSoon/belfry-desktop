@@ -168,3 +168,36 @@ fn collaboration_rebinds_tokens_and_keeps_the_original_tab_identity() {
     assert!(!response.contains("secret"));
     worker.join().unwrap();
 }
+
+#[test]
+fn native_codex_is_not_given_daemon_relay_credentials() {
+    let relay = Relay::start().unwrap();
+    let mut launch = request();
+    launch.profile_id = "agent:codex".into();
+    launch
+        .env
+        .insert(crate::agent::native_launch::ENV.into(), "1".into());
+    let before = launch.env.clone();
+    relay.bind("native-pty", &mut launch).unwrap();
+    assert_eq!(launch.env, before);
+    assert!(relay.collab("qa-tab", "").is_none());
+    // Explicitly disabling native mode keeps the existing managed relay path.
+    launch
+        .env
+        .insert(crate::agent::native_launch::ENV.into(), "0".into());
+    relay.bind("managed-pty", &mut launch).unwrap();
+    assert!(launch.env.contains_key(belfry_protocol::ENV_ENDPOINT));
+    assert!(
+        relay
+            .collab("qa-tab", &launch.env[belfry_protocol::ENV_TOKEN])
+            .is_some()
+    );
+    relay.remove("managed-pty");
+    // A Codex-only environment variable must not disable Claude's relay.
+    let mut claude = request();
+    claude
+        .env
+        .insert(crate::agent::native_launch::ENV.into(), "1".into());
+    relay.bind("claude-pty", &mut claude).unwrap();
+    assert!(claude.env.contains_key(belfry_protocol::ENV_ENDPOINT));
+}

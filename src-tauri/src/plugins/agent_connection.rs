@@ -13,10 +13,15 @@ const NODE_ENV: &str = "BELFRY_PLUGIN_NODE";
 const BRIDGE_ENV: &str = "BELFRY_PLUGIN_MCP_BRIDGE";
 
 pub fn attach(app: &AppHandle, request: &mut CreateTerminalRequest) -> Option<String> {
+    if request.profile_id == "agent:codex" && crate::agent::native_launch::enabled(&request.env) {
+        return None;
+    }
     if request.command.is_some()
         || !matches!(
             LaunchProfileId::parse(&request.profile_id),
-            Ok(LaunchProfileId::AgentCodex | LaunchProfileId::AgentClaude | LaunchProfileId::AgentPi)
+            Ok(LaunchProfileId::AgentCodex
+                | LaunchProfileId::AgentClaude
+                | LaunchProfileId::AgentPi)
         )
     {
         return None;

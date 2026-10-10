@@ -48,6 +48,10 @@ impl HookRuntime {
         request: &mut CreateTerminalRequest,
         sink: Arc<dyn Fn(String, super::HookSnapshot) + Send + Sync>,
     ) {
+        if request.profile_id == "agent:codex" && crate::agent::native_launch::enabled(&request.env)
+        {
+            return;
+        }
         let Some(tab_id) = request.tab_id.clone() else {
             return;
         };

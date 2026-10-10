@@ -47,6 +47,10 @@ impl Relay {
     }
 
     pub fn bind(&self, key: &str, request: &mut CreateTerminalRequest) -> Result<(), AppError> {
+        if request.profile_id == "agent:codex" && crate::agent::native_launch::enabled(&request.env)
+        {
+            return Ok(());
+        }
         let Some(tab_id) = request.tab_id.as_ref() else {
             return Ok(());
         };

@@ -199,9 +199,7 @@ fn resolve_shell_executable(profile: LaunchProfileId) -> Result<String, AppError
         LaunchProfileId::AgentCodex
         | LaunchProfileId::AgentClaude
         | LaunchProfileId::AgentPi
-        | LaunchProfileId::Ssh => {
-            Err(AppError::invalid_argument("profile is not a shell"))
-        }
+        | LaunchProfileId::Ssh => Err(AppError::invalid_argument("profile is not a shell")),
     }
 }
 
@@ -383,6 +381,7 @@ fn collaboration_env(
     let mut effective = env.clone();
     if collaboration_mode
         && kind == AgentKind::Codex
+        && !crate::agent::native_launch::enabled(env)
         && effective
             .get("CODEX_SQLITE_HOME")
             .is_none_or(|value| value.trim().is_empty())
@@ -948,6 +947,20 @@ mod tests {
         assert_eq!(
             patch(&[("LC_ALL", ""), ("LC_CTYPE", ""), ("LANG", "")]),
             Some(("LC_CTYPE", "C.UTF-8"))
+        );
+    }
+}
+
+#[cfg(test)]
+mod native_tests {
+    use super::*;
+
+    #[test]
+    fn native_codex_does_not_inject_a_collaboration_database() {
+        let env = HashMap::from([(crate::agent::native_launch::ENV.into(), "1".into())]);
+        assert_eq!(
+            collaboration_env(AgentKind::Codex, &env, true).unwrap(),
+            env
         );
     }
 }

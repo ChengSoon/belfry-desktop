@@ -14,7 +14,9 @@ use super::contracts::{
     AgentSessionRef, AgentStateSnapshot,
 };
 use super::detection::detect_agent;
-use super::history_adapter::{AgentHistoryAdapter, ClaudeHistoryAdapter, CodexHistoryAdapter, PiHistoryAdapter};
+use super::history_adapter::{
+    AgentHistoryAdapter, ClaudeHistoryAdapter, CodexHistoryAdapter, PiHistoryAdapter,
+};
 use super::state::{RawAgentEvent, normalize_event, state_snapshot};
 
 pub(crate) struct AgentLaunchContext<'a> {
@@ -143,6 +145,26 @@ fn resolve_launch(
     base_arguments: Vec<String>,
 ) -> Result<AgentLaunchSpec, AppError> {
     let executable = super::detection::resolve_agent(kind)?;
+    let arguments = launch_arguments_in(kind, &context, base_arguments)?;
+    let _ = context.cwd;
+    Ok(AgentLaunchSpec {
+        executable,
+        arguments,
+        display_name: kind.command_name().to_string(),
+    })
+}
+
+fn launch_arguments_in(
+    kind: AgentKind,
+    context: &AgentLaunchContext<'_>,
+    base_arguments: Vec<String>,
+) -> Result<Vec<String>, AppError> {
+    if kind == AgentKind::Codex && super::native_launch::enabled(context.env) {
+        return context.resume.map_or_else(
+            || Ok(Vec::new()),
+            |id| resume_plan(kind, id, &[]).map(|plan| plan.arguments),
+        );
+    }
     let mut arguments = launch_arguments(
         kind,
         context.resume,
@@ -153,12 +175,7 @@ fn resolve_launch(
         0..0,
         crate::plugins::agent_connection::arguments(kind, context.env),
     );
-    let _ = context.cwd;
-    Ok(AgentLaunchSpec {
-        executable,
-        arguments,
-        display_name: kind.command_name().to_string(),
-    })
+    Ok(arguments)
 }
 
 fn launch_arguments(
@@ -193,6 +210,9 @@ fn resume_plan(
     session_id: &str,
     prefix: &[&str],
 ) -> Result<AgentResumePlan, AppError> {
+    if session_id.starts_with('-') {
+        return Err(AppError::invalid_argument("会话 ID 不能是 CLI 选项"));
+    }
     let session = validate_session_id(kind, session_id)?;
     let mut arguments = prefix
         .iter()
@@ -297,3 +317,77 @@ impl AgentAdapter for ClaudeAdapter {
 #[cfg(test)]
 #[path = "adapter_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+mod native_tests {
+    use super::*;
+
+    #[test]
+    fn native_codex_has_plain_arguments_even_with_collaboration_and_plugin_environment() {
+        let env = HashMap::from([
+            (super::super::native_launch::ENV.into(), "1".into()),
+            ("BELFRY_PLUGIN_NODE".into(), "/node".into()),
+            ("BELFRY_PLUGIN_MCP_BRIDGE".into(), "/bridge".into()),
+            (
+                "BELFRY_PLUGIN_MCP_URL".into(),
+                "http://127.0.0.1/mcp".into(),
+            ),
+            ("BELFRY_PLUGIN_MCP_TOKEN".into(), "test-token".into()),
+        ]);
+        let mut context = AgentLaunchContext {
+            cwd: Path::new("."),
+            env: &env,
+            resume: None,
+            collaboration_mode: true,
+        };
+        assert!(
+            launch_arguments_in(AgentKind::Codex, &context, CODEX.new_session_arguments())
+                .unwrap()
+                .is_empty()
+        );
+        context.resume = Some("11111111-2222-3333-4444-555555555555");
+        assert_eq!(
+            launch_arguments_in(AgentKind::Codex, &context, CODEX.new_session_arguments()).unwrap(),
+            vec!["resume", "11111111-2222-3333-4444-555555555555"]
+        );
+        context.resume = Some("--last");
+        assert!(
+            launch_arguments_in(AgentKind::Codex, &context, CODEX.new_session_arguments()).is_err()
+        );
+        // The Codex-only switch must not remove Claude's ordinary permission arguments.
+        context.resume = None;
+        assert!(
+            launch_arguments_in(AgentKind::Claude, &context, CLAUDE.new_session_arguments())
+                .unwrap()
+                .contains(&"--dangerously-skip-permissions".to_owned())
+        );
+    }
+
+    #[test]
+    fn native_and_managed_resume_reject_cli_option_ids() {
+        for kind in AgentKind::ALL {
+            for id in ["--last", "--all", "-h"] {
+                assert!(adapter_for(kind).plan_resume(id).is_err());
+            }
+        }
+    }
+
+    #[test]
+    fn native_switch_off_preserves_managed_codex_arguments() {
+        let env = HashMap::from([(super::super::native_launch::ENV.into(), "0".into())]);
+        let context = AgentLaunchContext {
+            cwd: Path::new("."),
+            env: &env,
+            resume: None,
+            collaboration_mode: true,
+        };
+        assert_eq!(
+            launch_arguments_in(AgentKind::Codex, &context, CODEX.new_session_arguments()).unwrap(),
+            vec![
+                "--disable",
+                "multi_agent",
+                "--dangerously-bypass-approvals-and-sandbox"
+            ]
+        );
+    }
+}

@@ -18,6 +18,9 @@ pub async fn terminal_create(
     flow_control: Option<bool>,
     on_event: Channel<TerminalEvent>,
 ) -> Result<TerminalSession, AppError> {
+    if request.profile_id == "agent:codex" {
+        crate::agent::native_launch::freeze(&mut request.env);
+    }
     request.launch_overlay.attachment = attachment;
     if let Some(tab) = &request.tab_id {
         request.launch_overlay.launch_epoch = app.state::<TerminalRuntime>().launch_epoch(tab);
@@ -62,6 +65,9 @@ fn issue_collab_identity(
     endpoint: Option<&str>,
     request: &mut CreateTerminalRequest,
 ) {
+    if request.profile_id == "agent:codex" && crate::agent::native_launch::enabled(&request.env) {
+        return;
+    }
     let Some(tab_id) = request.tab_id.clone() else {
         return;
     };
@@ -269,5 +275,26 @@ mod tests {
         // 好过对着一个不存在的地址反复重试。
         assert!(req.env.contains_key(ENV_TOKEN));
         assert!(!req.env.contains_key(belfry_protocol::ENV_ENDPOINT));
+    }
+
+    #[test]
+    fn native_codex_receives_no_collaboration_or_hook_connection() {
+        let identities = SessionIdentities::default();
+        let mut req = request("agent:codex", Some("tab-native"));
+        req.env
+            .insert(crate::agent::native_launch::ENV.into(), "1".into());
+        let original_env = req.env.clone();
+        issue_collab_identity(&identities, None, &mut req);
+        assert_eq!(req.env, original_env);
+        assert!(!identities.verify("tab-native", ""));
+        let hooks = crate::agent::hooks::HookRuntime::default();
+        hooks.prepare_sink(
+            &mut req,
+            std::sync::Arc::new(|_, _| panic!("native launch must not publish a hook")),
+        );
+        assert!(req.launch_overlay.hook.is_none());
+        assert!(req.launch_overlay.environment.is_empty());
+        assert!(req.launch_overlay.unset.is_empty());
+        assert_eq!(req.env, original_env);
     }
 }

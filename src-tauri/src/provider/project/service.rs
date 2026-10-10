@@ -58,6 +58,9 @@ pub(crate) fn prepare(
     let Some(kind) = agent_kind(&request.profile_id) else {
         return Ok(());
     };
+    if kind == AgentKind::Codex && crate::agent::native_launch::enabled(&request.env) {
+        return Ok(());
+    }
     let path = match &request.cwd {
         Some(uri) => crate::resource::file_uri_to_path(uri)?,
         None => std::env::current_dir().map_err(|error| AppError::io(error.to_string()))?,
