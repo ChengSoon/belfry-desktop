@@ -8,7 +8,7 @@ import {
   LoaderCircle,
   RefreshCw,
 } from "lucide-react";
-import { useEffect, type CSSProperties } from "react";
+import { useEffect } from "react";
 import { ClaudeIcon, CodexIcon, PiIcon } from "../workspace/components/AgentIcons";
 import { SettingsHeader } from "../settings/SettingsHeader";
 import { ICON } from "../theme/sizing";
@@ -54,11 +54,6 @@ export function AboutSection({ updaterState, updaterOpen, onOpenUpdater, onGuard
       <SettingsHeader
         title="关于"
         description="查看版本信息与更新状态。"
-        actions={
-          <button className="provider-add" disabled={busy} onClick={onOpenUpdater} type="button">
-            检查更新
-          </button>
-        }
       />
 
       <div className="provider-official about-app">
@@ -115,12 +110,7 @@ export function AboutSection({ updaterState, updaterOpen, onOpenUpdater, onGuard
       {model.releases === null ? (
         <p className="provider-empty">{model.loading ? "正在检测本地 CLI 与 registry 版本…" : "暂无检测结果。"}</p>
       ) : (
-        <div
-          className="about-list"
-          // 列数上限交给 CSS：按实际卡片数等分，宽屏下不会 auto-fill 出空列。
-          // 取 max(1, …) 兜底，卡片数为 0 时别让 calc 除以 0 把整条列定义作废。
-          style={{ "--about-columns": Math.max(1, model.releases.length) } as CSSProperties}
-        >
+        <div className="about-list">
           {model.releases.map((release) => (
             <AgentCard
               installing={model.installing}
@@ -174,14 +164,10 @@ function AgentCard({
         <span className="about-card__version" title="当前版本">
           {release.currentVersion ?? "未安装"}
         </span>
-        <span aria-hidden="true" className="about-card__state">
-          <StateIcon state={release.state} />
-        </span>
       </header>
 
       <dl className="about-card__meta">
         <div><dt>最新版本</dt><dd>{release.latestVersion ?? "—"}</dd></div>
-        <div><dt>状态</dt><dd>{RELEASE_LABEL[release.state]}</dd></div>
       </dl>
 
       {release.notice ? <p className="about-card__notice">{release.notice}</p> : null}
@@ -192,16 +178,22 @@ function AgentCard({
       ) : null}
 
       <div className="provider-card__actions">
-        <button
-          className="provider-card__activate"
-          disabled={!actionable || busy}
+        {actionable || busy ? <button
+          className="provider-card__activate about-card__install"
+          aria-busy={busy || undefined}
+          disabled={installing !== null}
           onClick={onInstall}
           title={release.installCommand ?? undefined}
           type="button"
         >
           {busy ? <LoaderCircle aria-hidden="true" className="environment-spin" size={ICON.sm} /> : null}
-          {busy ? "正在安装" : actionLabel}
-        </button>
+          <span>{busy ? (release.state === "missing" ? "正在安装" : "正在升级") : actionLabel}</span>
+        </button> : (
+          <span className="about-card__state">
+            <StateIcon state={release.state} />
+            {RELEASE_LABEL[release.state]}
+          </span>
+        )}
         {failed && release.installCommand ? (
           <button
             onClick={() => void copyToTerminal(release.installCommand!)}

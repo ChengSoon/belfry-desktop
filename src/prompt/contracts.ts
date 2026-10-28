@@ -10,6 +10,18 @@ export interface PromptQueueItem {
 
 export type PromptSubmitResult = "sent" | "queued" | "unavailable";
 
+export interface PromptQueueUpdate {
+  state: "queued" | "sending" | "submitted" | "attention" | "cancelled";
+  message?: string;
+}
+
+export interface PromptSubmitOptions {
+  id?: string;
+  /** 宿主发起的反馈只能投递给仍属于这个项目的会话。 */
+  projectRoot?: string;
+  onUpdate?: (update: PromptQueueUpdate) => void;
+}
+
 export function isAgentKind(kind: WorkspaceTabKind): kind is AgentKind {
   return kind === "codex" || kind === "claude" || kind === "pi";
 }

@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import type { LayoutNode } from "../../layout/contracts";
-import { activateWorkspaceTab, changeWorkspaceLayout, createNamedWorkspace, moveWorkspaceTab,
+import { activateWorkspaceTab, changeWorkspaceLayout, createNamedWorkspace, deleteNamedWorkspace, moveWorkspaceTab,
   registerWorkspaceTab, renameNamedWorkspace, switchNamedWorkspace } from "./actions";
 import type { WorkspaceCollection, WorkspaceSeed } from "./contracts";
 import { currentWorkspace } from "./model";
@@ -40,6 +40,7 @@ export function useNamedWorkspaces(seed: WorkspaceSeed) {
       return perform((value) => createNamedWorkspace(value, { id, name }));
     },
     rename: (name: string) => perform((value) => renameNamedWorkspace(value, { id: current.id, name })),
+    remove: (destinationId: string) => perform((value) => deleteNamedWorkspace(value, { id: current.id, destinationId })),
     move: (tabId: string, workspaceId: string) => perform((value) => moveWorkspaceTab(value, { tabId, workspaceId })),
     dismissNotices: () => commit({ ...ref.current, notices: [] }),
   };

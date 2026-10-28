@@ -30,10 +30,25 @@ export function registerWorkspaceTab(collection: WorkspaceCollection, request: {
 }) {
   if (!isId(request.tabId)) throw new Error("会话 ID 无效");
   if (collection.workspaces.some((item) => item.tabIds.includes(request.tabId))) return collection;
-  const owner = collection.workspaces.find((item) => item.id === request.workspaceId);
-  if (!owner) throw new Error("会话发起工作区已不存在");
+  const original = collection.workspaces.find((item) => item.id === request.workspaceId);
+  // 启动期间来源工作区可能已删除；接住迟到的会话，避免丢失归属或抢焦点。
+  const owner = original ?? currentWorkspace(collection);
   const added = updateWorkspace(collection, { ...owner, tabIds: [...owner.tabIds, request.tabId] });
-  return request.activate && collection.activeWorkspaceId === owner.id ? activateWorkspaceTab(added, request.tabId) : added;
+  return original && request.activate && collection.activeWorkspaceId === owner.id ? activateWorkspaceTab(added, request.tabId) : added;
+}
+
+export function deleteNamedWorkspace(collection: WorkspaceCollection, request: { id: string; destinationId: string }) {
+  if (collection.workspaces.length <= 1) throw new Error("至少保留一个工作区");
+  const source = collection.workspaces.find((item) => item.id === request.id);
+  if (!source) throw new Error("工作区已不存在");
+  const destination = collection.workspaces.find((item) => item.id === request.destinationId);
+  if (!destination || destination.id === source.id) throw new Error("请选择其他有效的目标工作区");
+  const merged = normalizeWorkspace(destination, [...destination.tabIds, ...source.tabIds]);
+  return { ...collection,
+    activeWorkspaceId: collection.activeWorkspaceId === source.id ? destination.id : collection.activeWorkspaceId,
+    workspaces: collection.workspaces.filter((item) => item.id !== source.id)
+      .map((item) => item.id === destination.id ? merged : item),
+  };
 }
 
 export function createNamedWorkspace(collection: WorkspaceCollection, request: { id: string; name: string }) {

@@ -44,7 +44,7 @@ export function GitPanel(props: Props) {
       <div className="git-body">
         <GitFileList groups={model.groups} query={model.query} selected={model.request} onQuery={model.setQuery}
           onSelect={model.select} onOpen={(file) => open(file.path)} />
-        <GitDiffView request={model.request} file={model.selected} diff={model.diff.diff}
+        <GitDiffView projectRoot={props.project?.rootPath} request={model.request} file={model.selected} diff={model.diff.diff}
           loading={model.diff.loading} failure={model.diff.failure}
           onRefresh={model.diff.reload} onOpen={() => { if (model.request) open(model.request.path); }} />
       </div>

@@ -4,6 +4,7 @@ import { AppOverlays } from "./components/AppOverlays";
 import { Workbench } from "./components/Workbench";
 import { Presence } from "./components/motion/Presence";
 import { ProjectInspector } from "./git/ProjectInspector";
+import { GitReviewProvider } from "./git/review/GitReviewProvider";
 import { projectRelativePath } from "./filepreview/path";
 import { WindowTitlebar } from "./components/WindowTitlebar";
 import "./workspace/workspace.css";
@@ -333,6 +334,8 @@ export default function App() {
       <Presence open={collabOpen} drawer><CollabPanel collab={collab} onClose={() => setCollabOpen(false)} /></Presence>
       <PluginDock visible={pluginDockOpen && !settingsOpen} onClose={() => setPluginDockOpen(false)} />
 
+      <GitReviewProvider tabs={workspace.visibleTabs} activeTabId={workspace.activeTabId}
+        submit={promptQueue.submit} cancel={promptQueue.cancel} onActivate={layout.activateTab}>
       {previewOpen ? (
         <ProjectInspector
           onOpenProject={workspace.selectProject}
@@ -345,6 +348,7 @@ export default function App() {
           requestedPath={previewRequest?.path ?? null}
         />
       ) : null}
+      </GitReviewProvider>
 
       <AppOverlays
         failure={workspace.failure}

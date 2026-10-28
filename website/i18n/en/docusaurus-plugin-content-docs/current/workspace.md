@@ -58,6 +58,21 @@ The file preview pane lets you browse the current project directory and open **r
 The preview pane is read-only — you can't edit files in it. To change a file, use your editor, or let an Agent do it.
 :::
 
+## Git changes and line feedback
+
+Switch from the file preview to **Git changes**, select a file, and click the feedback icon beside a code line:
+
+1. Write your requested change and choose a Codex, Claude Code, or Pi session in the current project.
+2. Click **Send feedback**, or press `⌘Enter` / `Ctrl+Enter`. The message includes the file path, old/new line numbers, and nearby changes.
+3. After the Agent makes changes, refresh the Diff to review them. **View session** opens the receiving session.
+
+Belfry checks the latest disk diff before sending. If the selected code has changed, it keeps your draft and asks you to select the line again. Deleted lines refer to the old version.
+
+Feedback waits in the queue while the receiving session is busy or awaiting a choice. You can cancel feedback that has not started sending.
+**Sent** appears only after the terminal confirms submission; failed or uncertain delivery asks you to check the session.
+
+Drafts and receipts survive closing the panel or switching files. Drafts, receipts, and unsent queue entries are kept only for the current app run and are cleared when the app exits.
+
 ## Collapse the sidebar
 
 Press `⌘B` (`Ctrl+Shift+B` on Windows) to collapse the sidebar entirely and give all the space to the terminal.

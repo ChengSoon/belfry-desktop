@@ -70,6 +70,7 @@ Neither agent detected? Doesn't matter. Shell sessions don't depend on them, and
 - Named workspaces preserve session groups, split layouts and active focus; reopening restores background session identities
 - Quick Open (`⌘K`) searches sessions and recent projects, and runs common workspace actions
 - The file preview pane browses the active project, opens read-only code previews, follows file paths from terminal output, and surfaces disk-change notices
+- Git Diff supports line feedback: select a change, write a comment, and send it to an Agent in the current project; changes are checked before sending, busy sessions queue feedback, and unsent feedback can be cancelled
 
 **Agent hosting**
 

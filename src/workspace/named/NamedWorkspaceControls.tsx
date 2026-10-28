@@ -8,6 +8,7 @@ import { MAX_WORKSPACES } from "./contracts";
 import type { NamedWorkspaces } from "./useNamedWorkspaces";
 import { WorkspaceNameForm } from "./WorkspaceNameForm";
 import { WorkspaceSessionTools } from "./WorkspaceSessionTools";
+import { WorkspaceDeleteButton } from "./WorkspaceDeleteButton";
 import "./namedWorkspaces.css";
 
 export interface WorkspaceControlsProps {
@@ -44,18 +45,24 @@ export function WorkspaceMenu(props: WorkspaceControlsProps & { onSelect: () => 
     onSave={(name) => { const error = (form === "rename" ? model.rename : model.create)(name); if (!error) onSelect(); return error; }}
     onCancel={() => setForm(null)} />;
   return <>
+    <header className="named-workspaces__heading"><span>工作区</span><small>{model.collection.workspaces.length} / {MAX_WORKSPACES}</small></header>
     <div className="named-workspaces__list" aria-label="工作区列表">
       {model.collection.workspaces.map((item) => <button className="named-workspaces__item" key={item.id} type="button"
         aria-current={item.id === model.current.id || undefined} data-flyout-focus={item.id === model.current.id || undefined}
         onClick={() => { model.select(item.id); onSelect(); }}>
-        <Check aria-hidden="true" size={ICON.sm} /><span>{item.name}</span><small>{item.tabIds.length} 个会话</small>
+        <span className="named-workspaces__icon"><Layers2 aria-hidden="true" size={ICON.sm} /></span>
+        <span className="named-workspaces__identity"><span title={item.name}>{item.name}</span><small>{item.tabIds.length} 个会话</small></span>
+        <Check className="named-workspaces__check" aria-hidden="true" size={ICON.sm} />
       </button>)}
     </div>
+    <button className="named-workspaces__create" type="button" disabled={model.collection.workspaces.length >= MAX_WORKSPACES}
+      onClick={() => setForm("create")}><Plus aria-hidden="true" size={ICON.sm} />新建工作区</button>
     <div className="named-workspaces__actions">
-      <button type="button" disabled={model.collection.workspaces.length >= MAX_WORKSPACES} onClick={() => setForm("create")}><Plus size={ICON.sm} />新建工作区</button>
-      <button type="button" onClick={() => setForm("rename")}><Pencil size={ICON.sm} />重命名</button>
+      <span>当前工作区</span>
+      <button type="button" onClick={() => setForm("rename")}><Pencil aria-hidden="true" size={ICON.xs} />重命名</button>
     </div>
     {activeTab ? <WorkspaceSessionTools key={activeTab.id} model={model} tab={activeTab} onRepair={onRepair} /> : null}
+    <WorkspaceDeleteButton model={model} onDeleted={onSelect} />
     <WorkspaceSaveStatus {...props} />
     {model.actionError ? <p role="alert" className="named-workspaces__error">{model.actionError}</p> : null}
   </>;

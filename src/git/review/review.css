@@ -1,0 +1,36 @@
+.git-line.is-review-selected { box-shadow: inset 3px 0 var(--accent); background: var(--accent-soft); }
+.git-review .sr-only, .git-review-cell .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+.git-diff__table .git-review-cell { width: 28px; min-width: 28px; padding: 0 3px; }
+.git-review-line { display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: var(--radius-xs); background: transparent; color: var(--text-faint); cursor: pointer; }
+.git-review-line:hover, .git-review-line[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+.git-review-line:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.git-review-line:disabled { opacity: .35; cursor: default; }
+.git-body:has(.git-review) { grid-template-rows: minmax(80px, 25%) minmax(0, 1fr); }
+.git-diff:has(.git-review) { overflow: auto; }
+.git-diff:has(.git-review) .git-diff__scroll { min-height: 100px; }
+.git-review { display: grid; gap: 10px; flex-shrink: 0; padding: 12px; border-top: 1px solid var(--border); background: var(--surface); min-width: 0; }
+.git-review__head { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; color: var(--text-muted); font-size: var(--fs-xs); }
+.git-review__head strong { color: var(--text); font-weight: 500; }
+.git-review__head span { margin-left: auto; }
+.git-review textarea { box-sizing: border-box; width: 100%; min-height: 68px; max-height: 180px; resize: vertical; padding: 9px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--canvas); color: var(--text); font: inherit; font-size: var(--fs-sm); line-height: 1.6; }
+.git-review textarea::placeholder { color: var(--text-faint); }
+.git-review textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.git-review textarea:disabled { color: var(--text-muted); }
+.git-review__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.git-review__actions .ui-select { flex: 1; min-width: 140px; }
+.git-review__send { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 7px 10px; border: 1px solid transparent; border-radius: var(--radius-sm); background: var(--accent); color: var(--accent-contrast); font: inherit; font-size: var(--fs-xs); cursor: pointer; }
+.git-review__send:disabled { opacity: .45; cursor: default; }
+.git-review button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.git-review__note, .git-review__warning, .git-review__error, .git-review__receipt { margin: 0; font-size: var(--fs-xs); line-height: 1.65; overflow-wrap: anywhere; }
+.git-review__note { color: var(--text-muted); }
+.git-review__warning { color: var(--warning); }
+.git-review__error { color: var(--danger); }
+.git-review__receipt { display: grid; gap: 5px; border-left: 2px solid var(--accent); padding-left: 10px; color: var(--text-muted); }
+.git-review__receipt strong { color: var(--text); font-weight: 500; }
+.git-review__receipt p { margin: 0; }
+.git-review__receipt.is-submitted { border-color: var(--success); }
+.git-review__receipt.is-attention { border-color: var(--warning); }
+.git-review__receipt.is-cancelled { border-color: var(--text-faint); }
+.git-review__receipt-actions { display: flex; flex-wrap: wrap; gap: 14px; }
+.git-review__receipt-actions button, .git-review__note button, .git-review__error button { padding: 0; border: 0; background: transparent; color: var(--accent); font: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.git-review__error button { margin-left: 8px; }

@@ -19,7 +19,7 @@ const tabs = ["a", "e"].map((id) => ({ ...createWorkspaceTab(project, "shell", 1
 function model(): NamedWorkspaces {
   const collection = fixtureCollection();
   return { collection, current: currentWorkspace(collection), activeTabId: "b", error: null, actionError: null,
-    raw: null, notices: [], select: vi.fn(), create: vi.fn(), rename: vi.fn(), move: vi.fn(),
+    raw: null, notices: [], select: vi.fn(), create: vi.fn(), rename: vi.fn(), remove: vi.fn(), move: vi.fn(),
     setLayout: vi.fn(), setActiveTabId: vi.fn(), registerTab: vi.fn(), reload: vi.fn(), retrySave: vi.fn(), dismissNotices: vi.fn() };
 }
 

@@ -39,11 +39,22 @@ export function ProviderCard(props: ProviderCardProps) {
         {onEdit && <button disabled={busy} onClick={onEdit} type="button" aria-label={`编辑 ${label}`}><Pencil size={13} aria-hidden="true" />编辑</button>}
         {onRemove && <details className="provider-card__more" onBlur={(event) => {
           if (shouldDismissOnBlur(event.currentTarget, event.relatedTarget as Node | null)) event.currentTarget.open = false;
-        }} onKeyDown={(event) => { if (event.key === "Escape") { event.currentTarget.open = false; event.currentTarget.querySelector("summary")?.focus(); } }}>
+        }} onKeyDown={(event) => {
+          if (event.key === "Escape" && event.currentTarget.open) {
+            event.preventDefault(); event.stopPropagation();
+            event.currentTarget.open = false;
+            event.currentTarget.querySelector("summary")?.focus();
+          }
+        }}>
           <summary aria-label={`${label} 的更多操作`}><MoreHorizontal size={16} aria-hidden="true" /></summary>
-          <button className="provider-card__remove" disabled={busy} onClick={(event) => {
-            event.currentTarget.closest("details")?.removeAttribute("open"); onRemove();
-          }} aria-label={`删除 ${label}`} type="button"><Trash2 size={14} aria-hidden="true" />删除配置</button>
+          <div className="provider-card__menu">
+            <button className="provider-card__remove" disabled={busy} onClick={(event) => {
+              const menu = event.currentTarget.closest("details");
+              menu?.removeAttribute("open");
+              menu?.querySelector("summary")?.focus({ preventScroll: true });
+              onRemove();
+            }} aria-label={`删除 ${label}`} type="button"><Trash2 size={14} aria-hidden="true" />删除配置</button>
+          </div>
         </details>}
       </div>
     </article>

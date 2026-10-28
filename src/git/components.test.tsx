@@ -38,3 +38,11 @@ it("二进制、空差异和截断分别给出明确提示", () => {
   expect(render({})).toContain("当前已无该类差异");
   expect(render({ text: "diff --git a/a b/a\n", truncated: true })).toContain("内容不完整");
 });
+
+it("恢复较长 Diff 的反馈时自动显示包含所选行的分页", () => {
+  const text = "@@ -0,0 +1,520 @@\n" + Array.from({ length: 520 }, (_, index) => `+line ${index}`).join("\n");
+  const html = renderToStaticMarkup(<GitDiffContent diff={{ text, binary: false, truncated: false }}
+    selectedLine={510} onReviewLine={noop} />);
+  expect(html).toContain('aria-label="反馈：新第 510 行" aria-pressed="true"');
+  expect(html).toContain("+line 509");
+});

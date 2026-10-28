@@ -19,7 +19,7 @@ if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMM
 const suites = readdirSync("scripts/plugin-tests")
   .filter((name) => name.endsWith(".case.mjs") && (upstream || !upstreamCases.has(name)))
   .map((name) => join("scripts/plugin-tests", name));
-for (const directory of ["src/components/lazy/testing", "src/workspace/testing"]) {
+for (const directory of ["src/components/lazy/testing", "src/workspace/testing", "src/git/testing"]) {
   suites.push(...readdirSync(directory).filter((name) => name.endsWith(".case.mjs")).map((name) => join(directory, name)));
 }
 suites.push("scripts/test-command-library.mjs");
