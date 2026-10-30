@@ -24,11 +24,19 @@ for (const [kind, pattern] of [["JS", settingsJs], ["CSS", settingsCss]]) {
     await assertTerminalIntact(view, token);
     const attempts = requests.filter((r) => pattern.test(r.url));
     t.diagnostic(JSON.stringify({ attempts, preloadErrors: await view.cdp.evaluate("__productionQA.preloadErrors") }));
-    assert.deepEqual([503, 200], attempts.map((r) => r.status));
-    assert.match(attempts[1].url, /belfryPanelRetry=/);
+    // 首次失败可能被浏览器取两次（modulepreload + import 同一 URL），都应 503；
+    // 带重试标记的那一次才 200，且它必须是最后一次。
+    const plain = attempts.filter((r) => !/belfryPanelRetry=/.test(r.url));
+    const marked = attempts.filter((r) => /belfryPanelRetry=/.test(r.url));
+    assert.ok(plain.length >= 1 && plain.every((r) => r.status === 503), `未带标记的请求都应 503：${JSON.stringify(attempts)}`);
+    assert.deepEqual(marked.map((r) => r.status), [200], `带标记的请求应恰好一次且 200：${JSON.stringify(attempts)}`);
+    assert.match(attempts.at(-1).url, /belfryPanelRetry=/);
     if (kind === "CSS") {
-      assert.match(requests.find((r) => /\.css$/.test(r.pathname) && !/\/index-/.test(r.pathname)).url, settingsCss,
-        "失败的是首个异步 CSS，而不是开发服务器中的模拟样式");
+      // 失败的要是面板自己的样式，而不是开发服务器里的模拟样式。共享 chunk 的样式
+      // （Select / Presence）可能先于它加载，所以按模式找那条 503，不按「首个异步 CSS」。
+      const failedCss = requests.find((r) => r.status === 503 && /\.css$/.test(r.pathname));
+      assert.ok(failedCss, "应有一条 503 的 CSS 请求");
+      assert.match(failedCss.url, settingsCss, "失败的是面板自己的 CSS，而不是开发服务器中的模拟样式");
       assert.equal(true, await view.cdp.evaluate("[...document.styleSheets].some(sheet => /SettingsPanel-.*belfryPanelRetry=/.test(sheet.href ?? '') && sheet.cssRules.length > 0)"));
     }
     await capturePanel(view, `production-settings-${kind}-recovered`);
@@ -88,7 +96,10 @@ test("production shared dependency failure stops ineffective retries and keeps t
   await click(view, HISTORY);
   await waitFor(view, `!!document.querySelector(${JSON.stringify(ALERT)})`);
   assert.equal(false, await view.cdp.evaluate(`!!document.querySelector(${JSON.stringify(RETRY)})`), "关闭后重开也不能重置缓存失败状态");
-  assert.equal(2, requests.filter((r) => /HistoryPanel-.*\.js/.test(r.url)).length, "关闭重开不能继续请求失效的入口图");
+  // 入口图：一次原始请求 + 一次带标记重试；关闭重开不能再追加（失败态已被记住）。
+  const entryRequests = () => requests.filter((r) => /HistoryPanel-.*\.js/.test(r.url));
+  assert.equal(1, entryRequests().filter((r) => !/belfryPanelRetry=/.test(r.url)).length, "关闭重开不能继续请求失效的入口图");
+  assert.equal(1, entryRequests().filter((r) => /belfryPanelRetry=/.test(r.url)).length, "入口只重试一次");
   await click(view, ".optional-panel-fallback__return");
   await waitFor(view, "!document.querySelector('.history-panel')");
   await click(view, USAGE);
@@ -96,7 +107,11 @@ test("production shared dependency failure stops ineffective retries and keeps t
   await click(view, RETRY);
   await waitFor(view, "!!document.querySelector('.optional-panel-fallback__return')");
   assert.equal(false, await view.cdp.evaluate(`!!document.querySelector(${JSON.stringify(RETRY)})`), "另一面板也不能循环重试同一共享依赖");
-  assert.equal(1, requests.filter((r) => sharedJs.test(r.url)).length, "同一文档缓存了失败的静态依赖");
+  // 失败的共享依赖：浏览器不缓存失败的模块，所以每次入口加载都会再取一次（都 503）；
+  // 关键是应用层不能对它发起带标记的「重试」——那是无效重试，用例的名字就是在钉这一点。
+  const sharedSoFar = requests.filter((r) => sharedJs.test(r.url));
+  assert.ok(sharedSoFar.length >= 1 && sharedSoFar.every((r) => r.status === 503), `当前文档里共享依赖应全部 503：${JSON.stringify(sharedSoFar)}`);
+  assert.equal(0, sharedSoFar.filter((r) => /belfryPanelRetry=/.test(r.url)).length, "不能对失效的共享依赖发起带标记的无效重试");
   await assertTerminalIntact(view, token);
   await click(view, ".optional-panel-fallback__return");
   await waitFor(view, "!document.querySelector('.usage-panel')");
@@ -115,7 +130,10 @@ test("production shared dependency failure stops ineffective retries and keeps t
   await press(fresh, "Escape");
   await click(fresh, USAGE);
   await waitFor(fresh, "!!document.querySelector('.usage-head')");
-  assert.deepEqual([503, 200], requests.filter((r) => sharedJs.test(r.url)).map((r) => r.status));
+  // 原文档里全是 503；新文档拿到的那次是 200，且是最后一次。
+  const sharedAll = requests.filter((r) => sharedJs.test(r.url)).map((r) => r.status);
+  assert.equal(200, sharedAll.at(-1), `新文档应拿到已恢复的依赖：${JSON.stringify(sharedAll)}`);
+  assert.ok(sharedAll.slice(0, -1).every((status) => status === 503), `新文档之前的请求都应 503：${JSON.stringify(sharedAll)}`);
   await assertTerminalIntact(view, token);
   await assertTerminalIntact(fresh, freshToken);
   t.diagnostic(JSON.stringify({ sharedDependencyRequests: requests.filter((r) => sharedJs.test(r.url)),

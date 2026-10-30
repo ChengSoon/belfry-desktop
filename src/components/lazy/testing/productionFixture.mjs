@@ -77,11 +77,25 @@ function mime(path) {
     ".woff": "font/woff", ".ttf": "font/ttf", ".png": "image/png", ".svg": "image/svg+xml" })[extname(path)] ?? "application/octet-stream";
 }
 
+/**
+ * 让匹配的资源在**当前文档里**一直 503，直到请求带上应用的重试标记（`belfryPanelRetry=`）；
+ * 下一个文档（`openWindow()` 再开一个页面）从头拿到正常响应。
+ *
+ * 不能只拒第一次：Vite 的预加载助手对 `modulepreload` 链接不挂 error 监听，一个 503
+ * 的预加载会被静默吞掉，随后真正的 `import()` 又去取同一个 URL——只拒第一次的话
+ * 这一次就拿到 200，面板直接加载成功，「失败卡片 → 重试」那条恢复路径根本没被走到。
+ *
+ * 也不能永远拒：共享依赖那条用例要证明「新文档能拿到已恢复的依赖」。服务端看不到
+ * 请求来自哪个标签页，但每个文档恰好加载一次 index.html——以它为界，每次 HTML 加载
+ * 都把「该拒」重新置为真；文档内只有带重试标记的请求放行。
+ */
 export function failFirst(pattern) {
-  let failed = false;
+  let documents = 0;
   return (request, response) => {
-    if (failed || !pattern.test(request.url)) return false;
-    failed = true;
+    const pathname = new URL(request.url, "http://127.0.0.1").pathname;
+    if (pathname === "/" || pathname === "/index.html") { documents += 1; return false; }
+    // 只有第一个文档看到故障；之后打开的文档拿到的是已恢复的服务。
+    if (documents !== 1 || !pattern.test(request.url) || /[?&]belfryPanelRetry=/.test(request.url)) return false;
     response.writeHead(503, { "Content-Type": "text/plain" }); response.end("test-only resource failure");
     return true;
   };
