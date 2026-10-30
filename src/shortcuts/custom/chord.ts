@@ -1,5 +1,6 @@
 import type { ShortcutPlatform } from "../resolveShortcut";
 import type { KeyInput, ShortcutBinding } from "./contracts";
+import { composingKey } from "../../utils/keyboard";
 
 const KEY_LABELS: Record<string, string> = { Comma: ",", Period: ".", Slash: "/", Semicolon: ";", Quote: "'",
   BracketLeft: "[", BracketRight: "]", Backslash: "\\", Minus: "-", Equal: "=", Backquote: "`" };
@@ -8,7 +9,7 @@ const WINDOW_KEYS = new Set(["KeyQ", "KeyW", "KeyM"]);
 
 export function keyLabel(code: string) { return KEY_LABELS[code] ?? code.replace(/^(Key|Digit)/, ""); }
 export function bindingKey(binding: ShortcutBinding) { return `${binding.shift ? "shift+" : ""}${binding.code}`; }
-export function composingInput(event: KeyInput) { return event.isComposing || event.keyCode === 229 || event.key === "Process"; }
+export function composingInput(event: KeyInput) { return composingKey(event); }
 export function hasHostModifiers(event: KeyInput, platform: ShortcutPlatform) {
   if (event.altKey) return false;
   return platform === "macos" ? event.metaKey && !event.ctrlKey : event.ctrlKey && event.shiftKey && !event.metaKey;

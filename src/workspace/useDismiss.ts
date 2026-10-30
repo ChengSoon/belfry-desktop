@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef } from "react";
 import { ownsTarget } from "../components/controls/layerOwnership";
 import { useMotionActive } from "../components/motion/Presence";
+import { composingKey } from "../utils/keyboard";
 
 /** 浮层通用退出手势：点击外部或 Escape 关闭。退出动画不再占用监听器。 */
 export function useDismiss<T extends HTMLElement>(open: boolean, close: () => void,
@@ -21,7 +22,7 @@ export function useDismiss<T extends HTMLElement>(open: boolean, close: () => vo
       if (!ownsTarget(ref.current, target)) latest.current();
     };
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !event.defaultPrevented && !event.isComposing) latest.current();
+      if (event.key === "Escape" && !event.defaultPrevented && !composingKey(event)) latest.current();
     };
     const attachOutside = () => document.addEventListener(outsideEvent, onOutside);
     // React can commit this effect while the opening click is still bubbling.

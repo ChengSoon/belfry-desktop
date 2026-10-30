@@ -17,26 +17,37 @@ use std::{
 };
 
 #[test]
-fn stale_sessions_connections_and_detaches_cannot_release_a_replacement_window() {
+fn two_views_of_one_session_stream_side_by_side_and_each_releases_only_its_own_window() {
     let subscriptions = Subscriptions::default();
-    let old = Arc::new(Subscription::new("pty".into(), true));
-    subscriptions.replace(old.clone());
-    let old_id = old.budget.reserve(WINDOW_BYTES).unwrap();
-    let new = Arc::new(Subscription::new("pty".into(), true));
-    subscriptions.replace(new.clone());
-    let new_id = new.budget.reserve(WINDOW_BYTES).unwrap();
-    assert!(!old.budget.is_active());
-    assert_eq!((0, 0), old.budget.outstanding());
-    assert!(!subscriptions.acknowledge("other", &new.connection_id, new_id));
-    assert!(!subscriptions.acknowledge("pty", &old.connection_id, old_id));
-    assert!(!subscriptions.acknowledge("pty", &new.connection_id, new_id + 1));
-    subscriptions.detach("pty", &old.connection_id);
-    assert!(new.budget.is_active());
-    assert_eq!((WINDOW_BYTES, 1), new.budget.outstanding());
-    assert!(subscriptions.acknowledge("pty", &new.connection_id, new_id));
-    assert!(!subscriptions.acknowledge("pty", &new.connection_id, new_id));
+    // 工作台那一路先挂上。
+    let workbench = Arc::new(Subscription::new("pty".into(), true));
+    subscriptions.attach(workbench.clone());
+    let workbench_id = workbench.budget.reserve(WINDOW_BYTES).unwrap();
+    // 看终端打开同一条会话的第二路：工作台那一路必须还活着。
+    //
+    // 原先这里按会话登记，第二路会把第一路 cancel 掉——工作台的活动判定随即冻在最后
+    // 一帧，房间成员行于是长期显示「空闲」，而成员其实正在回话。
+    let room = Arc::new(Subscription::new("pty".into(), true));
+    subscriptions.attach(room.clone());
+    let room_id = room.budget.reserve(WINDOW_BYTES).unwrap();
+    assert!(workbench.budget.is_active());
+    assert_eq!((WINDOW_BYTES, 1), workbench.budget.outstanding());
+    assert!(room.budget.is_active());
+    assert_eq!((WINDOW_BYTES, 1), room.budget.outstanding());
+    // 确认只认自己那条连接：会话号对不上、或投递号不是它手上那一个，都不释放额度。
+    assert!(!subscriptions.acknowledge("other", &room.connection_id, room_id));
+    assert!(!subscriptions.acknowledge("pty", &room.connection_id, room_id + 1));
+    // 各按自己的回执释放，互不影响：工作台确认完，看终端那一路的窗口照旧挂着。
+    assert!(subscriptions.acknowledge("pty", &workbench.connection_id, workbench_id));
+    assert_eq!((0, 0), workbench.budget.outstanding());
+    assert_eq!((WINDOW_BYTES, 1), room.budget.outstanding());
+    assert!(!subscriptions.acknowledge("pty", &workbench.connection_id, workbench_id));
+    // 收起看终端只断它自己那一路，工作台那一路不受影响。
+    subscriptions.detach("pty", &room.connection_id);
+    assert!(!room.budget.is_active());
+    assert!(workbench.budget.is_active());
     subscriptions.detach_all();
-    assert!(!new.budget.is_active());
+    assert!(!workbench.budget.is_active());
 }
 
 fn endpoint(listener: &TcpListener) -> Endpoint {

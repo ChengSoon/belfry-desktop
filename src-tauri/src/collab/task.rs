@@ -21,6 +21,14 @@ pub const MAX_HOPS: u8 = 3;
 /// 环检测挡得住 A→B→A，挡不住 A→B、A→C、A→D…… 这种扇出。
 pub const MAX_MESSAGES_PER_RUN: usize = 20;
 
+/// 群聊合并窗口：同一位接收者排队中的群聊投递，这段时间内的新消息并进同一条
+/// 注入——成员读到一段对话摘录，而不是被反复打断。
+pub const CHAT_MERGE_WINDOW_MS: i64 = 20_000;
+
+/// 群聊防抖：连发期间投递一直往后顺延，等这一小段安静下来再整段送出——
+/// 否则合并窗口只有「下一拍轮询前」那么短，摘录根本攒不起来。
+pub const CHAT_DEBOUNCE_MS: i64 = 2_500;
+
 /// 派活的准入判断结果。拒绝时带一句给 Agent 看的人话。
 #[derive(Clone, Debug, PartialEq)]
 pub enum Verdict {
@@ -60,6 +68,32 @@ pub enum TaskState {
     Abandoned,
 }
 
+/// 派活来源：普通会话之间的互派，或一个协作房间。
+///
+/// 只在 app 内部流转，不进 CLI 协议：房间派发的任务在协作面板和注入文本里
+/// 都要显示成「来自房间名」，而不是一串 `room:<id>` 的伪 tabId。
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", tag = "kind")]
+pub enum TaskOrigin {
+    Room { id: String, name: String },
+}
+
+/// 房间群聊投递的语境。带它的任务只负责把对话送进目标终端：
+/// 不进任务状态机（没人需要 `belfry done`），也不进协作面板与 inbox——
+/// 交差、回执、验证都属于「派活」，不属于聊天。
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChatDelivery {
+    /// 点名：这轮请对方接话（不点名的群聊＝看见即可）。
+    pub mentioned: bool,
+    /// 这条投递承载的消息 id（连发合并会带多条）：送达后按它把回执写回时间线。
+    pub message_ids: Vec<String>,
+    /// 与 `message_ids` 一一对应的正文行（同步成对推入，下标对齐）。存下来是为了
+    /// 撤回：消息撤了就从投递里摘掉对应那行，不用去猜 `instruction` 的行号。
+    #[serde(default)]
+    pub lines: Vec<String>,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CollabTask {
@@ -74,6 +108,24 @@ pub struct CollabTask {
     pub created_at: i64,
     /// 目标声明的结果：产物路径或一句话。只有它自己能填。
     pub result: Option<String>,
+    /// 派活来源。会话互派为 None；房间派发带房间标记（见 `TaskOrigin`）。
+    #[serde(default)]
+    pub origin: Option<TaskOrigin>,
+    /// 房间群聊投递的语境；`None`＝普通任务（要交差的那一类）。
+    #[serde(default)]
+    pub chat: Option<ChatDelivery>,
+    /// 早于它不进投递（毫秒）。普通任务为 0；群聊投递带一小段防抖，
+    /// 让连发并成一段再送出。
+    #[serde(default)]
+    pub due_at: i64,
+}
+
+impl CollabTask {
+    /// 标记为房间派发。构建后链式调用；会话互派不需要调用。
+    pub fn with_origin(mut self, origin: TaskOrigin) -> Self {
+        self.origin = Some(origin);
+        self
+    }
 }
 
 /// 派活请求在通过闸门之前的样子。
@@ -177,6 +229,40 @@ pub fn build_task(
         path,
         created_at: now,
         result: None,
+        origin: None,
+        chat: None,
+        due_at: 0,
+    }
+}
+
+/// 造一条房间群聊投递：不经过 `judge`（房间成员资格就是用户的授权），
+/// 也不进任务状态机——它只是一条要送进对方终端的对话。
+pub fn chat_task(
+    id: String,
+    message_id: &str,
+    from: &str,
+    to: &str,
+    line: &str,
+    mentioned: bool,
+    now: i64,
+) -> CollabTask {
+    CollabTask {
+        id,
+        from: from.to_string(),
+        to: to.to_string(),
+        instruction: line.trim().to_string(),
+        state: TaskState::Queued,
+        hop: 1,
+        path: vec![from.to_string(), to.to_string()],
+        created_at: now,
+        result: None,
+        origin: None,
+        chat: Some(ChatDelivery {
+            mentioned,
+            message_ids: vec![message_id.to_string()],
+            lines: vec![line.trim().to_string()],
+        }),
+        due_at: now + CHAT_DEBOUNCE_MS,
     }
 }
 
@@ -185,6 +271,21 @@ pub fn build_task(
 /// 三行封顶。每个字都占目标 Agent 的上下文，还会污染它自己的对话——
 /// 「入职说明」「工具清单」那类一次性铺垫属于它的 system prompt，不是我们该塞的。
 pub fn injection_text(task: &CollabTask, from_label: &str) -> String {
+    // 群聊口吻：告诉它这是聊天、不是派活——看见即可，要接话就走 room say。
+    // 没有任务号、没有 done 行：成员不该把闲聊当工单去交差。
+    if let Some(chat) = &task.chat {
+        return if chat.mentioned {
+            format!(
+                "[belfry] 房间「{from_label}」的群聊里点了你的名：\n{}\n请回一句：belfry room say <你的要点>（大家都会看到）",
+                task.instruction
+            )
+        } else {
+            format!(
+                "[belfry] 房间「{from_label}」的群聊：\n{}\n看见即可；要接话用 belfry room say <你的话>，没有补充就不必回复。",
+                task.instruction
+            )
+        };
+    }
     // 这行命令必须和 CLI 的实参语法逐字对上：`done` 收的是位置参数。写成
     // `--task <id>` 的话，Agent 照着敲会把 `--task` 当成任务号——真任务永远结不掉，
     // 而它自己以为已经交差了。e2e 测试会把这行原样跑一遍来钉住。
@@ -233,6 +334,93 @@ impl TaskBoard {
         }
     }
 
+    /// 把一行新消息并进这位接收者还排队中的群聊投递（同房间、窗口内）。
+    ///
+    /// 并入成功返回 true；已送达、超出窗口或根本没有可并的，返回 false，由调用方
+    /// 新建一条。点名只升级不降级：广播并进点名投递后，整块仍按「请你说」送达。
+    pub fn append_pending_chat(
+        &self,
+        to: &str,
+        room_id: &str,
+        line: &str,
+        message_id: &str,
+        now: i64,
+        mentioned: bool,
+    ) -> bool {
+        let Ok(mut tasks) = self.tasks.lock() else {
+            return false;
+        };
+        let candidate = tasks
+            .values_mut()
+            .filter(|task| {
+                task.chat.is_some()
+                    && task.state == TaskState::Queued
+                    && task.to == to
+                    && now - task.created_at <= CHAT_MERGE_WINDOW_MS
+                    && matches!(&task.origin, Some(TaskOrigin::Room { id, .. }) if id == room_id)
+            })
+            .max_by_key(|task| task.created_at);
+        let Some(task) = candidate else {
+            return false;
+        };
+        if mentioned
+            && let Some(chat) = task.chat.as_mut()
+        {
+            chat.mentioned = true;
+        }
+        if let Some(chat) = task.chat.as_mut()
+            && !chat.message_ids.iter().any(|id| id == message_id)
+        {
+            chat.message_ids.push(message_id.to_string());
+            // 与 message_ids 同步成对推入：撤回时按下标摘行，两边不会错位。
+            chat.lines.push(line.trim().to_string());
+        }
+        task.instruction.push('\n');
+        task.instruction.push_str(line.trim());
+        // 有人还在说：投递再往后顺延，这一整段一起送。
+        task.due_at = now + CHAT_DEBOUNCE_MS;
+        true
+    }
+
+    /// 撤回一条还没送出的群聊消息：把它从排队中的投递里摘掉。
+    ///
+    /// 只碰还在排队的投递——已经交给终端的撤不回来，这不是我们能决定的。
+    /// 摘空了的投递整条撤掉；返回受影响的投递数。
+    pub fn drop_pending_message(&self, message_id: &str) -> usize {
+        let Ok(mut tasks) = self.tasks.lock() else {
+            return 0;
+        };
+        let mut touched = 0;
+        let mut empty: Vec<String> = Vec::new();
+        for task in tasks.values_mut() {
+            if task.state != TaskState::Queued {
+                continue;
+            }
+            let (now_empty, rebuilt) = {
+                let Some(chat) = task.chat.as_mut() else {
+                    continue;
+                };
+                let Some(index) = chat.message_ids.iter().position(|id| id == message_id) else {
+                    continue;
+                };
+                chat.message_ids.remove(index);
+                if index < chat.lines.len() {
+                    chat.lines.remove(index);
+                }
+                (chat.message_ids.is_empty(), chat.lines.join("\n"))
+            };
+            task.instruction = rebuilt;
+            touched += 1;
+            if now_empty {
+                empty.push(task.id.clone());
+            }
+        }
+        for id in &empty {
+            tasks.remove(id);
+        }
+        touched
+    }
+
     /// 取一条。目前只有测试在用——生产路径要么整份 snapshot，要么按状态过滤。
     #[cfg(test)]
     pub fn get(&self, id: &str) -> Option<CollabTask> {
@@ -272,12 +460,18 @@ impl TaskBoard {
     /// 前端定期来取，投进 Prompt 队列后回头调 `mark_dispatched`。用拉而不是推，
     /// 是因为只有前端知道终端目标注册好了没——它手上有 targets 表。
     pub fn pending(&self) -> Vec<CollabTask> {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|value| value.as_millis() as i64)
+            .unwrap_or_default();
         self.tasks
             .lock()
             .map(|tasks| {
                 let mut queued: Vec<CollabTask> = tasks
                     .values()
                     .filter(|task| task.state == TaskState::Queued)
+                    // 防抖期没到就先攒着：等安静下来整段送出。
+                    .filter(|task| task.due_at <= now)
                     .cloned()
                     .collect();
                 // 按创建时间投递：同一目标收到多条时，顺序应该和派活顺序一致。
@@ -297,6 +491,35 @@ impl TaskBoard {
         {
             task.state = TaskState::Dispatched;
         }
+    }
+
+    /// 收掉一条任务。群聊投递在回执写回时间线后由对账立即回收，避免只增不减。
+    pub fn remove(&self, id: &str) {
+        if let Ok(mut tasks) = self.tasks.lock() {
+            tasks.remove(id);
+        }
+    }
+
+    /// 停掉一条指定任务（房间视图的「停止」用）。
+    ///
+    /// 只有还没结的任务可停；已经交给终端的拦不回来——和 `stop_all` 同一条
+    /// 边界：停止只能保证不再有新的推进，不能把已经打进对方终端的字收回来。
+    pub fn stop(&self, id: &str) -> Result<CollabTask, String> {
+        let Ok(mut tasks) = self.tasks.lock() else {
+            return Err("任务表锁不上".into());
+        };
+        let Some(task) = tasks.get_mut(id) else {
+            return Err(format!("没有编号 {id} 的任务"));
+        };
+        if !matches!(
+            task.state,
+            TaskState::PendingApproval | TaskState::Queued | TaskState::Dispatched
+        ) {
+            return Err("这条任务已经结了".into());
+        }
+        task.state = TaskState::Abandoned;
+        task.result = Some("用户停止了这条任务".into());
+        Ok(task.clone())
     }
 
     /// 用户点头，放行投递。
@@ -340,6 +563,8 @@ impl TaskBoard {
         let Ok(mut tasks) = self.tasks.lock() else {
             return 0;
         };
+        // 群聊不是可「停」的工作：直接清掉，不占用「已停止」的账。
+        tasks.retain(|_, task| task.chat.is_none());
         let mut stopped = 0;
         for task in tasks.values_mut() {
             if matches!(
@@ -357,6 +582,8 @@ impl TaskBoard {
     /// 某条会话作为接收方还没结的任务。用来在会话关闭时收尾。
     pub fn abandon_for(&self, tab_id: &str) {
         if let Ok(mut tasks) = self.tasks.lock() {
+            // 群聊投递没有终态：目标没了就直接移除，别留成永远挂着的空壳。
+            tasks.retain(|_, task| !(task.to == tab_id && task.chat.is_some()));
             for task in tasks.values_mut() {
                 if task.to == tab_id
                     && matches!(
@@ -377,7 +604,10 @@ impl TaskBoard {
             .map(|tasks| {
                 tasks
                     .values()
-                    .filter(|task| task.path.first().is_some_and(|first| first == root))
+                    // 群聊投递不占派活预算：闲聊不该把「这一轮还能派几条」吃掉。
+                    .filter(|task| {
+                        task.chat.is_none() && task.path.first().is_some_and(|first| first == root)
+                    })
                     .count()
             })
             .unwrap_or(0)

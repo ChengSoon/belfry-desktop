@@ -72,7 +72,18 @@ impl Slot {
     }
 
     pub fn matches(&self, request: &CreateTerminalRequest) -> bool {
-        self.target == target(request)
+        let mut candidate = target(request);
+        // 名册客户端（房间独立窗口）只知道标签与类型，不知道启动目录：cwd 缺失时
+        // 这一项不比对，其余的照旧——带着别条会话的接驳号或换了项目来，仍然拒绝。
+        if request.cwd.is_none() {
+            let mut stored = self.target.clone();
+            if let (Some(left), Some(right)) = (candidate.as_object_mut(), stored.as_object_mut()) {
+                left.remove("cwd");
+                right.remove("cwd");
+            }
+            return candidate == stored;
+        }
+        self.target == candidate
     }
 
     pub fn bind(&self, session: TerminalSession) -> TerminalSession {

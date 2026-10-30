@@ -1,0 +1,33 @@
+<!doctype html>
+<!--
+  邮件 AI 助手 · 交互原型
+  Assumptions: 独立单用户服务；设计覆盖 M1/M2；真实部署与认证待选定。
+  Reasoning: 邮箱连接与任务分开管理，结果始终能回到原邮件和运行版本。
+  Mock boundary: 全部账号、凭据、邮件、运行与 AI 输出都是本地合成演示数据。
+  No real integrations: 不调用真实接口；M3 能力只显示后续说明。
+  Visual context: 仓库 HarmonyOS Sans SC / JetBrains Mono，暖白与森林绿。
+  Variants: 默认暖白、石墨夜间、紧凑阅读（演示面板切换）。
+-->
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="description" content="邮件 AI 助手的中文可点击设计原型。全部为演示数据，未连接真实邮箱或 AI。">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' data:; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'">
+  <title>邮件 AI 助手 · 交互原型</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="assets/prototype.css">
+  <script src="assets/demo-data.js" defer></script>
+  <script src="assets/prototype.js" defer></script>
+  <script src="assets/dialogs.js" defer></script>
+  <script src="assets/actions.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+  <div id="app"></div>
+  <dialog id="modal" aria-labelledby="dialog-title"><div id="modal-content"></div></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+  <noscript><p class="no-script">这个交互原型需要启用 JavaScript。所有演示均在本地运行。</p></noscript>
+</body>
+</html>

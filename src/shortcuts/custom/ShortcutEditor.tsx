@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { SHORTCUT_ACTIONS, defaultBinding } from "./actions";
 import { bindingIssues, recordBinding } from "./bindings";
 import { bindingChord } from "./chord";
+import { composingKey } from "../../utils/keyboard";
 import type { BindingDraft, EditContext } from "./changes";
 import type { ShortcutBinding, ShortcutOverrides } from "./contracts";
 
@@ -22,7 +23,7 @@ export function ShortcutEditor(props: Props) {
   const preview = props.draft.binding === undefined ? defaultBinding(action, props.context.platform) : props.draft.binding;
   const change = (binding: BindingDraft["binding"]) => { setKeyError(null); setRecording(false); props.onChange(binding); };
   const press = (event: KeyboardEvent<HTMLButtonElement>) => {
-    if (!recording || event.key === "Tab") return;
+    if (!recording || event.key === "Tab" || composingKey(event.nativeEvent)) return;
     event.preventDefault(); event.stopPropagation();
     if (event.key === "Escape") { props.onCancel(); return; }
     const result = recordBinding(event.nativeEvent, props.context.platform);

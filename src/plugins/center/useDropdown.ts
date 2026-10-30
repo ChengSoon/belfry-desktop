@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent, RefObject } from "react";
 import { usePopover } from "./usePopover";
+import { composingKey } from "../../utils/keyboard";
 
 const MENU_WIDTH = 260;
 const MENU_HEIGHT = 260;
@@ -29,7 +30,7 @@ export function useDropdown({ count, selected, disabled, initialOpen, select }: 
     if (open) list.current?.querySelector<HTMLElement>(`[data-index="${active}"]`)?.scrollIntoView({ block: "nearest" });
   }, [open, active]);
   const keydown = (event: KeyboardEvent) => {
-    if (disabled || !count) return;
+    if (composingKey(event.nativeEvent) || disabled || !count) return;
     const next = navigationIndex(event.key, active, count);
     if (next !== undefined) {
       event.preventDefault();

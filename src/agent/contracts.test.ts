@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   agentDescriptor,
   agentProfileId,
+  agentResetCommand,
   isAgentKind,
   isAgentSessionRef,
 } from "./contracts";
@@ -43,5 +44,12 @@ describe("agent adapter contracts", () => {
     }
     expect(isAgentSessionRef({ agent: "codex", id: "会".repeat(170) })).toBe(true);
     expect(isAgentSessionRef({ agent: "opencode", id: "session-1" })).toBe(false);
+  });
+
+  it("maps each agent to its own context reset command", () => {
+    // 房间「清除上下文」按这张表发送：认错了会把无关文本打进别人的终端。
+    expect(agentResetCommand("claude")).toBe("/clear");
+    expect(agentResetCommand("codex")).toBe("/new");
+    expect(agentResetCommand("pi")).toBeNull();
   });
 });

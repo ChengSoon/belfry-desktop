@@ -22,7 +22,10 @@ mod e2e_test;
 
 pub use identity::SessionIdentities;
 pub use registry::SessionRegistry;
-pub use server::CollabServer;
+// 房间层在测试里构造名册快照用；生产路径只经 `collab_sync_sessions` 收这份数据。
+#[cfg(test)]
+pub use registry::SessionSnapshot;
+pub use server::{CollabServer, LogOutcome, MentionTarget, ReactOutcome, RoomAccess, RoomDirectory, SayOutcome};
 pub use task::TaskBoard;
 
 /// 控制 CLI 的接入点，注入进 Agent 会话的环境变量。

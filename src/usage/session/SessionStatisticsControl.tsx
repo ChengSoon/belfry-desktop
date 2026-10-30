@@ -5,6 +5,7 @@ import { ICON } from "../../theme/sizing";
 import type { StatisticsView } from "./contracts";
 import { StatisticsBody } from "./StatisticsBody";
 import { useSessionStatistics } from "./useSessionStatistics";
+import { composingKey } from "../../utils/keyboard";
 import "./sessionStatistics.css";
 
 interface Props { session: AgentSessionRef | null; transcriptPath: string | null; note: string | null; visible: boolean }
@@ -24,7 +25,7 @@ export function SessionStatisticsControl({ session, transcriptPath, note, visibl
   return <div className="session-stats-control" ref={root}
     onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false); }}
     onKeyDown={(event) => {
-      if (event.nativeEvent.isComposing || event.key !== "Escape" || !open) return;
+      if (composingKey(event.nativeEvent) || event.key !== "Escape" || !open) return;
       event.stopPropagation(); event.preventDefault(); close();
     }}>
     <button className="session-stats-trigger" type="button" ref={button} title="当前会话统计" aria-label="当前会话统计"

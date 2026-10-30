@@ -6,6 +6,7 @@ import { parseSettingDraft, settingDraft } from "./settingDraft";
 import { Checkbox } from "../components/controls/Checkbox";
 import { Select } from "../components/controls/Select";
 import { NumericField } from "../components/controls/NumericField";
+import { guardComposingEnter } from "../utils/keyboard";
 
 export function PluginSettings({ pluginId, settings }: { pluginId: string; settings: PiSetting[] }) {
   const [values, setValues] = useState<Record<string, unknown> | null>(null);
@@ -25,7 +26,7 @@ export function PluginSettings({ pluginId, settings }: { pluginId: string; setti
       setValues(await pluginHost.setSettings(pluginId, partial)); setDraft({}); setNotice("设置已保存");
     } catch (reason) { setNotice(pluginError(reason)); } finally { setBusy(false); }
   }
-  return <form className="plugins-settings" onSubmit={(event) => void save(event)} aria-label="插件设置">
+  return <form onKeyDown={guardComposingEnter} className="plugins-settings" onSubmit={(event) => void save(event)} aria-label="插件设置">
     <h4>插件设置</h4>
     {settings.map((setting) => <label key={setting.key}><span>{setting.title ?? setting.key}</span><SettingInput setting={setting}
       disabled={busy || values === null} value={draft[setting.key] ?? settingDraft(setting, values?.[setting.key] ?? setting.default)}

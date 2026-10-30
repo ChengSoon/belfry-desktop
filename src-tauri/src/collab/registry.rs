@@ -10,14 +10,14 @@
 use std::sync::Mutex;
 
 use belfry_protocol::Peer;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 /// 前端同步过来的一条会话。
 ///
 /// 比 `Peer` 多一个项目根：派活要判断是不是同项目，而这个信息不该暴露给
 /// 别的 Agent。也不能改从身份表读——那里只有领过牌子的会话才有，
 /// 名册才是前端推过来的完整状态。
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionSnapshot {
     pub tab_id: String,
@@ -94,6 +94,14 @@ impl SessionRegistry {
     ///
     /// 解析不出来时错误信息要带上「能派给谁」和「谁还没命名」，Agent 才知道
     /// 下一步敲什么，而不是对着一句「找不到」反复试。
+    /// 整份快照（克隆）。读侧拿到的是当时的一份真相，不持有锁。
+    pub fn all(&self) -> Vec<SessionSnapshot> {
+        self.sessions
+            .lock()
+            .map(|current| current.clone())
+            .unwrap_or_default()
+    }
+
     pub fn resolve(&self, query: &str, exclude: &str) -> Result<SessionSnapshot, String> {
         let query = query.trim();
         if query.is_empty() {

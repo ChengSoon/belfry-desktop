@@ -4,9 +4,8 @@ import type { TerminalSession } from "../contracts";
 import { resizeTerminal } from "../api";
 import { loadTerminalFonts } from "../fontRendering";
 import { errorMessage } from "./diagnostics";
+import { hostIsLaidOut } from "./hostSize";
 
-/** 低于此宽度视为布局瞬态，不能把个位数列宽传给后台。 */
-const MIN_HOST_WIDTH = 80;
 const RESIZE_DEBOUNCE_MS = 100;
 
 interface LayoutPorts {
@@ -34,7 +33,7 @@ export class TerminalLayout {
   refreshTypography() {
     if (this.disposed) return;
     const version = ++this.fontVersion;
-    if (this.ports.host.clientWidth >= MIN_HOST_WIDTH) {
+    if (hostIsLaidOut(this.ports.host)) {
       this.ports.fit.fit();
       this.scheduleSync();
     }
@@ -42,7 +41,7 @@ export class TerminalLayout {
       if (this.disposed || version !== this.fontVersion) return;
       const { host, terminal, fit } = this.ports;
       terminal.clearTextureAtlas();
-      if (host.clientWidth < MIN_HOST_WIDTH) return;
+      if (!hostIsLaidOut(host)) return;
       terminal.refresh(0, Math.max(0, terminal.rows - 1));
       fit.fit();
       this.scheduleSync();
@@ -82,7 +81,7 @@ export class TerminalLayout {
     if (this.frame || this.disposed) return;
     this.frame = window.requestAnimationFrame(() => {
       this.frame = 0;
-      if (this.disposed || this.ports.host.clientWidth < MIN_HOST_WIDTH) return;
+      if (this.disposed || !hostIsLaidOut(this.ports.host)) return;
       this.ports.fit.fit();
       this.scheduleSync();
     });

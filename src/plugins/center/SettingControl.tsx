@@ -6,6 +6,7 @@ import type { PluginSettingDefinition } from "./types";
 import { t } from "./i18n";
 import { NumericField } from "../../components/controls/NumericField";
 import { numberFromDraft } from "../../components/controls/controlModel";
+import { composingKey } from "../../utils/keyboard";
 
 interface Props { setting: PluginSettingDefinition; value: unknown; onChange: (value: unknown) => void; disabled: boolean }
 export function SettingControl({ setting, value, onChange, disabled }: Props) {
@@ -41,7 +42,7 @@ function ShortcutControl({ setting, value, onChange, disabled }: Props) {
   return <button type="button" disabled={disabled} data-shortcut-recorder={recording} className={cx("plugins-shortcut-recorder", recording && "recording", invalid && "error")}
     aria-label={t("plugins.settingsShortcutChange", { name: setting.title })} title={invalid ? t("plugins.settingsShortcutInvalid") : undefined}
     onClick={() => setRecording(!recording)} onKeyDown={(event) => {
-      if (!recording) return;
+      if (!recording || composingKey(event.nativeEvent)) return;
       event.preventDefault(); event.stopPropagation();
       if (event.key === "Escape") { setRecording(false); return; }
       if (event.key === "Backspace" || event.key === "Delete") { onChange(""); setRecording(false); return; }

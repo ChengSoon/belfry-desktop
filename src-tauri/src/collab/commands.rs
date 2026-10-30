@@ -30,11 +30,15 @@ pub fn collab_pending_tasks(
         .into_iter()
         .map(|entry| {
             // 派活方在目标眼里要是个能回话的名字：接收方读到「来自 planner」之后
-            // 就能直接 `belfry send planner …` 回过去。退回 tabId 只是兜底。
-            let from_label = registry
-                .find(&entry.from)
-                .and_then(|session| session.name)
-                .unwrap_or_else(|| entry.from.clone());
+            // 就能直接 `belfry send planner …` 回过去。房间派发的任务显示房间名，
+            // 退回 tabId 只是兜底。
+            let from_label = match &entry.origin {
+                Some(task::TaskOrigin::Room { name, .. }) => name.clone(),
+                None => registry
+                    .find(&entry.from)
+                    .and_then(|session| session.name)
+                    .unwrap_or_else(|| entry.from.clone()),
+            };
             PendingTask {
                 text: task::injection_text(&entry, &from_label),
                 id: entry.id,
@@ -78,7 +82,11 @@ pub fn collab_tasks(
 ) -> CollabView {
     // 面板上要显示用户自己起的名字：一串 tabId 没法让人判断该不该批准，
     // 而自动标题会随对话变，同一条任务隔一会儿再看就换了个称呼。
-    let label = |tab_id: &str| {
+    let label = |entry: &task::CollabTask, tab_id: &str| {
+        // 房间派发：来源显示房间名，而不是 `room:<id>` 的伪 tabId。
+        if let Some(task::TaskOrigin::Room { name, .. }) = &entry.origin {
+            return name.clone();
+        }
         registry
             .find(tab_id)
             .and_then(|session| session.name)
@@ -87,10 +95,12 @@ pub fn collab_tasks(
     let mut tasks: Vec<TaskView> = board
         .snapshot()
         .into_iter()
+        // 群聊消息不是任务：面板只列要交差的活。
+        .filter(|entry| entry.chat.is_none())
         .map(|entry| TaskView {
             short_id: task::short_id(&entry.id).to_string(),
-            from_label: label(&entry.from),
-            to_label: label(&entry.to),
+            from_label: label(&entry, &entry.from),
+            to_label: label(&entry, &entry.to),
             id: entry.id,
             instruction: entry.instruction,
             state: format!("{:?}", entry.state).to_lowercase(),
@@ -166,4 +176,15 @@ pub fn collab_sync_sessions(
     }
     registry.replace(sessions);
     identities.retain(&live);
+}
+
+/// 名册快照，给房间独立窗口还原在场状态用。
+///
+/// 名册是派活闸门读的同一份真相；独立窗口读它而不是各自去猜终端状态，
+/// 两边就不会出现「界面说能派、闸门说不能」的分歧。
+#[tauri::command]
+pub fn collab_sessions(
+    registry: State<'_, std::sync::Arc<SessionRegistry>>,
+) -> Vec<SessionSnapshot> {
+    registry.all()
 }

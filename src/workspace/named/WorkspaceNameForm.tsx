@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { MAX_WORKSPACE_NAME } from "./contracts";
+import { composingKey } from "../../utils/keyboard";
+import { guardComposingEnter } from "../../utils/keyboard";
 
 export function WorkspaceNameForm({ initial, mode, onSave, onCancel }: {
   initial: string; mode: "create" | "rename";
@@ -9,7 +11,7 @@ export function WorkspaceNameForm({ initial, mode, onSave, onCancel }: {
   const [error, setError] = useState<string | null>(null);
   const title = mode === "create" ? "新建工作区" : "重命名工作区";
   return (
-    <form className="named-workspaces__form" aria-label={title} onSubmit={(event) => {
+    <form onKeyDown={guardComposingEnter} className="named-workspaces__form" aria-label={title} onSubmit={(event) => {
       event.preventDefault();
       const failure = onSave(name);
       if (failure) setError(failure); else onCancel();
@@ -17,7 +19,7 @@ export function WorkspaceNameForm({ initial, mode, onSave, onCancel }: {
       <label>{title}<input autoFocus aria-label="工作区名称" maxLength={MAX_WORKSPACE_NAME}
         value={name} onChange={(event) => setName(event.target.value)}
         onKeyDown={(event) => {
-          if (event.key === "Escape" && !event.nativeEvent.isComposing) {
+          if (event.key === "Escape" && !composingKey(event.nativeEvent)) {
             event.preventDefault(); event.stopPropagation(); onCancel();
           }
         }} /></label>

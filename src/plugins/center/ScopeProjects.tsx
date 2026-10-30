@@ -6,6 +6,7 @@ import { usePluginsPage } from "./context";
 import { IconCheck, IconSearch, IconX } from "./icons";
 import { cx } from "./ui";
 import { t } from "./i18n";
+import { composingKey } from "../../utils/keyboard";
 
 export function scopeProjects(input: { current: string | null; selected: string[]; projects: ProjectRecord[] }) {
   const rows = new Map<string, ProjectRecord>();
@@ -23,7 +24,7 @@ export function ScopeProjects({ plugin, onClose }: { plugin: PluginSummary; onCl
   useLayoutEffect(() => { const box = ref.current?.getBoundingClientRect(); if (box) setUp(window.innerHeight - box.top < 340); }, []);
   useEffect(() => {
     const outside = (event: MouseEvent) => { if (!ref.current?.contains(event.target as Node)) onClose(); };
-    const escape = (event: KeyboardEvent) => { if (event.key === "Escape") { event.stopPropagation(); onClose(); } };
+    const escape = (event: KeyboardEvent) => { if (event.key === "Escape" && !composingKey(event)) { event.stopPropagation(); onClose(); } };
     document.addEventListener("mousedown", outside); document.addEventListener("keydown", escape);
     return () => { document.removeEventListener("mousedown", outside); document.removeEventListener("keydown", escape); };
   }, [onClose]);

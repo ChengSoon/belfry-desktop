@@ -3,6 +3,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import type { PluginTemplate, ScaffoldInput } from "./runtimeContracts";
 import { pluginError } from "./hostClient";
 import { RadioGroup } from "../components/controls/RadioGroup";
+import { guardComposingEnter } from "../utils/keyboard";
 
 const TEMPLATES: { id: PluginTemplate; title: string; description: string }[] = [
   { id: "panel-basic", title: "界面面板", description: "自定义 HTML 界面与打开命令" },
@@ -30,7 +31,7 @@ export function CreatePlugin({ busy, onCreate, onCancel }: { busy: boolean; onCr
     const separator = parent.includes("\\") ? "\\" : "/";
     void onCreate({ directory: `${parent.replace(/[\\/]$/, "")}${separator}${id}`, template, id, name });
   }
-  return <form className="plugins-create" onSubmit={submit} noValidate aria-label="从模板新建插件">
+  return <form onKeyDown={guardComposingEnter} className="plugins-create" onSubmit={submit} noValidate aria-label="从模板新建插件">
     <div><span className="plugins-eyebrow">插件作者工具</span><h3>从模板开始</h3><p>自动生成 manifest.json、入口代码与示例资源。创建后可直接加载和修改。</p></div>
     <fieldset disabled={locked}><legend>选择模板</legend><RadioGroup<PluginTemplate> value={template} onChange={setTemplate}
       ariaLabel="选择模板" disabled={locked} options={TEMPLATES.map((item) => ({ value: item.id, label: item.title, description: item.description }))} /></fieldset>

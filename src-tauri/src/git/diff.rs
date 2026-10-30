@@ -78,6 +78,43 @@ fn diff_arguments<'a>(
     Ok(args)
 }
 
+/// 整个工作区相对 HEAD 的差异，给房间的「产物快照」用。
+///
+/// 不含未跟踪文件（没有可枚举的差异可看）；无提交历史时退回「工作区 vs 索引」。
+/// 上限由调用方给——快照的限额（32 KB）和面板预览的（512 KB）不是一回事。
+pub(crate) fn workspace(root_path: &str, limit: usize) -> Result<GitDiff, AppError> {
+    let report = status::read(root_path)?;
+    if !report.repository {
+        return Err(AppError::invalid_argument("当前目录不是 Git 工作树"));
+    }
+    let root = Path::new(&report.root_path);
+    let mut args = DIFF_OPTIONS.to_vec();
+    if report.head.is_some() {
+        args.push("HEAD");
+    }
+    args.push("--");
+    let output = command::run(root, &args, limit)?;
+    // 普通 `git diff` 有差异也是退出码 0；非 0 就是真错误。
+    if !output.status.success() {
+        return Err(AppError::io(format!(
+            "Diff 读取失败：{}",
+            output.error.trim()
+        )));
+    }
+    let mut text = String::from_utf8_lossy(&output.bytes).into_owned();
+    if output.truncated {
+        text.truncate(text.rfind('\n').unwrap_or(0));
+    }
+    let binary = text
+        .lines()
+        .any(|line| line.starts_with("Binary files ") || line == "GIT binary patch");
+    Ok(GitDiff {
+        text,
+        binary,
+        truncated: output.truncated,
+    })
+}
+
 fn validate_new_file(root: &Path, path: &str) -> Result<(), AppError> {
     let file = canonicalize(&root.join(path))
         .map_err(|error| AppError::io(format!("文件无法读取：{error}")))?;

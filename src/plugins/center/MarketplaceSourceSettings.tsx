@@ -6,6 +6,7 @@ import { t } from "./i18n";
 import { centerApi } from "./api";
 import type { MarketSettings, PluginMarketSource } from "./types";
 import { PersonalMarketControls } from "./PersonalMarketControls";
+import { guardComposingEnter } from "../../utils/keyboard";
 
 // 每个来源都带一句说明，占住标题下的预留位：切换来源时卡片高度不跳，说明也
 // 和它描述的下拉留在同一行里。
@@ -46,7 +47,7 @@ export function MarketplaceSourceSettings() {
         onChange={(value) => void apply({ pluginMarketSource: value })} /></div></div>
     {settings.pluginMarketSource === "custom" ? <div className="plugins-market-settings-row"><div className="plugins-market-settings-copy">
       <div className="settings-row-title">{t("settings.marketCustomUrl")}</div><div className="settings-row-desc">{t("settings.marketCustomUrlDesc")}</div></div>
-      <form className="plugins-market-settings-control plugins-market-url-form" noValidate onSubmit={(event) => { event.preventDefault(); commit(); }}>
+      <form onKeyDown={guardComposingEnter} className="plugins-market-settings-control plugins-market-url-form" noValidate onSubmit={(event) => { event.preventDefault(); commit(); }}>
         <Input type="text" inputMode="url" aria-required="true" value={customUrl} disabled={actions.busy} aria-invalid={!!urlError}
         placeholder={t("settings.marketCustomUrlPlaceholder")} aria-label={t("settings.marketCustomUrl")} onChange={(event) => { setCustomUrl(event.target.value); setUrlError(""); }}
         /><Button type="submit" disabled={actions.busy}>{actions.busy ? "正在连接…" : "保存并连接"}</Button>

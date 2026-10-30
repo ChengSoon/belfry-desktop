@@ -1,5 +1,6 @@
 import { useRef, type CSSProperties, type KeyboardEvent, type PointerEvent } from "react";
 import { normalizeNumber } from "./controlModel";
+import { composingKey } from "../../utils/keyboard";
 import "./controls.css";
 
 interface Props { value: number; min: number; max: number; step: number; onChange: (value: number) => void; ariaLabel: string; valueText?: string; disabled?: boolean }
@@ -16,7 +17,7 @@ export function Slider(props: Props) {
     if (rect.width) change(min + Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)) * (max - min));
   };
   const keydown = (event: KeyboardEvent) => {
-    if (event.nativeEvent.isComposing || disabled || event.ctrlKey || event.metaKey || event.altKey) return;
+    if (composingKey(event.nativeEvent) || disabled || event.ctrlKey || event.metaKey || event.altKey) return;
     const changes: Record<string, number> = { ArrowUp: value + step, ArrowRight: value + step, ArrowDown: value - step,
       ArrowLeft: value - step, Home: min, End: max, PageUp: value + step * PAGE_STEPS, PageDown: value - step * PAGE_STEPS };
     if (changes[event.key] !== undefined) { event.preventDefault(); change(changes[event.key]); }

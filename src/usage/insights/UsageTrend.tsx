@@ -4,6 +4,7 @@ import { ICON } from "../../theme/sizing";
 import { formatExact, formatTokens } from "../format";
 import type { AnalyticsReport, UsageBucket } from "./contracts";
 import { calendarPage, dayLabel } from "./model";
+import { composingKey } from "../../utils/keyboard";
 
 interface Props {
   report: AnalyticsReport; rows: UsageBucket[]; selected: number | null | undefined;
@@ -41,7 +42,7 @@ export function UsageTrend({ report, rows, selected, onSelect }: Props) {
 }
 
 function moveTrendFocus(event: KeyboardEvent<HTMLButtonElement>) {
-  if (event.nativeEvent.isComposing || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+  if (composingKey(event.nativeEvent) || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
   const directions: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, Home: -Infinity, End: Infinity };
   const direction = directions[event.key];
   if (direction === undefined) return;

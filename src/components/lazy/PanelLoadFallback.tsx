@@ -4,11 +4,12 @@ import type { PanelWidthSpec } from "../../panel/panelWidth";
 import { usePanelWidth } from "../../panel/usePanelWidth";
 import { ICON } from "../../theme/sizing";
 import { useDialog } from "../controls/useDialog";
+import { composingKey } from "../../utils/keyboard";
 import "./optionalPanel.css";
 
 export interface PanelPresentation {
   title: string;
-  layout: "settings" | "modal" | "history" | "usage";
+  layout: "settings" | "room" | "modal" | "history" | "usage";
   width?: PanelWidthSpec;
 }
 interface Props extends PanelPresentation {
@@ -35,7 +36,7 @@ function PanelFallback(props: Props & { style?: CSSProperties }) {
   useEffect(() => {
     close.current?.focus({ preventScroll: true });
     const escape = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || event.defaultPrevented || event.isComposing) return;
+      if (event.key !== "Escape" || event.defaultPrevented || composingKey(event)) return;
       event.preventDefault();
       latest.current();
     };

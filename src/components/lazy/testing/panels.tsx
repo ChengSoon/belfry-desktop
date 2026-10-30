@@ -43,14 +43,17 @@ const Styled = createOptionalPanel({ title: "样式面板", layout: "usage", wid
   } });
 const noop = () => {};
 const defaults: ComponentProps<typeof AppOverlays> = {
-  failure: null, historyOpen: false, pendingClose: null, pendingRemove: null, pendingRemoveTabCount: 0,
-  project: null, quickOpenItems: [], quickOpenOpen: false, quickOpenShortcut: "⌘K", settingsOpen: false,
-  shortcutGuideOpen: false, shortcutPlatform: "macos", updaterOpen: false,
+  agents: [], failure: null, historyOpen: false, pendingClose: null, pendingRemove: null, pendingRemoveTabCount: 0,
+  project: null, quickOpenItems: [], quickOpenOpen: false, quickOpenShortcut: "⌘K", roomsOpen: false, settingsOpen: false,
+  shortcutGuideOpen: false, shortcutPlatform: "macos", tabs: [], updaterOpen: false,
   updaterState: INITIAL_UPDATER_STATE, usageOpen: false,
   onCancelClose: noop, onCancelRemove: noop, onCheckUpdate: noop, onCloseHistory: noop,
-  onCloseQuickOpen: noop, onCloseSettings: noop, onCloseShortcutGuide: noop, onCloseUpdater: noop,
+  onCloseQuickOpen: noop, onCloseRooms: noop, onCloseSettings: noop, onCloseShortcutGuide: noop, onCloseUpdater: noop,
   onCloseUsage: noop, onConfirmClose: noop, onConfirmRemove: noop, onDismissFailure: noop,
-  onInstallUpdate: noop, onOpenUpdater: noop, onResumeHistory: noop, onSelectQuickOpen: noop,
+  onInstallUpdate: noop, onLaunchRoomMember: async () => null, onOpenRoomWindow: async () => null,
+  onCloseRoomMember: noop,
+  onClearRoomMemberContext: () => "unavailable",
+    onOpenRoomFile: noop, onOpenUpdater: noop, onRenameAgent: () => null, onResumeHistory: noop, onSelectQuickOpen: noop,
 };
 
 function PersistentWorkbench() {

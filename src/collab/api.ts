@@ -21,6 +21,11 @@ export interface PendingTask {
   instruction: string;
 }
 
+/** 读 Rust 手上的会话名册快照。房间独立窗口用它还原成员的在场状态。 */
+export function listSessions() {
+  return invoke<SessionSnapshot[]>("collab_sessions");
+}
+
 export function pendingTasks() {
   return invoke<PendingTask[]>("collab_pending_tasks");
 }

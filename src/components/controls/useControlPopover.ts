@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type FocusEvent, type KeyboardEvent as ReactKeyboardEvent, type RefObject } from "react";
 import { focusAdjacent, isTopLayer, ownsTarget, registerLayer, shouldDismissOnBlur } from "./layerOwnership";
+import { composingKey } from "../../utils/keyboard";
 
 export interface ControlPopoverState {
   id: string; open: boolean;
@@ -37,7 +38,7 @@ function usePopoverDismiss({ open, root, panel, trigger, close }: ControlPopover
     if (!open) return;
     const outside = (event: MouseEvent) => { if (!ownsTarget(root.current, event.target as Node)) close(); };
     const escape = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || event.isComposing || event.defaultPrevented || !isTopLayer(panel.current)) return;
+      if (event.key !== "Escape" || composingKey(event) || event.defaultPrevented || !isTopLayer(panel.current)) return;
       event.preventDefault(); event.stopPropagation(); close(true);
     };
     // 捕获内层 Esc，阻止外层模态框和终端快捷键同时响应。

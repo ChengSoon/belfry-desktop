@@ -25,6 +25,7 @@ import { useDialog } from "../components/controls/useDialog";
 import { searchQuickOpen, type QuickOpenIcon, type QuickOpenItem, type QuickOpenItemKind } from "./model";
 import "./quickOpen.css";
 import { useMotionActive, useMotionState } from "../components/motion/Presence";
+import { composingKey } from "../utils/keyboard";
 
 interface QuickOpenProps {
   items: readonly QuickOpenItem[];
@@ -104,7 +105,7 @@ export function QuickOpen({ items, shortcutLabel, onClose, onSelect }: QuickOpen
                 setActiveIndex(0);
               }}
               onKeyDown={(event) => {
-                if (event.nativeEvent.isComposing) return;
+                if (composingKey(event.nativeEvent)) return;
                 if (event.key === "ArrowDown") {
                   event.preventDefault();
                   move(1);

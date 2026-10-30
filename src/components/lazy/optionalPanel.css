@@ -17,6 +17,14 @@
   background: var(--canvas);
 }
 
+.optional-panel-fallback--room {
+  z-index: 1;
+  grid-column: 1 / -1;
+  grid-row: 1 / -1;
+  border-left: 0;
+  background: var(--canvas);
+}
+
 .optional-panel-fallback__head {
   display: flex;
   height: 44px;

@@ -7,18 +7,25 @@ window.addEventListener("vite:preloadError", (event) => qa.preloadErrors.push(St
 window.addEventListener("error", (event) => { if (event.error) qa.errors.push(String(event.error)); });
 window.addEventListener("unhandledrejection", (event) => qa.errors.push(String(event.reason)));
 
+// 一条会话可以被多路视图同时盯着（工作台 + 房间里的看终端）。合成后台照这个契约
+// 把输出广播给每个订阅者，各留自己的序号：谁都不该因为别人开了一路就收不到东西。
 function output(sessionId, text) {
   const channel = channels.get(sessionId);
-  callbacks.get(channel.id)?.({ index: channel.index++, message: {
-    kind: "output", sessionId, sequence: channel.sequence++, eof: true,
-    bytes: Array.from(new TextEncoder().encode(text)),
-  } });
+  if (!channel) return;
+  for (const subscriber of channel.subscribers) {
+    callbacks.get(subscriber.id)?.({ index: subscriber.index++, message: {
+      kind: "output", sessionId, sequence: subscriber.sequence++, eof: true,
+      bytes: Array.from(new TextEncoder().encode(text)),
+    } });
+  }
 }
 
 function terminalCreate({ request, onEvent }) {
   qa.creates++;
   const id = `${request.tabId}-pty`;
-  channels.set(id, { id: onEvent.id, index: 0, sequence: 0 });
+  const channel = channels.get(id) ?? { subscribers: [] };
+  channel.subscribers.push({ id: onEvent.id, index: 0, sequence: 0 });
+  channels.set(id, channel);
   setTimeout(() => output(id, "production terminal ready\r\n$ "), 20);
   return { id, platform: request.platform, shell: "/bin/sh", cwd: project.rootPath,
     cols: request.cols, rows: request.rows, status: "running", exitCode: null, connectionId: "qa-connection" };
@@ -35,6 +42,9 @@ const handlers = {
   terminal_ack_output: () => true,
   agent_descriptors: () => [], agent_detect: () => [],
   collab_tasks: () => ({ tasks: [] }), collab_pending_tasks: () => [],
+  room_pending_reviews: () => [],
+    // 主界面每 3 秒轮询房间清单做成员会话隔离；生产用例没有房间，回空表。
+    room_list: () => ({ rooms: [], loadError: null }),
   plugins_runtime: () => runtime,
   plugins_list: () => ({ format: "belfry-directory-plugins-v1", storeSchemaVersion: 1, revision: "0", plugins: [] }),
   history_search: () => ({ hits: [], projects: [], scannedFiles: 0, indexedFiles: 0, skippedFiles: 0, skippedLines: 0 }),

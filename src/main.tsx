@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import { BackgroundProvider } from "./background/BackgroundProvider";
@@ -12,14 +13,32 @@ import { applyPendingBackup } from "./backup/transaction";
 import { BackupRecovery } from "./backup/BackupRecovery";
 import { TerminalExitDialog } from "./terminal/daemon/ExitDialog";
 
-const backupStartup = applyPendingBackup();
-
-createRoot(document.getElementById("root")!).render(
-  <><TerminalExitDialog />{backupStartup.error ? <BackupRecovery error={backupStartup.error} /> : <ThemeProvider>
-    <TypographyProvider>
-      <BackgroundProvider>
-        <App />
-      </BackgroundProvider>
-    </TypographyProvider>
-  </ThemeProvider>}</>,
-);
+const roomId = new URLSearchParams(window.location.search).get("room");
+if (roomId) {
+  // 房间独立窗口：只挂房间视图。工作台、备份事务与退出确认都属于主窗口，
+  // 第二个窗口再跑一遍不是「多一份保险」，而是两份各说各话的现场。
+  const RoomWindowApp = lazy(() =>
+    import("./rooms/window/RoomWindow").then((module) => ({ default: module.RoomWindowApp })));
+  createRoot(document.getElementById("root")!).render(
+    <ThemeProvider>
+      <TypographyProvider>
+        <BackgroundProvider>
+          <Suspense fallback={null}>
+            <RoomWindowApp roomId={roomId} />
+          </Suspense>
+        </BackgroundProvider>
+      </TypographyProvider>
+    </ThemeProvider>,
+  );
+} else {
+  const backupStartup = applyPendingBackup();
+  createRoot(document.getElementById("root")!).render(
+    <><TerminalExitDialog />{backupStartup.error ? <BackupRecovery error={backupStartup.error} /> : <ThemeProvider>
+      <TypographyProvider>
+        <BackgroundProvider>
+          <App />
+        </BackgroundProvider>
+      </TypographyProvider>
+    </ThemeProvider>}</>,
+  );
+}

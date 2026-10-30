@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { uiFixture, click, clickText, press, waitFor, fill, setValue, resize, intact, evidence, theme, settings, menuAction, clickOption } from "./production-uiFixture.mjs";
+import { uiFixture, click, clickText, press, waitFor, fill, setValue, resize, intact, evidence, theme, settings, menuAction, clickOption, imeEnter } from "./production-uiFixture.mjs";
 
 const SETTINGS_CLOSE = 'button[title="关闭设置"]';
 const SESSION_A = '.session-row__main[aria-label^="Alpha"]';
@@ -204,6 +204,9 @@ test("production UI projects, named workspace, SSH and generic confirmation focu
   await clickText(view, '重命名', '.named-workspaces__popover');
   await waitFor(view, "!!document.querySelector('.named-workspaces__popover input')");
   await fill(view, '.named-workspaces__popover input', 'Synthetic long named workspace');
+  // 输入法选词回车（事后 229 形状）不得触发表单隐式保存：编辑框与表单原地保留。
+  await imeEnter(view, '.named-workspaces__popover input');
+  assert.equal(await view.cdp.evaluate("document.querySelector('.named-workspaces__popover input')?.value"), 'Synthetic long named workspace', "选词回车后表单未被隐式提交");
   await clickText(view, '保存', '.named-workspaces__popover');
   await waitFor(view, "document.querySelector('.named-workspaces__trigger')?.textContent.includes('Synthetic long')");
   await press(view, 'Escape');

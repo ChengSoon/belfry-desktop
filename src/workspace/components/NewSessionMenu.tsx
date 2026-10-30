@@ -11,6 +11,7 @@ import type { AgentAvailability, WorkspaceTabKind } from "../contracts";
 import { useDismiss } from "../useDismiss";
 import { ClaudeIcon, CodexIcon, PiIcon } from "./AgentIcons";
 import { SshDialog } from "./SshDialog";
+import { composingKey } from "../../utils/keyboard";
 
 interface NewSessionMenuProps {
   agents: AgentAvailability[];
@@ -77,7 +78,7 @@ export function NewSessionMenu({
   };
 
   const menuKey = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.nativeEvent.isComposing) return;
+    if (composingKey(event.nativeEvent)) return;
     if (event.key === "Escape" || (event.key === "ArrowLeft" && shellMenuOpen)) {
       event.preventDefault();
       event.stopPropagation();

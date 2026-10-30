@@ -57,6 +57,18 @@ export async function clickText(view, text, scope = "body") {
   await click(view, selector);
 }
 
+/** 输入法确认候选的回车：macOS WKWebView 上 compositionend 先于 keydown，isComposing 已为
+ *  false，只剩 keyCode 229 能认（WebKit bug 165004）。按真实事件形状派发这一下。 */
+export async function imeEnter(view, selector) {
+  await view.cdp.evaluate(`(() => {
+    const el = document.querySelector(${JSON.stringify(selector)});
+    el.focus();
+    const event = new KeyboardEvent("keydown", { key: "Enter", code: "Enter", bubbles: true, cancelable: true, isComposing: false });
+    Object.defineProperty(event, "keyCode", { get: () => 229 });
+    el.dispatchEvent(event);
+  })()`);
+}
+
 export async function setValue(view, selector, value) {
   await view.cdp.evaluate(`(() => {
     const el = document.querySelector(${JSON.stringify(selector)}); el.focus();

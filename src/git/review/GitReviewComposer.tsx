@@ -6,6 +6,7 @@ import type { GitDiff } from "../contracts";
 import { useGitReview } from "./GitReviewProvider";
 import { EMPTY_REVIEW, isReviewAnchorCurrent, MAX_REVIEW_COMMENT, reviewKey, reviewLineLabel,
   reviewLocked, reviewTargetLabel, reviewTargets, type ReviewContext, type ReviewReceipt } from "./model";
+import { composingKey } from "../../utils/keyboard";
 import "./review.css";
 
 export function GitReviewComposer({ context, diff, onRefresh }: {
@@ -35,7 +36,7 @@ export function GitReviewComposer({ context, diff, onRefresh }: {
     <textarea ref={input} id={fieldId} value={draft.comment} maxLength={MAX_REVIEW_COMMENT} rows={3} disabled={locked}
       placeholder="说明希望如何修改，例如：这里需要处理空列表，并补一个测试。"
       onChange={(event) => review.edit(context, { comment: event.target.value })}
-      onKeyDown={(event) => { if (!event.nativeEvent.isComposing && (event.metaKey || event.ctrlKey) && event.key === "Enter") {
+      onKeyDown={(event) => { if (!composingKey(event.nativeEvent) && (event.metaKey || event.ctrlKey) && event.key === "Enter") {
         event.preventDefault(); event.stopPropagation(); send();
       } }} />
     {stale && !locked ? <p className="git-review__warning" role="status">所选代码已变化，请重新选行。你的反馈已保留。</p> : null}

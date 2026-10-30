@@ -1,0 +1,448 @@
+/* 协作房间：整窗视图。左侧房间与成员、中间讨论与派发、右侧任务与决定。
+   与设置页同一套铺法（grid-column/row 1/-1）；主界面只是隐藏、不卸载。 */
+.room-view {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  grid-column: 1 / -1;
+  grid-row: 1 / -1;
+  grid-template-columns: 264px minmax(0, 1fr) var(--room-aside-width, 300px);
+  grid-template-areas: "rail stream aside";
+  padding-top: var(--titlebar-inset);
+  background: var(--canvas);
+}
+
+/* 在看某人的终端：右栏让位给它的实时画面，讨论留在原地看着它干活。 */
+.room-view--watching { grid-template-columns: 264px minmax(0, 1fr) var(--room-aside-width, 300px); grid-template-areas: "rail stream watch"; }
+
+/* 右栏把手挂在整个视图上：右栏在「任务与决定」与「看终端」间切换，
+   把手不搬位置，用宽度变量钉在列左缘。 */
+.room-view > .panel-resize-handle[data-edge="right"] { right: calc(var(--room-aside-width, 300px) - 3px); left: auto; }
+
+/* 左：房间列表与成员 */
+.room-rail {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  grid-area: rail;
+  border-right: 1px solid var(--border);
+  background: var(--sidebar);
+}
+
+.room-rail__head { display: flex; align-items: center; gap: 6px; padding: 14px 8px 8px 14px; }
+.room-rail__head h2 { flex: 1; margin: 0; color: var(--text); font-size: var(--fs-lg); font-weight: 500; }
+.room-rail__notice {
+  margin: 0 12px 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  background: var(--surface-raised);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-relaxed);
+  overflow-wrap: anywhere;
+}
+.room-rail__hint { margin: 0; padding: 4px 14px 12px; color: var(--text-faint); font-size: var(--fs-xs); line-height: var(--lh-relaxed); }
+
+.room-list { display: flex; max-height: 42%; flex: 0 1 auto; flex-direction: column; gap: 2px; margin: 0; padding: 0 8px 10px; overflow-y: auto; list-style: none; }
+.room-list__item {
+  display: grid;
+  gap: 2px;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--duration) var(--ease), color var(--duration) var(--ease);
+}
+.room-list__item:hover { color: var(--text); background: var(--sidebar-hover); }
+.room-list__item.is-active { color: var(--text); background: var(--accent-soft); }
+.room-list__item span { overflow: hidden; font-size: var(--fs-sm); text-overflow: ellipsis; white-space: nowrap; }
+.room-list__item small { color: var(--text-faint); font-size: var(--fs-xs); }
+/* 未读标记：圆点靠右 + 无障碍文本；已读位与未读分隔线共用。 */
+.room-list__title { display: flex; min-width: 0; align-items: center; gap: 6px; }
+.room-list__title > span:first-child { flex: 1; min-width: 0; }
+.room-list__unread { flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+.room-list .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+
+.room-members { display: flex; min-height: 0; flex: 1; flex-direction: column; border-top: 1px solid var(--border); }
+.room-members__head { display: flex; align-items: center; gap: 4px; padding: 10px 8px 4px 14px; color: var(--text-faint); font-size: var(--fs-xs); letter-spacing: .06em; }
+.room-members__head span { flex: 1; }
+.room-members__head small { margin-left: 2px; }
+.room-member-list { display: flex; min-height: 0; flex: 1; flex-direction: column; gap: 2px; margin: 0; padding: 2px 8px 10px; overflow-y: auto; list-style: none; }
+.room-member { display: flex; align-items: center; gap: 6px; padding: 5px 4px 5px 8px; border-radius: var(--radius-sm); }
+.room-member:hover { background: var(--sidebar-hover); }
+.room-member__dot { flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; background: var(--text-faint); }
+.room-member__dot--online { background: var(--accent); }
+.room-member__dot--busy { border: 1.5px solid var(--accent); background: transparent; }
+.room-member__body { display: grid; min-width: 0; flex: 1; gap: 1px; padding: 0; border: 0; background: transparent; font: inherit; text-align: left; cursor: pointer; }
+.room-member__body:disabled { cursor: default; }
+.room-member__body[aria-pressed="true"] strong { color: var(--accent); }
+.room-member__body strong { overflow: hidden; color: var(--text); font-size: var(--fs-sm); font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.room-member__body small { overflow: hidden; color: var(--text-faint); font-size: var(--fs-xs); text-overflow: ellipsis; white-space: nowrap; }
+/* 行内动作按钮比全局小一号：三个按钮同时入行时，角色名仍有完整宽度。 */
+.room-member .icon-button--sm { width: 22px; height: 22px; }
+.room-member__remove { flex: 0 0 auto; opacity: 0; }
+.room-member:hover .room-member__remove,
+.room-member__remove:focus-visible { opacity: 1; }
+
+/* 中：讨论与派发 */
+.room-stream { display: flex; min-width: 0; min-height: 0; flex-direction: column; grid-area: stream; }
+.room-stream__head { display: flex; height: 56px; align-items: center; gap: 10px; padding: 0 12px 0 18px; border-bottom: 1px solid var(--border); }
+.room-stream__title { display: grid; min-width: 0; flex: 1; gap: 1px; }
+.room-stream__title strong { overflow: hidden; color: var(--text); font-size: var(--fs-display); font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.room-stream__title small { overflow: hidden; color: var(--text-faint); font-size: var(--fs-xs); text-overflow: ellipsis; white-space: nowrap; }
+.room-stream__actions { display: flex; align-items: center; gap: 2px; }
+.room-stream__error {
+  margin: 0;
+  padding: 8px 18px;
+  border-bottom: 1px solid var(--border);
+  color: var(--danger);
+  background: var(--surface-raised);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-relaxed);
+  overflow-wrap: anywhere;
+}
+
+.room-timeline { display: flex; min-height: 0; flex: 1; flex-direction: column; gap: 14px; padding: 18px 18px 8px; overflow-y: auto; }
+
+/* 「回到底部」浮标：零高度的锚挂在时间线与输入区之间，按钮悬在时间线下缘。 */
+.room-jump { position: relative; z-index: 2; height: 0; }
+.room-jump__button { position: absolute; bottom: 12px; left: 50%; display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border: 1px solid var(--border-strong); border-radius: 999px; color: var(--text); background: var(--surface-raised); box-shadow: var(--shadow-md); font-size: var(--fs-xs); cursor: pointer; transform: translateX(-50%); }
+.room-jump__button:hover { border-color: var(--accent); color: var(--accent); }
+
+.room-empty { display: grid; place-content: center; justify-items: center; gap: 8px; margin: auto; padding: 40px 24px; color: var(--text-faint); text-align: center; }
+.room-empty p { margin: 0; color: var(--text-muted); font-size: var(--fs-md); }
+.room-empty small { max-width: 46ch; font-size: var(--fs-xs); line-height: var(--lh-relaxed); }
+.room-empty__cta { margin-top: 6px; padding: 8px 16px; border: 0; border-radius: var(--radius-sm); color: var(--accent-contrast); background: var(--accent); font-size: var(--fs-md); cursor: pointer; }
+.room-empty__cta:hover { background: var(--accent-hover); }
+
+.room-event { align-self: center; margin: 0; color: var(--text-faint); font-size: var(--fs-xs); line-height: var(--lh-relaxed); text-align: center; }
+.room-event time { margin-left: 6px; }
+
+.room-message { display: flex; align-items: flex-start; gap: 10px; margin: 0; max-width: 100%; }
+.room-message__column { display: grid; justify-items: start; gap: 5px; min-width: 0; max-width: 68ch; }
+.room-message--self { flex-direction: row-reverse; }
+.room-message--self .room-message__column { justify-items: end; }
+.room-message__meta { display: flex; align-items: center; gap: 8px; color: var(--text-faint); font-size: var(--fs-xs); }
+.room-message__bubble { min-width: 0; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-raised); }
+.room-message--member .room-message__bubble { border-color: var(--border-strong); background: var(--surface); }
+.room-message--member .room-message__author { color: var(--text); }
+.room-message__author { color: var(--text-muted); font-weight: 500; }
+.room-avatar { display: grid; width: 32px; height: 32px; place-items: center; flex: none; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font-size: var(--fs-sm); font-weight: 600; }
+/* 成员头像按作者散列着色（--avatar-hue 由视图注入）；用户自己保持默认色。 */
+.room-message--member .room-avatar { border-color: hsl(var(--avatar-hue, 145) 24% 36%); background: hsl(var(--avatar-hue, 145) 28% 19%); color: hsl(var(--avatar-hue, 145) 48% 78%); }
+[data-theme="light"] .room-message--member .room-avatar { border-color: hsl(var(--avatar-hue, 145) 30% 74%); background: hsl(var(--avatar-hue, 145) 44% 93%); color: hsl(var(--avatar-hue, 145) 38% 28%); }
+.room-message p { margin: 0; color: var(--text); font-size: var(--fs-md); line-height: var(--lh-relaxed); white-space: pre-wrap; overflow-wrap: anywhere; }
+.room-message__mark, .room-message__reply, .room-message__recall, .room-message__react { display: grid; width: 20px; height: 20px; place-items: center; padding: 0; border: 0; border-radius: var(--radius-xs); color: var(--text-faint); background: transparent; cursor: pointer; opacity: 0; }
+.room-message__mark { margin-left: auto; }
+.room-message__react { width: auto; padding: 0 2px; font-size: var(--fs-xs); line-height: 1; }
+.room-message:hover .room-message__mark,
+.room-message:hover .room-message__reply,
+.room-message:hover .room-message__recall,
+.room-message:hover .room-message__react,
+.room-message__mark:focus-visible,
+.room-message__reply:focus-visible,
+.room-message__recall:focus-visible,
+.room-message__react:focus-visible { opacity: 1; }
+.room-message__mark:hover, .room-message__reply:hover, .room-message__recall:hover, .room-message__react:hover { color: var(--text); background: var(--surface-hover); }
+.room-message--continued .room-message__reply,
+.room-message--continued .room-message__react { display: none; }
+
+/* 撤回态：气泡换成一句如实说明，不再显示正文与回应。 */
+.room-message__bubble--recalled p { display: inline-flex; align-items: center; gap: 4px; color: var(--text-faint); font-style: italic; }
+
+/* 表情回应芯片：自己点过的高亮；悬停显示谁点的。 */
+.room-message__reactions { display: flex; flex-wrap: wrap; gap: 4px; }
+.room-reaction { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border: 1px solid var(--border); border-radius: 999px; color: var(--text-muted); background: var(--surface-raised); font-size: var(--fs-xs); cursor: pointer; }
+.room-reaction:hover { border-color: var(--border-strong); color: var(--text); }
+.room-reaction--mine { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+
+/* 引用回复：气泡上方的原文摘录（点它跳回原消息）与输入区的回复横幅。 */
+.room-quote { display: flex; max-width: 100%; flex-direction: column; gap: 2px; padding: 5px 10px; border: 0; border-left: 2px solid var(--border-strong); border-radius: var(--radius-xs); color: var(--text-muted); background: var(--surface-hover); font-size: var(--fs-xs); text-align: left; cursor: pointer; }
+.room-quote strong { color: var(--text-faint); font-weight: 500; }
+.room-quote span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.room-quote--gone { cursor: default; font-style: italic; border-left-style: dashed; }
+.room-unread { align-self: center; margin: 2px 0 -4px; padding: 2px 12px; border: 1px dashed var(--accent); border-radius: 999px; color: var(--accent); background: transparent; font-size: var(--fs-xs); cursor: pointer; }
+.room-unread:hover { background: var(--accent-soft); }
+.room-reply-banner { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-muted); background: var(--surface-raised); font-size: var(--fs-xs); }
+.room-reply-banner span { overflow: hidden; flex: 1; text-overflow: ellipsis; white-space: nowrap; }
+.room-reply-banner button { display: grid; width: 20px; height: 20px; place-items: center; flex: none; padding: 0; border: 0; border-radius: var(--radius-xs); color: var(--text-faint); background: transparent; cursor: pointer; }
+.room-reply-banner button:hover { color: var(--text); background: var(--surface-hover); }
+.room-message__marked { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; color: var(--text-faint); }
+.room-message__targets { display: flex; flex-wrap: wrap; gap: 5px; }
+.room-target { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border: 1px solid var(--border); border-radius: 999px; color: var(--text-muted); font-size: var(--fs-xs); }
+.room-target--done { border-color: var(--border-strong); color: var(--text); }
+.room-target--failed { border-color: var(--border-strong); color: var(--danger); }
+.room-target--working { border-color: var(--accent); color: var(--accent); }
+.room-target--gone { border-style: dashed; color: var(--text-muted); }
+.room-target__spin { flex: none; animation: room-spin 1s linear infinite; }
+.room-task__main small { display: flex; align-items: center; gap: 4px; }
+.room-taskcard__count { display: inline-flex; align-items: center; gap: 4px; flex: none; color: var(--text-faint); font-size: var(--fs-xs); }
+
+.room-chip { padding: 2px 8px; border: 1px solid transparent; border-radius: 999px; font-size: var(--fs-xs); white-space: nowrap; }
+.room-chip--running { color: var(--accent); background: var(--accent-soft); }
+.room-chip--waiting { border-color: var(--accent); color: var(--accent); }
+.room-chip--done { color: var(--accent-contrast); background: var(--accent); }
+.room-chip--failed { color: var(--accent-contrast); background: var(--danger); }
+.room-chip--gone { color: var(--text-muted); background: var(--surface-hover); }
+
+.room-taskcard {
+  display: grid;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  /* 状态 / 标题 / 计数 / 箭头同排；少写一列箭头就会掉到第二行，卡下挂个孤「>」。 */
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  padding: 7px 8px 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  background: var(--canvas);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--duration) var(--ease);
+}
+.room-taskcard:hover { border-color: var(--border-strong); }
+.room-taskcard__title { overflow: hidden; font-size: var(--fs-sm); text-overflow: ellipsis; white-space: nowrap; }
+.room-taskcard > svg { color: var(--text-faint); }
+
+.room-composer { display: grid; gap: 8px; padding: 10px 18px 14px; border-top: 1px solid var(--border); }
+.room-composer__recipients { display: flex; min-height: 24px; flex-wrap: wrap; align-items: center; gap: 6px; }
+.room-composer__hintline { color: var(--text-faint); font-size: var(--fs-xs); }
+/* @ 点名单：打 @ 弹出，方向键/回车选中；角色名与在场状态一眼可见。 */
+.room-mention { display: flex; flex-wrap: wrap; gap: 6px; }
+.room-mention button { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border: 1px solid var(--border); border-radius: 999px; color: var(--text-muted); background: var(--surface-raised); font-size: var(--fs-xs); cursor: pointer; }
+.room-mention button[aria-selected="true"] { border-color: var(--accent); color: var(--text); background: var(--accent-soft); }
+.room-mention strong { font-weight: 500; }
+.room-mention small { color: var(--text-faint); }
+.room-recipient {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  background: transparent;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  transition: border-color var(--duration) var(--ease), color var(--duration) var(--ease), background var(--duration) var(--ease);
+}
+.room-recipient:hover:not(:disabled) { border-color: var(--border-strong); color: var(--text); }
+.room-recipient[aria-pressed="true"] { border-color: transparent; color: var(--accent-contrast); background: var(--accent); }
+.room-recipient:disabled { opacity: .45; cursor: default; }
+.room-composer__row { display: grid; align-items: end; gap: 8px; grid-template-columns: minmax(0, 1fr) auto; }
+.room-composer textarea {
+  min-height: 64px;
+  max-height: 40vh;
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  background: var(--surface-raised);
+  font: inherit;
+  font-size: var(--fs-md);
+  line-height: var(--lh-relaxed);
+  resize: vertical;
+}
+.room-send { display: inline-flex; min-height: 36px; align-items: center; gap: 6px; padding: 8px 14px; border: 0; border-radius: var(--radius-sm); color: var(--accent-contrast); background: var(--accent); font-size: var(--fs-md); cursor: pointer; }
+.room-send:hover:not(:disabled) { background: var(--accent-hover); }
+.room-send:disabled { opacity: .55; cursor: default; }
+.room-send__spin { animation: room-spin 1s linear infinite; }
+@keyframes room-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .room-send__spin, .room-target__spin { animation: none; } }
+.room-composer__note { margin: 0; color: var(--text-faint); font-size: var(--fs-xs); }
+
+/* 时间线现场感：日期分隔、连发合并、正在回复与送达说明。 */
+.room-day { align-self: center; margin: 4px 0 -6px; padding: 2px 10px; border-radius: 999px; color: var(--text-faint); background: var(--surface-raised); font-size: var(--fs-xs); }
+.room-message--continued { margin-top: -9px; }
+.room-message--continued .room-avatar { visibility: hidden; }
+.room-typing { align-self: flex-start; margin: 0; padding-left: 42px; color: var(--text-faint); font-size: var(--fs-xs); }
+.room-delivery-note { display: inline-flex; align-items: center; gap: 4px; margin: 0; color: var(--text-faint); font-size: var(--fs-xs); }
+
+/* 右：任务与决定 */
+.room-watch { display: flex; min-width: 0; min-height: 0; flex-direction: column; grid-area: watch; border-left: 1px solid var(--border); background: var(--surface); }
+.room-watch__head { display: flex; align-items: center; gap: 8px; padding: 12px 8px 10px 12px; border-bottom: 1px solid var(--border); }
+.room-watch__head strong { overflow: hidden; color: var(--text); font-size: var(--fs-sm); font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.room-watch__head small { min-width: 0; overflow: hidden; flex: 1; color: var(--text-faint); font-size: var(--fs-xs); text-overflow: ellipsis; white-space: nowrap; }
+/* 终端舞台：.terminal-workspace 是 position:absolute; inset:0，这里只要给个定位框。 */
+.room-watch__stage { position: relative; min-height: 0; flex: 1; }
+.room-view--watching .room-aside { display: none; }
+.room-view--focus .room-watch { display: none; }
+.room-aside { display: flex; min-width: 0; min-height: 0; flex-direction: column; grid-area: aside; border-left: 1px solid var(--border); overflow-y: auto; }
+.room-aside__section { padding: 14px 12px 12px; border-bottom: 1px solid var(--border); }
+.room-aside__section h3 { display: flex; align-items: center; gap: 6px; margin: 0 0 8px; color: var(--text-faint); font-size: var(--fs-xs); font-weight: 500; letter-spacing: .06em; }
+.room-aside__empty { margin: 0; color: var(--text-faint); font-size: var(--fs-xs); line-height: var(--lh-relaxed); }
+.room-task-list { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.room-task { display: grid; gap: 6px; padding: 9px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-raised); }
+.room-task__main { display: grid; justify-items: start; gap: 5px; padding: 0; border: 0; color: var(--text); background: transparent; text-align: left; cursor: pointer; }
+.room-task__main strong { font-size: var(--fs-sm); font-weight: 500; line-height: var(--lh-relaxed); }
+.room-task__main small { color: var(--text-faint); font-size: var(--fs-xs); }
+.room-task__actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.room-task__action { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border: 1px solid var(--border); border-radius: var(--radius-xs); color: var(--text-muted); background: transparent; font-size: var(--fs-xs); cursor: pointer; }
+.room-task__action:hover { border-color: var(--border-strong); color: var(--text); }
+.room-decision-list { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.room-decision { display: grid; gap: 3px; }
+.room-decision p { margin: 0; color: var(--text-muted); font-size: var(--fs-sm); line-height: var(--lh-relaxed); overflow-wrap: anywhere; }
+.room-decision small { color: var(--text-faint); font-size: var(--fs-xs); }
+
+/* 弹窗内的表单件 */
+.modal.room-dialog { width: min(560px, 100%); }
+.room-dialog__head { display: flex; align-items: center; gap: 8px; }
+.room-dialog__head small { color: var(--text-faint); font-size: var(--fs-xs); }
+.room-dialog__error { margin: 0; padding: 8px 10px; border: 1px solid var(--danger); border-radius: var(--radius-sm); color: var(--danger); font-size: var(--fs-sm); line-height: var(--lh-relaxed); overflow-wrap: anywhere; }
+.room-field { display: grid; gap: 5px; }
+.room-field > span { color: var(--text-muted); font-size: var(--fs-sm); }
+.room-field input,
+.room-field select {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  background: var(--surface-raised);
+  font: inherit;
+  font-size: var(--fs-md);
+}
+.room-dialog__text { margin: 0; color: var(--text); font-size: var(--fs-md); line-height: var(--lh-relaxed); white-space: pre-wrap; overflow-wrap: anywhere; }
+.room-dialog__notice { margin: 0; color: var(--text-faint); font-size: var(--fs-xs); line-height: var(--lh-relaxed); }
+.room-segments { display: flex; flex-wrap: wrap; gap: 6px; }
+.room-segments button { padding: 6px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-muted); background: transparent; font-size: var(--fs-sm); cursor: pointer; }
+.room-segments button[aria-pressed="true"] { border-color: transparent; color: var(--accent-contrast); background: var(--accent); }
+.room-segments button:disabled { opacity: .45; cursor: default; }
+.room-deliveries { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.room-delivery { display: grid; gap: 2px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--canvas); }
+.room-delivery__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.room-delivery__head strong { color: var(--text); font-size: var(--fs-sm); font-weight: 500; }
+.room-delivery__result { margin: 0; color: var(--text-muted); font-size: var(--fs-xs); line-height: var(--lh-relaxed); white-space: pre-wrap; overflow-wrap: anywhere; }
+.room-acceptance { margin: 0; padding-left: 18px; color: var(--text-muted); font-size: var(--fs-sm); line-height: var(--lh-relaxed); }
+.room-roster { display: grid; gap: 2px; margin: 0; padding-left: 18px; color: var(--text-muted); font-size: var(--fs-sm); line-height: var(--lh-relaxed); }
+
+/* 键盘焦点给自定义控件留可见轮廓 */
+.room-recipient:focus-visible,
+.room-task__action:focus-visible,
+.room-taskcard:focus-visible,
+.room-send:focus-visible,
+.room-segments button:focus-visible,
+.room-empty__cta:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+@media (max-width: 1120px) {
+  .room-view { grid-template-columns: 216px minmax(0, 1fr) var(--room-aside-width, 260px); }
+}
+
+/* 窄窗：三栏叠成三段，房间与成员收成顶部一条横向列表。 */
+@media (max-width: 900px) {
+  .room-view {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas: "rail" "stream" "aside";
+  }
+  .room-rail { flex-direction: row; align-items: center; gap: 8px; padding: 8px 10px; border-right: 0; border-bottom: 1px solid var(--border); overflow-x: auto; }
+  .room-rail > * { flex: none; }
+  .room-rail__head { padding: 0; }
+  .room-rail__head h2 { display: none; }
+  .room-rail__notice { margin: 0; }
+  .room-rail__hint { display: none; }
+  .room-list { flex-direction: row; max-height: none; padding: 0; }
+  .room-list__item { white-space: nowrap; }
+  .room-members { flex-direction: row; flex: 0 0 auto; border-top: 0; }
+  .room-members__head { padding: 0; }
+  .room-members__head span { display: none; }
+  .room-member-list { flex-direction: row; gap: 6px; padding: 0; }
+  .room-member { padding: 3px 6px; }
+  .room-member__body small { display: none; }
+  .room-member__remove { opacity: 1; }
+  .room-aside { max-height: 240px; border-left: 0; border-top: 1px solid var(--border); }
+  .room-view--watching { grid-template-rows: auto minmax(0, 1fr) minmax(200px, 40%); grid-template-areas: "rail" "stream" "watch"; }
+  .room-watch { border-left: 0; border-top: 1px solid var(--border); }
+  /* 叠排后右栏在底部横条里，左右拖宽度没有意义。 */
+  .room-view .panel-resize-handle { display: none; }
+}
+
+/* 弹窗动作里的图标对齐：退回重做 / 验证通过这些按钮同时带图标和文字。 */
+.room-dialog .modal__actions button { display: inline-flex; align-items: center; gap: 6px; }
+
+/* 讨论搜索：只在当前房间的时间线里筛。 */
+.room-search { display: flex; align-items: center; gap: 8px; padding: 8px 14px 8px 18px; border-bottom: 1px solid var(--border); color: var(--text-faint); }
+.room-search input {
+  min-width: 0;
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  background: var(--surface-raised);
+  font: inherit;
+  font-size: var(--fs-md);
+}
+.room-search__count { color: var(--text-faint); font-size: var(--fs-xs); white-space: nowrap; }
+
+/* 投递行的状态与操作收在一头。 */
+.room-delivery__tail { display: inline-flex; align-items: center; gap: 6px; }
+
+/* 气泡里的 @点名芯片：一眼看清在叫谁，与「@ 谁只发给谁」对应。
+   与 composer 的 .room-mention 点名单是两回事，故另起名字。 */
+.room-mention-chip {
+  padding: 0 5px;
+  border-radius: var(--radius-xs);
+  color: var(--accent);
+  background: var(--accent-soft);
+  font-weight: 500;
+}
+
+/* 交差回执里的文件路径：能打开的画成链接，其余保持正文。 */
+.room-filelink {
+  padding: 0;
+  border: 0;
+  color: var(--accent);
+  background: transparent;
+  font: inherit;
+  line-height: inherit;
+  text-decoration: underline dotted;
+  cursor: pointer;
+}
+.room-filelink:hover { text-decoration: underline; }
+
+/* 布局变体：专注只留讨论；紧凑把三栏与留白一起收窄。选择记在 localStorage。 */
+.room-layout { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.room-layout button { padding: 2px 8px; border: 0; border-radius: var(--radius-xs); color: var(--text-faint); background: transparent; font-size: var(--fs-xs); cursor: pointer; }
+.room-layout button:hover { color: var(--text); }
+.room-layout button[aria-pressed="true"] { color: var(--accent-contrast); background: var(--accent); }
+
+.room-view--focus { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); grid-template-areas: "stream"; }
+.room-view--focus .room-rail,
+.room-view--focus .room-aside,
+.room-view--focus .panel-resize-handle { display: none; }
+
+@media (min-width: 901px) {
+  .room-view--compact { grid-template-columns: 204px minmax(0, 1fr) var(--room-aside-width, 244px); }
+}
+.room-view--compact .room-timeline { gap: 8px; padding: 12px 12px 6px; }
+.room-view--compact .room-message { padding: 7px 9px; }
+.room-view--compact .room-composer { padding: 8px 12px 10px; }
+.room-view--compact .room-rail__head { padding: 10px 8px 6px 12px; }
+
+/* 证据折叠区：差异原文等宽显示，长行横向滚动不外溢。 */
+.room-artifact summary { color: var(--text-muted); font-size: var(--fs-sm); cursor: pointer; }
+.room-artifact__diff {
+  max-height: 240px;
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--canvas);
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  white-space: pre;
+}
+
+/* 独立窗口：没有应用外壳，房间视图直接撑满整个视口。 */
+.room-window { display: grid; height: 100vh; grid-template-rows: minmax(0, 1fr); background: var(--canvas); }

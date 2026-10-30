@@ -1,4 +1,5 @@
 import { useRef, useState, type FocusEvent, type KeyboardEvent } from "react";
+import { composingKey } from "../../utils/keyboard";
 
 interface FontDropdownOptions {
   optionCount: number;
@@ -26,7 +27,7 @@ export function useFontDropdown(options: FontDropdownOptions) {
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     // 中文字体名（苹方、思源黑体）得打中文来搜。组字时 Enter 是确认候选词、
     // Escape 是取消候选，都不该拿去操作这个下拉。
-    if (event.nativeEvent.isComposing) return;
+    if (composingKey(event.nativeEvent)) return;
     if (event.key === "Escape") return dismissOnEscape(event, open, close);
     if (event.key === "Enter" && open && activeIndex >= 0) {
       event.preventDefault();

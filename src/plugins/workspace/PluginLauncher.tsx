@@ -11,6 +11,7 @@ import { loadPluginLaunchHistory, rememberPluginLaunch } from "./plugin-launcher
 import { useLauncherShortcut } from "./useLauncherShortcut";
 import { isActiveInProject } from "../center/activation";
 import "../center/styles/index.css";
+import { composingKey } from "../../utils/keyboard";
 import "./launcher.css";
 
 export function PluginLauncher() {
@@ -39,7 +40,7 @@ function LauncherDialog({ onClose, shortcutNote }: { onClose: () => void; shortc
           role="combobox" aria-expanded={results.length > 0} aria-controls="plugin-launcher-results"
           aria-activedescendant={results[highlighted] ? `plugin-launcher-option-${results[highlighted].id}` : undefined}
           onChange={(event) => { setQuery(event.target.value); setHighlighted(0); }} onKeyDown={(event) => {
-            if (event.nativeEvent.isComposing || !results.length) return;
+            if (composingKey(event.nativeEvent) || !results.length) return;
             if (["ArrowDown", "ArrowUp"].includes(event.key)) { event.preventDefault(); setHighlighted((value) => (value + (event.key === "ArrowDown" ? 1 : -1) + results.length) % results.length); }
             if (event.key === "Enter") { event.preventDefault(); void openPlugin(results[highlighted] ?? results[0]); }
           }} /><span className="plugin-launcher-shortcut" title={shortcutNote} aria-label={shortcutNote}>Alt + Space</span>

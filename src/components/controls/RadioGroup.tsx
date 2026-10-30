@@ -1,6 +1,7 @@
 import { useRef, type KeyboardEvent } from "react";
 import { moveOption } from "./controlModel";
 import type { SelectOption } from "./options";
+import { composingKey } from "../../utils/keyboard";
 import "./controls.css";
 
 export function RadioGroup<T extends string>({ value, options, onChange, ariaLabel, disabled, className = "" }: {
@@ -11,7 +12,7 @@ export function RadioGroup<T extends string>({ value, options, onChange, ariaLab
   const selected = options.findIndex((option) => option.value === value && !option.disabled);
   const focusIndex = selected >= 0 ? selected : moveOption(options, -1, 1);
   const keydown = (event: KeyboardEvent, index: number) => {
-    if (event.nativeEvent.isComposing || disabled) return;
+    if (composingKey(event.nativeEvent) || disabled) return;
     const forward = event.key === "ArrowDown" || event.key === "ArrowRight";
     const backward = event.key === "ArrowUp" || event.key === "ArrowLeft";
     if (!forward && !backward) return;

@@ -13,6 +13,7 @@ import { useDismiss } from "../workspace/useDismiss";
 import { guideFootnote, guideSections, type GuideSection, type GuideTab } from "./catalog";
 import type { ShortcutPlatform } from "./resolveShortcut";
 import { useShortcutSettings } from "./custom/useShortcutSettings";
+import { composingKey } from "../utils/keyboard";
 import "./shortcutGuide.css";
 
 interface ShortcutGuideProps {
@@ -89,7 +90,7 @@ function useRestoreFocus(closeRef: RefObject<HTMLButtonElement | null>) {
 function useTopLayerEscape(onClose: () => void) {
   useEffect(() => {
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (event.key !== "Escape") return;
+      if (event.key !== "Escape" || composingKey(event)) return;
       event.preventDefault();
       event.stopPropagation();
       onClose();

@@ -286,3 +286,33 @@ fn stale_attachment_lookup_does_not_cross_project_boundaries_or_spawn_a_duplicat
     assert_eq!(1, fixture.service.list().len());
     assert_eq!(session.id, fixture.service.list()[0].session.id);
 }
+
+#[test]
+fn viewer_attaches_by_tab_when_the_launch_directory_is_unknown() {
+    let fixture = Fixture::new();
+    let session = fixture
+        .service
+        .create(fixture.request("tab"), WireOverlay::default(), None)
+        .unwrap();
+    // 房间独立窗口只带标签来（名册里没有启动目录）：cwd 缺失不比对，照样接上原会话。
+    let mut viewer = fixture.request("tab");
+    viewer.cwd = None;
+    let attached = fixture
+        .service
+        .create(viewer, WireOverlay::default(), None)
+        .unwrap();
+    assert_eq!(session.id, attached.id);
+    assert!(attached.reconnected);
+    // 但缺 cwd 不是万金油：带着别条会话的接驳号、标签对不上，照样当场拒绝。
+    let mut stranger = fixture.request("other");
+    stranger.cwd = None;
+    let error = fixture
+        .service
+        .create(stranger, WireOverlay::default(), Some(session.id.clone()))
+        .unwrap_err();
+    assert_eq!(
+        crate::terminal::contracts::AppErrorCode::InvalidArgument,
+        error.code
+    );
+    assert_eq!(1, fixture.service.list().len());
+}

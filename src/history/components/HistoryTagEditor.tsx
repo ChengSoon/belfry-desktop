@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { normalizeTags } from "../metadata";
+import { composingKey, guardComposingEnter } from "../../utils/keyboard";
 
 interface Props {
   tags: string[];
@@ -18,6 +19,9 @@ export function HistoryTagEditor({ tags, onSave, onClose }: Props) {
     } catch (error) { setError(error instanceof Error ? error.message : "无法保存标签。"); }
   };
   return <form className="history-tag-editor" onSubmit={submit} onKeyDown={(event) => {
+    // 选词回车的默认动作先挡住（表单隐式提交）；组字中的 Escape 是「取消候选」，不关编辑器。
+    guardComposingEnter(event);
+    if (composingKey(event.nativeEvent)) return;
     if (event.key === "Escape") { event.stopPropagation(); onClose(); }
   }}>
     <label><span>标签，用逗号分隔</span><input autoFocus aria-label="会话标签" value={draft}

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { calendarDays, clampDate, dateFromParts, dateParts, moveDate, moveMonth, weekDay } from "./dateModel";
 import { focusableControls } from "./layerOwnership";
 import { NumericField } from "./NumericField";
+import { composingKey } from "../../utils/keyboard";
 
 interface Props {
   id: string; value: string; onChange: (value: string) => void; label: string; today: string;
@@ -59,7 +60,7 @@ function CalendarMonths({ active, onChoose }: { active: string; onChoose: (value
 }
 
 function navigateCalendar(event: KeyboardEvent, active: string, move: (value: string) => void) {
-  if (event.nativeEvent.isComposing || event.metaKey || event.ctrlKey || event.altKey) return;
+  if (composingKey(event.nativeEvent) || event.metaKey || event.ctrlKey || event.altKey) return;
   const shifts: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7,
     Home: -weekDay(active), End: 6 - weekDay(active) };
   if (shifts[event.key] !== undefined) { event.preventDefault(); move(moveDate(active, shifts[event.key])); }

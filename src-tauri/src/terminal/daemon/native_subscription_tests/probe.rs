@@ -151,6 +151,51 @@ impl Probe {
         stream
     }
 
+    /// 收全这一路视图的输出直到 Exit，并把每一批都确认掉。
+    ///
+    /// 两路视图并存时用它：第二路挂上之后第一路若被掐断，这里会立刻报出断连而不是
+    /// 静默等到超时——那正是「左侧一直空闲、右侧照常在动」的成因。
+    pub fn collect_until_exit(&mut self, client: &DaemonClient) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        loop {
+            let event = self
+                .receiver
+                .recv_timeout(Duration::from_secs(10))
+                .unwrap_or_else(|error| panic!("subscription delivered nothing: {error}"));
+            let TerminalEvent::OutputBatch {
+                session_id,
+                connection_id,
+                delivery_id,
+                events,
+            } = event
+            else {
+                panic!("subscription broke instead of delivering output: {event:?}");
+            };
+            assert_eq!(self.session.id, session_id);
+            assert_eq!(self.connection(), connection_id);
+            assert_eq!(self.next_delivery, delivery_id);
+            self.next_delivery += 1;
+            let ended = events
+                .iter()
+                .any(|item| matches!(item, TerminalEvent::Exit { .. }));
+            for item in &events {
+                if let TerminalEvent::Output {
+                    session_id: id,
+                    bytes: chunk,
+                    ..
+                } = item
+                {
+                    assert_eq!(&self.session.id, id);
+                    bytes.extend(chunk);
+                }
+            }
+            self.acknowledge(client, delivery_id);
+            if ended {
+                return bytes;
+            }
+        }
+    }
+
     pub fn drain(&mut self, client: &DaemonClient, mut stream: Stream) -> Stream {
         loop {
             let batch = self.receive();

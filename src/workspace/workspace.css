@@ -62,6 +62,21 @@
 .app-shell.is-settings > .collab-panel,
 .app-shell.is-settings > .failure-toast { display: none; }
 
+/* 房间视图整窗铺开：和设置同一套处理——主界面整片隐藏但保持挂载。 */
+.app-shell.is-rooms { grid-template-columns: minmax(0, 1fr); }
+
+.app-shell.is-rooms > .sidebar,
+.app-shell.is-rooms > .sidebar-shell,
+.app-shell.is-rooms > .workbench,
+.app-shell.is-rooms > .usage-panel,
+.app-shell.is-rooms > .history-panel,
+.app-shell.is-rooms > .file-preview-panel,
+.app-shell.is-rooms > .collab-panel,
+.app-shell.is-rooms > .plugin-dock { display: none; }
+
+/* 设置优先：设置开着时房间视图挂起（隐藏但保持挂载）。 */
+.app-shell.is-settings > .room-view { display: none; }
+
 /* Overlay 标题栏把顶部那条交给了 webview，系统不再代拖窗口，得自己声明拖拽区。
    横跨整窗，所以侧栏折叠、用量面板开合都不用跟着改。里面是空的——顶部这条本来就
    只有交通灯，不会挡住任何可点的东西。--titlebar-inset 为 0 时（Windows/Linux）

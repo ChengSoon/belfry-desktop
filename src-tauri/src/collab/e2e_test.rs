@@ -12,7 +12,7 @@ use std::time::{Duration, Instant};
 
 use super::identity::SessionIdentities;
 use super::registry::{SessionRegistry, SessionSnapshot};
-use super::server::CollabServer;
+use super::server::{CollabServer, RoomAccess};
 use super::task::{self, TaskBoard, TaskState};
 
 #[test]
@@ -32,8 +32,14 @@ fn the_cli_talks_to_a_real_server() {
     std::fs::create_dir_all(&project).unwrap();
 
     let board = Arc::new(TaskBoard::default());
-    let Some(server) = CollabServer::start(identities.clone(), registry.clone(), board.clone())
-    else {
+    // 房间目录先挂空位，测到第 13 步再装满——顺带把「还没就绪」的诚实降级也测了。
+    let room_access = Arc::new(RoomAccess::default());
+    let Some(server) = CollabServer::start(
+        identities.clone(),
+        registry.clone(),
+        board.clone(),
+        room_access.clone(),
+    ) else {
         panic!("server 起不来");
     };
     let endpoint = server.endpoint().to_string();
@@ -280,6 +286,377 @@ fn the_cli_talks_to_a_real_server() {
         started.elapsed() < Duration::from_secs(10),
         "不该挂到默认超时，实际花了 {:?}",
         started.elapsed()
+    );
+
+    // 13. 房间：成员在终端里看得见自己的房间；目录还没装好时如实回答不在
+    let before_ready = run(&binary, &endpoint, &token, &["rooms"]);
+    let before_text = String::from_utf8_lossy(&before_ready.stdout).to_string();
+    assert!(before_ready.status.success(), "rooms 应该成功：{before_ready:?}");
+    assert!(
+        before_text.contains("不在"),
+        "目录未就绪要说清不在任何房间：{before_text}"
+    );
+
+    let store = Arc::new(crate::rooms::RoomStore::load(Some(
+        project.join("rooms.json"),
+    )));
+    let room = store.create("发布检查", project.to_str().unwrap()).unwrap();
+    store
+        .add_member(&room.id, "t1", "claude", "前端", "")
+        .unwrap();
+    room_access.set(store.clone());
+
+    let listed = run(&binary, &endpoint, &token, &["rooms"]);
+    let listed_text = String::from_utf8_lossy(&listed.stdout).to_string();
+    assert!(listed.status.success(), "rooms 应该成功：{listed:?}");
+    assert!(
+        listed_text.contains("发布检查") && listed_text.contains("前端"),
+        "房间里要看到房间名和我的角色：{listed_text}"
+    );
+
+    // 不在这间房里的会话看不到它。
+    let outsider = run_as(&binary, &endpoint, "t2", &receiver_token, &["rooms"]);
+    let outsider_text = String::from_utf8_lossy(&outsider.stdout).to_string();
+    assert!(outsider.status.success(), "rooms 应该成功：{outsider:?}");
+    assert!(
+        outsider_text.contains("不在"),
+        "不在房间里的会话不该看到这间房：{outsider_text}"
+    );
+
+    // 13b. 房间群聊：没进房间前说不了话；进房之后能说话，点名只投给被点的人（请 TA 接话），不点名才发给全体。
+    let outside_say = run_as(&binary, &endpoint, "t2", &receiver_token, &["room", "say", "有人吗"]);
+    assert!(!outside_say.status.success(), "不在房间里不该说得了话");
+    assert!(
+        String::from_utf8_lossy(&outside_say.stderr).contains("不在任何"),
+        "要说清为什么说不了"
+    );
+
+    store
+        .add_member(&room.id, "t2", "codex", "审查", "")
+        .unwrap();
+    store
+        .add_member(&room.id, "t3", "claude", "测试", "")
+        .unwrap();
+
+    let said = run_as(
+        &binary,
+        &endpoint,
+        "t1",
+        &token,
+        &["room", "say", "@审查", "接口文档更新了"],
+    );
+    assert!(said.status.success(), "成员应该能往房间里说话：{said:?}");
+    let said_text = String::from_utf8_lossy(&said.stdout).to_string();
+    assert!(
+        said_text.contains("已记进房间「发布检查」") && said_text.contains("审查") && !said_text.contains("测试"),
+        "回执要说清去了哪间房、通知了谁（点名只通知被点的人）：{said_text}"
+    );
+
+    // 群聊不是派活：消息不进收件箱（inbox 只列要交差的活）。
+    let mentioned = run_as(&binary, &endpoint, "t2", &receiver_token, &["inbox"]);
+    let mentioned_text = String::from_utf8_lossy(&mentioned.stdout).to_string();
+    assert!(
+        !mentioned_text.contains("接口文档更新了"),
+        "群聊消息不该出现在收件箱里：{mentioned_text}"
+    );
+    // 投给终端的那条是聊天口吻：不挂任务号、不要 done，要接话走 room say。
+    let chat_task = board
+        .snapshot()
+        .into_iter()
+        .find(|entry| entry.to == "t2" && entry.instruction.contains("接口文档更新了"))
+        .expect("群聊投递应该在板上");
+    assert!(chat_task.chat.is_some(), "群聊投递要带聊天标记");
+    let injected = task::injection_text(&chat_task, "发布检查");
+    assert!(
+        injected.contains("点了你的名")
+            && injected.contains("room say")
+            && !injected.contains("belfry done"),
+        "群聊注入要是聊天口吻：{injected}"
+    );
+
+    // 点名收窄投递：被点名的只有「审查」，「测试」的终端不该收到这条。
+    assert!(
+        !board
+            .snapshot()
+            .iter()
+            .any(|entry| entry.to == "t3" && entry.instruction.contains("接口文档更新了")),
+        "点名只发给被点的人，旁观成员不该收到"
+    );
+
+    // 群聊语义：不带点名的发言发给所有成员。
+    let shouted = run_as(
+        &binary,
+        &endpoint,
+        "t1",
+        &token,
+        &["room", "say", "大家同步一下进度"],
+    );
+    assert!(
+        shouted.status.success(),
+        "不带点名的发言应该发给全体：{shouted:?}"
+    );
+    let shouted_text = String::from_utf8_lossy(&shouted.stdout).to_string();
+    assert!(
+        shouted_text.contains("已发给：") && shouted_text.contains("审查"),
+        "回执要说清发给了谁：{shouted_text}"
+    );
+    // 20 秒窗口内的连发并进同一条排队中的投递：两句话在同一条正文里。
+    let chat_tasks: Vec<_> = board
+        .snapshot()
+        .into_iter()
+        .filter(|entry| entry.to == "t2" && entry.chat.is_some())
+        .collect();
+    assert_eq!(chat_tasks.len(), 1, "连发要合并成一条投递");
+    assert!(
+        chat_tasks[0].instruction.contains("大家同步一下进度"),
+        "合并后正文要带上后一句：{}",
+        chat_tasks[0].instruction
+    );
+    let passive_merged = board
+        .snapshot()
+        .into_iter()
+        .find(|entry| entry.to == "t3" && entry.chat.is_some())
+        .expect("不带点名的发言要送达全体成员");
+    assert!(
+        passive_merged.instruction.contains("大家同步一下进度")
+            && !passive_merged.instruction.contains("接口文档更新了"),
+        "旁观成员只收到群发那条，点名那条不越界：{}",
+        passive_merged.instruction
+    );
+    // 群发到旁观成员的口径是「看见即可」；被点名才有「点了你的名」。
+    let passive_injected = task::injection_text(&passive_merged, "发布检查");
+    assert!(
+        passive_injected.contains("看见即可") && !passive_injected.contains("点了你的名"),
+        "旁观成员的口径是看见即可：{passive_injected}"
+    );
+
+    let logged = run_as(
+        &binary,
+        &endpoint,
+        "t1",
+        &token,
+        &["room", "log", "--room", "发布检查"],
+    );
+    let logged_text = String::from_utf8_lossy(&logged.stdout).to_string();
+    assert!(logged.status.success(), "日志应该读得到：{logged:?}");
+    assert!(
+        logged_text.contains("前端：@审查 接口文档更新了"),
+        "日志要按角色名读回对话：{logged_text}"
+    );
+    assert!(logged_text.contains("["), "日志行要带消息短 id：{logged_text}");
+
+    // 13b-2. 成员引用回复：从 log 里取短 id，`room say --reply` 引用它回话；
+    // 投给其他成员的注入行要带原话摘录——群里指代不靠猜。
+    let line = logged_text
+        .lines()
+        .find(|line| line.contains("接口文档更新了"))
+        .expect("日志里应有那条消息");
+    let id_start = line.find('[').expect("日志行要带消息 id") + 1;
+    let id_end = line[id_start..]
+        .find(']')
+        .map(|at| id_start + at)
+        .expect("日志行要带消息 id");
+    let quoted_id = line[id_start..id_end].to_string();
+    let quoted = run_as(
+        &binary,
+        &endpoint,
+        "t2",
+        &receiver_token,
+        &["room", "say", "--reply", &quoted_id, "收到，我按新的改"],
+    );
+    assert!(quoted.status.success(), "引用回复应该成功：{quoted:?}");
+    let quoted_task = board
+        .snapshot()
+        .into_iter()
+        .find(|entry| entry.to == "t1" && entry.instruction.contains("收到，我按新的改"))
+        .expect("引用回复应投给其他成员");
+    assert!(
+        quoted_task.instruction.contains("回复") && quoted_task.instruction.contains("接口文档更新了"),
+        "注入行要带引用摘要：{}",
+        quoted_task.instruction
+    );
+    // 幽灵 id：当场拒绝。
+    let ghost = run_as(
+        &binary,
+        &endpoint,
+        "t2",
+        &receiver_token,
+        &["room", "say", "--reply", "zzzzzzzz", "引用幽灵"],
+    );
+    assert!(!ghost.status.success(), "引用不存在的消息要报错");
+
+    // 13b-3. 表情回应：真 CLI 走真服务端——点上、log 带计数、再点取消、幽灵消息拒绝。
+    let reacted = run_as(
+        &binary,
+        &endpoint,
+        "t2",
+        &receiver_token,
+        &["room", "react", &quoted_id, "👍"],
+    );
+    assert!(reacted.status.success(), "回应应该成功：{reacted:?}");
+    assert!(
+        String::from_utf8_lossy(&reacted.stdout).contains("点上"),
+        "回执要说清点上了：{:?}",
+        String::from_utf8_lossy(&reacted.stdout)
+    );
+    let re_logged = run_as(
+        &binary,
+        &endpoint,
+        "t2",
+        &receiver_token,
+        &["room", "log", "--room", "发布检查"],
+    );
+    let re_logged_text = String::from_utf8_lossy(&re_logged.stdout).to_string();
+    assert!(
+        re_logged_text.contains("👍×1"),
+        "log 要带回应计数：{re_logged_text}"
+    );
+    let undone = run_as(
+        &binary,
+        &endpoint,
+        "t2",
+        &receiver_token,
+        &["room", "react", &quoted_id, "👍"],
+    );
+    assert!(undone.status.success(), "取消应该成功：{undone:?}");
+    assert!(
+        String::from_utf8_lossy(&undone.stdout).contains("取消"),
+        "回执要说清取消了：{:?}",
+        String::from_utf8_lossy(&undone.stdout)
+    );
+    let ghost_react = run_as(
+        &binary,
+        &endpoint,
+        "t2",
+        &receiver_token,
+        &["room", "react", "zzzzzzzz", "👍"],
+    );
+    assert!(!ghost_react.status.success(), "幽灵消息要拒绝");
+
+    // 13c. 成员转手：转给同房成员的活，交差回复要回到房间时间线——
+    // 聊天不能断在交接处。send 直派没有可见痕迹，先在时间线留一条系统留痕。
+    let handoff = run(
+        &binary,
+        &endpoint,
+        &token,
+        &["send", "reviewer", "顺带把回归脚本补上"],
+    );
+    assert!(handoff.status.success(), "转手应该受理：{handoff:?}");
+    let announced = store.get(&room.id).unwrap();
+    assert!(
+        announced
+            .messages
+            .iter()
+            .any(|m| m.text.contains("把任务交给了") && m.text.contains("回归脚本")),
+        "send 转手要在时间线留痕"
+    );
+
+    // 群聊投递：送达（进过终端）后先留在板上等对账把回执写回消息，再回收。
+    let chat_short = task::short_id(&chat_task.id).to_string();
+    let passive_short = task::short_id(&passive_merged.id).to_string();
+    board.mark_dispatched(&chat_task.id);
+    board.mark_dispatched(&passive_merged.id);
+    assert!(
+        board
+            .snapshot()
+            .iter()
+            .any(|entry| task::short_id(&entry.id) == chat_short),
+        "送达后先留在板上等回执记录"
+    );
+
+    // 转手是任务通道：一条带结果交差（以成员口吻回显），一条不带结果（系统摘要）。
+    let direct_task = board
+        .snapshot()
+        .into_iter()
+        .find(|entry| entry.to == "t2" && entry.instruction.contains("回归脚本"))
+        .expect("转手任务应该在板上");
+    let direct_short = task::short_id(&direct_task.id).to_string();
+    let replied = run_as(
+        &binary,
+        &endpoint,
+        "t2",
+        &receiver_token,
+        &["done", &direct_short, "回归脚本补完了"],
+    );
+    assert!(replied.status.success(), "交差应该成功：{replied:?}");
+    let second = run(
+        &binary,
+        &endpoint,
+        &token,
+        &["send", "reviewer", "顺手把改动记录也更新一下"],
+    );
+    assert!(second.status.success(), "第二笔转手应该受理：{second:?}");
+    let another = board
+        .snapshot()
+        .into_iter()
+        .find(|entry| entry.to == "t2" && entry.instruction.contains("改动记录"))
+        .expect("第二笔转手应该在板上");
+    let another_short = task::short_id(&another.id).to_string();
+    let closed = run_as(&binary, &endpoint, "t2", &receiver_token, &["done", &another_short]);
+    assert!(closed.status.success(), "交差应该成功：{closed:?}");
+
+    store.reconcile(&board, 9_999).unwrap();
+    assert!(
+        !board
+            .snapshot()
+            .iter()
+            .any(|entry| task::short_id(&entry.id) == chat_short),
+        "回执记录后群聊投递要出板"
+    );
+    assert!(
+        !board
+            .snapshot()
+            .iter()
+            .any(|entry| task::short_id(&entry.id) == passive_short),
+        "旁观成员的投递同样回收"
+    );
+    let echoed = store.get(&room.id).unwrap();
+    let reviewer_id = echoed
+        .members
+        .iter()
+        .find(|member| member.role == "审查")
+        .map(|member| member.id.clone())
+        .expect("审查应该还在成员里");
+    let tester_id = echoed
+        .members
+        .iter()
+        .find(|member| member.role == "测试")
+        .map(|member| member.id.clone())
+        .expect("测试应该还在成员里");
+    assert!(
+        echoed
+            .messages
+            .iter()
+            .any(|m| m.text.contains("大家同步一下进度")
+                && m.delivered_to.contains(&reviewer_id)
+                && m.delivered_to.contains(&tester_id)),
+        "群聊送达要记到消息上（含旁观成员）：{:?}",
+        echoed
+            .messages
+            .iter()
+            .map(|m| (m.text.clone(), m.delivered_to.clone()))
+            .collect::<Vec<_>>()
+    );
+    assert!(
+        echoed
+            .messages
+            .iter()
+            .any(|m| m.text.contains("接口文档更新了") && m.delivered_to == vec![reviewer_id.clone()]),
+        "点名消息的送达只记被点的人"
+    );
+    assert!(
+        echoed
+            .messages
+            .iter()
+            .any(|m| m.text.contains("回归脚本补完了")),
+        "转手对象的交差要以他的口吻回显进房间时间线"
+    );
+    assert!(
+        echoed
+            .messages
+            .iter()
+            .any(|m| m.text.contains("「审查」交差了")),
+        "不带结果的交差要留一条系统摘要"
     );
 
     let _ = std::fs::remove_dir_all(&project);

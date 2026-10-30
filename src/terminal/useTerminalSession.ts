@@ -84,7 +84,10 @@ export function useTerminalSession(
     if (!host) return;
     let active = true;
     const guard = <T,>(write: (value: T) => void) => (value: T) => { if (active) write(value); };
-    if (target.current.cwd !== launch.cwd || target.current.profileId !== launch.profileId || target.current.ssh !== launch.ssh) {
+    // 换了一条会话（tabId 变了）就必须换接驳身份：沿用上一条的 attachment 会让
+    // 新标签带着旧身份去接驳，守护进程按标签 / 项目校验时整条拒绝。
+    if (target.current.cwd !== launch.cwd || target.current.profileId !== launch.profileId
+      || target.current.ssh !== launch.ssh || target.current.tabId !== launch.tabId) {
       attachment.current = launch.attachmentId ?? null;
     }
     target.current = launch;

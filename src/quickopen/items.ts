@@ -3,6 +3,7 @@ import type { QuickOpenItem } from "./model";
 
 const ACTION_ITEMS: QuickOpenItem[] = [
   { id: "action:collab", kind: "action", title: "会话协作", subtitle: "看谁在派活、确认待办", keywords: ["agent", "collab", "协作", "派活", "belfry", "peers", "send"], icon: "bot" },
+  { id: "action:room", kind: "action", title: "协作房间", subtitle: "多条会话在一个房间里接活", keywords: ["room", "rooms", "房间", "协作房间", "派活"], icon: "list-checks" },
   { id: "action:new-shell", kind: "action", title: "新建 Shell 会话", subtitle: "当前项目", keywords: ["shell", "terminal", "new"], icon: "terminal" },
   { id: "action:file-preview", kind: "action", title: "打开文件预览", subtitle: "浏览当前项目文件", keywords: ["file", "preview", "文件", "目录", "code"], icon: "file-search" },
   { id: "action:settings", kind: "action", title: "打开设置", subtitle: "Belfry", keywords: ["preferences", "config"], icon: "settings" },

@@ -1,9 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Channel } from "@tauri-apps/api/core";
+import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
 import { acknowledgeTerminalOutput, createTerminal, detachTerminal, writeTerminal } from "./api";
 import { mountTerminal, type MountCallbacks, type TerminalHandle } from "./terminalController";
 import type { TerminalEvent, TerminalLaunch, TerminalSession } from "./contracts";
+import { FALLBACK_GRID } from "./controller/hostSize";
+
+const terminalGrid = vi.hoisted(() => ({ cols: 80, rows: 24 }));
 
 vi.mock("@tauri-apps/api/core", () => ({ Channel: class { onmessage = (_: unknown) => {}; } }));
 vi.mock("@tauri-apps/api/webview", () => ({ getCurrentWebview: () => ({ onDragDropEvent: async () => () => {} }) }));
@@ -11,7 +15,7 @@ vi.mock("./api", () => ({ acknowledgeTerminalOutput: vi.fn(), createTerminal: vi
 vi.mock("@xterm/addon-fit", () => ({ FitAddon: class { fit() {} } }));
 vi.mock("@xterm/addon-webgl", () => ({ WebglAddon: class { onContextLoss() {} dispose() {} } }));
 vi.mock("@xterm/xterm", () => ({ Terminal: class {
-  cols = 80; rows = 24; options: Record<string, unknown>;
+  cols = terminalGrid.cols; rows = terminalGrid.rows; options: Record<string, unknown>;
   private data: ((text: string) => void) | undefined;
   constructor(options: Record<string, unknown>) { this.options = options; }
   loadAddon() {} open() {} attachCustomKeyEventHandler() {} focus() {} dispose() {}
@@ -30,6 +34,7 @@ vi.mock("./promptUserInput", () => ({ listenForPromptUserInput: () => () => {} }
 const handles: TerminalHandle[] = [];
 beforeEach(() => {
   vi.resetAllMocks(); vi.useFakeTimers();
+  terminalGrid.cols = 80; terminalGrid.rows = 24;
   vi.stubGlobal("window", globalThis);
   vi.stubGlobal("navigator", { userAgent: "Mac" });
   vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
@@ -43,7 +48,9 @@ afterEach(() => {
   vi.useRealTimers(); vi.unstubAllGlobals();
 });
 
-function fixture(launchPatch: Partial<TerminalLaunch> = {}, initialFailure?: unknown) {
+type FixtureHost = { clientWidth: number; clientHeight: number; classList: { remove(): void } };
+function fixture(launchPatch: Partial<TerminalLaunch> = {}, initialFailure?: unknown,
+  host: FixtureHost = { clientWidth: 0, clientHeight: 0, classList: { remove() {} } }) {
   let resolve!: (session: TerminalSession) => void;
   let channel!: Channel<TerminalEvent>;
   const pending = new Promise<TerminalSession>((done) => { resolve = done; });
@@ -56,8 +63,7 @@ function fixture(launchPatch: Partial<TerminalLaunch> = {}, initialFailure?: unk
     projectLaunch: { env: {}, startup: { command: "printf qa-startup" } }, ...launchPatch };
   const session: TerminalSession = { id: "qa-pty", platform: "macos", shell: "bash", cwd: "file:///tmp",
     cols: 80, rows: 24, status: "running", exitCode: null, reconnected: false, connectionId: "qa-connection" };
-  const host = { clientWidth: 0, classList: { remove() {} } } as unknown as HTMLDivElement;
-  const handle = mountTerminal(host, launch, { foreground: "#ffffff", background: "#000000" }, false,
+  const handle = mountTerminal(host as unknown as HTMLDivElement, launch, { foreground: "#ffffff", background: "#000000" }, false,
     { fontFamily: "", fontSize: 14 }, callbacks);
   handles.push(handle);
   return { callbacks, handle, session, emit: (event: TerminalEvent) => channel.onmessage(event),
@@ -245,5 +251,28 @@ describe("terminal attachment lifecycle", () => {
     expect(test.callbacks.onPhase).toHaveBeenLastCalledWith("running");
     expect(writeTerminal).toHaveBeenCalledTimes(reconnected ? 0 : 1);
     if (!reconnected) expect(writeTerminal).toHaveBeenCalledWith(test.session.id, new TextEncoder().encode("printf qa-startup\r"));
+  });
+  it("hidden host: no fitting, and creation reports the fallback grid", async () => {
+    // 10 列宽是 fitAddon 对 display:none 宿主的误读产物：拟合出来的退化值绝不能当出生尺寸。
+    terminalGrid.cols = 10; terminalGrid.rows = 3;
+    const fit = vi.spyOn(FitAddon.prototype, "fit");
+    const test = fixture();
+    await vi.advanceTimersByTimeAsync(0);
+    const request = vi.mocked(createTerminal).mock.calls[0][0];
+    expect({ cols: request.cols, rows: request.rows }).toEqual(FALLBACK_GRID);
+    expect(fit).not.toHaveBeenCalled();
+    await test.ready();
+  });
+
+  it("laid-out host: fits normally and creates the session with the real grid", async () => {
+    // 故意用非兜底值：布过局的宿主上报的必须是拟合后的真实网格，不是 FALLBACK_GRID。
+    terminalGrid.cols = 132; terminalGrid.rows = 37;
+    const fit = vi.spyOn(FitAddon.prototype, "fit");
+    const test = fixture({}, undefined, { clientWidth: 1200, clientHeight: 800, classList: { remove() {} } });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fit).toHaveBeenCalled();
+    const request = vi.mocked(createTerminal).mock.calls[0][0];
+    expect({ cols: request.cols, rows: request.rows }).toEqual({ cols: 132, rows: 37 });
+    await test.ready();
   });
 });

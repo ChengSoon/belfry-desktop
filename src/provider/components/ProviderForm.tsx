@@ -4,6 +4,7 @@ import { Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
 import type { ProviderDraft } from "../contracts";
 import type { DraftIssue } from "../validate";
+import { guardComposingEnter } from "../../utils/keyboard";
 
 interface ProviderFormProps {
   busy: boolean;
@@ -38,7 +39,7 @@ export function ProviderForm({ kind, busy, draft, hasApiKey = false, issue, onCa
     "aria-describedby": `provider-${key}-hint`,
     onChange: (event: React.ChangeEvent<HTMLInputElement>) => onChange({ ...draft, [key]: event.target.value }),
   });
-  return <form className="provider-form" onSubmit={(event) => { event.preventDefault(); onSubmit(); }}>
+  return <form onKeyDown={guardComposingEnter} className="provider-form" onSubmit={(event) => { event.preventDefault(); onSubmit(); }}>
     <fieldset disabled={busy}>
       <legend><span>01</span> 连接服务</legend>
       <FormField name="name" label="服务名称" hint="用用途或供应商命名，方便切换时识别。" issue={issue}>

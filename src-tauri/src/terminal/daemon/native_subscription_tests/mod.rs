@@ -131,6 +131,44 @@ fn native_pty_detach_reconnect_preserves_process_and_rejects_stale_ack() {
     stream.report("reconnect", &current.snapshot());
 }
 
+#[test]
+fn a_second_view_of_one_session_receives_the_output_and_leaves_the_first_alive() {
+    let _guard = lock_native_test();
+    let fixture = Fixture::new(ORDERED_SCRIPT);
+    let payload = payload();
+    fixture.put("payload", &payload);
+    // 第一路：工作台里那条常驻视图。
+    let mut workbench = fixture.open(None);
+    fixture.wait_file("starts", b"start\n");
+    // 第二路：房间里点开「看终端」——同一个会话，另一个视图。这正是房间里
+    // 看终端走的路：按标签接驳已跑的会话，而不是另起一条。
+    let mut room = fixture.open(Some(&workbench.session.id));
+    assert_eq!(workbench.session.id, room.session.id);
+    assert!(!workbench.session.reconnected && room.session.reconnected);
+    assert_ne!(workbench.connection(), room.connection());
+    fixture.wait_file("produced", b"done");
+    fixture.wait_status(&workbench.session.id, TerminalStatus::Exited);
+    // 两路都要收全：第二路挂上不该把第一路掐断（成员行读的正是第一路的活动判定，
+    // 它一断，成员就永远显示「空闲」，而房间里那一路还在动）。
+    let first = workbench.collect_until_exit(&fixture.client);
+    let second = room.collect_until_exit(&fixture.client);
+    let expected = [BEGIN, payload.as_slice(), END].concat();
+    assert!(
+        expected == first,
+        "the original view must keep streaming while a second view is attached"
+    );
+    assert!(
+        expected == second,
+        "the second view must replay the whole session from the cache"
+    );
+    eprintln!(
+        "native ACK two views: session={}, first_view_bytes={}, second_view_bytes={}",
+        workbench.session.id,
+        first.len(),
+        second.len()
+    );
+}
+
 fn assert_retained_suffix(stream: &Stream, payload: &[u8]) -> usize {
     let input_echo = format!("<native-input>{INPUT}\n");
     let expected = [

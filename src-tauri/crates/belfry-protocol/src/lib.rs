@@ -57,6 +57,41 @@ impl Request {
 pub enum Command {
     /// 现在有哪些会话、各自什么状态。派活之前先看一眼。
     Peers,
+    /// 我在的协作房间：里面有谁、有什么值得留意的活。
+    ///
+    /// 房间由用户在界面上搭好（侧栏「协作房间」）。收到「来自房间」的任务时，
+    /// 成员可以用它了解房间全貌，再决定怎么回话、要不要向房间里回报。
+    Rooms,
+    /// 往自己的协作房间里说一句话。`@角色` 会点名，消息直接投给那位成员的终端。
+    ///
+    /// `room` 省略时按「你只在一间房里」自动选；同时在多间房里要写房间名。
+    #[serde(rename_all = "camelCase")]
+    RoomSay {
+        #[serde(default)]
+        room: Option<String>,
+        text: String,
+        /// 引用回复：`room log` 里显示的短消息 id（完整 id 也接受）。
+        #[serde(default)]
+        reply_to: Option<String>,
+    },
+    /// 给房间里某条消息点表情（同一人同一表情再点一次取消）。
+    #[serde(rename_all = "camelCase")]
+    RoomReact {
+        #[serde(default)]
+        room: Option<String>,
+        /// `room log` 里方括号那串短 id（完整 id 也接受）。
+        message: String,
+        emoji: String,
+    },
+    /// 读自己房间里最近的对话，看清大家都在说什么。
+    #[serde(rename_all = "camelCase")]
+    RoomLog {
+        #[serde(default)]
+        room: Option<String>,
+        /// 最多读几条，默认 20，上限 50。
+        #[serde(default)]
+        count: Option<u32>,
+    },
     /// 派活给另一条会话。
     ///
     /// `to` 是目标会话的唯一名（用户在侧栏起的，如 `reviewer`），也接受 tabId。
@@ -117,6 +152,34 @@ pub enum ResponseData {
     Peers {
         peers: Vec<Peer>,
     },
+    Rooms {
+        rooms: Vec<RoomBrief>,
+    },
+    /// 一句话记进房间了；点名的成员各有投递。
+    #[serde(rename_all = "camelCase")]
+    RoomSaid {
+        room: String,
+        /// 投递到的角色名（点名的、或群发全体的）。
+        recipients: Vec<String>,
+        /// 点到了但没投出去的原因（会话已不在这类），逐条说清。
+        skipped: Vec<String>,
+    },
+    /// 房间最近的对话。
+    #[serde(rename_all = "camelCase")]
+    RoomLog {
+        room: String,
+        entries: Vec<RoomLine>,
+    },
+    /// 表情回应落下了：点上还是取消。
+    #[serde(rename_all = "camelCase")]
+    RoomReacted {
+        room: String,
+        /// 被点消息的短 id。
+        message: String,
+        emoji: String,
+        /// true＝点上，false＝取消。
+        active: bool,
+    },
     /// 派活受理了。`pendingApproval` 为真时还在等用户点头——
     /// 要让 Agent 知道「已受理」不等于「已送到」，否则它会以为对方已经开工。
     #[serde(rename_all = "camelCase")]
@@ -157,6 +220,34 @@ pub struct InboxTask {
     pub state: String,
 }
 
+/// 房间对话里的一行。
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RoomLine {
+    /// 短消息 id：`room log` 展示、`room say --reply` 引用都用它。
+    pub id: String,
+    /// member 行是角色名；user 行是「你」；system 行是「系统」。
+    pub author: String,
+    /// `user` / `member` / `system`。
+    pub kind: String,
+    pub text: String,
+    pub at: i64,
+    /// 表情回应计数（按 emoji 归组；谁点的看界面，log 只报数）。
+    #[serde(default)]
+    pub reactions: Vec<RoomReactionCount>,
+    /// 引用摘录（「回复 [短id] 谁：「原话」」）；没引用时为 None。
+    #[serde(default)]
+    pub reply_preview: Option<String>,
+}
+
+/// 一条消息上某种表情的计数（`room log` 展示用）。
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RoomReactionCount {
+    pub emoji: String,
+    pub count: u32,
+}
+
 /// 一条会话在别人眼里的样子。
 ///
 /// 不暴露 token，也不暴露 PTY 内部状态——这份数据是给另一个 Agent 读的。
@@ -181,6 +272,31 @@ pub struct Peer {
     pub activity: String,
     /// 自己那条会话在列表里标出来，免得 Agent 给自己派活。
     pub is_self: bool,
+}
+
+/// 一间协作房间在成员眼里的样子。
+///
+/// 只给身份和状态：成员看到的内容不超出「用户把它拉进房间」这个动作的授权范围。
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RoomBrief {
+    pub name: String,
+    /// 发起询问的会话在这间房里的角色名。
+    pub my_role: String,
+    /// 活跃成员的角色名，按加入顺序。
+    pub members: Vec<String>,
+    /// 值得留意的活：进行中、待验证、以及等重派的。
+    pub tasks: Vec<RoomTaskBrief>,
+}
+
+/// 房间里一条值得留意的活。`stage` 是中文阶段名，和界面同一口径。
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RoomTaskBrief {
+    pub title: String,
+    pub stage: String,
+    /// 接收者角色名。
+    pub receivers: Vec<String>,
 }
 
 #[cfg(test)]
@@ -234,5 +350,91 @@ mod tests {
 
         let parsed: Response = serde_json::from_str(&line).unwrap();
         assert!(matches!(parsed, Response::Error { .. }));
+    }
+
+    #[test]
+    fn a_room_say_round_trips() {
+        let request = Request {
+            version: PROTOCOL_VERSION,
+            tab_id: "t1".into(),
+            token: "x".into(),
+            command: Command::RoomSay {
+                room: Some("发布检查".into()),
+                text: "@审查 看下这个".into(),
+                reply_to: None,
+            },
+        };
+        let parsed: Request =
+            serde_json::from_str(&serde_json::to_string(&request).unwrap()).unwrap();
+        match parsed.command {
+            Command::RoomSay { room, text, reply_to } => {
+                assert!(reply_to.is_none());
+                assert_eq!(room.as_deref(), Some("发布检查"));
+                assert_eq!(text, "@审查 看下这个");
+            }
+            other => panic!("{other:?}"),
+        }
+    }
+
+    #[test]
+    fn a_room_log_response_round_trips() {
+        let response = Response::Ok {
+            data: ResponseData::RoomLog {
+                room: "发布检查".into(),
+                entries: vec![RoomLine {
+                    id: "a1b2c3d4".into(),
+                    author: "前端".into(),
+                    kind: "member".into(),
+                    text: "接口文档更新了".into(),
+                    at: 42,
+                    reactions: Vec::new(),
+                    reply_preview: None,
+                }],
+            },
+        };
+        let parsed: Response =
+            serde_json::from_str(&serde_json::to_string(&response).unwrap()).unwrap();
+        match parsed {
+            Response::Ok {
+                data: ResponseData::RoomLog { room, entries },
+            } => {
+                assert_eq!(room, "发布检查");
+                assert_eq!(entries[0].author, "前端");
+            }
+            other => panic!("{other:?}"),
+        }
+    }
+
+    #[test]
+    fn a_rooms_request_round_trips() {
+        let request = Request::new("t".into(), "k".into(), Command::Rooms);
+        let line = serde_json::to_string(&request).unwrap();
+        assert!(line.contains("\"rooms\""), "{line}");
+        let parsed: Request = serde_json::from_str(&line).unwrap();
+        assert!(matches!(parsed.command, Command::Rooms));
+    }
+
+    #[test]
+    fn a_room_react_round_trips() {
+        let request = Request {
+            version: PROTOCOL_VERSION,
+            tab_id: "t1".into(),
+            token: "x".into(),
+            command: Command::RoomReact {
+                room: None,
+                message: "a1b2c3d4".into(),
+                emoji: "👍".into(),
+            },
+        };
+        let parsed: Request =
+            serde_json::from_str(&serde_json::to_string(&request).unwrap()).unwrap();
+        match parsed.command {
+            Command::RoomReact { room, message, emoji } => {
+                assert!(room.is_none());
+                assert_eq!(message, "a1b2c3d4");
+                assert_eq!(emoji, "👍");
+            }
+            other => panic!("{other:?}"),
+        }
     }
 }

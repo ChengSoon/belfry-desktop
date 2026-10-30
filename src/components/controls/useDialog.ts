@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef } from "react";
 import { focusableControls, isTopLayer, ownsTarget, registerLayer } from "./layerOwnership";
 import { useMotionActive } from "../motion/Presence";
+import { composingKey } from "../../utils/keyboard";
 
 /** 模态框与内层控件共用层级，只由最上层处理 Esc / Tab。 */
 export function useDialog(close: () => void, disabled = false) {
@@ -16,7 +17,7 @@ export function useDialog(close: () => void, disabled = false) {
     const unregister = registerLayer({ anchor: previous ?? document.body, panel: root });
     focusableControls(root)[0]?.focus({ preventScroll: true });
     const key = (event: KeyboardEvent) => {
-      if (!isTopLayer(root) || event.defaultPrevented || event.isComposing) return;
+      if (!isTopLayer(root) || event.defaultPrevented || composingKey(event)) return;
       if (event.key === "Escape") {
         event.preventDefault(); event.stopPropagation();
         if (!latest.current.disabled) latest.current.close();

@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark" data-layout="balanced">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>协作房间 · Belfry</title>
+  <link rel="icon" href="../../../src-tauri/icons/32x32.png">
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <!-- Agreed: an Agent configuration can create multiple independent role members.
+       This prototype uses synthetic rooms and local simulation only; no model selector or live agent calls.
+       Layout extends the existing Belfry Graphite design system. -->
+  <svg class="icon-defs" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9H13a8.5 8.5 0 0 1 8 8v.5Z"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+    <symbol id="i-tasks" viewBox="0 0 24 24"><path d="m3 6 2 2 3-4M11 6h10M11 12h10M11 18h10M3 12h3M3 18h3"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Zm0 0v6h6M8 13h8M8 17h5"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="m5 12 7-7 7 7M12 5v15"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="7.5"/><path d="m16 16 5 5"/></symbol>
+    <symbol id="i-panel" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="m8 5 11 7-11 7Z"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></symbol>
+    <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5 19 19M5 19l1.5-1.5M17.5 6.5 19 5"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V4H4v12h4"/></symbol>
+    <symbol id="i-branch" viewBox="0 0 24 24"><circle cx="6" cy="4" r="2"/><circle cx="6" cy="20" r="2"/><circle cx="18" cy="6" r="2"/><path d="M6 6v12M18 8a10 10 0 0 1-10 10H6"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path d="m16 3 5 5L8 21H3v-5ZM14 5l5 5"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 7h16M4 17h16"/><circle cx="8" cy="7" r="3"/><circle cx="16" cy="17" r="3"/></symbol>
+    <symbol id="i-reply" viewBox="0 0 24 24"><path d="m9 5-6 6 6 6M3 11h11a7 7 0 0 1 7 7"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 21v-3a6 6 0 0 1 12 0v3M16 5a3 3 0 0 1 0 6M21 21v-3a6 6 0 0 0-3-5"/></symbol>
+    <symbol id="i-terminal" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3M13 15h4"/></symbol>
+  </defs></svg>
+
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="房间和成员" id="sidebar">
+      <div class="brand"><img src="../../../src-tauri/icons/128x128.png" alt="" width="29" height="29"><span>Belfry<span class="brand-caption">一起把事情做好</span></span><button class="icon-button mobile-only" data-action="close-drawers" aria-label="关闭侧栏"><svg class="icon"><use href="#i-close"/></svg></button></div>
+      <div class="workspace-label"><span class="workspace-avatar">B</span><span>我的工作空间<small>本地协作</small></span></div>
+      <div class="side-scroll">
+        <div class="section-label"><span>协作房间</span><button class="icon-button" data-action="new-room" aria-label="新建房间" title="新建房间"><svg class="icon"><use href="#i-plus"/></svg></button></div>
+        <nav id="room-list" aria-label="协作房间"></nav>
+        <button class="new-room-button" data-action="new-room"><svg class="icon"><use href="#i-plus"/></svg>新建房间</button>
+        <div class="section-label member-section-label"><span>房间成员 <span id="member-count"></span></span><button class="icon-button" data-action="add-member" aria-label="添加房间成员"><svg class="icon"><use href="#i-plus"/></svg></button></div>
+        <div id="member-list"></div>
+        <button class="invite-inline" data-action="add-member"><span class="dashed-avatar">+</span><span>邀请新角色<small>同一 Agent 可多次加入</small></span></button>
+      </div>
+      <footer class="sidebar-footer"><div class="prototype-label"><span class="tiny-square"></span>交互原型 · 示例数据</div><div class="footer-actions"><button data-action="design" class="text-button"><svg class="icon"><use href="#i-settings"/></svg>显示设置</button><button class="icon-button" data-action="theme" aria-label="切换深浅主题" title="切换深浅主题"><svg class="icon"><use href="#i-sun"/></svg></button></div></footer>
+    </aside>
+
+    <main class="room-main">
+      <header class="room-header"><div class="room-heading"><button class="icon-button mobile-only" data-action="sidebar" aria-label="打开房间列表"><svg class="icon"><use href="#i-menu"/></svg></button><div><div class="eyebrow">协作房间 <span>/</span> <span id="project-name">登录演示项目</span></div><h1 id="room-title"></h1></div></div><div class="header-actions"><div class="avatar-stack" id="header-avatars"></div><button class="button" data-action="add-member"><svg class="icon"><use href="#i-plus"/></svg><span>添加成员</span></button><button class="icon-button" data-action="inspector" aria-label="显示任务与进展" title="任务与进展"><svg class="icon"><use href="#i-panel"/></svg></button></div></header>
+      <div class="room-navigation"><div class="tabs" role="tablist" aria-label="房间视图"><button role="tab" id="tab-discussion" aria-controls="room-content" aria-selected="true" data-view="discussion"><svg class="icon"><use href="#i-chat"/></svg>讨论</button><button role="tab" id="tab-tasks" aria-controls="room-content" aria-selected="false" tabindex="-1" data-view="tasks"><svg class="icon"><use href="#i-tasks"/></svg>任务<span id="task-count" class="tab-count"></span></button><button role="tab" id="tab-artifacts" aria-controls="room-content" aria-selected="false" tabindex="-1" data-view="artifacts"><svg class="icon"><use href="#i-file"/></svg>产物<span id="artifact-count" class="tab-count"></span></button></div><button class="search-toggle icon-button" data-action="search" aria-label="搜索讨论" title="搜索讨论"><svg class="icon"><use href="#i-search"/></svg></button></div>
+      <div class="room-body">
+        <div class="conversation-column">
+          <div class="search-bar" id="search-bar" hidden><svg class="icon"><use href="#i-search"/></svg><input id="message-search" placeholder="搜索此房间的讨论" aria-label="搜索此房间的讨论"><button class="icon-button" data-action="close-search" aria-label="关闭搜索"><svg class="icon"><use href="#i-close"/></svg></button></div>
+          <div id="room-content" role="tabpanel" aria-labelledby="tab-discussion" tabindex="0"></div>
+          <div class="composer-wrap" id="composer-wrap"><div id="reply-preview" hidden></div><form id="composer" class="composer"><label class="sr-only" for="message-input">发送给房间的消息</label><textarea id="message-input" rows="2" maxlength="6000" placeholder="说说你的想法，或 @ 一位成员…"></textarea><div class="composer-bottom"><button type="button" class="recipient-button" data-action="recipients" id="recipient-button"><span class="at-sign">@</span><span>选择接收者</span><svg class="icon"><use href="#i-down"/></svg></button><div class="composer-send"><span class="keyboard-hint">Enter 发送 <span>·</span> Shift + Enter 换行</span><button type="submit" id="send-message" class="send-button" aria-label="发送消息" disabled><svg class="icon"><use href="#i-send"/></svg></button></div></div></form><div class="composer-note"><span class="status-dot"></span><span id="composer-note-text">消息公开可见；选中成员后发送，就会把任务派给他们</span></div></div>
+        </div>
+        <aside class="inspector" id="inspector" aria-label="目标与进展"></aside>
+      </div>
+    </main>
+  </div>
+  <button class="drawer-backdrop" data-action="close-drawers" aria-label="关闭面板" hidden></button>
+  <dialog id="modal" aria-labelledby="modal-title"></dialog>
+  <div id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

@@ -38,6 +38,7 @@ fn a_valid_request_is_served() {
         &identities,
         &registry,
         &board,
+        &RoomAccess::default(),
     );
 
     match response {
@@ -63,6 +64,7 @@ fn a_wrong_token_is_rejected() {
         &identities,
         &registry,
         &board,
+        &RoomAccess::default(),
     );
 
     assert!(matches!(response, Response::Error { .. }));
@@ -80,12 +82,14 @@ fn an_unknown_session_and_a_wrong_token_look_identical() {
         &identities,
         &registry,
         &board,
+        &RoomAccess::default(),
     );
     let missing = handle_line(
         &line("t9", "猜的", Command::Peers),
         &identities,
         &registry,
         &board,
+        &RoomAccess::default(),
     );
 
     // 区分这两种情况本身就是一个可试探的信号：能问出「哪些 tabId 是真的」。
@@ -109,6 +113,7 @@ fn a_version_mismatch_says_so_explicitly() {
         &identities,
         &registry,
         &board,
+        &RoomAccess::default(),
     );
 
     match response {
@@ -125,7 +130,7 @@ fn malformed_input_does_not_panic() {
     let board = TaskBoard::default();
 
     for bad in ["", "{", "null", "{\"version\":1}", "не json"] {
-        let response = handle_line(bad, &identities, &registry, &board);
+        let response = handle_line(bad, &identities, &registry, &board, &RoomAccess::default());
         assert!(matches!(response, Response::Error { .. }), "输入 {bad:?}");
     }
 }
@@ -254,4 +259,350 @@ fn the_socket_path_fits_in_the_platform_limit() {
     let len = path.as_os_str().len();
 
     assert!(len < 104, "socket 路径 {len} 字节，超了 SUN_LEN：{path:?}");
+}
+
+/// 测试桩：只认「前端」和「审查」两个角色，并记录转手登记调用。
+#[derive(Default)]
+struct StubRooms {
+    handoffs: std::sync::Mutex<Vec<(String, String, String)>>,
+}
+
+impl RoomDirectory for StubRooms {
+    fn note_delegation(
+        &self,
+        room_id: Option<&str>,
+        from_tab: &str,
+        to_tab: &str,
+        _bus_task_id: &str,
+        _text: &str,
+        _announce: bool,
+    ) {
+        if let Ok(mut list) = self.handoffs.lock() {
+            list.push((
+                room_id.unwrap_or_default().to_string(),
+                from_tab.to_string(),
+                to_tab.to_string(),
+            ));
+        }
+    }
+
+    fn say(
+        &self,
+        _tab_id: &str,
+        _room: Option<&str>,
+        text: &str,
+        _reply_to: Option<&str>,
+    ) -> Result<SayOutcome, String> {
+
+        // 桩里只有「审查」一个别人：点名收窄后投递对象仍是它，靠 addressed/mentioned 区分口径。
+        Ok(SayOutcome {
+            room_id: "r-1".into(),
+            room_name: "发布检查".into(),
+            sender_role: "前端".into(),
+            addressed: text.contains("@审查"),
+            recipients: vec![MentionTarget {
+                member_id: "m-2".into(),
+                tab_id: "t2".into(),
+                role: "审查".into(),
+            }],
+            message_id: "msg-1".into(),
+            mentioned: if text.contains("@审查") { vec!["m-2".into()] } else { vec![] },
+            reply_preview: None,
+        })
+    }
+
+    fn react(
+        &self,
+        _tab_id: &str,
+        _room: Option<&str>,
+        message: &str,
+        emoji: &str,
+    ) -> Result<ReactOutcome, String> {
+        Ok(ReactOutcome {
+            room_id: "r-1".into(),
+            room_name: "发布检查".into(),
+            message_id: message.into(),
+            message_short: "a1b2c3d4".into(),
+            emoji: emoji.into(),
+            active: true,
+        })
+    }
+
+    fn log(&self, _tab_id: &str, _room: Option<&str>, _count: usize) -> Result<LogOutcome, String> {
+        Ok(LogOutcome {
+            room_name: "发布检查".into(),
+            lines: vec![belfry_protocol::RoomLine {
+                id: "a1b2c3d4".into(),
+                author: "前端".into(),
+                kind: "member".into(),
+                text: "接口文档更新了".into(),
+                at: 42,
+                reactions: Vec::new(),
+                reply_preview: None,
+            }],
+        })
+    }
+
+    fn my_rooms(&self, _tab_id: &str) -> Vec<RoomBrief> {
+        vec![RoomBrief {
+            name: "发布检查".into(),
+            my_role: "前端".into(),
+            members: vec!["前端".into(), "审查".into()],
+            tasks: vec![belfry_protocol::RoomTaskBrief {
+                title: "统一登录失败的错误提示".into(),
+                stage: "已提交待验证".into(),
+                receivers: vec!["前端".into()],
+            }],
+        }]
+    }
+}
+
+#[test]
+fn a_member_can_list_its_rooms() {
+    let identities = SessionIdentities::default();
+    let registry = SessionRegistry::default();
+    let board = TaskBoard::default();
+    let access = RoomAccess::default();
+    access.set(std::sync::Arc::new(StubRooms::default()));
+    let token = token_of(&identities.issue("t1", None));
+
+    let response = handle_line(
+        &line("t1", &token, Command::Rooms),
+        &identities,
+        &registry,
+        &board,
+        &access,
+    );
+    match response {
+        Response::Ok {
+            data: ResponseData::Rooms { rooms },
+        } => {
+            assert_eq!(rooms.len(), 1);
+            assert_eq!(rooms[0].name, "发布检查");
+            assert_eq!(rooms[0].my_role, "前端");
+            assert_eq!(rooms[0].tasks[0].stage, "已提交待验证");
+        }
+        other => panic!("应该拿到房间清单：{other:?}"),
+    }
+}
+
+#[test]
+fn rooms_before_the_store_is_ready_read_as_empty() {
+    let identities = SessionIdentities::default();
+    let registry = SessionRegistry::default();
+    let board = TaskBoard::default();
+    let token = token_of(&identities.issue("t1", None));
+
+    let response = handle_line(
+        &line("t1", &token, Command::Rooms),
+        &identities,
+        &registry,
+        &board,
+        &RoomAccess::default(),
+    );
+    match response {
+        Response::Ok {
+            data: ResponseData::Rooms { rooms },
+        } => assert!(rooms.is_empty(), "未就绪时如实回答不在任何房间，而不是报错"),
+        other => panic!("{other:?}"),
+    }
+}
+
+#[test]
+fn a_member_can_say_something_and_mentions_become_tasks() {
+    let identities = SessionIdentities::default();
+    let registry = SessionRegistry::default();
+    registry.replace(vec![crate::collab::registry::SessionSnapshot {
+        tab_id: "t2".into(),
+        name: Some("审查".into()),
+        title: "另一条".into(),
+        agent: "codex".into(),
+        activity: "idle".into(),
+        can_receive: true,
+        project_root: Some("/proj/demo".into()),
+    }]);
+    let board = TaskBoard::default();
+    let rooms = RoomAccess::default();
+    let stub = std::sync::Arc::new(StubRooms::default());
+    rooms.set(stub.clone());
+    let token = identities
+        .issue("t1", Some("/proj/demo"))
+        .iter()
+        .find(|(key, _)| key == belfry_protocol::ENV_TOKEN)
+        .map(|(_, value)| value.clone())
+        .unwrap();
+    let request = Request {
+        version: PROTOCOL_VERSION,
+        tab_id: "t1".into(),
+        token: token.clone(),
+        command: Command::RoomSay {
+            room: None,
+            text: "@审查 你看下这个".into(),
+            reply_to: None,
+        },
+    };
+    let response = handle_line(
+        &serde_json::to_string(&request).unwrap(),
+        &identities,
+        &registry,
+        &board,
+        &rooms,
+    );
+    match response {
+        Response::Ok {
+            data: ResponseData::RoomSaid {
+                room,
+                recipients,
+                skipped,
+            },
+        } => {
+            assert_eq!(room, "发布检查");
+            assert_eq!(recipients, vec!["审查".to_string()]);
+            assert!(skipped.is_empty());
+        }
+        other => panic!("{other:?}"),
+    }
+    // 群聊不是派活：不登记转手（交差回执属于 send 直派）。
+    let handoffs = stub.handoffs.lock().unwrap().clone();
+    assert!(handoffs.is_empty(), "群聊不该登记转手：{handoffs:?}");
+    let tasks = board.snapshot();
+    assert_eq!(tasks.len(), 1);
+    assert_eq!(tasks[0].to, "t2");
+    assert!(matches!(
+        tasks[0].origin,
+        Some(crate::collab::task::TaskOrigin::Room { .. })
+    ));
+    assert!(
+        matches!(
+            tasks[0].chat,
+            Some(crate::collab::task::ChatDelivery { mentioned: true, .. })
+        ),
+        "点名是聊天投递，不是交差任务"
+    );
+    // 投给终端的口吻：聊天、要接话走 room say、没有 done 行。
+    let injected = crate::collab::task::injection_text(&tasks[0], "发布检查");
+    assert!(
+        injected.contains("点了你的名") && injected.contains("room say") && !injected.contains("belfry done"),
+        "被点名的人看到的是聊天口吻：{injected}"
+    );
+
+    // 不带点名＝群发：同样送达，注入口径是「看见即可」。
+    let broadcast = Request {
+        version: PROTOCOL_VERSION,
+        tab_id: "t1".into(),
+        token,
+        command: Command::RoomSay {
+            room: None,
+            text: "大家同步一下进度".into(),
+            reply_to: None,
+        },
+    };
+    let response = handle_line(
+        &serde_json::to_string(&broadcast).unwrap(),
+        &identities,
+        &registry,
+        &board,
+        &rooms,
+    );
+    match response {
+        Response::Ok {
+            data: ResponseData::RoomSaid { recipients, .. },
+        } => assert_eq!(recipients, vec!["审查".to_string()]),
+        other => panic!("{other:?}"),
+    }
+    // 20 秒窗口内的连发并进同一条排队中的投递：板上仍只有一条，正文带两句话。
+    let tasks = board.snapshot();
+    assert_eq!(tasks.len(), 1, "连发要合并成一条投递");
+    assert!(
+        tasks[0].instruction.contains("你看下这个") && tasks[0].instruction.contains("大家同步一下进度"),
+        "合并后正文要按行带上每一句：{}",
+        tasks[0].instruction
+    );
+    assert!(
+        matches!(
+            &tasks[0].chat,
+            Some(crate::collab::task::ChatDelivery { message_ids, .. })
+                if message_ids.iter().any(|id| id == "msg-1")
+        ),
+        "投递要带上消息 id，送达回执才写得回时间线"
+    );
+
+    let handoffs = stub.handoffs.lock().unwrap().clone();
+    assert!(handoffs.is_empty(), "群发是讨论不是交接，不该登记转手：{handoffs:?}");
+}
+
+#[test]
+fn a_member_can_react_and_the_response_names_the_message() {
+    let identities = SessionIdentities::default();
+    let registry = SessionRegistry::default();
+    let board = TaskBoard::default();
+    let rooms = RoomAccess::default();
+    rooms.set(std::sync::Arc::new(StubRooms::default()));
+    let token = token_of(&identities.issue("t1", None));
+    let response = handle_line(
+        &line(
+            "t1",
+            &token,
+            Command::RoomReact {
+                room: None,
+                message: "a1b2c3d4".into(),
+                emoji: "👍".into(),
+            },
+        ),
+        &identities,
+        &registry,
+        &board,
+        &rooms,
+    );
+    match response {
+        Response::Ok {
+            data: ResponseData::RoomReacted {
+                room,
+                message,
+                emoji,
+                active,
+            },
+        } => {
+            assert_eq!(room, "发布检查");
+            assert_eq!(message, "a1b2c3d4");
+            assert_eq!(emoji, "👍");
+            assert!(active);
+        }
+        other => panic!("{other:?}"),
+    }
+}
+
+#[test]
+fn say_before_the_store_is_ready_says_so() {
+    let identities = SessionIdentities::default();
+    let registry = SessionRegistry::default();
+    let board = TaskBoard::default();
+    let rooms = RoomAccess::default();
+    let token = identities
+        .issue("t1", Some("/proj/demo"))
+        .iter()
+        .find(|(key, _)| key == belfry_protocol::ENV_TOKEN)
+        .map(|(_, value)| value.clone())
+        .unwrap();
+    let request = Request {
+        version: PROTOCOL_VERSION,
+        tab_id: "t1".into(),
+        token,
+        command: Command::RoomSay {
+            room: None,
+            text: "有人吗".into(),
+            reply_to: None,
+        },
+    };
+    let response = handle_line(
+        &serde_json::to_string(&request).unwrap(),
+        &identities,
+        &registry,
+        &board,
+        &rooms,
+    );
+    match response {
+        Response::Error { message } => assert!(message.contains("还没就绪"), "{message}"),
+        other => panic!("目录未就绪不该返回成功：{other:?}"),
+    }
 }

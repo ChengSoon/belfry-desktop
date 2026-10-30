@@ -13,6 +13,7 @@ import { ShortcutSettingsSection } from "../shortcuts/custom/ShortcutSettingsSec
 import { AboutSection } from "../about/AboutSection";
 import { BackupSection } from "../backup/BackupSection";
 import { BackgroundSessions } from "../terminal/daemon/BackgroundSessions";
+import { composingKey } from "../utils/keyboard";
 import "./settings.css";
 
 const SECTIONS = [
@@ -60,7 +61,7 @@ export function SettingsPanel({ onClose, initialSection, project = null, updater
   useEffect(() => {
     if (guarded) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !event.defaultPrevented) onClose();
+      if (event.key === "Escape" && !event.defaultPrevented && !composingKey(event)) onClose();
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);

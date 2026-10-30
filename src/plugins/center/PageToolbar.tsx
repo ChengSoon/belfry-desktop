@@ -5,6 +5,7 @@ import { cx } from "./ui";
 import { IconSearch, IconX } from "./icons";
 import { t } from "./i18n";
 import { installedGroups } from "./helpers";
+import { composingKey } from "../../utils/keyboard";
 
 export function PageToolbar() {
   const { tab, setTab, query, setQuery, data, market } = usePluginsPage();
@@ -29,7 +30,7 @@ export function SearchField({ value, onChange, placeholder }: { value: string; o
   return <div className="plugins-search-wrap"><IconSearch size={14} />
     <input ref={input} className="plugins-search" value={value} placeholder={placeholder} aria-label={placeholder} spellCheck={false}
       autoCorrect="off" autoCapitalize="off" onChange={(event) => onChange(event.target.value)}
-      onKeyDown={(event) => { if (event.key === "Escape" && value) { event.preventDefault(); event.stopPropagation(); onChange(""); } }} />
+      onKeyDown={(event) => { if (event.key === "Escape" && value && !composingKey(event.nativeEvent)) { event.preventDefault(); event.stopPropagation(); onChange(""); } }} />
     {value ? <button type="button" className="plugins-search-clear" aria-label={t("plugins.clearSearch")} title={t("plugins.clearSearch")}
       onClick={() => { onChange(""); input.current?.focus(); }}><IconX size={12} /></button> : null}
   </div>;

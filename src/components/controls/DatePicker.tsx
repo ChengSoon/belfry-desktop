@@ -4,6 +4,7 @@ import { Calendar } from "./Calendar";
 import { ControlPopover } from "./ControlPopover";
 import { clampDate, dateParts, todayDate } from "./dateModel";
 import { useControlPopover } from "./useControlPopover";
+import { composingKey } from "../../utils/keyboard";
 
 interface Props {
   value: string; onChange: (value: string) => void; ariaLabel: string;
@@ -24,7 +25,7 @@ export function DatePicker(props: Props) {
       maxLength={10} autoComplete="off" inputMode="numeric" aria-required={required || undefined} disabled={disabled}
       aria-invalid={touched && invalid || undefined} aria-describedby={touched && invalid && props.showError !== false ? errorId : undefined}
       onChange={(event) => { onChange(event.target.value); setTouched(false); }} onKeyDown={(event) => {
-        if (event.nativeEvent.isComposing) return;
+        if (composingKey(event.nativeEvent)) return;
         if (event.key === "ArrowDown") { event.preventDefault(); popup.setOpen(true); }
         if (event.key === "Enter" && invalid) { event.preventDefault(); setTouched(true); }
       }} />

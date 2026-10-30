@@ -1,4 +1,5 @@
 import { AlertTriangle, X } from "lucide-react";
+import type { AgentAvailability, AgentKind } from "../agent/contracts";
 import type { HistorySession } from "../history/contracts";
 import { HISTORY_WIDTH } from "../history/historyWidth";
 import type { QuickOpenItem } from "../quickopen/model";
@@ -18,9 +19,12 @@ import { removeRecentConfirmBody } from "../workspace/removeRecentConfirm";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { createOptionalPanel } from "./lazy/OptionalPanel";
 import { Presence } from "./motion/Presence";
+import type { PromptSubmitResult } from "../prompt/contracts";
 
 const SettingsPanel = createOptionalPanel({ title: "设置", layout: "settings", exportName: "SettingsPanel",
   load: () => import("../settings/SettingsPanel").then((module) => ({ default: module.SettingsPanel })) });
+const RoomPanel = createOptionalPanel({ title: "协作房间", layout: "room", exportName: "RoomView",
+  load: () => import("../rooms/view/RoomView").then((module) => ({ default: module.RoomView })) });
 const HistoryPanel = createOptionalPanel({ title: "历史会话", layout: "history", width: HISTORY_WIDTH, exportName: "HistoryPanel",
   load: () => import("../history/components/HistoryPanel").then((module) => ({ default: module.HistoryPanel })) });
 const UsagePanel = createOptionalPanel({ title: "用量", layout: "usage", width: USAGE_WIDTH, exportName: "UsagePanel",
@@ -33,6 +37,7 @@ const UpdateDialog = createOptionalPanel({ title: "应用更新", layout: "modal
   load: () => import("../updater/UpdateDialog").then((module) => ({ default: module.UpdateDialog })) });
 
 interface AppOverlaysProps {
+  agents: AgentAvailability[];
   failure: AppFailure | null;
   historyOpen: boolean;
   pendingClose: WorkspaceTab | null;
@@ -42,10 +47,12 @@ interface AppOverlaysProps {
   quickOpenItems: readonly QuickOpenItem[];
   quickOpenOpen: boolean;
   quickOpenShortcut: string;
+  roomsOpen: boolean;
   settingsOpen: boolean;
   settingsSection?: string;
   shortcutGuideOpen: boolean;
   shortcutPlatform: ShortcutPlatform;
+  tabs: WorkspaceTab[];
   updaterOpen: boolean;
   updaterState: UpdaterState;
   usageOpen: boolean;
@@ -54,6 +61,7 @@ interface AppOverlaysProps {
   onCheckUpdate: () => void;
   onCloseHistory: () => void;
   onCloseQuickOpen: () => void;
+  onCloseRooms: () => void;
   onCloseSettings: () => void;
   onCloseShortcutGuide: () => void;
   onOpenUpdater: () => void;
@@ -63,6 +71,12 @@ interface AppOverlaysProps {
   onConfirmRemove: () => void;
   onDismissFailure: () => void;
   onInstallUpdate: () => void;
+  onCloseRoomMember: (tabId: string) => void;
+  onClearRoomMemberContext: (tabId: string) => PromptSubmitResult;
+  onOpenRoomFile: (relativePath: string) => void;
+  onOpenRoomWindow: (roomId: string, roomName: string) => Promise<string | null>;
+  onLaunchRoomMember: (kind: AgentKind, projectRoot: string) => Promise<string | null>;
+  onRenameAgent: (id: string, raw: string) => string | null;
   onResumeHistory: (session: HistorySession) => void;
   onSelectQuickOpen: (item: QuickOpenItem) => void;
 }
@@ -87,6 +101,21 @@ function PrimaryPanels(props: AppOverlaysProps) {
           onOpenUpdater={props.onOpenUpdater}
           project={props.project}
           updaterState={props.updaterState}
+        />
+      ) : null}
+
+      {props.roomsOpen ? (
+        <RoomPanel
+          agents={props.agents}
+          onClose={props.onCloseRooms}
+          onCloseMemberSession={props.onCloseRoomMember}
+          onClearMemberContext={props.onClearRoomMemberContext}
+          onLaunchMember={props.onLaunchRoomMember}
+          onOpenFile={props.onOpenRoomFile}
+          onOpenWindow={props.onOpenRoomWindow}
+          onRenameAgent={props.onRenameAgent}
+          project={props.project}
+          tabs={props.tabs}
         />
       ) : null}
 

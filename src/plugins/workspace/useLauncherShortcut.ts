@@ -3,6 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { pluginHost } from "../useDirectoryRegistry";
 import { LAUNCHER_EVENT } from "./events";
 import { isShortcutRecording } from "../../shortcuts/custom/recording";
+import { composingKey } from "../../utils/keyboard";
 
 export function useLauncherShortcut() {
   const [open, setOpen] = useState(false), [note, setNote] = useState("");
@@ -15,7 +16,7 @@ export function useLauncherShortcut() {
     };
     const press = (event: KeyboardEvent) => {
       if (event.defaultPrevented || isShortcutRecording()) return;
-      if (global || event.code !== "Space" || !event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || event.isComposing || event.repeat) return;
+      if (global || event.code !== "Space" || !event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || composingKey(event) || event.repeat) return;
       event.preventDefault(); event.stopPropagation(); toggle();
     };
     const stop = listen("plugin-launcher-toggle", () => { if (live) toggle(); }).catch(() => () => {});

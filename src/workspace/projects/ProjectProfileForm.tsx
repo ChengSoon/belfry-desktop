@@ -8,6 +8,7 @@ import { shellProfileLabel, type ShellProfile } from "../../terminal/contracts";
 import { normalizePath } from "../path";
 import { MAX_COMMAND_LENGTH, type ProjectProfile } from "./contracts";
 import { useDirectoryHealth, useProfileDraft } from "./useProfileDraft";
+import { guardComposingEnter } from "../../utils/keyboard";
 
 interface Props {
   profile: ProjectProfile; groups: string[]; onGuard: (guarded: boolean) => void;
@@ -18,7 +19,7 @@ type Draft = ReturnType<typeof useProfileDraft>;
 export function ProjectProfileForm(props: Props) {
   const state = useProfileDraft(props);
   const directory = useDirectoryHealth(state.draft.project.rootPath);
-  return <form className="project-profile" noValidate onSubmit={(event) => { event.preventDefault(); state.save(); }}>
+  return <form onKeyDown={guardComposingEnter} className="project-profile" noValidate onSubmit={(event) => { event.preventDefault(); state.save(); }}>
     <header><strong>{state.draft.project.name}</strong><Checkbox checked={state.draft.favorite} ariaLabel="长期收藏此项目"
       onChange={(favorite) => state.setDraft({ ...state.draft, favorite })} disabled={state.busy}>收藏</Checkbox></header>
     <p className="project-profile__path">{normalizePath(state.draft.project.rootPath)}</p>

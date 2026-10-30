@@ -1,6 +1,7 @@
 import { Check, Search } from "lucide-react";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { findOption, moveOption } from "./controlModel";
+import { composingKey } from "../../utils/keyboard";
 
 export interface SelectOption<T> { value: T; label: string; description?: string; disabled?: boolean }
 interface NavigationProps<T> { options: readonly SelectOption<T>[]; selected: number; open: boolean; setOpen: (open: boolean) => void; onChoose: (index: number) => void; autoHighlight?: boolean }
@@ -13,7 +14,7 @@ export function useOptionNavigation<T>(props: NavigationProps<T>) {
   const signature = JSON.stringify(options.map((option) => [option.value, option.disabled]));
   useEffect(() => setActive(start), [signature, start]);
   const keydown = (event: KeyboardEvent, editable = false) => {
-    if (event.nativeEvent.isComposing || event.keyCode === 229 || event.metaKey || event.ctrlKey) return;
+    if (composingKey(event.nativeEvent) || event.metaKey || event.ctrlKey) return;
     const direction = event.key === "ArrowDown" ? 1 : event.key === "ArrowUp" ? -1 : 0;
     if (direction) { event.preventDefault(); setActive(open ? moveOption(options, active, direction) : start >= 0 ? start : moveOption(options, -1, direction)); setOpen(true); return; }
     if (!editable && (event.key === "Home" || event.key === "End")) {

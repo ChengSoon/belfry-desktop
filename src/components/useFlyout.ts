@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { ownsTarget } from "./controls/layerOwnership";
+import { composingKey } from "../utils/keyboard";
 
 /** 小型非模态浮层：键盘打开即聚焦，Esc 回到入口，外部点击保持原点击目标。 */
 export function useFlyout() {
@@ -15,7 +16,7 @@ export function useFlyout() {
       if (!ownsTarget(root.current, event.target as Node)) close();
     };
     const escape = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || event.isComposing || event.defaultPrevented) return;
+      if (event.key !== "Escape" || composingKey(event) || event.defaultPrevented) return;
       event.preventDefault(); close(); trigger.current?.focus();
     };
     document.addEventListener("mousedown", outside);

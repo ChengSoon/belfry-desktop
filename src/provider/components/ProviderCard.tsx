@@ -1,6 +1,7 @@
 import { Check, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { shouldDismissOnBlur } from "../../components/controls/layerOwnership";
+import { composingKey } from "../../utils/keyboard";
 
 interface ProviderCardProps {
   nodeRef?: (node: HTMLElement | null) => void;
@@ -40,7 +41,7 @@ export function ProviderCard(props: ProviderCardProps) {
         {onRemove && <details className="provider-card__more" onBlur={(event) => {
           if (shouldDismissOnBlur(event.currentTarget, event.relatedTarget as Node | null)) event.currentTarget.open = false;
         }} onKeyDown={(event) => {
-          if (event.key === "Escape" && event.currentTarget.open) {
+          if (event.key === "Escape" && event.currentTarget.open && !composingKey(event.nativeEvent)) {
             event.preventDefault(); event.stopPropagation();
             event.currentTarget.open = false;
             event.currentTarget.querySelector("summary")?.focus();

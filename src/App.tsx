@@ -11,10 +11,12 @@ import "./workspace/workspace.css";
 import { useSessionDrag } from "./layout/useSessionDrag";
 import { useSplitLayout } from "./layout/useSplitLayout";
 import { useActivityNotifications } from "./notify/useActivityNotifications";
+import type { PromptSubmitResult } from "./prompt/contracts";
 import { usePromptQueue } from "./prompt/usePromptQueue";
 import { appShortcutChord, formatShortcutChord } from "./shortcuts/resolveShortcut";
 import { useAppShortcuts } from "./shortcuts/useAppShortcuts";
 import { useAppUpdater } from "./updater/useAppUpdater";
+import { agentResetCommand, isAgentKind, type AgentKind } from "./agent/contracts";
 import type { HistorySession } from "./history/contracts";
 import type { QuickOpenItem } from "./quickopen/model";
 import { useQuickOpen } from "./quickopen/useQuickOpen";
@@ -24,12 +26,16 @@ import { needsCloseConfirm } from "./workspace/closeConfirm";
 import { Sidebar } from "./workspace/components/Sidebar";
 import type { RecentProject } from "./workspace/contracts";
 import { pathKey } from "./workspace/path";
+import { toAppFailure } from "./workspace/errors";
 import { groupTabsByProject } from "./workspace/tabs";
 import { useFoldedProjects } from "./workspace/useFoldedProjects";
 import { useProjectWorkspace } from "./workspace/useProjectWorkspace";
 import { NamedWorkspaceControls } from "./workspace/named/NamedWorkspaceControls";
 import { useSessionRoster } from "./collab/useSessionRoster";
 import { useTaskDelivery } from "./collab/useTaskDelivery";
+import { useRoomNotifications } from "./rooms/useRoomNotifications";
+import { roomOpenWindow } from "./rooms/api";
+import { useRoomBoundTabs } from "./rooms/useRoomBoundTabs";
 import { resolveAgentRename } from "./collab/naming";
 import { CollabPanel } from "./collab/CollabPanel";
 import { useCollabTasks } from "./collab/useCollabTasks";
@@ -52,6 +58,7 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState<string | undefined>(undefined);
   const [collabOpen, setCollabOpen] = useState(false);
+  const [roomsOpen, setRoomsOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [pluginDockOpen, setPluginDockOpen] = useState(false);
   const [previewRequest, setPreviewRequest] = useState<PreviewRequest | null>(null);
@@ -92,12 +99,24 @@ export default function App() {
     void workspace.launchHistorySession(session);
   }, [unfold, workspace.launchHistorySession, workspace.activeProject]);
 
+  // 房间成员会话只在房间里露面：侧栏、Quick Open 与 ⌘1-9 都按过滤后的列表走；
+  // 投递、协作名册与持久化仍拿全量 tabs——隔离只做在展示层。
+  const roomBound = useRoomBoundTabs();
+  const listedTabs = useMemo(
+    () => workspace.visibleTabs.filter((tab) => !roomBound.boundIds.has(tab.id)),
+    [workspace.visibleTabs, roomBound.boundIds],
+  );
+  const quickOpenTabs = useMemo(
+    () => workspace.tabs.filter((tab) => !roomBound.boundIds.has(tab.id)),
+    [workspace.tabs, roomBound.boundIds],
+  );
+
   const quickOpen = useQuickOpen({
     activateTab: layout.activateTab,
     activeTabId: workspace.activeTabId,
     recentProjects: workspace.recentProjects,
     selectProject: workspace.selectProject,
-    tabs: workspace.tabs,
+    tabs: quickOpenTabs,
   });
   const terminalTargets = useTerminalTargets();
   // 控制 CLI 从 PTY 里连进来问「现在有谁在」时前端不在调用栈上，得先把名册推过去。
@@ -114,9 +133,28 @@ export default function App() {
     workspace.renameAgent(id, outcome.name);
     return null;
   }, [workspace.renameAgent, workspace.tabs]);
+  // 房间成员用协作模式启动（总线只认 Codex/Claude 两个配置）；不抢当前焦点，切回去看房间。
+  const launchRoomMember = useCallback(async (kind: AgentKind, projectRoot: string) => {
+    if (workspace.activeProject && pathKey(workspace.activeProject.rootPath) === pathKey(projectRoot)) {
+      unfold(workspace.activeProject.id);
+    }
+    return workspace.launch(kind, undefined, projectRoot, false, kind === "codex" || kind === "claude");
+  }, [unfold, workspace.activeProject, workspace.launch]);
   const promptQueue = usePromptQueue({ tabs: workspace.tabs, targets: terminalTargets.targets });
   // `belfry send` 的任务经后台队列投进目标终端，等待目标 Agent 空闲。
   useTaskDelivery(promptQueue.submit);
+
+  // 房间成员的「清除上下文」：把该 Agent 自己的重置命令经同一条 Prompt 队列送进它的
+  // 终端——忙时排队、等它空闲再送出；进程、会话与房间身份都不动，也不移出成员。
+  const clearRoomMemberContext = useCallback((tabId: string): PromptSubmitResult => {
+    const tab = workspace.tabs.find((candidate) => candidate.id === tabId);
+    if (!tab || !isAgentKind(tab.kind)) return "unavailable";
+    const command = agentResetCommand(tab.kind);
+    if (!command) return "unavailable";
+    return promptQueue.submit(tabId, command);
+  }, [promptQueue.submit, workspace.tabs]);
+  // 房间任务的「已提交待验证」提醒：轮询挂在 App 层，房间视图不开也照常工作。
+  useRoomNotifications(roomsOpen);
   const collab = useCollabTasks();
   // 历史会话与用量面板互斥：两者都占右侧一列，栅格只留了一条轨道。
   const toggleUsage = useCallback(() => {
@@ -125,6 +163,7 @@ export default function App() {
     setPreviewOpen(false);
     setPreviewRequest(null);
     setCollabOpen(false);
+    setRoomsOpen(false);
     setUsageOpen((value) => !value);
   }, []);
 
@@ -134,6 +173,7 @@ export default function App() {
     setPreviewOpen(false);
     setPreviewRequest(null);
     setCollabOpen(false);
+    setRoomsOpen(false);
     setHistoryOpen((value) => !value);
   }, []);
 
@@ -143,6 +183,7 @@ export default function App() {
     setUsageOpen(false);
     setHistoryOpen(false);
     setCollabOpen(false);
+    setRoomsOpen(false);
     quickOpen.toggle();
   }, [quickOpen.toggle]);
 
@@ -153,7 +194,19 @@ export default function App() {
     setPreviewRequest(null);
     setUsageOpen(false);
     setHistoryOpen(false);
+    setRoomsOpen(false);
     setCollabOpen((value) => !value);
+  }, [quickOpen.close]);
+
+  const toggleRooms = useCallback(() => {
+    setPluginDockOpen(false);
+    quickOpen.close();
+    setPreviewOpen(false);
+    setPreviewRequest(null);
+    setUsageOpen(false);
+    setHistoryOpen(false);
+    setCollabOpen(false);
+    setRoomsOpen((value) => !value);
   }, [quickOpen.close]);
 
   const openPreview = useCallback((request?: PreviewRequest) => {
@@ -162,16 +215,35 @@ export default function App() {
     setUsageOpen(false);
     setHistoryOpen(false);
     setCollabOpen(false);
+    setRoomsOpen(false);
     setPreviewOpen(true);
     setPreviewRequest(request ?? null);
   }, [quickOpen.close]);
 
+  // 回执里的文件路径：先收房间再开预览——预览占右侧整窗，和房间互斥。
+  const openRoomFile = useCallback((relativePath: string) => {
+    setRoomsOpen(false);
+    openPreview({ path: relativePath, line: null });
+  }, [openPreview]);
+
+  // 在新窗口打开一间房。失败原因原样交回房间视图的提示栏——开窗失败大多是
+  // 系统窗口配额，偶发一次，不值得升级成全局错误条。
+  const openRoomWindow = useCallback(async (roomId: string, roomName: string) => {
+    try {
+      await roomOpenWindow(roomId, roomName);
+      return null;
+    } catch (cause) {
+      return toAppFailure(cause).message;
+    }
+  }, []);
+
   const revealPluginDock = useCallback(() => {
     setSettingsOpen(false); setUsageOpen(false); setHistoryOpen(false);
-    setPreviewOpen(false); setCollabOpen(false); setPluginDockOpen(true);
+    setPreviewOpen(false); setCollabOpen(false); setRoomsOpen(false); setPluginDockOpen(true);
   }, []);
   const togglePluginDock = useCallback(() => {
     setUsageOpen(false); setHistoryOpen(false); setPreviewOpen(false); setCollabOpen(false);
+    setRoomsOpen(false);
     setPluginDockOpen((value) => !value);
   }, []);
   const openPluginProject = useCallback(async (path: string) => {
@@ -221,7 +293,7 @@ export default function App() {
     blocked: Boolean(pendingClose || pendingRemove || updater.open),
     quickOpenOpen: quickOpen.open,
     onActivateSession: (index) => {
-      const tab = groupTabsByProject(workspace.visibleTabs).flatMap((group) => group.tabs)[index];
+      const tab = groupTabsByProject(listedTabs).flatMap((group) => group.tabs)[index];
       if (tab) layout.activateTab(tab.id);
     },
     onNewShell: () => launch("shell"),
@@ -237,6 +309,7 @@ export default function App() {
       switch (id) {
         case "action:new-shell": launch("shell"); break;
         case "action:collab": toggleCollab(); break;
+        case "action:room": toggleRooms(); break;
         case "action:file-preview": openPreview(); break;
         case "action:settings": setSettingsSection(undefined); setSettingsOpen(true); break;
         case "action:about": setSettingsSection("about"); setSettingsOpen(true); break;
@@ -247,11 +320,11 @@ export default function App() {
         default: break;
       }
     });
-  }, [launch, openPreview, quickOpen, shortcuts, toggleCollab, toggleHistory, toggleUsage]);
+  }, [launch, openPreview, quickOpen, shortcuts, toggleCollab, toggleHistory, toggleRooms, toggleUsage]);
 
   return (
     <main
-      className={`app-shell${collapsed ? " is-collapsed" : ""}${usageOpen ? " has-usage" : ""}${historyOpen ? " has-history" : ""}${previewOpen ? " has-preview" : ""}${settingsOpen ? " is-settings" : ""}${collabOpen ? " has-collab" : ""}${pluginDockOpen ? " has-plugin-dock" : ""}`}
+      className={`app-shell${collapsed ? " is-collapsed" : ""}${usageOpen ? " has-usage" : ""}${historyOpen ? " has-history" : ""}${previewOpen ? " has-preview" : ""}${roomsOpen ? " is-rooms" : ""}${settingsOpen ? " is-settings" : ""}${collabOpen ? " has-collab" : ""}${pluginDockOpen ? " has-plugin-dock" : ""}`}
     >
       <AppBackground />
       <WindowTitlebar />
@@ -283,12 +356,14 @@ export default function App() {
           onToggleFold={toggleFold}
           onToggleUsage={toggleUsage}
           onToggleHistory={toggleHistory}
+          roomsOpen={roomsOpen}
+          onToggleRooms={toggleRooms}
           historyOpen={historyOpen}
           onOpenUpdater={updater.openPanel}
           onOpenSettings={() => { setSettingsSection(undefined); setSettingsOpen(true); }}
           settingsOpen={settingsOpen}
           ref={collapsed ? undefined : sidebarRef}
-          tabs={workspace.visibleTabs}
+          tabs={listedTabs}
           updaterOpen={updater.open}
           updaterState={updater.state}
           usageOpen={usageOpen}
@@ -351,6 +426,7 @@ export default function App() {
       </GitReviewProvider>
 
       <AppOverlays
+        agents={workspace.agents}
         failure={workspace.failure}
         historyOpen={historyOpen}
         onCancelClose={cancelClose}
@@ -358,6 +434,9 @@ export default function App() {
         onCheckUpdate={updater.checkNow}
         onCloseHistory={() => setHistoryOpen(false)}
         onCloseQuickOpen={quickOpen.close}
+        onCloseRoomMember={workspace.closeTab}
+        onClearRoomMemberContext={clearRoomMemberContext}
+        onCloseRooms={() => { setRoomsOpen(false); void roomBound.refresh(); }}
         onCloseSettings={() => setSettingsOpen(false)}
         onOpenUpdater={updater.openPanel}
         onCloseShortcutGuide={shortcuts.closeGuide}
@@ -370,6 +449,10 @@ export default function App() {
         }}
         onDismissFailure={workspace.dismissFailure}
         onInstallUpdate={updater.install}
+        onOpenRoomFile={openRoomFile}
+        onOpenRoomWindow={openRoomWindow}
+        onLaunchRoomMember={launchRoomMember}
+        onRenameAgent={renameAgent}
         onResumeHistory={resumeHistory}
         onSelectQuickOpen={selectQuickOpenItem}
         pendingClose={pendingClose}
@@ -381,10 +464,12 @@ export default function App() {
         quickOpenItems={quickOpen.items}
         quickOpenOpen={quickOpen.open}
         quickOpenShortcut={formatShortcutChord(appShortcutChord(shortcuts.platform, "K"))}
+        roomsOpen={roomsOpen}
         settingsOpen={settingsOpen}
         settingsSection={settingsSection}
         shortcutGuideOpen={shortcuts.guideOpen}
         shortcutPlatform={shortcuts.platform}
+        tabs={workspace.tabs}
         updaterOpen={updater.open}
         updaterState={updater.state}
         usageOpen={usageOpen}

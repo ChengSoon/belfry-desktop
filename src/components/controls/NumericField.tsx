@@ -1,6 +1,7 @@
 import { Minus, Plus } from "lucide-react";
 import type { KeyboardEvent, Ref } from "react";
 import { clampNumber, numberFromDraft, stepNumber, type NumberBounds } from "./controlModel";
+import { composingKey } from "../../utils/keyboard";
 import "./controls.css";
 
 interface Props extends NumberBounds {
@@ -16,7 +17,7 @@ export function NumericField(props: Props) {
   const invalid = value.trim() !== "" && (number === null || clampNumber(number, props) !== number);
   const change = (direction: number) => { if (!disabled) onChange(stepNumber(value, direction, { min, max, step })); };
   const keydown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.nativeEvent.isComposing || event.altKey || event.ctrlKey || event.metaKey) return;
+    if (composingKey(event.nativeEvent) || event.altKey || event.ctrlKey || event.metaKey) return;
     if (event.key === "ArrowUp" || event.key === "ArrowDown") {
       event.preventDefault(); change(event.key === "ArrowUp" ? 1 : -1);
     }

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ownsTarget } from "../../components/controls/layerOwnership";
+import { composingKey } from "../../utils/keyboard";
 
 export function usePopover(height = 220, initialOpen = false) {
   const [open, setOpen] = useState(initialOpen), [up, setUp] = useState(false);
@@ -13,7 +14,7 @@ export function usePopover(height = 220, initialOpen = false) {
       !!target && (ownsTarget(ref.current, target as Node) || ownsTarget(panel.current, target as Node));
     const outside = (event: MouseEvent) => { if (!inside(event.target)) setOpen(false); };
     const escape = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !event.isComposing && !event.defaultPrevented) {
+      if (event.key === "Escape" && !composingKey(event) && !event.defaultPrevented) {
         event.preventDefault(); event.stopPropagation(); setOpen(false);
       }
     };

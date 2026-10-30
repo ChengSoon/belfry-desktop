@@ -7,6 +7,7 @@ import { acknowledgeTerminalOutput, createTerminal, detachTerminal, resizeTermin
 import type { CodexThemeSync } from "../codexThemeSync";
 import { createTerminalRequest, type PromptDeliveryOptions, type TerminalEvent, type TerminalLaunch, type TerminalSession } from "../contracts";
 import { diagnoseTerminalExit, errorMessage, isMissingTerminalSession } from "./diagnostics";
+import { hostIsLaidOut, initialGrid } from "./hostSize";
 import { TerminalInput } from "./input";
 import { TerminalOutput } from "./output";
 import { OutputQueue } from "./outputQueue";
@@ -57,13 +58,16 @@ export class TerminalLifecycle {
   get alive() { return !this.disposed; }
 
   async start() {
-    const { terminal, fit, launch, theme, callbacks } = this.ports;
+    const { host, terminal, fit, launch, theme, callbacks } = this.ports;
     callbacks.onPhase("creating");
     callbacks.onError(null);
     callbacks.onSession(null);
     try {
-      fit.fit();
-      const request = createTerminalRequest(terminal.cols, terminal.rows, launch, palette(theme));
+      // 宿主被藏着（房间打开时的工作台）时 fitAddon 会拟出退化网格：把计算宽度
+      // `width: 100%` 误读成 100px、算出十来个列宽。不要拟合，也不要把这种尺寸报给后台。
+      if (hostIsLaidOut(host)) fit.fit();
+      const grid = initialGrid(host, terminal);
+      const request = createTerminalRequest(grid.cols, grid.rows, launch, palette(theme));
       let session: TerminalSession;
       try {
         session = await createTerminal(request, this.channel, launch.attachmentId);

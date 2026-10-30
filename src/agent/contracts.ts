@@ -109,6 +109,16 @@ export function agentDescriptor(kind: AgentKind): AgentDescriptor {
   };
 }
 
+/**
+ * 各 Agent 自己的「重置对话」命令：清空上下文、开始新会话。
+ * Claude 是 `/clear`、Codex 是 `/new`（与快捷指令目录的列法一致）；Pi 没有已知的等价命令。
+ */
+export function agentResetCommand(kind: AgentKind): string | null {
+  if (kind === "claude") return "/clear";
+  if (kind === "codex") return "/new";
+  return null;
+}
+
 function isAgentKindValue(value: unknown): value is AgentKind {
   return typeof value === "string" && isAgentKind(value);
 }

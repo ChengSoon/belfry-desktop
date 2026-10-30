@@ -10,6 +10,7 @@ import { DatePicker } from "../../components/controls/DatePicker";
 import { NumericField } from "../../components/controls/NumericField";
 import { Disclosure } from "../../components/controls/Disclosure";
 import { priceFormError } from "./priceFormValidation";
+import { guardComposingEnter } from "../../utils/keyboard";
 
 interface Props {
   initial: PriceDraft; rows: UsageBucket[]; projects: { root: string; name: string }[];
@@ -28,7 +29,7 @@ export function PriceRuleForm(props: Props) {
     try { setError(props.onSave(priceFromDraft(draft))); }
     catch (failure) { setError(failure instanceof Error ? failure.message : String(failure)); }
   };
-  return <form ref={formRef} className="usage-price-form" aria-label="编辑模型价格" noValidate onSubmit={(event) => { event.preventDefault(); save(); }}>
+  return <form ref={formRef} onKeyDown={guardComposingEnter} className="usage-price-form" aria-label="编辑模型价格" noValidate onSubmit={(event) => { event.preventDefault(); save(); }}>
     <PriceIdentityFields draft={draft} rows={props.rows} update={update} projects={props.projects} />
     <div className="usage-price-form__pair usage-price-form__pair--date">
       <label>生效日期 · UTC<DatePicker value={draft.effectiveFrom} required ariaLabel="生效日期" todayMode="utc"

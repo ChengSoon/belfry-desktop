@@ -1,5 +1,5 @@
 import appIconUrl from "../../../src-tauri/icons/32x32.png";
-import { ChevronRight, Download, Gauge, History, PanelLeftClose, Pencil, Server, Settings, Settings2, SquareTerminal, X } from "lucide-react";
+import { ChevronRight, DoorOpen, Download, Gauge, History, PanelLeftClose, Pencil, Server, Settings, Settings2, SquareTerminal, X } from "lucide-react";
 import { useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode, type Ref } from "react";
 import { PanelResizeHandle } from "../../panel/PanelResizeHandle";
 import { usePanelWidth } from "../../panel/usePanelWidth";
@@ -25,6 +25,7 @@ import { ClaudeIcon, CodexIcon, PiIcon } from "./AgentIcons";
 import { NewSessionMenu } from "./NewSessionMenu";
 import { SshDialog } from "./SshDialog";
 import "../sidebar.css";
+import { composingKey } from "../../utils/keyboard";
 import "../quietSidebar.css";
 
 interface SidebarProps {
@@ -52,11 +53,13 @@ interface SidebarProps {
   onCollapse: () => void;
   onToggleUsage: () => void;
   onToggleHistory: () => void;
+  onToggleRooms: () => void;
   onOpenUpdater: () => void;
   onOpenSettings: () => void;
   settingsOpen: boolean;
   usageOpen: boolean;
   historyOpen: boolean;
+  roomsOpen: boolean;
   updaterOpen: boolean;
   updaterState: UpdaterState;
   /** 命中测试要拿侧栏的真实矩形，才能判断会话被拖回了列表。 */
@@ -88,6 +91,7 @@ export function Sidebar({
   onCollapse,
   onToggleUsage,
   onToggleHistory,
+  onToggleRooms,
   onOpenUpdater,
   onOpenSettings,
   ref,
@@ -96,6 +100,7 @@ export function Sidebar({
   updaterState,
   usageOpen,
   historyOpen,
+  roomsOpen,
 }: SidebarProps) {
   const groups = useMemo(() => groupTabsByProject(tabs), [tabs]);
   const { commitWidth, resetWidth, setWidth, width } = usePanelWidth(SIDEBAR_WIDTH);
@@ -171,6 +176,16 @@ export function Sidebar({
               {updaterState.status === "available" ? <i aria-hidden="true" /> : null}
             </button>
           ) : null}
+          <button
+            aria-pressed={roomsOpen}
+            className="icon-button icon-button--sm"
+            onClick={onToggleRooms}
+            title="协作房间"
+            type="button"
+          >
+            <DoorOpen aria-hidden="true" size={ICON.md} />
+            <span>协作房间</span>
+          </button>
           <button
             aria-pressed={settingsOpen}
             className="icon-button icon-button--sm"
@@ -400,7 +415,7 @@ function SessionRow({
   const dim = tab.phase === "exited";
   return (
     <>
-      <div className={`session-row${active ? " is-active" : ""}${dim ? " is-dim" : ""}${dragging ? " is-dragging" : ""}${tab.kind === "ssh" ? " session-row--ssh" : ""}${renamesAgent ? " session-row--agent" : ""}`}>
+      <div className={`session-row${active ? " is-active" : ""}${dim ? " is-dim" : ""}${dragging ? " is-dragging" : ""}${tab.kind === "ssh" ? " session-row--ssh" : ""}${renamesAgent ? " session-row--agent" : ""}`} data-tab-id={tab.id}>
       {editing ? (
         <div className="session-row__main session-row__main--editing">
           <Icon aria-hidden="true" size={ICON.sm} />
@@ -420,7 +435,7 @@ function SessionRow({
               // 中文 / 日文输入法按 Enter 是「确认候选词」，不是「提交」。不放过这一下的话，
               // 用中文起名时存进去的是拼音（shencha），编辑框还当场关掉——用户以为没保存成功，
               // 其实存了个莫名的英文名。Escape 同理：组字时那是「取消候选」，不该连框一起关。
-              if (event.nativeEvent.isComposing) return;
+              if (composingKey(event.nativeEvent)) return;
               if (event.key === "Enter") {
                 event.preventDefault();
                 event.stopPropagation();

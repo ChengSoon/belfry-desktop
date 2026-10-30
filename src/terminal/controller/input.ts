@@ -10,6 +10,7 @@ import { pasteSettleMs, PromptInput } from "../promptInput";
 import { listenForPromptUserInput } from "../promptUserInput";
 import { errorMessage } from "./diagnostics";
 import type { MountCallbacks } from "./types";
+import { composingKey } from "../../utils/keyboard";
 
 interface InputPorts {
   terminal: Terminal;
@@ -91,7 +92,7 @@ export class TerminalInput {
   }
 
   private onKey(event: KeyboardEvent) {
-    if (event.type !== "keydown" || event.isComposing) return true;
+    if (event.type !== "keydown" || composingKey(event)) return true;
     if (event.altKey || !(event.ctrlKey || event.metaKey)) return true;
     const key = event.key.toLowerCase();
     if (key === "v") {

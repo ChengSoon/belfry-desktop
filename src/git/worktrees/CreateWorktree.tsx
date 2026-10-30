@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Select } from "../../components/controls/Select";
 import type { CreateInput, WorktreeReport } from "./contracts";
 import { suggestBranch } from "./model";
+import { guardComposingEnter } from "../../utils/keyboard";
 
 export function CreateWorktree({ report, busy, onPreview }: { report: WorktreeReport; busy: boolean; onPreview: (input: CreateInput) => Promise<void> }) {
   const [name, setName] = useState("");
@@ -9,7 +10,7 @@ export function CreateWorktree({ report, busy, onPreview }: { report: WorktreeRe
   const [customBranch, setCustomBranch] = useState(false);
   const [baseBranch, setBaseBranch] = useState(report.branch);
   const changeName = (value: string) => { setName(value); if (!customBranch) setBranch(suggestBranch(value)); };
-  return <form className="worktree-form" onSubmit={(event) => { event.preventDefault(); void onPreview({ rootPath: report.rootPath, name, branch, baseBranch }); }}>
+  return <form onKeyDown={guardComposingEnter} className="worktree-form" onSubmit={(event) => { event.preventDefault(); void onPreview({ rootPath: report.rootPath, name, branch, baseBranch }); }}>
     <div><h3>新建独立任务</h3><p>使用自己的目录和分支，让多条任务各自工作。</p></div>
     <label>任务名称<input autoFocus value={name} maxLength={60} placeholder="例如：优化设置界面" disabled={busy} onChange={(event) => changeName(event.target.value)} /></label>
     <label>新分支<input value={branch} maxLength={160} placeholder="belfry/settings" disabled={busy} onChange={(event) => { setBranch(event.target.value); setCustomBranch(true); }} /></label>
