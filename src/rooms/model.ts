@@ -1,4 +1,5 @@
 import type { Room, RoomMember, RoomMessage, RoomTask, TaskStatus } from "./contracts";
+import type { WorkspaceTab } from "../workspace/contracts";
 
 /** 状态中文名，与 Rust `TaskStatus::label` 同一口径。 */
 export const STATUS_LABEL: Record<TaskStatus, string> = {
@@ -173,4 +174,16 @@ export function hueOf(id: string): number {
 /** 头像上的字：角色名第一个字（英文转大写）。 */
 export function initialOf(title: string): string {
   return [...title.trim()][0]?.toUpperCase() ?? "?";
+}
+
+/** 成员此刻的状态，由他会话的活动推出来。 */
+export type MemberStatus = "idle" | "busy" | "waiting" | "offline";
+
+export const MEMBER_STATUS_TEXT: Record<MemberStatus, string> = { idle: "空闲", busy: "忙", waiting: "等你选择", offline: "离线" };
+
+export function memberStatus(tab: Pick<WorkspaceTab, "phase" | "activity"> | undefined): MemberStatus {
+  if (!tab || tab.phase !== "running") return "offline";
+  if (tab.activity === "awaiting-choice") return "waiting";
+  if (tab.activity === "talking") return "busy";
+  return "idle";
 }

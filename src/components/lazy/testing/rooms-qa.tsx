@@ -1,5 +1,7 @@
 // 房间界面的浏览器 QA 夹具：假数据 + 假 Tauri invoke，不连真后台。
 import { createRoot } from "react-dom/client";
+import { ThemeProvider } from "../../../theme/ThemeProvider";
+import { THEME_MODE_KEY } from "../../../theme/storage";
 import "../../../styles.css";
 import type { Room, RoomsView } from "../../../rooms/contracts";
 import type { TerminalChoice } from "../../../terminal/choice";
@@ -93,15 +95,19 @@ const tab = (id: string, activity: WorkspaceTab["activity"]) => ({ id, kind: "co
   project: { id: "p", name: "belfry-win", rootPath: room.projectRoot, rootUri: room.projectRoot } }) as unknown as WorkspaceTab;
 Object.assign(window, { qaClosed: 0 });
 const params = new URLSearchParams(location.search);
-document.documentElement.dataset.theme = params.get("theme") ?? "dark";
+const theme = params.get("theme") ?? "dark";
+document.documentElement.dataset.theme = theme;
+localStorage.setItem(THEME_MODE_KEY, theme);
 const attention = params.get("attention") !== "0";
 const tabs = [tab("t1", "idle"), tab("t2", attention ? "awaiting-choice" : "talking"), tab("t3", "talking"), tab("t4", "idle")];
 
 const { RoomView } = await import("../../../rooms/view/RoomView");
 createRoot(document.getElementById("root")!).render(
+  <ThemeProvider>
   <div className="app-shell is-rooms" style={{ display: "grid", height: "100vh" }}>
     <RoomView agents={[]} onClose={() => { (window as unknown as { qaClosed: number }).qaClosed += 1; }} onOpenSession={() => {}} onResumeDelivery={() => true}
       pausedDeliveries={attention ? [{ tabId: "t3", message: "协作任务尚未确认开始处理" }] : []}
       project={null} tabs={tabs} targets={new Map(tabs.map((t) => [t.id, target(t.id)]))} />
-  </div>,
+  </div>
+  </ThemeProvider>,
 );

@@ -1,6 +1,6 @@
 import {
   AlertTriangle, Archive, BellRing, Check, CheckCheck, CircleCheck, CircleDashed, CircleDot, Clock, Crown, FolderGit2,
-  Inbox, Info, ListTodo, MessageSquareReply, MessagesSquare, MoreHorizontal, Paperclip, Pencil, Play, Plus, RotateCcw,
+  Inbox, Info, ListTodo, MessageSquareReply, MessagesSquare, MoreHorizontal, Network, Paperclip, Pencil, Play, Plus, RotateCcw,
   SendHorizontal, SquareTerminal, Trash2, UserMinus, UserPlus, Users, X,
 } from "lucide-react";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
@@ -29,6 +29,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Separator } from "../../components/ui/separator";
 import { Spinner } from "../../components/ui/spinner";
 import { Textarea } from "../../components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import { Toggle } from "../../components/ui/toggle";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../components/ui/tooltip";
 import { cn } from "../../lib/utils";
@@ -45,12 +46,13 @@ import { MAX_ATTACHMENTS, messageSummary, transferFiles } from "../attachments";
 import type { Room, RoomMember, RoomMessage, RoomTask, TaskStatus } from "../contracts";
 import {
   activeMembers, awaitingReply, continues, dayKey, dayLabel, DEFAULT_ROSTER, excerpt, foremanOf,
-  formatTime, hueOf, initialOf, labelOf, openBlockers, progress, recipientOptions, shortId, STATUS_LABEL, taskColumns,
+  formatTime, hueOf, initialOf, labelOf, MEMBER_STATUS_TEXT as STATUS_TEXT, memberStatus, type MemberStatus, openBlockers, progress, recipientOptions, shortId, STATUS_LABEL, taskColumns,
   titleError, workload, type RosterRow,
 } from "../model";
 import { useRoomAttachments } from "../useRoomAttachments";
 import { useRooms, type RoomsState } from "../useRooms";
 import { AttachmentCard, MessageAttachments } from "./RoomAttachments";
+import { RoomFlow } from "./RoomFlow";
 import "../tailwind.css";
 import "./room.css";
 
@@ -167,7 +169,7 @@ export function RoomView(props: RoomViewProps) {
               <AttentionPanel onOpenSession={props.onOpenSession} onResume={props.onResumeDelivery}
                 paused={props.pausedDeliveries ?? []} room={room} tabs={props.tabs} targets={props.targets} />
               <BriefPanel room={room} rooms={rooms} />
-              <Timeline room={room} rooms={rooms} />
+              <CenterTabs onOpenSession={props.onOpenSession} room={room} rooms={rooms} tabs={props.tabs} />
             </main>
             <TaskBoard room={room} rooms={rooms} />
           </>
@@ -306,22 +308,12 @@ function SectionHeader({ title, count, children }: { title: string; count?: numb
 
 // ---- 左栏：成员 ----
 
-type MemberStatus = "idle" | "busy" | "waiting" | "offline";
-
-const STATUS_TEXT: Record<MemberStatus, string> = { idle: "空闲", busy: "忙", waiting: "等你选择", offline: "离线" };
 const STATUS_DOT: Record<MemberStatus, string> = {
   idle: "bg-success",
   busy: "bg-primary animate-pulse",
   waiting: "bg-warning",
   offline: "bg-muted-foreground/40",
 };
-
-function memberStatus(tab: WorkspaceTab | undefined): MemberStatus {
-  if (!tab || tab.phase !== "running") return "offline";
-  if (tab.activity === "awaiting-choice") return "waiting";
-  if (tab.activity === "talking") return "busy";
-  return "idle";
-}
 
 function MemberList(props: {
   room: Room; rooms: RoomsState; tabs: WorkspaceTab[];
@@ -640,6 +632,38 @@ function Field({ id, label, hint, children }: { id?: string; label: string; hint
       </Label>
       {children}
     </div>
+  );
+}
+
+// ---- 中栏：对话 / 流程 ----
+
+/**
+ * 中栏两个视图：对话（时间线 + 输入框）和流程图（谁派活给谁、谁在做）。
+ * 对话不卸载：切去看流程图再切回来，草稿、附件和滚动位置都还在。
+ */
+function CenterTabs({ room, rooms, tabs, onOpenSession }: {
+  room: Room; rooms: RoomsState; tabs: WorkspaceTab[]; onOpenSession?: (tabId: string) => void;
+}) {
+  const [view, setView] = useState<"chat" | "flow">("chat");
+  const active = room.tasks.filter((task) => task.status === "active").length;
+  return (
+    <Tabs className="flex min-h-0 flex-1 flex-col gap-0" onValueChange={(value) => setView(value as "chat" | "flow")} value={view}>
+      <div className="flex h-10 shrink-0 items-center border-b border-border px-3">
+        <TabsList className="h-8" variant="line">
+          <TabsTrigger className="gap-1.5 px-2.5 text-xs" value="chat"><MessagesSquare /> 对话</TabsTrigger>
+          <TabsTrigger className="gap-1.5 px-2.5 text-xs" value="flow">
+            <Network /> 流程
+            {active ? <span className="rounded-full bg-primary/15 px-1.5 text-[10px] font-semibold text-primary tabular-nums">{active}</span> : null}
+          </TabsTrigger>
+        </TabsList>
+      </div>
+      <TabsContent className="flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden" forceMount value="chat">
+        <Timeline room={room} rooms={rooms} />
+      </TabsContent>
+      <TabsContent className="flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden" value="flow">
+        <RoomFlow onOpenSession={onOpenSession} room={room} tabs={tabs} />
+      </TabsContent>
+    </Tabs>
   );
 }
 

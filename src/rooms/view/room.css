@@ -17,3 +17,39 @@
   background-color: hsl(var(--avatar-hue) 55% 88%);
   color: hsl(var(--avatar-hue) 45% 28%);
 }
+
+/* 协作流程图（React Flow）。颜色接应用主题；连接点不给看也不给连。 */
+.room-flow {
+  --xy-background-color: var(--canvas);
+  --xy-node-border-radius: 12px;
+  --xy-controls-button-background-color: var(--surface-raised);
+  --xy-controls-button-background-color-hover: var(--surface-hover);
+  --xy-controls-button-color: var(--text-muted);
+  --xy-controls-button-color-hover: var(--text);
+  --xy-controls-button-border-color: var(--border);
+  --xy-controls-box-shadow: var(--shadow-md);
+  background: var(--canvas);
+}
+.room-flow .react-flow__node { cursor: default; }
+.room-flow .room-flow-handle { opacity: 0; pointer-events: none; width: 1px; height: 1px; min-width: 0; min-height: 0; border: 0; }
+.room-flow .room-flow-controls { overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-md); }
+.room-flow .room-flow-controls button { border-bottom-color: var(--border); }
+.room-flow .room-flow-controls button svg { fill: currentColor; }
+
+/* 正在做：节点外圈有一层缓慢的光晕；等你选择：琥珀色光晕。 */
+.room-flow-node--busy { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent), var(--shadow-md); }
+.room-flow-node--waiting { box-shadow: 0 0 0 4px color-mix(in srgb, var(--warning) 22%, transparent), var(--shadow-md); animation: room-flow-glow 1.8s ease-in-out infinite; }
+@keyframes room-flow-glow {
+  50% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--warning) 10%, transparent), var(--shadow-md); }
+}
+
+/* 连线：动着的走虚线流动；等回复用短虚线。 */
+.room-flow-edge--animated { stroke-dasharray: 6 6; animation: room-flow-dash 0.9s linear infinite; }
+.room-flow-edge--dashed { stroke-dasharray: 3 5; }
+@keyframes room-flow-dash { to { stroke-dashoffset: -12; } }
+.room-flow-pulse { filter: drop-shadow(0 0 4px currentColor); }
+
+@media (prefers-reduced-motion: reduce) {
+  .room-flow-node--waiting, .room-flow-edge--animated { animation: none; }
+  .room-flow-pulse { display: none; }
+}

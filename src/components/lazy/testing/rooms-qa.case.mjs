@@ -113,3 +113,35 @@ test("files can be dropped, pasted and seen in messages", async (t) => {
   assert.equal(say.ask, true, "默认要求回复");
   await waitFor(view, "document.querySelectorAll('[aria-label=待发送的附件]').length === 0");
 });
+
+for (const theme of ["dark", "light"]) {
+  test(`flow view shows who dispatches to whom and who is working (${theme})`, async (t) => {
+    const { view } = await browserFixture(t, `${PAGE}?theme=${theme}`);
+    await view.bounds({ x: 0, y: 0, width: 1440, height: 900 });
+    await waitFor(view, "!!document.querySelector('[aria-label=房间对话] article')");
+    await view.cdp.evaluate("[...document.querySelectorAll('[role=tab]')].find((tab) => tab.textContent.includes('流程')).dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }))");
+    await waitFor(view, "document.querySelectorAll('[aria-label=协作流程] .react-flow__node').length === 5");
+    await waitFor(view, "document.querySelectorAll('[aria-label=协作流程] .react-flow__edge').length >= 4");
+    const flow = await view.cdp.evaluate(`(() => {
+      const nodes = [...document.querySelectorAll('[aria-label=协作流程] .react-flow__node')];
+      const labels = [...document.querySelectorAll('[aria-label=协作流程] .react-flow__edgelabel-renderer span')].map((s) => s.textContent);
+      const rect = (n) => n.getBoundingClientRect();
+      const overlap = nodes.some((a, i) => nodes.some((b, j) => j > i && !(rect(a).right <= rect(b).left || rect(b).right <= rect(a).left || rect(a).bottom <= rect(b).top || rect(b).bottom <= rect(a).top)));
+      return {
+        titles: nodes.map((n) => n.textContent),
+        labels,
+        animated: document.querySelectorAll('[aria-label=协作流程] .room-flow-pulse').length,
+        waiting: !!document.querySelector('[aria-label=协作流程] .room-flow-node--waiting'),
+        overlap,
+      };
+    })()`);
+    assert.ok(flow.titles.some((x) => x.includes("你")), "有「你」节点");
+    assert.ok(flow.titles.some((x) => x.includes("统筹员")), "有统筹节点");
+    assert.ok(flow.labels.includes("等你选择"), `前端在等你选择：${flow.labels}`);
+    assert.ok(flow.labels.some((x) => x.includes("T3 进行中")), `后端正在做 T3：${flow.labels}`);
+    assert.ok(flow.waiting, "等你选择的节点高亮");
+    assert.ok(flow.animated >= 1, "正在做 / 等你的连线在动");
+    assert.equal(flow.overlap, false, "节点不重叠");
+    await capturePanel(view, `room-flow-${theme}`);
+  });
+}
