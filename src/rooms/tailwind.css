@@ -1,0 +1,47 @@
+/*
+ * 房间界面的 Tailwind 工具类（shadcn/ui 组件依赖它）。
+ *
+ * - 不引 preflight：全局重置会改到房间外的面板。
+ * - 只扫描房间和 components/ui，别的面板的类名不会生成工具类。
+ * - 颜色、圆角映射到应用自己的主题变量：亮色/暗色/背景图跟着应用走，不另起一套。
+ *   Tailwind 主题层与应用同名的变量（--radius-*、--font-*）在 layer 里，压不过应用未分层的定义。
+ */
+@import "tailwindcss/theme" layer(theme);
+@import "tailwindcss/utilities" layer(utilities) source(none);
+@import "tw-animate-css";
+
+@source "./";
+@source "../components/ui";
+
+/* shadcn 的 dark: 变体跟应用的主题开关走，而不是系统外观。 */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme inline {
+  --color-background: var(--canvas);
+  --color-foreground: var(--text);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--text);
+  --color-popover: var(--surface-raised);
+  --color-popover-foreground: var(--text);
+  --color-primary: var(--accent);
+  --color-primary-foreground: var(--accent-contrast);
+  --color-secondary: var(--surface-raised);
+  --color-secondary-foreground: var(--text);
+  --color-muted: var(--surface);
+  --color-muted-foreground: var(--text-muted);
+  --color-accent: var(--surface-hover);
+  --color-accent-foreground: var(--text);
+  --color-destructive: var(--danger);
+  --color-warning: var(--warning);
+  --color-success: var(--success);
+  --color-border: var(--border);
+  --color-input: var(--border);
+  --color-ring: var(--accent);
+  --radius-xs: var(--radius-xs);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: 12px;
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+}
