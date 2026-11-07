@@ -7,6 +7,7 @@ use belfry_protocol::{
     RoomTaskLine, RoomTaskOp,
 };
 
+use super::attachments;
 use super::model::*;
 use super::ops;
 use super::store::{deliveries, RoomStore};
@@ -65,14 +66,15 @@ fn line(room: &Room, message: &Message, viewer: &str) -> RoomLine {
         id: short_id(&message.id),
         author: room.label(&message.by),
         to: message.to.iter().map(|id| room.label(id)).collect(),
-        text: message.text.clone(),
+        // 成员读 log 要看得到附件在哪：正文后面附上本地路径。
+        text: attachments::instruction(&message.text, &message.attachments),
         at: message.at,
         reply_preview: message.reply_to.as_ref().and_then(|id| room.message(id)).map(|original| {
             format!(
                 "回复 [{}] {}：「{}」",
                 short_id(&original.id),
                 room.label(&original.by),
-                excerpt(&original.text, 60)
+                excerpt(&attachments::summary(&original.text, &original.attachments), 60)
             )
         }),
         needs_my_reply: message.awaiting().iter().any(|id| id == viewer),

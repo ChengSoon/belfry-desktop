@@ -54,3 +54,62 @@ test("Escape closes an open menu first and only then the room", async (t) => {
   await press(view, "Escape");
   await waitFor(view, "window.qaClosed === 1");
 });
+
+test("files can be dropped, pasted and seen in messages", async (t) => {
+  const { view } = await browserFixture(t, `${PAGE}?attention=0`);
+  await view.bounds({ x: 0, y: 0, width: 1440, height: 900 });
+  await waitFor(view, "!!document.querySelector('[aria-label=房间对话] article')");
+  // 消息里的附件：图片读出缩略图，文档是文件卡片。
+  await waitFor(view, "!!document.querySelector('[aria-label=消息附件] img')");
+  assert.ok(await view.cdp.evaluate("[...document.querySelectorAll('[aria-label=消息附件] button')].some((b) => b.textContent.includes('登录改版需求.pdf') && b.textContent.includes('PDF'))"));
+
+  // 拖进中栏：先出现落点浮层，松开后变成待发送的附件。
+  await view.cdp.evaluate(`(() => {
+    const zone = document.querySelector('[aria-label=房间对话]').closest('main');
+    const data = new DataTransfer();
+    data.items.add(new File(['hello'], '需求补充.txt', { type: 'text/plain' }));
+    zone.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: data }));
+    window.qaDrop = () => zone.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: data }));
+  })()`);
+  await waitFor(view, "[...document.querySelectorAll('span')].some((s) => s.textContent === '松开即可添加文件')");
+  await capturePanel(view, "room-drop");
+  await view.cdp.evaluate("window.qaDrop()");
+  await waitFor(view, "document.querySelectorAll('[aria-label=待发送的附件] [aria-label^=移除附件]').length === 1");
+  assert.ok(!(await view.cdp.evaluate("[...document.querySelectorAll('span')].some((s) => s.textContent === '松开即可添加文件')")), "松开后浮层收起");
+
+  // 粘贴一个文件：同样进待发送列表，不往输入框塞文字。
+  await view.cdp.evaluate(`(() => {
+    const field = document.querySelector('textarea[aria-label=消息]');
+    const data = new DataTransfer();
+    data.items.add(new File([new Uint8Array([1, 2, 3])], '', { type: 'image/png' }));
+    field.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: data }));
+  })()`);
+  await waitFor(view, "document.querySelectorAll('[aria-label=待发送的附件] [aria-label^=移除附件]').length === 2");
+  assert.equal(await view.cdp.evaluate("document.querySelector('textarea[aria-label=消息]').value"), "");
+  assert.equal(await view.cdp.evaluate("document.querySelector('button[aria-label=发送]').disabled"), false, "只有附件也能发");
+  await capturePanel(view, "room-draft-attachments");
+
+  // 粘贴普通文字：照常进输入框，不当附件。
+  await view.cdp.evaluate(`(() => {
+    const field = document.querySelector('textarea[aria-label=消息]');
+    field.focus();
+    const data = new DataTransfer();
+    data.setData('text/plain', '先看设计稿');
+    field.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: data }));
+  })()`);
+  await waitFor(view, "document.querySelector('textarea[aria-label=消息]').value === '先看设计稿'");
+
+  // 移除一个草稿附件：副本随之丢弃。
+  await click(view, "[aria-label=待发送的附件] [aria-label^=移除附件]");
+  await waitFor(view, "document.querySelectorAll('[aria-label=待发送的附件] [aria-label^=移除附件]').length === 1");
+  assert.ok(await view.cdp.evaluate("window.qaCalls.some((c) => c.command === 'room_discard_attachment')"));
+
+  // 发送：附件 id 跟着消息走。
+  await click(view, "button[aria-label=发送]");
+  await waitFor(view, "window.qaCalls.some((c) => c.command === 'room_say')");
+  const say = await view.cdp.evaluate("window.qaCalls.find((c) => c.command === 'room_say').args");
+  assert.equal(say.text, "先看设计稿");
+  assert.equal(say.attachmentIds.length, 1);
+  assert.equal(say.ask, true, "默认要求回复");
+  await waitFor(view, "document.querySelectorAll('[aria-label=待发送的附件]').length === 0");
+});

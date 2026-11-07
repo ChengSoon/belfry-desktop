@@ -43,6 +43,15 @@ export interface RoomTask {
   rev: number;
 }
 
+/** 随消息发出的文件：房间自己的副本，`path` 是本地绝对路径（成员按路径读取）。 */
+export interface RoomAttachment {
+  id: string;
+  name: string;
+  path: string;
+  size: number;
+  mimeType: string;
+}
+
 export interface RoomMessage {
   id: string;
   at: number;
@@ -54,6 +63,7 @@ export interface RoomMessage {
   to: string[];
   mode: MessageMode;
   replyTo: string | null;
+  attachments?: RoomAttachment[];
   deliveredTo: string[];
   repliedBy: string[];
   replyCancelled: boolean;

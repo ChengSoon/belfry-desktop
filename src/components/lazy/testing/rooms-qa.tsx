@@ -39,6 +39,10 @@ const room: Room = {
     { ...msg("aaa004", now - 77 * min, "system", "统筹员新建了 T2「手机号登录页面」，交给「前端」。", ["fe"]), kind: "notice" },
     msg("aaa005", now - 40 * min, "be", "T1 验证码发送接口已合并，限流 60s 一次。", ["foreman"]),
     msg("aaa006", now - 39 * min, "be", "接口文档在 docs/api/sms.md。", ["foreman"]),
+    msg("aaa006b", now - 30 * min, "user", "设计稿和需求文档在这里。", ["foreman"], { attachments: [
+      { id: "01m6v2yfg2ps6jak5pk7tatt001", name: "登录页设计稿.png", path: "/qa/登录页设计稿.png", size: 182_400, mimeType: "image/png" },
+      { id: "01m6v2yfg2ps6jak5pk7tatt002", name: "登录改版需求.pdf", path: "/qa/登录改版需求.pdf", size: 2_411_724, mimeType: "application/pdf" },
+    ] }),
     msg("aaa007", now - 12 * min, "foreman", "@前端 倒计时组件今天能联调完吗？测试那边在等。", ["fe"],
       { mode: "request_reply", deliveredTo: ["fe"] }),
     msg("aaa008", now - 3 * min, "user", "进度怎么样了？", ["foreman"], { deliveredTo: [] }),
@@ -50,13 +54,29 @@ const summary = (r: Room) => ({ id: r.id, name: r.name, projectRoot: r.projectRo
 const other = { ...summary(room), id: "01m6v2yfg2ps6jak5pk7tx6zzz", name: "支付回调重构", memberCount: 2, openTasks: 1, doneTasks: 3, lastMessageAt: now - 300 * min };
 const view: RoomsView = { rooms: [summary(room), other], loadError: null };
 
+// 一张 2×2 的 PNG，给图片附件的缩略图用。
+const PNG = Uint8Array.from(atob("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFklEQVR4nGNk+M/wn4GBgYGJgYGBAQAZlwMDqTHl3QAAAABJRU5ErkJggg=="), (c) => c.charCodeAt(0));
+const calls: { command: string; args: unknown }[] = [];
+let imported = 0;
+Object.assign(window, { qaCalls: calls });
+
 let callback = 0;
 Object.assign(window, {
   __TAURI_INTERNALS__: { metadata: { currentWindow: { label: "qa" }, currentWebview: { label: "qa", windowLabel: "qa" } },
     transformCallback: () => ++callback, unregisterCallback: () => {},
-    invoke: async (command: string) => {
+    invoke: async (command: string, args?: unknown) => {
+      calls.push({ command, args });
       if (command === "room_list") return view;
       if (command === "room_get") return room;
+      if (command === "room_read_attachment") return PNG.buffer;
+      if (command === "room_clipboard_files") return [];
+      if (command === "room_discard_attachment") return null;
+      if (command === "room_say") return room;
+      if (command === "room_paste_attachment" || command === "room_import_attachment") {
+        imported += 1;
+        return { id: `01m6v2yfg2ps6jak5pk7tdrf${String(imported).padStart(3, "0")}`, name: `拖入文件${imported}.txt`,
+          path: `/qa/拖入文件${imported}.txt`, size: 12, mimeType: "text/plain" };
+      }
       if (command.startsWith("plugin:")) return null;
       throw new Error(`QA 未提供原生命令：${command}`);
     } },

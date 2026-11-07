@@ -8,6 +8,7 @@ use std::sync::Arc;
 use belfry_protocol::RoomTaskOp;
 use tauri::State;
 
+use super::attachments;
 use super::model::*;
 use super::ops::{self, Posted};
 use super::store::{deliveries, RoomStore, RoomsView};
@@ -201,10 +202,14 @@ pub fn room_say(
     to: Option<Vec<String>>,
     reply_to: Option<String>,
     ask: Option<bool>,
+    attachment_ids: Option<Vec<String>>,
 ) -> Result<Room, AppError> {
     store.reconcile(&board)?;
+    // 先在锁外找齐附件（要读磁盘），落库时在锁内再确认一遍文件还在：丢弃草稿和发送可能同时发生。
+    let files = attachments::resolve(&store, &id, &attachment_ids.unwrap_or_default())?;
     let (posted, room) = store.mutate(&id, |room| {
-        ops::say(room, &Actor::User, &to.unwrap_or_default(), &text, reply_to.as_deref(), ask.unwrap_or(false), now_millis())
+        attachments::validate_existing(&files).map_err(|err| err.message)?;
+        ops::say_with(room, &Actor::User, &to.unwrap_or_default(), &text, reply_to.as_deref(), ask.unwrap_or(false), files, now_millis())
     })?;
     deliver(&board, &registry, &room, std::slice::from_ref(&posted));
     Ok(room)

@@ -1,9 +1,10 @@
 import {
   AlertTriangle, Archive, BellRing, Check, CheckCheck, CircleCheck, CircleDashed, CircleDot, Clock, Crown, FolderGit2,
-  Inbox, Info, ListTodo, MessageSquareReply, MessagesSquare, MoreHorizontal, Pencil, Play, Plus, RotateCcw,
+  Inbox, Info, ListTodo, MessageSquareReply, MessagesSquare, MoreHorizontal, Paperclip, Pencil, Play, Plus, RotateCcw,
   SendHorizontal, SquareTerminal, Trash2, UserMinus, UserPlus, Users, X,
 } from "lucide-react";
-import { Fragment, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
+import { Fragment, useEffect, useId, useMemo, useRef, useState, type ClipboardEvent, type ReactNode } from "react";
 import { isAgentKind, type AgentAvailability, type AgentKind } from "../../agent/contracts";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -34,16 +35,22 @@ import { cn } from "../../lib/utils";
 import type { PausedDelivery } from "../../prompt/runtime";
 import type { TerminalChoice } from "../../terminal/choice";
 import type { TerminalCommandTarget } from "../../terminal/contracts";
+import { pointInsideRect } from "../../terminal/fileDrop";
 import { composingKey } from "../../utils/keyboard";
+import { toAppFailure } from "../../workspace/errors";
 import type { ProjectWorkspace, WorkspaceTab } from "../../workspace/contracts";
 import * as api from "../api";
+import { clipboardRoomFiles } from "../attachmentApi";
+import { MAX_ATTACHMENTS, messageSummary, transferFiles } from "../attachments";
 import type { Room, RoomMember, RoomMessage, RoomTask, TaskStatus } from "../contracts";
 import {
   activeMembers, awaitingReply, continues, dayKey, dayLabel, DEFAULT_ROSTER, excerpt, foremanOf,
   formatTime, hueOf, initialOf, labelOf, openBlockers, progress, recipientOptions, shortId, STATUS_LABEL, taskColumns,
   titleError, workload, type RosterRow,
 } from "../model";
+import { useRoomAttachments } from "../useRoomAttachments";
 import { useRooms, type RoomsState } from "../useRooms";
+import { AttachmentCard, MessageAttachments } from "./RoomAttachments";
 import "../tailwind.css";
 import "./room.css";
 
@@ -155,7 +162,7 @@ export function RoomView(props: RoomViewProps) {
 
         {room ? (
           <>
-            <main className="flex min-h-0 min-w-0 flex-col">
+            <main className="relative flex min-h-0 min-w-0 flex-col">
               <RoomHeader onDelete={() => setDialog({ kind: "delete-room", room })} room={room} rooms={rooms} />
               <AttentionPanel onOpenSession={props.onOpenSession} onResume={props.onResumeDelivery}
                 paused={props.pausedDeliveries ?? []} room={room} tabs={props.tabs} targets={props.targets} />
@@ -653,12 +660,15 @@ function Timeline({ room, rooms }: { room: Room; rooms: RoomsState }) {
     programmatic.current = node.scrollTop;
   };
   useEffect(stick, [last, room.id]);
-  // 上面冒出选择卡片、简报展开时时间线会变矮：贴底的话跟着贴，不让最新消息被挤出视野。
+  // 贴底的话跟着贴，不让最新消息被挤出视野：上面冒出选择卡片时时间线变矮（盯容器本身），
+  // 图片附件晚一步读出来时内容变高（盯里面那层内容）。
+  const content = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const node = list.current;
     if (!node) return;
     const observer = new ResizeObserver(stick);
     observer.observe(node);
+    if (content.current) observer.observe(content.current);
     return () => observer.disconnect();
   }, []);
   useEffect(() => setReplyTo(null), [room.id]);
@@ -675,6 +685,7 @@ function Timeline({ room, rooms }: { room: Room; rooms: RoomsState }) {
           pinned.current = node.scrollHeight - node.scrollTop - node.clientHeight < 40;
           if (pinned.current) stick();
         }}>
+        <div ref={content} className={cn(room.messages.length === 0 && "h-full")}>
         {room.messages.length === 0 ? (
           <Empty className="h-full">
             <EmptyHeader>
@@ -701,8 +712,9 @@ function Timeline({ room, rooms }: { room: Room; rooms: RoomsState }) {
             </Fragment>
           );
         })}
+        </div>
       </div>
-      <Composer onSent={() => { pinned.current = true; setReplyTo(null); }} replyTo={replyTo}
+      <Composer key={room.id} onSent={() => { pinned.current = true; setReplyTo(null); }} replyTo={replyTo}
         onCancelReply={() => setReplyTo(null)} room={room} rooms={rooms} />
     </>
   );
@@ -761,12 +773,15 @@ function MessageItem({ room, rooms, message, continued, onReply }: {
         ) : null}
         {message.replyTo ? (
           <blockquote className="mt-1 border-l-2 border-border pl-2.5 text-xs text-muted-foreground">
-            {quoted ? <><span className="font-medium">{labelOf(room, quoted.by)}</span>：{excerpt(quoted.text, 80)}</> : "引用的消息已经不在了"}
+            {quoted ? <><span className="font-medium">{labelOf(room, quoted.by)}</span>：{excerpt(messageSummary(quoted), 80)}</> : "引用的消息已经不在了"}
           </blockquote>
         ) : null}
-        <p className={cn("leading-relaxed break-words whitespace-pre-wrap", !continued && "mt-0.5", mine && "text-foreground")}>
-          {message.text}
-        </p>
+        {message.text ? (
+          <p className={cn("leading-relaxed break-words whitespace-pre-wrap", !continued && "mt-0.5", mine && "text-foreground")}>
+            {message.text}
+          </p>
+        ) : null}
+        <MessageAttachments attachments={message.attachments} roomId={room.id} />
         {message.mode === "request_reply" || delivery ? (
           <footer className="mt-1.5 flex flex-wrap items-center gap-2">
             {message.mode === "request_reply" ? (
@@ -805,20 +820,126 @@ function Composer(props: { room: Room; rooms: RoomsState; replyTo: RoomMessage |
   const [to, setTo] = useState(AUTO_RECIPIENT);
   // 默认要求回复：用户发的消息大多在等成员给个答复；只是通知一声时手动关掉。
   const [ask, setAsk] = useState(true);
+  const [dragging, setDragging] = useState(false);
+  const [checkingPaste, setCheckingPaste] = useState(false);
   const input = useRef<HTMLTextAreaElement>(null);
+  const host = useRef<HTMLDivElement>(null);
+  const mounted = useRef(true);
+  const sending = useRef(false);
+  const pasteCount = useRef(0);
+  const attachments = useRoomAttachments(room.id);
+  const add = useRef(attachments.add);
+  add.current = attachments.add;
   const options = recipientOptions(room);
-  useEffect(() => { setTo(AUTO_RECIPIENT); setAsk(true); setText(""); }, [room.id]);
-  useEffect(() => { if (replyTo) input.current?.focus(); }, [replyTo]);
   const noMembers = activeMembers(room).length === 0;
+  const blocked = useRef(noMembers);
+  blocked.current = noMembers;
+  const full = attachments.items.length >= MAX_ATTACHMENTS;
+  const busy = rooms.busy || attachments.pending || checkingPaste;
+  const canSend = !noMembers && !busy && (text.trim() !== "" || attachments.items.length > 0);
+  useEffect(() => { if (replyTo) input.current?.focus(); }, [replyTo]);
+
+  // 拖文件进来：桌面端由原生拖放给出路径（webview 收不到文件的 HTML 拖放事件），浏览器里退回 HTML 拖放。
+  // 落点算整个中栏，不必精确拖到输入框上；有对话框、菜单开着时不接。
+  useEffect(() => {
+    mounted.current = true;
+    const zone = host.current?.closest("main") ?? host.current;
+    const accepting = () => !sending.current && !blocked.current && !document.querySelector(OPEN_LAYER);
+    let stop: Promise<() => void> = Promise.resolve(() => {});
+    try {
+      stop = getCurrentWebview().onDragDropEvent(({ payload }) => {
+        if (!mounted.current) return;
+        if (payload.type === "leave") { setDragging(false); return; }
+        const bounds = zone?.getBoundingClientRect();
+        const inside = !!bounds?.width && pointInsideRect(payload.position.toLogical(window.devicePixelRatio), bounds) && accepting();
+        setDragging(inside && payload.type !== "drop");
+        if (inside && payload.type === "drop") void add.current(payload.paths);
+      }).catch(() => () => {});
+    } catch { /* 不在 Tauri 窗口里（浏览器调试）：只用 HTML 拖放。 */ }
+    const over = (event: DragEvent) => {
+      if (!event.dataTransfer?.types.includes("Files")) return;
+      event.preventDefault();
+      const ok = accepting();
+      event.dataTransfer.dropEffect = ok ? "copy" : "none";
+      setDragging(ok);
+    };
+    const leave = (event: DragEvent) => { if (!zone?.contains(event.relatedTarget as Node | null)) setDragging(false); };
+    const drop = (event: DragEvent) => {
+      setDragging(false);
+      const files = event.dataTransfer ? transferFiles(event.dataTransfer) : [];
+      if (!files.length) return;
+      event.preventDefault();
+      if (accepting()) void add.current(files);
+    };
+    zone?.addEventListener("dragover", over);
+    zone?.addEventListener("dragleave", leave);
+    zone?.addEventListener("drop", drop);
+    return () => {
+      mounted.current = false;
+      zone?.removeEventListener("dragover", over);
+      zone?.removeEventListener("dragleave", leave);
+      zone?.removeEventListener("drop", drop);
+      void stop.then((unlisten) => unlisten());
+    };
+  }, []);
+
+  // 粘贴：截图、浏览器里复制的图片在剪贴板的文件里；从 Finder / 资源管理器复制的文件浏览器拿不到，
+  // 要问一下原生剪贴板。都没有文件就按普通文字粘贴。
+  const paste = async (event: ClipboardEvent<HTMLTextAreaElement>) => {
+    const files = transferFiles(event.clipboardData);
+    const plain = event.clipboardData.getData("text/plain");
+    event.preventDefault();
+    if (sending.current) return;
+    const field = event.currentTarget;
+    const snapshot = { value: field.value, start: field.selectionStart, end: field.selectionEnd };
+    const insertText = () => {
+      if (!mounted.current || !plain) return;
+      // 读原生剪贴板期间若继续打字，保留新内容，在当前光标处插入。
+      const unchanged = field.value === snapshot.value;
+      const start = unchanged ? snapshot.start : field.selectionStart;
+      const end = unchanged ? snapshot.end : field.selectionEnd;
+      const value = field.value.slice(0, start) + plain + field.value.slice(end);
+      const caret = start + plain.length;
+      setText(value);
+      requestAnimationFrame(() => { if (mounted.current) field.setSelectionRange(caret, caret); });
+    };
+    if (files.length) {
+      insertText();
+      void attachments.add(files);
+      return;
+    }
+    pasteCount.current += 1;
+    setCheckingPaste(true);
+    try {
+      const paths = await clipboardRoomFiles();
+      if (!mounted.current) return;
+      if (paths.length) await attachments.add(paths);
+      else insertText();
+    } catch (cause) {
+      // 原生文件列表读不出来时，普通文字照样能粘贴。
+      insertText();
+      if (mounted.current && !plain) attachments.reportError(toAppFailure(cause).message);
+    } finally {
+      pasteCount.current -= 1;
+      if (mounted.current) setCheckingPaste(pasteCount.current > 0);
+    }
+  };
+
   const send = async () => {
-    if (!text.trim() || rooms.busy) return;
+    if (!canSend || sending.current || pasteCount.current > 0) return;
+    const ids = attachments.beginSend();
+    if (ids === null) return;
+    sending.current = true;
     const recipients = to === AUTO_RECIPIENT ? [] : [to];
-    const sent = await rooms.run(() => api.roomSay(room.id, text, recipients, replyTo?.id ?? null, ask && !replyTo));
+    const sent = await rooms.run(() => api.roomSay(room.id, text, recipients, replyTo?.id ?? null, ask && !replyTo, ids));
+    sending.current = false;
+    attachments.finishSend(sent !== null);
     if (sent) { setText(""); setAsk(true); props.onSent(); }
   };
+
   return (
     <div className="shrink-0 px-4 pt-1 pb-4">
-      <div className={cn(
+      <div ref={host} className={cn(
         "rounded-lg border border-input bg-card shadow-xs transition-[border-color,box-shadow]",
         "focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/30",
         noMembers && "opacity-60",
@@ -826,19 +947,45 @@ function Composer(props: { room: Room; rooms: RoomsState; replyTo: RoomMessage |
         {replyTo ? (
           <div className="flex items-center gap-2 border-b border-border px-3 py-1.5 text-xs text-muted-foreground">
             <MessageSquareReply className="size-3.5 shrink-0" />
-            <span className="min-w-0 flex-1 truncate">回复 <span className="font-medium text-foreground">{labelOf(room, replyTo.by)}</span>：{excerpt(replyTo.text, 60)}</span>
+            <span className="min-w-0 flex-1 truncate">
+              回复 <span className="font-medium text-foreground">{labelOf(room, replyTo.by)}</span>：{excerpt(messageSummary(replyTo), 60)}
+            </span>
             <Button aria-label="取消回复" onClick={props.onCancelReply} size="icon-xs" variant="ghost"><X /></Button>
           </div>
         ) : null}
         <Textarea aria-label="消息" disabled={noMembers} ref={input} rows={2} value={text}
           className="min-h-14 resize-none border-0 bg-transparent px-3 py-2.5 shadow-none focus-visible:ring-0 dark:bg-transparent"
-          onChange={(event) => setText(event.target.value)}
-          placeholder={noMembers ? "先添加成员" : replyTo ? "写回复…（默认回给原发件人）" : "跟统筹说需求、问进度…  @角色 只发给那个人"}
+          onChange={(event) => setText(event.target.value)} onPaste={(event) => void paste(event)}
+          placeholder={noMembers ? "先添加成员"
+            : replyTo ? "写回复…（默认回给原发件人）"
+              : "跟统筹说需求、问进度…  @角色 只发给那个人；文件可以拖进来或直接粘贴"}
           onKeyDown={(event) => {
             if (composingKey(event)) return;
             if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void send(); }
           }} />
-        <div className="flex items-center gap-2 px-2 pb-2">
+        {attachments.items.length ? (
+          <div aria-label="待发送的附件" aria-live="polite" className="flex flex-wrap gap-2 px-3 pt-1 pb-2.5">
+            {attachments.items.map((item) => (
+              <AttachmentCard attachment={item.attachment} disabled={rooms.busy} key={item.key} name={item.name}
+                onRemove={() => attachments.remove(item.key)} roomId={room.id} size={item.size} />
+            ))}
+          </div>
+        ) : null}
+        <div className="flex items-center gap-1.5 px-2 pb-2">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-flex">
+                <Button aria-label="添加文件" className="size-7 text-muted-foreground hover:text-foreground"
+                  disabled={noMembers || full || rooms.busy} onClick={() => void attachments.pick()} size="icon-sm" variant="ghost">
+                  <Paperclip />
+                </Button>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-64">
+              {full ? `每条消息最多 ${MAX_ATTACHMENTS} 个附件` : "添加文件。也可以拖进来或直接粘贴；每条最多 10 个，单个不超过 20 MB。"}
+            </TooltipContent>
+          </Tooltip>
+          <Separator className="mx-0.5 h-4" orientation="vertical" />
           <Select disabled={noMembers || replyTo !== null} onValueChange={setTo} value={to}>
             <SelectTrigger aria-label="收件人" className="h-7 max-w-52 gap-1.5 border-0 bg-transparent px-2 text-xs shadow-none hover:bg-accent dark:bg-transparent" size="sm">
               <span className="text-muted-foreground">发给</span>
@@ -875,14 +1022,29 @@ function Composer(props: { room: Room; rooms: RoomsState; replyTo: RoomMessage |
             </TooltipContent>
           </Tooltip>
           <span className="ml-auto hidden items-center gap-1 text-[11px] text-muted-foreground/70 min-[1200px]:flex">
+            {attachments.items.length ? `${attachments.items.length}/${MAX_ATTACHMENTS} 个附件 · ` : null}
             <Kbd>Enter</Kbd> 发送 · <Kbd>Shift</Kbd>+<Kbd>Enter</Kbd> 换行
           </span>
-          <Button aria-label="发送" className="max-[1199px]:ml-auto" disabled={noMembers || !text.trim() || rooms.busy}
-            onClick={() => void send()} size="icon-sm">
-            {rooms.busy ? <Spinner /> : <SendHorizontal />}
+          <Button aria-label="发送" className="max-[1199px]:ml-auto" disabled={!canSend} onClick={() => void send()} size="icon-sm">
+            {busy ? <Spinner /> : <SendHorizontal />}
           </Button>
         </div>
       </div>
+      {attachments.error ? (
+        <p className="mt-1.5 flex items-center gap-1.5 px-1 text-xs text-destructive" role="alert">
+          <AlertTriangle className="size-3.5 shrink-0" />
+          <span className="flex-1">{attachments.error}</span>
+          <Button aria-label="关闭附件提示" onClick={attachments.clearError} size="icon-xs" variant="ghost"><X /></Button>
+        </p>
+      ) : null}
+      {dragging ? (
+        <div aria-hidden="true"
+          className="pointer-events-none absolute inset-2 z-20 flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-primary/60 bg-background/85 backdrop-blur-sm">
+          <span className="flex size-12 items-center justify-center rounded-full bg-primary/15 text-primary"><Paperclip className="size-6" /></span>
+          <span className="font-medium">松开即可添加文件</span>
+          <span className="text-xs text-muted-foreground">每条最多 {MAX_ATTACHMENTS} 个 · 单个不超过 20 MB</span>
+        </div>
+      ) : null}
     </div>
   );
 }

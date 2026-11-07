@@ -46,9 +46,9 @@ export function roomUpdateBrief(id: string, patch: { objective?: string; focus?:
   return invoke<Room>("room_update_brief", { id, ...patch });
 }
 
-/** `to` 为空时按正文 @点名，再按默认收件人（统筹）。`ask` 要求回复。 */
-export function roomSay(id: string, text: string, to: string[], replyTo: string | null, ask: boolean) {
-  return invoke<Room>("room_say", { id, text, to, replyTo, ask });
+/** `to` 为空时按正文 @点名，再按默认收件人（统筹）。`ask` 要求回复。有附件时正文可以为空。 */
+export function roomSay(id: string, text: string, to: string[], replyTo: string | null, ask: boolean, attachmentIds: string[] = []) {
+  return invoke<Room>("room_say", { id, text, to, replyTo, ask, attachmentIds });
 }
 
 export function roomCancelReply(id: string, messageId: string) {

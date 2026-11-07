@@ -7,6 +7,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use super::attachments::RoomAttachment;
 use super::ledger::LedgerEvent;
 
 /// 内存里每间房最多留多少条消息投影；更早的只在账本里。
@@ -163,6 +164,9 @@ pub struct Message {
     pub to: Vec<String>,
     pub mode: MessageMode,
     pub reply_to: Option<String>,
+    /// 随消息发出的文件（房间自己的副本）。正文可以为空，只发附件。
+    #[serde(default)]
+    pub attachments: Vec<RoomAttachment>,
     /// 已进过哪些成员的终端。只记送达，读没读我们看不到。
     pub delivered_to: Vec<String>,
     /// 已回复的收件人（有人带 `reply_to` 回了这条）。

@@ -9,6 +9,7 @@ use std::sync::{Mutex, MutexGuard};
 
 use serde::{Deserialize, Serialize};
 
+use super::attachments;
 use super::ledger;
 use super::model::*;
 use super::ops::Posted;
@@ -92,13 +93,14 @@ pub fn deliveries(room: &Room, posted: &[Posted]) -> Vec<RoomPost> {
         let Some(message) = room.messages.iter().find(|message| message.id == item.message_id) else {
             continue;
         };
-        let mut line = format!("[{}] {}：{}", short_id(&message.id), room.label(&message.by), message.text);
+        let body = attachments::instruction(&message.text, &message.attachments);
+        let mut line = format!("[{}] {}：{body}", short_id(&message.id), room.label(&message.by));
         if let Some(original) = message.reply_to.as_ref().and_then(|id| room.message(id)) {
             line.push_str(&format!(
                 "（回复 [{}] {}：「{}」）",
                 short_id(&original.id),
                 room.label(&original.by),
-                excerpt(&original.text, 60)
+                excerpt(&attachments::summary(&original.text, &original.attachments), 60)
             ));
         }
         for member_id in &item.to {
@@ -215,15 +217,44 @@ impl RoomStore {
             return Err(AppError::not_found("找不到这个房间"));
         }
         persist(&mut inner, rooms)?;
-        // rooms.json 已经落盘；账本删不掉只是残留文件，不回滚删除。
-        if let Some(root) = &inner.root
-            && let Ok(path) = ledger::path(root, id)
-            && let Err(err) = std::fs::remove_file(&path)
-            && err.kind() != std::io::ErrorKind::NotFound
-        {
-            eprintln!("[belfry] 删不掉已删除房间的消息账本 {}：{err}", path.display());
+        // rooms.json 已经落盘；账本和附件删不掉只是残留文件，不回滚删除。
+        if let Some(root) = &inner.root {
+            if let Ok(path) = ledger::path(root, id)
+                && let Err(err) = std::fs::remove_file(&path)
+                && err.kind() != std::io::ErrorKind::NotFound
+            {
+                eprintln!("[belfry] 删不掉已删除房间的消息账本 {}：{err}", path.display());
+            }
+            if let Ok(dir) = attachments::room_directory(root, id)
+                && let Err(err) = std::fs::remove_dir_all(&dir)
+                && err.kind() != std::io::ErrorKind::NotFound
+            {
+                eprintln!("[belfry] 删不掉已删除房间的附件 {}：{err}", dir.display());
+            }
         }
         Ok(())
+    }
+
+    /// 一间房的附件目录（不存在的房间报错）。导入、校验附件都从这里起步。
+    pub(super) fn attachment_directory(&self, room_id: &str) -> Result<PathBuf, AppError> {
+        let inner = self.lock()?;
+        if !inner.rooms.iter().any(|room| room.id == room_id) {
+            return Err(AppError::not_found("找不到这个房间"));
+        }
+        let root = inner.root.as_ref().ok_or_else(|| AppError::io("找不到附件存储目录"))?;
+        attachments::room_directory(root, room_id)
+    }
+
+    /// 丢掉一个还没发出去的附件。已经随消息发出的不删：迟到的清理不能删掉别人能看到的文件。
+    pub(super) fn discard_attachment(&self, room_id: &str, attachment_id: &str) -> Result<(), AppError> {
+        let inner = self.lock()?;
+        let room = inner.rooms.iter().find(|room| room.id == room_id)
+            .ok_or_else(|| AppError::not_found("找不到这个房间"))?;
+        if room.messages.iter().flat_map(|message| &message.attachments).any(|attachment| attachment.id == attachment_id) {
+            return Ok(());
+        }
+        let root = inner.root.as_ref().ok_or_else(|| AppError::io("找不到附件存储目录"))?;
+        attachments::discard(&attachments::room_directory(root, room_id)?, attachment_id)
     }
 
     /// 在一间房上做一个动作。`f` 报错时什么都不落盘。

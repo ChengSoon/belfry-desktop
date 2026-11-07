@@ -15,6 +15,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use super::attachments::RoomAttachment;
 use super::model::{Message, MessageKind, MessageMode, Room, MAX_MESSAGES};
 use crate::terminal::AppError;
 
@@ -49,6 +50,9 @@ struct MessageData {
     message_mode: MessageMode,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     reply_to: Option<String>,
+    /// 附件只记元数据，二进制在 `attachments/` 目录里（CCCS §8 也是只存引用）。
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    attachments: Vec<RoomAttachment>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -86,6 +90,7 @@ pub fn message_event(room_id: &str, message: &Message) -> LedgerEvent {
         to: message.to.clone(),
         message_mode: message.mode,
         reply_to: message.reply_to.clone(),
+        attachments: message.attachments.clone(),
     };
     event(room_id, message.id.clone(), message.at, kind, &message.by, data)
 }
@@ -131,6 +136,7 @@ pub fn apply(room: &mut Room, event: &LedgerEvent) {
                 to: data.to,
                 mode: data.message_mode,
                 reply_to: data.reply_to,
+                attachments: data.attachments,
                 delivered_to: Vec::new(),
                 replied_by: Vec::new(),
                 reply_cancelled: false,

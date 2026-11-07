@@ -6,11 +6,15 @@
 //! - `ledger`：只追加的消息账本；
 //! - `store`：落盘与并发；
 //! - `directory`：成员经 `belfry room …` 进来的入口；
-//! - `commands`：界面的 Tauri 命令。
+//! - `attachments`：附件副本的存取与校验；
+//! - `commands` / `attachment_commands`：界面的 Tauri 命令。
 //!
 //! 投递复用协作总线：房间消息排进 `TaskBoard`、经 Prompt 队列进成员终端，
 //! 送达后对账记进账本。
 
+pub mod attachment_commands;
+mod attachments;
+mod clipboard_files;
 pub mod commands;
 mod directory;
 mod ledger;

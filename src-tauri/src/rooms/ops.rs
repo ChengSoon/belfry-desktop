@@ -8,6 +8,7 @@
 //! 派活、重开与归档任务；成员只能动自己的任务、认领没人接的任务，不能给别的成员派活。
 //! 任务分派、完成、解锁时自动给相关的人发注记——统筹不用盯着屏幕也知道进度。
 
+use super::attachments::RoomAttachment;
 use super::ledger;
 use super::model::*;
 
@@ -33,6 +34,7 @@ fn post(
     to: Vec<String>,
     mode: MessageMode,
     reply_to: Option<String>,
+    attachments: Vec<RoomAttachment>,
     now: i64,
 ) -> Posted {
     let message = Message {
@@ -44,6 +46,7 @@ fn post(
         to: to.clone(),
         mode,
         reply_to,
+        attachments,
         delivered_to: Vec::new(),
         replied_by: Vec::new(),
         reply_cancelled: false,
@@ -56,7 +59,7 @@ fn post(
 
 /// 系统注记。`to` 为空时只记在时间线上，不打扰任何人。
 fn notice(room: &mut Room, text: String, to: Vec<String>, now: i64) -> Posted {
-    post(room, MessageKind::Notice, "system", text, to, MessageMode::Send, None, now)
+    post(room, MessageKind::Notice, "system", text, to, MessageMode::Send, None, Vec::new(), now)
 }
 
 fn others(room: &Room, except: &str) -> Vec<String> {
@@ -315,8 +318,23 @@ pub fn say(
     ask: bool,
     now: i64,
 ) -> Result<Posted, String> {
+    say_with(room, actor, tokens, text, reply_hint, ask, Vec::new(), now)
+}
+
+/// 发一条带附件的消息。有附件时正文可以为空；收件人只按正文解析，文件名里的 @ 不算点名。
+#[allow(clippy::too_many_arguments)]
+pub fn say_with(
+    room: &mut Room,
+    actor: &Actor,
+    tokens: &[String],
+    text: &str,
+    reply_hint: Option<&str>,
+    ask: bool,
+    attachments: Vec<RoomAttachment>,
+    now: i64,
+) -> Result<Posted, String> {
     let text = text.trim();
-    if text.is_empty() {
+    if text.is_empty() && attachments.is_empty() {
         return Err("说点什么再发".to_string());
     }
     if text.chars().count() > MAX_TEXT_CHARS {
@@ -352,7 +370,7 @@ pub fn say(
     }
     let mode = if ask { MessageMode::RequestReply } else { MessageMode::Send };
     let by = actor.id().to_string();
-    Ok(post(room, MessageKind::Chat, &by, text.to_string(), to, mode, target.map(|message| message.id), now))
+    Ok(post(room, MessageKind::Chat, &by, text.to_string(), to, mode, target.map(|message| message.id), attachments, now))
 }
 
 /// 撤销「要求回复」：还没回的人不用再回了。只有原发件人和用户能撤。
