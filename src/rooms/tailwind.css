@@ -1,13 +1,15 @@
 /*
  * 房间界面的 Tailwind 工具类（shadcn/ui 组件依赖它）。
  *
- * - 不引 preflight：全局重置会改到房间外的面板。
+ * - 主题变量放在 theme 层：与应用同名的变量（--radius-*、--font-*、--shadow-*）由应用未分层的定义胜出，
+ *   圆角、字体、阴影跟着应用走。
+ * - 工具类不分层：应用的全局元素规则（styles.css 里的 button { color: inherit } 等）也不分层，
+ *   分层的工具类会整体输给它们；不分层后按选择器特异性比，类选择器胜出。
+ * - 不引 Tailwind 的 preflight（全局重置会改到房间外的面板），只在房间和 shadcn 组件里做一份等价的重置。
  * - 只扫描房间和 components/ui，别的面板的类名不会生成工具类。
- * - 颜色、圆角映射到应用自己的主题变量：亮色/暗色/背景图跟着应用走，不另起一套。
- *   Tailwind 主题层与应用同名的变量（--radius-*、--font-*）在 layer 里，压不过应用未分层的定义。
  */
 @import "tailwindcss/theme" layer(theme);
-@import "tailwindcss/utilities" layer(utilities) source(none);
+@import "tailwindcss/utilities" source(none);
 @import "tw-animate-css";
 
 @source "./";
@@ -37,11 +39,35 @@
   --color-border: var(--border);
   --color-input: var(--border);
   --color-ring: var(--accent);
-  --radius-xs: var(--radius-xs);
-  --radius-sm: var(--radius-sm);
-  --radius-md: var(--radius-md);
-  --radius-lg: var(--radius-lg);
-  --radius-xl: 12px;
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-mono);
+  /* 字号跟着设置里的字号档走。 */
+  --text-xs: var(--fs-xs);
+  --text-sm: var(--fs-md);
+  --text-base: var(--fs-lg);
 }
+
+/* 房间范围内的 preflight 子集。:where() 零特异性，任何工具类都能盖过它。 */
+@layer base {
+  :where(.room-view, .room-view *, [data-slot], [data-slot] *),
+  :where(.room-view, .room-view *, [data-slot], [data-slot] *)::before,
+  :where(.room-view, .room-view *, [data-slot], [data-slot] *)::after {
+    margin: 0;
+    padding: 0;
+    border: 0 solid var(--border);
+  }
+  :where(.room-view *, [data-slot], [data-slot] *):is(h1, h2, h3, h4, h5, h6) { font-size: inherit; font-weight: inherit; }
+  :where(.room-view *, [data-slot], [data-slot] *):is(ol, ul, menu) { list-style: none; }
+  :where(.room-view *, [data-slot], [data-slot] *):is(img, svg, video) { display: block; vertical-align: middle; }
+  :where(.room-view *, [data-slot], [data-slot] *):is(button, input, select, textarea) {
+    font: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+    background-color: transparent;
+    border-radius: 0;
+  }
+  :where(.room-view *, [data-slot], [data-slot] *):is(input, textarea)::placeholder { color: var(--text-faint); opacity: 1; }
+  :where(.room-view *, [data-slot], [data-slot] *):is(textarea) { resize: vertical; }
+  :where(.room-view *, [data-slot], [data-slot] *):is(pre, code, kbd) { font-family: var(--font-mono); }
+}
+
+/* 应用全局的 :focus-visible 描边会叠在 shadcn 自己的 ring 上。shadcn 组件都带 data-slot，用它让位。 */
+[data-slot]:focus-visible { outline: none; }

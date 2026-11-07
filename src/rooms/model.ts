@@ -131,3 +131,46 @@ export function titleError(raw: string, taken: readonly string[]): string | null
   if (taken.some((other) => other.toLowerCase() === title.toLowerCase())) return `已经有「${title}」了`;
   return null;
 }
+
+/** 同一作者连发、间隔不超过这么久的消息合成一组，只在第一条显示头像和名字。 */
+export const CONTINUED_MS = 5 * 60_000;
+
+export function dayKey(at: number): string {
+  const date = new Date(at);
+  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+}
+
+/** 时间线上的日期分隔：今天 / 昨天 / 月日（跨年带年份）。 */
+export function dayLabel(at: number, now = Date.now()): string {
+  const date = new Date(at);
+  const today = new Date(now);
+  const yesterday = new Date(now);
+  yesterday.setDate(today.getDate() - 1);
+  if (date.toDateString() === today.toDateString()) return "今天";
+  if (date.toDateString() === yesterday.toDateString()) return "昨天";
+  const day = `${date.getMonth() + 1}月${date.getDate()}日`;
+  return date.getFullYear() === today.getFullYear() ? day : `${date.getFullYear()}年${day}`;
+}
+
+/** 这条消息能不能接在上一条下面（同一作者、同一批收件人、不是回复、间隔够短）。 */
+export function continues(previous: RoomMessage | undefined, message: RoomMessage): boolean {
+  return previous !== undefined
+    && previous.kind === "chat" && message.kind === "chat"
+    && previous.by === message.by
+    && message.replyTo === null
+    && previous.to.join(",") === message.to.join(",")
+    && message.at - previous.at < CONTINUED_MS
+    && dayKey(previous.at) === dayKey(message.at);
+}
+
+/** 头像色相：按成员 id 散列，同一个人在哪儿都是同一个颜色。 */
+export function hueOf(id: string): number {
+  let hue = 0;
+  for (const char of id) hue = (hue * 31 + (char.codePointAt(0) ?? 0)) % 360;
+  return hue;
+}
+
+/** 头像上的字：角色名第一个字（英文转大写）。 */
+export function initialOf(title: string): string {
+  return [...title.trim()][0]?.toUpperCase() ?? "?";
+}

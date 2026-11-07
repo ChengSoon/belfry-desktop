@@ -1,5 +1,6 @@
 import { createServer } from "vite";
 import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
 import { join } from "node:path";
 import { cleanupScope, temporary } from "../../../../scripts/plugin-tests/support.mjs";
 import { BrowserProcess } from "../../../../src-tauri/src/plugins/node/browser-process.mjs";
@@ -11,7 +12,7 @@ export { capturePanel } from "./panelArtifacts.mjs";
 export async function browserFixture(t, page, options = {}) {
   const lifetime = cleanupScope(t), root = await temporary(lifetime), requests = [];
   const server = await createServer({ configFile: false, logLevel: "silent", cacheDir: join(root, "vite-cache"),
-    plugins: [react(), { name: "optional-panel-qa", configureServer(vite) {
+    plugins: [react(), tailwindcss(), { name: "optional-panel-qa", configureServer(vite) {
       vite.middlewares.use((request, response, next) => {
         requests.push(request.url);
         if (options.handle?.(request, response)) return;

@@ -1,33 +1,50 @@
-import { AlertTriangle, Crown, MessageSquareReply, Plus, SquareTerminal, Trash2, UserPlus, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { createPortal } from "react-dom";
+import {
+  AlertTriangle, Archive, BellRing, Check, CheckCheck, CircleCheck, CircleDashed, CircleDot, Clock, Crown, FolderGit2,
+  Inbox, Info, ListTodo, MessageSquareReply, MessagesSquare, MoreHorizontal, Pencil, Play, Plus, RotateCcw,
+  SendHorizontal, SquareTerminal, Trash2, UserMinus, UserPlus, Users, X,
+} from "lucide-react";
+import { Fragment, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { isAgentKind, type AgentAvailability, type AgentKind } from "../../agent/contracts";
-import { Checkbox } from "../../components/controls/Checkbox";
-import { Select } from "../../components/controls/Select";
-import { useDialog } from "../../components/controls/useDialog";
-import { ConfirmDialog } from "../../components/ConfirmDialog";
-import { ICON } from "../../theme/sizing";
-import { composingKey } from "../../utils/keyboard";
-import "../tailwind.css";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle,
+} from "../../components/ui/alert-dialog";
+import { Avatar, AvatarFallback } from "../../components/ui/avatar";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../../components/ui/dialog";
+import { Checkbox } from "../../components/ui/checkbox";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "../../components/ui/dialog";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "../../components/ui/dropdown-menu";
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "../../components/ui/empty";
 import { Input } from "../../components/ui/input";
+import { Kbd } from "../../components/ui/kbd";
 import { Label } from "../../components/ui/label";
+import { Progress } from "../../components/ui/progress";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 import { Separator } from "../../components/ui/separator";
+import { Spinner } from "../../components/ui/spinner";
 import { Textarea } from "../../components/ui/textarea";
+import { Toggle } from "../../components/ui/toggle";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../components/ui/tooltip";
+import { cn } from "../../lib/utils";
 import type { PausedDelivery } from "../../prompt/runtime";
 import type { TerminalChoice } from "../../terminal/choice";
 import type { TerminalCommandTarget } from "../../terminal/contracts";
+import { composingKey } from "../../utils/keyboard";
 import type { ProjectWorkspace, WorkspaceTab } from "../../workspace/contracts";
 import * as api from "../api";
-import type { Room, RoomMember, RoomMessage, RoomTask } from "../contracts";
+import type { Room, RoomMember, RoomMessage, RoomTask, TaskStatus } from "../contracts";
 import {
-  activeMembers, awaitingReply, DEFAULT_ROSTER, deliveryNote, excerpt, foremanOf, formatTime, labelOf, openBlockers,
-  progress, recipientOptions, shortId, STATUS_LABEL, taskColumns, titleError, workload, type RosterRow,
+  activeMembers, awaitingReply, continues, dayKey, dayLabel, DEFAULT_ROSTER, excerpt, foremanOf,
+  formatTime, hueOf, initialOf, labelOf, openBlockers, progress, recipientOptions, shortId, STATUS_LABEL, taskColumns,
+  titleError, workload, type RosterRow,
 } from "../model";
 import { useRooms, type RoomsState } from "../useRooms";
+import "../tailwind.css";
 import "./room.css";
 
 export interface RoomViewProps {
@@ -49,21 +66,29 @@ export interface RoomViewProps {
   onResumeDelivery?: (tabId: string) => boolean;
 }
 
-type Dialog =
+type DialogState =
   | { kind: "new-room" }
   | { kind: "add-member" }
   | { kind: "delete-room"; room: Room }
   | { kind: "remove-member"; member: RoomMember };
 
+/** 开着的 Radix 浮层：下拉菜单、选择框、提示（popper）与对话框。 */
+const OPEN_LAYER = "[data-radix-popper-content-wrapper], [data-slot=dialog-content], [data-slot=alert-dialog-content]";
+
+/** Radix Select 不接受空字符串当选项值；「按默认收件人」用这个占位。 */
+const AUTO_RECIPIENT = "__auto";
+
 export function RoomView(props: RoomViewProps) {
   const rooms = useRooms();
-  const [dialog, setDialog] = useState<Dialog | null>(null);
+  const [dialog, setDialog] = useState<DialogState | null>(null);
   const room = rooms.room;
 
-  // Escape 关整个视图；对话框的 Escape 由 useDialog 先截走。
+  // Escape 关整个视图。Radix 的下拉菜单、选择框、提示在 document 捕获阶段处理 Escape，但不 preventDefault；
+  // 它们收起时 DOM 还没更新，所以按「此刻有没有浮层开着」判断：开着就只让浮层收起。
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "Escape" || event.defaultPrevented || composingKey(event) || dialog) return;
+      if (document.querySelector(OPEN_LAYER)) return;
       props.onClose();
     };
     window.addEventListener("keydown", onKey);
@@ -78,137 +103,343 @@ export function RoomView(props: RoomViewProps) {
   const canCreate = props.project !== null && rooms.loadError === null;
 
   return (
-    <section aria-label="协作房间" className="room-view">
-      <aside className="room-rail">
-        <header className="room-rail__head">
-          <strong>协作房间</strong>
-          <button aria-label="新建房间" className="room-icon-button" disabled={!canCreate}
-            onClick={() => setDialog({ kind: "new-room" })}
-            title={props.project ? "新建房间" : "先在左侧打开一个项目，房间归属项目"} type="button">
-            <Plus aria-hidden="true" size={ICON.md} />
-          </button>
-          <button aria-label="关闭房间" className="room-icon-button" onClick={props.onClose} title="关闭（Esc）" type="button">
-            <X aria-hidden="true" size={ICON.md} />
-          </button>
-        </header>
-        {rooms.loadError ? <p className="room-rail__notice" role="alert">{rooms.loadError}</p> : null}
-        <nav aria-label="房间列表" className="room-list">
-          {ordered.map((summary) => (
-            <button aria-current={summary.id === rooms.selectedId} key={summary.id}
-              className={`room-list__item${summary.id === rooms.selectedId ? " is-active" : ""}`}
-              onClick={() => rooms.select(summary.id)} title={summary.projectRoot} type="button">
-              <span className="room-list__title">{summary.name}</span>
-              <span className="room-list__meta">
-                {summary.memberCount} 人 · 任务 {summary.doneTasks}/{summary.doneTasks + summary.openTasks}
-              </span>
-            </button>
-          ))}
-          {ordered.length === 0 ? (
-            <p className="room-rail__hint">
-              还没有房间。房间里一位统筹负责拆需求、派活、跟进度，其他成员各管自己的职责，一起把一个需求做完。
+    <TooltipProvider delayDuration={300}>
+      <section aria-label="协作房间"
+        className="room-view grid min-h-0 min-w-0 grid-cols-[256px_minmax(0,1fr)_320px] bg-background text-foreground text-sm max-[1080px]:grid-cols-[232px_minmax(0,1fr)_280px]">
+        <aside className="flex min-h-0 flex-col border-r border-border bg-(--sidebar)">
+          <header className="flex h-12 shrink-0 items-center gap-1 px-3">
+            <span className="flex-1 text-[15px] font-semibold tracking-tight">协作房间</span>
+            <IconButton disabled={!canCreate} label={props.project ? "新建房间" : "先在左侧打开一个项目，房间归属项目"}
+              onClick={() => setDialog({ kind: "new-room" })}>
+              <Plus />
+            </IconButton>
+            <IconButton label="关闭房间（Esc）" onClick={props.onClose}><X /></IconButton>
+          </header>
+          {rooms.loadError ? (
+            <p className="mx-3 mb-2 rounded-md border border-warning/40 bg-warning/10 px-2.5 py-2 text-xs text-warning" role="alert">
+              {rooms.loadError}
             </p>
           ) : null}
-        </nav>
-        {room ? (
-          <MemberList onAdd={() => setDialog({ kind: "add-member" })} onOpenSession={props.onOpenSession}
-            onRemove={(member) => setDialog({ kind: "remove-member", member })} room={room} rooms={rooms} tabs={props.tabs} />
-        ) : null}
-      </aside>
-
-      {room ? (
-        <>
-          <main className="room-stream">
-            <RoomHeader onDelete={() => setDialog({ kind: "delete-room", room })} room={room} rooms={rooms} />
-            <AttentionPanel onOpenSession={props.onOpenSession} onResume={props.onResumeDelivery}
-              paused={props.pausedDeliveries ?? []} room={room} tabs={props.tabs} targets={props.targets} />
-            <BriefPanel room={room} rooms={rooms} />
-            <Timeline room={room} rooms={rooms} />
-          </main>
-          <TaskBoard room={room} rooms={rooms} />
-        </>
-      ) : (
-        <main className="room-stream room-stream--empty">
-          <p>{ordered.length ? "选一间房。" : "新建一间房，写下要完成的需求，再拉几个 Agent 进来。"}</p>
-          {canCreate && !ordered.length ? (
-            <button className="room-primary" onClick={() => setDialog({ kind: "new-room" })} type="button">新建房间</button>
+          <nav aria-label="房间列表" className="flex shrink-0 flex-col gap-0.5 overflow-y-auto px-2 pb-2 max-h-[40%]">
+            {ordered.map((summary) => {
+              const active = summary.id === rooms.selectedId;
+              const total = summary.doneTasks + summary.openTasks;
+              return (
+                <button aria-current={active} key={summary.id} onClick={() => rooms.select(summary.id)}
+                  title={summary.projectRoot} type="button"
+                  className={cn(
+                    "group flex flex-col gap-1 rounded-md px-2.5 py-2 text-left transition-colors outline-none",
+                    "hover:bg-(--sidebar-hover) focus-visible:ring-2 focus-visible:ring-ring/50",
+                    active && "bg-(--sidebar-active) shadow-(--sidebar-active-shadow)",
+                  )}>
+                  <span className="truncate font-medium">{summary.name}</span>
+                  <span className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Users className="size-3" /> {summary.memberCount}
+                    <ListTodo className="ml-1 size-3" /> {summary.doneTasks}/{total}
+                    {total ? <Progress className="ml-auto h-1 w-12" value={(summary.doneTasks / total) * 100} /> : null}
+                  </span>
+                </button>
+              );
+            })}
+            {ordered.length === 0 ? (
+              <p className="px-2.5 py-2 text-xs leading-relaxed text-muted-foreground">
+                还没有房间。一间房里一位统筹拆需求、派活、跟进度，其他成员各管自己的职责，一起把一个需求做完。
+              </p>
+            ) : null}
+          </nav>
+          {room ? (
+            <MemberList onAdd={() => setDialog({ kind: "add-member" })} onOpenSession={props.onOpenSession}
+              onRemove={(member) => setDialog({ kind: "remove-member", member })} room={room} rooms={rooms} tabs={props.tabs} />
           ) : null}
-        </main>
-      )}
+        </aside>
 
-      {rooms.error ? (
-        <div className="room-toast" role="alert">
-          <span>{rooms.error}</span>
-          <button aria-label="关闭提示" onClick={rooms.dismissError} type="button"><X aria-hidden="true" size={ICON.sm} /></button>
-        </div>
-      ) : null}
+        {room ? (
+          <>
+            <main className="flex min-h-0 min-w-0 flex-col">
+              <RoomHeader onDelete={() => setDialog({ kind: "delete-room", room })} room={room} rooms={rooms} />
+              <AttentionPanel onOpenSession={props.onOpenSession} onResume={props.onResumeDelivery}
+                paused={props.pausedDeliveries ?? []} room={room} tabs={props.tabs} targets={props.targets} />
+              <BriefPanel room={room} rooms={rooms} />
+              <Timeline room={room} rooms={rooms} />
+            </main>
+            <TaskBoard room={room} rooms={rooms} />
+          </>
+        ) : (
+          <main className="col-span-2 flex min-h-0 items-center justify-center">
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon"><MessagesSquare /></EmptyMedia>
+                <EmptyTitle>{ordered.length ? "选一间房" : "还没有协作房间"}</EmptyTitle>
+                <EmptyDescription>
+                  {ordered.length
+                    ? "从左侧选一间房，看对话、任务板和成员。"
+                    : "一间房对应一个需求：写下要做成什么，拉几个 Agent 进来，统筹会把它拆成任务派给成员。"}
+                </EmptyDescription>
+              </EmptyHeader>
+              {!ordered.length ? (
+                <EmptyContent>
+                  <Button disabled={!canCreate} onClick={() => setDialog({ kind: "new-room" })}><Plus /> 新建房间</Button>
+                  {!props.project ? <span className="text-xs text-muted-foreground">先在左侧打开一个项目，房间归属项目。</span> : null}
+                </EmptyContent>
+              ) : null}
+            </Empty>
+          </main>
+        )}
 
-      {dialog?.kind === "new-room" && props.project ? (
-        <NewRoomDialog agents={props.agents} onClose={close} onLaunchMember={props.onLaunchMember}
-          onRenameAgent={props.onRenameAgent} project={props.project} rooms={rooms} />
+        {rooms.error ? (
+          <div className="fixed right-4 bottom-4 z-40 flex max-w-md items-start gap-2 rounded-lg border border-destructive/40 bg-popover px-3 py-2.5 text-sm shadow-lg"
+            role="alert">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0 text-destructive" />
+            <span className="flex-1 leading-relaxed">{rooms.error}</span>
+            <Button aria-label="关闭提示" className="-my-1 -mr-1" onClick={rooms.dismissError} size="icon-xs" variant="ghost"><X /></Button>
+          </div>
+        ) : null}
+
+        {dialog?.kind === "new-room" && props.project ? (
+          <NewRoomDialog agents={props.agents} onClose={close} onLaunchMember={props.onLaunchMember}
+            onRenameAgent={props.onRenameAgent} project={props.project} rooms={rooms} />
+        ) : null}
+        {dialog?.kind === "add-member" && room ? (
+          <AddMemberDialog agents={props.agents} onClose={close} onLaunchMember={props.onLaunchMember}
+            onRenameAgent={props.onRenameAgent} room={room} rooms={rooms} tabs={props.tabs} />
+        ) : null}
+        {dialog?.kind === "delete-room" ? (
+          <ConfirmDialog body="房间、任务板和聊天记录都会删掉，找不回来。成员的会话不受影响。"
+            confirmLabel="删除房间" onCancel={close} open title={`删除「${dialog.room.name}」？`}
+            onConfirm={() => { void rooms.remove(dialog.room.id); close(); }} />
+        ) : null}
+        {dialog?.kind === "remove-member" && room ? (
+          <ConfirmDialog body="会话不会关掉；他手上没做完的任务会交还统筹重新分派。"
+            confirmLabel="移出" onCancel={close} open title={`把「${dialog.member.title}」移出房间？`}
+            onConfirm={() => { void rooms.run(() => api.roomRemoveMember(room.id, dialog.member.id)); close(); }} />
+        ) : null}
+      </section>
+    </TooltipProvider>
+  );
+}
+
+/** 用户发给成员的消息的送达情况。只记送达，读没读我们看不到。 */
+function deliveryState(room: Room, message: RoomMessage): { label: string; title: string; pending: boolean } | null {
+  const members = message.to.filter((id) => id !== "user");
+  if (message.kind !== "chat" || message.by !== "user" || members.length === 0) return null;
+  const pending = members.filter((id) => !message.deliveredTo.includes(id));
+  const names = (ids: string[]) => ids.map((id) => labelOf(room, id)).join("、");
+  if (pending.length === 0) return { label: "已送达", title: `已送进 ${names(members)} 的终端`, pending: false };
+  return { label: `排队中 ${pending.length}/${members.length}`, title: `还没送进 ${names(pending)} 的终端`, pending: true };
+}
+
+// ---- 小部件 ----
+
+function IconButton({ label, children, className, ...props }: React.ComponentProps<typeof Button> & { label: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button aria-label={label} className={cn("text-muted-foreground hover:text-foreground", className)} size="icon-sm" variant="ghost" {...props}>
+          {children}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+/** 成员头像：角色名首字，按成员 id 散列出固定的颜色。用户用主色。 */
+function MemberAvatar({ room, id, size = "default", status }: {
+  room: Room; id: string; size?: "sm" | "default"; status?: MemberStatus;
+}) {
+  const member = room.members.find((candidate) => candidate.id === id);
+  const label = id === "user" ? "你" : initialOf(member?.title ?? "?");
+  const style = id === "user" ? undefined : { "--avatar-hue": hueOf(id) } as React.CSSProperties;
+  return (
+    <span className="relative inline-flex shrink-0">
+      <Avatar size={size}>
+        <AvatarFallback style={style}
+          className={cn("font-semibold", id === "user" ? "bg-primary text-primary-foreground" : "room-avatar")}>
+          {label}
+        </AvatarFallback>
+      </Avatar>
+      {status ? (
+        <span aria-hidden="true" className={cn(
+          "absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full ring-2 ring-(--sidebar)",
+          STATUS_DOT[status],
+        )} />
       ) : null}
-      {dialog?.kind === "add-member" && room ? (
-        <AddMemberDialog agents={props.agents} onClose={close} onLaunchMember={props.onLaunchMember}
-          onRenameAgent={props.onRenameAgent} room={room} rooms={rooms} tabs={props.tabs} />
-      ) : null}
-      {dialog?.kind === "delete-room" ? (
-        <ConfirmDialog body={`房间、任务板和聊天记录都会删掉，找不回来。成员的会话不受影响。`}
-          confirmLabel="删除" onCancel={close}
-          onConfirm={() => { close(); void rooms.remove(dialog.room.id); }} title={`删除「${dialog.room.name}」？`} />
-      ) : null}
-      {dialog?.kind === "remove-member" && room ? (
-        <ConfirmDialog body="会话不会关掉；他手上没做完的任务会交还统筹重新分派。" confirmLabel="移出"
-          onCancel={close} title={`把「${dialog.member.title}」移出房间？`}
-          onConfirm={() => { close(); void rooms.run(() => api.roomRemoveMember(room.id, dialog.member.id)); }} />
-      ) : null}
-    </section>
+    </span>
+  );
+}
+
+function ConfirmDialog(props: {
+  open: boolean; title: string; body: string; confirmLabel: string; onConfirm: () => void; onCancel: () => void;
+}) {
+  return (
+    <AlertDialog onOpenChange={(open) => { if (!open) props.onCancel(); }} open={props.open}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{props.title}</AlertDialogTitle>
+          <AlertDialogDescription>{props.body}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>取消</AlertDialogCancel>
+          <AlertDialogAction onClick={props.onConfirm} variant="destructive">{props.confirmLabel}</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+function SectionHeader({ title, count, children }: { title: string; count?: number; children?: ReactNode }) {
+  return (
+    <header className="flex h-9 shrink-0 items-center gap-2 px-3">
+      <span className="text-xs font-semibold tracking-wide text-muted-foreground">{title}</span>
+      {count !== undefined ? <span className="text-xs text-muted-foreground/70">{count}</span> : null}
+      <span className="ml-auto flex items-center gap-0.5">{children}</span>
+    </header>
   );
 }
 
 // ---- 左栏：成员 ----
+
+type MemberStatus = "idle" | "busy" | "waiting" | "offline";
+
+const STATUS_TEXT: Record<MemberStatus, string> = { idle: "空闲", busy: "忙", waiting: "等你选择", offline: "离线" };
+const STATUS_DOT: Record<MemberStatus, string> = {
+  idle: "bg-success",
+  busy: "bg-primary animate-pulse",
+  waiting: "bg-warning",
+  offline: "bg-muted-foreground/40",
+};
+
+function memberStatus(tab: WorkspaceTab | undefined): MemberStatus {
+  if (!tab || tab.phase !== "running") return "offline";
+  if (tab.activity === "awaiting-choice") return "waiting";
+  if (tab.activity === "talking") return "busy";
+  return "idle";
+}
 
 function MemberList(props: {
   room: Room; rooms: RoomsState; tabs: WorkspaceTab[];
   onAdd: () => void; onRemove: (member: RoomMember) => void; onOpenSession?: (tabId: string) => void;
 }) {
   const { room, rooms } = props;
+  const members = activeMembers(room);
   return (
-    <section aria-label="成员" className="room-members">
-      <header className="room-section-head">
-        <span>成员</span>
-        <button aria-label="添加成员" className="room-icon-button" onClick={props.onAdd} title="添加成员" type="button">
-          <UserPlus aria-hidden="true" size={ICON.sm} />
-        </button>
-      </header>
-      {activeMembers(room).map((member) => {
-        const tab = props.tabs.find((candidate) => candidate.id === member.tabId);
-        const state = !tab || tab.phase !== "running" ? "离线" : tab.activity === "talking" ? "忙" : tab.activity === "awaiting-choice" ? "等你选择" : "空闲";
-        const load = workload(room, member.id);
-        return (
-          <div className={`room-member${state === "等你选择" ? " room-member--waiting" : ""}`} key={member.id}>
-            <div className="room-member__main">
-              <span className="room-member__title">
-                {member.role === "foreman" ? <Crown aria-label="统筹" className="room-member__crown" size={ICON.xs} /> : null}
-                {member.title}
-              </span>
-              <span className={`room-member__state room-member__state--${state === "忙" ? "busy" : state === "离线" ? "off" : state === "等你选择" ? "wait" : "idle"}`}>{state}</span>
-            </div>
-            <span className="room-member__duty">{member.duty || "（未写职责）"}{load ? ` · 手上 ${load} 件` : ""}</span>
-            <div className="room-member__actions">
-              {tab && props.onOpenSession ? (
-                <button onClick={() => props.onOpenSession?.(tab.id)} title="看他的终端" type="button">
-                  <SquareTerminal aria-hidden="true" size={ICON.xs} /> 终端
-                </button>
+    <section aria-label="成员" className="flex min-h-0 flex-1 flex-col border-t border-border">
+      <SectionHeader count={members.length} title="成员">
+        <IconButton label="添加成员" onClick={props.onAdd}><UserPlus /></IconButton>
+      </SectionHeader>
+      <div className="flex min-h-0 flex-col gap-0.5 overflow-y-auto px-2 pb-3">
+        {members.map((member) => {
+          const tab = props.tabs.find((candidate) => candidate.id === member.tabId);
+          const status = memberStatus(tab);
+          const load = workload(room, member.id);
+          return (
+            <div key={member.id}
+              className={cn(
+                "group flex items-center gap-2.5 rounded-md px-2 py-1.5 transition-colors hover:bg-(--sidebar-hover)",
+                status === "waiting" && "bg-warning/10 ring-1 ring-warning/40 hover:bg-warning/15",
+              )}>
+              <MemberAvatar id={member.id} room={room} status={status} />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1">
+                  <span className="truncate font-medium">{member.title}</span>
+                  {member.role === "foreman" ? (
+                    <Tooltip>
+                      <TooltipTrigger asChild><Crown aria-label="统筹" className="size-3.5 shrink-0 text-warning" /></TooltipTrigger>
+                      <TooltipContent>统筹：拆需求、派活、跟进度</TooltipContent>
+                    </Tooltip>
+                  ) : null}
+                </div>
+                <div className="truncate text-xs text-muted-foreground" title={member.duty || undefined}>
+                  <span className={cn(status === "waiting" && "font-medium text-warning")}>{STATUS_TEXT[status]}</span>
+                  {member.duty ? <> · {member.duty}</> : null}
+                </div>
+              </div>
+              {load ? (
+                <span className="flex items-center gap-0.5 text-[11px] text-muted-foreground tabular-nums" title={`手上 ${load} 件没完成`}>
+                  <ListTodo className="size-3" />{load}
+                </span>
               ) : null}
-              {member.role !== "foreman" ? (
-                <button onClick={() => void rooms.run(() => api.roomSetForeman(room.id, member.id))} type="button">设为统筹</button>
-              ) : null}
-              <button onClick={() => props.onRemove(member)} type="button">移出</button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button aria-label={`${member.title} 的操作`} size="icon-xs" variant="ghost"
+                    className="text-muted-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100">
+                    <MoreHorizontal />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-40">
+                  {tab && props.onOpenSession ? (
+                    <DropdownMenuItem onSelect={() => props.onOpenSession?.(tab.id)}><SquareTerminal /> 打开终端</DropdownMenuItem>
+                  ) : null}
+                  {member.role !== "foreman" ? (
+                    <DropdownMenuItem onSelect={() => void rooms.run(() => api.roomSetForeman(room.id, member.id))}>
+                      <Crown /> 设为统筹
+                    </DropdownMenuItem>
+                  ) : null}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={() => props.onRemove(member)} variant="destructive"><UserMinus /> 移出房间</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
+          );
+        })}
+        {members.length === 0 ? (
+          <div className="flex flex-col items-start gap-2 px-2 py-2">
+            <p className="text-xs leading-relaxed text-muted-foreground">还没有成员。第一位加入的成员自动当统筹。</p>
+            <Button onClick={props.onAdd} size="sm" variant="outline"><UserPlus /> 添加成员</Button>
           </div>
-        );
-      })}
-      {activeMembers(room).length === 0 ? <p className="room-rail__hint">还没有成员。第一位加入的成员自动当统筹。</p> : null}
+        ) : null}
+      </div>
     </section>
+  );
+}
+
+// ---- 中栏：标题 ----
+
+function RoomHeader({ room, rooms, onDelete }: { room: Room; rooms: RoomsState; onDelete: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(room.name);
+  const { done, total } = progress(room);
+  useEffect(() => setName(room.name), [room.id, room.name]);
+  const save = async () => {
+    if (name.trim() && name.trim() !== room.name) await rooms.run(() => api.roomRename(room.id, name));
+    setEditing(false);
+  };
+  return (
+    <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border px-4">
+      {editing ? (
+        <Input aria-label="房间名" autoFocus className="h-8 max-w-xs text-[15px] font-semibold" maxLength={40}
+          onBlur={() => void save()} onChange={(event) => setName(event.target.value)} value={name}
+          onKeyDown={(event) => {
+            if (composingKey(event)) return;
+            if (event.key === "Enter") void save();
+            if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); setName(room.name); setEditing(false); }
+          }} />
+      ) : (
+        <button className="group flex min-w-0 items-center gap-1.5 rounded-md px-1 py-0.5 text-[15px] font-semibold tracking-tight hover:bg-accent"
+          onClick={() => setEditing(true)} title="点击改名" type="button">
+          <span className="truncate">{room.name}</span>
+          <Pencil className="size-3.5 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100" />
+        </button>
+      )}
+      <span className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground" title={room.projectRoot}>
+        <FolderGit2 className="size-3.5 shrink-0" />
+        <span className="truncate">{room.projectRoot.split(/[\\/]/).filter(Boolean).at(-1) ?? room.projectRoot}</span>
+      </span>
+      <span className="ml-auto flex shrink-0 items-center gap-2 text-xs text-muted-foreground" title="已完成 / 任务总数（不含归档）">
+        <Progress className="h-1.5 w-24" value={total ? (done / total) * 100 : 0} />
+        <span className="tabular-nums">{done}/{total}</span>
+      </span>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button aria-label="房间操作" className="text-muted-foreground" size="icon-sm" variant="ghost"><MoreHorizontal /></Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-36">
+          <DropdownMenuItem onSelect={() => setEditing(true)}><Pencil /> 改名</DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={onDelete} variant="destructive"><Trash2 /> 删除房间</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </header>
   );
 }
 
@@ -229,10 +460,7 @@ function AttentionPanel(props: {
 }) {
   const { room, tabs, targets } = props;
   const members = activeMembers(room);
-  const waiting = members.filter((member) => {
-    const tab = tabs.find((candidate) => candidate.id === member.tabId);
-    return tab?.phase === "running" && tab.activity === "awaiting-choice";
-  });
+  const waiting = members.filter((member) => memberStatus(tabs.find((tab) => tab.id === member.tabId)) === "waiting");
   const stuck = members.filter((member) => props.paused.some((item) => item.tabId === member.tabId));
   const [choices, setChoices] = useState<ReadonlyMap<string, TerminalChoice | null>>(new Map());
   const [notes, setNotes] = useState<ReadonlyMap<string, string>>(new Map());
@@ -262,94 +490,80 @@ function AttentionPanel(props: {
   };
 
   return (
-    <section aria-label="需要你处理" className="room-attention">
+    <section aria-label="需要你处理" className="flex max-h-[40%] shrink-0 flex-col gap-2 overflow-y-auto border-b border-border bg-warning/5 px-4 py-3">
       {waiting.map((member) => {
         const choice = choices.get(member.tabId) ?? null;
         return (
-          <article className="room-attention__card" key={member.id} role="alert">
-            <header className="room-attention__head">
-              <AlertTriangle aria-hidden="true" size={ICON.sm} />
-              <strong>「{member.title}」在等你选择</strong>
+          <article className="rounded-lg border border-warning/50 bg-card p-3 shadow-sm" key={member.id} role="alert">
+            <header className="flex items-center gap-2">
+              <MemberAvatar id={member.id} room={room} size="sm" />
+              <span className="font-medium">{member.title}</span>
+              <Badge className="border-warning/50 text-warning" variant="outline">在等你选择</Badge>
               {props.onOpenSession ? (
-                <button className="room-link" onClick={() => props.onOpenSession?.(member.tabId)} type="button">去终端处理</button>
+                <Button className="ml-auto" onClick={() => props.onOpenSession?.(member.tabId)} size="xs" variant="ghost">
+                  <SquareTerminal /> 去终端处理
+                </Button>
               ) : null}
             </header>
             {choice ? (
-              <>
-                <p className="room-attention__question">{choice.question}</p>
-                {choice.detail ? <pre className="room-attention__detail">{choice.detail}</pre> : null}
-                <div className="room-attention__options">
+              <div className="mt-2.5 flex flex-col gap-2">
+                <p className="font-medium leading-relaxed">{choice.question}</p>
+                {choice.detail ? (
+                  <pre className="overflow-x-auto rounded-md border border-border bg-background px-3 py-2 font-mono text-xs leading-relaxed whitespace-pre-wrap">
+                    {choice.detail}
+                  </pre>
+                ) : null}
+                <div className="flex flex-col gap-1.5">
                   {choice.options.map((option) => (
-                    <button className={option.index === choice.selected ? "is-selected" : undefined} key={option.index}
-                      onClick={() => answer(member, choice, option.index)} type="button">
-                      {option.index}. {option.label}
-                    </button>
+                    <Button className="h-auto justify-start py-2 text-left whitespace-normal" key={option.index}
+                      onClick={() => answer(member, choice, option.index)}
+                      variant={option.index === choice.selected ? "secondary" : "outline"}>
+                      <Kbd>{option.index}</Kbd>
+                      <span className="flex-1">{option.label}</span>
+                      {option.index === choice.selected ? <span className="text-xs text-muted-foreground">光标在这里</span> : null}
+                    </Button>
                   ))}
                 </div>
-              </>
+              </div>
             ) : (
-              <p className="room-attention__hint">没读出选项（可能要你打字回答，或界面是我们不认得的样子），去终端里处理。</p>
+              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                没读出选项（可能要你打字回答，或界面是我们不认得的样子），去终端里处理。
+              </p>
             )}
-            {notes.get(member.tabId) ? <p className="room-attention__note">{notes.get(member.tabId)}</p> : null}
+            {notes.get(member.tabId) ? (
+              <p className="mt-2 flex items-center gap-1.5 text-xs"><Info className="size-3.5 text-muted-foreground" />{notes.get(member.tabId)}</p>
+            ) : null}
           </article>
         );
       })}
       {stuck.map((member) => (
-        <article className="room-attention__card room-attention__card--stuck" key={`stuck-${member.id}`}>
-          <header className="room-attention__head">
-            <AlertTriangle aria-hidden="true" size={ICON.sm} />
-            <strong>发给「{member.title}」的消息暂停了</strong>
-          </header>
-          <p className="room-attention__hint">
-            没能确认上一条消息被提交，后面的消息先不送，免得重复粘贴。看一眼他的输入区：已经提交了就点「继续投递」；还卡在输入区就去终端按一下回车。
-          </p>
-          <div className="room-row-actions">
-            {props.onOpenSession ? <button onClick={() => props.onOpenSession?.(member.tabId)} type="button">去终端看看</button> : null}
-            <button className="room-primary" onClick={() => props.onResume?.(member.tabId)} type="button">继续投递</button>
-          </div>
+        <article className="flex items-center gap-2.5 rounded-lg border border-border bg-card px-3 py-2 shadow-sm" key={`stuck-${member.id}`}>
+          <AlertTriangle className="size-4 shrink-0 text-warning" />
+          <span className="min-w-0 flex-1 truncate">
+            <span className="font-medium">发给「{member.title}」的消息暂停了</span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="ml-2 cursor-help text-xs text-muted-foreground underline decoration-dotted underline-offset-2">为什么？</span>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-72">
+                没能确认上一条消息被提交，后面的消息先不送，免得重复粘贴。已经提交了就点「继续投递」；还卡在输入区就去终端按一下回车。
+              </TooltipContent>
+            </Tooltip>
+          </span>
+          {props.onOpenSession ? (
+            <Button onClick={() => props.onOpenSession?.(member.tabId)} size="xs" variant="ghost"><SquareTerminal /> 去终端</Button>
+          ) : null}
+          <Button onClick={() => props.onResume?.(member.tabId)} size="xs"><Play /> 继续投递</Button>
         </article>
       ))}
     </section>
   );
 }
 
-// ---- 中栏：标题、简报、时间线 ----
-
-function RoomHeader({ room, rooms, onDelete }: { room: Room; rooms: RoomsState; onDelete: () => void }) {
-  const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(room.name);
-  const { done, total } = progress(room);
-  useEffect(() => setName(room.name), [room.id, room.name]);
-  const save = async () => {
-    if (name.trim() && name.trim() !== room.name) await rooms.run(() => api.roomRename(room.id, name));
-    setEditing(false);
-  };
-  return (
-    <header className="room-header">
-      {editing ? (
-        <input aria-label="房间名" autoFocus className="room-input room-header__input" onBlur={() => void save()}
-          onChange={(event) => setName(event.target.value)} value={name}
-          onKeyDown={(event) => {
-            if (composingKey(event)) return;
-            if (event.key === "Enter") void save();
-            if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); setName(room.name); setEditing(false); }
-          }} />
-      ) : (
-        <button className="room-header__name" onClick={() => setEditing(true)} title="改名" type="button">{room.name}</button>
-      )}
-      <span className="room-header__meta">{room.projectRoot}</span>
-      <span className="room-header__progress" title="已完成 / 任务总数（不含归档）">
-        <span className="room-progress"><span style={{ width: total ? `${(done / total) * 100}%` : 0 }} /></span>
-        {done}/{total}
-      </span>
-      <button aria-label="删除房间" className="room-icon-button" onClick={onDelete} title="删除房间" type="button">
-        <Trash2 aria-hidden="true" size={ICON.sm} />
-      </button>
-    </header>
-  );
-}
+// ---- 中栏：需求简报 ----
 
 function BriefPanel({ room, rooms }: { room: Room; rooms: RoomsState }) {
+  const id = useId();
   const [editing, setEditing] = useState(false);
   const [objective, setObjective] = useState("");
   const [focus, setFocus] = useState("");
@@ -367,59 +581,126 @@ function BriefPanel({ room, rooms }: { room: Room; rooms: RoomsState }) {
     }));
     if (saved) setEditing(false);
   };
-  if (editing) {
-    return (
-      <section aria-label="需求简报" className="room-brief room-brief--editing">
-        <label className="room-field"><span>需求目标</span>
-          <textarea className="room-input" onChange={(event) => setObjective(event.target.value)} rows={3} value={objective} />
-        </label>
-        <label className="room-field"><span>当前重点</span>
-          <input className="room-input" onChange={(event) => setFocus(event.target.value)} value={focus} />
-        </label>
-        <label className="room-field"><span>约束（一行一条）</span>
-          <textarea className="room-input" onChange={(event) => setConstraints(event.target.value)} rows={2} value={constraints} />
-        </label>
-        <div className="room-row-actions">
-          <button onClick={() => setEditing(false)} type="button">取消</button>
-          <button className="room-primary" disabled={rooms.busy} onClick={() => void save()} type="button">保存并通知成员</button>
-        </div>
-      </section>
-    );
-  }
   const brief = room.brief;
   return (
-    <section aria-label="需求简报" className="room-brief">
-      <div className="room-brief__body">
-        <p className="room-brief__objective">{brief.objective || "还没写需求目标。写清楚要做成什么，统筹才好拆活。"}</p>
-        {brief.currentFocus ? <p className="room-brief__line"><b>当前重点</b>{brief.currentFocus}</p> : null}
-        {brief.constraints.length ? <p className="room-brief__line"><b>约束</b>{brief.constraints.join("；")}</p> : null}
-      </div>
-      <button className="room-link" onClick={start} type="button">编辑</button>
+    <section aria-label="需求简报" className="shrink-0 border-b border-border px-4 py-2.5">
+      {editing ? (
+        <div className="flex flex-col gap-3">
+          <Field id={`${id}-objective`} label="需求目标">
+            <Textarea autoFocus className="min-h-16" id={`${id}-objective`} onChange={(event) => setObjective(event.target.value)} rows={3} value={objective} />
+          </Field>
+          <Field id={`${id}-focus`} label="当前重点">
+            <Input id={`${id}-focus`} onChange={(event) => setFocus(event.target.value)} value={focus} />
+          </Field>
+          <Field hint="一行一条" id={`${id}-constraints`} label="约束">
+            <Textarea className="min-h-12" id={`${id}-constraints`} onChange={(event) => setConstraints(event.target.value)} rows={2} value={constraints} />
+          </Field>
+          <div className="flex justify-end gap-2">
+            <Button onClick={() => setEditing(false)} size="sm" variant="ghost">取消</Button>
+            <Button disabled={rooms.busy} onClick={() => void save()} size="sm">保存并通知成员</Button>
+          </div>
+        </div>
+      ) : (
+        <div className="group flex items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <p className={cn("line-clamp-2 leading-relaxed whitespace-pre-wrap", !brief.objective && "text-muted-foreground")}
+              title={brief.objective || undefined}>
+              <span className="mr-2 text-xs font-semibold tracking-wide text-muted-foreground">需求</span>
+              {brief.objective || "还没写需求目标。写清楚要做成什么，统筹才好拆活。"}
+            </p>
+            {brief.currentFocus || brief.constraints.length ? (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {brief.currentFocus ? <Badge variant="secondary">当前重点：{brief.currentFocus}</Badge> : null}
+                {brief.constraints.map((item) => <Badge key={item} variant="outline">{item}</Badge>)}
+              </div>
+            ) : null}
+          </div>
+          <Button className="shrink-0 text-muted-foreground opacity-60 group-hover:opacity-100" onClick={start} size="xs" variant="ghost">
+            <Pencil /> 编辑
+          </Button>
+        </div>
+      )}
     </section>
   );
 }
 
+/** 表单项：标签关联到 `id` 对应的输入（调用方把同一个 id 传给 Input / Textarea / SelectTrigger）。 */
+function Field({ id, label, hint, children }: { id?: string; label: string; hint?: string; children: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Label className="text-xs text-muted-foreground" htmlFor={id}>
+        {label}{hint ? <span className="font-normal text-muted-foreground/70">（{hint}）</span> : null}
+      </Label>
+      {children}
+    </div>
+  );
+}
+
+// ---- 中栏：时间线 ----
+
 function Timeline({ room, rooms }: { room: Room; rooms: RoomsState }) {
   const list = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
+  // 代码滚到底之后，浏览器下一帧才派发 scroll 事件；那时上面可能刚冒出选择卡片、时间线变矮了，
+  // 按那一刻量出来会误判成「用户翻上去了」。记下代码滚到的位置，落在这个位置上的事件不算用户滚动。
+  const programmatic = useRef<number | null>(null);
   const [replyTo, setReplyTo] = useState<RoomMessage | null>(null);
   const last = room.messages.at(-1)?.id;
+  const stick = () => {
+    const node = list.current;
+    if (!node || !pinned.current) return;
+    node.scrollTop = node.scrollHeight;
+    programmatic.current = node.scrollTop;
+  };
+  useEffect(stick, [last, room.id]);
+  // 上面冒出选择卡片、简报展开时时间线会变矮：贴底的话跟着贴，不让最新消息被挤出视野。
   useEffect(() => {
     const node = list.current;
-    if (node && pinned.current) node.scrollTop = node.scrollHeight;
-  }, [last, room.id]);
+    if (!node) return;
+    const observer = new ResizeObserver(stick);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
   useEffect(() => setReplyTo(null), [room.id]);
   return (
     <>
-      <div aria-label="房间对话" aria-live="polite" className="room-timeline" ref={list}
+      <div aria-label="房间对话" aria-live="polite" className="min-h-0 flex-1 overflow-y-auto px-2 py-3" ref={list}
         onScroll={(event) => {
           const node = event.currentTarget;
+          if (programmatic.current !== null && Math.abs(node.scrollTop - programmatic.current) < 2) {
+            programmatic.current = null;
+            return;
+          }
+          programmatic.current = null;
           pinned.current = node.scrollHeight - node.scrollTop - node.clientHeight < 40;
+          if (pinned.current) stick();
         }}>
-        {room.messages.length === 0 ? <p className="room-timeline__empty">还没有消息。</p> : null}
-        {room.messages.map((message) => (
-          <MessageItem key={message.id} message={message} onReply={() => setReplyTo(message)} room={room} rooms={rooms} />
-        ))}
+        {room.messages.length === 0 ? (
+          <Empty className="h-full">
+            <EmptyHeader>
+              <EmptyMedia variant="icon"><Inbox /></EmptyMedia>
+              <EmptyTitle>还没有消息</EmptyTitle>
+              <EmptyDescription>在下面跟统筹说需求；统筹会拆成任务派给成员，进展都会出现在这里。</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        ) : null}
+        {room.messages.map((message, index) => {
+          const previous = room.messages[index - 1];
+          const newDay = !previous || dayKey(previous.at) !== dayKey(message.at);
+          return (
+            <Fragment key={message.id}>
+              {newDay ? (
+                <div className="my-3 flex items-center gap-3 px-3" role="separator">
+                  <Separator className="flex-1" />
+                  <span className="text-xs font-medium text-muted-foreground">{dayLabel(message.at)}</span>
+                  <Separator className="flex-1" />
+                </div>
+              ) : null}
+              <MessageItem continued={!newDay && continues(previous, message)} message={message}
+                onReply={() => setReplyTo(message)} room={room} rooms={rooms} />
+            </Fragment>
+          );
+        })}
       </div>
       <Composer onSent={() => { pinned.current = true; setReplyTo(null); }} replyTo={replyTo}
         onCancelReply={() => setReplyTo(null)} room={room} rooms={rooms} />
@@ -427,56 +708,93 @@ function Timeline({ room, rooms }: { room: Room; rooms: RoomsState }) {
   );
 }
 
-function MessageItem({ room, rooms, message, onReply }: { room: Room; rooms: RoomsState; message: RoomMessage; onReply: () => void }) {
+function MessageItem({ room, rooms, message, continued, onReply }: {
+  room: Room; rooms: RoomsState; message: RoomMessage; continued: boolean; onReply: () => void;
+}) {
+  const time = (
+    <time className="text-xs text-muted-foreground tabular-nums" dateTime={new Date(message.at).toISOString()}
+      title={new Date(message.at).toLocaleString()}>
+      {formatTime(message.at)}
+    </time>
+  );
   if (message.kind === "notice") {
-    const target = message.to.length ? ` → ${message.to.map((id) => labelOf(room, id)).join("、")}` : "";
+    const target = message.to.length ? message.to.map((id) => labelOf(room, id)).join("、") : null;
     return (
-      <div className="room-notice">
-        <span className="room-notice__text">{message.text}{target ? <span className="room-notice__to">{target}</span> : null}</span>
-        <time dateTime={new Date(message.at).toISOString()}>{formatTime(message.at)}</time>
+      <div className="group flex items-start gap-3 px-3 py-1 text-xs text-muted-foreground">
+        <span className="flex w-8 shrink-0 justify-center pt-px"><Info className="size-3.5 opacity-60" /></span>
+        <span className="min-w-0 flex-1 leading-relaxed whitespace-pre-wrap">
+          {message.text}
+          {target ? <span className="ml-1 opacity-70">→ {target}</span> : null}
+        </span>
+        <span className="opacity-0 transition-opacity group-hover:opacity-100">{time}</span>
       </div>
     );
   }
   const mine = message.by === "user";
   const quoted = message.replyTo ? room.messages.find((candidate) => candidate.id === message.replyTo) : undefined;
   const awaiting = awaitingReply(message);
-  const note = deliveryNote(room, message);
+  const delivery = deliveryState(room, message);
   const author = room.members.find((member) => member.id === message.by);
+  const recipients = message.to.map((id) => labelOf(room, id)).join("、");
   return (
-    <article className={`room-message${mine ? " room-message--mine" : ""}`} id={`room-message-${message.id}`}>
-      <header className="room-message__head">
-        <span className="room-message__author">
-          {author?.role === "foreman" ? <Crown aria-label="统筹" className="room-member__crown" size={ICON.xs} /> : null}
-          {labelOf(room, message.by)}
-        </span>
-        <span className="room-message__to">→ {message.to.map((id) => labelOf(room, id)).join("、")}</span>
-        <time dateTime={new Date(message.at).toISOString()} title={new Date(message.at).toLocaleString()}>{formatTime(message.at)}</time>
-        <span className="room-message__id" title="成员在终端里用这个编号回复">{shortId(message.id)}</span>
-      </header>
-      {message.replyTo ? (
-        <blockquote className="room-message__quote">
-          {quoted ? `${labelOf(room, quoted.by)}：${excerpt(quoted.text, 80)}` : "引用的消息已经不在了"}
-        </blockquote>
-      ) : null}
-      <p className="room-message__text">{message.text}</p>
-      <footer className="room-message__foot">
-        {message.mode === "request_reply" ? (
-          awaiting.length ? (
-            <span className="room-badge room-badge--wait">等 {awaiting.map((id) => labelOf(room, id)).join("、")} 回复</span>
-          ) : message.replyCancelled ? (
-            <span className="room-badge">已不再等回复</span>
-          ) : (
-            <span className="room-badge room-badge--ok">都回复了</span>
-          )
+    <article className={cn("group relative flex gap-3 rounded-md px-3 pb-0.5 hover:bg-accent/40", continued ? "pt-0" : "mt-2.5 pt-1")}
+      id={`room-message-${message.id}`}>
+      <div className="w-8 shrink-0">
+        {continued ? (
+          <span className="block pt-0.5 text-right text-[10px] text-muted-foreground opacity-0 tabular-nums group-hover:opacity-100">
+            {formatTime(message.at)}
+          </span>
+        ) : <MemberAvatar id={message.by} room={room} />}
+      </div>
+      <div className="min-w-0 flex-1">
+        {!continued ? (
+          <header className="flex flex-wrap items-baseline gap-x-2">
+            <span className="flex items-center gap-1 font-semibold">
+              {labelOf(room, message.by)}
+              {author?.role === "foreman" ? <Crown aria-label="统筹" className="size-3.5 text-warning" /> : null}
+            </span>
+            {recipients ? <span className="text-xs text-muted-foreground">→ {recipients}</span> : null}
+            {time}
+            <span className="font-mono text-[11px] text-muted-foreground/60 opacity-0 transition-opacity group-hover:opacity-100"
+              title="成员在终端里用这个编号回复">#{shortId(message.id)}</span>
+          </header>
         ) : null}
-        {note ? <span className="room-message__note">{note}</span> : null}
-        <span className="room-message__actions">
-          <button onClick={onReply} type="button"><MessageSquareReply aria-hidden="true" size={ICON.xs} /> 回复</button>
-          {mine && awaiting.length ? (
-            <button onClick={() => void rooms.run(() => api.roomCancelReply(room.id, message.id))} type="button">不用回了</button>
-          ) : null}
-        </span>
-      </footer>
+        {message.replyTo ? (
+          <blockquote className="mt-1 border-l-2 border-border pl-2.5 text-xs text-muted-foreground">
+            {quoted ? <><span className="font-medium">{labelOf(room, quoted.by)}</span>：{excerpt(quoted.text, 80)}</> : "引用的消息已经不在了"}
+          </blockquote>
+        ) : null}
+        <p className={cn("leading-relaxed break-words whitespace-pre-wrap", !continued && "mt-0.5", mine && "text-foreground")}>
+          {message.text}
+        </p>
+        {message.mode === "request_reply" || delivery ? (
+          <footer className="mt-1.5 flex flex-wrap items-center gap-2">
+            {message.mode === "request_reply" ? (
+              awaiting.length ? (
+                <Badge className="border-warning/50 bg-warning/10 text-warning" variant="outline">
+                  <BellRing /> 等 {awaiting.map((id) => labelOf(room, id)).join("、")} 回复
+                </Badge>
+              ) : message.replyCancelled ? (
+                <Badge variant="outline">已不再等回复</Badge>
+              ) : (
+                <Badge className="border-success/50 text-success" variant="outline"><CheckCheck /> 都回复了</Badge>
+              )
+            ) : null}
+            {delivery ? (
+              <span className="flex items-center gap-1 text-xs text-muted-foreground" title={delivery.title}>
+                {delivery.pending ? <Clock className="size-3.5" /> : <CheckCheck className="size-3.5 text-success" />}
+                {delivery.label}
+              </span>
+            ) : null}
+          </footer>
+        ) : null}
+      </div>
+      <div className="absolute top-0 right-3 flex -translate-y-1/2 gap-0.5 rounded-md border border-border bg-popover p-0.5 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+        <Button onClick={onReply} size="xs" variant="ghost"><MessageSquareReply /> 回复</Button>
+        {mine && awaiting.length ? (
+          <Button onClick={() => void rooms.run(() => api.roomCancelReply(room.id, message.id))} size="xs" variant="ghost">不用回了</Button>
+        ) : null}
+      </div>
     </article>
   );
 }
@@ -484,40 +802,86 @@ function MessageItem({ room, rooms, message, onReply }: { room: Room; rooms: Roo
 function Composer(props: { room: Room; rooms: RoomsState; replyTo: RoomMessage | null; onSent: () => void; onCancelReply: () => void }) {
   const { room, rooms, replyTo } = props;
   const [text, setText] = useState("");
-  const [to, setTo] = useState("");
-  const [ask, setAsk] = useState(false);
+  const [to, setTo] = useState(AUTO_RECIPIENT);
+  // 默认要求回复：用户发的消息大多在等成员给个答复；只是通知一声时手动关掉。
+  const [ask, setAsk] = useState(true);
   const input = useRef<HTMLTextAreaElement>(null);
   const options = recipientOptions(room);
-  useEffect(() => { setTo(""); setAsk(false); setText(""); }, [room.id]);
+  useEffect(() => { setTo(AUTO_RECIPIENT); setAsk(true); setText(""); }, [room.id]);
   useEffect(() => { if (replyTo) input.current?.focus(); }, [replyTo]);
   const noMembers = activeMembers(room).length === 0;
   const send = async () => {
     if (!text.trim() || rooms.busy) return;
-    const recipients = to ? [to] : [];
+    const recipients = to === AUTO_RECIPIENT ? [] : [to];
     const sent = await rooms.run(() => api.roomSay(room.id, text, recipients, replyTo?.id ?? null, ask && !replyTo));
-    if (sent) { setText(""); setAsk(false); props.onSent(); }
+    if (sent) { setText(""); setAsk(true); props.onSent(); }
   };
   return (
-    <div className="room-composer">
-      {replyTo ? (
-        <div className="room-composer__reply">
-          <span>回复 {labelOf(room, replyTo.by)}：{excerpt(replyTo.text, 60)}</span>
-          <button aria-label="取消回复" onClick={props.onCancelReply} type="button"><X aria-hidden="true" size={ICON.xs} /></button>
+    <div className="shrink-0 px-4 pt-1 pb-4">
+      <div className={cn(
+        "rounded-lg border border-input bg-card shadow-xs transition-[border-color,box-shadow]",
+        "focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/30",
+        noMembers && "opacity-60",
+      )}>
+        {replyTo ? (
+          <div className="flex items-center gap-2 border-b border-border px-3 py-1.5 text-xs text-muted-foreground">
+            <MessageSquareReply className="size-3.5 shrink-0" />
+            <span className="min-w-0 flex-1 truncate">回复 <span className="font-medium text-foreground">{labelOf(room, replyTo.by)}</span>：{excerpt(replyTo.text, 60)}</span>
+            <Button aria-label="取消回复" onClick={props.onCancelReply} size="icon-xs" variant="ghost"><X /></Button>
+          </div>
+        ) : null}
+        <Textarea aria-label="消息" disabled={noMembers} ref={input} rows={2} value={text}
+          className="min-h-14 resize-none border-0 bg-transparent px-3 py-2.5 shadow-none focus-visible:ring-0 dark:bg-transparent"
+          onChange={(event) => setText(event.target.value)}
+          placeholder={noMembers ? "先添加成员" : replyTo ? "写回复…（默认回给原发件人）" : "跟统筹说需求、问进度…  @角色 只发给那个人"}
+          onKeyDown={(event) => {
+            if (composingKey(event)) return;
+            if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void send(); }
+          }} />
+        <div className="flex items-center gap-2 px-2 pb-2">
+          <Select disabled={noMembers || replyTo !== null} onValueChange={setTo} value={to}>
+            <SelectTrigger aria-label="收件人" className="h-7 max-w-52 gap-1.5 border-0 bg-transparent px-2 text-xs shadow-none hover:bg-accent dark:bg-transparent" size="sm">
+              <span className="text-muted-foreground">发给</span>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {options.map((option) => (
+                <SelectItem key={option.value || AUTO_RECIPIENT} value={option.value || AUTO_RECIPIENT}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              {/* 包一层 span：按钮禁用时收不到悬停事件，提示就出不来。 */}
+              <span className="inline-flex">
+                <Toggle aria-label="要求回复" disabled={noMembers || replyTo !== null} onPressedChange={setAsk}
+                  pressed={ask && !replyTo} size="sm" variant="outline"
+                  className={cn(
+                    "h-7 gap-1.5 rounded-full px-2.5 text-xs font-medium text-muted-foreground shadow-none",
+                    "data-[state=on]:border-primary/50 data-[state=on]:bg-primary/15 data-[state=on]:text-primary",
+                    "hover:data-[state=on]:bg-primary/20 hover:data-[state=on]:text-primary",
+                  )}>
+                  <BellRing className="size-3.5" />
+                  要求回复
+                </Toggle>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-64">
+              {replyTo
+                ? "回复不能再要求回复"
+                : ask ? "开着：收件人回复之前，这条消息一直挂着「等回复」。只是通知一声时关掉。" : "关着：发出去就算，不要求对方回复。"}
+            </TooltipContent>
+          </Tooltip>
+          <span className="ml-auto hidden items-center gap-1 text-[11px] text-muted-foreground/70 min-[1200px]:flex">
+            <Kbd>Enter</Kbd> 发送 · <Kbd>Shift</Kbd>+<Kbd>Enter</Kbd> 换行
+          </span>
+          <Button aria-label="发送" className="max-[1199px]:ml-auto" disabled={noMembers || !text.trim() || rooms.busy}
+            onClick={() => void send()} size="icon-sm">
+            {rooms.busy ? <Spinner /> : <SendHorizontal />}
+          </Button>
         </div>
-      ) : null}
-      <textarea aria-label="消息" className="room-input room-composer__input" disabled={noMembers}
-        onChange={(event) => setText(event.target.value)} ref={input} rows={3} value={text}
-        placeholder={noMembers ? "先添加成员" : replyTo ? "写回复…（默认回给原发件人）" : "跟统筹说需求、问进度…  @角色 只发给那个人；Enter 发送，Shift+Enter 换行"}
-        onKeyDown={(event) => {
-          if (composingKey(event)) return;
-          if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void send(); }
-        }} />
-      <div className="room-composer__bar">
-        <span className="room-composer__label">发给</span>
-        <Select ariaLabel="收件人" className="room-composer__to" disabled={noMembers || replyTo !== null}
-          onChange={setTo} options={options} value={to} />
-        <Checkbox checked={ask && !replyTo} disabled={noMembers || replyTo !== null} onChange={setAsk}>要求回复</Checkbox>
-        <button className="room-primary" disabled={noMembers || !text.trim() || rooms.busy} onClick={() => void send()} type="button">发送</button>
       </div>
     </div>
   );
@@ -529,26 +893,41 @@ function TaskBoard({ room, rooms }: { room: Room; rooms: RoomsState }) {
   const [adding, setAdding] = useState(false);
   const columns = taskColumns(room);
   const archived = room.tasks.filter((task) => task.status === "archived").length;
+  const live = room.tasks.length - archived;
   useEffect(() => setAdding(false), [room.id]);
   return (
-    <aside aria-label="任务板" className="room-board">
-      <header className="room-section-head">
-        <span>任务板</span>
-        <button aria-label="新建任务" className="room-icon-button" onClick={() => setAdding((value) => !value)} title="新建任务" type="button">
-          <Plus aria-hidden="true" size={ICON.sm} />
-        </button>
+    <aside aria-label="任务板" className="flex min-h-0 flex-col border-l border-border bg-(--panel)">
+      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-3">
+        <ListTodo className="size-4 text-muted-foreground" />
+        <span className="font-semibold">任务板</span>
+        <span className="text-xs text-muted-foreground">{live}</span>
+        <Button className="ml-auto" onClick={() => setAdding((value) => !value)} size="xs" variant={adding ? "secondary" : "outline"}>
+          <Plus /> 新建任务
+        </Button>
       </header>
-      {adding ? <TaskForm onDone={() => setAdding(false)} room={room} rooms={rooms} /> : null}
-      {room.tasks.length === 0 && !adding ? (
-        <p className="room-rail__hint">任务板是空的。通常由统筹拆需求、建任务；你也可以直接在这里建。</p>
-      ) : null}
-      {(["active", "planned", "done"] as const).map((status) => columns[status].length ? (
-        <section className="room-board__column" key={status}>
-          <h3>{STATUS_LABEL[status]} <span>{columns[status].length}</span></h3>
-          {columns[status].map((task) => <TaskCard key={task.id} room={room} rooms={rooms} task={task} />)}
-        </section>
-      ) : null)}
-      {archived ? <p className="room-board__archived">已归档 {archived} 条</p> : null}
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-3">
+        {adding ? <TaskForm onDone={() => setAdding(false)} room={room} rooms={rooms} /> : null}
+        {room.tasks.length === 0 && !adding ? (
+          <Empty className="flex-none border border-dashed border-border py-8">
+            <EmptyHeader>
+              <EmptyMedia variant="icon"><ListTodo /></EmptyMedia>
+              <EmptyTitle className="text-sm">任务板是空的</EmptyTitle>
+              <EmptyDescription className="text-xs">通常由统筹拆需求、建任务；你也可以直接在这里建。</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        ) : null}
+        {(["active", "planned", "done"] as const).map((status) => columns[status].length ? (
+          <section className="flex flex-col gap-1.5" key={status}>
+            <h3 className="flex items-center gap-2 px-0.5 text-xs font-semibold text-muted-foreground">
+              <TaskStatusIcon status={status} />
+              {STATUS_LABEL[status]}
+              <span className="font-normal opacity-70">{columns[status].length}</span>
+            </h3>
+            {columns[status].map((task) => <TaskCard key={task.id} room={room} rooms={rooms} task={task} />)}
+          </section>
+        ) : null)}
+        {archived ? <p className="px-0.5 text-xs text-muted-foreground"><Archive className="mr-1 inline size-3" />已归档 {archived} 条</p> : null}
+      </div>
     </aside>
   );
 }
@@ -557,42 +936,85 @@ function TaskCard({ room, rooms, task }: { room: Room; rooms: RoomsState; task: 
   const [open, setOpen] = useState(false);
   const blockers = openBlockers(room, task);
   const run = (op: Parameters<typeof api.roomTask>[1]) => void rooms.run(() => api.roomTask(room.id, op));
-  const assignees = [
-    { value: "", label: "没人负责", disabled: true },
-    ...activeMembers(room).map((member) => ({ value: member.title, label: member.title, description: member.duty || undefined })),
-  ];
-  const assignee = task.assignee ? room.members.find((member) => member.id === task.assignee)?.title ?? "" : "";
+  const assignee = task.assignee ? room.members.find((member) => member.id === task.assignee) : undefined;
   return (
-    <article className={`room-task room-task--${task.status}`}>
-      <button aria-expanded={open} className="room-task__main" onClick={() => setOpen((value) => !value)} type="button">
-        <span className="room-task__id">{task.id}</span>
-        <span className="room-task__title">{task.title}</span>
-        <span className="room-task__meta">
-          {task.assignee ? labelOf(room, task.assignee) : "没人负责"}
-          {blockers.length ? ` · 等 ${blockers.join("、")}` : ""}
+    <article className={cn(
+      "overflow-hidden rounded-lg border border-border bg-card shadow-xs transition-shadow hover:shadow-sm",
+      task.status === "done" && "opacity-75",
+      open && "ring-1 ring-ring/30",
+    )}>
+      <button aria-expanded={open} className="flex w-full flex-col gap-1.5 px-3 py-2.5 text-left outline-none focus-visible:bg-accent/50"
+        onClick={() => setOpen((value) => !value)} type="button">
+        <span className="flex items-start gap-2">
+          <TaskStatusIcon status={task.status} />
+          <span className="mt-px font-mono text-[11px] text-muted-foreground">{task.id}</span>
+          <span className={cn("min-w-0 flex-1 leading-snug font-medium", task.status === "done" && "line-through decoration-muted-foreground/50")}>
+            {task.title}
+          </span>
+        </span>
+        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          {assignee ? <><MemberAvatar id={assignee.id} room={room} size="sm" /><span className="truncate">{assignee.title}</span></>
+            : <span className="italic">没人负责</span>}
+          {blockers.length ? <Badge className="ml-auto h-5 border-warning/50 px-1.5 text-[11px] text-warning" variant="outline">等 {blockers.join("、")}</Badge> : null}
         </span>
       </button>
       {open ? (
-        <div className="room-task__detail">
-          {task.outcome ? <p><b>完成标准</b>{task.outcome}</p> : null}
-          {task.result ? <p><b>结果</b>{task.result}</p> : null}
-          {task.notes ? <pre className="room-task__notes">{task.notes}</pre> : null}
-          <p className="room-task__by">由 {labelOf(room, task.createdBy)} 创建 · {formatTime(task.createdAt)}</p>
-          {task.status !== "done" && task.status !== "archived" ? (
-            <label className="room-field room-field--inline"><span>负责人</span>
-              <Select ariaLabel="负责人" onChange={(value) => { if (value) run({ op: "assign", task: task.id, assignee: value }); }}
-                options={assignees} value={assignee} />
-            </label>
+        <div className="flex flex-col gap-2.5 border-t border-border bg-background/40 px-3 py-2.5 text-xs">
+          {task.outcome ? <Detail label="完成标准">{task.outcome}</Detail> : null}
+          {task.result ? <Detail label="结果">{task.result}</Detail> : null}
+          {task.notes ? (
+            <Detail label="进展">
+              <pre className="max-h-32 overflow-auto rounded-md bg-muted px-2 py-1.5 font-sans whitespace-pre-wrap">{task.notes}</pre>
+            </Detail>
           ) : null}
-          <div className="room-row-actions">
-            {task.status === "planned" ? <button disabled={blockers.length > 0} onClick={() => run({ op: "start", task: task.id })} type="button">开工</button> : null}
-            {task.status === "planned" || task.status === "active" ? <button onClick={() => run({ op: "done", task: task.id })} type="button">标记完成</button> : null}
-            {task.status === "active" || task.status === "done" ? <button onClick={() => run({ op: "reopen", task: task.id })} type="button">退回待开工</button> : null}
-            <button onClick={() => run({ op: "archive", task: task.id })} type="button">归档</button>
+          {task.status !== "done" && task.status !== "archived" ? (
+            <div className="flex items-center gap-2">
+              <span className="w-14 shrink-0 text-muted-foreground">负责人</span>
+              <Select onValueChange={(value) => run({ op: "assign", task: task.id, assignee: value })} value={assignee?.title ?? ""}>
+                <SelectTrigger aria-label="负责人" className="h-7 flex-1 text-xs" size="sm"><SelectValue placeholder="没人负责" /></SelectTrigger>
+                <SelectContent>
+                  {activeMembers(room).map((member) => <SelectItem key={member.id} value={member.title}>{member.title}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
+          <p className="text-muted-foreground/80">由 {labelOf(room, task.createdBy)} 创建 · {formatTime(task.createdAt)}</p>
+          <div className="flex flex-wrap gap-1.5">
+            {task.status === "planned" ? (
+              <Button disabled={blockers.length > 0} onClick={() => run({ op: "start", task: task.id })} size="xs" variant="outline"><Play /> 开工</Button>
+            ) : null}
+            {task.status === "planned" || task.status === "active" ? (
+              <Button onClick={() => run({ op: "done", task: task.id })} size="xs"><Check /> 完成</Button>
+            ) : null}
+            {task.status === "active" || task.status === "done" ? (
+              <Button onClick={() => run({ op: "reopen", task: task.id })} size="xs" variant="outline"><RotateCcw /> 退回</Button>
+            ) : null}
+            <Button className="ml-auto text-muted-foreground" onClick={() => run({ op: "archive", task: task.id })} size="xs" variant="ghost">
+              <Archive /> 归档
+            </Button>
           </div>
         </div>
       ) : null}
     </article>
+  );
+}
+
+function TaskStatusIcon({ status }: { status: TaskStatus }) {
+  const icon = {
+    planned: <CircleDashed className="size-4 text-muted-foreground" />,
+    active: <CircleDot className="size-4 text-primary" />,
+    done: <CircleCheck className="size-4 text-success" />,
+    archived: <Archive className="size-4 text-muted-foreground" />,
+  }[status];
+  return <span aria-label={STATUS_LABEL[status]} className="mt-px shrink-0" role="img" title={STATUS_LABEL[status]}>{icon}</span>;
+}
+
+function Detail({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex gap-2">
+      <span className="w-14 shrink-0 text-muted-foreground">{label}</span>
+      <div className="min-w-0 flex-1 leading-relaxed whitespace-pre-wrap">{children}</div>
+    </div>
   );
 }
 
@@ -601,7 +1023,6 @@ function TaskForm({ room, rooms, onDone }: { room: Room; rooms: RoomsState; onDo
   const [outcome, setOutcome] = useState("");
   const [assignee, setAssignee] = useState("");
   const [after, setAfter] = useState<string[]>([]);
-  const people = [{ value: "", label: "暂不指定" }, ...activeMembers(room).map((member) => ({ value: member.title, label: member.title }))];
   const open = room.tasks.filter((task) => task.status === "planned" || task.status === "active");
   const submit = async () => {
     if (!title.trim()) return;
@@ -609,43 +1030,38 @@ function TaskForm({ room, rooms, onDone }: { room: Room; rooms: RoomsState; onDo
     if (created) onDone();
   };
   return (
-    <form className="room-task-form" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
-      <input aria-label="任务标题" autoFocus className="room-input" maxLength={80} onChange={(event) => setTitle(event.target.value)} placeholder="任务标题" value={title} />
-      <textarea aria-label="完成标准" className="room-input" onChange={(event) => setOutcome(event.target.value)} placeholder="完成标准（选填）" rows={2} value={outcome} />
-      <label className="room-field room-field--inline"><span>负责人</span>
-        <Select ariaLabel="负责人" onChange={setAssignee} options={people} value={assignee} />
-      </label>
+    <form className="flex flex-col gap-2.5 rounded-lg border border-border bg-card p-3 shadow-sm"
+      onSubmit={(event) => { event.preventDefault(); void submit(); }}>
+      <Input aria-label="任务标题" autoFocus maxLength={80} onChange={(event) => setTitle(event.target.value)} placeholder="任务标题" value={title} />
+      <Textarea aria-label="完成标准" className="min-h-14 text-sm" onChange={(event) => setOutcome(event.target.value)}
+        placeholder="完成标准（选填）" rows={2} value={outcome} />
+      <Select onValueChange={setAssignee} value={assignee}>
+        <SelectTrigger aria-label="负责人" className="w-full" size="sm"><SelectValue placeholder="负责人：暂不指定" /></SelectTrigger>
+        <SelectContent>
+          {activeMembers(room).map((member) => <SelectItem key={member.id} value={member.title}>{member.title}</SelectItem>)}
+        </SelectContent>
+      </Select>
       {open.length ? (
-        <div className="room-field"><span>要等这些完成（选填）</span>
-          <div className="room-checks">
-            {open.map((task) => (
-              <Checkbox checked={after.includes(task.id)} key={task.id}
-                onChange={(checked) => setAfter((list) => checked ? [...list, task.id] : list.filter((id) => id !== task.id))}>
-                {task.id} {excerpt(task.title, 16)}
-              </Checkbox>
-            ))}
-          </div>
+        <div className="flex flex-col gap-1.5">
+          <span className="text-xs text-muted-foreground">要等这些完成（选填）</span>
+          {open.map((task) => (
+            <Label className="flex cursor-pointer items-center gap-2 text-xs font-normal" key={task.id}>
+              <Checkbox checked={after.includes(task.id)}
+                onCheckedChange={(checked) => setAfter((list) => checked === true ? [...list, task.id] : list.filter((id) => id !== task.id))} />
+              <span className="font-mono text-muted-foreground">{task.id}</span> {excerpt(task.title, 18)}
+            </Label>
+          ))}
         </div>
       ) : null}
-      <div className="room-row-actions">
-        <button onClick={onDone} type="button">取消</button>
-        <button className="room-primary" disabled={!title.trim() || rooms.busy} type="submit">建任务</button>
+      <div className="flex justify-end gap-2">
+        <Button onClick={onDone} size="sm" type="button" variant="ghost">取消</Button>
+        <Button disabled={!title.trim() || rooms.busy} size="sm" type="submit">建任务</Button>
       </div>
     </form>
   );
 }
 
 // ---- 对话框 ----
-
-function Modal({ label, onClose, children }: { label: string; onClose: () => void; children: ReactNode }) {
-  const ref = useDialog(onClose);
-  const content = (
-    <div className="modal-scrim" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <div aria-label={label} aria-modal="true" className="modal room-dialog" ref={ref} role="dialog">{children}</div>
-    </div>
-  );
-  return createPortal(content, document.body);
-}
 
 function agentOptions(agents: AgentAvailability[]) {
   return agents
@@ -669,10 +1085,20 @@ async function launchInto(
   return null;
 }
 
+/** 忙的时候不让关：成员正在一个个拉起，半路关掉会留下没进房间的会话。 */
+function guardedClose(busy: boolean, onClose: () => void) {
+  return {
+    onOpenChange: (open: boolean) => { if (!open && !busy) onClose(); },
+    onEscapeKeyDown: (event: KeyboardEvent) => { if (busy) event.preventDefault(); },
+    onInteractOutside: (event: Event) => { if (busy) event.preventDefault(); },
+  };
+}
+
 function NewRoomDialog(props: {
   agents: AgentAvailability[]; project: ProjectWorkspace; rooms: RoomsState; onClose: () => void;
   onLaunchMember?: RoomViewProps["onLaunchMember"]; onRenameAgent?: RoomViewProps["onRenameAgent"];
 }) {
+  const id = useId();
   const kinds = agentOptions(props.agents);
   const [name, setName] = useState("");
   const [objective, setObjective] = useState("");
@@ -701,49 +1127,69 @@ function NewRoomDialog(props: {
     setBusy(false);
     if (room) props.onClose();
   };
+  const { onOpenChange, ...guards } = guardedClose(busy, props.onClose);
   return (
-    <Modal label="新建房间" onClose={() => { if (!busy) props.onClose(); }}>
-      <strong className="modal__title">新建房间</strong>
-      <p className="modal__body">一间房对应一个需求。第一行的角色当统筹：负责拆需求、派活、跟进度；其他人各管自己的职责。</p>
-      <label className="room-field"><span>房间名</span>
-        <input autoFocus className="room-input" maxLength={40} onChange={(event) => setName(event.target.value)} placeholder="比如：登录页改版" value={name} />
-      </label>
-      <label className="room-field"><span>需求目标</span>
-        <textarea className="room-input" onChange={(event) => setObjective(event.target.value)} placeholder="要做成什么样？统筹会据此拆任务" rows={3} value={objective} />
-      </label>
-      {canLaunch ? (
-        <div className="room-field"><span>班子（项目「{props.project.name}」里各开一条会话）</span>
-          <div className="room-roster">
-            {roster.map((row, index) => (
-              <div className="room-roster__row" key={index}>
-                <span className="room-roster__role">{index === 0 ? <><Crown aria-hidden="true" size={ICON.xs} /> 统筹</> : "成员"}</span>
-                <input aria-label="角色名" aria-invalid={Boolean(rowErrors[index])} className="room-input" onChange={(event) => update(index, { title: event.target.value })}
-                  title={rowErrors[index] ?? undefined} value={row.title} />
-                <input aria-label="职责" className="room-input" onChange={(event) => update(index, { duty: event.target.value })} placeholder="职责" value={row.duty} />
-                <Select ariaLabel="Agent" onChange={(kind) => update(index, { kind: kind as AgentKind })} options={kinds} value={row.kind} />
-                <button aria-label="删掉这一行" className="room-icon-button" disabled={roster.length === 1}
-                  onClick={() => setRoster((rows) => rows.filter((_, at) => at !== index))} type="button">
-                  <X aria-hidden="true" size={ICON.xs} />
-                </button>
+    <Dialog onOpenChange={onOpenChange} open>
+      <DialogContent className="gap-5 sm:max-w-2xl" {...guards}>
+        <DialogHeader>
+          <DialogTitle>新建房间</DialogTitle>
+          <DialogDescription>一间房对应一个需求。第一行的角色当统筹：负责拆需求、派活、跟进度；其他人各管自己的职责。</DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-4">
+          <Field id={`${id}-name`} label="房间名">
+            <Input autoFocus id={`${id}-name`} maxLength={40} onChange={(event) => setName(event.target.value)} placeholder="比如：登录页改版" value={name} />
+          </Field>
+          <Field id={`${id}-objective`} label="需求目标">
+            <Textarea className="min-h-20" id={`${id}-objective`} onChange={(event) => setObjective(event.target.value)} placeholder="要做成什么样？统筹会据此拆任务" rows={3} value={objective} />
+          </Field>
+          {canLaunch ? (
+            <Field label={`班子（在项目「${props.project.name}」里各开一条会话）`}>
+              <div className="overflow-hidden rounded-lg border border-border">
+                <div className="grid grid-cols-[64px_120px_minmax(0,1fr)_128px_32px] gap-2 border-b border-border bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground">
+                  <span>身份</span><span>角色名</span><span>职责</span><span>Agent</span><span />
+                </div>
+                {roster.map((row, index) => (
+                  <div className="grid grid-cols-[64px_120px_minmax(0,1fr)_128px_32px] items-center gap-2 border-b border-border px-3 py-2 last:border-b-0" key={index}>
+                    {index === 0 ? (
+                      <Badge className="border-warning/50 text-warning" variant="outline"><Crown /> 统筹</Badge>
+                    ) : <Badge variant="secondary">成员</Badge>}
+                    <Input aria-invalid={Boolean(rowErrors[index])} aria-label="角色名" className="h-8"
+                      onChange={(event) => update(index, { title: event.target.value })} title={rowErrors[index] ?? undefined} value={row.title} />
+                    <Input aria-label="职责" className="h-8" onChange={(event) => update(index, { duty: event.target.value })} placeholder="职责" value={row.duty} />
+                    <Select onValueChange={(kind) => update(index, { kind: kind as AgentKind })} value={row.kind}>
+                      <SelectTrigger aria-label="Agent" className="w-full" size="sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {kinds.map((kind) => <SelectItem key={kind.value} value={kind.value}>{kind.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <Button aria-label="删掉这一行" disabled={roster.length === 1} size="icon-sm" variant="ghost"
+                      onClick={() => setRoster((rows) => rows.filter((_, at) => at !== index))}>
+                      <X />
+                    </Button>
+                  </div>
+                ))}
               </div>
-            ))}
-            <button className="room-link" onClick={() => setRoster((rows) => [...rows, { title: "", duty: "", kind: rows[0]?.kind ?? "claude" }])} type="button">
-              + 加一位成员
-            </button>
-          </div>
-          {rowErrors.find(Boolean) ? <p className="room-dialog__error">{rowErrors.find(Boolean)}</p> : null}
+              <Button className="self-start" onClick={() => setRoster((rows) => [...rows, { title: "", duty: "", kind: rows[0]?.kind ?? "claude" }])}
+                size="xs" variant="ghost">
+                <Plus /> 加一位成员
+              </Button>
+              {rowErrors.find(Boolean) ? <p className="text-xs text-destructive">{rowErrors.find(Boolean)}</p> : null}
+            </Field>
+          ) : (
+            <p className="rounded-md border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
+              没有检测到可用的 Claude / Codex：先只建房间，成员之后在左栏添加。
+            </p>
+          )}
+          {error ? <p className="text-xs text-destructive" role="alert">{error}</p> : null}
         </div>
-      ) : (
-        <p className="room-dialog__notice">没有检测到可用的 Claude / Codex：先只建房间，成员之后在左栏添加。</p>
-      )}
-      {error ? <p className="room-dialog__error" role="alert">{error}</p> : null}
-      <div className="modal__actions">
-        <button disabled={busy} onClick={props.onClose} type="button">取消</button>
-        <button className="modal__primary" disabled={busy || !name.trim() || (canLaunch && rowErrors.some(Boolean))} onClick={() => void submit()} type="button">
-          {busy ? "正在拉起成员…" : "创建"}
-        </button>
-      </div>
-    </Modal>
+        <DialogFooter>
+          <Button disabled={busy} onClick={props.onClose} variant="outline">取消</Button>
+          <Button disabled={busy || !name.trim() || (canLaunch && rowErrors.some(Boolean))} onClick={() => void submit()}>
+            {busy ? <><Spinner /> 正在拉起成员…</> : "创建"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -752,12 +1198,13 @@ function AddMemberDialog(props: {
   onLaunchMember?: RoomViewProps["onLaunchMember"]; onRenameAgent?: RoomViewProps["onRenameAgent"];
 }) {
   const { room } = props;
+  const id = useId();
   const kinds = agentOptions(props.agents);
   const taken = new Set(props.rooms.rooms.flatMap((summary) => summary.memberTabIds));
   const existing = props.tabs.filter((tab) => isAgentKind(tab.kind) && tab.phase === "running" && !taken.has(tab.id));
   const sources = [
     ...(props.onLaunchMember ? kinds.map((kind) => ({ value: `new:${kind.value}`, label: `新开一条 ${kind.label} 会话` })) : []),
-    ...existing.map((tab) => ({ value: `tab:${tab.id}`, label: `已有会话：${tab.agentName ?? tab.title}`, description: tab.project.rootPath })),
+    ...existing.map((tab) => ({ value: `tab:${tab.id}`, label: `已有会话：${tab.agentName ?? tab.title}` })),
   ];
   const [source, setSource] = useState(sources[0]?.value ?? "");
   const [title, setTitle] = useState("");
@@ -766,6 +1213,7 @@ function AddMemberDialog(props: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const invalid = titleError(title, activeMembers(room).map((member) => member.title));
+  const current = foremanOf(room);
   const submit = async () => {
     if (invalid || !source || busy) return;
     setBusy(true);
@@ -777,37 +1225,56 @@ function AddMemberDialog(props: {
       const tab = existing.find((candidate) => `tab:${candidate.id}` === source);
       const added = tab ? await props.rooms.run(() => api.roomAddMember(room.id, tab.id, tab.kind, title, duty, foreman)) : null;
       if (added && tab) props.onRenameAgent?.(tab.id, title);
-      if (!added) reason = "没加进去，看上方提示";
+      if (!added) reason = "没加进去，看右下角的提示";
     }
     setBusy(false);
     void props.rooms.refresh();
     if (reason) setError(reason);
     else props.onClose();
   };
+  const { onOpenChange, ...guards } = guardedClose(busy, props.onClose);
   return (
-    <Modal label="添加成员" onClose={() => { if (!busy) props.onClose(); }}>
-      <strong className="modal__title">添加成员</strong>
-      <label className="room-field"><span>会话</span>
-        <Select ariaLabel="会话" disabled={!sources.length} onChange={setSource} options={sources} placeholder="没有可用的会话" value={source} />
-      </label>
-      <label className="room-field"><span>角色名</span>
-        <input aria-invalid={Boolean(title) && Boolean(invalid)} autoFocus className="room-input" maxLength={24}
-          onChange={(event) => setTitle(event.target.value)} placeholder="比如：测试" value={title} />
-      </label>
-      {title && invalid ? <p className="room-dialog__error">{invalid}</p> : null}
-      <label className="room-field"><span>职责</span>
-        <input className="room-input" onChange={(event) => setDuty(event.target.value)} placeholder="他负责什么" value={duty} />
-      </label>
-      <Checkbox checked={foreman} onChange={setForeman}>
-        当统筹{foremanOf(room) ? `（替换现在的「${foremanOf(room)?.title}」）` : "（房间里还没有统筹）"}
-      </Checkbox>
-      {error ? <p className="room-dialog__error" role="alert">{error}</p> : null}
-      <div className="modal__actions">
-        <button disabled={busy} onClick={props.onClose} type="button">取消</button>
-        <button className="modal__primary" disabled={busy || Boolean(invalid) || !source} onClick={() => void submit()} type="button">
-          {busy ? "正在添加…" : "添加"}
-        </button>
-      </div>
-    </Modal>
+    <Dialog onOpenChange={onOpenChange} open>
+      <DialogContent className="gap-5" {...guards}>
+        <DialogHeader>
+          <DialogTitle>添加成员</DialogTitle>
+          <DialogDescription>新开一条 Agent 会话，或把一条已有的会话拉进房间。加入后会收到上手说明。</DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-4">
+          <Field id={`${id}-source`} label="会话">
+            <Select disabled={!sources.length} onValueChange={setSource} value={source}>
+              <SelectTrigger className="w-full" id={`${id}-source`}><SelectValue placeholder="没有可用的会话" /></SelectTrigger>
+              <SelectContent>
+                {sources.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field id={`${id}-title`} label="角色名">
+            <Input aria-invalid={Boolean(title) && Boolean(invalid)} autoFocus id={`${id}-title`} maxLength={24}
+              onChange={(event) => setTitle(event.target.value)} placeholder="比如：测试" value={title} />
+            {title && invalid ? <p className="text-xs text-destructive">{invalid}</p> : null}
+          </Field>
+          <Field id={`${id}-duty`} label="职责">
+            <Input id={`${id}-duty`} onChange={(event) => setDuty(event.target.value)} placeholder="他负责什么" value={duty} />
+          </Field>
+          <Label className="flex cursor-pointer items-start gap-2.5 rounded-md border border-border p-3 font-normal">
+            <Checkbox checked={foreman} className="mt-0.5" onCheckedChange={(checked) => setForeman(checked === true)} />
+            <span className="flex flex-col gap-0.5">
+              <span className="font-medium">当统筹</span>
+              <span className="text-xs text-muted-foreground">
+                {current ? `会替换现在的「${current.title}」，他改为成员。` : "房间里还没有统筹。"}
+              </span>
+            </span>
+          </Label>
+          {error ? <p className="text-xs text-destructive" role="alert">{error}</p> : null}
+        </div>
+        <DialogFooter>
+          <Button disabled={busy} onClick={props.onClose} variant="outline">取消</Button>
+          <Button disabled={busy || Boolean(invalid) || !source} onClick={() => void submit()}>
+            {busy ? <><Spinner /> 正在添加…</> : "添加"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

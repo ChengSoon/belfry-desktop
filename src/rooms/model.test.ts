@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Room, RoomMember, RoomMessage, RoomTask } from "./contracts";
 import {
-  awaitingReply, deliveryNote, foremanOf, labelOf, openBlockers, progress, recipientOptions, shortId, taskColumns,
+  awaitingReply, continues, CONTINUED_MS, dayLabel, deliveryNote, hueOf, initialOf, foremanOf, labelOf, openBlockers, progress, recipientOptions, shortId, taskColumns,
   titleError, workload,
 } from "./model";
 
@@ -90,5 +90,29 @@ describe("rooms model", () => {
     expect(titleError("@全体", [])).toContain("收件人记号");
     expect(titleError("Frontend", ["frontend"])).toContain("已经有");
     expect(titleError("一二三四五六七八九十一二三四五六七八九十一二三四五", [])).toContain("24");
+  });
+
+  it("labels days and groups consecutive messages from the same author", () => {
+    const noon = new Date(2026, 10, 7, 12).getTime();
+    expect(dayLabel(noon, noon)).toBe("今天");
+    expect(dayLabel(noon - 24 * 3_600_000, noon)).toBe("昨天");
+    expect(dayLabel(new Date(2026, 0, 3).getTime(), noon)).toBe("1月3日");
+    expect(dayLabel(new Date(2025, 0, 3).getTime(), noon)).toBe("2025年1月3日");
+    const first = message({ by: "m1", to: ["m2"], at: noon });
+    expect(continues(first, message({ by: "m1", to: ["m2"], at: noon + 1_000 }))).toBe(true);
+    expect(continues(first, message({ by: "m2", to: ["m1"], at: noon + 1_000 })), "other author").toBe(false);
+    expect(continues(first, message({ by: "m1", to: ["m2"], at: noon + CONTINUED_MS })), "too late").toBe(false);
+    expect(continues(first, message({ by: "m1", to: ["m2"], at: noon + 1_000, replyTo: "x" })), "a reply").toBe(false);
+    expect(continues(message({ kind: "notice", by: "m1", to: ["m2"], at: noon }), message({ by: "m1", to: ["m2"], at: noon }))).toBe(false);
+    expect(continues(undefined, first)).toBe(false);
+  });
+
+  it("gives every member a stable avatar color and initial", () => {
+    expect(hueOf("01jabc")).toBe(hueOf("01jabc"));
+    expect(hueOf("01jabc")).toBeGreaterThanOrEqual(0);
+    expect(hueOf("01jabc")).toBeLessThan(360);
+    expect(initialOf("前端")).toBe("前");
+    expect(initialOf(" reviewer")).toBe("R");
+    expect(initialOf("")).toBe("?");
   });
 });
