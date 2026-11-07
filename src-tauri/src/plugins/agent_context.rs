@@ -10,10 +10,14 @@ pub(super) fn connection(request: &CreateTerminalRequest, workspace: &Path, tick
     } else {
         AgentKind::Codex
     };
-    let launch_id = (kind == AgentKind::Claude && request.resume.is_none()).then(new_uuid);
+    // 重连已有 PTY 不会重新执行启动参数，不能给旧 Claude 进程虚构一个 --session-id。
+    let launch_id = (kind == AgentKind::Claude
+        && request.resume.is_none()
+        && request.launch_overlay.attachment.is_none())
+    .then(new_uuid);
     let session_id = request.resume.as_ref().or(launch_id.as_ref());
     json!({
-        "sessionId": ticket, "workspace": workspace, "agentKind": kind,
+        "sessionId": ticket, "workspace": workspace, "agentKind": kind, "tabId": request.tab_id,
         "agentSession": session_id.map(|id| json!({"agent": kind, "id": id})),
         "historyRoot": history_root(request, kind, workspace), "launchSessionId": launch_id,
     })
@@ -67,6 +71,28 @@ fn new_uuid() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn claude_allocates_an_identity_only_for_a_new_process_and_keeps_known_resume() {
+        let mut request: CreateTerminalRequest = serde_json::from_value(json!({
+            "platform":"macos", "profileId":"agent:claude", "cwd":"file:///tmp",
+            "cols":80, "rows":24, "elevation":"normal"
+        }))
+        .unwrap();
+        let workspace = Path::new("/tmp");
+        let fresh = connection(&request, workspace, "fresh");
+        assert!(fresh["launchSessionId"].is_string());
+        assert_eq!(fresh["launchSessionId"], fresh["agentSession"]["id"]);
+
+        request.launch_overlay.attachment = Some("existing-pty".into());
+        let attached = connection(&request, workspace, "attached");
+        assert!(attached["launchSessionId"].is_null());
+        assert!(attached["agentSession"].is_null());
+
+        request.resume = Some("known-claude-history".into());
+        let resumed = connection(&request, workspace, "resumed");
+        assert!(resumed["launchSessionId"].is_null());
+        assert_eq!(resumed["agentSession"]["id"], "known-claude-history");
+    }
     #[test]
     fn new_claude_identifiers_have_the_uuid_shape_required_by_the_cli() {
         let value = new_uuid();

@@ -54,13 +54,18 @@ impl Service {
     fn dispatch(&self, command: Command) -> Result<serde_json::Value, AppError> {
         let value = match command {
             Command::Ping => Ok(
-                serde_json::json!({ "version": super::protocol::VERSION, "pid": std::process::id() }),
+                serde_json::json!({ "version": super::protocol::VERSION, "pid": std::process::id(),
+                    "capabilities": ["recover_exited", "session_identity"] }),
             ),
             Command::Create {
-                launch,
+                mut launch,
                 overlay,
                 attachment,
-            } => serde_json::to_value(self.create(launch, overlay, attachment)?),
+                recover_exited,
+            } => {
+                launch.launch_overlay.recover_exited = recover_exited;
+                serde_json::to_value(self.create(launch, overlay, attachment)?)
+            }
             Command::Info { id } => serde_json::to_value(self.slot(&id)?.info()),
             Command::Lookup { tab_id } => serde_json::to_value(
                 self.slots
@@ -88,6 +93,10 @@ impl Service {
             Command::Palette { id, palette } => self.backend.set_palette(&id, &palette)?,
             Command::Close { id } => self.close(&id)?,
             Command::CloseTab { tab_id } => self.close_tab(&tab_id)?,
+            Command::BindIdentity { id, session } => {
+                let _operation = self.operation.lock().unwrap();
+                self.slot(&id)?.bind_native_session(&id, session)?
+            }
             Command::Shutdown => self.shutdown(),
             other => return self.workspace_command(other),
         }
@@ -119,7 +128,24 @@ impl Service {
         }
         request.validate()?;
         if let Some(slot) = self.existing(&request, attachment.as_deref())? {
-            return self.reconnect(&slot, &mut request);
+            // reconnect 会重写 relay 环境；替换进程时仍须使用宿主原始端点。
+            let session = self.reconnect(&slot, &mut request.clone())?;
+            if !request.launch_overlay.recover_exited || session.status != TerminalStatus::Exited {
+                return Ok(session);
+            }
+            // existing 已检查标签、类型和目标；只有确认退出的这一条能被替换。
+            request.merge_native_session(slot.info().native_session.as_ref());
+            request.cwd.get_or_insert(session.cwd);
+            request.validate()?;
+            self.leases.allow_spawn()?;
+            slot.closed.store(true, Ordering::Release);
+            let result = self.spawn_new(request, overlay);
+            if result.is_err() {
+                // 配置/进程创建失败仍可查看旧输出，不能把重试变成无身份的新建。
+                slot.closed.store(false, Ordering::Release);
+                self.slots.lock().unwrap().insert(session.id, slot);
+            }
+            return result;
         }
         self.spawn_new(request, overlay)
     }
@@ -302,3 +328,7 @@ impl Service {
 fn missing() -> AppError {
     AppError::session_missing()
 }
+
+#[cfg(test)]
+#[path = "recovery_tests.rs"]
+mod recovery_tests;

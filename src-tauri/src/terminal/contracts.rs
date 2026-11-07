@@ -235,6 +235,15 @@ pub struct TerminalPalette {
 }
 
 impl CreateTerminalRequest {
+    pub(crate) fn merge_native_session(&mut self, session: Option<&AgentSessionRef>) {
+        if let Some(session) = session.filter(|session| {
+            self.profile_id == format!("agent:{}", session.agent.command_name())
+                && session.validate().is_ok()
+        }) {
+            self.resume = Some(session.id.clone());
+        }
+    }
+
     pub fn validate(&self) -> Result<(), AppError> {
         if self.cols == 0 || self.rows == 0 {
             return Err(AppError::invalid_argument(
@@ -424,6 +433,11 @@ pub enum TerminalEvent {
         session_id: String,
         snapshot: crate::agent::hooks::HookSnapshot,
     },
+    /// 原生对话身份独立于 Hook 状态；宿主采集到的身份也可用于保存与恢复。
+    SessionIdentity {
+        session_id: String,
+        session: AgentSessionRef,
+    },
     Output {
         session_id: String,
         sequence: u64,
@@ -457,6 +471,32 @@ impl TerminalSize {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn native_resume_only_replaces_an_existing_id_with_a_valid_matching_agent() {
+        let mut request: CreateTerminalRequest = serde_json::from_value(serde_json::json!({
+            "platform": "macos", "profileId": "agent:codex", "cols": 80, "rows": 24,
+            "elevation": "normal", "resume": "saved-history"
+        }))
+        .unwrap();
+        request.merge_native_session(None);
+        assert_eq!(request.resume.as_deref(), Some("saved-history"));
+        request.merge_native_session(Some(&AgentSessionRef {
+            agent: AgentKind::Claude,
+            id: "other-agent".into(),
+        }));
+        assert_eq!(request.resume.as_deref(), Some("saved-history"));
+        request.merge_native_session(Some(&AgentSessionRef {
+            agent: AgentKind::Codex,
+            id: "../invalid".into(),
+        }));
+        assert_eq!(request.resume.as_deref(), Some("saved-history"));
+        request.merge_native_session(Some(&AgentSessionRef {
+            agent: AgentKind::Codex,
+            id: "latest-history".into(),
+        }));
+        assert_eq!(request.resume.as_deref(), Some("latest-history"));
+    }
 
     #[test]
     fn launch_profiles_are_fixed_and_reject_arbitrary_commands() {

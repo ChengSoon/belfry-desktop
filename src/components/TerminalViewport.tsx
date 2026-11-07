@@ -1,5 +1,5 @@
 import { ArrowDown, ArrowUp, Search, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import "@xterm/xterm/css/xterm.css";
 import "../terminal/terminal.css";
 import type {
@@ -12,6 +12,7 @@ import { useTerminalSession } from "../terminal/useTerminalSession";
 import type { TerminalSearchState } from "../terminal/search";
 import { ICON } from "../theme/sizing";
 import type { HookSnapshot } from "../agent/hooks/contracts";
+import type { AgentSessionRef } from "../agent/contracts";
 import { HookStatusBar } from "../agent/hooks/HookStatusBar";
 import { SessionStatisticsControl } from "../usage/session/SessionStatisticsControl";
 import { statisticsTarget } from "../usage/session/target";
@@ -24,6 +25,7 @@ export interface TerminalSnapshot {
   lastInput: string | null;
   activity: SessionActivity;
   agentState?: HookSnapshot | null;
+  agentSessionRef?: AgentSessionRef | null;
 }
 
 interface TerminalViewportProps {
@@ -55,13 +57,9 @@ export function TerminalViewport({
     matches: [],
     activeIndex: -1,
   });
-  // resumeSessionId 与 cwd/profileId 一样会触发 PTY 重启，必须一起参与记忆。
-  const stableLaunch = useMemo(
-    () => launch,
-    [launch.collaborationMode, launch.cwd, launch.profileId, launch.resumeSessionId, launch.ssh, launch.projectLaunch, launch.attachmentId],
-  );
+  // 挂载条件由 hook 逐项判断；这里不缓存 launch，以免阻断实时历史身份更新。
   const requestSearch = useCallback(() => setSearchOpen(true), []);
-  const session = useTerminalSession(terminalHost, stableLaunch, requestSearch, onOpenFile, onOutput);
+  const session = useTerminalSession(terminalHost, launch, requestSearch, onOpenFile, onOutput);
   const dormant = session.phase === "exited" || session.phase === "error";
 
   useEffect(() => {
@@ -118,9 +116,10 @@ export function TerminalViewport({
       lastInput: session.lastInput,
       activity: session.activity,
       agentState: session.agentState,
+      agentSessionRef: session.agentSessionRef,
       daemonSessionId: session.daemonSessionId,
     });
-  }, [onSnapshot, session.activity, session.agentState, session.error, session.lastInput, session.phase, session.daemonSessionId]);
+  }, [onSnapshot, session.activity, session.agentState, session.agentSessionRef, session.error, session.lastInput, session.phase, session.daemonSessionId]);
 
   return (
     <section className={`terminal-workspace${launch.profileId.startsWith("agent:") ? " terminal-workspace--agent" : ""}`} aria-hidden={!visible}>

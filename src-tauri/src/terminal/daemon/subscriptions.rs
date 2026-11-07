@@ -21,6 +21,7 @@ impl Subscriptions {
         session: &mut TerminalSession,
         endpoint: Endpoint,
         sink: Arc<dyn TerminalEventSink>,
+        before_poll: impl FnOnce(&TerminalSession),
     ) {
         let subscription = Arc::new(Subscription::new(
             session.id.clone(),
@@ -28,6 +29,7 @@ impl Subscriptions {
         ));
         session.connection_id = Some(subscription.connection_id.clone());
         self.attach(subscription.clone());
+        before_poll(session);
         let subscriptions = self.clone();
         thread::spawn(move || {
             subscription.run(endpoint, sink.as_ref());

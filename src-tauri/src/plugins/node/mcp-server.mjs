@@ -7,6 +7,7 @@ import { apiError } from "./errors.mjs";
 import { bindToolContext } from "./session-context.mjs";
 import { activeContext } from "./execution.mjs";
 import { textResult } from "./mcp-results.mjs";
+import { resolveSnapshotIdentity } from "./session-identity.mjs";
 
 const MAX_BODY = 1024 * 1024;
 function json(response, status, value) {
@@ -23,6 +24,11 @@ async function readRequest(request) {
 function validateSession(input) {
   if (typeof input.sessionId !== "string" || !input.sessionId || input.sessionId.length > 128 || !isAbsolute(input.workspace)) throw apiError("INVALID_ARGUMENT", "Agent 会话上下文无效");
   if (input.agentKind != null && !["codex", "claude"].includes(input.agentKind)) throw apiError("INVALID_ARGUMENT", "Agent 类型无效");
+  if (input.agentSession != null && (input.agentSession.agent !== input.agentKind
+    || !["codex", "claude"].includes(input.agentSession.agent)
+    || typeof input.agentSession.id !== "string" || !/^[a-zA-Z0-9_-]{1,128}$/.test(input.agentSession.id))) {
+    throw apiError("INVALID_ARGUMENT", "Agent 原生会话标识无效");
+  }
 }
 function validOrigin(request, origin) {
   return request.headers.host === origin.slice(7) && (!request.headers.origin || request.headers.origin === origin);
@@ -48,14 +54,17 @@ export class McpServer {
     this.revoke(input.sessionId);
     if (this.sessions.size >= 128) throw apiError("LIMIT_EXCEEDED", "Agent 插件连接过多");
     const token = randomBytes(32).toString("hex");
-    this.sessions.set(token, { sessionId: input.sessionId, agentSession: input.agentSession, agentKind: input.agentKind,
+    this.sessions.set(token, { sessionId: input.sessionId, agentSession: input.agentSession, agentKind: input.agentKind, tabId: input.tabId,
       historyRoot: input.historyRoot, workspace, requests: 0, calls: new Map(), abort: new AbortController() });
-    return { url: this.url, token };
+    const context = this.sessions.get(token);
+    await this.refreshIdentity(context);
+    return { url: this.url, token, agentSession: context.agentSession ?? null };
   }
   revoke(sessionId) {
     for (const [token, session] of this.sessions) {
       if (session.sessionId !== sessionId) continue;
       session.expired = true;
+      clearTimeout(session.identityTimer);
       session.abort.abort(apiError("SESSION_EXPIRED", "Agent 会话已失效"));
       void this.manager.broker.browser.revoke(sessionId);
       for (const stream of this.streams.get(token) ?? []) stream.end();
@@ -91,6 +100,7 @@ export class McpServer {
     if (message.id === undefined) return dispatchMcp(this.manager, message, context);
     if (context.calls.has(message.id)) throw apiError("INVALID_ARGUMENT", "MCP 请求 ID 重复");
     bindToolContext(context, message);
+    this.publishIdentity(context);
     const controller = new AbortController(); context.calls.set(message.id, controller);
     const scoped = Object.assign(Object.create(context), { abort: { signal: AbortSignal.any([context.abort.signal, controller.signal]) } });
     const disconnect = () => { if (!response.writableEnded) controller.abort(apiError("CANCELLED", "Agent 已断开本次请求")); };
@@ -101,6 +111,25 @@ export class McpServer {
       throw error;
     }
     finally { response.off("close", disconnect); context.calls.delete(message.id); }
+  }
+  publishIdentity(context) {
+    const session = context.agentSession;
+    if (!session || context.expired || context.publishedIdentity === session.id) return;
+    this.manager.event("sessionIdentity", { sessionId: context.sessionId, session: { agent: session.agent, id: session.id } });
+    context.publishedIdentity = session.id;
+    clearTimeout(context.identityTimer);
+  }
+  async refreshIdentity(context) {
+    if (context.expired) return;
+    if (!context.agentSession) {
+      const discovered = await resolveSnapshotIdentity(context);
+      if (!context.expired && !context.agentSession && discovered) context.agentSession = discovered;
+    }
+    this.publishIdentity(context);
+    if (!context.expired && !context.agentSession && context.agentKind === "codex" && context.tabId && context.historyRoot) {
+      context.identityTimer = setTimeout(() => void this.refreshIdentity(context), 2000);
+      context.identityTimer.unref();
+    }
   }
   subscribe(request, response, token) {
     const streams = this.streams.get(token) ?? new Set();

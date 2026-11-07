@@ -39,6 +39,12 @@ pub enum Command {
         launch: CreateTerminalRequest,
         overlay: WireOverlay,
         attachment: Option<String>,
+        #[serde(default)]
+        recover_exited: bool,
+    },
+    BindIdentity {
+        id: String,
+        session: crate::agent::AgentSessionRef,
     },
     Poll {
         id: String,

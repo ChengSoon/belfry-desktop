@@ -1,5 +1,6 @@
 export type Platform = "macos" | "windows";
 import type { HookSnapshot } from "../agent/hooks/contracts";
+import type { AgentSessionRef } from "../agent/contracts";
 import type { ProjectLaunch } from "../workspace/projects/contracts";
 
 export type TerminalPhase = "idle" | "creating" | "running" | "exited" | "error";
@@ -83,6 +84,12 @@ export function sshDisplayName(target: SshTarget): string {
 export interface TerminalLaunch {
   /** 已保存的后台 PTY 身份；恢复只连接这个进程。 */
   attachmentId?: string | null;
+  /** 最新原生会话身份；只供下次恢复使用，更新它不应重新挂载终端。 */
+  agentSessionRef?: AgentSessionRef | null;
+  /** 保存的接驳或断线重连允许后台替换已退出的进程；普通启动不设置。 */
+  recoverExited?: boolean;
+  /** 重启及恢复不能重发项目启动命令。 */
+  skipStartup?: boolean;
   profileId: LaunchProfileId;
   cwd: string | null;
   /**
@@ -162,6 +169,7 @@ export type TerminalStreamEvent =
   | { kind: "disconnected"; sessionId: string; message: string }
   | { kind: "replay_gap"; sessionId: string; nextSequence: number; droppedEvents: number }
   | { kind: "agent_state"; sessionId: string; snapshot: HookSnapshot }
+  | { kind: "session_identity"; sessionId: string; session: AgentSessionRef }
   | {
       kind: "output";
       sessionId: string;

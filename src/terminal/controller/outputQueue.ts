@@ -7,7 +7,7 @@ const MAX_BATCH_EVENTS = 256;
 const MAX_PENDING_EVENTS = MAX_BATCHES * MAX_BATCH_EVENTS;
 const OUTPUT_EVENT_OVERHEAD = 128;
 const CONTROL_EVENT_OVERHEAD = 256;
-const STREAM_KINDS = new Set(["output", "exit", "replay_gap", "agent_state", "disconnected"]);
+const STREAM_KINDS = new Set(["output", "exit", "replay_gap", "agent_state", "session_identity", "disconnected"]);
 
 interface OutputQueuePorts {
   render: (events: TerminalStreamEvent[]) => Promise<void>;
@@ -137,6 +137,7 @@ export class OutputQueue {
 function eventBytes(event: TerminalStreamEvent) {
   if (event.kind === "output") return event.bytes.length + OUTPUT_EVENT_OVERHEAD;
   if (event.kind === "disconnected") return event.message.length + OUTPUT_EVENT_OVERHEAD;
+  if (event.kind === "session_identity") return CONTROL_EVENT_OVERHEAD + event.session.id.length;
   if (event.kind === "agent_state") {
     return CONTROL_EVENT_OVERHEAD + event.snapshot.reason.length + (event.snapshot.transcriptPath?.length ?? 0)
       + (event.snapshot.session?.id.length ?? 0);

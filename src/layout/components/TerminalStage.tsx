@@ -121,7 +121,7 @@ const SessionTerminal = memo(function SessionTerminal({
   onOpenFile: (tabId: string, path: string, line: number | null) => void;
   onSnapshot: (id: string, snapshot: TerminalSnapshot) => void;
 }) {
-  // launch 变了就等于要换 cwd/profile，会重启 PTY——只能跟着这几个字段变。
+  // 启动参数与实时历史身份一起下传；hook 只因启动参数变化重新挂载。
   // tab.id 在会话整个生命周期里不变，放进来不会招致额外重启。
   const launch = useMemo(
     () => ({
@@ -130,6 +130,7 @@ const SessionTerminal = memo(function SessionTerminal({
       tabId: tab.id,
       collaborationMode: tab.collaborationMode,
       resumeSessionId: tab.resumeSessionId,
+      agentSessionRef: tab.agentSessionRef,
       ssh: tab.sshTarget,
       projectLaunch: tab.projectLaunch,
       attachmentId: tab.restoreSessionId,
@@ -140,6 +141,7 @@ const SessionTerminal = memo(function SessionTerminal({
       tab.profileId,
       tab.project.rootUri,
       tab.resumeSessionId,
+      tab.agentSessionRef,
       tab.sshTarget,
       tab.projectLaunch,
       tab.restoreSessionId,

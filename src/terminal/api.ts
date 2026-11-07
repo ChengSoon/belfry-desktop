@@ -17,8 +17,9 @@ export function createTerminal(
   request: CreateTerminalRequest,
   onEvent: Channel<TerminalEvent>,
   attachment?: string | null,
+  recoverExited = false,
 ) {
-  return invoke<TerminalSession>("terminal_create", { request, onEvent, attachment: attachment ?? null, flowControl: true });
+  return invoke<TerminalSession>("terminal_create", { request, onEvent, attachment: attachment ?? null, recoverExited, flowControl: true });
 }
 
 export function acknowledgeTerminalOutput(receipt: OutputReceipt) {

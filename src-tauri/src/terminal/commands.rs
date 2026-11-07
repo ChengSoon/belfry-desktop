@@ -15,6 +15,7 @@ pub async fn terminal_create(
     endpoint: State<'_, CollabEndpoint>,
     mut request: CreateTerminalRequest,
     attachment: Option<String>,
+    recover_exited: Option<bool>,
     flow_control: Option<bool>,
     on_event: Channel<TerminalEvent>,
 ) -> Result<TerminalSession, AppError> {
@@ -22,27 +23,34 @@ pub async fn terminal_create(
         crate::agent::native_launch::freeze(&mut request.env);
     }
     request.launch_overlay.attachment = attachment;
+    request.launch_overlay.recover_exited = recover_exited.unwrap_or(false);
     if let Some(tab) = &request.tab_id {
         request.launch_overlay.launch_epoch = app.state::<TerminalRuntime>().launch_epoch(tab);
     }
     issue_collab_identity(&identities, endpoint.0.as_deref(), &mut request);
     tauri::async_runtime::spawn_blocking(move || {
-        let launch_epoch = request.launch_overlay.launch_epoch;
         let runtime = app.state::<TerminalRuntime>();
         runtime.prepare_attachment(&mut request)?;
-        if request.launch_overlay.attachment.is_none() {
-            crate::provider::project::prepare(&app, &mut request)?;
-        }
-        request.launch_overlay.launch_epoch = launch_epoch;
         if !runtime.uses_daemon() {
+            prepare_project(&app, &mut request)?;
             app.state::<crate::agent::hooks::HookRuntime>()
                 .prepare(&mut request, on_event.clone());
         }
         let ticket = crate::plugins::agent_connection::attach(&app, &mut request);
         request.launch_overlay.output_acknowledgements = flow_control.unwrap_or(false);
-        let result = runtime.create(request, on_event, |session| {
-            crate::plugins::agent_connection::bind(&app, &session.id, ticket.clone());
-        });
+        let result = runtime.create(
+            request,
+            on_event,
+            |request| {
+                if runtime.uses_daemon() {
+                    prepare_project(&app, request)?;
+                }
+                Ok(())
+            },
+            |session| {
+                crate::plugins::agent_connection::bind(&app, &session.id, ticket.clone());
+            },
+        );
         if result.is_err() {
             if let Some(ticket) = ticket {
                 crate::plugins::agent_connection::revoke(&app, &ticket);
@@ -52,6 +60,19 @@ pub async fn terminal_create(
     })
     .await
     .map_err(|e| AppError::io(e.to_string()))?
+}
+
+fn prepare_project(app: &AppHandle, request: &mut CreateTerminalRequest) -> Result<(), AppError> {
+    let attachment = request.launch_overlay.attachment.clone();
+    let recover_exited = request.launch_overlay.recover_exited;
+    let launch_epoch = request.launch_overlay.launch_epoch;
+    let output_acknowledgements = request.launch_overlay.output_acknowledgements;
+    crate::provider::project::prepare(app, request)?;
+    request.launch_overlay.attachment = attachment;
+    request.launch_overlay.recover_exited = recover_exited;
+    request.launch_overlay.launch_epoch = launch_epoch;
+    request.launch_overlay.output_acknowledgements = output_acknowledgements;
+    Ok(())
 }
 
 /// 给 Agent 会话发协作身份牌，注入进它自己那条 PTY 的环境变量。

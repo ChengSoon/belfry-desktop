@@ -52,8 +52,9 @@ impl TerminalRuntime {
 
     pub fn create(
         &self,
-        request: CreateTerminalRequest,
+        mut request: CreateTerminalRequest,
         channel: Channel<TerminalEvent>,
+        prepare_new: impl FnOnce(&mut CreateTerminalRequest) -> Result<(), AppError>,
         bind: impl FnOnce(&TerminalSession),
     ) -> Result<TerminalSession, AppError> {
         let _guard = self.lock_workspace();
@@ -62,16 +63,23 @@ impl TerminalRuntime {
         let exited = Arc::new(AtomicBool::new(false));
         let hook = request.launch_overlay.hook.clone();
         let output_acknowledgements = request.launch_overlay.output_acknowledgements;
-        let result = self.backend.spawn(
-            request,
-            Arc::new(TauriSink {
-                channel,
-                hook: hook.clone(),
-                sessions: self.sessions.clone(),
-                exited: exited.clone(),
-                output_acknowledgements,
-            }),
-        );
+        let sink = Arc::new(TauriSink {
+            channel,
+            hook: hook.clone(),
+            sessions: self.sessions.clone(),
+            exited: exited.clone(),
+            output_acknowledgements,
+        });
+        let prepare = |request: &mut CreateTerminalRequest| {
+            prepare_new(request)?;
+            self.validate_launch(request)
+        };
+        let result = if let Some(daemon) = &self.daemon {
+            daemon.spawn_prepared(request, sink, prepare)
+        } else {
+            prepare(&mut request)?;
+            self.backend.spawn(request, sink)
+        };
         if let Ok(session) = &result {
             let mut sessions = self.sessions.lock().unwrap();
             if !exited.load(Ordering::Acquire) {
@@ -157,7 +165,7 @@ impl TerminalRuntime {
             None
         };
         if let Some(info) = info {
-            request.resume = info.native_session.map(|session| session.id);
+            request.merge_native_session(info.native_session.as_ref());
             request.launch_overlay.attachment = Some(info.session.id);
         }
         Ok(())
@@ -184,6 +192,17 @@ impl TerminalRuntime {
 
     pub fn uses_daemon(&self) -> bool {
         self.daemon.is_some()
+    }
+    /// 插件/原生 CLI 的身份采集只认确定的终端 ID，不按目录或最近历史猜测。
+    pub fn bind_native_session(
+        &self,
+        terminal_id: &str,
+        session: crate::agent::AgentSessionRef,
+    ) -> Result<(), AppError> {
+        self.daemon
+            .as_ref()
+            .ok_or_else(|| AppError::unsupported("终端后台未启用"))?
+            .bind_native_session(terminal_id, session)
     }
     pub fn launch_epoch(&self, tab: &str) -> u64 {
         *self.launch_epochs.lock().unwrap().get(tab).unwrap_or(&0)

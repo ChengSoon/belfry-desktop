@@ -75,6 +75,7 @@ const SOURCES: &[(&str, &str)] = sources![
     "clipboard-client.mjs",
     "models.mjs",
     "session-context.mjs",
+    "session-identity.mjs",
     "session-transcript.mjs",
     "model-http.mjs",
     "browser.mjs",

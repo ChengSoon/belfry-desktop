@@ -1,6 +1,7 @@
 mod client;
 mod endpoint;
 mod files;
+mod identity;
 mod leases;
 pub(crate) mod lifecycle;
 #[cfg(all(test, target_os = "macos"))]

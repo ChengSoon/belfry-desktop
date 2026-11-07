@@ -36,3 +36,15 @@ export function isMissingTerminalSession(error: unknown): boolean {
     : typeof error === "object" && error && "message" in error ? String(error.message) : String(error);
   return /^(?:\[(?:IO_ERROR|SESSION_MISSING)\]\s*)?原后台任务已不存在。/u.test(message);
 }
+
+/** 只重试传输故障；旧后台的字符串错误同样不能把鉴权、项目或协议问题当成断线。 */
+export function isRetryableTerminalConnectionError(error: unknown): boolean {
+  if (!error || isMissingTerminalSession(error)) return false;
+  const record = typeof error === "object" ? error as { code?: unknown; retryable?: unknown } : null;
+  const message = errorMessage(error);
+  const code = record?.code ?? /^\[([A-Z_]+)\]/u.exec(message)?.[1];
+  if (record?.retryable === false || (code && code !== "IO_ERROR" && code !== "TIMEOUT")) return false;
+  if (/permission|denied|unauthori[sz]ed|forbidden|invalid (?:token|argument)|权限|鉴权|认证|身份.*(?:校验|无效|不匹配)|项目或类型已改变|项目.*不匹配|后台(?:消息|响应).*(?:格式|大小)|后台协议版本不匹配/iu.test(message)) return false;
+  if (code === "TIMEOUT" || (code === "IO_ERROR" && record?.retryable === true)) return true;
+  return /后台连接|终端输出连接已关闭|network|connection|connect (?:failed|error)|socket|timed?\s*out|timeout|broken pipe|bridge closed|unexpected eof|ECONN|EPIPE/iu.test(message);
+}

@@ -75,7 +75,7 @@ export function createProjectSwitchTab(
 export function applySnapshot(tab: WorkspaceTab, snapshot: TerminalSnapshot): WorkspaceTab {
   const daemonSessionId = snapshot.daemonSessionId === undefined ? tab.daemonSessionId : snapshot.daemonSessionId;
   const agentState = snapshot.agentState === undefined ? tab.agentState : snapshot.agentState;
-  const incoming = agentState?.session;
+  const incoming = snapshot.agentSessionRef ?? agentState?.session;
   const agentSessionRef = incoming?.agent === tab.kind ? incoming : tab.agentSessionRef;
   // SSH 标签认连接目标，不随远程命令改名；手动改过的名字同样不再被自动顶掉。
   // toSessionTitle 返回 null 同理保留上一个。

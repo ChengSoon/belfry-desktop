@@ -1,5 +1,6 @@
 import type { Terminal } from "@xterm/xterm";
 import type { HookSnapshot } from "../../agent/hooks/contracts";
+import type { AgentSessionRef } from "../../agent/contracts";
 import type { TerminalStreamEvent } from "../contracts";
 import { CodexThemeSync } from "../codexThemeSync";
 import { looksLikePasswordPrompt } from "../passwordPrompt";
@@ -19,6 +20,7 @@ interface OutputPorts {
   onGap: () => void;
   onExit: (code: number, tail: string) => void;
   onAgentState: (snapshot: HookSnapshot) => void;
+  onSessionIdentity?: (session: AgentSessionRef) => void;
 }
 
 /** 输出解码/主题过滤与解析屏障。gap 的 reset 必须等此前写入完成。 */
@@ -67,6 +69,7 @@ export class TerminalOutput {
   private async control(event: Exclude<TerminalStreamEvent, { kind: "output" }>) {
     if (event.kind === "disconnected") throw new Error(event.message);
     if (event.kind === "agent_state") { this.ports.onAgentState(event.snapshot); return; }
+    if (event.kind === "session_identity") { this.ports.onSessionIdentity?.(event.session); return; }
     if (event.kind === "replay_gap") {
       this.decoder.decode();
       this.utf8.reset(true);

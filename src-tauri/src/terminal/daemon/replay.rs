@@ -91,6 +91,7 @@ pub(super) fn event_size(event: &TerminalEvent) -> usize {
                     .map_or(0, |session| session.id.len())
         }
         TerminalEvent::Disconnected { message, .. } => message.len() + 128,
+        TerminalEvent::SessionIdentity { session, .. } => session.id.len() + 128,
         _ => 256,
     }
 }

@@ -1,7 +1,7 @@
 use super::super::{
     AppError, CreateTerminalRequest,
     backend::{PtyBackend, TerminalEventSink},
-    contracts::{TerminalPalette, TerminalSession, TerminalSize},
+    contracts::{AppErrorCode, TerminalPalette, TerminalSession, TerminalSize, TerminalStatus},
 };
 use super::{
     endpoint, files,
@@ -21,6 +21,8 @@ pub struct DaemonClient {
     root: PathBuf,
     endpoint: Mutex<Option<Endpoint>>,
     polls: Subscriptions,
+    capabilities: Mutex<Option<(String, Vec<String>)>>,
+    identities: Arc<super::identity::NativeIdentities>,
 }
 
 impl DaemonClient {
@@ -29,6 +31,8 @@ impl DaemonClient {
             root,
             endpoint: Mutex::new(None),
             polls: Subscriptions::default(),
+            capabilities: Mutex::new(None),
+            identities: Arc::new(super::identity::NativeIdentities::default()),
         }
     }
 
@@ -56,19 +60,25 @@ impl DaemonClient {
     }
 
     pub fn list(&self) -> Result<Vec<SessionInfo>, AppError> {
-        self.call(Command::List)
+        let sessions: Vec<SessionInfo> = self.call(Command::List)?;
+        Ok(sessions
+            .into_iter()
+            .map(|info| self.with_native_session(info))
+            .collect())
     }
     pub fn workspace_lease(&self) -> Result<super::LeaseGuard, AppError> {
         super::LeaseGuard::acquire(self.endpoint()?)
     }
 
     pub fn attachment(&self, id: &str) -> Result<SessionInfo, AppError> {
-        self.call(Command::Info { id: id.into() })
+        let info = self.call(Command::Info { id: id.into() })?;
+        Ok(self.with_native_session(info))
     }
     pub fn lookup(&self, tab_id: &str) -> Result<Option<SessionInfo>, AppError> {
-        self.call(Command::Lookup {
+        let info: Option<SessionInfo> = self.call(Command::Lookup {
             tab_id: tab_id.into(),
-        })
+        })?;
+        Ok(info.map(|info| self.with_native_session(info)))
     }
     pub fn close_tab(&self, tab_id: &str) -> Result<(), AppError> {
         self.call(Command::CloseTab {
@@ -78,10 +88,12 @@ impl DaemonClient {
 
     pub fn detach(&self, id: &str, connection: &str) {
         self.polls.detach(id, connection);
+        self.identities.detach(id, connection);
     }
 
     pub fn detach_all(&self) {
         self.polls.detach_all();
+        self.identities.detach_all();
     }
 
     pub fn acknowledge(&self, id: &str, connection: &str, delivery: u64) -> bool {
@@ -92,13 +104,154 @@ impl DaemonClient {
         self.call(Command::Shutdown)
     }
 
+    fn supports(&self, capability: &str) -> Result<bool, AppError> {
+        let endpoint = self.endpoint()?;
+        let mut cached = self.capabilities.lock().unwrap();
+        if cached
+            .as_ref()
+            .is_none_or(|(instance, _)| instance != &endpoint.instance)
+        {
+            let reply: serde_json::Value = transport::call_app(&endpoint, Command::Ping)?;
+            let capabilities = reply["capabilities"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(|value| value.as_str().map(String::from))
+                .collect();
+            *cached = Some((endpoint.instance, capabilities));
+        }
+        Ok(cached
+            .as_ref()
+            .unwrap()
+            .1
+            .iter()
+            .any(|value| value == capability))
+    }
+
+    fn with_native_session(&self, info: SessionInfo) -> SessionInfo {
+        self.identities.enrich(info)
+    }
+
+    pub fn bind_native_session(
+        &self,
+        id: &str,
+        session: crate::agent::AgentSessionRef,
+    ) -> Result<(), AppError> {
+        session.validate().map_err(AppError::invalid_argument)?;
+        let info: SessionInfo = self.call(Command::Info { id: id.into() })?;
+        if info.profile_id != format!("agent:{}", session.agent.command_name()) {
+            return Err(AppError::invalid_argument(
+                "原生会话身份与后台任务类型不匹配",
+            ));
+        }
+        // 旧 daemon 不认识新命令：保留宿主缓存并通知 UI，不能为了升级停止用户任务。
+        if self.supports("session_identity")? {
+            self.call::<()>(Command::BindIdentity {
+                id: id.into(),
+                session: self
+                    .identities
+                    .resolve(id, &session, info.native_session.as_ref()),
+            })?;
+        }
+        self.identities
+            .publish(id, &session, info.native_session.as_ref());
+        Ok(())
+    }
+
+    fn create_session(
+        &self,
+        request: &CreateTerminalRequest,
+        recover_exited: bool,
+    ) -> Result<TerminalSession, AppError> {
+        self.call(Command::Create {
+            launch: request.clone(),
+            overlay: files::encode(&request.launch_overlay)?,
+            attachment: request.launch_overlay.attachment.clone(),
+            recover_exited,
+        })
+    }
+
+    pub fn spawn_prepared(
+        &self,
+        mut request: CreateTerminalRequest,
+        sink: Arc<dyn TerminalEventSink>,
+        prepare_new: impl FnOnce(&mut CreateTerminalRequest) -> Result<(), AppError>,
+    ) -> Result<TerminalSession, AppError> {
+        let recover_exited = request.launch_overlay.recover_exited;
+        let mut prepare_new = Some(prepare_new);
+        if request.launch_overlay.attachment.is_none() {
+            prepare_new.take().unwrap()(&mut request)?;
+        }
+        // 先让 daemon 校验目标。未订阅旧输出前区分回放和恢复，避免旧 Exit 关闭新输入。
+        let mut session = self.create_session(&request, false)?;
+        if recover_exited && session.reconnected && session.status == TerminalStatus::Exited {
+            let info = self.attachment(&session.id)?;
+            request.merge_native_session(info.native_session.as_ref());
+            request.launch_overlay.attachment = Some(session.id.clone());
+            let original_cwd = request.cwd.clone();
+            request.cwd.get_or_insert(session.cwd.clone());
+            if let Some(prepare) = prepare_new.take() {
+                prepare(&mut request)?;
+            }
+            request.cwd = original_cwd;
+            if self.supports("recover_exited")? {
+                session = self.create_session(&request, true)?;
+            } else {
+                // Create 已验证标签/项目/类型，而且该 ID 明确已退出。只关闭这一条，
+                // 不用 CloseTab（其他客户端可能已为同一标签建立新 PTY）。
+                match self.call::<()>(Command::Close {
+                    id: session.id.clone(),
+                }) {
+                    Ok(()) => {}
+                    Err(error) if error.code == AppErrorCode::SessionMissing => {}
+                    Err(error) => return Err(error),
+                }
+                self.identities.forget(&session.id);
+                request.launch_overlay.attachment = None;
+                request.cwd.get_or_insert(session.cwd);
+                session = self.create_session(&request, false)?;
+            }
+            // 新进程立即退出也只返回结果，不再恢复；一次调用最多创建一个新进程。
+        }
+        let initial_identity = request.resume.as_ref().and_then(|id| {
+            let agent = match request.profile_id.as_str() {
+                "agent:codex" => crate::agent::AgentKind::Codex,
+                "agent:claude" => crate::agent::AgentKind::Claude,
+                _ => return None,
+            };
+            Some(crate::agent::AgentSessionRef {
+                agent,
+                id: id.clone(),
+            })
+        });
+        self.subscribe(
+            &mut session,
+            sink,
+            initial_identity.as_ref(),
+            request.profile_id.starts_with("agent:"),
+        )?;
+        Ok(session)
+    }
+
     fn subscribe(
         &self,
         session: &mut TerminalSession,
         sink: Arc<dyn TerminalEventSink>,
+        initial_identity: Option<&crate::agent::AgentSessionRef>,
+        watch_identity: bool,
     ) -> Result<(), AppError> {
         let endpoint = self.endpoint()?;
-        self.polls.start(session, endpoint, sink);
+        let stream = if watch_identity {
+            self.identities.observe(sink.clone())
+        } else {
+            sink.clone()
+        };
+        self.polls.start(session, endpoint, stream, |session| {
+            if watch_identity {
+                // 初始身份在回放开始前发送；后来的 Hook 能更新身份，旧 resume 不会压过它。
+                self.identities.listen(session, sink, initial_identity);
+            }
+        });
         Ok(())
     }
 }
@@ -109,15 +262,7 @@ impl PtyBackend for DaemonClient {
         request: CreateTerminalRequest,
         sink: Arc<dyn TerminalEventSink>,
     ) -> Result<TerminalSession, AppError> {
-        let overlay = files::encode(&request.launch_overlay)?;
-        let attachment = request.launch_overlay.attachment.clone();
-        let mut session: TerminalSession = self.call(Command::Create {
-            launch: request,
-            overlay,
-            attachment,
-        })?;
-        self.subscribe(&mut session, sink)?;
-        Ok(session)
+        self.spawn_prepared(request, sink, |_| Ok(()))
     }
     fn write(&self, id: &str, bytes: &[u8]) -> Result<(), AppError> {
         self.call(Command::Write {
@@ -139,7 +284,9 @@ impl PtyBackend for DaemonClient {
         })
     }
     fn close(&self, id: &str) -> Result<(), AppError> {
-        self.call(Command::Close { id: id.into() })
+        self.call::<()>(Command::Close { id: id.into() })?;
+        self.identities.forget(id);
+        Ok(())
     }
     fn close_all(&self) {
         let _ = self.shutdown();
@@ -214,3 +361,7 @@ fn detach_process(command: &mut Process) {
         command.creation_flags(DETACHED_PROCESS | NEW_PROCESS_GROUP);
     }
 }
+
+#[cfg(test)]
+#[path = "client_tests.rs"]
+mod tests;

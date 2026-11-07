@@ -1,4 +1,5 @@
 import type { HookSnapshot } from "../../agent/hooks/contracts";
+import type { AgentSessionRef } from "../../agent/contracts";
 import type { TerminalTheme } from "../../theme/xtermTheme";
 import type { TypographyRuntime } from "../../typography/contracts";
 import type { SessionActivity, TerminalCommandTarget, TerminalPhase, TerminalSession } from "../contracts";
@@ -10,6 +11,12 @@ export interface MountCallbacks {
   onSession: (session: TerminalSession | null) => void;
   /** 后台已确认旧 PTY 丢失，清除其持久化身份后尝试恢复一次。 */
   onAttachmentLost?: () => void;
+  /** 连接失败保留结构化错误，宿主据此决定是否退避重连同一 PTY。 */
+  onConnectionFailure?: (error: unknown, attachmentId: string | null) => void;
+  /** 重建前再读取最新身份，避免等待接驳期间原生会话已变化。 */
+  getResumeSessionId?: () => string | null;
+  /** 历史身份独立于 Hook 活跃状态，退出回放也必须接收。 */
+  onSessionIdentity?: (session: AgentSessionRef) => void;
   /** 用户提交的一行原始输入，供上层提炼会话名。 */
   onInput: (line: string) => void;
   /** 终端输出的文本片段，供协作协议等结构化通道消费。 */

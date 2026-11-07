@@ -140,6 +140,8 @@
 /* 会话异常时才提示，正常运行不占视觉。 */
 .terminal-alert {
   position: absolute;
+  /* xterm 的链接画布位于第 2 层，恢复按钮需要能接收指针点击。 */
+  z-index: 3;
   bottom: 10px;
   left: 14px;
   display: flex;

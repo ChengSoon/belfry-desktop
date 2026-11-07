@@ -61,6 +61,7 @@ impl Engine {
             (
                 Arc::new(move |request| platform::dispatch(&host_app, request)),
                 Arc::new(move |event| {
+                    if super::agent_connection::identity_event(&event_app, &event) { return; }
                     let _ = event_app.emit_to("main", "plugin-runtime-event", event);
                 }),
             ),

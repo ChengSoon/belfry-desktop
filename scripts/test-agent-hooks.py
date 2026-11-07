@@ -6,7 +6,6 @@ import importlib.util
 import json
 import os
 from pathlib import Path
-import shlex
 import signal
 import socketserver
 import subprocess
@@ -68,7 +67,8 @@ def environment(root, ports):
 
 
 def install_fixture(root, binary, kind):
-    command = shlex.quote(str(binary)) + " --belfry-hook " + kind
+    # 与安装器一致，路径始终加引号；shlex.quote 会省略无空格路径的引号，导致被判为失效配置。
+    command = "'" + str(binary).replace("'", "'\"'\"'") + "' --belfry-hook " + kind
     hooks = {event: [{"hooks": [{"type": "command", "command": command, "timeout": 1,
               "statusMessage": "Belfry 会话状态 · " + kind}]}] for event in AGENT_EVENTS[kind]}
     file = "hooks.json" if kind == "codex" else "settings.json"

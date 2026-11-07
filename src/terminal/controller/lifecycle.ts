@@ -35,6 +35,7 @@ export class TerminalLifecycle {
   private exited = false;
   private readonly channel = new Channel<TerminalEvent>();
   private restoredMissingAttachment = false;
+  private resumeSessionId: string | null = null;
   private readonly activity;
   private readonly input;
   private readonly output;
@@ -48,7 +49,11 @@ export class TerminalLifecycle {
       onPasswordPrompt: () => this.input.mute(),
       onGap: () => ports.callbacks.onError("较早输出已超出缓存；原进程仍在继续运行。"),
       onExit: (code, tail) => this.finishExit(code, tail),
-      onAgentState: (snapshot) => this.activity.accept(snapshot),
+      onAgentState: (snapshot) => {
+        if (snapshot.session) ports.callbacks.onSessionIdentity?.(snapshot.session);
+        this.activity.accept(snapshot);
+      },
+      onSessionIdentity: (session) => ports.callbacks.onSessionIdentity?.(session),
     });
     this.queue = new OutputQueue({ render: (events) => this.output.render(events),
       acknowledge: acknowledgeTerminalOutput, fail: (error) => this.fail(error) });
@@ -68,15 +73,19 @@ export class TerminalLifecycle {
       if (hostIsLaidOut(host)) fit.fit();
       const grid = initialGrid(host, terminal);
       const request = createTerminalRequest(grid.cols, grid.rows, launch, palette(theme));
+      request.resume = callbacks.getResumeSessionId?.() ?? request.resume;
+      this.resumeSessionId = request.resume;
       let session: TerminalSession;
       try {
-        session = await createTerminal(request, this.channel, launch.attachmentId);
+        session = await createTerminal(request, this.channel, launch.attachmentId, !!launch.attachmentId && !!launch.recoverExited);
       } catch (error) {
         if (!launch.attachmentId || !isMissingTerminalSession(error) || this.disposed || this.failed) throw error;
         // 后台已经确认旧身份不存在。只恢复一次，保留 native resume，且不重发启动脚本。
         this.restoredMissingAttachment = true;
         callbacks.onAttachmentLost?.();
-        session = await createTerminal(request, this.channel, null);
+        const recoveryRequest = { ...request, resume: callbacks.getResumeSessionId?.() ?? request.resume };
+        this.resumeSessionId = recoveryRequest.resume;
+        session = await createTerminal(recoveryRequest, this.channel, null, false);
       }
       this.attach(session);
     } catch (error) { this.fail(error); }
@@ -112,7 +121,10 @@ export class TerminalLifecycle {
 
   private receive(event: TerminalEvent) {
     if (this.disposed || this.failed) return;
-    if (event.kind === "disconnected") { this.fail(event.message); return; }
+    if (event.kind === "disconnected") {
+      this.fail({ code: "IO_ERROR", message: event.message, retryable: true }, event.sessionId);
+      return;
+    }
     if (event.kind === "output_batch" && event.connectionId && !this.earlyConnection) {
       this.earlyConnection = { id: event.sessionId, connectionId: event.connectionId };
     }
@@ -137,12 +149,13 @@ export class TerminalLifecycle {
     this.current = session;
     this.ports.callbacks.onPhase("running");
     this.ports.onReady();
-    if (this.restoredMissingAttachment && !session.reconnected) {
-      this.ports.callbacks.onError(this.ports.launch.resumeSessionId
-        ? "原后台进程已结束，已重新启动 Agent 并恢复历史对话；未重发旧指令。"
+    if ((this.restoredMissingAttachment || this.ports.launch.recoverExited) && !session.reconnected) {
+      this.ports.callbacks.onError(this.resumeSessionId
+        ? "原后台进程已结束，已重新启动 Agent，正在恢复历史对话；未重发旧指令。"
         : "原后台进程已结束，已自动重新建立会话；未重发旧指令。");
     }
-    void runStartupOnce({ intent: session.reconnected || this.restoredMissingAttachment ? undefined : this.ports.launch.projectLaunch?.startup,
+    const skipStartup = session.reconnected || this.restoredMissingAttachment || this.ports.launch.attachmentId || this.ports.launch.skipStartup;
+    void runStartupOnce({ intent: skipStartup ? undefined : this.ports.launch.projectLaunch?.startup,
       sessionId: session.id, current: () => !this.disposed && !this.failed && this.current?.id === session.id,
       write: writeTerminal,
     }).catch((error) => {
@@ -150,7 +163,7 @@ export class TerminalLifecycle {
     });
   }
 
-  private fail(error: unknown) {
+  private fail(error: unknown, disconnectedId?: string) {
     if (this.disposed || this.failed) return;
     this.failed = true;
     this.queue.dispose();
@@ -159,6 +172,9 @@ export class TerminalLifecycle {
     this.ports.callbacks.onError(errorMessage(error));
     this.ports.callbacks.onPhase("error");
     this.detachActive();
+    const attachmentId = disconnectedId ?? this.attachment?.id ?? this.earlyConnection?.id
+      ?? (this.restoredMissingAttachment ? null : this.ports.launch.attachmentId ?? null);
+    this.ports.callbacks.onConnectionFailure?.(error, attachmentId);
   }
 
   private stopSession() {

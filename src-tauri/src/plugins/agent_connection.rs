@@ -1,6 +1,6 @@
 use super::{PluginRuntime, agent_context, engine, with_host};
 use crate::{
-    agent::AgentKind,
+    agent::{AgentKind, AgentSessionRef},
     terminal::{AppError, CreateTerminalRequest, LaunchProfileId},
 };
 use serde_json::json;
@@ -29,8 +29,14 @@ pub fn attach(app: &AppHandle, request: &mut CreateTerminalRequest) -> Option<St
     let workspace = crate::resource::file_uri_to_path(request.cwd.as_deref()?).ok()?;
     let session_id = ulid::Ulid::generate().to_string();
     let input = agent_context::connection(request, &workspace, &session_id);
+    if let Ok(kind) = serde_json::from_value(input["agentKind"].clone()) {
+        if let Ok(mut identities) = app.state::<PluginRuntime>().identities.lock() {
+            identities.register(&session_id, kind);
+        }
+    }
     match open(app, &input) {
-        Ok(mut env) => {
+        Ok((mut env, native)) => {
+            restore_discovered_session(request, native);
             if let Some(id) = input["launchSessionId"].as_str() {
                 env.insert(agent_context::CLAUDE_SESSION_ENV.into(), id.into());
             }
@@ -38,12 +44,32 @@ pub fn attach(app: &AppHandle, request: &mut CreateTerminalRequest) -> Option<St
             Some(session_id)
         }
         Err(error) => {
+            if let Ok(mut identities) = app.state::<PluginRuntime>().identities.lock() {
+                identities.remove(&session_id);
+            }
             let _ = app.emit_to("main", "plugin-notice", json!({"pluginId":"插件连接", "args":[format!("Agent 可正常使用，插件连接暂不可用：{}", error.message)]}));
             None
         }
     }
 }
-fn open(app: &AppHandle, input: &serde_json::Value) -> Result<HashMap<String, String>, AppError> {
+
+fn restore_discovered_session(
+    request: &mut CreateTerminalRequest,
+    native: Option<AgentSessionRef>,
+) {
+    // Claude 的 launchSessionId 是尚未创建的会话，不能把它误作 --resume。
+    if request.profile_id == "agent:codex" && request.resume.is_none() {
+        if let Some(native) =
+            native.filter(|session| session.agent == AgentKind::Codex && session.validate().is_ok())
+        {
+            request.resume = Some(native.id);
+        }
+    }
+}
+fn open(
+    app: &AppHandle,
+    input: &serde_json::Value,
+) -> Result<(HashMap<String, String>, Option<AgentSessionRef>), AppError> {
     let state = app.state::<PluginRuntime>();
     let _operation = state
         .operations
@@ -65,12 +91,16 @@ fn open(app: &AppHandle, input: &serde_json::Value) -> Result<HashMap<String, St
             .map(String::from)
             .ok_or_else(|| AppError::io("插件会话响应无效"))
     };
-    Ok(HashMap::from([
-        (URL_ENV.into(), field("url")?),
-        (TOKEN_ENV.into(), field("token")?),
-        (NODE_ENV.into(), node.to_string_lossy().into_owned()),
-        (BRIDGE_ENV.into(), bridge.to_string_lossy().into_owned()),
-    ]))
+    let native = serde_json::from_value(session["agentSession"].clone()).ok();
+    Ok((
+        HashMap::from([
+            (URL_ENV.into(), field("url")?),
+            (TOKEN_ENV.into(), field("token")?),
+            (NODE_ENV.into(), node.to_string_lossy().into_owned()),
+            (BRIDGE_ENV.into(), bridge.to_string_lossy().into_owned()),
+        ]),
+        native,
+    ))
 }
 pub fn bind(app: &AppHandle, terminal_id: &str, ticket: Option<String>) {
     let Some(ticket) = ticket else {
@@ -81,17 +111,70 @@ pub fn bind(app: &AppHandle, terminal_id: &str, ticket: Option<String>) {
         .sessions
         .lock()
         .ok()
-        .and_then(|mut sessions| sessions.insert(terminal_id.into(), ticket));
+        .and_then(|mut sessions| sessions.insert(terminal_id.into(), ticket.clone()));
     if let Some(previous) = previous {
         revoke(app, &previous);
     }
+    let identity = app
+        .state::<PluginRuntime>()
+        .identities
+        .lock()
+        .ok()
+        .and_then(|mut identities| identities.bind(&ticket, terminal_id));
+    if let Some(session) = identity {
+        publish_identity(app, ticket, terminal_id.into(), session);
+    }
 }
 pub fn revoke(app: &AppHandle, ticket: &str) {
+    if let Ok(mut identities) = app.state::<PluginRuntime>().identities.lock() {
+        identities.remove(ticket);
+    }
     let _ = app.state::<PluginRuntime>().engine.request(
         app,
         "session.revoke",
         json!({"sessionId":ticket}),
     );
+}
+
+/// 只接收宿主核验的 MCP / 精确标签快照身份，不把插件正文或工具参数当作身份来源。
+pub(super) fn identity_event(app: &AppHandle, event: &serde_json::Value) -> bool {
+    if event["name"] != "sessionIdentity" {
+        return false;
+    }
+    let Some(ticket) = event["sessionId"].as_str() else {
+        return true;
+    };
+    let Ok(session) = serde_json::from_value::<AgentSessionRef>(event["session"].clone()) else {
+        return true;
+    };
+    let terminal = app
+        .state::<PluginRuntime>()
+        .identities
+        .lock()
+        .ok()
+        .and_then(|mut identities| identities.learn(ticket, session.clone()));
+    if let Some(terminal) = terminal {
+        publish_identity(app, ticket.into(), terminal, session);
+    }
+    true
+}
+
+fn publish_identity(app: &AppHandle, ticket: String, terminal: String, session: AgentSessionRef) {
+    let app = app.clone();
+    // 宿主 stdout 的读取不能等后台 I/O，否则身份事件会挡住同管道上的命令响应。
+    std::thread::spawn(move || {
+        let current = app
+            .state::<PluginRuntime>()
+            .identities
+            .lock()
+            .ok()
+            .is_some_and(|identities| identities.is_current(&ticket, &terminal, &session));
+        if current {
+            let _ = app
+                .state::<crate::terminal::TerminalRuntime>()
+                .bind_native_session(&terminal, session);
+        }
+    });
 }
 pub fn release(app: &AppHandle, terminal_id: &str) {
     let ticket = app
@@ -158,6 +241,35 @@ mod tests {
             (URL_ENV.into(), "http://127.0.0.1:1234/mcp".into()),
             (TOKEN_ENV.into(), "secret-session-token".into()),
         ])
+    }
+    #[test]
+    fn snapshot_identity_resumes_codex_without_turning_a_new_claude_launch_into_resume() {
+        let request = |profile: &str, resume: Option<&str>| {
+            serde_json::from_value::<CreateTerminalRequest>(json!({
+                "platform":"macos", "profileId":profile, "cwd":"file:///tmp", "cols":80, "rows":24,
+                "elevation":"normal", "resume":resume,
+            }))
+            .unwrap()
+        };
+        let native = |agent, id: &str| {
+            Some(AgentSessionRef {
+                agent,
+                id: id.into(),
+            })
+        };
+        let mut fresh = request("agent:codex", None);
+        restore_discovered_session(&mut fresh, native(AgentKind::Codex, "discovered"));
+        assert_eq!(fresh.resume.as_deref(), Some("discovered"));
+        let mut saved = request("agent:codex", Some("known"));
+        restore_discovered_session(&mut saved, native(AgentKind::Codex, "older"));
+        assert_eq!(saved.resume.as_deref(), Some("known"));
+        let mut claude = request("agent:claude", None);
+        restore_discovered_session(&mut claude, native(AgentKind::Claude, "preallocated"));
+        assert!(claude.resume.is_none());
+        let mut codex = request("agent:codex", None);
+        restore_discovered_session(&mut codex, native(AgentKind::Claude, "foreign"));
+        restore_discovered_session(&mut codex, native(AgentKind::Codex, "../invalid"));
+        assert!(codex.resume.is_none());
     }
     #[test]
     fn codex_config_is_valid_toml_and_forwards_only_named_credentials() {

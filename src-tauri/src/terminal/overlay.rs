@@ -14,6 +14,8 @@ pub(crate) struct LaunchOverlay {
     pub retained_files: Vec<Arc<LaunchFile>>,
     pub hook: Option<Arc<crate::agent::hooks::HookConnection>>,
     pub attachment: Option<String>,
+    /// 只有恢复入口允许用新进程替换已退出的接驳；普通连接保留退出回放。
+    pub recover_exited: bool,
     pub launch_epoch: u64,
     /// 宿主 IPC 的能力协商，不进入 daemon 启动参数或存档。
     pub output_acknowledgements: bool,

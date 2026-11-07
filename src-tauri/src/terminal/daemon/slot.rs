@@ -110,6 +110,31 @@ impl Slot {
         }
     }
 
+    pub fn bind_native_session(&self, id: &str, session: AgentSessionRef) -> Result<(), AppError> {
+        session.validate().map_err(AppError::invalid_argument)?;
+        if self.is_closed() || self.profile_id != format!("agent:{}", session.agent.command_name())
+        {
+            return Err(AppError::invalid_argument(
+                "原生会话身份与后台任务类型不匹配",
+            ));
+        }
+        let mut data = self.data.lock().unwrap();
+        if data
+            .native_session
+            .as_ref()
+            .is_some_and(|known| known != &session)
+        {
+            return Err(AppError::invalid_argument("后台已记录更新的原生会话身份"));
+        }
+        data.native_session = Some(session.clone());
+        data.replay.push(TerminalEvent::SessionIdentity {
+            session_id: id.into(),
+            session,
+        });
+        self.changed.notify_all();
+        Ok(())
+    }
+
     pub fn push(&self, event: TerminalEvent) {
         let mut data = self.data.lock().unwrap();
         match &event {
@@ -128,6 +153,9 @@ impl Slot {
                     data.native_session = snapshot.session.clone();
                 }
                 data.latest_hook = Some(snapshot.clone());
+            }
+            TerminalEvent::SessionIdentity { session, .. } => {
+                data.native_session = Some(session.clone());
             }
             _ => {}
         }
@@ -154,13 +182,21 @@ impl Slot {
     }
 
     pub fn announce_hook(&self, id: &str) {
-        let snapshot = self.data.lock().unwrap().latest_hook.clone();
-        if let Some(snapshot) = snapshot {
-            self.push(TerminalEvent::AgentState {
+        let mut data = self.data.lock().unwrap();
+        // 回放声明不作为新观察写回身份；持锁快照，避免覆盖并发到达的 Hook/原生身份。
+        if let Some(snapshot) = data.latest_hook.clone() {
+            data.replay.push(TerminalEvent::AgentState {
                 session_id: id.into(),
                 snapshot,
             });
         }
+        if let Some(session) = data.native_session.clone() {
+            data.replay.push(TerminalEvent::SessionIdentity {
+                session_id: id.into(),
+                session,
+            });
+        }
+        self.changed.notify_all();
     }
 }
 

@@ -1,5 +1,6 @@
 pub mod agent_connection;
 mod agent_context;
+mod agent_identity;
 mod author_commands;
 #[cfg(test)]
 mod compatibility_tests;
@@ -47,6 +48,7 @@ pub struct PluginRuntime {
     operations: Mutex<()>,
     engine: engine::Engine,
     sessions: Mutex<std::collections::HashMap<String, String>>,
+    identities: Mutex<agent_identity::AgentIdentities>,
     launcher_error: Mutex<Option<String>>,
     market_previews: Mutex<std::collections::HashMap<String, market_commands::PreparedMarket>>,
 }

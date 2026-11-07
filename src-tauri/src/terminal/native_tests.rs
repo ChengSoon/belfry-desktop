@@ -347,6 +347,7 @@ fn output_bytes(events: &[TerminalEvent]) -> Vec<u8> {
             TerminalEvent::Output { bytes, .. } => Some(bytes.as_slice()),
             TerminalEvent::Exit { .. }
             | TerminalEvent::AgentState { .. }
+            | TerminalEvent::SessionIdentity { .. }
             | TerminalEvent::ReplayGap { .. }
             | TerminalEvent::Disconnected { .. }
             | TerminalEvent::OutputBatch { .. } => None,
@@ -363,6 +364,7 @@ fn assert_sequences_are_ordered(events: &[TerminalEvent]) {
             TerminalEvent::Output { sequence, .. } => Some(*sequence),
             TerminalEvent::Exit { .. }
             | TerminalEvent::AgentState { .. }
+            | TerminalEvent::SessionIdentity { .. }
             | TerminalEvent::ReplayGap { .. }
             | TerminalEvent::Disconnected { .. }
             | TerminalEvent::OutputBatch { .. } => None,
@@ -397,6 +399,7 @@ fn event_contains_exit_marker(event: &TerminalEvent) -> bool {
         }
         TerminalEvent::Exit { .. }
         | TerminalEvent::AgentState { .. }
+        | TerminalEvent::SessionIdentity { .. }
         | TerminalEvent::ReplayGap { .. }
         | TerminalEvent::Disconnected { .. }
         | TerminalEvent::OutputBatch { .. } => false,
@@ -410,6 +413,7 @@ fn event_contains_marker(event: &TerminalEvent) -> bool {
         }
         TerminalEvent::Exit { .. }
         | TerminalEvent::AgentState { .. }
+        | TerminalEvent::SessionIdentity { .. }
         | TerminalEvent::ReplayGap { .. }
         | TerminalEvent::Disconnected { .. }
         | TerminalEvent::OutputBatch { .. } => false,

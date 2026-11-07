@@ -14,7 +14,9 @@ import {
 import { errorMessage, mountTerminal, type TerminalHandle } from "./terminalController";
 import type { TerminalSearchController } from "./search";
 import type { HookSnapshot } from "../agent/hooks/contracts";
-import { isMissingTerminalSession } from "./controller/diagnostics";
+import type { AgentSessionRef } from "../agent/contracts";
+import { isMissingTerminalSession, isRetryableTerminalConnectionError } from "./controller/diagnostics";
+import { initialResumeSessionId, matchingSessionId, RECONNECT_DELAYS_MS, RECONNECT_STABLE_MS, sameTerminalTarget, sessionRefForLaunch } from "./sessionRecovery";
 
 interface TerminalViewModel {
   daemonSessionId?: string | null;
@@ -30,6 +32,7 @@ interface TerminalViewModel {
   /** 会话在生成 / 等按键 / 闲着。Shell 会话恒为 idle。 */
   activity: SessionActivity;
   agentState: HookSnapshot | null;
+  agentSessionRef: AgentSessionRef | null;
   search: TerminalSearchController | null;
   commandTarget: TerminalCommandTarget;
   restart: () => void;
@@ -67,6 +70,12 @@ export function useTerminalSession(
   const sessionId = useRef<string | null>(null);
   const attachment = useRef(launch.attachmentId ?? null);
   const target = useRef(launch);
+  const identityTarget = useRef(launch);
+  const nativeResume = useRef(initialResumeSessionId(launch));
+  const [nativeIdentity, setNativeIdentity] = useState({ target: launch, session: sessionRefForLaunch(launch, nativeResume.current) });
+  const mountReason = useRef<"launch" | "restore" | "restart" | "reconnect">(launch.attachmentId ? "restore" : "launch");
+  const reconnectAttempts = useRef(0);
+  const actions = useRef<{ restart: () => void; reconnect: () => void; close: () => void } | null>(null);
   const handle = useRef<TerminalHandle | null>(null);
   // 主题、背景和字体都不能进挂载 effect 的依赖，否则设置外观会重挂终端、连带杀掉 PTY 会话。
   const themeMode = useRef(mode);
@@ -79,27 +88,90 @@ export function useTerminalSession(
   const outputRequest = useRef(onOutput);
   outputRequest.current = onOutput;
 
+  const publishIdentity = (scope: TerminalLaunch) => {
+    const session = sessionRefForLaunch(scope, nativeResume.current);
+    setNativeIdentity((current) => sameTerminalTarget(current.target, scope) && current.session?.id === session?.id
+      ? current : { target: scope, session });
+  };
+
+  // 工作区的实时身份只更新这个引用，不参与下面的挂载 effect。
+  // 只在传入身份改变时同步，避免本地刚收到新 Hook 又被上一帧的旧 prop 覆盖。
+  useEffect(() => {
+    if (!sameTerminalTarget(identityTarget.current, launch)
+      || identityTarget.current.resumeSessionId !== launch.resumeSessionId) {
+      nativeResume.current = initialResumeSessionId(launch);
+    } else {
+      nativeResume.current = matchingSessionId(launch, launch.agentSessionRef) ?? nativeResume.current;
+    }
+    identityTarget.current = launch;
+    publishIdentity(launch);
+  }, [launch.tabId, launch.profileId, launch.cwd, launch.ssh, launch.resumeSessionId,
+    launch.agentSessionRef?.agent, launch.agentSessionRef?.id]);
+
   useEffect(() => {
     const host = container.current;
     if (!host) return;
     let active = true;
+    let stopping = false;
+    let allowRetry = true;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    let stableTimer: ReturnType<typeof setTimeout> | undefined;
+    const cancelTimers = () => { clearTimeout(retryTimer); clearTimeout(stableTimer); retryTimer = stableTimer = undefined; };
     const guard = <T,>(write: (value: T) => void) => (value: T) => { if (active) write(value); };
     // 换了一条会话（tabId 变了）就必须换接驳身份：沿用上一条的 attachment 会让
     // 新标签带着旧身份去接驳，守护进程按标签 / 项目校验时整条拒绝。
-    if (target.current.cwd !== launch.cwd || target.current.profileId !== launch.profileId
-      || target.current.ssh !== launch.ssh || target.current.tabId !== launch.tabId) {
+    if (!sameTerminalTarget(target.current, launch)) {
       attachment.current = launch.attachmentId ?? null;
+      sessionId.current = null;
+      setSession(null); setAgentState(null); setLastInput(null);
+      reconnectAttempts.current = 0;
+      mountReason.current = launch.attachmentId ? "restore" : "launch";
     }
     target.current = launch;
+    const resume = () => nativeResume.current ?? initialResumeSessionId(launch);
+    const reconnectNow = () => {
+      if (!active || stopping || !attachment.current) return;
+      cancelTimers();
+      mountReason.current = "reconnect";
+      setError(null);
+      setGeneration((value) => value + 1);
+    };
+    const recovering = mountReason.current === "restore" || mountReason.current === "reconnect";
     const mounted = mountTerminal(
       host,
-      { ...launch, attachmentId: attachment.current },
+      { ...launch, attachmentId: attachment.current, resumeSessionId: resume(),
+        recoverExited: recovering && !!attachment.current,
+        skipStartup: mountReason.current !== "launch" || !!attachment.current },
       xtermTheme(themeMode.current),
       transparentMode.current,
       typographyConfig.current,
       {
-        onPhase: guard(setPhase),
+        onPhase: (value) => {
+          if (!active) return;
+          setPhase(value);
+          clearTimeout(stableTimer);
+          // 连接刚返回就再次断开不算恢复成功，避免抖动连接无限重试。
+          if (value === "running" && allowRetry && reconnectAttempts.current > 0) {
+            stableTimer = setTimeout(() => { if (active) reconnectAttempts.current = 0; }, RECONNECT_STABLE_MS);
+          }
+        },
         onError: guard(setError),
+        getResumeSessionId: resume,
+        onSessionIdentity: (value) => {
+          if (!active) return;
+          nativeResume.current = matchingSessionId(launch, value) ?? nativeResume.current;
+          publishIdentity(launch);
+        },
+        onConnectionFailure: (failure, failedAttachment) => {
+          if (!active || stopping || !allowRetry) return;
+          cancelTimers();
+          if (failedAttachment) attachment.current = failedAttachment;
+          if (!attachment.current || !isRetryableTerminalConnectionError(failure)) return;
+          const delay = RECONNECT_DELAYS_MS[reconnectAttempts.current];
+          if (delay === undefined) return;
+          reconnectAttempts.current += 1;
+          retryTimer = setTimeout(reconnectNow, delay);
+        },
         onAttachmentLost: () => {
           if (!active) return;
           attachment.current = null; sessionId.current = null;
@@ -119,13 +191,44 @@ export function useTerminalSession(
     );
     handle.current = mounted;
     setSearch(mounted.search);
+    actions.current = {
+      restart: () => {
+        if (!active || stopping) return;
+        stopping = true;
+        cancelTimers();
+        const stop = launch.tabId ? closeTerminalTab(launch.tabId)
+          : sessionId.current ? closeTerminal(sessionId.current) : Promise.resolve();
+        void stop.then(() => {
+          if (!active) return;
+          attachment.current = null; sessionId.current = null;
+          setSession(null); setAgentState(null); setError(null);
+          reconnectAttempts.current = 0;
+          mountReason.current = "restart";
+          setGeneration((value) => value + 1);
+        }).catch((failure) => {
+          if (!active) return;
+          stopping = false;
+          setError(errorMessage(failure));
+        });
+      },
+      reconnect: () => { reconnectAttempts.current = 0; reconnectNow(); },
+      close: () => {
+        cancelTimers();
+        allowRetry = false;
+        const current = sessionId.current;
+        if (current) void closeTerminal(current).catch(guard((failure: unknown) => setError(errorMessage(failure))));
+      },
+    };
     return () => {
       active = false;
+      cancelTimers();
+      actions.current = null;
       handle.current = null;
       setSearch(null);
       mounted.dispose();
     };
-  }, [container, generation, launch.collaborationMode, launch.cwd, launch.profileId, launch.resumeSessionId, launch.ssh, launch.projectLaunch, launch.attachmentId]);
+  }, [container, generation, launch.tabId, launch.collaborationMode, launch.cwd, launch.profileId,
+    launch.resumeSessionId, launch.ssh, launch.projectLaunch, launch.attachmentId]);
 
   useEffect(() => {
     themeMode.current = mode;
@@ -138,24 +241,15 @@ export function useTerminalSession(
     handle.current?.applyTypography(typography);
   }, [typography]);
 
-  const restart = useCallback(() => {
-    const stop = launch.tabId ? closeTerminalTab(launch.tabId) : sessionId.current ? closeTerminal(sessionId.current) : Promise.resolve();
-    void stop.then(() => { attachment.current = null; sessionId.current = null; setSession(null); setError(null); setGeneration((value) => value + 1); })
-      .catch((error) => setError(errorMessage(error)));
-  }, [launch.tabId]);
-  const reconnect = useCallback(() => { setError(null); setGeneration((value) => value + 1); }, []);
+  const restart = useCallback(() => actions.current?.restart(), []);
+  const reconnect = useCallback(() => actions.current?.reconnect(), []);
   const focus = useCallback(() => handle.current?.focus(), []);
   const sendText = useCallback<TerminalCommandTarget["sendText"]>((text, options) => handle.current?.sendText(text, options) ?? false, []);
   const commandTarget = useMemo(() => ({ focus, sendText, notifyInputIssue: setError,
     getSessionId: () => sessionId.current }),
-  [focus, sendText, generation, launch.collaborationMode, launch.cwd, launch.profileId,
+  [focus, sendText, generation, launch.tabId, launch.collaborationMode, launch.cwd, launch.profileId,
     launch.resumeSessionId, launch.ssh, launch.projectLaunch, launch.attachmentId]);
-  const close = useCallback(() => {
-    const current = sessionId.current;
-    if (current) {
-      void closeTerminal(current).catch((error) => setError(errorMessage(error)));
-    }
-  }, []);
+  const close = useCallback(() => actions.current?.close(), []);
 
   return {
     daemonSessionId: session?.id ?? attachment.current ?? null,
@@ -169,6 +263,8 @@ export function useTerminalSession(
     lastInput,
     activity,
     agentState,
+    agentSessionRef: sameTerminalTarget(nativeIdentity.target, launch) ? nativeIdentity.session
+      : sessionRefForLaunch(launch, initialResumeSessionId(launch)),
     search,
     commandTarget,
     restart,

@@ -60,10 +60,10 @@ def launch_request(root, tab="qa-main"):
             "env": {"HISTFILE": str(root / "shell-history")}}
 
 
-def create(endpoint, root, tab="qa-main", attachment=None):
+def create(endpoint, root, tab="qa-main", attachment=None, recover_exited=False):
     return success(endpoint, {"kind": "create", "launch": launch_request(root, tab),
                             "overlay": {"arguments": [], "environment": {}, "unset": [], "files": []},
-                            "attachment": attachment})
+                            "attachment": attachment, "recover_exited": recover_exited})
 
 
 def write(endpoint, session, command):
@@ -120,6 +120,40 @@ def verify_reconnect(endpoint, root):
                     "ticksBeforeClientExit": count_before, "ticksAfterReconnect": int((root / "ticks").read_text())}
 
 
+def verify_forced_exit(endpoint, root):
+    session = create(endpoint, root, "qa-force-client")
+    write(endpoint, session, "stty -echo; echo $$ > forced-shell.pid; printf 'startup\\n' >> forced-starts\r")
+    pid = int(wait_for(lambda: (root / "forced-shell.pid").read_text()))
+    client = subprocess.Popen([sys.executable, __file__, "--client", str(root), session["id"],
+                               "--hold", "qa-force-client"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    try:
+        wait_for(lambda: (root / "forced-client.ready").exists())
+        client.kill()
+        client.communicate(timeout=5)
+        attached = create(endpoint, root, "qa-force-client", session["id"], recover_exited=True)
+        assert attached["id"] == session["id"] and attached["reconnected"] and running(pid)
+        assert (root / "forced-starts").read_text() == "startup\n"
+        os.kill(pid, signal.SIGKILL)
+        wait_for(lambda: success(endpoint, {"kind": "info", "id": session["id"]})["session"]["status"] == "exited")
+        replay = create(endpoint, root, "qa-force-client", session["id"])
+        assert replay["status"] == "exited" and replay["id"] == session["id"]
+        recovered = create(endpoint, root, "qa-force-client", session["id"], recover_exited=True)
+        assert not recovered["reconnected"] and recovered["id"] != session["id"]
+        assert recovered["status"] == "running"
+        write(endpoint, recovered, "printf 'input-ok' > forced-input\r")
+        wait_for(lambda: (root / "forced-input").read_text() == "input-ok")
+        assert (root / "forced-starts").read_text() == "startup\n", "recovery replayed old startup input"
+        duplicate = create(endpoint, root, "qa-force-client", session["id"], recover_exited=True)
+        assert duplicate["id"] == recovered["id"] and duplicate["reconnected"]
+        success(endpoint, {"kind": "close", "id": recovered["id"]})
+        return {"forcedClientExit": "original PTY and PID retained", "killedPtyRecovery": "new PTY accepts input once",
+                "exitedReplay": "still available without recovery flag", "startupReplayed": False}
+    finally:
+        if client.poll() is None:
+            client.kill()
+            client.communicate(timeout=5)
+
+
 def verify_bounds(endpoint, root):
     assert call(endpoint, {"kind": "ping"}, token="incorrect")["error"]
     assert call(endpoint, {"kind": "ping"}, version=99)["error"]
@@ -164,6 +198,7 @@ print(json.dumps({"launcher": os.getpid(), "daemon": child.pid}))
             assert (daemon_root / "endpoint.json").stat().st_mode & 0o777 == 0o600
             worker, result = verify_reconnect(endpoint, root)
             result.update(verify_bounds(endpoint, root))
+            result.update(verify_forced_exit(endpoint, root))
             success(endpoint, {"kind": "shutdown"})
             wait_for(lambda: not running(worker) and not running(identities["daemon"]))
             result.update({"launcherExited": True, "explicitShutdown": "daemon and worker exited", "ok": True})
@@ -183,8 +218,13 @@ if __name__ == "__main__":
     if sys.argv[1] == "--client":
         root = Path(sys.argv[2])
         endpoint = json.loads((root / "daemon" / "endpoint.json").read_text())
-        session = create(endpoint, root, attachment=sys.argv[3])
+        tab = sys.argv[5] if "--hold" in sys.argv else "qa-main"
+        session = create(endpoint, root, tab, attachment=sys.argv[3])
         success(endpoint, {"kind": "poll", "id": session["id"], "cursor": 0})
-        print(json.dumps({"id": session["id"]}))
+        print(json.dumps({"id": session["id"]}), flush=True)
+        if "--hold" in sys.argv:
+            (root / "forced-client.ready").write_text(session["id"])
+            while True:
+                time.sleep(1)
     else:
         main(sys.argv[1])

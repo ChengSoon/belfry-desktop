@@ -52,7 +52,7 @@ function metadata(lines, session) {
   }
   return lines.find((line) => line.sessionId === session.id && typeof line.cwd === "string") ?? null;
 }
-async function readFile(path, scope) {
+async function readFile(path, scope, metadataOnly = false) {
   const full = await realpath(path), location = relative(scope.root, full);
   if (isAbsolute(location) || location === ".." || location.startsWith(`..${sep}`)) return null;
   const handle = await open(full, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
@@ -61,10 +61,24 @@ async function readFile(path, scope) {
     const head = records(await readBytes(handle, 0, Math.min(meta.size, HEAD_BYTES)));
     const info = metadata(head, scope.session);
     if (!info?.cwd || await realpath(info.cwd).catch(() => null) !== scope.workspace) return null;
+    if (metadataOnly) return { meta: info };
     const offset = Math.max(0, meta.size - TAIL_BYTES);
     const tail = await readBytes(handle, offset, Math.min(meta.size, TAIL_BYTES));
     return { lines: records(tail, offset > 0), truncated: offset > 0, meta: info };
   } finally { await handle.close(); }
+}
+
+/** Shell 快照只提供候选 ID；必须再核对原始记录的项目及主会话来源。 */
+export async function isPrimaryCodexSession(context, id) {
+  const scope = await sessionScope({ ...context, agentSession: { agent: "codex", id } });
+  const files = await candidates(scope.root, scope.session);
+  if (!files.length || files.length > MAX_FILES) return null;
+  for (const path of files) {
+    const file = await readFile(path, scope, true);
+    if (!file || file.meta.source == null) return null;
+    if (file.meta.source !== "cli") return false;
+  }
+  return true;
 }
 export async function readSessionContext(context, stripName, resolveModel) {
   const scope = await sessionScope(context), session = scope.session;

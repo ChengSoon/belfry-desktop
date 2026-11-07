@@ -13,6 +13,7 @@ vi.mock("react", async (original) => ({
 vi.mock("../terminal/useTerminalSession", () => ({
   useTerminalSession: () => ({
     phase: "running", error: null, lastInput: null, activity: "idle", search: null,
+    agentState: null, agentSessionRef: { agent: "codex", id: "native-without-hook" },
     commandTarget: { focus: ports.focus, sendText: vi.fn() },
   }),
 }));
@@ -31,4 +32,15 @@ it.each([
       collaborationMode: false, resumeSessionId: null, ssh: null }} onSnapshot={vi.fn()} />);
   ports.effects.forEach((effect) => effect());
   expect(ports.focus).toHaveBeenCalledTimes(expected);
+});
+
+it("reports native identity to the workspace independently of Hook state", () => {
+  const onSnapshot = vi.fn();
+  renderToStaticMarkup(<TerminalViewport focused={false} visible
+    launch={{ profileId: "agent:codex", cwd: "file:///tmp", tabId: "identity-tab",
+      collaborationMode: false, resumeSessionId: null, ssh: null }} onSnapshot={onSnapshot} />);
+  ports.effects.forEach((effect) => effect());
+  expect(onSnapshot).toHaveBeenCalledWith(expect.objectContaining({
+    agentState: null, agentSessionRef: { agent: "codex", id: "native-without-hook" },
+  }));
 });
