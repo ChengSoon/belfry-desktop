@@ -38,6 +38,7 @@ pub fn run() {
     // 房间目录先挂空位：服务线程在 setup 之前就要起来，而房间存储要等 app
     // 句柄才拿得到路径；装载完成后挂进去，晚到的请求自动看到真实数据。
     let room_access = std::sync::Arc::new(collab::RoomAccess::default());
+    let sessions_for_rooms = sessions.clone();
     // 协作是增强功能：socket 起不来（被占用、权限不足）不该让整个应用起不来。
     // 这和「Agent 检测失败不该让你打不开一个 Shell」是同一条取向。
     let endpoint = collab::CollabServer::start(
@@ -63,9 +64,9 @@ pub fn run() {
             app.manage(TerminalRuntime::with_daemon(root));
             // 房间存储跟着应用数据目录走；读不出来也不让应用起不来——命令层会把
             // 原因原样报给界面，且存储不可写时拒绝修改，不覆盖现场。
-            let rooms_path = app.path().app_data_dir().ok().map(|dir| dir.join("rooms.json"));
-            let rooms = std::sync::Arc::new(rooms::RoomStore::load(rooms_path));
-            room_access.set(rooms.clone());
+            let rooms_root = app.path().app_data_dir().ok().map(|dir| dir.join("rooms"));
+            let rooms = std::sync::Arc::new(rooms::RoomStore::load(rooms_root));
+            room_access.set(rooms::member_directory(rooms.clone(), sessions_for_rooms.clone()));
             app.manage(rooms);
             Ok(())
         })
@@ -112,33 +113,18 @@ pub fn run() {
             collab::commands::collab_reject,
             collab::commands::collab_stop_all,
             rooms::commands::room_list,
-            rooms::commands::room_pending_reviews,
             rooms::commands::room_get,
             rooms::commands::room_create,
             rooms::commands::room_rename,
             rooms::commands::room_delete,
             rooms::commands::room_add_member,
             rooms::commands::room_update_member,
+            rooms::commands::room_set_foreman,
             rooms::commands::room_remove_member,
-            rooms::commands::room_send_message,
-            rooms::commands::room_clear_messages,
-            rooms::commands::room_recall,
-            rooms::commands::room_react,
-            rooms::commands::room_mark_decision,
-            rooms::commands::room_dispatch,
-            rooms::commands::room_broadcast,
-            rooms::commands::room_stop_task,
-            rooms::commands::room_verify_task,
-            rooms::commands::room_reject_task,
-            rooms::commands::room_retry_task,
-            rooms::commands::room_open_window,
-            rooms::attachment_commands::room_pick_attachments,
-            rooms::attachment_commands::room_import_attachment,
-            rooms::attachment_commands::room_paste_attachment,
-            rooms::attachment_commands::room_read_attachment,
-            rooms::attachment_commands::room_discard_attachment,
-            rooms::attachment_commands::room_reveal_attachment,
-            rooms::attachment_commands::room_clipboard_files,
+            rooms::commands::room_update_brief,
+            rooms::commands::room_say,
+            rooms::commands::room_cancel_reply,
+            rooms::commands::room_task,
             typography::commands::font_import,
             typography::commands::font_read,
             typography::commands::font_remove,

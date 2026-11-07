@@ -18,8 +18,9 @@ import { failureLabel } from "../workspace/errors";
 import { removeRecentConfirmBody } from "../workspace/removeRecentConfirm";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { createOptionalPanel } from "./lazy/OptionalPanel";
+import type { PausedDelivery } from "../prompt/runtime";
+import type { TerminalCommandTarget } from "../terminal/contracts";
 import { Presence } from "./motion/Presence";
-import type { PromptSubmitResult } from "../prompt/contracts";
 
 const SettingsPanel = createOptionalPanel({ title: "设置", layout: "settings", exportName: "SettingsPanel",
   load: () => import("../settings/SettingsPanel").then((module) => ({ default: module.SettingsPanel })) });
@@ -71,10 +72,10 @@ interface AppOverlaysProps {
   onConfirmRemove: () => void;
   onDismissFailure: () => void;
   onInstallUpdate: () => void;
-  onCloseRoomMember: (tabId: string) => void;
-  onClearRoomMemberContext: (tabId: string) => PromptSubmitResult;
-  onOpenRoomFile: (relativePath: string) => void;
-  onOpenRoomWindow: (roomId: string, roomName: string) => Promise<string | null>;
+  onOpenRoomSession: (tabId: string) => void;
+  onResumeRoomDelivery: (tabId: string) => boolean;
+  roomPausedDeliveries: readonly PausedDelivery[];
+  terminalTargets: ReadonlyMap<string, TerminalCommandTarget>;
   onLaunchRoomMember: (kind: AgentKind, projectRoot: string) => Promise<string | null>;
   onRenameAgent: (id: string, raw: string) => string | null;
   onResumeHistory: (session: HistorySession) => void;
@@ -108,11 +109,11 @@ function PrimaryPanels(props: AppOverlaysProps) {
         <RoomPanel
           agents={props.agents}
           onClose={props.onCloseRooms}
-          onCloseMemberSession={props.onCloseRoomMember}
-          onClearMemberContext={props.onClearRoomMemberContext}
           onLaunchMember={props.onLaunchRoomMember}
-          onOpenFile={props.onOpenRoomFile}
-          onOpenWindow={props.onOpenRoomWindow}
+          onOpenSession={props.onOpenRoomSession}
+          onResumeDelivery={props.onResumeRoomDelivery}
+          pausedDeliveries={props.roomPausedDeliveries}
+          targets={props.terminalTargets}
           onRenameAgent={props.onRenameAgent}
           project={props.project}
           tabs={props.tabs}

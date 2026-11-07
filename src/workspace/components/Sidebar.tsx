@@ -60,6 +60,8 @@ interface SidebarProps {
   usageOpen: boolean;
   historyOpen: boolean;
   roomsOpen: boolean;
+  /** 房间里需要你处理的事：成员在等你选择、消息卡住了。0 表示没有。 */
+  roomAttention?: number;
   updaterOpen: boolean;
   updaterState: UpdaterState;
   /** 命中测试要拿侧栏的真实矩形，才能判断会话被拖回了列表。 */
@@ -101,6 +103,7 @@ export function Sidebar({
   usageOpen,
   historyOpen,
   roomsOpen,
+  roomAttention = 0,
 }: SidebarProps) {
   const groups = useMemo(() => groupTabsByProject(tabs), [tabs]);
   const { commitWidth, resetWidth, setWidth, width } = usePanelWidth(SIDEBAR_WIDTH);
@@ -177,14 +180,16 @@ export function Sidebar({
             </button>
           ) : null}
           <button
+            aria-label={roomAttention ? `协作房间，${roomAttention} 件事等你处理` : "协作房间"}
             aria-pressed={roomsOpen}
-            className="icon-button icon-button--sm"
+            className={`icon-button icon-button--sm room-trigger${roomAttention ? " room-trigger--attention" : ""}`}
             onClick={onToggleRooms}
-            title="协作房间"
+            title={roomAttention ? `协作房间：${roomAttention} 件事等你处理` : "协作房间"}
             type="button"
           >
             <DoorOpen aria-hidden="true" size={ICON.md} />
             <span>协作房间</span>
+            {roomAttention ? <b className="room-trigger__count">{roomAttention}</b> : null}
           </button>
           <button
             aria-pressed={settingsOpen}

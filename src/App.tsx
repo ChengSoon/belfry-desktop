@@ -11,12 +11,11 @@ import "./workspace/workspace.css";
 import { useSessionDrag } from "./layout/useSessionDrag";
 import { useSplitLayout } from "./layout/useSplitLayout";
 import { useActivityNotifications } from "./notify/useActivityNotifications";
-import type { PromptSubmitResult } from "./prompt/contracts";
 import { usePromptQueue } from "./prompt/usePromptQueue";
 import { appShortcutChord, formatShortcutChord } from "./shortcuts/resolveShortcut";
 import { useAppShortcuts } from "./shortcuts/useAppShortcuts";
 import { useAppUpdater } from "./updater/useAppUpdater";
-import { agentResetCommand, isAgentKind, type AgentKind } from "./agent/contracts";
+import type { AgentKind } from "./agent/contracts";
 import type { HistorySession } from "./history/contracts";
 import type { QuickOpenItem } from "./quickopen/model";
 import { useQuickOpen } from "./quickopen/useQuickOpen";
@@ -26,15 +25,12 @@ import { needsCloseConfirm } from "./workspace/closeConfirm";
 import { Sidebar } from "./workspace/components/Sidebar";
 import type { RecentProject } from "./workspace/contracts";
 import { pathKey } from "./workspace/path";
-import { toAppFailure } from "./workspace/errors";
 import { groupTabsByProject } from "./workspace/tabs";
 import { useFoldedProjects } from "./workspace/useFoldedProjects";
 import { useProjectWorkspace } from "./workspace/useProjectWorkspace";
 import { NamedWorkspaceControls } from "./workspace/named/NamedWorkspaceControls";
 import { useSessionRoster } from "./collab/useSessionRoster";
 import { useTaskDelivery } from "./collab/useTaskDelivery";
-import { useRoomNotifications } from "./rooms/useRoomNotifications";
-import { roomOpenWindow } from "./rooms/api";
 import { useRoomBoundTabs } from "./rooms/useRoomBoundTabs";
 import { resolveAgentRename } from "./collab/naming";
 import { CollabPanel } from "./collab/CollabPanel";
@@ -78,7 +74,6 @@ export default function App() {
 
   // 画在舞台上的那几条会话。没分屏时就是活动会话自己；用户看得见的就不必再弹通知。
   const visibleTabIds = useMemo(() => new Set(layout.rects.keys()), [layout.rects]);
-  useActivityNotifications(workspace.tabs, visibleTabIds);
 
   // 新会话继承 activeProject，那组要是折叠着就会开出一个侧栏里看不见的会话。
   const launch = useCallback((
@@ -102,6 +97,15 @@ export default function App() {
   // 房间成员会话只在房间里露面：侧栏、Quick Open 与 ⌘1-9 都按过滤后的列表走；
   // 投递、协作名册与持久化仍拿全量 tabs——隔离只做在展示层。
   const roomBound = useRoomBoundTabs();
+  // 房间成员的会话标题是自动生成的那串「[belfry] 房间…」，通知里换成「房间 · 角色」才认得出是谁在等你。
+  const notifyTabs = useMemo(
+    () => workspace.tabs.map((tab) => {
+      const label = roomBound.labels.get(tab.id);
+      return label ? { ...tab, title: label } : tab;
+    }),
+    [workspace.tabs, roomBound.labels],
+  );
+  useActivityNotifications(notifyTabs, visibleTabIds);
   const listedTabs = useMemo(
     () => workspace.visibleTabs.filter((tab) => !roomBound.boundIds.has(tab.id)),
     [workspace.visibleTabs, roomBound.boundIds],
@@ -143,18 +147,14 @@ export default function App() {
   const promptQueue = usePromptQueue({ tabs: workspace.tabs, targets: terminalTargets.targets });
   // `belfry send` 的任务经后台队列投进目标终端，等待目标 Agent 空闲。
   useTaskDelivery(promptQueue.submit);
+  // 房间成员在等你选择、或者发给他的消息卡住了：侧栏「协作房间」按钮亮起，房间藏着也看得见。
+  const roomAttention = useMemo(() => {
+    const waiting = workspace.tabs.filter((tab) => roomBound.boundIds.has(tab.id)
+      && tab.phase === "running" && tab.activity === "awaiting-choice").length;
+    const stuck = promptQueue.paused.filter((item) => roomBound.boundIds.has(item.tabId)).length;
+    return waiting + stuck;
+  }, [workspace.tabs, roomBound.boundIds, promptQueue.paused]);
 
-  // 房间成员的「清除上下文」：把该 Agent 自己的重置命令经同一条 Prompt 队列送进它的
-  // 终端——忙时排队、等它空闲再送出；进程、会话与房间身份都不动，也不移出成员。
-  const clearRoomMemberContext = useCallback((tabId: string): PromptSubmitResult => {
-    const tab = workspace.tabs.find((candidate) => candidate.id === tabId);
-    if (!tab || !isAgentKind(tab.kind)) return "unavailable";
-    const command = agentResetCommand(tab.kind);
-    if (!command) return "unavailable";
-    return promptQueue.submit(tabId, command);
-  }, [promptQueue.submit, workspace.tabs]);
-  // 房间任务的「已提交待验证」提醒：轮询挂在 App 层，房间视图不开也照常工作。
-  useRoomNotifications(roomsOpen);
   const collab = useCollabTasks();
   // 历史会话与用量面板互斥：两者都占右侧一列，栅格只留了一条轨道。
   const toggleUsage = useCallback(() => {
@@ -220,22 +220,11 @@ export default function App() {
     setPreviewRequest(request ?? null);
   }, [quickOpen.close]);
 
-  // 回执里的文件路径：先收房间再开预览——预览占右侧整窗，和房间互斥。
-  const openRoomFile = useCallback((relativePath: string) => {
+  // 房间里点「终端」：收起房间，切到那位成员的会话。
+  const openRoomSession = useCallback((tabId: string) => {
     setRoomsOpen(false);
-    openPreview({ path: relativePath, line: null });
-  }, [openPreview]);
-
-  // 在新窗口打开一间房。失败原因原样交回房间视图的提示栏——开窗失败大多是
-  // 系统窗口配额，偶发一次，不值得升级成全局错误条。
-  const openRoomWindow = useCallback(async (roomId: string, roomName: string) => {
-    try {
-      await roomOpenWindow(roomId, roomName);
-      return null;
-    } catch (cause) {
-      return toAppFailure(cause).message;
-    }
-  }, []);
+    layout.activateTab(tabId);
+  }, [layout.activateTab]);
 
   const revealPluginDock = useCallback(() => {
     setSettingsOpen(false); setUsageOpen(false); setHistoryOpen(false);
@@ -357,6 +346,7 @@ export default function App() {
           onToggleUsage={toggleUsage}
           onToggleHistory={toggleHistory}
           roomsOpen={roomsOpen}
+          roomAttention={roomAttention}
           onToggleRooms={toggleRooms}
           historyOpen={historyOpen}
           onOpenUpdater={updater.openPanel}
@@ -434,8 +424,6 @@ export default function App() {
         onCheckUpdate={updater.checkNow}
         onCloseHistory={() => setHistoryOpen(false)}
         onCloseQuickOpen={quickOpen.close}
-        onCloseRoomMember={workspace.closeTab}
-        onClearRoomMemberContext={clearRoomMemberContext}
         onCloseRooms={() => { setRoomsOpen(false); void roomBound.refresh(); }}
         onCloseSettings={() => setSettingsOpen(false)}
         onOpenUpdater={updater.openPanel}
@@ -449,8 +437,10 @@ export default function App() {
         }}
         onDismissFailure={workspace.dismissFailure}
         onInstallUpdate={updater.install}
-        onOpenRoomFile={openRoomFile}
-        onOpenRoomWindow={openRoomWindow}
+        onOpenRoomSession={openRoomSession}
+        onResumeRoomDelivery={promptQueue.resume}
+        roomPausedDeliveries={promptQueue.paused}
+        terminalTargets={terminalTargets.targets}
         onLaunchRoomMember={launchRoomMember}
         onRenameAgent={renameAgent}
         onResumeHistory={resumeHistory}

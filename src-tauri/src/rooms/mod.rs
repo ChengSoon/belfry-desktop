@@ -1,22 +1,41 @@
-//! 协作房间：常驻的会话编组。
+//! 协作房间：多个 Agent 一起完成一个需求，一位统筹拆活、派活、跟进度，
+//! 其他成员各管自己的职责。模型照 CCCC（Apache-2.0，见 `third_party/cccc/NOTICE.md`）。
 //!
-//! 房间不碰传输：派发照样落进 `TaskBoard`、经 Prompt 队列投进成员终端，
-//! 成员照样敲 `belfry done` 交差。这一层做的只有三件事——
+//! - `model`：数据结构与纯规则（角色权限、收件人解析、任务状态迁移）；
+//! - `ops`：房间上的每个动作，产出要投递的消息；
+//! - `ledger`：只追加的消息账本；
+//! - `store`：落盘与并发；
+//! - `directory`：成员经 `belfry room …` 进来的入口；
+//! - `commands`：界面的 Tauri 命令。
 //!
-//! 1. 把房间、成员、讨论、决定、任务与交付状态持久化到 `rooms.json`；
-//! 2. 把 TaskBoard 的状态**对账**（reconcile）回每条投递并追加系统消息，
-//!    界面从不自己猜状态；
-//! 3. 明确区分「已送达」「对方交差」与「结果未知」：应用重启后旧任务编号
-//!    查不到，一律回写成 Unknown，不假装成功。
+//! 投递复用协作总线：房间消息排进 `TaskBoard`、经 Prompt 队列进成员终端，
+//! 送达后对账记进账本。
 
 pub mod commands;
-pub mod attachment_commands;
-mod attachments;
-mod clipboard_files;
+mod directory;
+mod ledger;
+mod model;
+mod ops;
 mod store;
 
 pub use store::RoomStore;
 
+/// 给协作总线挂的成员入口。
+pub fn member_directory(
+    store: std::sync::Arc<RoomStore>,
+    registry: std::sync::Arc<crate::collab::SessionRegistry>,
+) -> std::sync::Arc<dyn crate::collab::RoomDirectory> {
+    std::sync::Arc::new(directory::MemberDirectory { store, registry })
+}
+
+/// 测试里搭房间用：跳过界面，直接加成员（第一位自动当统筹）。
 #[cfg(test)]
-#[path = "store_test.rs"]
-mod store_test;
+pub mod test_support {
+    pub fn add(room: &mut super::model::Room, tab_id: &str, title: &str, duty: &str) -> Result<(), String> {
+        super::ops::add_member(room, tab_id, "claude", title, duty, false, super::model::now_millis()).map(|_| ())
+    }
+}
+
+#[cfg(test)]
+#[path = "rooms_test.rs"]
+mod rooms_test;

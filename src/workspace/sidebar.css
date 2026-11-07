@@ -535,3 +535,20 @@
 .popover-browse:hover:not(:disabled) { background: var(--surface-hover); }
 .popover-browse:hover:not(:disabled) > svg { color: var(--accent); }
 .popover-browse:disabled { opacity: 0.45; cursor: default; }
+
+/* 房间里有人在等你选择、或消息卡住：按钮亮起并带计数。 */
+.room-trigger { position: relative; }
+.room-trigger--attention { color: var(--warning); }
+.room-trigger__count {
+  min-width: 16px;
+  height: 16px;
+  margin-left: auto;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--warning);
+  color: var(--canvas);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+  text-align: center;
+}

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { TerminalCommandTarget } from "../terminal/contracts";
 import type { WorkspaceTab } from "../workspace/contracts";
-import { PromptQueueRuntime } from "./runtime";
+import { PROMPT_CONFIRM_TIMEOUT_MS, PROMPT_EMPTY_CONFIRM_MS, PromptQueueRuntime } from "./runtime";
 
 const project = { id: "project", name: "Project", rootPath: "/project", rootUri: "/project" };
 
@@ -143,5 +143,51 @@ describe("PromptQueueRuntime", () => {
     runtime.sync([tab()], targets(command));
     expect(command.sendText).toHaveBeenCalledExactlyOnceWith("待处理任务", expect.any(Object));
     expect(runtime.items).toEqual([]);
+  });
+
+  it("treats an emptied input box after Enter as delivered, so a fast Agent does not pause the queue", () => {
+    vi.useFakeTimers();
+    try {
+      const runtime = new PromptQueueRuntime();
+      let result: ((value: "submitted") => void) | undefined;
+      let empty = false;
+      const command: TerminalCommandTarget = {
+        focus: vi.fn(),
+        sendText: vi.fn((_text, options) => { result = options?.onResult as typeof result; return true; }),
+        composerEmpty: () => empty,
+      };
+      runtime.submit([tab()], targets(command), "agent-1", "first");
+      runtime.submit([tab()], targets(command), "agent-1", "second");
+      result?.("submitted");
+      vi.advanceTimersByTime(PROMPT_EMPTY_CONFIRM_MS);
+      runtime.sync([tab()], targets(command));
+      expect(command.sendText, "input still has text: keep waiting").toHaveBeenCalledTimes(1);
+      empty = true;
+      runtime.sync([tab()], targets(command));
+      expect(command.sendText).toHaveBeenCalledTimes(2);
+      expect(runtime.pausedDeliveries()).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("lists a paused delivery and resumes it on request", () => {
+    vi.useFakeTimers();
+    try {
+      const runtime = new PromptQueueRuntime();
+      const command = target();
+      runtime.submit([tab()], targets(command), "agent-1", "first");
+      runtime.submit([tab()], targets(command), "agent-1", "second");
+      vi.advanceTimersByTime(PROMPT_CONFIRM_TIMEOUT_MS);
+      runtime.sync([tab()], targets(command));
+      expect(runtime.pausedDeliveries()).toEqual([{ tabId: "agent-1", message: expect.stringContaining("暂停") }]);
+      expect(command.sendText).toHaveBeenCalledTimes(1);
+      expect(runtime.resume("agent-1")).toBe(true);
+      expect(runtime.resume("agent-1")).toBe(false);
+      runtime.sync([tab()], targets(command));
+      expect(command.sendText).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

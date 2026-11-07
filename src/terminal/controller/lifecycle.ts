@@ -99,6 +99,13 @@ export class TerminalLifecycle {
 
   sendText(text: string, options?: PromptDeliveryOptions) { return this.input.sendText(text, options); }
 
+  /** 替用户按下选择键：走和键盘同一条输入通道，PTY 不在时不发。 */
+  pressKeys(keys: string): boolean {
+    if (this.disposed || this.failed || !this.current) return false;
+    this.ports.terminal.input(keys, true);
+    return true;
+  }
+
   updatePalette(theme: TerminalTheme) {
     if (!this.current) return;
     void setTerminalPalette(this.current.id, palette(theme)).catch(() => undefined);

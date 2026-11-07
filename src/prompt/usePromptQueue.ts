@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { TerminalCommandTarget } from "../terminal/contracts";
 import type { WorkspaceTab } from "../workspace/contracts";
 import type { PromptSubmitOptions, PromptSubmitResult } from "./contracts";
-import { PromptQueueRuntime } from "./runtime";
+import { PromptQueueRuntime, type PausedDelivery } from "./runtime";
 
 interface PromptQueueOptions {
   tabs: readonly WorkspaceTab[];
@@ -16,13 +16,27 @@ export function usePromptQueue({ tabs, targets }: PromptQueueOptions) {
     return runtime.current.submit(tabs, targets, tabId, text, options);
   }, [tabs, targets]);
   const cancel = useCallback((id: string) => runtime.current.cancel(id), []);
+  const [paused, setPaused] = useState<readonly PausedDelivery[]>([]);
+  const publish = useCallback(() => {
+    const next = runtime.current.pausedDeliveries();
+    setPaused((current) => sameDeliveries(current, next) ? current : next);
+  }, []);
+  const resume = useCallback((tabId: string) => {
+    const resumed = runtime.current.resume(tabId);
+    publish();
+    return resumed;
+  }, [publish]);
 
   useEffect(() => {
-    const sync = () => runtime.current.sync(tabs, targets);
+    const sync = () => { runtime.current.sync(tabs, targets); publish(); };
     sync();
     const timer = window.setInterval(sync, 1_000);
     return () => window.clearInterval(timer);
   }, [tabs, targets]);
 
-  return { submit, cancel };
+  return { submit, cancel, paused, resume };
+}
+
+function sameDeliveries(a: readonly PausedDelivery[], b: readonly PausedDelivery[]) {
+  return a.length === b.length && a.every((item, at) => item.tabId === b[at].tabId && item.message === b[at].message);
 }

@@ -245,8 +245,11 @@ export function useTerminalSession(
   const reconnect = useCallback(() => actions.current?.reconnect(), []);
   const focus = useCallback(() => handle.current?.focus(), []);
   const sendText = useCallback<TerminalCommandTarget["sendText"]>((text, options) => handle.current?.sendText(text, options) ?? false, []);
-  const commandTarget = useMemo(() => ({ focus, sendText, notifyInputIssue: setError,
-    getSessionId: () => sessionId.current }),
+  const commandTarget = useMemo<TerminalCommandTarget>(() => ({ focus, sendText, notifyInputIssue: setError,
+    getSessionId: () => sessionId.current,
+    composerEmpty: () => handle.current?.composerEmpty() ?? false,
+    readChoice: () => handle.current?.readChoice() ?? null,
+    answerChoice: (signature, index) => handle.current?.answerChoice(signature, index) ?? "unavailable" }),
   [focus, sendText, generation, launch.tabId, launch.collaborationMode, launch.cwd, launch.profileId,
     launch.resumeSessionId, launch.ssh, launch.projectLaunch, launch.attachmentId]);
   const close = useCallback(() => actions.current?.close(), []);

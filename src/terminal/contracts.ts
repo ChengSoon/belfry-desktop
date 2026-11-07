@@ -163,6 +163,14 @@ export interface TerminalCommandTarget {
   sendText: (text: string, options?: PromptDeliveryOptions) => boolean;
   notifyInputIssue?: (message: string) => void;
   getSessionId?: () => string | null;
+  /** 输入区是不是空的（底栏显示 `? for shortcuts`）。投递队列靠它确认任务已被提交走。 */
+  composerEmpty?: () => boolean;
+  /** 读屏幕底部的选择框；读不准返回 null。 */
+  readChoice?: () => import("./choice").TerminalChoice | null;
+  /**
+   * 替用户选第 `index` 项。发按键前重读一遍屏幕，`signature` 对不上就不发（返回 `changed`）。
+   */
+  answerChoice?: (signature: string, index: number) => "sent" | "changed" | "unavailable";
 }
 
 export type TerminalStreamEvent =

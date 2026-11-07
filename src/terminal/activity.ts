@@ -8,14 +8,21 @@ import type { SessionActivity } from "./contracts";
  * 认不出一律 idle：侧栏漏报一次没人受伤，误报几次用户就再也不信这个点了。
  */
 
-/** 生成中。Claude 的 `✻ Thinking… (esc to interrupt)` 和 Codex 的 `Working (Esc to interrupt)` 共用这句。 */
-const TALKING = /esc to interrupt/i;
+/**
+ * 生成中。Claude 的 `✻ Thinking… (esc to interrupt)` 和 Codex 的 `Working (Esc to interrupt)` 共用这句。
+ * Codex 0.16x 起按键名单独着色、可能画成 `⎋` 之类的符号，只剩 ` to interrupt)` 是稳定的文本；
+ * 排队消息的提示 `(press esc to interrupt and send immediately)` 也只在生成中出现。
+ */
+const TALKING = /esc to interrupt|\bto interrupt(?: and send immediately)?\)/i;
 
-/** 权限框首句。完整一句话，偶然落进扫描窗口的概率低。 */
-const CHOICE_QUESTION = /\bdo you want to\b/i;
+/**
+ * 权限框首句。完整一句话，偶然落进扫描窗口的概率低。Claude 用 `Do you want to …`；
+ * Codex 0.16x 用 `Would you like to run the following command?` 这一组。
+ */
+export const CHOICE_QUESTION = /\bdo you want to\b|\bwould you like to (?:run|make|grant|send|approve|proceed)\b/i;
 
-/** 选择光标 + 编号：`❯ 1.` / `> 2)`。光标符是 TUI 独有的，markdown 有序列表渲染不出来。 */
-const CHOICE_CURSOR = /^[❯›>]\s*\d+[.)]/;
+/** 选择光标 + 编号：`❯ 1.` / `› 2)`。光标符是 TUI 独有的，markdown 有序列表渲染不出来。 */
+const CHOICE_CURSOR = /^[❯›>▶]\s*\d+[.)]/;
 
 /** 裸编号行。只用来确认光标那行不是孤例，绝不单独作判据——Agent 回答里的有序列表长这样。 */
 const NUMBERED_OPTION = /^\s*\d+[.)]\s/;
@@ -25,6 +32,16 @@ const CONFIRM_TAIL = /[([][yY]\s*\/\s*[nN][)\]]\s*[:：]?\s*$/;
 
 /** 往上取几行。Claude 的 spinner 距底 6-8 行、权限框 8-10 行，12 有余量又不至于把正文摊进来。 */
 export const ACTIVITY_TAIL_LINES = 12;
+
+/**
+ * 输入区是空的。Claude Code 和 Codex 都只在输入框没内容时才在底栏显示 `? for shortcuts`，
+ * 打了字就换成别的提示——投递队列靠它判断「贴进去的任务已经被提交走了」。
+ */
+const COMPOSER_EMPTY = /\?\s+for shortcuts/i;
+
+export function composerLooksEmpty(tail: string): boolean {
+  return COMPOSER_EMPTY.test(tail);
+}
 
 /** 屏幕行的最小投影。剥掉 xterm 依赖，判定逻辑才测得动（仓库没装 jsdom）。 */
 export interface ScreenLine {
@@ -109,6 +126,11 @@ export function watchActivity(
       pending = 0;
     },
   };
+}
+
+/** 当前屏幕底部 `lines` 行的文本（折行已拼回）。读选择框、判断输入区是否为空都用它。 */
+export function readScreenTail(terminal: Terminal, lines: number): string {
+  return screenTail(readScreen(terminal), lines);
 }
 
 /** 用 baseY 而非 viewportY：用户往上滚屏不该改变判定。alternate buffer 里 baseY 恒为 0，同一段循环通吃。 */

@@ -16,7 +16,7 @@ use std::sync::Arc;
 use std::thread;
 
 use belfry_protocol::{
-    Command, InboxTask, PROTOCOL_VERSION, Request, Response, ResponseData, RoomBrief, RoomLine,
+    Command, InboxTask, PROTOCOL_VERSION, Request, Response, ResponseData,
 };
 
 use super::identity::SessionIdentities;
@@ -26,93 +26,33 @@ use super::task::{self, ApprovalMode, TargetInfo, TaskBoard, TaskRequest, TaskSt
 /// 单行请求的上限。够放一条派活指令，又不至于让一个坏客户端把内存吃光。
 const MAX_REQUEST_BYTES: u64 = 1024 * 1024;
 
-/// 房间层的只读视图。
-///
-/// 总线对房间的具体类型保持无知：它只问「这条会话在哪些房间里」。实现放在
-/// rooms 层，依赖方向是 rooms → collab，总线不回头认识 rooms。
-/// 投递的目标：房间里的一个成员（点名的，或群发的）。
+/// 一条要送进成员终端的房间消息。总线只负责排队、合并、送达；内容由房间层拼好。
 #[derive(Clone, Debug)]
-pub struct MentionTarget {
-    pub member_id: String,
+pub struct RoomPost {
+    pub room_id: String,
+    pub room_name: String,
+    pub message_id: String,
     pub tab_id: String,
-    pub role: String,
+    /// 收件人角色名（回执里报给发件人）。
+    pub member_title: String,
+    /// 注入终端的那一行：「[短id] 谁：内容」。
+    pub line: String,
+    /// 要求回复。
+    pub ask: bool,
 }
 
-/// 一次「往房间说话」的结果：消息落在哪间房，投给谁。
-pub struct SayOutcome {
-    pub room_id: String,
-    pub room_name: String,
-    pub sender_role: String,
-    /// 是不是点名：true＝有人被点名（投递收窄到被点的人，口径「请你说」）。
-    pub addressed: bool,
-    pub recipients: Vec<MentionTarget>,
-    /// 这次发言落到时间线上的消息 id：投递送达后按它把回执写回消息。
-    pub message_id: String,
-    /// 被显式点名的成员 id（收窄后也就是投递对象）。不点名时为空，
-    /// 投递发给全体其他成员、口径是「看见即可」。
-    pub mentioned: Vec<String>,
-    /// 引用回复的现成摘录（「（回复 前端：「原话摘要」）」），注入行直接缀上；
-    /// 没引用时为 None。
-    pub reply_preview: Option<String>,
-}
-
-/// 一次表情回应的结果：落到哪条消息上、点上了还是取消了。
-pub struct ReactOutcome {
-    pub room_id: String,
-    pub room_name: String,
-    pub message_id: String,
-    /// 被点消息的短 id（回执与界面照写这个）。
-    pub message_short: String,
-    pub emoji: String,
-    /// true＝点上，false＝取消。
-    pub active: bool,
-}
-
-/// 一次「读房间对话」的结果。
-pub struct LogOutcome {
-    pub room_name: String,
-    pub lines: Vec<RoomLine>,
-}
-
+/// 房间层对总线的接口。
+///
+/// 总线不认识房间的具体类型：`belfry room …` 的请求原样交给房间层，拿回给 CLI 的
+/// 回答和要投递的消息。依赖方向是 rooms → collab，总线不回头认识 rooms。
 pub trait RoomDirectory: Send + Sync {
-    fn my_rooms(&self, tab_id: &str) -> Vec<RoomBrief>;
-    /// 成员往自己的房间说一句话。Err 是给人看的理由（不在房间、没说清哪间、说太快）。
-    fn say(
-        &self,
-        tab_id: &str,
-        room: Option<&str>,
-        text: &str,
-        reply_to: Option<&str>,
-    ) -> Result<SayOutcome, String>;
-    /// 给房间里某条消息点表情（同一人同一表情再点一次取消）。
-    fn react(
-        &self,
-        tab_id: &str,
-        room: Option<&str>,
-        message: &str,
-        emoji: &str,
-    ) -> Result<ReactOutcome, String>;
-    /// 成员读自己房间最近的对话。
-    fn log(&self, tab_id: &str, room: Option<&str>, count: usize) -> Result<LogOutcome, String>;
-    /// 登记一次成员间的转手（`send` 直派，或房间点名的接收方）：对方交差时
-    /// 把回复回显进房间时间线——聊天不能断在交接处。best-effort：
-    /// 登记失败不该挡住投递本身。
-    fn note_delegation(
-        &self,
-        room_id: Option<&str>,
-        from_tab: &str,
-        to_tab: &str,
-        bus_task_id: &str,
-        text: &str,
-        announce: bool,
-    );
+    fn handle(&self, tab_id: &str, command: &Command) -> Result<(ResponseData, Vec<RoomPost>), String>;
 }
 
 /// 房间目录的挂载点。
 ///
 /// 服务线程在应用 setup 之前就起来了（socket 要先于任何 PTY 存在），而房间
-/// 存储要等 Tauri 的 app 句柄才拿得到路径。装好之前按「不在任何房间」回答；
-/// 挂载只发生一次，装完之后所有请求自动看到真实数据。
+/// 存储要等 Tauri 的 app 句柄才拿得到路径。装好之前按「不在任何房间」回答。
 #[derive(Default)]
 pub struct RoomAccess(std::sync::OnceLock<Arc<dyn RoomDirectory>>);
 
@@ -121,57 +61,11 @@ impl RoomAccess {
         let _ = self.0.set(directory);
     }
 
-    fn my_rooms(&self, tab_id: &str) -> Vec<RoomBrief> {
+    fn handle(&self, tab_id: &str, command: &Command) -> Result<(ResponseData, Vec<RoomPost>), String> {
         match self.0.get() {
-            Some(directory) => directory.my_rooms(tab_id),
-            None => Vec::new(),
-        }
-    }
-
-    fn say(
-        &self,
-        tab_id: &str,
-        room: Option<&str>,
-        text: &str,
-        reply_to: Option<&str>,
-    ) -> Result<SayOutcome, String> {
-        match self.0.get() {
-            Some(directory) => directory.say(tab_id, room, text, reply_to),
+            Some(directory) => directory.handle(tab_id, command),
+            None if matches!(command, Command::Rooms) => Ok((ResponseData::Rooms { rooms: Vec::new() }, Vec::new())),
             None => Err("房间目录还没就绪，稍后再试".to_string()),
-        }
-    }
-
-    fn react(
-        &self,
-        tab_id: &str,
-        room: Option<&str>,
-        message: &str,
-        emoji: &str,
-    ) -> Result<ReactOutcome, String> {
-        match self.0.get() {
-            Some(directory) => directory.react(tab_id, room, message, emoji),
-            None => Err("房间目录还没就绪，稍后再试".to_string()),
-        }
-    }
-
-    fn log(&self, tab_id: &str, room: Option<&str>, count: usize) -> Result<LogOutcome, String> {
-        match self.0.get() {
-            Some(directory) => directory.log(tab_id, room, count),
-            None => Err("房间目录还没就绪，稍后再试".to_string()),
-        }
-    }
-
-    fn note_delegation(
-        &self,
-        room_id: Option<&str>,
-        from_tab: &str,
-        to_tab: &str,
-        bus_task_id: &str,
-        text: &str,
-        announce: bool,
-    ) {
-        if let Some(directory) = self.0.get() {
-            directory.note_delegation(room_id, from_tab, to_tab, bus_task_id, text, announce);
         }
     }
 }
@@ -370,50 +264,22 @@ fn dispatch(
                 peers: registry.peers_for(&request.tab_id),
             },
         },
-        Command::Rooms => Response::Ok {
-            data: ResponseData::Rooms {
-                rooms: rooms.my_rooms(&request.tab_id),
-            },
-        },
-        Command::RoomSay {
-            room,
-            text,
-            reply_to,
-        } => dispatch_room_say(
-            request,
-            registry,
-            board,
-            rooms,
-            room.as_deref(),
-            text,
-            reply_to.as_deref(),
-        ),
-        Command::RoomReact {
-            room,
-            message,
-            emoji,
-        } => match rooms.react(&request.tab_id, room.as_deref(), message, emoji) {
-            Ok(outcome) => Response::Ok {
-                data: ResponseData::RoomReacted {
-                    room: outcome.room_name,
-                    message: outcome.message_short,
-                    emoji: outcome.emoji,
-                    active: outcome.active,
-                },
-            },
-            Err(reason) => Response::error(reason),
-        },
-        Command::RoomLog { room, count } => match rooms.log(
-            &request.tab_id,
-            room.as_deref(),
-            count.unwrap_or(20) as usize,
-        ) {
-            Ok(outcome) => Response::Ok {
-                data: ResponseData::RoomLog {
-                    room: outcome.room_name,
-                    entries: outcome.lines,
-                },
-            },
+        Command::Rooms
+        | Command::RoomStatus { .. }
+        | Command::RoomSay { .. }
+        | Command::RoomLog { .. }
+        | Command::RoomTask { .. }
+        | Command::RoomBrief { .. } => match rooms.handle(&request.tab_id, &request.command) {
+            Ok((data, posts)) => {
+                let now = now_millis();
+                for post in &posts {
+                    // 会话已经不在的收件人：消息照样记在时间线上，只是送不进终端。
+                    if registry.find(&post.tab_id).is_some() {
+                        task::enqueue_room_post(board, &request.tab_id, post, now);
+                    }
+                }
+                Response::Ok { data }
+            }
             Err(message) => Response::error(message),
         },
         Command::Send {
@@ -424,7 +290,6 @@ fn dispatch(
             request,
             registry,
             board,
-            rooms,
             to,
             instruction,
             parent_task.as_deref(),
@@ -472,81 +337,6 @@ fn dispatch(
     }
 }
 
-/// 房间群聊的投递（`belfry room say` 的落点）。
-///
-/// 群聊通道：不建交差任务、不要求 `done`——只把对话送进被点名者（或全体其他
-/// 成员）的终端，回复走同一条 `room say`，时间线直接成环。点名＝请对方接话，
-/// 不点名＝看见即可。不走 `judge`：房间成员资格就是用户的授权；忙碌与否交给
-/// 队列背压——聊天不该因为对方正忙就被拒。防刷屏靠房间层的限速（见
-/// `RoomStore::member_say`）。
-fn dispatch_room_say(
-    request: &Request,
-    registry: &SessionRegistry,
-    board: &TaskBoard,
-    rooms: &RoomAccess,
-    room: Option<&str>,
-    text: &str,
-    reply_to: Option<&str>,
-) -> Response {
-    let outcome = match rooms.say(&request.tab_id, room, text, reply_to) {
-        Ok(outcome) => outcome,
-        Err(message) => return Response::error(message),
-    };
-    // 每行带发言者角色名，多条并进同一条注入时就是一段对话摘录；
-    // 引用回复缀上原话摘录，群里指代不靠猜。
-    let mut line = format!("{}：{}", outcome.sender_role, text.trim());
-    if let Some(preview) = &outcome.reply_preview {
-        line.push_str(preview);
-    }
-    let mut recipients = Vec::new();
-    let mut skipped = Vec::new();
-    for target in &outcome.recipients {
-        if registry.find(&target.tab_id).is_none() {
-            skipped.push(format!("「{}」的会话已经不在了", target.role));
-            continue;
-        }
-        // 口径：点名收窄后投递对象就是被点的人（「请你说」）；群发到全体（「看见即可」）。
-        let direct = outcome
-            .addressed
-            && outcome.mentioned.iter().any(|id| id == &target.member_id);
-        let now = now_millis();
-        // 窗口内的连发并进同一条排队中的注入；已送达／超窗则另起一条。
-        if !board.append_pending_chat(
-            &target.tab_id,
-            &outcome.room_id,
-            &line,
-            &outcome.message_id,
-            now,
-            direct,
-        ) {
-            let id = ulid::Ulid::generate().to_string().to_lowercase();
-            board.insert(
-                task::chat_task(
-                    id,
-                    &outcome.message_id,
-                    &request.tab_id,
-                    &target.tab_id,
-                    &line,
-                    direct,
-                    now,
-                )
-                .with_origin(task::TaskOrigin::Room {
-                    id: outcome.room_id.clone(),
-                    name: outcome.room_name.clone(),
-                }),
-            );
-        }
-        recipients.push(target.role.clone());
-    }
-    Response::Ok {
-        data: ResponseData::RoomSaid {
-            room: outcome.room_name,
-            recipients,
-            skipped,
-        },
-    }
-}
-
 /// 派活。
 ///
 /// 闸门判断在 `task::judge` 里，这里只把上下文凑齐：解析目标、找父任务、
@@ -555,7 +345,6 @@ fn dispatch_send(
     request: &Request,
     registry: &SessionRegistry,
     board: &TaskBoard,
-    rooms: &RoomAccess,
     to: &str,
     instruction: &str,
     parent_task: Option<&str>,
@@ -614,12 +403,7 @@ fn dispatch_send(
             let id = ulid::Ulid::generate().to_string().to_lowercase();
             let created = task::build_task(id, &outgoing, now_millis(), &verdict);
             let short = task::short_id(&created.id).to_string();
-            let bus_id = created.id.clone();
             board.insert(created);
-            // 两边都是同房成员时留痕：对方交差后回复回到房间时间线。
-            // 找不到共同房间（或有一边不在房间里）就静默跳过——send 不要求房间。
-            // 先入板、再登记：登记在前、对账抢先看到时会误报「结果未知」。
-            rooms.note_delegation(None, &request.tab_id, &target.tab_id, &bus_id, instruction, true);
             Response::Ok {
                 data: ResponseData::Sent {
                     task: short,

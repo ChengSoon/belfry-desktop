@@ -45,5 +45,8 @@ export interface TerminalHandle {
   focus: () => void;
   /** Composer 走可信的 xterm 输入通道提交多行文本，不直接绕过终端写 PTY。 */
   sendText: TerminalCommandTarget["sendText"];
+  composerEmpty: NonNullable<TerminalCommandTarget["composerEmpty"]>;
+  readChoice: NonNullable<TerminalCommandTarget["readChoice"]>;
+  answerChoice: NonNullable<TerminalCommandTarget["answerChoice"]>;
   dispose: () => void;
 }

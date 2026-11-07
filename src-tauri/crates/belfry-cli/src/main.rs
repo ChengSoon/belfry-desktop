@@ -12,7 +12,7 @@ use std::process::ExitCode;
 use std::time::{Duration, Instant};
 
 use belfry_protocol::{
-    Command, ENV_ENDPOINT, ENV_TAB_ID, ENV_TOKEN, Request, Response, ResponseData,
+    Command, ENV_ENDPOINT, ENV_TAB_ID, ENV_TOKEN, Request, Response, ResponseData, RoomTaskOp,
 };
 
 fn main() -> ExitCode {
@@ -103,10 +103,19 @@ const USAGE: &str = "\
 belfry —— Belfry 会话之间的协作命令
 
   belfry peers                     看看现在还有哪些会话，各自在忙什么
-  belfry rooms                     我在的协作房间：成员与值得留意的活
-  belfry room say <内容> [--room <房间>] [--reply <消息id>]   往房间里说话（聊天，不派活）；不带 @ 发给所有成员，@角色 只发给那个人，--reply 引用某条消息
-  belfry room react <消息id> <表情> [--room <房间>]   给某条消息点表情（👍 ✅ 👀 🎉 ❤️ 🙏）；再点一次是取消
-  belfry room log [--room <房间>] [--count <条数>]  读房间最近的对话
+  belfry rooms                     我在的协作房间：我的角色、统筹是谁、还有几条活没完
+  belfry room status               房间全貌：需求简报、成员与职责、任务板、等我回复的消息
+  belfry room say <内容> [--to <角色>] [--ask] [--reply <消息id>]
+                                   发消息。不写 --to 时看正文里的 @角色；都没有就发给统筹
+                                   （统筹发的给全体）。--to 也接受 @全体 @成员 @统筹 @用户。
+                                   --ask 要求回复，--reply 回复某条（默认回给原发件人）
+  belfry room log [--count <条数>]  读房间最近的对话
+  belfry room task add <标题> [--to <角色>] [--outcome <完成标准>] [--after T1,T2]
+  belfry room task start|done|reopen|archive <任务号> [结果]
+  belfry room task assign <任务号> <角色>      统筹换人；成员只能认领没人负责的给自己
+  belfry room task note <任务号> <进展>
+  belfry room brief [--objective <目标>] [--focus <当前重点>] [--constraint <约束>]…   统筹改需求简报
+  所有 room 命令都能加 --room <房间名>（同时在多间房里时必须写）
   belfry send <目标> <指令>         请另一条会话做点什么
   belfry inbox                     派给我、还没结的任务
   belfry done <任务号> [结果]       我做完了（唯一可信的完成信号）
@@ -136,101 +145,157 @@ fn parse(args: &[String]) -> Result<Action, String> {
     }
 }
 
-/// `belfry room say|log` 的分派。
+/// 把参数拆成「带值的标志」和位置参数。`valued` 是要吃一个值的标志，`switches` 是开关。
+/// 同一个带值标志可以写多次（`--to 前端 --to 后端`）。
+struct Flags {
+    values: Vec<(String, String)>,
+    switches: Vec<String>,
+    positional: Vec<String>,
+}
+
+impl Flags {
+    fn parse(args: &[String], valued: &[&str], switches: &[&str]) -> Result<Self, String> {
+        let mut flags = Flags { values: Vec::new(), switches: Vec::new(), positional: Vec::new() };
+        let mut rest = args.iter();
+        while let Some(arg) = rest.next() {
+            if valued.contains(&arg.as_str()) {
+                let value = rest.next().filter(|value| !value.trim().is_empty());
+                let value = value.ok_or_else(|| format!("{arg} 后面要跟一个值"))?;
+                flags.values.push((arg.clone(), value.clone()));
+            } else if switches.contains(&arg.as_str()) {
+                flags.switches.push(arg.clone());
+            } else if arg.starts_with("--") {
+                return Err(format!("不认识的参数 `{arg}`，用 belfry help 看看"));
+            } else {
+                flags.positional.push(arg.clone());
+            }
+        }
+        Ok(flags)
+    }
+
+    fn one(&self, name: &str) -> Option<String> {
+        self.values.iter().rev().find(|(key, _)| key == name).map(|(_, value)| value.clone())
+    }
+
+    fn all(&self, name: &str) -> Vec<String> {
+        self.values.iter().filter(|(key, _)| key == name).map(|(_, value)| value.clone()).collect()
+    }
+
+    fn has(&self, name: &str) -> bool {
+        self.switches.iter().any(|switch| switch == name)
+    }
+
+    /// 位置参数拼回一句话：Agent 不加引号写成多个词也照样认。
+    fn text(&self, from: usize) -> String {
+        self.positional.get(from..).unwrap_or_default().join(" ")
+    }
+}
+
+/// `belfry room <子命令>` 的分派。
 fn parse_room(args: &[String]) -> Result<Command, String> {
+    let rest = args.get(1..).unwrap_or_default();
     match args.first().map(String::as_str) {
-        Some("say") => parse_room_say(&args[1..]),
-        Some("log") => parse_room_log(&args[1..]),
-        Some("react") => parse_room_react(&args[1..]),
-        _ => Err(format!("belfry room 后面要写 say、log 或 react。\n\n{USAGE}")),
+        Some("status") => {
+            let flags = Flags::parse(rest, &["--room"], &[])?;
+            Ok(Command::RoomStatus { room: flags.one("--room") })
+        }
+        Some("say") => parse_room_say(rest),
+        Some("log") => {
+            let flags = Flags::parse(rest, &["--room", "--count"], &[])?;
+            let count = match flags.one("--count") {
+                None => None,
+                Some(raw) => Some(raw.parse::<u32>().map_err(|_| format!("--count 要是条数，收到的是 `{raw}`"))?),
+            };
+            Ok(Command::RoomLog { room: flags.one("--room"), count })
+        }
+        Some("task") => parse_room_task(rest),
+        Some("brief") => {
+            let flags = Flags::parse(rest, &["--room", "--objective", "--focus", "--constraint"], &["--clear-constraints"])?;
+            let constraints = flags.all("--constraint");
+            let constraints = if flags.has("--clear-constraints") {
+                Some(Vec::new())
+            } else {
+                (!constraints.is_empty()).then_some(constraints)
+            };
+            Ok(Command::RoomBrief {
+                room: flags.one("--room"),
+                objective: flags.one("--objective"),
+                focus: flags.one("--focus"),
+                constraints,
+            })
+        }
+        _ => Err(format!("belfry room 后面要写 status、say、log、task 或 brief。\n\n{USAGE}")),
     }
 }
 
-/// `belfry room say [--room <房间名>] <内容…>`
-///
-/// 内容按位置拼回去，和 send 同一套：Agent 拼命令行时位置参数比标志名可靠。
+/// `belfry room say <内容…> [--to <角色>]… [--ask] [--reply <消息id>] [--room <房间>]`
 fn parse_room_say(args: &[String]) -> Result<Command, String> {
-    let mut room = None;
-    let mut reply_to = None;
-    let mut words = Vec::new();
-    let mut rest = args.iter();
-    while let Some(arg) = rest.next() {
-        if arg == "--room" {
-            let raw = rest.next().ok_or_else(|| "--room 后面要跟房间名".to_string())?;
-            if raw.trim().is_empty() {
-                return Err("--room 后面要跟房间名".to_string());
-            }
-            room = Some(raw.clone());
-        } else if arg == "--reply" {
-            let raw = rest.next().ok_or_else(|| "--reply 后面要跟消息 id".to_string())?;
-            if raw.trim().is_empty() {
-                return Err("--reply 后面要跟消息 id".to_string());
-            }
-            reply_to = Some(raw.clone());
-        } else {
-            words.push(arg.clone());
-        }
-    }
-    let text = words.join(" ");
+    let flags = Flags::parse(args, &["--room", "--to", "--reply"], &["--ask"])?;
+    let text = flags.text(0);
     if text.trim().is_empty() {
-        return Err("belfry room say 要说点什么，比如：belfry room say @审查 看下这个".to_string());
+        return Err("belfry room say 要说点什么，比如：belfry room say @后端 接口定了吗".to_string());
     }
-    Ok(Command::RoomSay { room, text, reply_to })
-}
-
-/// `belfry room react <消息id> <表情> [--room <房间名>]`
-fn parse_room_react(args: &[String]) -> Result<Command, String> {
-    let mut room = None;
-    let mut positional: Vec<String> = Vec::new();
-    let mut rest = args.iter();
-    while let Some(arg) = rest.next() {
-        if arg == "--room" {
-            let raw = rest.next().ok_or_else(|| "--room 后面要跟房间名".to_string())?;
-            if raw.trim().is_empty() {
-                return Err("--room 后面要跟房间名".to_string());
-            }
-            room = Some(raw.clone());
-        } else {
-            positional.push(arg.clone());
-        }
-    }
-    if positional.len() != 2 {
-        return Err(
-            "用法：belfry room react <消息id> <表情>，比如 belfry room react a1b2c3d4 👍".to_string(),
-        );
-    }
-    Ok(Command::RoomReact {
-        room,
-        message: positional[0].clone(),
-        emoji: positional[1].clone(),
+    Ok(Command::RoomSay {
+        room: flags.one("--room"),
+        text,
+        reply_to: flags.one("--reply"),
+        to: flags.all("--to"),
+        ask: flags.has("--ask"),
     })
 }
 
-/// `belfry room log [--room <房间名>] [--count <条数>]`
-fn parse_room_log(args: &[String]) -> Result<Command, String> {
-    let mut room = None;
-    let mut count = None;
-    let mut rest = args.iter();
-    while let Some(arg) = rest.next() {
-        match arg.as_str() {
-            "--room" => {
-                let raw = rest.next().ok_or_else(|| "--room 后面要跟房间名".to_string())?;
-                room = Some(raw.clone());
+/// `belfry room task <动作> …`
+fn parse_room_task(args: &[String]) -> Result<Command, String> {
+    let action = args.first().map(String::as_str);
+    let flags = Flags::parse(args.get(1..).unwrap_or_default(), &["--room", "--to", "--outcome", "--after"], &[])?;
+    let task = || {
+        flags
+            .positional
+            .first()
+            .cloned()
+            .ok_or_else(|| "要写任务号（比如 T1），用 belfry room status 看任务板".to_string())
+    };
+    let op = match action {
+        Some("add") => {
+            let title = flags.text(0);
+            if title.trim().is_empty() {
+                return Err("belfry room task add 要写任务标题".to_string());
             }
-            "--count" => {
-                let raw = rest.next().ok_or_else(|| "--count 后面要跟条数".to_string())?;
-                let value: u32 = raw
-                    .parse()
-                    .map_err(|_| format!("--count 要是条数，收到的是 `{raw}`"))?;
-                if value == 0 {
-                    return Err("--count 至少 1".to_string());
-                }
-                count = Some(value);
-            }
-            other => return Err(format!("belfry room log 不认识的参数 `{other}`")),
+            let after = flags
+                .all("--after")
+                .iter()
+                .flat_map(|raw| raw.split([',', '，', ' ']))
+                .filter(|id| !id.trim().is_empty())
+                .map(|id| id.trim().to_string())
+                .collect();
+            RoomTaskOp::Add { title, outcome: flags.one("--outcome"), assignee: flags.one("--to"), after }
         }
-    }
-    Ok(Command::RoomLog { room, count })
+        Some("assign") => {
+            let assignee = flags
+                .positional
+                .get(1)
+                .cloned()
+                .or_else(|| flags.one("--to"))
+                .ok_or("belfry room task assign 要写交给谁：belfry room task assign T1 前端")?;
+            RoomTaskOp::Assign { task: task()?, assignee }
+        }
+        Some("start") => RoomTaskOp::Start { task: task()? },
+        Some("done") => {
+            let result = flags.text(1);
+            RoomTaskOp::Done { task: task()?, result: (!result.trim().is_empty()).then_some(result) }
+        }
+        Some("reopen") => RoomTaskOp::Reopen { task: task()? },
+        Some("archive") => RoomTaskOp::Archive { task: task()? },
+        Some("note") => {
+            let text = flags.text(1);
+            if text.trim().is_empty() {
+                return Err("belfry room task note 要写进展：belfry room task note T1 接口已联调".to_string());
+            }
+            RoomTaskOp::Note { task: task()?, text }
+        }
+        _ => return Err("belfry room task 后面要写 add、start、done、assign、note、reopen 或 archive".to_string()),
+    };
+    Ok(Command::RoomTask { room: flags.one("--room"), op })
 }
 
 /// `belfry wait <任务号> [--timeout <秒>]`
@@ -428,6 +493,76 @@ fn describe_state(state: &str) -> &str {
     }
 }
 
+fn render_line(entry: &belfry_protocol::RoomLine) -> String {
+    let to = if entry.to.is_empty() { String::new() } else { format!(" → {}", entry.to.join("、")) };
+    let mut line = format!("[{}] {}{to}：{}", entry.id, entry.author, entry.text);
+    if let Some(preview) = &entry.reply_preview {
+        line.push_str(&format!("（{preview}）"));
+    }
+    if entry.needs_my_reply {
+        line.push_str("  ← 等你回复");
+    }
+    line
+}
+
+fn render_task(task: &belfry_protocol::RoomTaskLine) -> String {
+    let owner = task.assignee.as_deref().unwrap_or("没人负责");
+    let mut line = format!("{} [{}] {}（{owner}）", task.id, task.status, task.title);
+    if !task.waiting_for.is_empty() {
+        line.push_str(&format!(" 等 {} 完成", task.waiting_for.join("、")));
+    }
+    if !task.outcome.is_empty() {
+        line.push_str(&format!("\n    完成标准：{}", task.outcome));
+    }
+    if let Some(result) = &task.result {
+        line.push_str(&format!("\n    结果：{result}"));
+    }
+    if let Some(last) = task.notes.lines().last() {
+        line.push_str(&format!("\n    最近进展：{last}"));
+    }
+    line
+}
+
+fn render_brief(brief: &belfry_protocol::RoomBriefView) -> String {
+    let or_blank = |value: &str| if value.is_empty() { "（未写）".to_string() } else { value.to_string() };
+    let mut lines = vec![format!("目标：{}", or_blank(&brief.objective)), format!("当前重点：{}", or_blank(&brief.focus))];
+    if !brief.constraints.is_empty() {
+        lines.push(format!("约束：{}", brief.constraints.join("；")));
+    }
+    lines.join("\n")
+}
+
+fn render_status(status: &belfry_protocol::RoomStatusView) -> String {
+    let role = if status.i_am_foreman { "统筹" } else { "成员" };
+    let mut lines = vec![format!("房间「{}」，我是{}「{}」", status.room, role, status.my_title), String::new()];
+    lines.push("需求简报".to_string());
+    lines.extend(render_brief(&status.brief).lines().map(|line| format!("  {line}")));
+    lines.push(String::new());
+    lines.push("成员".to_string());
+    for member in &status.members {
+        let me = if member.is_me { "（我）" } else { "" };
+        let duty = if member.duty.is_empty() { String::new() } else { format!(" — {}", member.duty) };
+        lines.push(format!("  {}{me} [{}] {}{duty}", member.title, member.role, member.activity));
+    }
+    lines.push(String::new());
+    if status.tasks.is_empty() {
+        lines.push(if status.i_am_foreman {
+            "任务板是空的。拆活：belfry room task add <标题> --to <角色>".to_string()
+        } else {
+            "任务板是空的，等统筹派活。".to_string()
+        });
+    } else {
+        lines.push("任务板".to_string());
+        lines.extend(status.tasks.iter().map(|task| format!("  {}", render_task(task).replace('\n', "\n  "))));
+    }
+    if !status.awaiting_me.is_empty() {
+        lines.push(String::new());
+        lines.push("等你回复（belfry room say --reply <id> <话>）".to_string());
+        lines.extend(status.awaiting_me.iter().map(|entry| format!("  {}", render_line(entry))));
+    }
+    lines.join("\n")
+}
+
 /// 渲染成给 Agent 读的文本。
 ///
 /// 不输出 JSON：Agent 读的是终端，人话它一样解析得了，而且用户瞟一眼也能看懂。
@@ -460,95 +595,52 @@ fn render(data: ResponseData) -> String {
         }
         ResponseData::Rooms { rooms } => {
             if rooms.is_empty() {
-                return "你不在任何协作房间里。房间由用户搭好后才派得到你头上，收到「来自房间」的任务再来看看。"
-                    .to_string();
+                return "你不在任何协作房间里。房间由用户在界面上搭好，把你拉进去之后才用得上 belfry room。".to_string();
             }
             rooms
                 .iter()
                 .map(|room| {
-                    let mut lines = vec![format!(
-                        "房间「{}」（我的角色：{}）",
-                        room.name, room.my_role
-                    )];
-                    lines.push(format!("  成员：{}", room.members.join("、")));
-                    if room.tasks.is_empty() {
-                        lines.push("  值得留意的活：暂时没有".to_string());
-                    } else {
-                        lines.push("  值得留意的活：".to_string());
-                        for task in &room.tasks {
-                            lines.push(format!(
-                                "    - {} [{}] → {}",
-                                task.title,
-                                task.stage,
-                                task.receivers.join("、")
-                            ));
-                        }
+                    let role = if room.i_am_foreman { "统筹" } else { "成员" };
+                    let mut lines = vec![format!("房间「{}」：我是{}「{}」", room.name, role, room.my_title)];
+                    if !room.my_duty.is_empty() {
+                        lines.push(format!("  职责：{}", room.my_duty));
                     }
+                    if !room.i_am_foreman {
+                        lines.push(format!("  统筹：{}", room.foreman.as_deref().unwrap_or("还没定")));
+                    }
+                    if !room.objective.is_empty() {
+                        lines.push(format!("  目标：{}", room.objective));
+                    }
+                    lines.push(format!("  没完成的任务 {} 条；等我回复的消息 {} 条", room.open_tasks, room.awaiting_me));
                     lines.join("\n")
                 })
                 .collect::<Vec<_>>()
                 .join("\n\n")
+                + "\n\n全貌用 belfry room status。"
         }
-        ResponseData::RoomReacted {
-            room: _,
-            message,
-            emoji,
-            active,
-        } => {
-            if active {
-                format!("已给 [{message}] 点上 {emoji}（房间里用 belfry room log 看得到）。")
-            } else {
-                format!("已取消 [{message}] 上的 {emoji}。")
+        ResponseData::RoomStatus { status } => render_status(&status),
+        ResponseData::RoomSaid { room, message, recipients, skipped, ask } => {
+            let mut text = format!("已发到房间「{room}」[{message}]，收件人：{}。", recipients.join("、"));
+            if ask {
+                text.push_str("对方回复之前会一直挂着「等你回复」。");
             }
-        }
-        ResponseData::RoomSaid {
-            room,
-            recipients,
-            skipped,
-        } => {
-            let mut lines = vec![format!("已记进房间「{room}」。")];
-            if recipients.is_empty() {
-                lines.push("房间里还没有别人，这条先记下了。".to_string());
-            } else {
-                lines.push(format!(
-                    "已发给：{}（他们各自会收到这条消息）",
-                    recipients.join("、")
-                ));
+            for reason in skipped {
+                text.push('\n');
+                text.push_str(&reason);
             }
-            lines.extend(skipped);
-            lines.join("\n")
+            text
         }
         ResponseData::RoomLog { room, entries } => {
             if entries.is_empty() {
                 return format!("房间「{room}」还没有消息。");
             }
-            let mut lines = vec![format!("房间「{room}」的最近对话：")];
-            // 每条带短 id：想回哪句，就 `room say --reply <id>`；
-            // 引用摘录与表情回应跟在正文后面。读 log 的是成员，用户消息标「用户」。
-            let with_extras = |base: String, entry: &belfry_protocol::RoomLine| {
-                let mut line = base;
-                if let Some(reply) = &entry.reply_preview {
-                    line.push_str(&format!("（{reply}）"));
-                }
-                if !entry.reactions.is_empty() {
-                    let marks = entry
-                        .reactions
-                        .iter()
-                        .map(|reaction| format!("{}×{}", reaction.emoji, reaction.count))
-                        .collect::<Vec<_>>()
-                        .join(" ");
-                    line.push_str(&format!("（{marks}）"));
-                }
-                line
-            };
-            for entry in &entries {
-                lines.push(match entry.kind.as_str() {
-                    "system" => format!("  —— {}", entry.text),
-                    "user" => with_extras(format!("  [{}] 用户：{}", entry.id, entry.text), entry),
-                    _ => with_extras(format!("  [{}] {}：{}", entry.id, entry.author, entry.text), entry),
-                });
-            }
+            let mut lines = vec![format!("房间「{room}」最近的对话（回复某条：belfry room say --reply <id> <话>）：")];
+            lines.extend(entries.iter().map(render_line));
             lines.join("\n")
+        }
+        ResponseData::RoomTaskChanged { room: _, task, note } => format!("{}\n{note}", render_task(&task)),
+        ResponseData::RoomBriefUpdated { room, brief } => {
+            format!("房间「{room}」的需求简报已更新，成员都会收到通知。\n{}", render_brief(&brief))
         }
         ResponseData::Sent {
             task,
@@ -855,185 +947,162 @@ mod tests {
         );
     }
 
+    fn strings(args: &[&str]) -> Vec<String> {
+        args.iter().map(|arg| arg.to_string()).collect()
+    }
+
+    fn command(args: &[&str]) -> Command {
+        match parse(&strings(args)) {
+            Ok(Action::Once(command)) => command,
+            Ok(_) => panic!("不是一次性命令"),
+            Err(message) => panic!("{message}"),
+        }
+    }
+
     #[test]
-    fn room_say_joins_words_and_reads_room_flag() {
-        match parsed(&[
-            "room".into(),
-            "say".into(),
-            "--room".into(),
-            "发布检查".into(),
-            "@审查".into(),
-            "看下这个".into(),
-        ]) {
-            Ok(Command::RoomSay { room, text, .. }) => {
-                assert_eq!(room.as_deref(), Some("发布检查"));
-                assert_eq!(text, "@审查 看下这个");
+    fn room_say_reads_recipients_ask_reply_and_room() {
+        match command(&["room", "say", "--to", "后端", "--to", "@前端", "--ask", "接口", "定了吗", "--room", "登录"]) {
+            Command::RoomSay { room, text, reply_to, to, ask } => {
+                assert_eq!(room.as_deref(), Some("登录"));
+                assert_eq!(text, "接口 定了吗");
+                assert_eq!(reply_to, None);
+                assert_eq!(to, strings(&["后端", "@前端"]));
+                assert!(ask);
             }
             other => panic!("{other:?}"),
         }
-    }
-
-    #[test]
-    fn room_say_reads_the_reply_flag() {
-        match parsed(&[
-            "room".into(),
-            "say".into(),
-            "--reply".into(),
-            "a1b2c3d4".into(),
-            "收到，我按这个改".into(),
-        ]) {
-            Ok(Command::RoomSay { reply_to, text, .. }) => {
-                assert_eq!(reply_to.as_deref(), Some("a1b2c3d4"));
-                assert_eq!(text, "收到，我按这个改");
+        match command(&["room", "say", "--reply", "abcd1234", "能"]) {
+            Command::RoomSay { reply_to, ask, .. } => {
+                assert_eq!(reply_to.as_deref(), Some("abcd1234"));
+                assert!(!ask);
             }
             other => panic!("{other:?}"),
         }
-        assert!(parsed(&["room".into(), "say".into(), "--reply".into()]).is_err(), "--reply 缺参要报错");
+        assert!(parse(&strings(&["room", "say"])).is_err());
+        assert!(parse(&strings(&["room", "say", "--to"])).is_err(), "--to 后面要有值");
+        assert!(parse(&strings(&["room", "say", "--loud", "x"])).is_err(), "不认识的参数要报出来");
     }
 
     #[test]
-    fn room_react_takes_a_message_and_an_emoji() {
-        match parsed(&["room".into(), "react".into(), "a1b2c3d4".into(), "👍".into()]) {
-            Ok(Command::RoomReact { room, message, emoji }) => {
-                assert!(room.is_none());
-                assert_eq!(message, "a1b2c3d4");
-                assert_eq!(emoji, "👍");
+    fn room_task_add_reads_assignee_outcome_and_dependencies() {
+        match command(&["room", "task", "add", "登录", "接口", "--to", "后端", "--outcome", "返回 token", "--after", "T1,t2"]) {
+            Command::RoomTask { op: RoomTaskOp::Add { title, outcome, assignee, after }, .. } => {
+                assert_eq!(title, "登录 接口");
+                assert_eq!(outcome.as_deref(), Some("返回 token"));
+                assert_eq!(assignee.as_deref(), Some("后端"));
+                assert_eq!(after, strings(&["T1", "t2"]));
             }
             other => panic!("{other:?}"),
         }
-        assert!(
-            parsed(&["room".into(), "react".into(), "a1b2c3d4".into()]).is_err(),
-            "缺表情要报错"
-        );
-        match parsed(&[
-            "room".into(),
-            "react".into(),
-            "--room".into(),
-            "发布检查".into(),
-            "a1b2c3d4".into(),
-            "✅".into(),
-        ]) {
-            Ok(Command::RoomReact { room, .. }) => assert_eq!(room.as_deref(), Some("发布检查")),
-            other => panic!("{other:?}"),
-        }
+        assert!(parse(&strings(&["room", "task", "add"])).is_err());
     }
 
     #[test]
-    fn room_log_defaults_count_and_accepts_room() {
-        match parsed(&["room".into(), "log".into()]) {
-            Ok(Command::RoomLog { room, count }) => {
-                assert!(room.is_none());
-                assert!(count.is_none());
+    fn room_task_actions_take_a_task_number() {
+        assert!(matches!(command(&["room", "task", "start", "T1"]), Command::RoomTask { op: RoomTaskOp::Start { .. }, .. }));
+        match command(&["room", "task", "done", "T1", "已", "合并"]) {
+            Command::RoomTask { op: RoomTaskOp::Done { task, result }, .. } => {
+                assert_eq!(task, "T1");
+                assert_eq!(result.as_deref(), Some("已 合并"));
             }
             other => panic!("{other:?}"),
         }
-        match parsed(&["room".into(), "log".into(), "--count".into(), "5".into()]) {
-            Ok(Command::RoomLog { count, .. }) => assert_eq!(count, Some(5)),
+        assert!(matches!(
+            command(&["room", "task", "done", "T1"]),
+            Command::RoomTask { op: RoomTaskOp::Done { result: None, .. }, .. }
+        ));
+        assert!(matches!(
+            command(&["room", "task", "assign", "T1", "前端"]),
+            Command::RoomTask { op: RoomTaskOp::Assign { .. }, .. }
+        ));
+        assert!(parse(&strings(&["room", "task", "start"])).is_err());
+        assert!(parse(&strings(&["room", "task", "note", "T1"])).is_err());
+        assert!(parse(&strings(&["room", "task", "fly", "T1"])).is_err());
+    }
+
+    #[test]
+    fn room_brief_and_log_and_status_parse() {
+        match command(&["room", "brief", "--focus", "先做手机号", "--constraint", "不动协议", "--constraint", "本周内"]) {
+            Command::RoomBrief { objective, focus, constraints, .. } => {
+                assert_eq!(objective, None);
+                assert_eq!(focus.as_deref(), Some("先做手机号"));
+                assert_eq!(constraints, Some(strings(&["不动协议", "本周内"])));
+            }
             other => panic!("{other:?}"),
+        }
+        assert!(matches!(command(&["room", "log", "--count", "5"]), Command::RoomLog { count: Some(5), .. }));
+        assert!(parse(&strings(&["room", "log", "--count", "很多"])).is_err());
+        assert!(matches!(command(&["room", "status"]), Command::RoomStatus { room: None }));
+        assert!(matches!(command(&["rooms"]), Command::Rooms));
+        assert!(parse(&strings(&["room"])).is_err());
+    }
+
+    fn line(id: &str, author: &str, text: &str, needs: bool) -> belfry_protocol::RoomLine {
+        belfry_protocol::RoomLine {
+            id: id.into(),
+            author: author.into(),
+            to: vec!["后端".into()],
+            text: text.into(),
+            at: 0,
+            reply_preview: None,
+            needs_my_reply: needs,
         }
     }
 
     #[test]
-    fn room_needs_say_or_log() {
-        assert!(parsed(&["room".into()]).is_err());
-        assert!(parsed(&["room".into(), "shout".into()]).is_err());
-    }
-
-    #[test]
-    fn room_say_render_names_recipients_and_skips() {
-        let text = render(ResponseData::RoomSaid {
-            room: "发布检查".into(),
-            recipients: vec!["实现".into(), "审查".into()],
-            skipped: vec!["「测试」的会话已经不在了".into()],
-        });
-        assert!(text.contains("已记进房间「发布检查」"), "{text}");
-        assert!(text.contains("已发给：实现、审查"), "{text}");
-        assert!(text.contains("测试"), "{text}");
-
-        let empty = render(ResponseData::RoomSaid {
-            room: "发布检查".into(),
-            recipients: vec![],
-            skipped: vec![],
-        });
-        assert!(empty.contains("还没有别人"), "{empty}");
-    }
-
-    #[test]
-    fn room_log_render_reads_like_a_conversation() {
-        let text = render(ResponseData::RoomLog {
-            room: "发布检查".into(),
-            entries: vec![
-                belfry_protocol::RoomLine {
-                    id: "a1b2c3d4".into(),
-                    author: "用户".into(),
-                    kind: "user".into(),
-                    text: "接口改好了吗".into(),
-                    at: 1,
-                    reactions: Vec::new(),
-                    reply_preview: None,
+    fn room_status_render_shows_brief_members_tasks_and_pending_replies() {
+        let text = render(ResponseData::RoomStatus {
+            status: belfry_protocol::RoomStatusView {
+                room: "登录改版".into(),
+                my_title: "后端".into(),
+                i_am_foreman: false,
+                brief: belfry_protocol::RoomBriefView {
+                    objective: "做完登录页".into(),
+                    focus: String::new(),
+                    constraints: vec!["不动协议".into()],
                 },
-                belfry_protocol::RoomLine {
-                    id: "a1b2c3d4".into(),
-                    author: "前端".into(),
-                    kind: "member".into(),
-                    text: "都改好了".into(),
-                    at: 2,
-                    reactions: Vec::new(),
-                    reply_preview: None,
-                },
-                belfry_protocol::RoomLine {
-                    id: "a1b2c3d4".into(),
-                    author: "系统".into(),
-                    kind: "system".into(),
-                    text: "任务已派发".into(),
-                    at: 3,
-                    reactions: Vec::new(),
-                    reply_preview: None,
-                },
-            ],
-        });
-        assert!(text.contains("用户：接口改好了吗"), "{text}");
-        assert!(text.contains("前端：都改好了"), "{text}");
-        assert!(text.contains("—— 任务已派发"), "{text}");
-    }
-
-    #[test]
-    fn an_empty_room_log_says_so() {
-        let text = render(ResponseData::RoomLog {
-            room: "发布检查".into(),
-            entries: vec![],
-        });
-        assert!(text.contains("还没有消息"), "{text}");
-    }
-
-    #[test]
-    fn rooms_needs_no_arguments() {
-        assert!(matches!(parsed(&["rooms".into()]), Ok(Command::Rooms)));
-        assert!(parsed(&["rooms".into(), "多余".into()]).is_err());
-    }
-
-    #[test]
-    fn rooms_render_lists_members_and_open_tasks() {
-        let text = render(ResponseData::Rooms {
-            rooms: vec![belfry_protocol::RoomBrief {
-                name: "发布检查".into(),
-                my_role: "前端".into(),
-                members: vec!["前端".into(), "审查".into()],
-                tasks: vec![belfry_protocol::RoomTaskBrief {
-                    title: "统一登录失败的错误提示".into(),
-                    stage: "已提交待验证".into(),
-                    receivers: vec!["前端".into()],
+                members: vec![belfry_protocol::RoomMemberLine {
+                    title: "后端".into(),
+                    role: "成员".into(),
+                    duty: "接口".into(),
+                    is_me: true,
+                    activity: "idle".into(),
                 }],
-            }],
+                tasks: vec![belfry_protocol::RoomTaskLine {
+                    id: "T2".into(),
+                    title: "登录页".into(),
+                    status: "待开工".into(),
+                    assignee: Some("前端".into()),
+                    outcome: "能登录".into(),
+                    waiting_for: vec!["T1".into()],
+                    notes: String::new(),
+                    result: None,
+                }],
+                awaiting_me: vec![line("abcd1234", "统筹", "今天能好吗", true)],
+            },
         });
-        assert!(text.contains("发布检查"), "{text}");
-        assert!(text.contains("前端、审查"), "{text}");
-        assert!(text.contains("[已提交待验证]"), "{text}");
+        for needle in ["我是成员「后端」", "目标：做完登录页", "当前重点：（未写）", "约束：不动协议", "后端（我）", "T2 [待开工] 登录页（前端） 等 T1 完成", "完成标准：能登录", "等你回复", "[abcd1234] 统筹 → 后端：今天能好吗"] {
+            assert!(text.contains(needle), "缺「{needle}」：\n{text}");
+        }
+    }
+
+    #[test]
+    fn room_log_and_said_render_read_like_a_conversation() {
+        let text = render(ResponseData::RoomLog { room: "登录改版".into(), entries: vec![line("abcd1234", "统筹", "开工", false)] });
+        assert!(text.contains("[abcd1234] 统筹 → 后端：开工") && !text.contains("等你回复"), "{text}");
+        assert!(render(ResponseData::RoomLog { room: "登录改版".into(), entries: vec![] }).contains("还没有消息"));
+        let said = render(ResponseData::RoomSaid {
+            room: "登录改版".into(),
+            message: "abcd1234".into(),
+            recipients: vec!["统筹".into()],
+            skipped: vec!["「测试」的会话已经不在了".into()],
+            ask: true,
+        });
+        assert!(said.contains("[abcd1234]") && said.contains("统筹") && said.contains("等你回复") && said.contains("测试"), "{said}");
     }
 
     #[test]
     fn an_empty_rooms_list_says_so() {
-        let text = render(ResponseData::Rooms { rooms: vec![] });
-        assert!(text.contains("不在"), "空输出会被当成命令失败：{text}");
+        assert!(render(ResponseData::Rooms { rooms: vec![] }).contains("不在任何协作房间"));
     }
 }

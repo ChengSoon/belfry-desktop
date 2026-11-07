@@ -38,86 +38,77 @@ fn task_at(from: &str, to: &str, hop: u8, path: &[&str]) -> CollabTask {
     }
 }
 
-#[test]
-fn chat_deliveries_carry_conversation_not_task_paperwork() {
-    let task = chat_task("01CHAT".into(), "msg-1", "t2", "t3", "前端：接口文档更新了", false, 0);
-    assert_eq!(task.state, TaskState::Queued);
-    assert!(matches!(task.chat, Some(ChatDelivery { mentioned: false, .. })));
-    let injected = injection_text(&task, "发布检查");
-    assert!(injected.contains("群聊") && injected.contains("前端：接口文档更新了"));
-    assert!(injected.contains("看见即可") && injected.contains("room say"));
-    assert!(!injected.contains("belfry done"), "聊天不该要求交差：{injected}");
+fn post(room: &str, message: &str, to: &str, line: &str, ask: bool) -> crate::collab::RoomPost {
+    crate::collab::RoomPost {
+        room_id: room.into(),
+        room_name: "登录改版".into(),
+        message_id: message.into(),
+        tab_id: to.into(),
+        member_title: "后端".into(),
+        line: line.into(),
+        ask,
+    }
+}
 
-    // 点名：请对方回一句，同样没有任务号。
-    let mentioned = chat_task("01MENT".into(), "msg-2", "t2", "t3", "前端：你看下", true, 0);
-    let injected = injection_text(&mentioned, "发布检查");
-    assert!(injected.contains("点了你的名") && injected.contains("请回一句"), "点名要请对方接话：{injected}");
-    assert!(injected.contains("belfry room say") && !injected.contains("belfry done"));
+fn only(board: &TaskBoard) -> CollabTask {
+    let tasks = board.snapshot();
+    assert_eq!(tasks.len(), 1, "{tasks:?}");
+    tasks.into_iter().next().unwrap()
 }
 
 #[test]
-fn a_burst_of_chat_merges_into_the_pending_delivery() {
+fn a_room_post_is_delivered_as_conversation_not_task_paperwork() {
     let board = TaskBoard::default();
-    let origin = TaskOrigin::Room {
-        id: "r1".into(),
-        name: "发布检查".into(),
-    };
-    board.insert(
-        chat_task("01A".into(), "msg-1", "t2", "t3", "前端：第一句", false, 1_000).with_origin(origin),
-    );
-    assert!(board.append_pending_chat("t3", "r1", "审查：第二句", "msg-2", 5_000, true));
-    let task = board.get("01A").unwrap();
-    assert_eq!(task.instruction, "前端：第一句\n审查：第二句");
-    assert!(
-        matches!(task.chat, Some(ChatDelivery { mentioned: true, .. })),
-        "点名只升级不降级"
-    );
-    assert_eq!(
-        task.chat.as_ref().unwrap().message_ids,
-        vec!["msg-1".to_string(), "msg-2".to_string()],
-        "合并后的投递要带上两句话各自的消息 id"
-    );
-    assert_eq!(task.due_at, 5_000 + CHAT_DEBOUNCE_MS, "有人还在说：投递往后顺延");
-    // 已送达的投递不能再并：新消息得另起一条，绝不能往已经打进终端的文字里追加。
-    board.mark_dispatched("01A");
-    assert!(!board.append_pending_chat("t3", "r1", "审查：第三句", "msg-3", 6_000, false));
-    // 超出窗口同样不并。
-    board.insert(chat_task("01B".into(), "msg-4", "t2", "t4", "前端：第一句", false, 10_000).with_origin(
-        TaskOrigin::Room {
-            id: "r1".into(),
-            name: "发布检查".into(),
-        },
-    ));
-    assert!(!board.append_pending_chat(
-        "t4",
-        "r1",
-        "审查：太久了",
-        "msg-5",
-        10_000 + CHAT_MERGE_WINDOW_MS + 1,
-        false
-    ));
+    enqueue_room_post(&board, "t1", &post("r1", "m1", "t2", "[aaaa0001] 统筹：接口定了吗", false), 0);
+    let task = only(&board);
+    assert_eq!(task.state, TaskState::Queued);
+    assert_eq!(task.origin, Some(TaskOrigin::Room { id: "r1".into(), name: "登录改版".into() }));
+    let injected = injection_text(&task, "登录改版");
+    assert!(injected.contains("[aaaa0001] 统筹：接口定了吗"), "{injected}");
+    assert!(injected.contains("belfry room say"), "{injected}");
+    assert!(!injected.contains("belfry done"), "房间消息不在这里交差：{injected}");
+
+    let board = TaskBoard::default();
+    enqueue_room_post(&board, "t1", &post("r1", "m2", "t2", "[aaaa0002] 统筹：今天能好吗", true), 0);
+    let injected = injection_text(&only(&board), "登录改版");
+    assert!(injected.contains("要求你回复") && injected.contains("--reply"), "{injected}");
 }
 
 #[test]
-fn pending_chat_waits_for_the_debounce_before_delivery() {
+fn a_burst_of_room_posts_merges_into_the_pending_delivery() {
+    let board = TaskBoard::default();
+    enqueue_room_post(&board, "t1", &post("r1", "m1", "t2", "第一句", false), 1_000);
+    enqueue_room_post(&board, "t1", &post("r1", "m2", "t2", "第二句", true), 5_000);
+    let task = only(&board);
+    assert_eq!(task.instruction, "第一句\n第二句");
+    let chat = task.chat.as_ref().unwrap();
+    assert_eq!(chat.message_ids, vec!["m1".to_string(), "m2".to_string()]);
+    assert!(chat.ask, "要求回复只升级不降级");
+    assert_eq!(task.due_at, 5_000 + CHAT_DEBOUNCE_MS, "有人还在说：投递往后顺延");
+
+    // 已送达的不再并：新消息另起一条，绝不往已经打进终端的文字里追加。
+    board.mark_dispatched(&task.id);
+    enqueue_room_post(&board, "t1", &post("r1", "m3", "t2", "第三句", false), 6_000);
+    assert_eq!(board.snapshot().len(), 2);
+    // 别的房间、超出窗口同样不并。
+    enqueue_room_post(&board, "t1", &post("r2", "m4", "t2", "另一间房", false), 6_100);
+    enqueue_room_post(&board, "t1", &post("r1", "m5", "t2", "太久了", false), 6_000 + CHAT_MERGE_WINDOW_MS + 1);
+    assert_eq!(board.snapshot().len(), 4);
+}
+
+#[test]
+fn pending_room_posts_wait_for_the_debounce_and_do_not_eat_the_budget() {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_millis() as i64;
     let board = TaskBoard::default();
-    let request = request("t1", "t2", None);
-    board.insert(build_task("01TASK".into(), &request, now, &Verdict::Allowed));
-    board.insert(chat_task("01CHAT".into(), "msg-1", "t1", "t3", "闲聊", false, now));
+    board.insert(build_task("01TASK".into(), &request("t1", "t3", None), now, &Verdict::Allowed));
+    enqueue_room_post(&board, "t1", &post("r1", "m1", "t2", "讨论", false), now);
     let pending = board.pending();
-    assert_eq!(pending.len(), 1, "防抖期内的群聊不出投递");
-    assert!(pending[0].chat.is_none(), "先出的是普通任务");
-}
-
-#[test]
-fn chat_deliveries_do_not_eat_the_dispatch_budget() {
-    let board = TaskBoard::default();
-    board.insert(chat_task("01A".into(), "msg-1", "t1", "t2", "闲聊", false, 0));
-    assert_eq!(board.count_in_path("t1"), 0, "群聊不占派活预算");
+    assert_eq!(pending.len(), 1, "防抖期内的房间消息不出投递");
+    assert!(pending[0].chat.is_none());
+    assert_eq!(board.count_in_path("t1"), 1, "房间消息不占派活预算");
 }
 
 #[test]
@@ -584,67 +575,4 @@ fn short_ids_stay_distinct_within_the_same_millisecond() {
         super::short_id(&second),
         "同毫秒的两条任务短 id 撞了：{first} / {second}"
     );
-}
-
-#[test]
-fn stop_marks_a_live_task_abandoned() {
-    let board = TaskBoard::default();
-    let request = request("t1", "t2", None);
-    let task = build_task("01A".into(), &request, 0, &Verdict::Allowed);
-    let id = task.id.clone();
-    board.insert(task);
-    board.stop(&id).unwrap();
-    assert_eq!(board.get(&id).unwrap().state, TaskState::Abandoned);
-    assert!(board.stop(&id).is_err(), "已经结掉的任务不能再停");
-}
-
-#[test]
-fn a_room_origin_rides_along_with_the_task() {
-    let request = request("room:r1", "t2", None);
-    let task = build_task("01B".into(), &request, 0, &Verdict::Allowed).with_origin(
-        TaskOrigin::Room {
-            id: "r1".into(),
-            name: "登录体验小组".into(),
-        },
-    );
-    assert_eq!(
-        task.origin,
-        Some(TaskOrigin::Room {
-            id: "r1".into(),
-            name: "登录体验小组".into()
-        })
-    );
-}
-
-#[test]
-fn recalling_a_message_drops_its_line_from_the_pending_delivery() {
-    let board = TaskBoard::default();
-    let origin = TaskOrigin::Room {
-        id: "r1".into(),
-        name: "发布检查".into(),
-    };
-    board.insert(
-        chat_task("01A".into(), "msg-1", "t2", "t3", "前端：第一句", false, 1_000).with_origin(origin),
-    );
-    assert!(board.append_pending_chat("t3", "r1", "审查：第二句", "msg-2", 1_200, false));
-    // 撤回第一条：正文摘掉对应那行，消息 id 与 lines 同步摘掉。
-    assert_eq!(board.drop_pending_message("msg-1"), 1);
-    let task = board.get("01A").unwrap();
-    assert_eq!(task.instruction, "审查：第二句");
-    assert_eq!(task.chat.as_ref().unwrap().message_ids, vec!["msg-2".to_string()]);
-    assert_eq!(task.chat.as_ref().unwrap().lines, vec!["审查：第二句".to_string()]);
-    // 已送达的投递动不了：撤回不假装能追回已经进过终端的字。
-    board.mark_dispatched("01A");
-    assert_eq!(board.drop_pending_message("msg-2"), 0);
-    assert!(board.get("01A").is_some(), "已送达的投递不因撤回被删");
-}
-
-#[test]
-fn recalling_the_only_message_removes_the_empty_delivery() {
-    let board = TaskBoard::default();
-    board.insert(chat_task("01B".into(), "msg-9", "t2", "t4", "前端：就这一句", false, 0).with_origin(
-        TaskOrigin::Room { id: "r1".into(), name: "发布检查".into() },
-    ));
-    assert_eq!(board.drop_pending_message("msg-9"), 1);
-    assert!(board.get("01B").is_none(), "摘空的投递整条撤掉，不该留一条空注入");
 }

@@ -5,6 +5,16 @@ import { canDispatchPrompt, isAgentKind, isPromptBusy, type PromptQueueItem, typ
 import { createPromptQueueItem, nextPrompt, removePrompt } from "./queue";
 
 export const PROMPT_CONFIRM_TIMEOUT_MS = 15_000;
+/**
+ * 回车之后输入区空了、又过了这么久，就算提交成功。短消息 Agent 一两秒就处理完，
+ * 读屏可能一帧都没看到「正在工作」——只等那个信号会把它误判成没提交。
+ */
+export const PROMPT_EMPTY_CONFIRM_MS = 1_500;
+
+export interface PausedDelivery {
+  tabId: string;
+  message: string;
+}
 interface InFlightPrompt {
   item: PromptQueueItem;
   target: TerminalCommandTarget;
@@ -22,6 +32,20 @@ export class PromptQueueRuntime {
   private observers = new Map<string, PromptSubmitOptions>();
 
   get items(): readonly PromptQueueItem[] { return this.queue; }
+
+  /** 暂停中的会话与原因，房间界面拿它显示「消息暂停了」。 */
+  pausedDeliveries(): PausedDelivery[] {
+    return [...this.paused.entries()].map(([tabId, pending]) => ({ tabId, message: pending.issue ?? "" }));
+  }
+
+  /** 用户在终端里核对过了：放开暂停，后面的消息接着送。 */
+  resume(tabId: string): boolean {
+    const pending = this.paused.get(tabId);
+    if (!pending) return false;
+    this.paused.delete(tabId);
+    this.update(pending.item.id, { state: "submitted" });
+    return true;
+  }
 
   submit(
     tabs: readonly WorkspaceTab[],
@@ -85,7 +109,14 @@ export class PromptQueueRuntime {
     }
     this.reconcileTarget(tab.id, targets.get(tab.id));
     const pending = this.inFlight.get(tab.id);
-    if (pending && Date.now() - pending.startedAt >= PROMPT_CONFIRM_TIMEOUT_MS) {
+    const elapsed = pending ? Date.now() - pending.startedAt : 0;
+    if (pending?.submitted && elapsed >= PROMPT_EMPTY_CONFIRM_MS && pending.target.composerEmpty?.()) {
+      // 回车已经写进去、输入区也空了：任务被提交走了，Agent 只是处理得太快没被看到在工作。
+      this.inFlight.delete(tab.id);
+      this.dispatch(tab, targets);
+      return;
+    }
+    if (pending && elapsed >= PROMPT_CONFIRM_TIMEOUT_MS) {
       this.pause(tab.id, pending, "协作任务尚未确认开始处理，已暂停后续自动投递。请检查输入区，必要时手动按 Enter；不要重复粘贴任务。");
     }
     this.dispatch(tab, targets);

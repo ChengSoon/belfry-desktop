@@ -1,5 +1,7 @@
 import type { TerminalTheme } from "../theme/xtermTheme";
 import type { TypographyRuntime } from "../typography/contracts";
+import { composerLooksEmpty, readScreenTail } from "./activity";
+import { CHOICE_TAIL_LINES, choiceKeys, parseChoice } from "./choice";
 import type { TerminalLaunch } from "./contracts";
 import { TerminalLayout } from "./controller/layout";
 import { TerminalLifecycle } from "./controller/lifecycle";
@@ -47,6 +49,17 @@ function createHandle({ view, lifecycle, layout }: {
     search: view.search,
     focus: () => { if (lifecycle.alive) view.terminal.focus(); },
     sendText: (text, options) => lifecycle.sendText(text, options),
+    composerEmpty: () => lifecycle.alive && composerLooksEmpty(readScreenTail(view.terminal, 6)),
+    readChoice: () => lifecycle.alive ? parseChoice(readScreenTail(view.terminal, CHOICE_TAIL_LINES)) : null,
+    answerChoice: (signature, index) => {
+      if (!lifecycle.alive) return "unavailable";
+      // 发之前重读一遍：用户点按钮这几秒里，选择框可能已经换了一个或者消失了。
+      const choice = parseChoice(readScreenTail(view.terminal, CHOICE_TAIL_LINES));
+      if (!choice || choice.signature !== signature) return "changed";
+      const keys = choiceKeys(choice, index, view.terminal.modes.applicationCursorKeysMode);
+      if (!keys) return "changed";
+      return lifecycle.pressKeys(keys) ? "sent" : "unavailable";
+    },
     dispose: () => {
       if (!lifecycle.alive) return;
       lifecycle.dispose();
