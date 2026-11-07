@@ -292,6 +292,10 @@ export function taskRecord(room: Room, task: RoomTask): string {
     "派发内容：",
     task.text,
   ];
+  if (task.attachments?.length) {
+    lines.push("", "附件：");
+    for (const attachment of task.attachments) lines.push(`- ${attachment.name}：${attachment.path}`);
+  }
   if (task.acceptance.length > 0) {
     lines.push("", "验收要点：");
     task.acceptance.forEach((item, index) => lines.push(`${index + 1}. ${item}`));

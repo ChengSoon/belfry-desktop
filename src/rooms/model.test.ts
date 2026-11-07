@@ -7,6 +7,7 @@ function task(stage: TaskStage): RoomTask {
     id: `t-${stage}`,
     title: "合成任务",
     text: "把登录失败的错误提示统一成内联样式",
+    attachments: [],
     memberIds: [],
     acceptance: [],
     createdAt: 0,
@@ -122,6 +123,7 @@ describe("taskRecord", () => {
   delegations: [],
       tasks: [{
         id: "t-1", title: "统一登录失败的错误提示", text: "把登录失败的错误提示统一成内联样式",
+        attachments: [],
         memberIds: ["m-1"], acceptance: ["错误提示是内联的", "失败可重试"], createdAt: 0,
         stage: "verified", attempt: 1,
         deliveries: [{ memberId: "m-1", busTaskId: "bus-1", state: "done", result: "都改好了", at: 0 }],
@@ -157,6 +159,7 @@ describe("taskRecord 证据行", () => {
   delegations: [],
         tasks: [{
           id: "t-1", title: "调提示", text: "调提示", memberIds: ["m-1"], acceptance: [], createdAt: 0,
+          attachments: [],
           stage: "submitted", attempt: 1,
           deliveries: [{ memberId: "m-1", busTaskId: "bus-1", state: "done", result: null, at: 0 }],
           verifiedAt: null, verificationNote: null, rejectedAt: null, rejectionNote: null, stoppedAt: null,

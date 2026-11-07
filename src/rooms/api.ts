@@ -32,8 +32,8 @@ export function roomOpenWindow(roomId: string, roomName: string) {
 }
 
 /** 不选接收者直接发送的落点：@ 谁只发给谁（收窄），不 @ 发给全体；忙的成员排队而不是被整条拒掉。 */
-export function roomBroadcast(id: string, text: string, replyTo?: string | null) {
-  return invoke<Room>("room_broadcast", { id, text, replyTo: replyTo ?? null });
+export function roomBroadcast(id: string, text: string, replyTo?: string | null, attachmentIds?: string[]) {
+  return invoke<Room>("room_broadcast", { id, text, replyTo: replyTo ?? null, attachmentIds });
 }
 
 /** `projectRoot` 是成员会话所在项目；带上它，房间的接活范围会顺势扩展过去。 */
@@ -54,8 +54,8 @@ export function roomRemoveMember(id: string, memberId: string) {
 }
 
 
-export function roomSendMessage(id: string, text: string, replyTo?: string | null) {
-  return invoke<Room>("room_send_message", { id, text, replyTo: replyTo ?? null });
+export function roomSendMessage(id: string, text: string, replyTo?: string | null, attachmentIds?: string[]) {
+  return invoke<Room>("room_send_message", { id, text, replyTo: replyTo ?? null, attachmentIds });
 }
 
 /** 给某条消息点表情（再点一次取消）。 */
@@ -78,8 +78,8 @@ export function roomMarkDecision(id: string, messageId: string) {
 }
 
 /** 派活：选中接收者后发送，Rust 侧为每位成员扇出一条总线任务。 */
-export function roomDispatch(id: string, text: string, memberIds: string[], acceptance?: string[]) {
-  return invoke<Room>("room_dispatch", { id, text, memberIds, acceptance });
+export function roomDispatch(id: string, text: string, memberIds: string[], acceptance?: string[], attachmentIds?: string[]) {
+  return invoke<Room>("room_dispatch", { id, text, memberIds, acceptance, attachmentIds });
 }
 
 export function roomStopTask(id: string, taskId: string) {

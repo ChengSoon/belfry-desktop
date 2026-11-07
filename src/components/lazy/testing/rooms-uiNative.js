@@ -26,8 +26,13 @@
   let sequence = Number(restored?.sequence) || 0;
   const freshId = (prefix) => `${prefix}-qa-${++sequence}`;
   const rooms = Array.isArray(restored?.rooms) ? restored.rooms : [];
+  const attachmentFiles = new Map(restored?.attachmentFiles ?? []);
+  const fileQA = window.__roomFilesQA = {
+    sources: {}, clipboardPaths: [], pickPaths: [], failNextSend: false,
+    holdNextImport: false, holdNextSend: false, finishImport: null, finishSend: null,
+  };
   window.addEventListener("pagehide", () => {
-    try { sessionStorage.setItem(STORE_KEY, JSON.stringify({ rooms, sequence })); } catch { /* 存不下就只是下次整页加载看不到房间 */ }
+    try { sessionStorage.setItem(STORE_KEY, JSON.stringify({ rooms, sequence, attachmentFiles: [...attachmentFiles] })); } catch { /* 存不下就只是下次整页加载看不到房间 */ }
   });
 
   const findRoom = (id) => {
@@ -41,6 +46,25 @@
     return task;
   };
   const summarize = (text) => (text.length > 18 ? `${text.slice(0, 18)}…` : text);
+  const fileFor = (id, attachmentId) => {
+    const entry = attachmentFiles.get(attachmentId);
+    if (!entry || entry.roomId !== id) throw new Error("附件已不存在，请重新添加");
+    return entry;
+  };
+  const attached = (id, ids = []) => ids.map((attachmentId) => fileFor(id, attachmentId).attachment);
+  const importFile = async (roomId, name, bytes, mimeType) => {
+    findRoom(roomId);
+    if (fileQA.holdNextImport) {
+      fileQA.holdNextImport = false;
+      await new Promise((resolve) => { fileQA.finishImport = resolve; });
+      fileQA.finishImport = null;
+    }
+    const id = freshId("attachment");
+    const attachment = { id, name, size: bytes.length, mimeType: mimeType ?? (/\.png$/i.test(name) ? "image/png" : "application/pdf"),
+      path: `/qa/room-attachments/${roomId}/${id}/${name}` };
+    attachmentFiles.set(id, { roomId, attachment, bytes });
+    return attachment;
+  };
   const liveMembers = (room) => room.members.filter((member) => member.leftAt === null);
   // 与 store.rs 的 parse_mentions 同一把尺：长角色名先匹配并遮住短名，词的一部分不算点名。
   const mentionedMembers = (room, text) => {
@@ -89,6 +113,23 @@
   });
 
   const handlers = {
+    room_clipboard_files: () => [...fileQA.clipboardPaths],
+    room_pick_attachments: () => [...fileQA.pickPaths],
+    room_paste_attachment: (buffer, options) => {
+      const metadata = JSON.parse(options.headers["x-room-attachment"]);
+      return importFile(metadata.roomId, metadata.name, Array.from(new Uint8Array(buffer)));
+    },
+    room_import_attachment: ({ id, source }) => {
+      const file = fileQA.sources[source];
+      if (!file) throw new Error("合成附件不存在");
+      return importFile(id, source.split(/[\\/]/).pop(), file.bytes, file.mimeType);
+    },
+    room_read_attachment: ({ id, attachmentId }) => Uint8Array.from(fileFor(id, attachmentId).bytes).buffer,
+    room_reveal_attachment: ({ id, attachmentId }) => { fileFor(id, attachmentId); },
+    room_discard_attachment: ({ id, attachmentId }) => {
+      const room = findRoom(id);
+      if (![...room.messages, ...room.tasks].some((entry) => entry.attachments?.some((file) => file.id === attachmentId))) attachmentFiles.delete(attachmentId);
+    },
     // 独立窗口：真实实现由 Rust 起窗；合成环境里只记录调用。
     room_open_window: () => null,
     // 独立窗口的在场状态：与真实主窗口一样，从房间成员还原一份名册。
@@ -140,9 +181,9 @@
       if (member) member.leftAt = Date.now();
       return room;
     },
-    room_send_message: ({ id, text, replyTo }) => {
+    room_send_message: ({ id, text, replyTo, attachmentIds }) => {
       const room = findRoom(id);
-      room.messages.push({ id: freshId("msg"), at: Date.now(), kind: "user", author: "user", text, memberIds: [], taskId: null, deliveredTo: [], replyTo: replyTo ?? null });
+      room.messages.push({ id: freshId("msg"), at: Date.now(), kind: "user", author: "user", text, attachments: attached(id, attachmentIds), memberIds: [], taskId: null, deliveredTo: [], replyTo: replyTo ?? null });
       return room;
     },
     room_recall: ({ id, messageId }) => {
@@ -180,23 +221,24 @@
       }
       return room;
     },
-    room_dispatch: ({ id, text, memberIds, acceptance }) => {
+    room_dispatch: ({ id, text, memberIds, acceptance, attachmentIds }) => {
       const room = findRoom(id);
-      const task = { id: freshId("task"), title: summarize(text), text, memberIds: [...memberIds], acceptance: acceptance ?? [],
+      const attachments = attached(id, attachmentIds);
+      const task = { id: freshId("task"), title: summarize(text || attachments[0]?.name || ""), text, attachments, memberIds: [...memberIds], acceptance: acceptance ?? [],
         createdAt: Date.now(), stage: "dispatching", attempt: 1, verifiedAt: null, verificationNote: null, rejectedAt: null, rejectionNote: null, stoppedAt: null,
         deliveries: memberIds.map((memberId) => ({ memberId, busTaskId: freshId("bus"), state: "queued", result: null, at: Date.now() })) };
       refreshStage(task);
       room.tasks.push(task);
-      room.messages.push({ id: freshId("msg"), at: Date.now(), kind: "user", author: "user", text, memberIds: [...memberIds], taskId: task.id });
+      room.messages.push({ id: freshId("msg"), at: Date.now(), kind: "user", author: "user", text, attachments, memberIds: [...memberIds], taskId: task.id });
       return room;
     },
-    room_broadcast: ({ id, text, replyTo }) => {
+    room_broadcast: ({ id, text, replyTo, attachmentIds }) => {
       // 与 Rust 侧一致：群聊通道——只落一条消息，不建交差任务、不生成任务卡；
       // 点名收窄到被点的人，不点名才发给全体。
       const room = findRoom(id);
       const mentioned = mentionedMembers(room, text);
       const audience = mentioned.length > 0 ? mentioned : liveMembers(room);
-      room.messages.push({ id: freshId("msg"), at: Date.now(), kind: "user", author: "user", text, memberIds: audience.map((member) => member.id), taskId: null, deliveredTo: [], replyTo: replyTo ?? null });
+      room.messages.push({ id: freshId("msg"), at: Date.now(), kind: "user", author: "user", text, attachments: attached(id, attachmentIds), memberIds: audience.map((member) => member.id), taskId: null, deliveredTo: [], replyTo: replyTo ?? null });
       return room;
     },
     room_stop_task: ({ id, taskId }) => {
@@ -349,8 +391,19 @@
     },
   };
 
-  window.__TAURI_INTERNALS__.invoke = async (command, args = {}) => {
-    if (handlers[command]) { qa.calls.push({ command, args }); return structuredClone(await handlers[command](args)); }
-    return original(command, args);
+  window.__TAURI_INTERNALS__.invoke = async (command, args = {}, options) => {
+    if (handlers[command]) {
+      qa.calls.push({ command, args, options });
+      if (["room_send_message", "room_broadcast", "room_dispatch"].includes(command)) {
+        if (fileQA.holdNextSend) {
+          fileQA.holdNextSend = false;
+          await new Promise((resolve) => { fileQA.finishSend = resolve; });
+          fileQA.finishSend = null;
+        }
+        if (fileQA.failNextSend) { fileQA.failNextSend = false; throw new Error("合成发送失败，请重试"); }
+      }
+      return structuredClone(await handlers[command](args, options));
+    }
+    return original(command, args, options);
   };
 })();

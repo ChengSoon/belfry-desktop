@@ -1,8 +1,8 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Permissions for the main Belfry terminal window",
-  "windows": ["main"],
+  "description": "Permissions for Belfry terminal and collaboration room windows",
+  "windows": ["main", "room-*"],
   "permissions": [
     "core:default",
     "core:window:allow-start-dragging",

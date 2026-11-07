@@ -58,6 +58,7 @@ export interface RoomMessage {
   /** `user` / `system` / memberId（成员消息存它，显示时按当前角色名解析）。 */
   author: string;
   text: string;
+  attachments: RoomAttachment[];
   /** 派活接收者；讨论消息为空。 */
   memberIds: string[];
   /** 派活消息内嵌的任务卡片指向它。 */
@@ -70,6 +71,15 @@ export interface RoomMessage {
   reactions: RoomReaction[];
   /** 撤回时刻；非空表示已撤回。只对用户自己刚发的消息生效。 */
   recalledAt: number | null;
+}
+
+/** 文件已保存为独立副本；二进制通过单独的 IPC 读取。 */
+export interface RoomAttachment {
+  id: string;
+  name: string;
+  path: string;
+  size: number;
+  mimeType: string;
 }
 
 /** 一条表情回应：谁、什么表情、什么时候。 */
@@ -117,6 +127,7 @@ export interface RoomTask {
   id: string;
   title: string;
   text: string;
+  attachments: RoomAttachment[];
   memberIds: string[];
   acceptance: string[];
   createdAt: number;

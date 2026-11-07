@@ -1,5 +1,5 @@
-import { ArrowDown, BrushCleaning, Check, CheckCheck, ChevronRight, CircleHelp, Copy, CornerUpLeft, DoorOpen, Eraser, Undo2, ExternalLink, LoaderCircle, MessageCircleOff, Pencil, Plus, Power, RotateCcw, Search, SendHorizontal, Square, Trash2, UserPlus, X } from "lucide-react";
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
+import { ArrowDown, BrushCleaning, Check, CheckCheck, ChevronRight, CircleHelp, Copy, CornerUpLeft, DoorOpen, Eraser, Undo2, ExternalLink, LoaderCircle, MessageCircleOff, Pencil, Plus, Power, RotateCcw, Search, Square, Trash2, UserPlus, X } from "lucide-react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { agentResetCommand, isAgentKind, type AgentKind } from "../../agent/contracts";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
@@ -13,12 +13,15 @@ import { projectRelativePath } from "../../filepreview/path";
 import type { AgentAvailability, ProjectWorkspace } from "../../workspace/contracts";
 import { pathKey, shortPath } from "../../workspace/path";
 import type { Room, RoomMember, RoomMessage, RoomTabView, RoomTask } from "../contracts";
-import { activeRoomTasks, chatDeliveryNote, CONTINUED_WINDOW_MS, deliveryMeta, deliveryRetryable, finishedRoomTasks, formatRoomActivity, formatRoomDay, formatRoomTime, groupReactions, MEMBER_PRESENCE_LABEL, memberName, memberPresence, mentionedMembers, quoteSnippet, splitMentions, splitResultPaths, stageMeta, taskOf, taskRecord } from "../model";
+import { activeRoomTasks, chatDeliveryNote, CONTINUED_WINDOW_MS, deliveryMeta, deliveryRetryable, finishedRoomTasks, formatRoomActivity, formatRoomDay, formatRoomTime, groupReactions, MEMBER_PRESENCE_LABEL, memberName, memberPresence, quoteSnippet, splitMentions, splitResultPaths, stageMeta, taskOf, taskRecord } from "../model";
 import { ROOM_ASIDE_WIDTH } from "../asideWidth";
 import { ROOM_TEMPLATES, resolveTemplateRoles, type RoomTemplate } from "../templates";
 import { useRooms, type RoomsController } from "../useRooms";
 import { RoomWatch } from "./RoomWatch";
-import { composingKey, suppressComposingEnter } from "../../utils/keyboard";
+import { composingKey } from "../../utils/keyboard";
+import { RoomComposer } from "./RoomComposer";
+import { RoomAttachments } from "./RoomAttachments";
+import { messageExcerpt } from "../attachments";
 import "./room.css";
 
 interface RoomViewProps {
@@ -83,13 +86,7 @@ export function RoomView(props: RoomViewProps) {
   const rooms = useRooms();
   const [dialog, setDialog] = useState<RoomDialog | null>(null);
   const [confirm, setConfirm] = useState<RoomConfirm | null>(null);
-  const [draft, setDraft] = useState("");
-  const [recipients, setRecipients] = useState<string[]>([]);
-  const [sending, setSending] = useState(false);
   const [replyTo, setReplyTo] = useState<string | null>(null);
-  // @ 点名补全：at = 触发 @ 的下标、query = 已输入的过滤词、index = 键盘高亮的候选。
-  const [mention, setMention] = useState<{ at: number; query: string; index: number } | null>(null);
-  const composerRef = useRef<HTMLTextAreaElement>(null);
   // 「回到底部」浮标攒的条数：翻历史时新消息累计，贴底清零。
   const [belowCount, setBelowCount] = useState(0);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -102,9 +99,6 @@ export function RoomView(props: RoomViewProps) {
   // 房间列表按最近活动排序：最近有动静的排最前，沉默的沉底（没说过话的按创建时间）。
   const orderedRooms = useMemo(() => [...rooms.rooms].sort((left, right) =>
     (right.lastMessageAt ?? right.createdAt) - (left.lastMessageAt ?? left.createdAt)), [rooms.rooms]);
-  // 输入中的点名（与后端解析同一把尺）：@ 谁就只发给谁，发送按钮据此显示真实投递对象。
-  const mentioned = useMemo(() => mentionedMembers(draft, live), [draft, live]);
-
   // 右栏（「任务与决定」/「看终端」）共用一份可拖宽度；把手挂在整个视图上，
   // 两种形态切换时都钉在同一列左缘，不用各挂一个。
   const asideWidth = usePanelWidth(ROOM_ASIDE_WIDTH);
@@ -149,9 +143,9 @@ export function RoomView(props: RoomViewProps) {
     }
   }, [layout]);
 
-  // 换房间清掉草稿、接收者和搜索：在 A 房间写了一半的内容，不该跟着进 B 房间。
+  // 换房间清掉搜索与引用；输入区按房间重新挂载，草稿不会串房。
   const roomKey = room?.id ?? null;
-  useEffect(() => { setDraft(""); setRecipients([]); setQuery(""); setSearchOpen(false); setReplyTo(null); setMention(null); }, [roomKey]);
+  useEffect(() => { setQuery(""); setSearchOpen(false); setReplyTo(null); }, [roomKey]);
 
   // 未读分隔线：进房间时按「上次读到哪」算一次锚点，画在新消息前面。
   // 已读位只在用户点掉分隔线（或在下面发言）时推进——否则首帧就会推平，分隔线会「自己」消失。
@@ -185,14 +179,6 @@ export function RoomView(props: RoomViewProps) {
   // 引用目标：消息可能已被清掉，取不到就退回一句如实说明。
   const replyTarget = replyTo && room ? room.messages.find((message) => message.id === replyTo) ?? null : null;
 
-  // 成员被移出后，已选中的接收者跟着摘掉。
-  useEffect(() => {
-    setRecipients((current) => {
-      const liveIds = new Set(live.map((member) => member.id));
-      return current.some((id) => !liveIds.has(id)) ? current.filter((id) => liveIds.has(id)) : current;
-    });
-  }, [live]);
-
   // 搜索只筛当前房间的时间线：讨论正文与关联任务标题都算命中。
   const needle = query.trim().toLowerCase();
   const visibleMessages = useMemo(() => {
@@ -200,7 +186,8 @@ export function RoomView(props: RoomViewProps) {
     if (!needle) return room.messages;
     return room.messages.filter((message) => {
       // 撤回的消息正文已不可见，就别按它命中——搜到了却看不到原文，只会让人以为出错。
-      if (!message.recalledAt && message.text.toLowerCase().includes(needle)) return true;
+      if (!message.recalledAt && (message.text.toLowerCase().includes(needle)
+        || (message.attachments ?? []).some((attachment) => attachment.name.toLowerCase().includes(needle)))) return true;
       const task = message.taskId ? taskOf(room, message.taskId) : undefined;
       return task ? task.title.toLowerCase().includes(needle) : false;
     });
@@ -252,106 +239,6 @@ export function RoomView(props: RoomViewProps) {
     pinned.current = true;
     setBelowCount(0);
     if (room && !needle) writeSeenAt(room.id, room.messages[room.messages.length - 1]?.at ?? Date.now());
-  };
-
-  const toggleRecipient = (memberId: string) => {
-    setRecipients((current) => current.includes(memberId)
-      ? current.filter((id) => id !== memberId)
-      : [...current, memberId]);
-  };
-
-  const submit = async () => {
-    const text = draft.trim();
-    if (!text || sending || !room) return;
-    setSending(true);
-    const ok = recipients.length > 0
-      ? await rooms.dispatch(text, recipients)
-      : live.length > 0
-        ? await rooms.broadcast(text, replyTo)
-        : await rooms.sendMessage(text, replyTo);
-    setSending(false);
-    if (ok) {
-      setDraft("");
-      setRecipients([]);
-      setReplyTo(null);
-      setMention(null);
-      // 在下面发言＝人在场：未读分隔线一并收掉。
-      dismissUnread();
-      // 发出去的消息要看得见：翻着历史发送也回到最新（真人聊天的习惯——发完落在自己那条上）。
-      scrollToBottom();
-    }
-  };
-  // @ 点名补全：候选与后端点名同一把尺——在场成员、按已输入的角色名前缀过滤。
-  const mentionCandidates = useMemo(() => (
-    mention ? live.filter((member) => member.role.startsWith(mention.query)) : []
-  ), [live, mention]);
-
-  const composerChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
-    const value = event.target.value;
-    setDraft(value);
-    const caret = event.target.selectionStart ?? value.length;
-    const before = value.slice(0, caret);
-    const at = before.lastIndexOf("@");
-    const query = at >= 0 ? before.slice(at + 1) : "";
-    // 查询词里出现换行或第二个 @ 就不再是点名；过滤不到任何人也收起。
-    const open = at >= 0 && !/[\n@]/.test(query) && live.length > 0
-      && (query === "" || live.some((member) => member.role.startsWith(query)));
-    setMention((current) => {
-      if (!open) return null;
-      const index = current && current.query === query ? current.index : 0;
-      return { at, query, index };
-    });
-  };
-
-  const chooseMention = (member: RoomMember) => {
-    if (!mention) return;
-    const caret = composerRef.current?.selectionStart ?? draft.length;
-    const value = draft.slice(0, mention.at) + `@${member.role} ` + draft.slice(caret);
-    const position = mention.at + member.role.length + 2;
-    setDraft(value);
-    setMention(null);
-    // 光标落在刚插入的点名之后，接着打正文。
-    requestAnimationFrame(() => {
-      composerRef.current?.focus();
-      composerRef.current?.setSelectionRange(position, position);
-    });
-  };
-
-  const composerKey = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
-    // 输入法选词的 Enter 是「选中候选词」，不是发送。macOS WKWebView 上这一下
-    // 的 compositionend 先于 keydown（WebKit bug 165004），isComposing 已是 false，
-    // 只剩 keyCode 229 能认——composingKey 把两种形状一起挡住，漏认就会把半截拼音发出去；
-    // 事后 229 的默认动作（会多补一个换行）也一并挡掉。
-    if (composingKey(event.nativeEvent)) {
-      if (suppressComposingEnter(event.nativeEvent)) event.preventDefault();
-      return;
-    }
-    if (mention && mentionCandidates.length > 0) {
-      // 点名单开着：方向键选人；回车 / Tab 选中（这一下不发送）；Escape 只收名单、不关房间。
-      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-        event.preventDefault();
-        const step = event.key === "ArrowDown" ? 1 : -1;
-        setMention((current) => current
-          ? { ...current, index: (current.index + step + mentionCandidates.length) % mentionCandidates.length }
-          : current);
-        return;
-      }
-      if (event.key === "Enter" || event.key === "Tab") {
-        event.preventDefault();
-        chooseMention(mentionCandidates[Math.min(mention.index, mentionCandidates.length - 1)]);
-        return;
-      }
-      if (event.key === "Escape") {
-        event.preventDefault();
-        event.stopPropagation();
-        setMention(null);
-        return;
-      }
-    }
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
-      void submit();
-    }
   };
 
   const closeDialog = useCallback(() => setDialog(null), []);
@@ -616,58 +503,8 @@ export function RoomView(props: RoomViewProps) {
                 </button>
               ) : null}
             </div>
-            <div className="room-composer">
-              {replyTarget ? (
-                <div className="room-reply-banner">
-                  <CornerUpLeft aria-hidden="true" size={ICON.xs} />
-                  <span>正在回复 {messageAuthor(room, replyTarget)}：{quoteSnippet(replyTarget.text)}</span>
-                  <button aria-label="取消回复" onClick={() => setReplyTo(null)} title="取消回复" type="button">
-                    <X aria-hidden="true" size={ICON.xs} />
-                  </button>
-                </div>
-              ) : null}
-              <div className="room-composer__recipients">
-                {live.length === 0 ? (
-                  <span className="room-composer__hintline">房间还没有成员，这条只会记进讨论。</span>
-                ) : live.map((member) => {
-                  const presence = memberPresence(tabById.get(member.tabId));
-                  const selected = recipients.includes(member.id);
-                  return (
-                    <button aria-pressed={selected} className="room-recipient" disabled={presence !== "online"}
-                      key={member.id} onClick={() => toggleRecipient(member.id)}
-                      title={presence === "online" ? `发给 ${member.role}` : `${member.role}${MEMBER_PRESENCE_LABEL[presence]}，等它空闲再派`} type="button">
-                      {selected ? <Check aria-hidden="true" size={ICON.xs} /> : null}
-                      {member.role}
-                    </button>
-                  );
-                })}
-              </div>
-              {mention && mentionCandidates.length > 0 ? (
-                <div aria-label="点名成员" className="room-mention" role="listbox">
-                  {mentionCandidates.map((member, index) => (
-                    <button aria-selected={index === Math.min(mention.index, mentionCandidates.length - 1)} key={member.id}
-                      onClick={() => chooseMention(member)}
-                      onMouseDown={(event) => event.preventDefault()}
-                      role="option" type="button">
-                      <strong>@{member.role}</strong>
-                      <small>{MEMBER_PRESENCE_LABEL[memberPresence(tabById.get(member.tabId))]}</small>
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-              <div className="room-composer__row">
-                <textarea aria-label="房间消息" onChange={composerChange} onKeyDown={composerKey} ref={composerRef}
-                  placeholder="写点什么。选中成员后发送＝派任务。" rows={3} value={draft} />
-                <button className="room-send" disabled={!draft.trim() || sending} onClick={() => void submit()}
-                  title={recipients.length > 0 ? "派发任务" : mentioned.length > 0 ? `只发给被点名的人：${mentioned.map((member) => member.role).join("、")}` : live.length > 0 ? "发到群聊（不派活）" : "记进讨论"} type="button">
-                  {sending
-                    ? <LoaderCircle aria-hidden="true" className="room-send__spin" size={ICON.sm} />
-                    : <SendHorizontal aria-hidden="true" size={ICON.sm} />}
-                  {recipients.length > 0 ? `派发（${recipients.length}）` : mentioned.length > 0 ? `发给 ${mentioned.map((member) => member.role).join("、")}` : live.length > 0 ? `发到群聊（${live.length}）` : "记录"}
-                </button>
-              </div>
-              <p className="room-composer__note">直接发送＝群聊消息（@ 谁只发给谁）；先选中成员再发＝派活并跟踪回执</p>
-            </div>
+            <RoomComposer key={room.id} room={room} rooms={rooms} tabs={tabById} replyTarget={replyTarget}
+              onCancelReply={() => setReplyTo(null)} onSent={() => { setReplyTo(null); dismissUnread(); scrollToBottom(); }} />
           </>
         ) : (
           <div className="room-empty">
@@ -1159,6 +996,7 @@ function TaskDialog({ onCancel, onOpenFile, onOpenStop, resolvePath, room, rooms
       </div>
       <strong className="modal__title">{task.title}</strong>
       <p className="room-dialog__text">{task.text}</p>
+      <RoomAttachments roomId={room.id} attachments={task.attachments} />
       {task.acceptance.length > 0 ? (
         <div className="room-field">
           <span>验收要点</span>
@@ -1327,7 +1165,7 @@ function TimelineMessage({ continued, decisionMarked, message, onMarkDecision, o
           ) : (
             <button className="room-quote" onClick={() => scrollToMessage(quoted.id)} title="跳到这条消息" type="button">
               <strong>{messageAuthor(room, quoted)}</strong>
-              <span>{quoteSnippet(quoted.text)}</span>
+              <span>{quoteSnippet(messageExcerpt(quoted))}</span>
             </button>
           )
         ) : message.replyTo ? (
@@ -1338,7 +1176,7 @@ function TimelineMessage({ continued, decisionMarked, message, onMarkDecision, o
             <p><Undo2 aria-hidden="true" size={ICON.xs} />已撤回{(message.deliveredTo ?? []).length > 0
               ? "（这条已经进过成员终端，撤不回来）" : ""}</p>
           </div>
-        ) : <div className="room-message__bubble"><p>
+        ) : <div className="room-message__bubble">{message.text ? <p>
           {/* 先按 @点名切：点名画成芯片（读对话时一眼看清在叫谁），普通文字再按文件
               路径切一次——能打开的路径画成链接。两把尺拼回去都等于原文。 */}
           {splitMentions(message.text, room.members).map((segment, index) =>
@@ -1357,7 +1195,7 @@ function TimelineMessage({ continued, decisionMarked, message, onMarkDecision, o
               })
             ),
           )}
-        </p></div>}
+        </p> : null}<RoomAttachments roomId={room.id} attachments={message.attachments} /></div>}
         {reactions.length > 0 && !message.recalledAt ? (
           <div className="room-message__reactions">
             {reactions.map((group) => (

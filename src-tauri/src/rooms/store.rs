@@ -14,6 +14,7 @@ use belfry_protocol::{RoomBrief, RoomLine, RoomReactionCount, RoomTaskBrief};
 use crate::atomic::{read_text_optional, write_atomic};
 use crate::collab::task::{TaskBoard, TaskState};
 use crate::terminal::AppError;
+use super::attachments::{self, RoomAttachment};
 
 pub const STORE_VERSION: u32 = 1;
 /// 每房间消息上限：超出时裁掉最旧的系统事件；用户消息与派活永久保留。
@@ -111,6 +112,8 @@ pub struct RoomMessage {
     /// `user` 或 memberId 或 `system`。
     pub author: String,
     pub text: String,
+    #[serde(default)]
+    pub attachments: Vec<RoomAttachment>,
     /// 派活接收者（讨论消息为空）。
     #[serde(default)]
     pub member_ids: Vec<String>,
@@ -239,6 +242,8 @@ pub struct RoomTask {
     pub id: String,
     pub title: String,
     pub text: String,
+    #[serde(default)]
+    pub attachments: Vec<RoomAttachment>,
     pub member_ids: Vec<String>,
     /// 可选验收条件；原型里自动生成两条的行为不进生产。
     #[serde(default)]
@@ -315,6 +320,7 @@ impl Room {
             kind: MessageKind::System,
             author: "system".to_string(),
             text: text.into(),
+            attachments: Vec::new(),
             member_ids: Vec::new(),
             task_id: None,
             delivered_to: Vec::new(),
@@ -342,6 +348,7 @@ impl Room {
             kind: MessageKind::Member,
             author: member_id.to_string(),
             text,
+            attachments: Vec::new(),
             member_ids,
             task_id,
             delivered_to: Vec::new(),
@@ -361,6 +368,7 @@ impl Room {
         task_id: Option<String>,
         reply_to: Option<String>,
         now: i64,
+        attachments: Vec<RoomAttachment>,
     ) {
         self.messages.push(RoomMessage {
             id,
@@ -368,6 +376,7 @@ impl Room {
             kind: MessageKind::User,
             author: "user".to_string(),
             text,
+            attachments,
             member_ids,
             task_id,
             delivered_to: Vec::new(),
@@ -523,6 +532,30 @@ impl RoomStore {
         self.inner
             .lock()
             .map_err(|_| AppError::io("房间存储锁不上，请重启应用后重试。"))
+    }
+
+    pub(super) fn attachment_directory(&self, room_id: &str) -> Result<PathBuf, AppError> {
+        let inner = self.lock()?;
+        if !inner.rooms.iter().any(|room| room.id == room_id) {
+            return Err(AppError::not_found("找不到这个房间"));
+        }
+        let root = inner.path.as_ref().and_then(|path| path.parent())
+            .ok_or_else(|| AppError::io("找不到附件存储目录"))?;
+        attachments::directory(root, room_id)
+    }
+
+    /// 只丢弃尚未发送的附件。任务与消息引用过的文件持续保留，迟到的清理不能删掉它们。
+    pub(super) fn discard_attachment(&self, room_id: &str, attachment_id: &str) -> Result<(), AppError> {
+        let inner = self.lock()?;
+        let room = inner.rooms.iter().find(|room| room.id == room_id)
+            .ok_or_else(|| AppError::not_found("找不到这个房间"))?;
+        if room.messages.iter().flat_map(|message| &message.attachments)
+            .chain(room.tasks.iter().flat_map(|task| &task.attachments))
+            .any(|attachment| attachment.id == attachment_id)
+        { return Ok(()); }
+        let root = inner.path.as_ref().and_then(|path| path.parent())
+            .ok_or_else(|| AppError::io("找不到附件存储目录"))?;
+        attachments::discard(&attachments::directory(root, room_id)?, attachment_id)
     }
 
     pub fn list(&self) -> Result<RoomsView, AppError> {
@@ -805,12 +838,25 @@ impl RoomStore {
         member_ids: Vec<String>,
         reply_to: Option<String>,
     ) -> Result<Room, AppError> {
+        self.record_chat_with_attachments(room_id, message_id, text, member_ids, reply_to, Vec::new())
+    }
+
+    pub fn record_chat_with_attachments(
+        &self,
+        room_id: &str,
+        message_id: &str,
+        text: &str,
+        member_ids: Vec<String>,
+        reply_to: Option<String>,
+        attachments: Vec<RoomAttachment>,
+    ) -> Result<Room, AppError> {
         let text = text.trim();
-        if text.is_empty() {
+        if text.is_empty() && attachments.is_empty() {
             return Err(AppError::invalid_argument("消息不能为空"));
         }
         let mut inner = self.lock()?;
         let room = inner.room_mut(room_id)?;
+        attachments::validate_existing(&attachments)?;
         // 引用必须指向房间里真实存在的消息：不落悬空的引用。
         if let Some(target) = &reply_to
             && !room.messages.iter().any(|message| &message.id == target)
@@ -824,6 +870,7 @@ impl RoomStore {
             None,
             reply_to,
             now_millis(),
+            attachments,
         );
         let snapshot = room.clone();
         save(&inner)?;
@@ -856,7 +903,7 @@ impl RoomStore {
             id: new_id(),
             at: now,
             by: message.author.clone(),
-            text: message.text.clone(),
+            text: attachments::instruction(&message.text, &message.attachments),
             message_id: Some(message.id.clone()),
         });
         room.push_system(format!("记录了决定：{}", message.text), now);
@@ -875,6 +922,7 @@ impl RoomStore {
     ) -> Result<Room, AppError> {
         let mut inner = self.lock()?;
         let room = inner.room_mut(room_id)?;
+        attachments::validate_existing(&task.attachments)?;
         room.tasks.push(task);
         room.messages.push(message);
         room.prune_messages();
@@ -1698,7 +1746,7 @@ impl RoomStore {
                     text: if message.recalled_at.is_some() {
                         "（这条消息已撤回）".to_string()
                     } else {
-                        message.text.clone()
+                        attachments::instruction(&message.text, &message.attachments)
                     },
                     at: message.at,
                     reactions,

@@ -10,6 +10,9 @@
 //!    查不到，一律回写成 Unknown，不假装成功。
 
 pub mod commands;
+pub mod attachment_commands;
+mod attachments;
+mod clipboard_files;
 mod store;
 
 pub use store::RoomStore;

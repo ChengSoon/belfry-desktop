@@ -7,6 +7,7 @@
 use std::sync::Arc;
 
 use tauri::State;
+use super::attachments;
 
 use super::store::{
     new_id, now_millis, summarize, Delivery, DeliveryState, MessageKind, PendingReview, Room,
@@ -190,8 +191,11 @@ pub fn room_send_message(
     id: String,
     text: String,
     reply_to: Option<String>,
+    attachment_ids: Option<Vec<String>>,
 ) -> Result<Room, AppError> {
-    store.send_message(&id, &text, reply_to)
+    let attachments = attachments::resolve(&store, &id, &attachment_ids.unwrap_or_default())?;
+    if attachments.is_empty() { return store.send_message(&id, &text, reply_to); }
+    store.record_chat_with_attachments(&id, &new_id(), &text, Vec::new(), reply_to, attachments)
 }
 
 /// 用户给房间里某条消息点表情（再点一次取消）。成员侧同能力走 `belfry room react`。
@@ -248,9 +252,11 @@ pub fn room_dispatch(
     text: String,
     member_ids: Vec<String>,
     acceptance: Option<Vec<String>>,
+    attachment_ids: Option<Vec<String>>,
 ) -> Result<Room, AppError> {
     let text = text.trim().to_string();
-    if text.is_empty() {
+    let attachments = attachments::resolve(&store, &id, &attachment_ids.unwrap_or_default())?;
+    if text.is_empty() && attachments.is_empty() {
         return Err(AppError::invalid_argument("派活内容不能为空"));
     }
     if member_ids.is_empty() {
@@ -259,7 +265,8 @@ pub fn room_dispatch(
     let now = now_millis();
     store.reconcile(&board, now)?;
     let room = store.get(&id)?;
-    let prepared = prepare_dispatches(&room, &registry, &text, &member_ids, now)?;
+    let instruction = attachments::instruction(&text, &attachments);
+    let prepared = prepare_dispatches(&room, &registry, &instruction, &member_ids, now)?;
     let acceptance: Vec<String> = acceptance
         .unwrap_or_default()
         .into_iter()
@@ -268,8 +275,9 @@ pub fn room_dispatch(
         .collect();
     let task = RoomTask {
         id: new_id(),
-        title: summarize(&text),
+        title: summarize(if text.is_empty() { &attachments[0].name } else { &text }),
         text: text.clone(),
+        attachments: attachments.clone(),
         member_ids: member_ids.clone(),
         acceptance,
         created_at: now,
@@ -298,6 +306,7 @@ pub fn room_dispatch(
         kind: MessageKind::User,
         author: "user".to_string(),
         text,
+        attachments,
         member_ids: member_ids.clone(),
         task_id: Some(task.id.clone()),
         delivered_to: Vec::new(),
@@ -326,9 +335,11 @@ pub fn room_broadcast(
     id: String,
     text: String,
     reply_to: Option<String>,
+    attachment_ids: Option<Vec<String>>,
 ) -> Result<Room, AppError> {
     let text = text.trim().to_string();
-    if text.is_empty() {
+    let attachments = attachments::resolve(&store, &id, &attachment_ids.unwrap_or_default())?;
+    if text.is_empty() && attachments.is_empty() {
         return Err(AppError::invalid_argument("说点什么再发"));
     }
     let now = now_millis();
@@ -339,7 +350,7 @@ pub fn room_broadcast(
         name: room.name.clone(),
     };
     let room_id = room.id.clone();
-    let line = format!("用户：{text}");
+    let line = format!("用户：{}", attachments::instruction(&text, &attachments));
     let from = format!("room:{room_id}");
     // 用户写的 @角色 与成员发言同义：@ 了谁就只发给谁；不 @ 才发给全体。
     let mentioned: Vec<String> = super::store::mentions_in(&room, &text)
@@ -356,12 +367,13 @@ pub fn room_broadcast(
     // 消息 id 先生成：投递送达后按它把回执写回这条消息。
     let message_id = new_id();
     // 先落库再投递：保存失败就中止，不会出现「房间没记住、成员已经开工」的裂缝。
-    let updated = store.record_chat(
+    let updated = store.record_chat_with_attachments(
         &room_id,
         &message_id,
         &text,
         audience.iter().map(|(member_id, _)| member_id.clone()).collect(),
         reply_to,
+        attachments,
     )?;
     for (member_id, tab_id) in &audience {
         let direct = mentioned.contains(member_id);
@@ -448,11 +460,14 @@ pub fn room_reject_task(
     }
     // 反馈拼进新任务正文：成员看到的是一份完整上下文，不用自己回翻历史。
     let text = format!("{}\n\n上一轮验证未通过，退回重做。要求：{feedback}", task.text);
-    let prepared = prepare_dispatches(&room, &registry, &text, &member_ids, now)?;
+    attachments::validate_existing(&task.attachments)?;
+    let instruction = attachments::instruction(&text, &task.attachments);
+    let prepared = prepare_dispatches(&room, &registry, &instruction, &member_ids, now)?;
     let follow_up = RoomTask {
         id: new_id(),
         title: format!("（退回）{}", task.title),
         text: text.clone(),
+        attachments: task.attachments.clone(),
         member_ids: member_ids.clone(),
         acceptance: task.acceptance.clone(),
         created_at: now,
@@ -481,6 +496,7 @@ pub fn room_reject_task(
         kind: MessageKind::User,
         author: "user".to_string(),
         text: text.clone(),
+        attachments: task.attachments.clone(),
         member_ids: member_ids.clone(),
         task_id: Some(follow_up.id.clone()),
         delivered_to: Vec::new(),
@@ -530,7 +546,9 @@ pub fn room_retry_task(
             list.clone()
         }
     };
-    let prepared = prepare_dispatches(&room, &registry, &task.text, &targets, now)?;
+    attachments::validate_existing(&task.attachments)?;
+    let instruction = attachments::instruction(&task.text, &task.attachments);
+    let prepared = prepare_dispatches(&room, &registry, &instruction, &targets, now)?;
     let replacement: Vec<(String, String)> = prepared
         .iter()
         .map(|(member_id, built)| (member_id.clone(), built.id.clone()))

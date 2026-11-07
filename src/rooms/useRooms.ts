@@ -31,7 +31,7 @@ export interface RoomsController {
   deleteRoom: () => Promise<boolean>;
   addMember: (tabId: string, agent: string, role: string, duty: string, projectRoot?: string) => Promise<boolean>;
   removeMember: (memberId: string) => Promise<boolean>;
-  sendMessage: (text: string, replyTo?: string | null) => Promise<boolean>;
+  sendMessage: (text: string, replyTo?: string | null, attachmentIds?: string[]) => Promise<boolean>;
   /** 撤回自己刚发的一条消息：时间线标记已撤回；还没送出的投递当场撤掉。 */
   recall: (messageId: string) => Promise<boolean>;
   /** 清空聊天记录：时间线归空；任务、决定与投递记录保留，成员终端不受影响。 */
@@ -39,9 +39,9 @@ export interface RoomsController {
   /** 给某条消息点表情（同一人同一表情再点一次取消）。 */
   react: (messageId: string, emoji: string) => Promise<boolean>;
   markDecision: (messageId: string) => Promise<boolean>;
-  dispatch: (text: string, memberIds: string[], acceptance?: string[]) => Promise<boolean>;
+  dispatch: (text: string, memberIds: string[], acceptance?: string[], attachmentIds?: string[]) => Promise<boolean>;
   /** 群聊发送：@ 某人只发给 TA，不 @ 发给全体；忙的成员排队而不是被拒。 */
-  broadcast: (text: string, replyTo?: string | null) => Promise<boolean>;
+  broadcast: (text: string, replyTo?: string | null, attachmentIds?: string[]) => Promise<boolean>;
   stopTask: (taskId: string) => Promise<boolean>;
   verifyTask: (taskId: string, note?: string) => Promise<boolean>;
   /** 验证不通过：旧任务退回，带反馈的跟进派活立刻发出。 */
@@ -147,14 +147,17 @@ export function useRooms(): RoomsController {
 
   /** 动作共用的包装：成功刷新列表并清错误，失败把原因原样留在面板上。 */
   const run = useCallback(async (action: () => Promise<Room | null>): Promise<boolean> => {
+    const originId = roomIdRef.current;
     try {
       const updated = await action();
-      if (updated) setRoom(updated);
-      setError(null);
+      if (roomIdRef.current === originId) {
+        if (updated) setRoom(updated);
+        setError(null);
+      }
       await refreshRef.current();
       return updated !== null;
     } catch (cause) {
-      setError(toAppFailure(cause).message);
+      if (roomIdRef.current === originId) setError(toAppFailure(cause).message);
       return false;
     }
   }, []);
@@ -216,16 +219,16 @@ export function useRooms(): RoomsController {
       [withId],
     ),
     removeMember: useCallback((memberId: string) => withId((id) => roomRemoveMember(id, memberId)), [withId]),
-    sendMessage: useCallback((text: string, replyTo?: string | null) => withId((id) => roomSendMessage(id, text, replyTo)), [withId]),
+    sendMessage: useCallback((text: string, replyTo?: string | null, attachmentIds?: string[]) => withId((id) => roomSendMessage(id, text, replyTo, attachmentIds)), [withId]),
     recall: useCallback((messageId: string) => withId((id) => roomRecall(id, messageId)), [withId]),
     clearChat: useCallback(() => withId((id) => roomClearMessages(id)), [withId]),
     react: useCallback((messageId: string, emoji: string) => withId((id) => roomReact(id, messageId, emoji)), [withId]),
     markDecision: useCallback((messageId: string) => withId((id) => roomMarkDecision(id, messageId)), [withId]),
     dispatch: useCallback(
-      (text: string, memberIds: string[], acceptance?: string[]) => withId((id) => roomDispatch(id, text, memberIds, acceptance)),
+      (text: string, memberIds: string[], acceptance?: string[], attachmentIds?: string[]) => withId((id) => roomDispatch(id, text, memberIds, acceptance, attachmentIds)),
       [withId],
     ),
-    broadcast: useCallback((text: string, replyTo?: string | null) => withId((id) => roomBroadcast(id, text, replyTo)), [withId]),
+    broadcast: useCallback((text: string, replyTo?: string | null, attachmentIds?: string[]) => withId((id) => roomBroadcast(id, text, replyTo, attachmentIds)), [withId]),
     stopTask: useCallback((taskId: string) => withId((id) => roomStopTask(id, taskId)), [withId]),
     verifyTask: useCallback((taskId: string, note?: string) => withId((id) => roomVerifyTask(id, taskId, note)), [withId]),
     rejectTask: useCallback((taskId: string, feedback: string) => withId((id) => roomRejectTask(id, taskId, feedback)), [withId]),
