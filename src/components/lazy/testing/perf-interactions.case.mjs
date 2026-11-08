@@ -15,7 +15,8 @@ async function fixture(t) {
   const server = await createServer({ configFile: false, logLevel: "warn", cacheDir: join(root, "vite"),
     plugins: [{ name: "perf-counter-test-only", enforce: "pre", transform(source, id) {
       if (!id.endsWith("/src/layout/components/TerminalStage.tsx")) return;
-      const anchor = "  // launch 变了";
+      // 插在 SessionTerminal 计算 launch 之前：每渲染一次计一次数。锚点是那行注释，改注释时这里要跟着改。
+      const anchor = "  // 启动参数与实时历史身份一起下传";
       assert.equal(source.split(anchor).length, 2, "SessionTerminal instrumentation anchor must be unique");
       return source.replace(anchor, "  window.__perf.terminals[tab.id] = (window.__perf.terminals[tab.id] ?? 0) + 1;\n" + anchor);
     } }, react()], server: { host: "127.0.0.1", port: 0, hmr: false, watch: null },
