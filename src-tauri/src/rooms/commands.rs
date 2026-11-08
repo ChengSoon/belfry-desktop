@@ -216,6 +216,12 @@ pub fn room_say(
 }
 
 #[tauri::command]
+pub fn room_set_paused(store: State<'_, Arc<RoomStore>>, id: String, paused: bool) -> Result<Room, AppError> {
+    let (_, room) = store.mutate(&id, |room| ops::set_paused(room, paused, now_millis()))?;
+    Ok(room)
+}
+
+#[tauri::command]
 pub fn room_cancel_reply(store: State<'_, Arc<RoomStore>>, id: String, message_id: String) -> Result<Room, AppError> {
     let (_, room) = store.mutate(&id, |room| ops::cancel_reply(room, &Actor::User, &message_id, now_millis()))?;
     Ok(room)

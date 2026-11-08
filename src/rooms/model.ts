@@ -187,3 +187,79 @@ export function memberStatus(tab: Pick<WorkspaceTab, "phase" | "activity"> | und
   if (tab.activity === "talking") return "busy";
   return "idle";
 }
+
+// ---- @ 点名补全 ----
+
+/** 收件人记号，与 Rust `model::expand_token` 认的中文写法一致。 */
+export const MENTION_SELECTORS = [
+  { title: "统筹", description: "发给统筹" },
+  { title: "全体", description: "发给所有在场成员" },
+  { title: "成员", description: "发给统筹以外的成员" },
+] as const;
+
+/** 光标前正在输入的 `@名字`：返回 `@` 的位置和已经打的字；不在点名里返回 null。 */
+export function mentionQuery(text: string, caret: number): { start: number; query: string } | null {
+  const before = text.slice(0, caret);
+  const at = before.lastIndexOf("@");
+  if (at < 0) return null;
+  const query = before.slice(at + 1);
+  if (/\s/.test(query) || query.length > 24) return null;
+  // `@` 前面要是开头、空白或标点：邮箱地址、`a@b` 这种不算点名。
+  if (at > 0 && /[\p{L}\p{N}_]/u.test(before[at - 1])) return null;
+  return { start: at, query };
+}
+
+export interface MentionOption {
+  title: string;
+  description: string;
+  kind: "member" | "selector";
+}
+
+/** 能点的名：在场成员（前缀匹配排前面）和收件人记号。 */
+export function mentionOptions(room: Room, query: string): MentionOption[] {
+  const q = query.toLowerCase();
+  const score = (title: string) => {
+    const lower = title.toLowerCase();
+    return lower.startsWith(q) ? 0 : lower.includes(q) ? 1 : -1;
+  };
+  const members = activeMembers(room)
+    .map((member) => ({ title: member.title, description: member.duty || (member.role === "foreman" ? "统筹" : "成员"), kind: "member" as const }))
+    .filter((option) => score(option.title) >= 0)
+    .sort((a, b) => score(a.title) - score(b.title));
+  const selectors = MENTION_SELECTORS
+    .filter((selector) => score(selector.title) >= 0)
+    .map((selector) => ({ ...selector, kind: "selector" as const }));
+  return [...members, ...selectors];
+}
+
+/** 用选中的名字替换正在输入的 `@名字`，后面补一个空格。返回新文本和光标位置。 */
+export function applyMention(text: string, caret: number, start: number, title: string) {
+  const insert = `@${title} `;
+  // 光标后紧跟的半截名字一起换掉；原来就有的空格不重复。
+  const after = text.slice(caret).replace(/^[^\s@]*/, "").replace(/^ /, "");
+  return { value: text.slice(0, start) + insert + after, caret: start + insert.length };
+}
+
+// ---- 消息里的文件路径 ----
+
+export interface FileRef {
+  /** 相对项目根的路径。 */
+  path: string;
+  line: number | null;
+}
+
+/** 正文里像文件路径的片段：带目录的相对路径、项目内的绝对路径，或常见源码文件名。可带 `:行号`。 */
+export const FILE_PATH = /(?<![\w@/.:-])(\/(?:[\w@.-]+\/)+[\w@.-]+\.[A-Za-z0-9]{1,10}|(?:\.\/)?(?:[\w@.-]+\/)+[\w@.-]+\.[A-Za-z0-9]{1,10}|[\w.-]+\.(?:tsx?|jsx?|mjs|cjs|rs|md|json|css|scss|toml|ya?ml|py|go|java|kt|swift|sh|sql|html|vue))(?::(\d+))?(?![\w/])/g;
+
+/** 把消息里写的路径换成相对项目根的路径；在项目外或往上跳的不认（返回 null）。 */
+export function projectFile(projectRoot: string, raw: string, line: number | null = null): FileRef | null {
+  const root = projectRoot.replace(/[\\/]+$/, "");
+  let path = raw.replace(/\\/g, "/");
+  if (path.startsWith("/")) {
+    if (!path.startsWith(`${root}/`)) return null;
+    path = path.slice(root.length + 1);
+  }
+  path = path.replace(/^\.\//, "");
+  if (!path || path.split("/").some((segment) => segment === ".." || segment === "")) return null;
+  return { path, line };
+}

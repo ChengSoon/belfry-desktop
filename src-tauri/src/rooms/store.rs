@@ -56,6 +56,20 @@ pub struct RoomSummary {
     pub open_tasks: usize,
     pub done_tasks: usize,
     pub last_message_at: Option<i64>,
+    pub paused: bool,
+    /// 最近一条发给你的消息（统筹汇报、成员找你）。界面拿它画未读、发系统通知。
+    pub last_to_user: Option<InboxNote>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InboxNote {
+    pub id: String,
+    pub at: i64,
+    /// 发件人的角色名。
+    pub from: String,
+    /// 正文摘录（只有附件时列出文件名）。
+    pub text: String,
 }
 
 #[derive(Serialize)]
@@ -83,11 +97,27 @@ fn summarize(room: &Room) -> RoomSummary {
             .count(),
         done_tasks: room.tasks.iter().filter(|task| task.status == TaskStatus::Done).count(),
         last_message_at: room.messages.last().map(|message| message.at),
+        paused: room.paused,
+        last_to_user: room
+            .messages
+            .iter()
+            .rev()
+            .find(|message| message.kind == MessageKind::Chat && message.by != "user" && message.to.iter().any(|id| id == "user"))
+            .map(|message| InboxNote {
+                id: message.id.clone(),
+                at: message.at,
+                from: room.label(&message.by),
+                text: excerpt(&attachments::summary(&message.text, &message.attachments), 80),
+            }),
     }
 }
 
 /// 把动作产出的消息翻成逐位成员的投递。发给用户的不投（用户在界面上看）。
 pub fn deliveries(room: &Room, posted: &[Posted]) -> Vec<RoomPost> {
+    // 暂停的房间：消息照样记在时间线上，只是不送进终端。
+    if room.paused {
+        return Vec::new();
+    }
     let mut out = Vec::new();
     for item in posted {
         let Some(message) = room.messages.iter().find(|message| message.id == item.message_id) else {
@@ -200,6 +230,7 @@ impl RoomStore {
             tasks: Vec::new(),
             next_task: 1,
             idle_nudged_after: None,
+            paused: false,
             messages: Vec::new(),
             pending: Vec::new(),
         };
@@ -413,8 +444,17 @@ fn load_rooms(root: &Path) -> Result<Vec<Room>, String> {
     let mut rooms = file.rooms;
     for room in &mut rooms {
         let path = ledger::path(root, &room.id).map_err(|err| err.message)?;
-        for event in ledger::read(&path).map_err(|err| format!("房间消息账本读取失败：{}", err.message))? {
-            ledger::apply(room, &event);
+        let events = ledger::read(&path).map_err(|err| format!("房间消息账本读取失败：{}", err.message))?;
+        let count = events.len();
+        for event in &events {
+            ledger::apply(room, event);
+        }
+        // 账本只增不减，界面只留最近 MAX_MESSAGES 条：事件多到一定程度就按投影重写一份，
+        // 启动不必每次重放整段历史。重写失败不影响使用，下次启动再试。
+        if count > ledger::COMPACT_AFTER
+            && let Err(error) = ledger::rewrite(&path, &ledger::snapshot(room))
+        {
+            eprintln!("[belfry] 压缩房间消息账本 {} 失败：{}", path.display(), error.message);
         }
     }
     Ok(rooms)

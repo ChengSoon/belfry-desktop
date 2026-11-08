@@ -73,6 +73,8 @@ interface AppOverlaysProps {
   onDismissFailure: () => void;
   onInstallUpdate: () => void;
   onOpenRoomSession: (tabId: string) => void;
+  onOpenRoomFile: (projectRoot: string, path: string, line: number | null) => void;
+  onClearRoomMemberContext: (tabId: string) => boolean;
   onResumeRoomDelivery: (tabId: string) => boolean;
   roomPausedDeliveries: readonly PausedDelivery[];
   terminalTargets: ReadonlyMap<string, TerminalCommandTarget>;
@@ -111,6 +113,8 @@ function PrimaryPanels(props: AppOverlaysProps) {
           onClose={props.onCloseRooms}
           onLaunchMember={props.onLaunchRoomMember}
           onOpenSession={props.onOpenRoomSession}
+          onOpenFile={props.onOpenRoomFile}
+          onClearContext={props.onClearRoomMemberContext}
           onResumeDelivery={props.onResumeRoomDelivery}
           pausedDeliveries={props.roomPausedDeliveries}
           targets={props.terminalTargets}

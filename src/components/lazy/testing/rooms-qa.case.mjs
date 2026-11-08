@@ -145,3 +145,49 @@ for (const theme of ["dark", "light"]) {
     await capturePanel(view, `room-flow-${theme}`);
   });
 }
+
+test("@ completion, markdown, file links, unread divider and pause", async (t) => {
+  const { view } = await browserFixture(t, `${PAGE}?attention=0`);
+  await view.bounds({ x: 0, y: 0, width: 1440, height: 900 });
+  await waitFor(view, "!!document.querySelector('[aria-label=房间对话] article')");
+
+  // 发给你的消息前有「新消息」分隔线。
+  assert.ok(await view.cdp.evaluate("[...document.querySelectorAll('[role=separator]')].some((s) => s.textContent.includes('新消息'))"));
+
+  // Markdown：代码块、列表、加粗；路径变成可点的链接，点了在预览里打开。
+  const md = await view.cdp.evaluate(`(() => {
+    const body = [...document.querySelectorAll('.room-md')].find((n) => n.textContent.includes('已加限流'));
+    return { pre: !!body.querySelector('pre code'), li: body.querySelectorAll('li').length, strong: !!body.querySelector('strong'),
+      files: [...body.querySelectorAll('.room-md-file')].map((b) => b.textContent) };
+  })()`);
+  assert.deepEqual(md, { pre: true, li: 2, strong: true, files: ["src-tauri/src/sms.rs", "src/api/sms.ts:18"] });
+  await view.cdp.evaluate("[...document.querySelectorAll('.room-md-file')].find((b) => b.textContent.includes('sms.ts')).click()");
+  await waitFor(view, "window.qaFiles.length === 1");
+  assert.deepEqual(await view.cdp.evaluate("window.qaFiles[0]"), { root: "/Users/cheng/work/Project/tool/belfry-win", path: "src/api/sms.ts", line: 18 });
+
+  // @ 补全：打 @后 弹出名单，回车选中，插入「@后端 」。
+  await view.cdp.evaluate(`(() => {
+    const field = document.querySelector('textarea[aria-label=消息]');
+    field.focus();
+    const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set;
+    setter.call(field, '你好 @后');
+    field.setSelectionRange(5, 5);
+    field.dispatchEvent(new Event('input', { bubbles: true }));
+  })()`);
+  await waitFor(view, "!!document.querySelector('[aria-label=点名] [role=option]')");
+  assert.deepEqual(await view.cdp.evaluate("[...document.querySelectorAll('[aria-label=点名] [role=option] .font-medium')].map((n) => n.textContent)"), ["@后端"]);
+  await capturePanel(view, "room-mention");
+  await press(view, "Enter");
+  await waitFor(view, "document.querySelector('textarea[aria-label=消息]').value === '你好 @后端 '");
+  assert.ok(!(await view.cdp.evaluate("!!document.querySelector('[aria-label=点名]')")), "选中后名单收起");
+  assert.ok(!(await view.cdp.evaluate("window.qaCalls.some((c) => c.command === 'room_say')")), "选人那一下回车不发送");
+
+  // 暂停：头部菜单里暂停，出现横幅；横幅上恢复。
+  await click(view, "button[aria-label=房间操作]");
+  await waitFor(view, "[...document.querySelectorAll('[role=menuitem]')].some((i) => i.textContent.includes('暂停房间'))");
+  await view.cdp.evaluate("[...document.querySelectorAll('[role=menuitem]')].find((i) => i.textContent.includes('暂停房间')).click()");
+  await waitFor(view, "!!document.querySelector('[role=status]') && document.querySelector('[role=status]').textContent.includes('房间已暂停')");
+  await capturePanel(view, "room-paused");
+  await view.cdp.evaluate("[...document.querySelectorAll('[role=status] button')].find((b) => b.textContent.includes('恢复')).click()");
+  await waitFor(view, "!document.querySelector('[role=status]')");
+});

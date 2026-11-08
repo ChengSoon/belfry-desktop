@@ -50,7 +50,7 @@ const defaults: ComponentProps<typeof AppOverlays> = {
   onCancelClose: noop, onCancelRemove: noop, onCheckUpdate: noop, onCloseHistory: noop,
   onCloseQuickOpen: noop, onCloseRooms: noop, onCloseSettings: noop, onCloseShortcutGuide: noop, onCloseUpdater: noop,
   onCloseUsage: noop, onConfirmClose: noop, onConfirmRemove: noop, onDismissFailure: noop,
-  onInstallUpdate: noop, onOpenRoomSession: () => {}, onResumeRoomDelivery: () => false, roomPausedDeliveries: [], terminalTargets: new Map(), onLaunchRoomMember: async () => null, onOpenUpdater: noop, onRenameAgent: () => null, onResumeHistory: noop, onSelectQuickOpen: noop,
+  onInstallUpdate: noop, onOpenRoomSession: () => {}, onOpenRoomFile: noop, onClearRoomMemberContext: () => false, onResumeRoomDelivery: () => false, roomPausedDeliveries: [], terminalTargets: new Map(), onLaunchRoomMember: async () => null, onOpenUpdater: noop, onRenameAgent: () => null, onResumeHistory: noop, onSelectQuickOpen: noop,
 };
 
 function PersistentWorkbench() {

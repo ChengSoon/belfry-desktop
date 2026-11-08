@@ -17,10 +17,15 @@ use serde_json::Value;
 
 use super::attachments::RoomAttachment;
 use super::model::{Message, MessageKind, MessageMode, Room, MAX_MESSAGES};
+use crate::atomic::write_atomic;
 use crate::terminal::AppError;
 
 /// 信封版本。认不出的版本整行跳过——CCCS 规定改信封语义必须升版本。
 pub const LEDGER_VERSION: u32 = 1;
+
+/// 账本事件多于这么多条时，启动时按投影压缩一次。投影最多 MAX_MESSAGES 条消息，
+/// 每条再带几笔送达，三倍的余量让压缩不会每次启动都发生。
+pub const COMPACT_AFTER: usize = MAX_MESSAGES * 3;
 
 pub const CHAT_MESSAGE: &str = "chat.message";
 pub const SYSTEM_NOTIFY: &str = "system.notify";
@@ -224,12 +229,39 @@ pub fn append(path: &Path, events: &[LedgerEvent]) -> Result<(), AppError> {
             buffer.push('\n');
         }
     }
+    buffer.push_str(&encode(events)?);
+    file.write_all(buffer.as_bytes()).map_err(io)?;
+    file.sync_data().map_err(io)
+}
+
+fn encode(events: &[LedgerEvent]) -> Result<String, AppError> {
+    let mut text = String::new();
     for event in events {
         let line = serde_json::to_string(event)
             .map_err(|error| AppError::io(format!("消息事件序列化失败：{error}")))?;
-        buffer.push_str(&line);
-        buffer.push('\n');
+        text.push_str(&line);
+        text.push('\n');
     }
-    file.write_all(buffer.as_bytes()).map_err(io)?;
-    file.sync_data().map_err(io)
+    Ok(text)
+}
+
+/// 用一组事件整份替换账本（原子替换：写到一半崩溃不会留下半份账本）。
+pub fn rewrite(path: &Path, events: &[LedgerEvent]) -> Result<(), AppError> {
+    write_atomic(path, &encode(events)?, false)
+}
+
+/// 按当前投影重新生成最少的事件：每条消息、它的送达、撤销的回复请求。
+/// 回复关系由回复消息本身的 `reply_to` 重放出来，不用单独记。重放结果与投影一致。
+pub fn snapshot(room: &Room) -> Vec<LedgerEvent> {
+    let mut events = Vec::new();
+    for message in &room.messages {
+        events.push(message_event(&room.id, message));
+        for member_id in &message.delivered_to {
+            events.push(delivery_event(&room.id, &message.id, member_id, message.at));
+        }
+        if message.reply_cancelled {
+            events.push(cancel_event(&room.id, &message.id, "user", message.at));
+        }
+    }
+    events
 }

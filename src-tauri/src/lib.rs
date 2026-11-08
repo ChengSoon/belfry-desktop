@@ -124,6 +124,7 @@ pub fn run() {
             rooms::commands::room_update_brief,
             rooms::commands::room_say,
             rooms::commands::room_cancel_reply,
+            rooms::commands::room_set_paused,
             rooms::commands::room_task,
             rooms::attachment_commands::room_pick_attachments,
             rooms::attachment_commands::room_import_attachment,

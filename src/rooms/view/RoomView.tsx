@@ -1,10 +1,10 @@
 import {
   AlertTriangle, Archive, BellRing, Check, CheckCheck, CircleCheck, CircleDashed, CircleDot, Clock, Crown, FolderGit2,
-  Inbox, Info, ListTodo, MessageSquareReply, MessagesSquare, MoreHorizontal, Network, Paperclip, Pencil, Play, Plus, RotateCcw,
+  Inbox, Info, ListTodo, MessageSquareReply, MessagesSquare, MoreHorizontal, Network, Paperclip, Pause, Pencil, Play, Plus, RotateCcw, Search, ArrowDown, Eraser,
   SendHorizontal, SquareTerminal, Trash2, UserMinus, UserPlus, Users, X,
 } from "lucide-react";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
-import { Fragment, useEffect, useId, useMemo, useRef, useState, type ClipboardEvent, type ReactNode } from "react";
+import { createContext, Fragment, useContext, useEffect, useId, useMemo, useRef, useState, type ClipboardEvent, type ReactNode } from "react";
 import { isAgentKind, type AgentAvailability, type AgentKind } from "../../agent/contracts";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -43,16 +43,18 @@ import type { ProjectWorkspace, WorkspaceTab } from "../../workspace/contracts";
 import * as api from "../api";
 import { clipboardRoomFiles } from "../attachmentApi";
 import { MAX_ATTACHMENTS, messageSummary, transferFiles } from "../attachments";
+import { firstUnread, isUnread, latestToUser, markSeen, readSeen, useSeenVersion } from "../inbox";
 import type { Room, RoomMember, RoomMessage, RoomTask, TaskStatus } from "../contracts";
 import {
   activeMembers, awaitingReply, continues, dayKey, dayLabel, DEFAULT_ROSTER, excerpt, foremanOf,
   formatTime, hueOf, initialOf, labelOf, MEMBER_STATUS_TEXT as STATUS_TEXT, memberStatus, type MemberStatus, openBlockers, progress, recipientOptions, shortId, STATUS_LABEL, taskColumns,
-  titleError, workload, type RosterRow,
+  titleError, workload, type RosterRow, applyMention, mentionOptions, mentionQuery, type MentionOption,
 } from "../model";
 import { useRoomAttachments } from "../useRoomAttachments";
 import { useRooms, type RoomsState } from "../useRooms";
 import { AttachmentCard, MessageAttachments } from "./RoomAttachments";
 import { RoomFlow } from "./RoomFlow";
+import { RoomMarkdown } from "./RoomMarkdown";
 import "../tailwind.css";
 import "./room.css";
 
@@ -73,7 +75,14 @@ export interface RoomViewProps {
   pausedDeliveries?: readonly PausedDelivery[];
   /** 放开某条会话的暂停，后面的消息接着送。 */
   onResumeDelivery?: (tabId: string) => boolean;
+  /** 在文件预览里打开房间项目里的一个文件（相对项目根）。 */
+  onOpenFile?: (projectRoot: string, path: string, line: number | null) => void;
+  /** 清除成员 Agent 的上下文（Claude 的 /clear、Codex 的 /new）。返回是否已经送出或排上队。 */
+  onClearContext?: (tabId: string) => boolean;
 }
+
+/** 深处的组件（消息正文、成员菜单）要用的外部动作，免得一层层往下传。 */
+const RoomActions = createContext<Pick<RoomViewProps, "onOpenFile" | "onClearContext">>({});
 
 type DialogState =
   | { kind: "new-room" }
@@ -104,14 +113,22 @@ export function RoomView(props: RoomViewProps) {
     return () => window.removeEventListener("keydown", onKey);
   }, [dialog, props.onClose]);
 
+  const [search, setSearch] = useState("");
+  useSeenVersion();
   const ordered = useMemo(
     () => [...rooms.rooms].sort((a, b) => (b.lastMessageAt ?? b.createdAt) - (a.lastMessageAt ?? a.createdAt)),
     [rooms.rooms],
   );
+  const shown = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return q ? ordered.filter((summary) => `${summary.name} ${summary.objective}`.toLowerCase().includes(q)) : ordered;
+  }, [ordered, search]);
+  const actions = useMemo(() => ({ onOpenFile: props.onOpenFile, onClearContext: props.onClearContext }), [props.onOpenFile, props.onClearContext]);
   const close = () => setDialog(null);
   const canCreate = props.project !== null && rooms.loadError === null;
 
   return (
+    <RoomActions.Provider value={actions}>
     <TooltipProvider delayDuration={300}>
       <section aria-label="协作房间"
         className="room-view grid min-h-0 min-w-0 grid-cols-[256px_minmax(0,1fr)_320px] bg-background text-foreground text-sm max-[1080px]:grid-cols-[232px_minmax(0,1fr)_280px]">
@@ -129,10 +146,19 @@ export function RoomView(props: RoomViewProps) {
               {rooms.loadError}
             </p>
           ) : null}
+          {ordered.length > 3 ? (
+            <div className="relative mx-2 mb-1.5">
+              <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input aria-label="搜索房间" className="h-7 pl-7 text-xs" onChange={(event) => setSearch(event.target.value)}
+                onKeyDown={(event) => { if (event.key === "Escape" && search) { event.preventDefault(); setSearch(""); } }}
+                placeholder="搜索房间" value={search} />
+            </div>
+          ) : null}
           <nav aria-label="房间列表" className="flex shrink-0 flex-col gap-0.5 overflow-y-auto px-2 pb-2 max-h-[40%]">
-            {ordered.map((summary) => {
+            {shown.map((summary) => {
               const active = summary.id === rooms.selectedId;
               const total = summary.doneTasks + summary.openTasks;
+              const unread = !active && isUnread(summary);
               return (
                 <button aria-current={active} key={summary.id} onClick={() => rooms.select(summary.id)}
                   title={summary.projectRoot} type="button"
@@ -141,7 +167,15 @@ export function RoomView(props: RoomViewProps) {
                     "hover:bg-(--sidebar-hover) focus-visible:ring-2 focus-visible:ring-ring/50",
                     active && "bg-(--sidebar-active) shadow-(--sidebar-active-shadow)",
                   )}>
-                  <span className="truncate font-medium">{summary.name}</span>
+                  <span className="flex items-center gap-1.5">
+                    <span className={cn("truncate font-medium", unread && "font-semibold")}>{summary.name}</span>
+                    {summary.paused ? <Pause aria-label="已暂停" className="size-3 shrink-0 text-warning" /> : null}
+                    {unread ? (
+                      <span className="ml-auto size-2 shrink-0 rounded-full bg-primary" title={`${summary.lastToUser?.from}：${summary.lastToUser?.text}`}>
+                        <span className="sr-only">有发给你的新消息</span>
+                      </span>
+                    ) : null}
+                  </span>
                   <span className="flex items-center gap-2 text-xs text-muted-foreground">
                     <Users className="size-3" /> {summary.memberCount}
                     <ListTodo className="ml-1 size-3" /> {summary.doneTasks}/{total}
@@ -150,6 +184,9 @@ export function RoomView(props: RoomViewProps) {
                 </button>
               );
             })}
+            {ordered.length > 0 && shown.length === 0 ? (
+              <p className="px-2.5 py-2 text-xs text-muted-foreground">没有匹配「{search}」的房间。</p>
+            ) : null}
             {ordered.length === 0 ? (
               <p className="px-2.5 py-2 text-xs leading-relaxed text-muted-foreground">
                 还没有房间。一间房里一位统筹拆需求、派活、跟进度，其他成员各管自己的职责，一起把一个需求做完。
@@ -166,6 +203,13 @@ export function RoomView(props: RoomViewProps) {
           <>
             <main className="relative flex min-h-0 min-w-0 flex-col">
               <RoomHeader onDelete={() => setDialog({ kind: "delete-room", room })} room={room} rooms={rooms} />
+              {room.paused ? (
+                <div className="flex shrink-0 items-center gap-2 border-b border-warning/40 bg-warning/10 px-4 py-1.5 text-xs" role="status">
+                  <Pause className="size-3.5 shrink-0 text-warning" />
+                  <span className="flex-1">房间已暂停：消息只记在这里，不送进成员终端，空闲提醒也停了。成员手上正在做的不会被打断。</span>
+                  <Button onClick={() => void rooms.run(() => api.roomSetPaused(room.id, false))} size="xs" variant="outline"><Play /> 恢复</Button>
+                </div>
+              ) : null}
               <AttentionPanel onOpenSession={props.onOpenSession} onResume={props.onResumeDelivery}
                 paused={props.pausedDeliveries ?? []} room={room} tabs={props.tabs} targets={props.targets} />
               <BriefPanel room={room} rooms={rooms} />
@@ -224,6 +268,7 @@ export function RoomView(props: RoomViewProps) {
         ) : null}
       </section>
     </TooltipProvider>
+    </RoomActions.Provider>
   );
 }
 
@@ -321,6 +366,8 @@ function MemberList(props: {
 }) {
   const { room, rooms } = props;
   const members = activeMembers(room);
+  const { onClearContext } = useContext(RoomActions);
+  const [cleared, setCleared] = useState<string | null>(null);
   return (
     <section aria-label="成员" className="flex min-h-0 flex-1 flex-col border-t border-border">
       <SectionHeader count={members.length} title="成员">
@@ -331,6 +378,7 @@ function MemberList(props: {
           const tab = props.tabs.find((candidate) => candidate.id === member.tabId);
           const status = memberStatus(tab);
           const load = workload(room, member.id);
+          const current = room.tasks.find((task) => task.assignee === member.id && task.status === "active");
           return (
             <div key={member.id}
               className={cn(
@@ -348,9 +396,9 @@ function MemberList(props: {
                     </Tooltip>
                   ) : null}
                 </div>
-                <div className="truncate text-xs text-muted-foreground" title={member.duty || undefined}>
-                  <span className={cn(status === "waiting" && "font-medium text-warning")}>{STATUS_TEXT[status]}</span>
-                  {member.duty ? <> · {member.duty}</> : null}
+                <div className="truncate text-xs text-muted-foreground" title={current ? `${current.id} ${current.title}` : member.duty || undefined}>
+                  <span className={cn(status === "waiting" && "font-medium text-warning")}>{cleared === member.id ? "已清除上下文" : STATUS_TEXT[status]}</span>
+                  {current ? <> · <span className="text-foreground/80">{current.id} {current.title}</span></> : member.duty ? <> · {member.duty}</> : null}
                 </div>
               </div>
               {load ? (
@@ -368,6 +416,13 @@ function MemberList(props: {
                 <DropdownMenuContent align="end" className="w-40">
                   {tab && props.onOpenSession ? (
                     <DropdownMenuItem onSelect={() => props.onOpenSession?.(tab.id)}><SquareTerminal /> 打开终端</DropdownMenuItem>
+                  ) : null}
+                  {tab && onClearContext ? (
+                    <DropdownMenuItem onSelect={() => {
+                      if (onClearContext(tab.id)) { setCleared(member.id); window.setTimeout(() => setCleared(null), 4000); }
+                    }}>
+                      <Eraser /> 清除上下文
+                    </DropdownMenuItem>
                   ) : null}
                   {member.role !== "foreman" ? (
                     <DropdownMenuItem onSelect={() => void rooms.run(() => api.roomSetForeman(room.id, member.id))}>
@@ -420,6 +475,7 @@ function RoomHeader({ room, rooms, onDelete }: { room: Room; rooms: RoomsState; 
           <Pencil className="size-3.5 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100" />
         </button>
       )}
+      {room.paused ? <Badge className="border-warning/50 text-warning" variant="outline"><Pause /> 已暂停</Badge> : null}
       <span className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground" title={room.projectRoot}>
         <FolderGit2 className="size-3.5 shrink-0" />
         <span className="truncate">{room.projectRoot.split(/[\\/]/).filter(Boolean).at(-1) ?? room.projectRoot}</span>
@@ -434,6 +490,11 @@ function RoomHeader({ room, rooms, onDelete }: { room: Room; rooms: RoomsState; 
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-36">
           <DropdownMenuItem onSelect={() => setEditing(true)}><Pencil /> 改名</DropdownMenuItem>
+          {room.paused ? (
+            <DropdownMenuItem onSelect={() => void rooms.run(() => api.roomSetPaused(room.id, false))}><Play /> 恢复房间</DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem onSelect={() => void rooms.run(() => api.roomSetPaused(room.id, true))}><Pause /> 暂停房间</DropdownMenuItem>
+          )}
           <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={onDelete} variant="destructive"><Trash2 /> 删除房间</DropdownMenuItem>
         </DropdownMenuContent>
@@ -658,7 +719,8 @@ function CenterTabs({ room, rooms, tabs, onOpenSession }: {
         </TabsList>
       </div>
       <TabsContent className="flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden" forceMount value="chat">
-        <Timeline room={room} rooms={rooms} />
+        {/* 每间房一份：未读分隔线、回到底部浮标都按进房那一刻算。 */}
+        <Timeline key={room.id} room={room} rooms={rooms} />
       </TabsContent>
       <TabsContent className="flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden" value="flow">
         <RoomFlow onOpenSession={onOpenSession} room={room} tabs={tabs} />
@@ -676,7 +738,17 @@ function Timeline({ room, rooms }: { room: Room; rooms: RoomsState }) {
   // 按那一刻量出来会误判成「用户翻上去了」。记下代码滚到的位置，落在这个位置上的事件不算用户滚动。
   const programmatic = useRef<number | null>(null);
   const [replyTo, setReplyTo] = useState<RoomMessage | null>(null);
+  // 进房那一刻的已读位：分隔线画在它之后第一条发给你的消息前，在房间里一直留着，换房间才重算。
+  const [seenAtOpen] = useState(() => readSeen(room.id));
+  const divider = firstUnread(room.messages, seenAtOpen);
+  // 翻上去看历史时新到的消息数：攒成「回到底部」浮标上的数字。
+  const [away, setAway] = useState(false);
+  const [awayFrom, setAwayFrom] = useState(0);
+  const newer = away ? Math.max(0, room.messages.length - awayFrom) : 0;
   const last = room.messages.at(-1)?.id;
+  // 看到底了，发给你的消息就算读过。
+  const latest = latestToUser(room.messages);
+  useEffect(() => { if (!away && latest) markSeen(room.id, latest); }, [away, latest, room.id]);
   const stick = () => {
     const node = list.current;
     if (!node || !pinned.current) return;
@@ -708,6 +780,10 @@ function Timeline({ room, rooms }: { room: Room; rooms: RoomsState }) {
           programmatic.current = null;
           pinned.current = node.scrollHeight - node.scrollTop - node.clientHeight < 40;
           if (pinned.current) stick();
+          if (pinned.current === away) {
+            setAway(!pinned.current);
+            setAwayFrom(room.messages.length);
+          }
         }}>
         <div ref={content} className={cn(room.messages.length === 0 && "h-full")}>
         {room.messages.length === 0 ? (
@@ -731,13 +807,28 @@ function Timeline({ room, rooms }: { room: Room; rooms: RoomsState }) {
                   <Separator className="flex-1" />
                 </div>
               ) : null}
-              <MessageItem continued={!newDay && continues(previous, message)} message={message}
+              {index === divider ? (
+                <div className="my-2 flex items-center gap-3 px-3" role="separator">
+                  <Separator className="flex-1 bg-primary/50" />
+                  <span className="text-xs font-semibold text-primary">新消息</span>
+                  <Separator className="flex-1 bg-primary/50" />
+                </div>
+              ) : null}
+              <MessageItem continued={!newDay && index !== divider && continues(previous, message)} message={message}
                 onReply={() => setReplyTo(message)} room={room} rooms={rooms} />
             </Fragment>
           );
         })}
         </div>
       </div>
+      {away ? (
+        <div className="pointer-events-none relative h-0">
+          <Button className="pointer-events-auto absolute right-5 bottom-3 z-10 rounded-full shadow-md"
+            onClick={() => { pinned.current = true; setAway(false); stick(); }} size="sm" variant="secondary">
+            <ArrowDown /> {newer ? `${newer} 条新消息` : "回到底部"}
+          </Button>
+        </div>
+      ) : null}
       <Composer key={room.id} onSent={() => { pinned.current = true; setReplyTo(null); }} replyTo={replyTo}
         onCancelReply={() => setReplyTo(null)} room={room} rooms={rooms} />
     </>
@@ -767,6 +858,11 @@ function MessageItem({ room, rooms, message, continued, onReply }: {
     );
   }
   const mine = message.by === "user";
+  const { onOpenFile } = useContext(RoomActions);
+  const openFile = useMemo(
+    () => (onOpenFile ? (path: string, line: number | null) => onOpenFile(room.projectRoot, path, line) : undefined),
+    [onOpenFile, room.projectRoot],
+  );
   const quoted = message.replyTo ? room.messages.find((candidate) => candidate.id === message.replyTo) : undefined;
   const awaiting = awaitingReply(message);
   const delivery = deliveryState(room, message);
@@ -801,9 +897,7 @@ function MessageItem({ room, rooms, message, continued, onReply }: {
           </blockquote>
         ) : null}
         {message.text ? (
-          <p className={cn("leading-relaxed break-words whitespace-pre-wrap", !continued && "mt-0.5", mine && "text-foreground")}>
-            {message.text}
-          </p>
+          <RoomMarkdown className={cn(!continued && "mt-0.5")} onOpenFile={openFile} projectRoot={room.projectRoot} text={message.text} />
         ) : null}
         <MessageAttachments attachments={message.attachments} roomId={room.id} />
         {message.mode === "request_reply" || delivery ? (
@@ -846,6 +940,21 @@ function Composer(props: { room: Room; rooms: RoomsState; replyTo: RoomMessage |
   const [ask, setAsk] = useState(true);
   const [dragging, setDragging] = useState(false);
   const [checkingPaste, setCheckingPaste] = useState(false);
+  // 正在输入的 @名字：弹出成员名单。index 是方向键选中的那一项。
+  const [mention, setMention] = useState<{ start: number; query: string; index: number } | null>(null);
+  const mentionList: MentionOption[] = mention ? mentionOptions(room, mention.query) : [];
+  const trackMention = (value: string, caret: number) => {
+    const found = mentionQuery(value, caret);
+    setMention(found ? { ...found, index: 0 } : null);
+  };
+  const chooseMention = (option: MentionOption) => {
+    const field = input.current;
+    if (!field || !mention) return;
+    const next = applyMention(text, field.selectionStart, mention.start, option.title);
+    setText(next.value);
+    setMention(null);
+    requestAnimationFrame(() => { field.focus(); field.setSelectionRange(next.caret, next.caret); });
+  };
   const input = useRef<HTMLTextAreaElement>(null);
   const host = useRef<HTMLDivElement>(null);
   const mounted = useRef(true);
@@ -964,7 +1073,7 @@ function Composer(props: { room: Room; rooms: RoomsState; replyTo: RoomMessage |
   return (
     <div className="shrink-0 px-4 pt-1 pb-4">
       <div ref={host} className={cn(
-        "rounded-lg border border-input bg-card shadow-xs transition-[border-color,box-shadow]",
+        "group/composer relative rounded-lg border border-input bg-card shadow-xs transition-[border-color,box-shadow]",
         "focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/30",
         noMembers && "opacity-60",
       )}>
@@ -979,14 +1088,48 @@ function Composer(props: { room: Room; rooms: RoomsState; replyTo: RoomMessage |
         ) : null}
         <Textarea aria-label="消息" disabled={noMembers} ref={input} rows={2} value={text}
           className="min-h-14 resize-none border-0 bg-transparent px-3 py-2.5 shadow-none focus-visible:ring-0 dark:bg-transparent"
-          onChange={(event) => setText(event.target.value)} onPaste={(event) => void paste(event)}
+          onChange={(event) => { setText(event.target.value); trackMention(event.target.value, event.target.selectionStart); }}
+          onClick={(event) => trackMention(event.currentTarget.value, event.currentTarget.selectionStart)}
+          onBlur={() => window.setTimeout(() => setMention(null), 120)}
+          onPaste={(event) => void paste(event)}
           placeholder={noMembers ? "先添加成员"
             : replyTo ? "写回复…（默认回给原发件人）"
               : "跟统筹说需求、问进度…  @角色 只发给那个人；文件可以拖进来或直接粘贴"}
           onKeyDown={(event) => {
             if (composingKey(event)) return;
+            if (mention && mentionList.length) {
+              if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                event.preventDefault();
+                const step = event.key === "ArrowDown" ? 1 : -1;
+                setMention({ ...mention, index: (mention.index + step + mentionList.length) % mentionList.length });
+                return;
+              }
+              if (event.key === "Enter" || event.key === "Tab") {
+                event.preventDefault();
+                chooseMention(mentionList[Math.min(mention.index, mentionList.length - 1)]);
+                return;
+              }
+            }
+            if (mention && event.key === "Escape") { event.preventDefault(); event.stopPropagation(); setMention(null); return; }
             if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void send(); }
           }} />
+        {mention && mentionList.length ? (
+          <div aria-label="点名" className="absolute bottom-full left-2 z-30 mb-1.5 w-80 overflow-hidden rounded-lg border border-border bg-popover p-1 shadow-lg" role="listbox">
+            <div className="px-2 pt-1 pb-1.5 text-[11px] text-muted-foreground">点名只发给这个人 · ↑↓ 选择，Enter 确定</div>
+            {mentionList.map((option, index) => (
+              <button aria-selected={index === mention.index} key={`${option.kind}-${option.title}`} role="option" type="button"
+                className={cn("flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm", index === mention.index ? "bg-accent" : "hover:bg-accent/60")}
+                onMouseDown={(event) => { event.preventDefault(); chooseMention(option); }}
+                onMouseEnter={() => setMention({ ...mention, index })}>
+                {option.kind === "member" ? (
+                  <MemberAvatar id={room.members.find((member) => member.title === option.title)?.id ?? option.title} room={room} size="sm" />
+                ) : <Users className="size-4 text-muted-foreground" />}
+                <span className="font-medium">@{option.title}</span>
+                <span className="ml-auto truncate text-xs text-muted-foreground">{option.description}</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
         {attachments.items.length ? (
           <div aria-label="待发送的附件" aria-live="polite" className="flex flex-wrap gap-2 px-3 pt-1 pb-2.5">
             {attachments.items.map((item) => (
@@ -1045,11 +1188,11 @@ function Composer(props: { room: Room; rooms: RoomsState; replyTo: RoomMessage |
                 : ask ? "开着：收件人回复之前，这条消息一直挂着「等回复」。只是通知一声时关掉。" : "关着：发出去就算，不要求对方回复。"}
             </TooltipContent>
           </Tooltip>
-          <span className="ml-auto hidden items-center gap-1 text-[11px] text-muted-foreground/70 min-[1200px]:flex">
+          <span className="ml-auto hidden items-center gap-1 text-[11px] text-muted-foreground/70 min-[1200px]:group-focus-within/composer:flex">
             {attachments.items.length ? `${attachments.items.length}/${MAX_ATTACHMENTS} 个附件 · ` : null}
             <Kbd>Enter</Kbd> 发送 · <Kbd>Shift</Kbd>+<Kbd>Enter</Kbd> 换行
           </span>
-          <Button aria-label="发送" className="max-[1199px]:ml-auto" disabled={!canSend} onClick={() => void send()} size="icon-sm">
+          <Button aria-label="发送" className="ml-auto min-[1200px]:group-focus-within/composer:ml-0" disabled={!canSend} onClick={() => void send()} size="icon-sm">
             {busy ? <Spinner /> : <SendHorizontal />}
           </Button>
         </div>

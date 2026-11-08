@@ -15,7 +15,7 @@ import { usePromptQueue } from "./prompt/usePromptQueue";
 import { appShortcutChord, formatShortcutChord } from "./shortcuts/resolveShortcut";
 import { useAppShortcuts } from "./shortcuts/useAppShortcuts";
 import { useAppUpdater } from "./updater/useAppUpdater";
-import type { AgentKind } from "./agent/contracts";
+import { agentResetCommand, isAgentKind, type AgentKind } from "./agent/contracts";
 import type { HistorySession } from "./history/contracts";
 import type { QuickOpenItem } from "./quickopen/model";
 import { useQuickOpen } from "./quickopen/useQuickOpen";
@@ -32,6 +32,7 @@ import { NamedWorkspaceControls } from "./workspace/named/NamedWorkspaceControls
 import { useSessionRoster } from "./collab/useSessionRoster";
 import { useTaskDelivery } from "./collab/useTaskDelivery";
 import { useRoomBoundTabs } from "./rooms/useRoomBoundTabs";
+import { useRoomInbox } from "./rooms/useRoomInbox";
 import { resolveAgentRename } from "./collab/naming";
 import { CollabPanel } from "./collab/CollabPanel";
 import { useCollabTasks } from "./collab/useCollabTasks";
@@ -147,13 +148,15 @@ export default function App() {
   const promptQueue = usePromptQueue({ tabs: workspace.tabs, targets: terminalTargets.targets });
   // `belfry send` 的任务经后台队列投进目标终端，等待目标 Agent 空闲。
   useTaskDelivery(promptQueue.submit);
+  // 统筹、成员发给你的消息：房间关着时发系统通知；未读的房间也算进侧栏计数。
+  const roomUnread = useRoomInbox(roomBound.summaries, roomsOpen);
   // 房间成员在等你选择、或者发给他的消息卡住了：侧栏「协作房间」按钮亮起，房间藏着也看得见。
   const roomAttention = useMemo(() => {
     const waiting = workspace.tabs.filter((tab) => roomBound.boundIds.has(tab.id)
       && tab.phase === "running" && tab.activity === "awaiting-choice").length;
     const stuck = promptQueue.paused.filter((item) => roomBound.boundIds.has(item.tabId)).length;
-    return waiting + stuck;
-  }, [workspace.tabs, roomBound.boundIds, promptQueue.paused]);
+    return waiting + stuck + roomUnread;
+  }, [workspace.tabs, roomBound.boundIds, promptQueue.paused, roomUnread]);
 
   const collab = useCollabTasks();
   // 历史会话与用量面板互斥：两者都占右侧一列，栅格只留了一条轨道。
@@ -219,6 +222,23 @@ export default function App() {
     setPreviewOpen(true);
     setPreviewRequest(request ?? null);
   }, [quickOpen.close]);
+
+  // 房间消息里点文件路径：收起房间，在文件预览里打开。房间的项目不是当前项目时先切过去。
+  const openRoomFile = useCallback((projectRoot: string, path: string, line: number | null) => {
+    setRoomsOpen(false);
+    const open = () => openPreview({ path, line });
+    if (workspace.activeProject && pathKey(workspace.activeProject.rootPath) === pathKey(projectRoot)) open();
+    else void workspace.selectProject(projectRoot).then(open);
+  }, [openPreview, workspace.activeProject, workspace.selectProject]);
+
+  // 房间成员的「清除上下文」：把该 Agent 自己的重置命令经 Prompt 队列送进它的终端，忙时排队、空闲再送。
+  // 进程、会话与房间身份都不动，也不移出成员。
+  const clearRoomMemberContext = useCallback((tabId: string) => {
+    const tab = workspace.tabs.find((candidate) => candidate.id === tabId);
+    if (!tab || !isAgentKind(tab.kind)) return false;
+    const command = agentResetCommand(tab.kind);
+    return command ? promptQueue.submit(tabId, command) !== "unavailable" : false;
+  }, [promptQueue.submit, workspace.tabs]);
 
   // 房间里点「终端」：收起房间，切到那位成员的会话。
   const openRoomSession = useCallback((tabId: string) => {
@@ -438,6 +458,8 @@ export default function App() {
         onDismissFailure={workspace.dismissFailure}
         onInstallUpdate={updater.install}
         onOpenRoomSession={openRoomSession}
+        onOpenRoomFile={openRoomFile}
+        onClearRoomMemberContext={clearRoomMemberContext}
         onResumeRoomDelivery={promptQueue.resume}
         roomPausedDeliveries={promptQueue.paused}
         terminalTargets={terminalTargets.targets}

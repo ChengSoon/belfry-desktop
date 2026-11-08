@@ -39,7 +39,7 @@ const room: Room = {
     msg("aaa003", now - 78 * min, "foreman", "收到。我拆成 5 个任务：验证码发送、校验登录接口给后端，页面给前端，回归给测试，旧入口我先放着。", ["user"],
       { replyTo: "01m6v2yfg2ps6jak5pk7taaa002" }),
     { ...msg("aaa004", now - 77 * min, "system", "统筹员新建了 T2「手机号登录页面」，交给「前端」。", ["fe"]), kind: "notice" },
-    msg("aaa005", now - 40 * min, "be", "T1 验证码发送接口已合并，限流 60s 一次。", ["foreman"]),
+    msg("aaa005", now - 40 * min, "be", "T1 验证码发送接口已合并，限流 60s 一次。改动在 `src-tauri/src/sms.rs` 和 src/api/sms.ts:18：\n\n```ts\nawait send(phone)\n```\n- 已加限流\n- **待测**：并发重发", ["foreman"]),
     msg("aaa006", now - 39 * min, "be", "接口文档在 docs/api/sms.md。", ["foreman"]),
     msg("aaa006b", now - 30 * min, "user", "设计稿和需求文档在这里。", ["foreman"], { attachments: [
       { id: "01m6v2yfg2ps6jak5pk7tatt001", name: "登录页设计稿.png", path: "/qa/登录页设计稿.png", size: 182_400, mimeType: "image/png" },
@@ -52,8 +52,10 @@ const room: Room = {
 };
 const summary = (r: Room) => ({ id: r.id, name: r.name, projectRoot: r.projectRoot, createdAt: r.createdAt, objective: r.brief.objective,
   memberCount: r.members.length, memberTabIds: r.members.map((x) => x.tabId), memberTitles: r.members.map((x) => x.title),
-  foreman: "统筹员", openTasks: 4, doneTasks: 1, lastMessageAt: r.messages.at(-1)?.at ?? null });
-const other = { ...summary(room), id: "01m6v2yfg2ps6jak5pk7tx6zzz", name: "支付回调重构", memberCount: 2, openTasks: 1, doneTasks: 3, lastMessageAt: now - 300 * min };
+  foreman: "统筹员", openTasks: 4, doneTasks: 1, lastMessageAt: r.messages.at(-1)?.at ?? null, paused: false,
+  lastToUser: { id: "01m6v2yfg2ps6jak5pk7taaa003", at: now - 78 * min, from: "统筹员", text: "收到。我拆成 5 个任务" } });
+const other = { ...summary(room), id: "01m6v2yfg2ps6jak5pk7tx6zzz", name: "支付回调重构", memberCount: 2, openTasks: 1, doneTasks: 3,
+  lastMessageAt: now - 300 * min, lastToUser: { id: "x", at: now - 300 * min, from: "统筹员", text: "支付回调改好了，请验收" } };
 const view: RoomsView = { rooms: [summary(room), other], loadError: null };
 
 // 一张 2×2 的 PNG，给图片附件的缩略图用。
@@ -74,6 +76,7 @@ Object.assign(window, {
       if (command === "room_clipboard_files") return [];
       if (command === "room_discard_attachment") return null;
       if (command === "room_say") return room;
+      if (command === "room_set_paused") { room.paused = (args as { paused: boolean }).paused; return room; }
       if (command === "room_paste_attachment" || command === "room_import_attachment") {
         imported += 1;
         return { id: `01m6v2yfg2ps6jak5pk7tdrf${String(imported).padStart(3, "0")}`, name: `拖入文件${imported}.txt`,
@@ -93,7 +96,7 @@ const target = (tabId: string): TerminalCommandTarget => ({ focus: () => {}, sen
   readChoice: () => (tabId === "t2" ? choice : null), answerChoice: () => "sent" });
 const tab = (id: string, activity: WorkspaceTab["activity"]) => ({ id, kind: "codex", phase: "running", activity, title: id,
   project: { id: "p", name: "belfry-win", rootPath: room.projectRoot, rootUri: room.projectRoot } }) as unknown as WorkspaceTab;
-Object.assign(window, { qaClosed: 0 });
+Object.assign(window, { qaClosed: 0, qaFiles: [] });
 const params = new URLSearchParams(location.search);
 const theme = params.get("theme") ?? "dark";
 document.documentElement.dataset.theme = theme;
@@ -105,7 +108,9 @@ const { RoomView } = await import("../../../rooms/view/RoomView");
 createRoot(document.getElementById("root")!).render(
   <ThemeProvider>
   <div className="app-shell is-rooms" style={{ display: "grid", height: "100vh" }}>
-    <RoomView agents={[]} onClose={() => { (window as unknown as { qaClosed: number }).qaClosed += 1; }} onOpenSession={() => {}} onResumeDelivery={() => true}
+    <RoomView agents={[]} onClose={() => { (window as unknown as { qaClosed: number }).qaClosed += 1; }}
+      onOpenFile={(root, path, line) => { (window as unknown as { qaFiles: unknown[] }).qaFiles.push({ root, path, line }); }}
+      onClearContext={() => true} onOpenSession={() => {}} onResumeDelivery={() => true}
       pausedDeliveries={attention ? [{ tabId: "t3", message: "协作任务尚未确认开始处理" }] : []}
       project={null} tabs={tabs} targets={new Map(tabs.map((t) => [t.id, target(t.id)]))} />
   </div>

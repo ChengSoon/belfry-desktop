@@ -51,6 +51,11 @@ export function roomSay(id: string, text: string, to: string[], replyTo: string 
   return invoke<Room>("room_say", { id, text, to, replyTo, ask, attachmentIds });
 }
 
+/** 暂停：消息只记在房间里，不送进成员终端，空闲提醒也停。恢复后不补发。 */
+export function roomSetPaused(id: string, paused: boolean) {
+  return invoke<Room>("room_set_paused", { id, paused });
+}
+
 export function roomCancelReply(id: string, messageId: string) {
   return invoke<Room>("room_cancel_reply", { id, messageId });
 }

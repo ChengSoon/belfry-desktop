@@ -21,6 +21,7 @@ fn team() -> Room {
         tasks: Vec::new(),
         next_task: 1,
         idle_nudged_after: None,
+        paused: false,
         messages: Vec::new(),
         pending: Vec::new(),
     };
@@ -401,4 +402,75 @@ fn no_nudge_while_waiting_on_the_user_or_when_everyone_is_busy() {
     let foreman_tab = member(&room, "统筹员").tab_id.clone();
     assert!(ops::idle_nudge(&mut room, &|m: &Member| m.tab_id != foreman_tab, quiet).is_none(), "统筹正忙");
     assert!(ops::idle_nudge(&mut room, &|m: &Member| m.tab_id == foreman_tab, quiet).is_none(), "成员都在忙");
+}
+
+#[test]
+fn a_paused_room_records_messages_but_delivers_nothing_and_stops_nudging() {
+    let mut room = team();
+    let start = 1_000_000;
+    ops::say(&mut room, &Actor::User, &[], "做个登录页", None, false, start).unwrap();
+    ops::set_paused(&mut room, true, start + 1).unwrap();
+    assert!(ops::set_paused(&mut room, true, start + 2).is_err(), "不能重复暂停");
+    let foreman = as_member(&room, "统筹员");
+    let posted = ops::say(&mut room, &Actor::Member(&foreman), &["@前端".into()], "先做页面", None, false, start + 3).unwrap();
+    assert!(room.message(&posted.message_id).is_some(), "消息照样记在房间里");
+    assert!(deliveries(&room, &[posted]).is_empty(), "暂停时不送进终端");
+    assert!(ops::idle_nudge(&mut room, &|_: &Member| true, start + ops::IDLE_NUDGE_MS * 10).is_none(), "暂停时不发空闲提醒");
+    ops::set_paused(&mut room, false, start + 4).unwrap();
+    let posted = ops::say(&mut room, &Actor::Member(&foreman), &["@前端".into()], "继续", None, false, start + 5).unwrap();
+    assert_eq!(deliveries(&room, &[posted]).len(), 1, "恢复后照常送达");
+}
+
+#[test]
+fn room_summaries_carry_the_latest_message_addressed_to_you() {
+    let root = temp_root("inbox");
+    let store = RoomStore::load(Some(root.clone()));
+    let room = store.create("登录改版", "/proj", "").unwrap();
+    store.mutate(&room.id, |room| super::test_support::add(room, "t1", "统筹员", "")).unwrap();
+    assert!(store.list().unwrap().rooms[0].last_to_user.is_none());
+    store.mutate(&room.id, |room| ops::say(room, &Actor::User, &[], "做个登录页", None, false, now_millis())).unwrap();
+    assert!(store.list().unwrap().rooms[0].last_to_user.is_none(), "你自己发的不算");
+    store.mutate(&room.id, |room| {
+        let foreman = room.foreman().unwrap().clone();
+        ops::say(room, &Actor::Member(&foreman), &["@用户".into()], "登录页做完了，请验收", None, false, now_millis())
+    }).unwrap();
+    let summary = &store.list().unwrap().rooms[0];
+    let note = summary.last_to_user.as_ref().unwrap();
+    assert_eq!((note.from.as_str(), note.text.as_str()), ("统筹员", "登录页做完了，请验收"));
+    assert!(!summary.paused);
+    let _ = fs::remove_dir_all(&root);
+}
+
+#[test]
+fn a_long_ledger_is_compacted_on_load_without_changing_the_room() {
+    let root = temp_root("compact");
+    let store = RoomStore::load(Some(root.clone()));
+    let room = store.create("登录改版", "/proj", "").unwrap();
+    store.mutate(&room.id, |room| super::test_support::add(room, "t1", "统筹员", "")).unwrap();
+    let (asked, _) = store.mutate(&room.id, |room| ops::say(room, &Actor::User, &[], "要回复", None, true, now_millis())).unwrap();
+    let member_id = store.get(&room.id).unwrap().members[0].id.clone();
+    store.mutate(&room.id, |room| Ok(ops::record_delivery(room, &asked.message_id, &member_id, now_millis()))).unwrap();
+    // 再追加一大段系统注记，让事件数超过压缩阈值。
+    let path = super::ledger::path(&root, &room.id).unwrap();
+    let mut filler = store.get(&room.id).unwrap();
+    let extra: Vec<_> = (0..super::ledger::COMPACT_AFTER + 50)
+        .map(|index| {
+            let message = Message {
+                id: new_id(), at: now_millis() + index as i64, kind: MessageKind::Notice, by: "system".into(),
+                text: format!("注记 {index}"), to: Vec::new(), mode: MessageMode::Send, reply_to: None,
+                attachments: Vec::new(), delivered_to: Vec::new(), replied_by: Vec::new(), reply_cancelled: false,
+            };
+            filler.messages.clear();
+            super::ledger::message_event(&room.id, &message)
+        })
+        .collect();
+    super::ledger::append(&path, &extra).unwrap();
+    let before = RoomStore::load(Some(root.clone())).get(&room.id).unwrap();
+    let lines = fs::read_to_string(&path).unwrap().lines().count();
+    assert!(lines <= MAX_MESSAGES + 10, "压缩后只剩投影需要的事件：{lines}");
+    let after = RoomStore::load(Some(root.clone())).get(&room.id).unwrap();
+    let ids = |room: &Room| room.messages.iter().map(|m| (m.id.clone(), m.delivered_to.clone(), m.replied_by.clone())).collect::<Vec<_>>();
+    assert_eq!(ids(&after), ids(&before), "压缩前后投影一致");
+    assert_eq!(after.messages.len(), MAX_MESSAGES);
+    let _ = fs::remove_dir_all(&root);
 }

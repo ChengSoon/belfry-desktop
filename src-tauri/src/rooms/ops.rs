@@ -402,6 +402,22 @@ pub fn record_delivery(room: &mut Room, message_id: &str, member_id: &str, now: 
     fresh
 }
 
+// ---- 暂停 ----
+
+/// 暂停或恢复房间。暂停期间消息只记在时间线上，不送进成员终端；恢复后不补发，避免一次涌进一堆旧消息。
+pub fn set_paused(room: &mut Room, paused: bool, now: i64) -> Result<Posted, String> {
+    if room.paused == paused {
+        return Err(if paused { "房间已经暂停了".to_string() } else { "房间没有暂停".to_string() });
+    }
+    room.paused = paused;
+    let text = if paused {
+        "你暂停了房间：之后的消息只记在房间里，不再送进成员终端，空闲提醒也停了。成员手上正在做的不会被打断。"
+    } else {
+        "你恢复了房间：新消息照常送进成员终端。暂停期间的消息不会补发，需要的话再说一遍。"
+    };
+    Ok(notice(room, text.to_string(), Vec::new(), now))
+}
+
 // ---- 空闲提醒 ----
 
 /// 房间安静多久之后提醒统筹（CCCC 的 actor_idle / silence_check）。
@@ -414,6 +430,9 @@ pub const IDLE_NUDGE_PREFIX: &str = "【空闲提醒】";
 /// 同一段安静只提醒一次（`idle_nudged_after` 记着那段安静从何时开始）；统筹在等用户回话、
 /// 或者自己正忙时不提醒。提醒是注记，成员之间不会因此互相触发，不会形成自动循环。
 pub fn idle_nudge(room: &mut Room, session_idle: &dyn Fn(&Member) -> bool, now: i64) -> Option<Posted> {
+    if room.paused {
+        return None;
+    }
     let foreman = room.foreman()?.clone();
     if !session_idle(&foreman) {
         return None;

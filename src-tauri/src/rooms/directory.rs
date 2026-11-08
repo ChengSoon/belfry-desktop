@@ -198,11 +198,14 @@ impl RoomDirectory for MemberDirectory {
                     ops::say(room, &Actor::Member(me), to, text, reply_to.as_deref(), *ask, now)
                 })?;
                 let posts = deliveries(&room, std::slice::from_ref(&posted));
-                let skipped = posts
+                let mut skipped: Vec<String> = posts
                     .iter()
                     .filter(|post| self.registry.find(&post.tab_id).is_none())
                     .map(|post| format!("「{}」的会话已经不在了，消息只记在房间里", post.member_title))
                     .collect();
+                if room.paused {
+                    skipped.push("房间暂停中：消息只记在房间里，暂不送进成员终端".to_string());
+                }
                 Ok((
                     ResponseData::RoomSaid {
                         room: room.name.clone(),

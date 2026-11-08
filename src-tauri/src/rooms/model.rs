@@ -203,6 +203,9 @@ pub struct Room {
     /// 上次发空闲提醒时，房间最后一次动静的时刻。同一段安静只提醒一次。
     #[serde(default)]
     pub idle_nudged_after: Option<i64>,
+    /// 暂停：消息照样记在房间里，但不送进成员终端，空闲提醒也停。协作跑偏时先停下来调整。
+    #[serde(default)]
+    pub paused: bool,
     /// 账本投影；房间文件里恒为空。
     #[serde(default)]
     pub messages: Vec<Message>,

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Room, RoomMember, RoomMessage, RoomTask } from "./contracts";
 import {
+  applyMention, FILE_PATH, mentionOptions, mentionQuery, projectFile,
   awaitingReply, continues, CONTINUED_MS, dayLabel, deliveryNote, hueOf, initialOf, foremanOf, labelOf, openBlockers, progress, recipientOptions, shortId, taskColumns,
   titleError, workload,
 } from "./model";
@@ -114,5 +115,36 @@ describe("rooms model", () => {
     expect(initialOf("前端")).toBe("前");
     expect(initialOf(" reviewer")).toBe("R");
     expect(initialOf("")).toBe("?");
+  });
+
+  it("detects an @ being typed and offers members and selectors", () => {
+    expect(mentionQuery("你好 @前", 5)).toEqual({ start: 3, query: "前" });
+    expect(mentionQuery("@", 1)).toEqual({ start: 0, query: "" });
+    expect(mentionQuery("mail me@x.com", 13), "邮箱不算").toBeNull();
+    expect(mentionQuery("@前端 好", 6), "名字后面打了空格就收起").toBeNull();
+    expect(mentionQuery("没有点名", 4)).toBeNull();
+    const r = room();
+    expect(mentionOptions(r, "").map((o) => o.title)).toEqual(["统筹员", "前端", "后端", "统筹", "全体", "成员"]);
+    expect(mentionOptions(r, "端").map((o) => o.title)).toEqual(["前端", "后端"]);
+    expect(mentionOptions(r, "统").map((o) => o.title)).toEqual(["统筹员", "统筹"]);
+    expect(mentionOptions(r, "旧人"), "离开的成员不出现").toEqual([]);
+  });
+
+  it("replaces the half-typed name and keeps the rest of the text", () => {
+    expect(applyMention("你好 @前", 5, 3, "前端")).toEqual({ value: "你好 @前端 ", caret: 7 });
+    expect(applyMention("@后 接口好了吗", 2, 0, "后端")).toEqual({ value: "@后端 接口好了吗", caret: 4 });
+    expect(applyMention("@后x 接口", 2, 0, "后端").value, "光标后的半截名字一起换掉").toBe("@后端 接口");
+  });
+
+  it("finds file paths in text and resolves them inside the project only", () => {
+    const text = "改了 src/login/Form.tsx:42 和 docs/api/sms.md。版本 0.167.0，见 https://x.com/a.md 和 README.md，绝对路径 /proj/src/a.ts 与 /etc/passwd.conf";
+    const found = [...text.matchAll(FILE_PATH)].map((m) => [m[1], m[2] ?? null]);
+    expect(found, "链接里的 a.md 不算").toEqual([
+      ["src/login/Form.tsx", "42"], ["docs/api/sms.md", null], ["README.md", null], ["/proj/src/a.ts", null], ["/etc/passwd.conf", null],
+    ]);
+    expect(projectFile("/proj", "/proj/src/a.ts")).toEqual({ path: "src/a.ts", line: null });
+    expect(projectFile("/proj/", "./src/a.ts", 3)).toEqual({ path: "src/a.ts", line: 3 });
+    expect(projectFile("/proj", "/etc/passwd.conf"), "项目外的不认").toBeNull();
+    expect(projectFile("/proj", "../secret.md"), "往上跳的不认").toBeNull();
   });
 });

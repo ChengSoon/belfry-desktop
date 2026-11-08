@@ -78,7 +78,17 @@ export interface Room {
   members: RoomMember[];
   tasks: RoomTask[];
   nextTask: number;
+  /** 暂停：消息只记在房间里，不送进成员终端。 */
+  paused?: boolean;
   messages: RoomMessage[];
+}
+
+/** 最近一条发给你的消息（统筹汇报、成员找你）。 */
+export interface InboxNote {
+  id: string;
+  at: number;
+  from: string;
+  text: string;
 }
 
 export interface RoomSummary {
@@ -95,6 +105,8 @@ export interface RoomSummary {
   openTasks: number;
   doneTasks: number;
   lastMessageAt: number | null;
+  paused: boolean;
+  lastToUser: InboxNote | null;
 }
 
 export interface RoomsView {
