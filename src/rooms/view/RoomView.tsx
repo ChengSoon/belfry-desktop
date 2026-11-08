@@ -4,7 +4,7 @@ import {
   SendHorizontal, SquareTerminal, Trash2, UserMinus, UserPlus, Users, X,
 } from "lucide-react";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
-import { createContext, Fragment, useContext, useEffect, useId, useMemo, useRef, useState, type ClipboardEvent, type ReactNode } from "react";
+import { createContext, Fragment, memo, useContext, useEffect, useId, useMemo, useRef, useState, type ClipboardEvent, type ReactNode } from "react";
 import { isAgentKind, type AgentAvailability, type AgentKind } from "../../agent/contracts";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -778,8 +778,9 @@ function Timeline({ room, rooms }: { room: Room; rooms: RoomsState }) {
             return;
           }
           programmatic.current = null;
+          // 只记下用户是不是贴着底，不在这里拽回去：触控板一次只滚几个像素，
+          // 在底部附近每次都拽回底部的话，就怎么也翻不上去了。
           pinned.current = node.scrollHeight - node.scrollTop - node.clientHeight < 40;
-          if (pinned.current) stick();
           if (pinned.current === away) {
             setAway(!pinned.current);
             setAwayFrom(room.messages.length);
@@ -815,7 +816,7 @@ function Timeline({ room, rooms }: { room: Room; rooms: RoomsState }) {
                 </div>
               ) : null}
               <MessageItem continued={!newDay && index !== divider && continues(previous, message)} message={message}
-                onReply={() => setReplyTo(message)} room={room} rooms={rooms} />
+                onReply={setReplyTo} room={room} rooms={rooms} />
             </Fragment>
           );
         })}
@@ -835,9 +836,22 @@ function Timeline({ room, rooms }: { room: Room; rooms: RoomsState }) {
   );
 }
 
-function MessageItem({ room, rooms, message, continued, onReply }: {
-  room: Room; rooms: RoomsState; message: RoomMessage; continued: boolean; onReply: () => void;
-}) {
+interface MessageItemProps {
+  room: Room; rooms: RoomsState; message: RoomMessage; continued: boolean; onReply: (message: RoomMessage) => void;
+}
+
+/** 只在这条消息、它引用的那条、成员名单或项目变了时重渲染：房间别处的变化（任务板、新消息）不连累整条时间线。 */
+const MessageItem = memo(MessageItemView, (a: MessageItemProps, b: MessageItemProps) =>
+  a.message === b.message && a.continued === b.continued && a.onReply === b.onReply
+  && a.room.id === b.room.id && a.room.members === b.room.members && a.room.projectRoot === b.room.projectRoot
+  && a.rooms.run === b.rooms.run
+  && quotedOf(a.room, a.message) === quotedOf(b.room, b.message));
+
+function quotedOf(room: Room, message: RoomMessage) {
+  return message.replyTo ? room.messages.find((candidate) => candidate.id === message.replyTo) : undefined;
+}
+
+function MessageItemView({ room, rooms, message, continued, onReply }: MessageItemProps) {
   const time = (
     <time className="text-xs text-muted-foreground tabular-nums" dateTime={new Date(message.at).toISOString()}
       title={new Date(message.at).toLocaleString()}>
@@ -923,7 +937,7 @@ function MessageItem({ room, rooms, message, continued, onReply }: {
         ) : null}
       </div>
       <div className="absolute top-0 right-3 flex -translate-y-1/2 gap-0.5 rounded-md border border-border bg-popover p-0.5 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 focus-within:opacity-100">
-        <Button onClick={onReply} size="xs" variant="ghost"><MessageSquareReply /> 回复</Button>
+        <Button onClick={() => onReply(message)} size="xs" variant="ghost"><MessageSquareReply /> 回复</Button>
         {mine && awaiting.length ? (
           <Button onClick={() => void rooms.run(() => api.roomCancelReply(room.id, message.id))} size="xs" variant="ghost">不用回了</Button>
         ) : null}

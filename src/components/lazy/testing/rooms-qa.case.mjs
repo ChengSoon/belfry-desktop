@@ -191,3 +191,27 @@ test("@ completion, markdown, file links, unread divider and pause", async (t) =
   await view.cdp.evaluate("[...document.querySelectorAll('[role=status] button')].find((b) => b.textContent.includes('恢复')).click()");
   await waitFor(view, "!document.querySelector('[role=status]')");
 });
+
+test("small scrolls near the bottom are not pulled back and polling does not move the view", async (t) => {
+  const { view } = await browserFixture(t, `${PAGE}?attention=0`);
+  await view.bounds({ x: 0, y: 0, width: 1440, height: 900 });
+  await waitFor(view, "!!document.querySelector('[aria-label=房间对话] article')");
+  const metrics = "(() => { const l = document.querySelector('[aria-label=房间对话]'); return { top: l.scrollTop, max: l.scrollHeight - l.clientHeight }; })()";
+  await waitFor(view, `${metrics}.max > 200 && ${metrics}.max - ${metrics}.top < 4`);
+  const box = await view.cdp.evaluate("(() => { const r = document.querySelector('[aria-label=房间对话]').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()");
+  // 触控板一下只滚十来个像素：连滚几下，每一下都要真的往上走。
+  for (let step = 0; step < 4; step++) {
+    await view.send("Input.dispatchMouseEvent", { type: "mouseWheel", x: box.x, y: box.y, deltaX: 0, deltaY: -12 });
+    await new Promise((resolve) => setTimeout(resolve, 80));
+  }
+  const after = await view.cdp.evaluate(metrics);
+  assert.ok(after.max - after.top >= 40, `往上滚了却被拽回底部：离底 ${after.max - after.top}px`);
+  // 再等两轮轮询（1.5 秒一轮）：没有新消息时视野一动不动。
+  await new Promise((resolve) => setTimeout(resolve, 3_400));
+  const later = await view.cdp.evaluate(metrics);
+  assert.equal(later.top, after.top, "轮询不该挪动正在看历史的视野");
+  // 浮标出现，点一下回到底部。
+  await waitFor(view, "[...document.querySelectorAll('button')].some((b) => b.textContent.includes('回到底部'))");
+  await view.cdp.evaluate("[...document.querySelectorAll('button')].find((b) => b.textContent.includes('回到底部')).click()");
+  await waitFor(view, `${metrics}.max - ${metrics}.top < 4`);
+});

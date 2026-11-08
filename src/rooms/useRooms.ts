@@ -6,6 +6,36 @@ import type { Room, RoomSummary } from "./contracts";
 /** 轮询间隔：成员在 CLI 里动任务板、发消息，界面要跟得上；和协作面板同一档。 */
 const POLL_INTERVAL_MS = 1_500;
 
+/**
+ * 轮询拿回的整间房和上一份结构共享：没变的消息、成员、任务沿用旧对象，整间房没变就返回旧的那份。
+ *
+ * 不这样做的话，每 1.5 秒一份全新的对象，所有消息（含 Markdown）都要重渲染一遍，
+ * 翻历史时滚动会卡。按 JSON 比较：一间房最多 1000 条消息，比较只要几毫秒。
+ */
+export function shareRoom(previous: Room | null, next: Room): Room {
+  if (!previous || previous.id !== next.id) return next;
+  const same = <T,>(a: T, b: T) => a === b || JSON.stringify(a) === JSON.stringify(b);
+  const old = new Map(previous.messages.map((message) => [message.id, message]));
+  let changed = previous.messages.length !== next.messages.length;
+  const messages = next.messages.map((message, index) => {
+    const prior = old.get(message.id);
+    if (prior && same(prior, message)) {
+      if (previous.messages[index] !== prior) changed = true;
+      return prior;
+    }
+    changed = true;
+    return message;
+  });
+  const members = same(previous.members, next.members) ? previous.members : next.members;
+  const tasks = same(previous.tasks, next.tasks) ? previous.tasks : next.tasks;
+  const brief = same(previous.brief, next.brief) ? previous.brief : next.brief;
+  const rest = (room: Room) => ({ ...room, messages: undefined, members: undefined, tasks: undefined, brief: undefined });
+  if (!changed && members === previous.members && tasks === previous.tasks && brief === previous.brief && same(rest(previous), rest(next))) {
+    return previous;
+  }
+  return { ...next, messages: changed ? messages : previous.messages, members, tasks, brief };
+}
+
 export interface RoomsState {
   rooms: RoomSummary[];
   loadError: string | null;
@@ -35,7 +65,7 @@ export function useRooms(): RoomsState {
   const refresh = useCallback(async () => {
     try {
       const view = await api.roomList();
-      setRooms(view.rooms);
+      setRooms((current) => (JSON.stringify(current) === JSON.stringify(view.rooms) ? current : view.rooms));
       setLoadError(view.loadError);
       let current = selectedRef.current;
       if (!current || !view.rooms.some((summary) => summary.id === current)) {
@@ -43,7 +73,8 @@ export function useRooms(): RoomsState {
         setSelectedId(current);
         selectedRef.current = current;
       }
-      setRoom(current ? await api.roomGet(current) : null);
+      const next = current ? await api.roomGet(current) : null;
+      setRoom((previous) => (next ? shareRoom(previous, next) : null));
     } catch (cause) {
       setError(toAppFailure(cause).message);
     }
@@ -68,7 +99,7 @@ export function useRooms(): RoomsState {
     setBusy(true);
     try {
       const next = await action();
-      if (next.id === selectedRef.current) setRoom(next);
+      if (next.id === selectedRef.current) setRoom((previous) => shareRoom(previous, next));
       setError(null);
       void refreshRef.current();
       return next;

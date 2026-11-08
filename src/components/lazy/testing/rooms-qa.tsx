@@ -70,8 +70,9 @@ Object.assign(window, {
     transformCallback: () => ++callback, unregisterCallback: () => {},
     invoke: async (command: string, args?: unknown) => {
       calls.push({ command, args });
-      if (command === "room_list") return view;
-      if (command === "room_get") return room;
+      // 真实 IPC 每次都是一份新对象：返回拷贝，界面的结构共享才测得到。
+      if (command === "room_list") return structuredClone(view);
+      if (command === "room_get") return structuredClone(room);
       if (command === "room_read_attachment") return PNG.buffer;
       if (command === "room_clipboard_files") return [];
       if (command === "room_discard_attachment") return null;
