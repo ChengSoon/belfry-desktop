@@ -1,4 +1,5 @@
 import type { SVGProps } from "react";
+import type { AgentKind } from "../../agent/contracts";
 
 /* Claude、Codex 和 Pi 的官方品牌标。用通用图标（星星、机器人）标不出"是哪个 agent"，
    而这一栏里只有这几种 agent，认标比认字快。
@@ -37,6 +38,23 @@ export function PiIcon(props: AgentIconProps) {
 export function CodexIcon(props: AgentIconProps) {
   return <AgentIcon {...props} path={CODEX_PATH} />;
 }
+
+export function AntigravityIcon(props: AgentIconProps) {
+  return <AgentIcon {...props} path="M12 1 1 22h5.2L12 10.8 17.8 22H23L12 1Zm0 13-3 6h6l-3-6Z" />;
+}
+
+export function OpenCodeIcon(props: AgentIconProps) {
+  return <AgentIcon {...props} path="M3 2h18v20H3V2Zm4 4v12h10V6H7Zm2 2h6v8H9V8Z" />;
+}
+
+export function KimiIcon(props: AgentIconProps) {
+  return <AgentIcon {...props} path="M3 2h5v8l8-8h6l-10 10 10 10h-6l-8-8v8H3V2Z" />;
+}
+
+export const AGENT_ICONS: Record<AgentKind, (props: AgentIconProps) => React.JSX.Element> = {
+  codex: CodexIcon, claude: ClaudeIcon, pi: PiIcon,
+  antigravity: AntigravityIcon, opencode: OpenCodeIcon, kimi: KimiIcon,
+};
 
 function AgentIcon({ path, size = 24, ...rest }: AgentIconProps & { path: string }) {
   return (

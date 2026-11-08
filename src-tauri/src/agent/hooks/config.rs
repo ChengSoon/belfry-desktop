@@ -14,13 +14,47 @@ const COMMON_EVENTS: &[&str] = &[
 ];
 
 pub(super) fn events(kind: AgentKind) -> Vec<&'static str> {
+    if kind == AgentKind::Pi {
+        return Vec::new();
+    }
+    if kind == AgentKind::Antigravity {
+        return vec![
+            "SessionStart",
+            "PreInvocation",
+            "PostInvocation",
+            "PreToolUse",
+            "PostToolUse",
+            "Stop",
+        ];
+    }
     let mut events = COMMON_EVENTS.to_vec();
     events.extend(match kind {
         AgentKind::Codex => vec!["Interrupt", "PreCompact", "PostCompact"],
         AgentKind::Claude => vec!["Notification", "StopFailure", "PostToolUseFailure"],
         // Pi 不支持 Hook，没有可注册的事件。
         AgentKind::Pi => Vec::new(),
+        AgentKind::Antigravity => unreachable!(),
+        AgentKind::Opencode => vec![
+            "StopFailure",
+            "Interrupt",
+            "PreCompact",
+            "PostCompact",
+            "PostToolUseFailure",
+            "PermissionResult",
+        ],
+        AgentKind::Kimi => vec![
+            "Notification",
+            "StopFailure",
+            "PostToolUseFailure",
+            "PermissionResult",
+            "Interrupt",
+            "PreCompact",
+            "PostCompact",
+        ],
     });
+    if kind == AgentKind::Opencode {
+        events.retain(|e| *e != "SessionEnd");
+    }
     events
 }
 
@@ -29,6 +63,12 @@ pub(super) fn merge(
     kind: AgentKind,
     command: Option<&str>,
 ) -> Result<String, AppError> {
+    if matches!(
+        kind,
+        AgentKind::Antigravity | AgentKind::Opencode | AgentKind::Kimi
+    ) {
+        return super::native_config::merge(text, kind, command);
+    }
     let mut value = parse(text)?;
     let before = value.clone();
     let root = value.as_object_mut().unwrap();
@@ -80,6 +120,17 @@ pub(super) fn parse(text: &str) -> Result<Value, AppError> {
     Ok(value)
 }
 
+pub(super) fn parse_for(text: &str, kind: AgentKind) -> Result<Value, AppError> {
+    if matches!(
+        kind,
+        AgentKind::Antigravity | AgentKind::Opencode | AgentKind::Kimi
+    ) {
+        super::native_config::inspect(text, kind)
+    } else {
+        parse(text)
+    }
+}
+
 fn validate_groups(value: &Value) -> Result<(), AppError> {
     let invalid = || AppError::invalid_argument("Hook 事件必须包含命令数组，已保留原文件");
     for group in value.as_array().ok_or_else(invalid)? {
@@ -102,7 +153,7 @@ const HOOK_TIMEOUT_SECS: u32 = if cfg!(windows) { 8 } else { 1 };
 
 fn handler(kind: AgentKind, event: &str, command: &str) -> Value {
     let mut value = json!({"hooks":[{"type":"command", "command":command, "timeout":HOOK_TIMEOUT_SECS,
-        "statusMessage":format!("{MARKER} · {}", kind.command_name())}]});
+        "statusMessage":format!("{MARKER} · {}", kind.id())}]});
     if event == "Notification" {
         value["matcher"] = json!("permission_prompt|elicitation_dialog");
     }
@@ -111,10 +162,10 @@ fn handler(kind: AgentKind, event: &str, command: &str) -> Value {
 
 fn owned(handler: &Value, kind: AgentKind) -> bool {
     handler["type"] == "command"
-        && handler["statusMessage"] == format!("{MARKER} · {}", kind.command_name())
-        && handler["command"].as_str().is_some_and(|command| {
-            command.ends_with(&format!(" --belfry-hook {}", kind.command_name()))
-        })
+        && handler["statusMessage"] == format!("{MARKER} · {}", kind.id())
+        && handler["command"]
+            .as_str()
+            .is_some_and(|command| command.ends_with(&format!(" --belfry-hook {}", kind.id())))
 }
 
 fn remove_owned(hooks: &mut Map<String, Value>, kind: AgentKind) {
@@ -162,7 +213,7 @@ fn owned_handlers(value: &Value, kind: AgentKind) -> impl Iterator<Item = &Value
 }
 
 pub(super) fn command_path(command: &str, kind: AgentKind) -> Option<String> {
-    let quoted = command.strip_suffix(&format!(" --belfry-hook {}", kind.command_name()))?;
+    let quoted = command.strip_suffix(&format!(" --belfry-hook {}", kind.id()))?;
     if let Some(inner) = quoted
         .strip_prefix('"')
         .and_then(|rest| rest.strip_suffix('"'))
@@ -190,7 +241,7 @@ pub(super) fn command(path: &Path, kind: AgentKind, windows: bool) -> Result<Str
     } else {
         format!("'{}'", path.replace('\'', "'\"'\"'"))
     };
-    Ok(format!("{quoted} --belfry-hook {}", kind.command_name()))
+    Ok(format!("{quoted} --belfry-hook {}", kind.id()))
 }
 
 fn is_windows_helper(path: &str) -> bool {

@@ -11,6 +11,7 @@ mod install;
 pub mod launcher;
 mod manifest;
 mod market_commands;
+mod native_context;
 mod owner;
 mod package;
 #[cfg(test)]

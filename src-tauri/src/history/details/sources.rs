@@ -40,6 +40,9 @@ pub(super) fn root(agent: AgentKind) -> Result<PathBuf, AppError> {
         AgentKind::Codex => crate::history::scan::codex_sessions_root(),
         AgentKind::Claude => crate::history::scan::claude_sessions_root(),
         AgentKind::Pi => crate::history::scan::pi_sessions_root(),
+        AgentKind::Antigravity | AgentKind::Opencode | AgentKind::Kimi => {
+            crate::history::native::root(agent)
+        }
     };
     path.ok_or_else(|| AppError::not_found("找不到 CLI 日志目录"))
 }
@@ -51,6 +54,14 @@ pub(super) fn discover(
 ) -> Result<Sources, AppError> {
     session.validate().map_err(AppError::invalid_argument)?;
     let root = fs::canonicalize(root).map_err(io_error)?;
+    if crate::history::native::supported(session.agent) {
+        cancel.check()?;
+        let path = crate::history::native::cache_file(&root, &session.id);
+        return Ok(Sources {
+            files: vec![Snapshot::capture(&root, &path)?],
+            note: None,
+        });
+    }
     let mut scan = Discovery {
         root: &root,
         session,

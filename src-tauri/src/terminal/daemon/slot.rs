@@ -51,7 +51,12 @@ impl Slot {
                     agent: AgentKind::Claude,
                     id,
                 }),
-            _ => None,
+            _ => AgentKind::from_profile_id(&request.profile_id).and_then(|agent| {
+                request
+                    .resume
+                    .clone()
+                    .map(|id| AgentSessionRef { agent, id })
+            }),
         };
         Arc::new(Self {
             closed: AtomicBool::new(false),
@@ -112,8 +117,7 @@ impl Slot {
 
     pub fn bind_native_session(&self, id: &str, session: AgentSessionRef) -> Result<(), AppError> {
         session.validate().map_err(AppError::invalid_argument)?;
-        if self.is_closed() || self.profile_id != format!("agent:{}", session.agent.command_name())
-        {
+        if self.is_closed() || self.profile_id != format!("agent:{}", session.agent.id()) {
             return Err(AppError::invalid_argument(
                 "原生会话身份与后台任务类型不匹配",
             ));

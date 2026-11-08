@@ -1,4 +1,5 @@
 import type { TokenTotals } from "./contracts";
+import { AGENT_METADATA, isAgentKind } from "../agent/contracts";
 
 export function totalTokens(tokens: TokenTotals) {
   return tokens.input + tokens.cachedInput + tokens.cacheWrite + tokens.output;
@@ -77,5 +78,5 @@ export function formatRelative(epochSeconds: number | null, now = Date.now()) {
 }
 
 export function agentLabel(agent: string) {
-  return agent === "codex" ? "Codex" : agent === "claude" ? "Claude" : agent === "pi" ? "Pi" : agent;
+  return agent === "claude" ? "Claude" : isAgentKind(agent) ? AGENT_METADATA[agent].name : agent;
 }

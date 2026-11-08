@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AgentKind } from "../../workspace/contracts";
+import { agentRecord } from "../../agent/contracts";
 import { failureLabel, toAppFailure } from "../../workspace/errors";
 import { configPreview, configSave } from "../api";
 import { type ConfigFilePreview, type ProviderConfig, type ProviderDraft, toDraft } from "../contracts";
@@ -28,11 +29,7 @@ export function useProviderEditor(onGuardChange: (guarded: boolean) => void) {
   }, []);
   /** 正在编辑的文件原文，按 agent 分开存。
       path → 编辑中的内容。与 configFiles 里的原文不一致才算脏。 */
-  const [editsByKind, setEditsByKind] = useState<Record<AgentKind, Record<string, string>>>({
-    claude: {},
-    codex: {},
-    pi: {},
-  });
+  const [editsByKind, setEditsByKind] = useState<Record<AgentKind, Record<string, string>>>(() => agentRecord(() => ({})));
   const edits = editsByKind[kind];
   const setEdits = (updater: (current: Record<string, string>) => Record<string, string>) => {
     setEditsByKind((all) => ({ ...all, [kind]: updater(all[kind]) }));
@@ -75,7 +72,7 @@ export function useProviderEditor(onGuardChange: (guarded: boolean) => void) {
       setFormNotice("配置文件还有未保存的修改，请先保存或还原，再保存 provider 信息。");
       return;
     }
-    const found = validateDraft(draft, list);
+    const found = validateDraft(draft, list, kind);
     setIssue(found);
     if (found) return;
     setFormNotice(null);
@@ -114,7 +111,7 @@ export function useProviderEditor(onGuardChange: (guarded: boolean) => void) {
     setSavingPath(null);
     setCopiedPath(null);
     setSavedPath(null);
-    setEditsByKind({ claude: {}, codex: {}, pi: {} });
+    setEditsByKind(agentRecord(() => ({})));
   };
 
   const closeDraft = () => {

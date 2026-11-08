@@ -62,7 +62,7 @@ description: 项目、会话与分屏的组织方式
 
 在文件预览顶部切换到 **Git 变更**，选择一个文件后，点击代码行旁的反馈图标：
 
-1. 写下修改意见，选择当前项目的 Codex、Claude Code 或 Pi 会话。
+1. 写下修改意见，选择当前项目的任意 Agent 会话，包括 Antigravity CLI、OpenCode 和 Kimi Code。
 2. 点击 **发送反馈**，或按 `⌘Enter` / `Ctrl+Enter`。反馈会附带文件路径、旧/新行号和附近的差异。
 3. Agent 修改后，刷新 Diff 继续审查。可以通过 **查看会话** 跳转到接收方。
 

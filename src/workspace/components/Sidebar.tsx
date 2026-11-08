@@ -21,7 +21,7 @@ import type { AgentAvailability, WorkspaceTab, WorkspaceTabKind } from "../contr
 import { shortPath } from "../path";
 import { SIDEBAR_WIDTH } from "../sidebarWidth";
 import { groupTabsByProject, type ProjectGroup } from "../tabs";
-import { ClaudeIcon, CodexIcon, PiIcon } from "./AgentIcons";
+import { AGENT_ICONS } from "./AgentIcons";
 import { NewSessionMenu } from "./NewSessionMenu";
 import { SshDialog } from "./SshDialog";
 import "../sidebar.css";
@@ -367,15 +367,7 @@ function SessionRow({
   }, [editing]);
   // Escape 取消后 input 卸载会补发一次 blur，不挡一下会把"取消"变成"提交"。
   const dismissed = useRef(false);
-  const Icon = tab.kind === "shell"
-    ? SquareTerminal
-    : tab.kind === "codex"
-      ? CodexIcon
-      : tab.kind === "claude"
-        ? ClaudeIcon
-        : tab.kind === "pi"
-          ? PiIcon
-          : Server;
+  const Icon = tab.kind === "shell" ? SquareTerminal : isAgentKind(tab.kind) ? AGENT_ICONS[tab.kind] : Server;
   // 两种会话都能改名，但改的是两样东西：SSH 改显示标题，Agent 改协作里的寻址名。
   const renamesAgent = isAgentKind(tab.kind);
   const renamable = renamesAgent || tab.kind === "ssh";

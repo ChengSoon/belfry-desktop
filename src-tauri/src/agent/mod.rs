@@ -4,7 +4,9 @@ mod contracts;
 mod detection;
 mod history_adapter;
 pub(crate) mod hooks;
+pub(crate) mod integration;
 pub(crate) mod native_launch;
+pub(crate) mod paths;
 pub(crate) mod release;
 mod state;
 

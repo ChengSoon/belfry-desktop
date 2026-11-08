@@ -237,8 +237,7 @@ pub struct TerminalPalette {
 impl CreateTerminalRequest {
     pub(crate) fn merge_native_session(&mut self, session: Option<&AgentSessionRef>) {
         if let Some(session) = session.filter(|session| {
-            self.profile_id == format!("agent:{}", session.agent.command_name())
-                && session.validate().is_ok()
+            self.profile_id == format!("agent:{}", session.agent.id()) && session.validate().is_ok()
         }) {
             self.resume = Some(session.id.clone());
         }
@@ -254,12 +253,7 @@ impl CreateTerminalRequest {
         if self.command.is_some() {
             return Err(AppError::unsupported("custom commands are not supported"));
         }
-        if self.collaboration_mode
-            && !matches!(
-                profile,
-                LaunchProfileId::AgentCodex | LaunchProfileId::AgentClaude
-            )
-        {
+        if self.collaboration_mode && profile.agent().is_none() {
             return Err(AppError::invalid_argument(
                 "collaboration mode requires an agent launch profile",
             ));
@@ -281,15 +275,9 @@ impl CreateTerminalRequest {
             None => {}
         }
         if let Some(resume) = &self.resume {
-            let agent = match profile {
-                LaunchProfileId::AgentCodex => AgentKind::Codex,
-                LaunchProfileId::AgentClaude => AgentKind::Claude,
-                _ => {
-                    return Err(AppError::invalid_argument(
-                        "resume requires an agent launch profile",
-                    ));
-                }
-            };
+            let agent = profile.agent().ok_or_else(|| {
+                AppError::invalid_argument("resume requires an agent launch profile")
+            })?;
             AgentSessionRef {
                 agent,
                 id: resume.clone(),
@@ -320,6 +308,9 @@ pub enum LaunchProfileId {
     AgentCodex,
     AgentClaude,
     AgentPi,
+    AgentAntigravity,
+    AgentOpencode,
+    AgentKimi,
     Ssh,
 }
 
@@ -338,6 +329,9 @@ impl LaunchProfileId {
             "agent:codex" => Ok(Self::AgentCodex),
             "agent:claude" => Ok(Self::AgentClaude),
             "agent:pi" => Ok(Self::AgentPi),
+            "agent:antigravity" => Ok(Self::AgentAntigravity),
+            "agent:opencode" => Ok(Self::AgentOpencode),
+            "agent:kimi" => Ok(Self::AgentKimi),
             "ssh" => Ok(Self::Ssh),
             _ => Err(AppError::unsupported(format!(
                 "unsupported terminal launch profile: {value}"
@@ -359,8 +353,15 @@ impl LaunchProfileId {
             Self::AgentCodex => "agent:codex",
             Self::AgentClaude => "agent:claude",
             Self::AgentPi => "agent:pi",
+            Self::AgentAntigravity => "agent:antigravity",
+            Self::AgentOpencode => "agent:opencode",
+            Self::AgentKimi => "agent:kimi",
             Self::Ssh => "ssh",
         }
+    }
+
+    pub fn agent(self) -> Option<AgentKind> {
+        AgentKind::from_profile_id(self.as_str())
     }
 
     pub fn is_shell(self) -> bool {

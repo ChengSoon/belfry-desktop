@@ -66,7 +66,13 @@ fn config_dir(agent: AgentKind) -> Result<PathBuf, AppError> {
         AgentKind::Codex => env_root("CODEX_HOME").unwrap_or_else(|| home.join(".codex")),
         AgentKind::Claude => env_root("CLAUDE_CONFIG_DIR").unwrap_or_else(|| home.join(".claude")),
         // Pi 的全局 skills 在 `~/.pi/agent/skills/`。
-        AgentKind::Pi => env_root("PI_CODING_AGENT_DIR").unwrap_or_else(|| home.join(".pi").join("agent")),
+        AgentKind::Pi => {
+            env_root("PI_CODING_AGENT_DIR").unwrap_or_else(|| home.join(".pi").join("agent"))
+        }
+        AgentKind::Antigravity | AgentKind::Opencode | AgentKind::Kimi => {
+            crate::agent::paths::config_dir(agent)
+                .ok_or_else(|| AppError::not_found("找不到 CLI 配置目录"))?
+        }
     })
 }
 
@@ -93,7 +99,7 @@ fn shared_skill_path() -> Option<PathBuf> {
 /// 共享目录是否已经供给了当前版本。内容不一致时不算：那是用户自己的文件，我们既不
 /// 覆盖它、也不能假装它等价，照常装自己那份，让 pi 优先用 agent 专属目录里的新版。
 fn shared_provides_current(agent: AgentKind, shared: Option<&Path>) -> bool {
-    if agent != AgentKind::Pi {
+    if !matches!(agent, AgentKind::Pi | AgentKind::Opencode | AgentKind::Kimi) {
         return false;
     }
     shared.is_some_and(|path| {
@@ -111,7 +117,9 @@ fn inspect_in(
             agent,
             state: SkillState::Shared,
             // 报共享目录那份的路径：那才是 pi 实际加载的文件。
-            path: shared.expect("shared_provides_current 已确认非空").to_path_buf(),
+            path: shared
+                .expect("shared_provides_current 已确认非空")
+                .to_path_buf(),
         });
     }
     let path = skill_path(config_dir);

@@ -68,18 +68,43 @@ pub(crate) fn prepare(
     let root = project_path(&path)?;
     let base = base(app)?;
     let choices = storage::read(&base.join(FILE))?;
-    let Some(id) = choices.provider(&root, kind) else {
+    if kind != AgentKind::Antigravity && choices.provider(&root, kind).is_none() {
         return Ok(());
-    };
+    }
     let _guard = store::lock()?;
     let store = store::load(app)?;
+    let global = store.agent(kind);
+    let selected = choices.provider(&root, kind).or_else(|| {
+        (kind == AgentKind::Antigravity)
+            .then_some(global.current_id.as_deref())
+            .flatten()
+    });
+    let Some(id) = selected else {
+        return Ok(());
+    };
     if store.agent(kind).find(id).is_none() {
         return Err(AppError::not_found(
             "当前项目的 Provider 已被删除。请在项目 Provider 设置中重新选择或改为跟随全局",
         ));
     }
     let provider = store.resolve_provider(app, kind, id)?;
-    request.launch_overlay = launch::prepare(&base, kind, &provider)?;
+    let mut overlay = launch::prepare(&base, kind, &provider)?;
+    if kind == AgentKind::Opencode {
+        let existing = request
+            .env
+            .get("OPENCODE_CONFIG_CONTENT")
+            .cloned()
+            .or_else(|| std::env::var("OPENCODE_CONFIG_CONTENT").ok())
+            .or_else(|| {
+                crate::agent::login_shell_env()
+                    .get("OPENCODE_CONFIG_CONTENT")
+                    .cloned()
+            });
+        if let Some(existing) = existing {
+            launch::merge_opencode_environment(&mut overlay, &existing)?;
+        }
+    }
+    request.launch_overlay = overlay;
     Ok(())
 }
 
@@ -147,11 +172,7 @@ fn project_path(path: &Path) -> Result<String, AppError> {
 }
 
 fn agent_kind(profile: &str) -> Option<AgentKind> {
-    match profile {
-        "agent:codex" => Some(AgentKind::Codex),
-        "agent:claude" => Some(AgentKind::Claude),
-        _ => None,
-    }
+    AgentKind::from_profile_id(profile)
 }
 
 #[cfg(test)]

@@ -15,8 +15,25 @@ use super::registry::{SessionRegistry, SessionSnapshot};
 use super::server::{CollabServer, RoomAccess};
 use super::task::{self, TaskBoard, TaskState};
 
+#[path = "legacy_relay_test.rs"]
+mod legacy_relay;
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ConnectionMode {
+    Direct,
+    Relay,
+    LegacyRelay,
+}
+
 #[test]
 fn the_cli_talks_to_a_real_server() {
+    // Unix socket 按进程命名，三种连接场景顺序执行，避免测试彼此覆盖端点。
+    exercise_cli(ConnectionMode::Direct);
+    exercise_cli(ConnectionMode::Relay);
+    exercise_cli(ConnectionMode::LegacyRelay);
+}
+
+fn exercise_cli(mode: ConnectionMode) {
     let Some(binary) = cli_binary() else {
         eprintln!("跳过端到端：先 cargo build -p belfry-cli");
         return;
@@ -42,14 +59,25 @@ fn the_cli_talks_to_a_real_server() {
     ) else {
         panic!("server 起不来");
     };
-    let endpoint = server.endpoint().to_string();
-
-    let env = identities.issue("t1", project.to_str());
-    let token = env
-        .iter()
-        .find(|(key, _)| key == belfry_protocol::ENV_TOKEN)
-        .map(|(_, value)| value.clone())
-        .unwrap();
+    let relay = (mode != ConnectionMode::Direct).then(|| crate::terminal::daemon::TestRelay::start().unwrap());
+    let legacy = std::sync::OnceLock::new();
+    let connection = |tab_id: &str| {
+        let mut request: crate::terminal::CreateTerminalRequest = serde_json::from_value(serde_json::json!({
+            "platform": "macos", "profileId": "agent:claude", "tabId": tab_id,
+            "cols": 80, "rows": 24, "elevation": "normal"
+        })).unwrap();
+        request.env.extend(identities.issue(tab_id, project.to_str()));
+        request.env.insert(belfry_protocol::ENV_ENDPOINT.into(), server.endpoint().to_string());
+        if let Some(relay) = &relay {
+            relay.bind(tab_id, &mut request).unwrap();
+        }
+        if mode == ConnectionMode::LegacyRelay {
+            let endpoint = legacy.get_or_init(|| legacy_relay::LegacyRelay::start(&request.env[belfry_protocol::ENV_ENDPOINT]));
+            request.env.insert(belfry_protocol::ENV_ENDPOINT.into(), endpoint.endpoint().into());
+        }
+        (request.env[belfry_protocol::ENV_ENDPOINT].clone(), request.env[belfry_protocol::ENV_TOKEN].clone())
+    };
+    let (endpoint, token) = connection("t1");
     registry.replace(vec![
         SessionSnapshot {
             tab_id: "t1".into(),
@@ -164,12 +192,8 @@ fn the_cli_talks_to_a_real_server() {
         .expect("刚派的任务应该在板上");
     let injected = crate::collab::task::injection_text(&entry, "planner");
     let args = command_from_injection(&injected);
-    let receiver_env = identities.issue("t2", project.to_str());
-    let receiver_token = receiver_env
-        .iter()
-        .find(|(key, _)| key == belfry_protocol::ENV_TOKEN)
-        .map(|(_, value)| value.clone())
-        .unwrap();
+    let (receiver_endpoint, receiver_token) = connection("t2");
+    assert_eq!(receiver_endpoint, endpoint);
     let settled = run_as(
         &binary,
         &endpoint,
@@ -312,11 +336,22 @@ fn the_cli_talks_to_a_real_server() {
     assert!(listed.status.success(), "rooms 应该成功：{listed:?}");
     assert!(listed_text.contains("发布检查") && listed_text.contains("统筹"), "{listed_text}");
 
+    let brief = run(&binary, &endpoint, &token, &["room", "brief", "--focus", "验证房间协议"]);
+    assert!(brief.status.success(), "brief 应该成功：{brief:?}");
+    assert_eq!(store.get(&room.id).unwrap().brief.current_focus, "验证房间协议");
+
+    // 兼容通道也必须拒绝不在房间中的会话。
+    let (_, outsider_token) = connection("t3");
+    let denied = run_as(&binary, &endpoint, "t3", &outsider_token, &["room", "task", "add", "不可创建", "--room", "发布检查"]);
+    assert!(!denied.status.success(), "房间外会话不能创建任务：{denied:?}");
+    assert!(store.get(&room.id).unwrap().tasks.is_empty());
+
     // 13a. 统筹拆活：派给后端，后端终端收到任务注记
     let added = run(&binary, &endpoint, &token, &["room", "task", "add", "接口签名", "--to", "后端", "--outcome", "返回 token"]);
     let added_text = String::from_utf8_lossy(&added.stdout).to_string();
     assert!(added.status.success(), "task add 应该成功：{added:?}");
     assert!(added_text.contains("T1") && added_text.contains("后端"), "{added_text}");
+    assert_eq!(store.get(&room.id).unwrap().tasks.len(), 1, "创建成功必须在共享任务板里可见");
     let to_backend = board.snapshot().into_iter().find(|task| task.to == "t2" && task.chat.is_some());
     let injected = task::injection_text(&to_backend.expect("后端应该收到一条房间消息"), "发布检查");
     assert!(injected.contains("T1") && injected.contains("接口签名"), "{injected}");
@@ -325,7 +360,10 @@ fn the_cli_talks_to_a_real_server() {
     let outsider = run_as(&binary, &endpoint, "t2", &receiver_token, &["room", "task", "add", "顺手", "--to", "主管"]);
     assert!(outsider.status.success(), "派给统筹可以：{outsider:?}");
 
-    // 13c. 后端交付：统筹收到完成通知
+    // 13c. 后端开工、交付：共享任务板推进，统筹收到完成通知。
+    let started = run_as(&binary, &endpoint, "t2", &receiver_token, &["room", "task", "start", "T1"]);
+    assert!(started.status.success(), "task start 应该成功：{started:?}");
+    assert_eq!(store.get(&room.id).unwrap().tasks[0].status.label(), "进行中");
     let done = run_as(&binary, &endpoint, "t2", &receiver_token, &["room", "task", "done", "T1", "已合并"]);
     assert!(done.status.success(), "task done 应该成功：{done:?}");
     let to_foreman: Vec<_> = board
@@ -335,9 +373,12 @@ fn the_cli_talks_to_a_real_server() {
         .map(|task| task.instruction)
         .collect();
     assert!(to_foreman.iter().any(|text| text.contains("完成了 T1") && text.contains("已合并")), "{to_foreman:?}");
+    let reloaded = crate::rooms::RoomStore::load(Some(project.join("rooms"))).get(&room.id).unwrap();
+    assert_eq!(reloaded.tasks[0].status.label(), "已完成", "重新加载后任务仍是已完成");
+    assert_eq!(reloaded.tasks[0].result.as_deref(), Some("已合并"));
 
     // 13d. 要求回复：没回之前 status 里挂着「等你回复」
-    let asked = run(&binary, &endpoint, &token, &["room", "say", "--ask", "@后端", "今天能发吗"]);
+    let asked = run(&binary, &endpoint, &token, &["room", "say", "--ask", "--to", "后端", "今天能发吗"]);
     assert!(asked.status.success(), "say --ask 应该成功：{asked:?}");
     let status = run_as(&binary, &endpoint, "t2", &receiver_token, &["room", "status"]);
     let status_text = String::from_utf8_lossy(&status.stdout).to_string();
@@ -345,6 +386,13 @@ fn the_cli_talks_to_a_real_server() {
     let short = store.get(&room.id).unwrap().messages.last().map(|m| m.id[m.id.len() - 8..].to_string()).unwrap();
     let replied = run_as(&binary, &endpoint, "t2", &receiver_token, &["room", "say", "--reply", &short, "能"]);
     assert!(replied.status.success(), "reply 应该成功：{replied:?}");
+    let messages = store.get(&room.id).unwrap().messages;
+    assert_eq!(messages.iter().filter(|m| m.text == "今天能发吗").count(), 1);
+    assert_eq!(messages.iter().filter(|m| m.text == "能").count(), 1, "回复不能重复写入");
+    let log = run(&binary, &endpoint, &token, &["room", "log", "--count", "5"]);
+    assert!(log.status.success(), "log 应该成功：{log:?}");
+    let log_text = String::from_utf8_lossy(&log.stdout);
+    assert!(log_text.contains("今天能发吗") && log_text.contains(&short), "{log_text}");
     let status = run_as(&binary, &endpoint, "t2", &receiver_token, &["room", "status"]);
     assert!(!String::from_utf8_lossy(&status.stdout).contains("等你回复"), "回复后不再挂着");
 
@@ -370,6 +418,7 @@ fn cli_binary() -> Option<std::path::PathBuf> {
     for source in [
         "crates/belfry-cli/src/main.rs",
         "crates/belfry-protocol/src/lib.rs",
+        "crates/belfry-protocol/src/room_compat.rs",
     ] {
         let Ok(changed) = root
             .join(source)

@@ -1,10 +1,11 @@
 mod claude;
 mod client;
 mod codex;
-mod pi;
 pub mod commands;
 mod contracts;
 mod diagnostics;
+mod native;
+mod pi;
 pub(crate) mod process;
 mod skill;
 

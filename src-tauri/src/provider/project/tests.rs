@@ -41,6 +41,26 @@ pub(super) fn provider(id: &str) -> ProviderConfig {
 }
 
 #[test]
+fn opencode_project_provider_keeps_inherited_plugins_permissions_and_mcp_settings() {
+    let root = TempRoot::new();
+    let mut overlay = launch::prepare(&root.0, AgentKind::Opencode, &provider("a")).unwrap();
+    let inherited = r#"{"plugins":["my-plugin"],"providers":{"mine":{}},"mcp":{"servers":{"mine":{"type":"remote","url":"https://example.test"}}},"permissions":[{"action":"shell","resource":"*","effect":"ask"}]}"#;
+    launch::merge_opencode_environment(&mut overlay, inherited).unwrap();
+    let config =
+        crate::provider::json_config::parse(&overlay.environment["OPENCODE_CONFIG_CONTENT"])
+            .unwrap();
+    assert_eq!(config["plugins"], serde_json::json!(["my-plugin"]));
+    assert_eq!(config["permissions"][0]["effect"], "ask");
+    assert!(config["providers"]["mine"].is_object());
+    assert_eq!(
+        config["mcp"]["servers"]["mine"]["url"],
+        "https://example.test"
+    );
+    assert_eq!(config["model"], "belfry/test-model");
+    assert!(!overlay.environment["OPENCODE_CONFIG_CONTENT"].contains("private-test-key"));
+}
+
+#[test]
 fn project_and_agent_selections_are_independent_and_reloading_keeps_them() {
     let root = TempRoot::new();
     let path = root.0.join("choices.json");

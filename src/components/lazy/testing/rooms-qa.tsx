@@ -1,5 +1,6 @@
 // 房间界面的浏览器 QA 夹具：假数据 + 假 Tauri invoke，不连真后台。
 import { createRoot } from "react-dom/client";
+import { useEffect, useState } from "react";
 import { ThemeProvider } from "../../../theme/ThemeProvider";
 import { THEME_MODE_KEY } from "../../../theme/storage";
 import "../../../styles.css";
@@ -10,6 +11,8 @@ import type { WorkspaceTab } from "../../../workspace/contracts";
 
 const now = new Date(2026, 10, 7, 15, 30).getTime();
 const min = 60_000;
+const params = new URLSearchParams(location.search);
+const untracked = params.get("flow") === "untracked";
 const m = (id: string, tabId: string, title: string, duty: string, role: "foreman" | "peer") =>
   ({ id, tabId, agent: "codex", title, duty, role, joinedAt: now - 90 * min, leftAt: null });
 const msg = (id: string, at: number, by: string, text: string, to: string[], extra: Partial<Room["messages"][number]> = {}) =>
@@ -50,9 +53,11 @@ const room: Room = {
     msg("aaa008", now - 3 * min, "user", "进度怎么样了？", ["foreman"], { deliveredTo: [] }),
   ],
 };
+if (untracked) { room.tasks = []; room.messages = []; }
 const summary = (r: Room) => ({ id: r.id, name: r.name, projectRoot: r.projectRoot, createdAt: r.createdAt, objective: r.brief.objective,
   memberCount: r.members.length, memberTabIds: r.members.map((x) => x.tabId), memberTitles: r.members.map((x) => x.title),
-  foreman: "统筹员", openTasks: 4, doneTasks: 1, lastMessageAt: r.messages.at(-1)?.at ?? null, paused: false,
+  foreman: "统筹员", openTasks: r.tasks.filter((t) => t.status === "active" || t.status === "planned").length,
+  doneTasks: r.tasks.filter((t) => t.status === "done").length, lastMessageAt: r.messages.at(-1)?.at ?? null, paused: false,
   lastToUser: { id: "01m6v2yfg2ps6jak5pk7taaa003", at: now - 78 * min, from: "统筹员", text: "收到。我拆成 5 个任务" } });
 const other = { ...summary(room), id: "01m6v2yfg2ps6jak5pk7tx6zzz", name: "支付回调重构", memberCount: 2, openTasks: 1, doneTasks: 3,
   lastMessageAt: now - 300 * min, lastToUser: { id: "x", at: now - 300 * min, from: "统筹员", text: "支付回调改好了，请验收" } };
@@ -97,23 +102,31 @@ const target = (tabId: string): TerminalCommandTarget => ({ focus: () => {}, sen
   readChoice: () => (tabId === "t2" ? choice : null), answerChoice: () => "sent" });
 const tab = (id: string, activity: WorkspaceTab["activity"]) => ({ id, kind: "codex", phase: "running", activity, title: id,
   project: { id: "p", name: "belfry-win", rootPath: room.projectRoot, rootUri: room.projectRoot } }) as unknown as WorkspaceTab;
-Object.assign(window, { qaClosed: 0, qaFiles: [] });
-const params = new URLSearchParams(location.search);
+Object.assign(window, { qaClosed: 0, qaFiles: [], qaOpened: [] });
 const theme = params.get("theme") ?? "dark";
 document.documentElement.dataset.theme = theme;
 localStorage.setItem(THEME_MODE_KEY, theme);
 const attention = params.get("attention") !== "0";
-const tabs = [tab("t1", "idle"), tab("t2", attention ? "awaiting-choice" : "talking"), tab("t3", "talking"), tab("t4", "idle")];
+const tabs = [tab("t1", untracked ? "talking" : "idle"), tab("t2", attention ? "awaiting-choice" : "talking"), tab("t3", "talking"), tab("t4", "idle")];
 
 const { RoomView } = await import("../../../rooms/view/RoomView");
-createRoot(document.getElementById("root")!).render(
+function QaRoom() {
+  const [currentTabs, setTabs] = useState(tabs);
+  useEffect(() => {
+    Object.assign(window, { qaSetActivity: (id: string, activity: WorkspaceTab["activity"]) => {
+      setTabs((current) => current.map((tab) => tab.id === id ? { ...tab, activity } : tab));
+    } });
+  }, []);
+  return (
   <ThemeProvider>
   <div className="app-shell is-rooms" style={{ display: "grid", height: "100vh" }}>
     <RoomView agents={[]} onClose={() => { (window as unknown as { qaClosed: number }).qaClosed += 1; }}
       onOpenFile={(root, path, line) => { (window as unknown as { qaFiles: unknown[] }).qaFiles.push({ root, path, line }); }}
-      onClearContext={() => true} onOpenSession={() => {}} onResumeDelivery={() => true}
+      onClearContext={() => true} onOpenSession={(tabId) => { (window as unknown as { qaOpened: string[] }).qaOpened.push(tabId); }} onResumeDelivery={() => true}
       pausedDeliveries={attention ? [{ tabId: "t3", message: "协作任务尚未确认开始处理" }] : []}
-      project={null} tabs={tabs} targets={new Map(tabs.map((t) => [t.id, target(t.id)]))} />
+      project={null} tabs={currentTabs} targets={new Map(currentTabs.map((t) => [t.id, target(t.id)]))} />
   </div>
-  </ThemeProvider>,
-);
+  </ThemeProvider>
+  );
+}
+createRoot(document.getElementById("root")!).render(<QaRoom />);

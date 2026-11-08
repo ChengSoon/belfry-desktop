@@ -12,19 +12,22 @@ pub fn handle(mut stream: TcpStream, relay: &Relay) {
         return;
     }
     let result = read_line(&mut stream).and_then(|line| forward(&line, relay));
-    let response = result.unwrap_or_else(Response::error);
-    if let Ok(mut text) = serde_json::to_vec(&response) {
-        text.push(b'\n');
-        let _ = stream.write_all(&text);
-    }
+    let text = match result {
+        Ok(response) => response,
+        Err(message) => match serde_json::to_string(&Response::error(message)) {
+            Ok(response) => format!("{response}\n"),
+            Err(_) => return,
+        },
+    };
+    let _ = stream.write_all(text.as_bytes());
 }
 
 /// 只读信封（版本、tabId、token），命令原样转给应用。
 ///
 /// 后台进程比应用活得久：应用升级加了新命令（`room task` 之类），旧后台仍在跑。
 /// 要是在这里按自己那份命令表解析，新命令一律报「格式无效」，只能重启后台才好。
-/// 命令归应用解释，后台只做身份换票。
-fn forward(line: &str, relay: &Relay) -> Result<Response, String> {
+/// 命令归应用解释，后台只做身份换票；响应同样只核对信封，保留所有类型和字段。
+fn forward(line: &str, relay: &Relay) -> Result<String, String> {
     let mut request: serde_json::Value =
         serde_json::from_str(line).map_err(|_| "协作请求格式无效".to_string())?;
     let envelope = request.as_object_mut().ok_or("协作请求格式无效")?;
@@ -45,7 +48,13 @@ fn forward(line: &str, relay: &Relay) -> Result<Response, String> {
     bytes.push(b'\n');
     upstream.write_all(&bytes).map_err(|_| offline())?;
     let response = read_line(&mut upstream)?;
-    serde_json::from_str(&response).map_err(|_| "应用协作响应无效".into())
+    // ResponseData 是 CLI 和应用之间的约定。常驻后台按自己的枚举解析会拒绝新类型，
+    // 也会静默丢掉已有类型新增的字段（例如 room say 的 message），令成功写入看似失败。
+    let envelope: serde_json::Value = serde_json::from_str(&response).map_err(|_| "应用协作响应无效")?;
+    if !matches!(envelope.get("status").and_then(serde_json::Value::as_str), Some("ok" | "error")) {
+        return Err("应用协作响应无效".into());
+    }
+    Ok(response)
 }
 
 trait Connection: Read + Write {}

@@ -15,7 +15,8 @@ use super::contracts::{
 };
 use super::detection::detect_agent;
 use super::history_adapter::{
-    AgentHistoryAdapter, ClaudeHistoryAdapter, CodexHistoryAdapter, PiHistoryAdapter,
+    AgentHistoryAdapter, ClaudeHistoryAdapter, CodexHistoryAdapter, NativeHistoryAdapter,
+    PiHistoryAdapter,
 };
 use super::state::{RawAgentEvent, normalize_event, state_snapshot};
 
@@ -74,18 +75,28 @@ pub(crate) trait AgentAdapter: Send + Sync {
 struct CodexAdapter;
 struct ClaudeAdapter;
 struct PiAdapter;
+struct NativeAdapter(AgentKind);
 static CODEX: CodexAdapter = CodexAdapter;
 static CLAUDE: ClaudeAdapter = ClaudeAdapter;
 static PI: PiAdapter = PiAdapter;
 static CODEX_HISTORY: CodexHistoryAdapter = CodexHistoryAdapter;
 static CLAUDE_HISTORY: ClaudeHistoryAdapter = ClaudeHistoryAdapter;
 static PI_HISTORY: PiHistoryAdapter = PiHistoryAdapter;
+static ANTIGRAVITY: NativeAdapter = NativeAdapter(AgentKind::Antigravity);
+static OPENCODE: NativeAdapter = NativeAdapter(AgentKind::Opencode);
+static KIMI: NativeAdapter = NativeAdapter(AgentKind::Kimi);
+static ANTIGRAVITY_HISTORY: NativeHistoryAdapter = NativeHistoryAdapter(AgentKind::Antigravity);
+static OPENCODE_HISTORY: NativeHistoryAdapter = NativeHistoryAdapter(AgentKind::Opencode);
+static KIMI_HISTORY: NativeHistoryAdapter = NativeHistoryAdapter(AgentKind::Kimi);
 
 pub(crate) fn adapter_for(kind: AgentKind) -> &'static dyn AgentAdapter {
     match kind {
         AgentKind::Codex => &CODEX,
         AgentKind::Claude => &CLAUDE,
         AgentKind::Pi => &PI,
+        AgentKind::Antigravity => &ANTIGRAVITY,
+        AgentKind::Opencode => &OPENCODE,
+        AgentKind::Kimi => &KIMI,
     }
 }
 
@@ -199,7 +210,9 @@ fn collaboration_arguments(kind: AgentKind) -> impl Iterator<Item = String> {
         AgentKind::Codex => ["--disable", "multi_agent"].as_slice(),
         AgentKind::Claude => ["--disallowedTools", "Agent", "Task"].as_slice(),
         // Pi 没有子 agent / plan mode，协作模式不需要关掉任何能力。
-        AgentKind::Pi => [].as_slice(),
+        AgentKind::Pi | AgentKind::Antigravity | AgentKind::Opencode | AgentKind::Kimi => {
+            [].as_slice()
+        }
     }
     .iter()
     .map(|value| (*value).to_string())
@@ -222,6 +235,12 @@ fn resume_plan(
         AgentKind::Codex => arguments.extend(["resume".to_string(), session.id.clone()]),
         AgentKind::Claude => arguments.extend(["--resume".to_string(), session.id.clone()]),
         AgentKind::Pi => arguments.extend(["--session".to_string(), session.id.clone()]),
+        AgentKind::Antigravity => {
+            arguments.extend(["--conversation".to_string(), session.id.clone()])
+        }
+        AgentKind::Opencode | AgentKind::Kimi => {
+            arguments.extend(["--session".to_string(), session.id.clone()])
+        }
     }
     Ok(AgentResumePlan {
         schema_version: 1,
@@ -229,6 +248,46 @@ fn resume_plan(
         supported: true,
         arguments,
     })
+}
+
+impl AgentAdapter for NativeAdapter {
+    fn kind(&self) -> AgentKind {
+        self.0
+    }
+    fn descriptor(&self) -> AgentDescriptor {
+        AgentDescriptor::for_kind(self.0)
+    }
+    fn history(&self) -> &'static dyn AgentHistoryAdapter {
+        match self.0 {
+            AgentKind::Antigravity => &ANTIGRAVITY_HISTORY,
+            AgentKind::Opencode => &OPENCODE_HISTORY,
+            AgentKind::Kimi => &KIMI_HISTORY,
+            _ => unreachable!("native adapter kind"),
+        }
+    }
+    fn launch(&self, context: AgentLaunchContext<'_>) -> Result<AgentLaunchSpec, AppError> {
+        resolve_launch(self.0, context, self.new_session_arguments())
+    }
+    fn new_session_arguments(&self) -> Vec<String> {
+        // A shared background server retains the first terminal's credentials and MCP ticket.
+        // A private server keeps simultaneous Belfry sessions and project providers isolated.
+        if self.0 == AgentKind::Opencode {
+            vec!["--standalone".into()]
+        } else {
+            Vec::new()
+        }
+    }
+    fn plan_resume(&self, session_id: &str) -> Result<AgentResumePlan, AppError> {
+        resume_plan(
+            self.0,
+            session_id,
+            if self.0 == AgentKind::Opencode {
+                &["--standalone"]
+            } else {
+                &[]
+            },
+        )
+    }
 }
 
 impl AgentAdapter for PiAdapter {

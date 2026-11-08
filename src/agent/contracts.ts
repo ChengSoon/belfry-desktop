@@ -1,4 +1,23 @@
-export type AgentKind = "codex" | "claude" | "pi";
+export const AGENT_KINDS = ["codex", "claude", "pi", "antigravity", "opencode", "kimi"] as const;
+export type AgentKind = typeof AGENT_KINDS[number];
+
+export const AGENT_METADATA: Record<AgentKind, { name: string; command: string; reset: string | null }> = {
+  codex: { name: "Codex", command: "codex", reset: "/new" },
+  claude: { name: "Claude Code", command: "claude", reset: "/clear" },
+  pi: { name: "Pi", command: "pi", reset: null },
+  antigravity: { name: "Antigravity CLI", command: "agy", reset: "/new" },
+  opencode: { name: "OpenCode", command: "opencode", reset: "/new" },
+  kimi: { name: "Kimi Code", command: "kimi", reset: "/new" },
+};
+
+export function agentRecord<T>(create: (kind: AgentKind) => T): Record<AgentKind, T> {
+  return Object.fromEntries(AGENT_KINDS.map((kind) => [kind, create(kind)])) as Record<AgentKind, T>;
+}
+
+export function agentKindFromProfile(profileId: string): AgentKind | null {
+  const kind = profileId.startsWith("agent:") ? profileId.slice(6) : null;
+  return isAgentKind(kind) ? kind : null;
+}
 
 export type AgentLifecycleState =
   | "starting"
@@ -68,8 +87,8 @@ export interface AgentResumePlan {
 
 const MAX_SESSION_ID_LENGTH = 512;
 
-export function isAgentKind(value: string): value is AgentKind {
-  return value === "codex" || value === "claude" || value === "pi";
+export function isAgentKind(value: unknown): value is AgentKind {
+  return typeof value === "string" && (AGENT_KINDS as readonly string[]).includes(value);
 }
 
 export function isAgentSessionRef(value: unknown): value is AgentSessionRef {
@@ -97,8 +116,8 @@ export function agentDescriptor(kind: AgentKind): AgentDescriptor {
   return {
     id: agentProfileId(kind),
     kind,
-    displayName: kind === "codex" ? "Codex" : kind === "claude" ? "Claude Code" : "Pi",
-    command: kind,
+    displayName: AGENT_METADATA[kind].name,
+    command: AGENT_METADATA[kind].command,
     capabilities: {
       launch: true,
       resume: true,
@@ -114,9 +133,7 @@ export function agentDescriptor(kind: AgentKind): AgentDescriptor {
  * Claude 是 `/clear`、Codex 是 `/new`（与快捷指令目录的列法一致）；Pi 没有已知的等价命令。
  */
 export function agentResetCommand(kind: AgentKind): string | null {
-  if (kind === "claude") return "/clear";
-  if (kind === "codex") return "/new";
-  return null;
+  return AGENT_METADATA[kind].reset;
 }
 
 function isAgentKindValue(value: unknown): value is AgentKind {

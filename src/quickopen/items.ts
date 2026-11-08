@@ -1,5 +1,6 @@
 import type { RecentProject, WorkspaceTab, WorkspaceTabKind } from "../workspace/contracts";
 import type { QuickOpenItem } from "./model";
+import { AGENT_METADATA, AGENT_KINDS } from "../agent/contracts";
 
 const ACTION_ITEMS: QuickOpenItem[] = [
   { id: "action:collab", kind: "action", title: "会话协作", subtitle: "看谁在派活、确认待办", keywords: ["agent", "collab", "协作", "派活", "belfry", "peers", "send"], icon: "bot" },
@@ -7,7 +8,7 @@ const ACTION_ITEMS: QuickOpenItem[] = [
   { id: "action:new-shell", kind: "action", title: "新建 Shell 会话", subtitle: "当前项目", keywords: ["shell", "terminal", "new"], icon: "terminal" },
   { id: "action:file-preview", kind: "action", title: "打开文件预览", subtitle: "浏览当前项目文件", keywords: ["file", "preview", "文件", "目录", "code"], icon: "file-search" },
   { id: "action:settings", kind: "action", title: "打开设置", subtitle: "Belfry", keywords: ["preferences", "config"], icon: "settings" },
-  { id: "action:history", kind: "action", title: "打开历史会话", subtitle: "Codex / Claude / Pi", keywords: ["resume", "history"], icon: "history" },
+  { id: "action:history", kind: "action", title: "打开历史会话", subtitle: AGENT_KINDS.map((kind) => AGENT_METADATA[kind].name).join(" / "), keywords: ["resume", "history"], icon: "history" },
   { id: "action:usage", kind: "action", title: "打开额度用量", subtitle: "按模型和项目查看", keywords: ["tokens", "usage", "quota"], icon: "gauge" },
   { id: "action:sidebar", kind: "action", title: "切换侧栏", subtitle: "显示或隐藏会话列表", keywords: ["sidebar", "panel"], icon: "sidebar" },
   { id: "action:shortcuts", kind: "action", title: "打开快捷指令", subtitle: "Belfry 与 Agent", keywords: ["keyboard", "help", "shortcuts"], icon: "keyboard" },
@@ -43,5 +44,5 @@ export function buildQuickOpenItems(
 function sessionKindLabel(kind: WorkspaceTabKind) {
   if (kind === "shell") return "Shell";
   if (kind === "ssh") return "SSH";
-  return kind === "codex" ? "Codex" : kind === "claude" ? "Claude" : "Pi";
+  return kind === "claude" ? "Claude" : AGENT_METADATA[kind].name;
 }

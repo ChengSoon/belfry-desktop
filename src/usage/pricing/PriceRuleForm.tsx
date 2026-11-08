@@ -11,6 +11,7 @@ import { NumericField } from "../../components/controls/NumericField";
 import { Disclosure } from "../../components/controls/Disclosure";
 import { priceFormError } from "./priceFormValidation";
 import { guardComposingEnter } from "../../utils/keyboard";
+import { AGENT_KINDS, AGENT_METADATA } from "../../agent/contracts";
 
 interface Props {
   initial: PriceDraft; rows: UsageBucket[]; projects: { root: string; name: string }[];
@@ -60,7 +61,7 @@ function PriceIdentityFields({ draft, update, rows, projects }: {
   const hasProject = projects.some((project) => project.root === draft.projectRoot);
   return <>
     <label>Agent<Select<PriceRule["agent"]> value={draft.agent} ariaLabel="Agent" onChange={(agent) => update({ agent })}
-      options={[{ value: "codex", label: "Codex" }, { value: "claude", label: "Claude Code" }, { value: "pi", label: "Pi" }]} /></label>
+      options={AGENT_KINDS.map((kind) => ({ value: kind, label: AGENT_METADATA[kind].name }))} /></label>
     <label>模型名<Combobox value={draft.model} required maxLength={512} ariaLabel="模型名" placeholder="输入或选择模型"
       options={models.map((model) => ({ value: model, label: model, description: agentLabel(draft.agent) }))}
       onChange={(model) => update({ model })} /></label>

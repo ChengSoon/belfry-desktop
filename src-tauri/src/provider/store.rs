@@ -36,11 +36,7 @@ pub(super) fn lock() -> Result<MutexGuard<'static, ()>, AppError> {
 
 /// Stable storage names, deliberately independent of CLI executable names.
 pub(super) fn storage_key(kind: AgentKind) -> &'static str {
-    match kind {
-        AgentKind::Codex => "codex",
-        AgentKind::Claude => "claude",
-        AgentKind::Pi => "pi",
-    }
+    kind.id()
 }
 
 #[derive(Clone, Default)]

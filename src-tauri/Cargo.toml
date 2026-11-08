@@ -13,7 +13,7 @@ ulid = { version = "3.0.0", features = ["serde"] }
 
 [package]
 name = "belfry-desktop"
-version = "0.23.0"
+version = "0.24.0"
 description = "Cross-platform AI terminal workspace"
 authors = ["appmakes"]
 edition = "2024"
@@ -51,6 +51,9 @@ ulid = { workspace = true }
 aes-gcm = "0.10.3"
 sha2 = "0.10"
 zeroize = { version = "1.8", features = ["derive"] }
+
+# OpenCode and Antigravity keep native history in SQLite (including live WAL files).
+rusqlite = { version = "0.37", features = ["bundled"] }
 
 # canonicalize 的产物要能直接喂给 CreateProcessW / cmd.exe / 文件对话框，
 # 这些都不接受 `\\?\` 前缀，所以 Windows 上换成 dunce 的去前缀版本。

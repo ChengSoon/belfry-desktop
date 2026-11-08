@@ -5,6 +5,8 @@ import { uiFixture, click, clickText, press, waitFor, fill, setValue, resize, in
 const SETTINGS_CLOSE = 'button[title="关闭设置"]';
 const SESSION_A = '.session-row__main[aria-label^="Alpha"]';
 const SESSION_B = '.session-row__main[aria-label^="Beta"]';
+const PROVIDER_AGENTS = [["claude", "Claude Code"], ["codex", "Codex"], ["pi", "Pi"],
+  ["antigravity", "Antigravity CLI"], ["opencode", "OpenCode"], ["kimi", "Kimi Code"]];
 
 test("production UI workbench themes, session selection, real drag split and Quick Open keyboard", { timeout: 90_000 }, async t => {
   const { view, baseline, requests } = await uiFixture(t);
@@ -95,7 +97,8 @@ test("production UI Provider preserves original cards, segment slider and select
     await settings(view, "全局 Provider");
     for (const [width, height] of [[1440, 960], [1024, 768], [820, 768]]) {
       await resize(view, width, height);
-      await evidence(view, `provider-original-cards-${mode}-${width}x${height}`, [SETTINGS_CLOSE]);
+      await evidence(view, `provider-original-cards-${mode}-${width}x${height}`, [SETTINGS_CLOSE,
+        ...PROVIDER_AGENTS.map((_, index) => `.provider-segments button:nth-child(${index + 1})`)]);
       const layout = await view.cdp.evaluate(`(() => {
         const list = document.querySelector('.provider-list'), card = list.querySelector('.provider-card');
         const css = getComputedStyle(card);
@@ -125,7 +128,46 @@ test("production UI Provider preserves original cards, segment slider and select
   await clickText(view, "Codex", '.provider-segments');
   await waitFor(view, "document.querySelector('.provider-segments').dataset.active === 'codex'");
   assert.notEqual(await view.cdp.evaluate("getComputedStyle(document.querySelector('.provider-segments'), '::before').transform"), "matrix(1, 0, 0, 1, 0, 0)");
+  for (const width of [1440, 820]) {
+    await resize(view, width, 960);
+    for (const [kind, label] of PROVIDER_AGENTS) {
+      await clickText(view, label, '.provider-segments');
+      await waitFor(view, `document.querySelector('.provider-segments').dataset.active === ${JSON.stringify(kind)}`);
+      assert.ok(await view.cdp.evaluate(`document.querySelector('.provider-card h4').textContent.includes(${JSON.stringify(label)})`));
+      const geometry = await view.cdp.evaluate(`(() => {
+        const segments = document.querySelector('.provider-segments'), active = segments.querySelector('[aria-selected="true"]');
+        const css = getComputedStyle(segments, '::before'), position = new DOMMatrix(css.transform);
+        return { x: position.m41 - active.offsetLeft, y: position.m42 - active.offsetTop,
+          width: parseFloat(css.width) - active.offsetWidth, height: parseFloat(css.height) - active.offsetHeight };
+      })()`);
+      assert.ok(Object.values(geometry).every(delta => Math.abs(delta) <= 1), `${kind} selection must follow its tab after wrapping: ${JSON.stringify(geometry)}`);
+    }
+  }
   await intact(view, baseline);
+});
+
+test("production UI new native agents launch, filter and resume their own sessions", { timeout: 90_000 }, async t => {
+  const { view, baseline } = await uiFixture(t);
+  let extraCreates = 0;
+  for (const [kind, label] of PROVIDER_AGENTS.slice(3)) {
+    await click(view, 'button[title^="新建会话"]');
+    await clickText(view, label, '[role="menu"][aria-label="新建会话"]');
+    await waitFor(view, `__productionQA.creates === ${baseline.creates + ++extraCreates}`);
+    assert.ok(await view.cdp.evaluate(`__productionQA.calls.some(call => call.command === 'terminal_create' && call.args.request.profileId === ${JSON.stringify(`agent:${kind}`)} && !call.args.request.resume)`));
+    await click(view, 'button[title^="历史会话"]');
+    await clickText(view, label, '.history-segments');
+    await waitFor(view, `document.querySelector('.history-item__meta')?.textContent.includes(${JSON.stringify(label)})`);
+    assert.equal(await view.cdp.evaluate("__productionQA.calls.filter(call => call.command === 'history_search').at(-1).args.request.query.agent"), kind);
+    await evidence(view, `native-agent-history-${kind}`, ['input[aria-label="搜索历史正文"]', 'button[aria-label="继续会话"]']);
+    await click(view, 'button[aria-label="继续会话"]');
+    await waitFor(view, `__productionQA.creates === ${baseline.creates + ++extraCreates}`);
+    assert.ok(await view.cdp.evaluate(`__productionQA.calls.some(call => call.command === 'terminal_create' && call.args.request.profileId === ${JSON.stringify(`agent:${kind}`)} && call.args.request.resume === ${JSON.stringify(`synthetic-history-${kind}`)})`));
+    if (await view.cdp.evaluate("!!document.querySelector('.history-panel')")) {
+      await click(view, 'button[title="关闭历史会话"]');
+      await waitFor(view, "!document.querySelector('.history-panel')");
+    }
+    await intact(view, baseline, extraCreates);
+  }
 });
 
 test("production UI Provider keep replace clear, explicit raw consent and search preserves guarded editor", { timeout: 90_000 }, async t => {
@@ -300,7 +342,8 @@ test("production UI satellite panels remain reachable in both themes at desktop 
       await click(view, 'button[aria-label="关闭 Git 面板"]');
       await click(view, 'button[title^="历史会话"]');
       await waitFor(view, "!!document.querySelector('.history-item')");
-      await evidence(view, `history-${stamp}`, ['input[aria-label="搜索历史正文"]']);
+      await evidence(view, `history-${stamp}`, ['input[aria-label="搜索历史正文"]',
+        ...Array.from({ length: 7 }, (_, index) => `.history-segments button:nth-child(${index + 1})`)]);
       await press(view, 'Escape');
       await click(view, 'button[title^="额度用量"]');
       await waitFor(view, "!!document.querySelector('.usage-head') && document.querySelector('.usage-body')?.getAttribute('aria-busy') === 'false'");

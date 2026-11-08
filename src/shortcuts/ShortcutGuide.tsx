@@ -8,7 +8,8 @@ import {
   type RefObject,
 } from "react";
 import { ICON } from "../theme/sizing";
-import { ClaudeIcon, CodexIcon } from "../workspace/components/AgentIcons";
+import { AGENT_ICONS } from "../workspace/components/AgentIcons";
+import { AGENT_KINDS, AGENT_METADATA } from "../agent/contracts";
 import { useDismiss } from "../workspace/useDismiss";
 import { guideFootnote, guideSections, type GuideSection, type GuideTab } from "./catalog";
 import type { ShortcutPlatform } from "./resolveShortcut";
@@ -23,14 +24,19 @@ interface ShortcutGuideProps {
 
 const GUIDE_TABS: Array<{ key: GuideTab; label: string; icon: ReactNode }> = [
   { key: "belfry", label: "Belfry", icon: <Keyboard aria-hidden="true" size={ICON.sm} /> },
-  { key: "codex", label: "Codex", icon: <CodexIcon aria-hidden="true" size={ICON.sm} /> },
-  { key: "claude", label: "Claude", icon: <ClaudeIcon aria-hidden="true" size={ICON.sm} /> },
+  ...AGENT_KINDS.map((key) => { const Icon = AGENT_ICONS[key]; return {
+    key, label: AGENT_METADATA[key].name, icon: <Icon aria-hidden="true" size={ICON.sm} />,
+  }; }),
 ];
 
 const GUIDE_TAB_DESCRIPTIONS: Record<GuideTab, string> = {
   belfry: "工作区与终端操作",
   codex: "Codex CLI 交互指令",
   claude: "Claude Code 交互指令",
+  pi: "Pi 交互指令",
+  antigravity: "Antigravity CLI 交互指令",
+  opencode: "OpenCode 交互指令",
+  kimi: "Kimi Code 交互指令",
 };
 
 export function ShortcutGuide({ onClose, platform }: ShortcutGuideProps) {

@@ -25,6 +25,13 @@ fn watched(kind: AgentKind) -> &'static [&'static str] {
         AgentKind::Codex => &["OPENAI_API_KEY", "OPENAI_BASE_URL"],
         // Pi 的路由落在 models.json 里，shell 里的 key 不会盖过它，没有可报的冲突。
         AgentKind::Pi => &[],
+        AgentKind::Antigravity => &["GEMINI_API_KEY", "GOOGLE_GEMINI_BASE_URL"],
+        AgentKind::Opencode => &["OPENCODE_CONFIG", "OPENCODE_CONFIG_CONTENT"],
+        AgentKind::Kimi => &[
+            "KIMI_MODEL_NAME",
+            "KIMI_MODEL_BASE_URL",
+            "KIMI_MODEL_API_KEY",
+        ],
     }
 }
 

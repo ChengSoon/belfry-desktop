@@ -10,6 +10,7 @@ pub fn dispatch(app: &AppHandle, request: Value) -> Result<Value, String> {
         return dispatch_ui(app, &request, api);
     }
     match api {
+        "session.nativeContext" => super::super::native_context::resolve(app, args),
         "models.list" | "models.resolve" => {
             crate::provider::plugin_gateway::dispatch(app, api, args)
         }

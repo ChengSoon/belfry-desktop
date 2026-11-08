@@ -6,7 +6,7 @@ description: 托管 CLI Agent 的跨平台终端工作台
 
 # Belfry 是什么
 
-Belfry 是一个桌面应用，在 macOS 和 Windows 上用同一套界面运行 [Codex](https://github.com/openai/codex)、Claude Code、Pi CLI 这类命令行 Agent，同时它本身也是一个完整的终端。
+Belfry 是一个桌面应用，在 macOS 和 Windows 上用同一套界面运行 [Codex](https://github.com/openai/codex)、Claude Code、Pi、Antigravity CLI、OpenCode 和 Kimi Code，同时它本身也是一个完整的终端。
 
 简单说：**它托管你机器上已经装好的 CLI Agent，帮你看清它们在忙什么、在等谁。**
 

@@ -73,22 +73,26 @@ fn tool(block: &Value, source: &str) -> Option<HistoryTool> {
 }
 
 fn changes(name: &str, input: &Value) -> Vec<HistoryChange> {
-    let Some(path) = input["file_path"].as_str() else {
+    let Some(path) = string_field(input, &["file_path", "path", "filePath", "TargetFile"]) else {
         return Vec::new();
     };
     match name {
-        "Edit" => vec![edit(path, input)],
-        "MultiEdit" => input["edits"]
-            .as_array()
-            .into_iter()
-            .flatten()
-            .take(text::MAX_CHANGES + 1)
-            .map(|item| edit(path, item))
-            .collect(),
-        "Write" => vec![HistoryChange {
+        "Edit" | "edit" | "replace_file_content" => vec![edit(path, input)],
+        "MultiEdit" | "multi_replace_file_content" => input[if name == "MultiEdit" {
+            "edits"
+        } else {
+            "ReplacementChunks"
+        }]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .take(text::MAX_CHANGES + 1)
+        .map(|item| edit(path, item))
+        .collect(),
+        "Write" | "write" | "write_to_file" => vec![HistoryChange {
             path: path.into(),
             kind: "write".into(),
-            new_text: input["content"].as_str().map(str::to_owned),
+            new_text: string_field(input, &["content", "CodeContent"]).map(str::to_owned),
             note: "日志中的写入内容；原内容未记录，无法判定是新建还是覆盖".into(),
             ..Default::default()
         }],
@@ -97,11 +101,14 @@ fn changes(name: &str, input: &Value) -> Vec<HistoryChange> {
 }
 
 fn edit(path: &str, input: &Value) -> HistoryChange {
-    let old = input["old_string"].as_str();
-    let new = input["new_string"].as_str();
+    let old = string_field(input, &["old_string", "oldString", "TargetContent"]);
+    let new = string_field(input, &["new_string", "newString", "ReplacementContent"]);
     let note = if old.is_none() || new.is_none() {
         "日志内容不足，无法完整展示这次替换"
-    } else if input["replace_all"] == true {
+    } else if ["replace_all", "replaceAll", "AllowMultiple"]
+        .iter()
+        .any(|key| input[*key] == true)
+    {
         "替换全部匹配位置；日志仅记录替换片段"
     } else {
         "日志中的替换片段，不代表完整文件"
@@ -114,4 +121,8 @@ fn edit(path: &str, input: &Value) -> HistoryChange {
         note: note.into(),
         ..Default::default()
     }
+}
+
+fn string_field<'a>(input: &'a Value, keys: &[&str]) -> Option<&'a str> {
+    keys.iter().find_map(|key| input[*key].as_str())
 }

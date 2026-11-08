@@ -1,8 +1,9 @@
+import type { AgentKind } from "../agent/contracts";
 /** 后端 `agent_release_report` 的返回。字段名与 `AgentRelease` 的 camelCase 序列化一致。 */
 export type ReleaseState = "ready" | "upgradable" | "missing" | "unmanaged" | "unknown";
 
 export interface AgentRelease {
-  kind: "codex" | "claude" | "pi";
+  kind: AgentKind;
   displayName: string;
   command: string;
   executable: string | null;
@@ -16,7 +17,7 @@ export interface AgentRelease {
 }
 
 export interface AgentReleaseInstall {
-  kind: "codex" | "claude" | "pi";
+  kind: AgentKind;
   package: string;
   /** npm 自身非零退出算失败，log 里有原因。 */
   success: boolean;
@@ -28,7 +29,7 @@ export const RELEASE_LABEL: Record<ReleaseState, string> = {
   ready: "已是最新",
   upgradable: "有新版本",
   missing: "未安装",
-  unmanaged: "非 npm 管理",
+  unmanaged: "通过原渠道更新",
   unknown: "状态未知",
 };
 

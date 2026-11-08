@@ -155,6 +155,9 @@ def verify_forced_exit(endpoint, root):
 
 
 def verify_bounds(endpoint, root):
+    ping = success(endpoint, {"kind": "ping"})
+    assert "collab_passthrough_v1" in ping["capabilities"], "new daemon still uses the old typed collaboration relay"
+    assert ping["appVersion"], "the running daemon must identify its app build"
     assert call(endpoint, {"kind": "ping"}, token="incorrect")["error"]
     assert call(endpoint, {"kind": "ping"}, version=99)["error"]
     invalid = {"kind": "create", "launch": launch_request(root, "missing-tab"), "attachment": "missing",
@@ -173,7 +176,8 @@ def verify_bounds(endpoint, root):
     assert page["gap"] and page["gap"]["droppedEvents"] > 0
     first = next(frame["event"] for frame in page["frames"] if frame["event"]["kind"] == "output")
     assert page["gap"]["nextSequence"] == first["sequence"]
-    return {"authentication": "rejected invalid token/version", "cacheGap": page["gap"]["droppedEvents"], "workspaceLease": "blocked concurrent create"}
+    return {"authentication": "rejected invalid token/version", "cacheGap": page["gap"]["droppedEvents"],
+            "workspaceLease": "blocked concurrent create", "collaborationRelay": "collab_passthrough_v1"}
 
 
 def main(binary):

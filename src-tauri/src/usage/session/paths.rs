@@ -18,10 +18,15 @@ pub(super) struct Resolved {
 }
 
 pub(super) fn root(agent: AgentKind) -> Result<PathBuf, AppError> {
+    if crate::history::native::supported(agent) {
+        return crate::history::native::root(agent)
+            .ok_or_else(|| AppError::not_found("找不到历史缓存目录"));
+    }
     let (variable, directory, child) = match agent {
         AgentKind::Codex => ("CODEX_HOME", ".codex", "sessions"),
         AgentKind::Claude => ("CLAUDE_CONFIG_DIR", ".claude", "projects"),
         AgentKind::Pi => ("PI_CODING_AGENT_DIR", ".pi/agent", "sessions"),
+        _ => unreachable!(),
     };
     std::env::var_os(variable)
         .filter(|value| !value.is_empty())
@@ -44,6 +49,17 @@ pub(super) fn resolve(
         }
         Err(error) => return Err(AppError::io(error.to_string())),
     };
+    if crate::history::native::supported(session.agent) {
+        let path = crate::history::native::cache_file(&root, &session.id);
+        let paths = allowed(&root, &path)?
+            .filter(|path| belongs(path, session))
+            .into_iter()
+            .collect();
+        return Ok(Resolved {
+            paths,
+            limited: false,
+        });
+    }
     let mut result = discover(&root, session);
     if let Some(hint) = hint {
         if let Some(path) = allowed(&root, Path::new(hint))? {
@@ -121,9 +137,7 @@ fn matches_name(path: &Path, session: &AgentSessionRef) -> bool {
     name == session.id
         || (session.agent == AgentKind::Codex && name.ends_with(&format!("-{}", session.id)))
         || (session.agent == AgentKind::Pi
-            && name
-                .split_once('_')
-                .is_some_and(|(_, id)| id == session.id))
+            && name.split_once('_').is_some_and(|(_, id)| id == session.id))
 }
 
 fn belongs(path: &Path, session: &AgentSessionRef) -> bool {
@@ -132,7 +146,15 @@ fn belongs(path: &Path, session: &AgentSessionRef) -> bool {
         AgentKind::Codex => {
             crate::history::codex::session_id_from_meta(path).as_deref() == Some(&session.id)
         }
-        AgentKind::Pi => crate::history::pi::session_id_from_path(path).as_deref() == Some(&session.id),
+        AgentKind::Pi => {
+            crate::history::pi::session_id_from_path(path).as_deref() == Some(&session.id)
+        }
+        AgentKind::Antigravity | AgentKind::Opencode | AgentKind::Kimi => {
+            crate::history::native::read_cached(path)
+                .ok()
+                .flatten()
+                .is_some_and(|s| s.session_ref == *session)
+        }
     }
 }
 

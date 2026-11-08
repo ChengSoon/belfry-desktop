@@ -75,6 +75,21 @@ pub(crate) fn detect_agent(kind: AgentKind) -> AgentAvailability {
 pub(crate) fn find_agent(kind: AgentKind) -> Option<PathBuf> {
     find_in_path(kind.command_name())
         .or_else(|| find_in_user_environment(kind.command_name()))
+        .or_else(|| {
+            let user = crate::history::scan::home_dir()?;
+            let mut directories = vec![
+                user.join(".local/bin"),
+                user.join(".opencode/bin"),
+                user.join(".kimi-code/bin"),
+            ];
+            if let Some(local) = std::env::var_os("LOCALAPPDATA") {
+                directories.push(PathBuf::from(local).join("agy/bin"));
+            }
+            directories
+                .iter()
+                .flat_map(|dir| command_candidates(dir, kind.command_name()))
+                .find(|candidate| is_executable(candidate))
+        })
         // 解析失败就保留原路径：能找到文件就已经可执行，规范化只是锦上添花。
         .and_then(|path| canonicalize(&path).ok().or(Some(path)))
 }
@@ -284,12 +299,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn detection_always_reports_both_supported_agents() {
+    fn detection_always_reports_all_supported_agents() {
         let result = super::super::adapter::detect_all();
-        assert_eq!(result.len(), 3);
+        assert_eq!(result.len(), AgentKind::ALL.len());
         assert_eq!(result[0].kind, AgentKind::Codex);
         assert_eq!(result[1].kind, AgentKind::Claude);
         assert_eq!(result[2].kind, AgentKind::Pi);
+        assert_eq!(result[3].kind, AgentKind::Antigravity);
+        assert_eq!(result[4].kind, AgentKind::Opencode);
+        assert_eq!(result[5].kind, AgentKind::Kimi);
     }
 
     #[test]

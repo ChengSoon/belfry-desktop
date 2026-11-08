@@ -17,6 +17,21 @@ function setup() {
 
 afterEach(() => vi.useRealTimers());
 
+it("Antigravity 审批框补充 Hook，屏幕安静不能提前开放队列", () => {
+  const { activity, latest } = setup();
+  activity.accept({ ...snapshot("processing", 1), agent: "antigravity" });
+  activity.screen("awaiting-choice");
+  expect(latest()?.activity).toBe("awaiting-choice");
+  expect(latest()?.hook?.state).toBe("processing");
+  activity.screen("idle");
+  vi.advanceTimersByTime(10_000);
+  expect(latest()?.activity).toBe("talking");
+  activity.accept({ ...snapshot("completed", 2), agent: "antigravity" });
+  vi.advanceTimersByTime(1500);
+  expect(latest()?.activity).toBe("idle");
+  activity.dispose();
+});
+
 it("未连接 Hook 时继续使用屏幕推断", () => {
   const { activity, latest } = setup();
   activity.screen("talking");

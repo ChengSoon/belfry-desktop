@@ -21,6 +21,11 @@ export class HookActivity {
     this.screenActivity = activity;
     if (this.pending) { this.finishIfReady(); return; }
     if (!this.view.hook || this.view.hook.source === "screen_heuristic") this.emit(activity, this.view.hook);
+    else if (this.view.hook.agent === "antigravity" && this.view.hook.state === "processing") {
+      // Antigravity has no permission-request event. A visible approval may close
+      // the queue; a quiet screen must never override a running hook to open it.
+      this.emit(activity === "awaiting-choice" ? activity : "talking", this.view.hook);
+    }
   }
 
   accept(snapshot: HookSnapshot) {
@@ -34,7 +39,10 @@ export class HookActivity {
       this.timer = setTimeout(() => { this.ready = true; this.finishIfReady(); }, COMPLETION_SETTLE_MS);
       return;
     }
-    this.emit(snapshot.source === "screen_heuristic" ? this.screenActivity : activityFor(snapshot), snapshot);
+    const activity = snapshot.source === "screen_heuristic" ? this.screenActivity
+      : snapshot.agent === "antigravity" && snapshot.state === "processing" && this.screenActivity === "awaiting-choice"
+        ? "awaiting-choice" : activityFor(snapshot);
+    this.emit(activity, snapshot);
   }
 
   stop() { this.stopped = true; this.clearPending(); }

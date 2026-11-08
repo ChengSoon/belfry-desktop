@@ -45,7 +45,8 @@ impl Installer {
     pub fn preview(&self, spec: InstallSpec) -> Result<InstallPreview, AppError> {
         let before = read_config(&spec.path)?;
         let after = config::merge(&before, spec.kind, spec.command.as_deref())?;
-        let managed_before = config::owned_count(&config::parse(&before)?, spec.kind);
+        let managed_before =
+            config::owned_count(&config::parse_for(&before, spec.kind)?, spec.kind);
         let id = ulid::Ulid::generate().to_string();
         let mut pending = self
             .pending

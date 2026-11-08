@@ -1,4 +1,4 @@
-//! 历史会话管理：列出、删除、清空 Codex 与 Claude Code 写在本机的会话日志。
+//! 历史会话管理：统一读取各 Agent 的本地会话，支持恢复、详情、搜索和删除。
 //!
 //! 数据来源与 usage 模块相同（`~/.codex/sessions`、`~/.claude/projects`），
 //! 这里只关心会话本身的元数据，不解析用量。删除操作严格限制在各自的
@@ -6,13 +6,14 @@
 
 pub(crate) mod claude;
 pub(crate) mod codex;
-pub(crate) mod pi;
 #[cfg(test)]
 mod codex_identity_tests;
 pub mod commands;
 pub(crate) mod contracts;
 pub(crate) mod details;
 mod line_reader;
+pub(crate) mod native;
+pub(crate) mod pi;
 pub(crate) mod scan;
 pub(crate) mod search;
 mod service;

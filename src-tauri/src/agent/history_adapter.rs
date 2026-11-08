@@ -8,12 +8,45 @@ pub(crate) trait AgentHistoryAdapter: Send + Sync {
     fn list(&self) -> Vec<HistorySession>;
     fn sessions_root(&self) -> Option<PathBuf>;
     fn find_files(&self, root: &Path, session_id: &str) -> Vec<PathBuf>;
+    fn delete(&self, session_id: &str) -> Result<(), AppError> {
+        let root = self
+            .sessions_root()
+            .ok_or_else(|| AppError::not_found("session directory was not found"))?;
+        let files = self.find_files(&root, session_id);
+        if files.is_empty() {
+            return Err(AppError::not_found("session was not found"));
+        }
+        for file in files {
+            crate::history::scan::remove_session_file(&root, &file)?;
+        }
+        Ok(())
+    }
     fn clear(&self) -> Result<u32, AppError>;
 }
 
 pub(crate) struct CodexHistoryAdapter;
 pub(crate) struct ClaudeHistoryAdapter;
 pub(crate) struct PiHistoryAdapter;
+pub(crate) struct NativeHistoryAdapter(pub crate::agent::AgentKind);
+
+impl AgentHistoryAdapter for NativeHistoryAdapter {
+    fn list(&self) -> Vec<HistorySession> {
+        crate::history::native::list(self.0)
+    }
+    fn sessions_root(&self) -> Option<PathBuf> {
+        crate::history::native::root(self.0)
+    }
+    fn find_files(&self, root: &Path, session_id: &str) -> Vec<PathBuf> {
+        let path = crate::history::native::cache_file(root, session_id);
+        path.is_file().then_some(path).into_iter().collect()
+    }
+    fn delete(&self, session_id: &str) -> Result<(), AppError> {
+        crate::history::native::delete(self.0, session_id)
+    }
+    fn clear(&self) -> Result<u32, AppError> {
+        crate::history::native::clear(self.0)
+    }
+}
 
 impl AgentHistoryAdapter for CodexHistoryAdapter {
     fn list(&self) -> Vec<HistorySession> {

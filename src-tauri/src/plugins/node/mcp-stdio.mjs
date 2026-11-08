@@ -2,6 +2,22 @@ import { createInterface } from "node:readline";
 import { catalogEvents } from "./mcp-stdio-events.mjs";
 
 const url = process.env.BELFRY_PLUGIN_MCP_URL, token = process.env.BELFRY_PLUGIN_MCP_TOKEN;
+if (!url && !token) {
+  // The persistent native MCP entry is inert outside a Belfry-created terminal.
+  createInterface({ input: process.stdin }).on("line", (line) => {
+    try {
+      const request = JSON.parse(line);
+      if (request.id === undefined) return;
+      const result = request.method === "initialize"
+        ? { protocolVersion: request.params?.protocolVersion ?? "2024-11-05", capabilities: { tools: {} }, serverInfo: { name: "belfry-plugins", version: "1" } }
+        : request.method === "tools/list" ? { tools: [] }
+        : request.method === "resources/list" ? { resources: [] }
+        : request.method === "resources/templates/list" ? { resourceTemplates: [] }
+        : request.method === "prompts/list" ? { prompts: [] } : {};
+      process.stdout.write(JSON.stringify({ jsonrpc: "2.0", id: request.id, result }) + "\n");
+    } catch {}
+  });
+} else {
 const parsed = new URL(url ?? "http://invalid");
 if (parsed.protocol !== "http:" || parsed.hostname !== "127.0.0.1" || !parsed.port || !token) {
   process.stderr.write("Belfry 插件 MCP 仅供应用创建的 Agent 会话使用。\n"); process.exit(1);
@@ -35,3 +51,5 @@ async function forward(line) {
   }
 }
 createInterface({ input: process.stdin }).on("line", (line) => void forward(line)).on("close", () => controller.abort());
+
+}

@@ -49,6 +49,14 @@ jobs:
       - name: Rust workspace regression
         working-directory: src-tauri
         run: cargo test --workspace --locked
+      - name: Build native daemon for process regression
+        if: runner.os == 'macOS'
+        run: cargo build --manifest-path src-tauri/Cargo.toml --locked -p belfry-desktop
+      - name: Native daemon and new Agent room protocol regression
+        if: runner.os == 'macOS'
+        run: |
+          python3 scripts/test-terminal-daemon.py src-tauri/target/debug/belfry-desktop
+          python3 scripts/test-room-agent-protocol.py src-tauri/target/debug/belfry-desktop
       # 生产面板回归直接服务上面构建的 dist；缺少构建或浏览器时失败，不回退到 dev server。
       - name: Plugin and browser regression, including production recovery (browser required)
         run: node .github/workflows/verify-plugins.mjs

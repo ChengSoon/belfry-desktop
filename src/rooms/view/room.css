@@ -36,8 +36,30 @@
 .room-flow .room-flow-controls button { border-bottom-color: var(--border); }
 .room-flow .room-flow-controls button svg { fill: currentColor; }
 
-/* 正在做：节点外圈有一层缓慢的光晕；等你选择：琥珀色光晕。 */
-.room-flow-node--busy { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent), var(--shadow-md); }
+/* 工作中的外圈和状态条持续变化，不靠 React 定时重绘。 */
+.room-flow-node--busy { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 15%, transparent), var(--shadow-md); }
+.room-flow-node--busy::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border: 1px solid var(--accent);
+  border-radius: inherit;
+  pointer-events: none;
+  animation: room-flow-work-glow 2.4s ease-in-out infinite;
+}
+@keyframes room-flow-work-glow {
+  0%, 100% { opacity: 0.2; transform: scale(1); }
+  50% { opacity: 0.65; transform: scale(1.025); }
+}
+.room-flow-activity { display: inline-flex; align-items: end; gap: 2px; height: 11px; margin-right: 4px; vertical-align: baseline; }
+.room-flow-activity i { width: 2px; height: 9px; border-radius: 2px; background: currentColor; transform-origin: center bottom; animation: room-flow-work 1s ease-in-out infinite; }
+.room-flow-activity i:nth-child(2) { animation-delay: -0.33s; }
+.room-flow-activity i:nth-child(3) { animation-delay: -0.66s; }
+@keyframes room-flow-work {
+  0%, 100% { transform: scaleY(0.35); }
+  50% { transform: scaleY(1); }
+}
+/* 等你选择：保留琥珀色提醒，连线不显示工作中的流动。 */
 .room-flow-node--waiting { box-shadow: 0 0 0 4px color-mix(in srgb, var(--warning) 22%, transparent), var(--shadow-md); animation: room-flow-glow 1.8s ease-in-out infinite; }
 @keyframes room-flow-glow {
   50% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--warning) 10%, transparent), var(--shadow-md); }
@@ -50,6 +72,7 @@
 .room-flow-pulse { filter: drop-shadow(0 0 4px currentColor); }
 
 @media (prefers-reduced-motion: reduce) {
-  .room-flow-node--waiting, .room-flow-edge--animated { animation: none; }
+  .room-flow-node--busy::after, .room-flow-node--waiting, .room-flow-activity i, .room-flow-edge--animated { animation: none; }
+  .room-flow-node--busy::after { opacity: 0.3; }
   .room-flow-pulse { display: none; }
 }

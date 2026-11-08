@@ -23,12 +23,14 @@ pub const EVENTS: &[&str] = &[
     "PostToolUse",
     "PostToolUseFailure",
     "PermissionRequest",
+    "PermissionResult",
     "Stop",
     "StopFailure",
     "Interrupt",
     "Notification",
     "PreCompact",
     "PostCompact",
+    "PostInvocation",
 ];
 
 #[derive(Clone, Default, Debug, Deserialize, Serialize)]
@@ -62,15 +64,97 @@ pub fn run_if_requested() -> bool {
     if args.first().map(String::as_str) != Some("--belfry-hook") {
         return false;
     }
-    if let Some(agent @ ("codex" | "claude" | "pi")) = args.get(1).map(String::as_str) {
-        forward_stdin(agent);
+    if let Some(agent @ ("codex" | "claude" | "pi" | "antigravity" | "opencode" | "kimi")) =
+        args.get(1).map(String::as_str)
+    {
+        forward_stdin(agent, args.get(2).map(String::as_str));
     }
     // A stale endpoint, malformed payload or closed output pipe must never fail the user's hook.
-    let _ = std::io::stdout().lock().write_all(b"{}\n");
+    let _ = std::io::stdout().lock().write_all(observation_reply(
+        args.get(1).map(String::as_str).unwrap_or_default(),
+        args.get(2).map(String::as_str),
+    ));
     true
 }
 
-fn forward_stdin(agent: &str) {
+fn observation_reply(agent: &str, event: Option<&str>) -> &'static [u8] {
+    match (agent, event) {
+        // Required by agy: `allow` delegates to other hooks and the user's policy.
+        // An empty object DENIES tools; `auto_approve` would bypass native prompts.
+        ("antigravity", Some("PreToolUse")) => b"{\"decision\":\"allow\"}\n",
+        // Kimi injects stdout into the model context.
+        ("kimi", _) => b"",
+        _ => b"{}\n",
+    }
+}
+
+#[cfg(test)]
+mod native_tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn observation_neither_denies_tools_nor_bypasses_native_permissions() {
+        assert_eq!(
+            observation_reply("antigravity", Some("PreToolUse")),
+            b"{\"decision\":\"allow\"}\n"
+        );
+        assert_eq!(
+            observation_reply("antigravity", Some("PostToolUse")),
+            b"{}\n"
+        );
+        assert!(observation_reply("kimi", Some("UserPromptSubmit")).is_empty());
+    }
+
+    #[test]
+    fn antigravity_invocations_tools_errors_and_idle_are_distinct() {
+        let value = json!({"conversationId":"native", "stepIdx":3,
+            "toolCall":{"name":"ask_question", "args":{"question":"Ready?"}},
+            "transcriptPath":"/native/log.jsonl"});
+        let pre = from_native_value("antigravity", Some("PreToolUse"), &value, 1).unwrap();
+        let post = from_native_value("antigravity", Some("PostToolUse"), &value, 2).unwrap();
+        assert_eq!(pre.tool_name.as_deref(), Some("ask_question"));
+        assert_eq!(pre.tool_key, post.tool_key);
+        assert_eq!(pre.transcript_path.as_deref(), Some("/native/log.jsonl"));
+        assert_eq!(
+            from_native_value("antigravity", Some("PostInvocation"), &value, 3)
+                .unwrap()
+                .event,
+            "PostInvocation"
+        );
+        let failed = json!({"conversationId":"native", "terminationReason":"error"});
+        assert_eq!(
+            from_native_value("antigravity", Some("Stop"), &failed, 4)
+                .unwrap()
+                .event,
+            "StopFailure"
+        );
+        let background = json!({"conversationId":"native", "fullyIdle":false});
+        assert!(
+            from_native_value("antigravity", Some("Stop"), &background, 5)
+                .unwrap()
+                .background_work
+        );
+    }
+
+    #[test]
+    fn kimi_main_identity_and_tool_ids_survive_normalization() {
+        let start = json!({"hook_event_name":"SessionStart", "session_id":"session_new", "source":"startup", "agent_id":"main"});
+        let input = from_native_value("kimi", None, &start, 1).unwrap();
+        assert!(input.agent_id.is_none());
+        assert_eq!(input.source.as_deref(), Some("clear"));
+        let mut tool = json!({"hook_event_name":"PermissionRequest", "session_id":"session_new", "tool_call_id":"call-1", "tool_name":"Bash", "tool_input":{"command":"ls"}});
+        let before = from_native_value("kimi", None, &tool, 2).unwrap();
+        tool["hook_event_name"] = json!("PermissionResult");
+        tool["tool_input"] = json!({});
+        assert_eq!(
+            before.tool_key,
+            from_native_value("kimi", None, &tool, 3).unwrap().tool_key
+        );
+    }
+}
+
+fn forward_stdin(agent: &str, configured_event: Option<&str>) {
     let Some(port) = std::env::var(ENV_PORT)
         .ok()
         .and_then(|value| value.parse::<u16>().ok())
@@ -88,7 +172,13 @@ fn forward_stdin(agent: &str) {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_millis() as i64;
-    let Some(input) = read_input(std::io::stdin().lock(), at) else {
+    let mut stream = serde_json::Deserializer::from_reader(BufReader::new(
+        std::io::stdin().lock().take(MAX_PAYLOAD_BYTES),
+    ));
+    let Ok(value) = Value::deserialize(&mut stream) else {
+        return;
+    };
+    let Some(input) = from_native_value(agent, configured_event, &value, at) else {
         return;
     };
     let _ = send(
@@ -100,6 +190,73 @@ fn forward_stdin(agent: &str) {
             input,
         },
     );
+}
+
+/// Antigravity command hooks use camelCase and omit the configured event name.
+pub fn from_native_value(
+    agent: &str,
+    configured_event: Option<&str>,
+    value: &Value,
+    at: i64,
+) -> Option<HookInput> {
+    if agent == "kimi" {
+        let mut input = from_value(value, at)?;
+        if input.agent_id.as_deref() == Some("main") {
+            input.agent_id = None;
+        }
+        if input.event == "SessionStart" && input.source.as_deref() == Some("startup") {
+            input.source = Some("clear".into());
+        }
+        return Some(input);
+    }
+    if agent != "antigravity" {
+        return from_value(value, at);
+    }
+    let mut value = value.clone();
+    let event = configured_event.or_else(|| value["hookEventName"].as_str())?;
+    // PostInvocation precedes tool execution and must never be treated as a completed turn.
+    let event = match event {
+        "PreInvocation" => "UserPromptSubmit",
+        "Stop"
+            if value["terminationReason"] == "error"
+                || value["error"].as_str().is_some_and(|s| !s.is_empty()) =>
+        {
+            "StopFailure"
+        }
+        "PostToolUse" if value["error"].as_str().is_some_and(|s| !s.is_empty()) => {
+            "PostToolUseFailure"
+        }
+        event => event,
+    }
+    .to_owned();
+    let object = value.as_object_mut()?;
+    for (native, canonical) in [
+        ("conversationId", "session_id"),
+        ("transcriptPath", "transcript_path"),
+        ("toolName", "tool_name"),
+        ("toolInput", "tool_input"),
+        ("agentId", "agent_id"),
+    ] {
+        if let Some(v) = object.get(native).cloned() {
+            object.insert(canonical.into(), v);
+        }
+    }
+    object.insert("hook_event_name".into(), Value::String(event.clone()));
+    if let Some(name) = object.get("toolCall").and_then(|v| v.get("name")).cloned() {
+        object.insert("tool_name".into(), name);
+    }
+    if let Some(args) = object.get("toolCall").and_then(|v| v.get("args")).cloned() {
+        object.insert("tool_input".into(), args);
+    }
+    if let Some(step) = object.get("stepIdx").and_then(Value::as_u64) {
+        object.insert("tool_call_id".into(), Value::String(format!("step:{step}")));
+    }
+    if event == "SessionStart" {
+        object.insert("source".into(), Value::String("resume".into()));
+    }
+    let mut input = from_value(&value, at)?;
+    input.background_work = value["fullyIdle"] == false;
+    Some(input)
 }
 
 // Codex can keep stdin open. Parse exactly one JSON value, without waiting for EOF.
@@ -131,9 +288,13 @@ pub fn from_value(value: &Value, occurred_at: i64) -> Option<HookInput> {
         agent_id: field(value, "agent_id"),
         transcript_path: field(value, "transcript_path"),
         notification_type: field(value, "notification_type"),
-        tool_key: tool_name
-            .as_ref()
-            .map(|name| tool_key(name, &value["tool_input"])),
+        tool_key: field(value, "tool_call_id")
+            .or_else(|| field(value, "tool_use_id"))
+            .or_else(|| {
+                tool_name
+                    .as_ref()
+                    .map(|name| tool_key(name, &value["tool_input"]))
+            }),
         tool_name,
         is_interrupt: value["is_interrupt"].as_bool().unwrap_or(false),
         background_work: ["background_tasks", "session_crons"]

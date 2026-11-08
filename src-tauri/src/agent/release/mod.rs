@@ -6,15 +6,16 @@
 pub(crate) mod commands;
 mod contracts;
 mod install;
+mod native;
 mod package;
 mod registry;
 mod version;
 
 use std::path::Path;
 
+use crate::agent::AgentKind;
 use crate::agent::contracts::AgentDescriptor;
 use crate::agent::detection::find_agent;
-use crate::agent::AgentKind;
 
 pub(crate) use contracts::{AgentRelease, AgentReleaseInstall, ReleaseState};
 
@@ -39,7 +40,7 @@ fn local(kind: AgentKind) -> LocalRelease {
             command: descriptor.command,
             executable: None,
             current_version: None,
-            package: Some(package::default_package(kind).to_string()),
+            package: package::default_package(kind).map(str::to_owned),
             notice: Some(format!("未在用户命令环境中找到 {}", kind.command_name())),
         };
     };
@@ -60,9 +61,9 @@ fn local(kind: AgentKind) -> LocalRelease {
             display_name: descriptor.display_name,
             command: descriptor.command,
             executable: Some(path),
-            current_version: None,
+            current_version: fallback_version(&executable),
             package: None,
-            notice: Some("已安装，但不是 npm 全局包，无法一键升级".to_string()),
+            notice: (!native::supported(kind)).then(|| "已安装，请通过原安装渠道更新".to_string()),
         },
     }
 }
@@ -92,7 +93,7 @@ pub(crate) async fn report() -> Vec<AgentRelease> {
                     executable: None,
                     current_version: None,
                     latest_version: None,
-                    package: Some(package::default_package(kind).to_string()),
+                    package: package::default_package(kind).map(str::to_owned),
                     state: ReleaseState::Unknown,
                     notice: Some(format!("agent release detection failed: {error}")),
                     install_command: None,
@@ -118,17 +119,20 @@ pub(crate) fn package_for(kind: AgentKind) -> Result<String, crate::terminal::Ap
                 "该 CLI 不是 npm 全局包，无法一键升级，请在终端中手动更新",
             )),
         },
-        None => Ok(package::default_package(kind).to_string()),
+        None => package::default_package(kind)
+            .map(str::to_owned)
+            .ok_or_else(|| crate::terminal::AppError::unsupported("此 CLI 使用官方原生安装器")),
     }
 }
 
 async fn latest(item: LocalRelease) -> AgentRelease {
     // 没装：直接 Missing，不必查 registry。
     if item.executable.is_none() {
-        let install_command = item
-            .package
-            .as_ref()
-            .map(|package| format!("npm install -g {package}@latest"));
+        let install_command = native::command_text(item.kind, false).or_else(|| {
+            item.package
+                .as_ref()
+                .map(|package| format!("npm install -g {package}@latest"))
+        });
         return AgentRelease {
             kind: item.kind,
             display_name: item.display_name,
@@ -144,12 +148,15 @@ async fn latest(item: LocalRelease) -> AgentRelease {
     }
     // 装了但不是 npm 包：置灰，同样不必查 registry。
     let Some(package) = item.package.clone() else {
+        if native::supported(item.kind) {
+            return latest_native(item).await;
+        }
         return AgentRelease {
             kind: item.kind,
             display_name: item.display_name,
             command: item.command,
             executable: item.executable,
-            current_version: None,
+            current_version: item.current_version,
             latest_version: None,
             package: None,
             state: ReleaseState::Unmanaged,
@@ -204,7 +211,7 @@ async fn latest(item: LocalRelease) -> AgentRelease {
 /// 用户就会对着「已是最新」疑惑官方明明有新版。返回 `None`：装的就是官方包、
 /// 官方没更前，或查询失败（失败不阻断主流程，只是不提示）。
 async fn mirror_lag_notice(kind: AgentKind, package: &str, mirror_latest: &str) -> Option<String> {
-    let official = package::default_package(kind);
+    let official = package::default_package(kind)?;
     if official == package {
         return None;
     }
@@ -214,7 +221,12 @@ async fn mirror_lag_notice(kind: AgentKind, package: &str, mirror_latest: &str) 
 }
 
 /// 纯文本组装，抽出来好测：不碰网络。
-fn lag_notice_text(official: &str, package: &str, mirror_latest: &str, official_latest: &str) -> Option<String> {
+fn lag_notice_text(
+    official: &str,
+    package: &str,
+    mirror_latest: &str,
+    official_latest: &str,
+) -> Option<String> {
     if official == package {
         return None;
     }
@@ -242,6 +254,35 @@ fn unknown(item: LocalRelease, message: &str) -> AgentRelease {
     }
 }
 
+async fn latest_native(item: LocalRelease) -> AgentRelease {
+    let latest = match native::latest(item.kind).await {
+        Ok(Some(version)) => version,
+        Ok(None) => return unknown(item, "官方发布服务器未返回版本号"),
+        Err(message) => return unknown(item, &message),
+    };
+    let state = match item
+        .current_version
+        .as_deref()
+        .and_then(|current| version::is_upgradable(current, &latest))
+    {
+        Some(true) => ReleaseState::Upgradable,
+        Some(false) => ReleaseState::Ready,
+        None => ReleaseState::Unknown,
+    };
+    AgentRelease {
+        kind: item.kind,
+        display_name: item.display_name,
+        command: item.command,
+        executable: item.executable,
+        current_version: item.current_version,
+        latest_version: Some(latest),
+        package: None,
+        state,
+        notice: item.notice,
+        install_command: native::command_text(item.kind, true),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -249,9 +290,27 @@ mod tests {
     #[test]
     fn default_package_points_at_official_names() {
         // 仅用于「未安装 → 安装」；已安装时包名一律从可执行文件反查，不用它。
-        assert_eq!(package::default_package(AgentKind::Codex), "@openai/codex");
-        assert_eq!(package::default_package(AgentKind::Claude), "@anthropic-ai/claude-code");
-        assert_eq!(package::default_package(AgentKind::Pi), "@earendil-works/pi-coding-agent");
+        assert_eq!(
+            package::default_package(AgentKind::Codex),
+            Some("@openai/codex")
+        );
+        assert_eq!(
+            package::default_package(AgentKind::Claude),
+            Some("@anthropic-ai/claude-code")
+        );
+        assert_eq!(
+            package::default_package(AgentKind::Pi),
+            Some("@earendil-works/pi-coding-agent")
+        );
+        assert_eq!(
+            package::default_package(AgentKind::Opencode),
+            Some("@opencode/cli")
+        );
+        assert_eq!(
+            package::default_package(AgentKind::Kimi),
+            Some("@moonshot-ai/kimi-code")
+        );
+        assert_eq!(package::default_package(AgentKind::Antigravity), None);
     }
 
     #[test]
@@ -273,13 +332,45 @@ mod tests {
     #[test]
     fn lag_notice_stays_quiet_when_nothing_to_report() {
         // 镜像与官方同步：不报。
-        assert!(lag_notice_text("@anthropic-ai/claude-code", "@cometix/claude-code", "2.1.274", "2.1.274").is_none());
+        assert!(
+            lag_notice_text(
+                "@anthropic-ai/claude-code",
+                "@cometix/claude-code",
+                "2.1.274",
+                "2.1.274"
+            )
+            .is_none()
+        );
         // 装的就是官方包：不报。
-        assert!(lag_notice_text("@anthropic-ai/claude-code", "@anthropic-ai/claude-code", "2.1.100", "2.1.999").is_none());
+        assert!(
+            lag_notice_text(
+                "@anthropic-ai/claude-code",
+                "@anthropic-ai/claude-code",
+                "2.1.100",
+                "2.1.999"
+            )
+            .is_none()
+        );
         // 镜像比官方还新：不报。
-        assert!(lag_notice_text("@anthropic-ai/claude-code", "@cometix/claude-code", "2.2.0", "2.1.274").is_none());
+        assert!(
+            lag_notice_text(
+                "@anthropic-ai/claude-code",
+                "@cometix/claude-code",
+                "2.2.0",
+                "2.1.274"
+            )
+            .is_none()
+        );
         // 版本号解不出来：不报。
-        assert!(lag_notice_text("@anthropic-ai/claude-code", "@cometix/claude-code", "custom-build", "2.1.274").is_none());
+        assert!(
+            lag_notice_text(
+                "@anthropic-ai/claude-code",
+                "@cometix/claude-code",
+                "custom-build",
+                "2.1.274"
+            )
+            .is_none()
+        );
     }
 
     #[test]

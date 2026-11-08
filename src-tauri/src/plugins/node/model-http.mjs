@@ -4,7 +4,12 @@ const RESPONSE_LIMIT = 1024 * 1024;
 function endpoint(route) {
   let url; try { url = new URL(route.baseUrl); } catch { throw apiError("INVALID_ARGUMENT", "Provider 地址无效"); }
   if (!["http:", "https:"].includes(url.protocol) || url.username || url.password || url.search || url.hash) throw apiError("INVALID_ARGUMENT", "Provider 地址无效");
-  const suffix = route.protocol === "anthropic" ? "/messages" : "/responses";
+  if (route.protocol === "gemini") {
+    const base = url.pathname.replace(/\/$/, "") || "/v1beta";
+    url.pathname = `${base}/models/${encodeURIComponent(route.modelId.replace(/^models\//, ""))}:generateContent`;
+    return url;
+  }
+  const suffix = route.protocol === "anthropic" ? "/messages" : route.protocol === "chat-completions" ? "/chat/completions" : "/responses";
   url.pathname = endpointPath(url.pathname, suffix, route.protocol);
   return url;
 }
@@ -20,6 +25,12 @@ function requestBody(route, input) {
   if (route.protocol === "responses") return { model: route.modelId, input: input.messages,
     instructions: input.system || undefined, store: false, stream: false,
     ...(thinking ? { reasoning: { effort: thinking } } : {}) };
+  if (route.protocol === "chat-completions") return { model: route.modelId,
+    messages: [...(input.system ? [{ role: "system", content: input.system }] : []), ...input.messages], stream: false,
+    ...(thinking ? { reasoning_effort: thinking } : {}) };
+  if (route.protocol === "gemini") return {
+    contents: input.messages.map(message => ({ role: message.role === "assistant" ? "model" : "user", parts: [{ text: message.content }] })),
+    ...(input.system ? { systemInstruction: { parts: [{ text: input.system }] } } : {}) };
   if (route.protocol !== "anthropic") throw apiError("UNSUPPORTED", "Provider 协议暂不可用");
   return anthropicBody(route, input, thinking);
 }
@@ -49,13 +60,14 @@ export async function completeHttp(route, input, signal) {
   const response = await fetch(url, { method: "POST", headers, body: JSON.stringify(body), redirect: "error", signal });
   const value = await responseValue(response);
   const result = { text: completionText(value, route.protocol), modelKey: route.key, thinkingLevel: input.thinkingLevel };
-  if (value.usage) result.usage = completionUsage(value.usage);
+  if (value.usage || value.usageMetadata) result.usage = completionUsage(value.usage ?? value.usageMetadata, route.protocol);
   if (Buffer.byteLength(JSON.stringify(result)) > RESPONSE_LIMIT * 0.9) throw apiError("LIMIT_EXCEEDED", "模型回复超过插件传输限制");
   return result;
 }
 function requestHeaders(route) {
   const headers = { "Content-Type": "application/json" };
-  if (route.apiKey) headers.Authorization = `Bearer ${route.apiKey}`;
+  if (route.apiKey && route.protocol !== "gemini") headers.Authorization = `Bearer ${route.apiKey}`;
+  if (route.apiKey && route.protocol === "gemini") headers["x-goog-api-key"] = route.apiKey;
   if (route.protocol === "anthropic") {
     headers["anthropic-version"] = "2023-06-01";
     if (route.apiKey) headers["x-api-key"] = route.apiKey;
@@ -64,12 +76,15 @@ function requestHeaders(route) {
 }
 function completionText(value, protocol) {
   if (value.error || value.status === "failed") throw apiError("MODEL_ERROR", "模型服务未能生成回复");
+  if (protocol === "chat-completions") return value.choices?.[0]?.message?.content ?? "";
+  if (protocol === "gemini") return (value.candidates?.[0]?.content?.parts ?? []).filter(part => !part.thought && typeof part.text === "string").map(part => part.text).join("");
   const parts = protocol === "responses" ? (value.output ?? []).flatMap(item => item.type === "message" ? item.content ?? [] : []) : value.content ?? [];
   const text = parts.filter(item => ["text", "output_text"].includes(item.type)).map(item => item.text ?? "").join("");
   if (!text && value.status === "incomplete") throw apiError("MODEL_ERROR", "模型回复未完成，请调整思考等级后重试");
   return text;
 }
-function completionUsage(usage) {
-  const inputTokens = usage.input_tokens ?? 0, outputTokens = usage.output_tokens ?? 0;
-  return { inputTokens, outputTokens, totalTokens: usage.total_tokens ?? inputTokens + outputTokens };
+function completionUsage(usage, protocol) {
+  const inputTokens = usage.input_tokens ?? usage.prompt_tokens ?? usage.promptTokenCount ?? 0;
+  const outputTokens = usage.output_tokens ?? usage.completion_tokens ?? ((usage.candidatesTokenCount ?? 0) + (usage.thoughtsTokenCount ?? 0));
+  return { inputTokens, outputTokens, totalTokens: usage.total_tokens ?? usage.totalTokenCount ?? inputTokens + outputTokens };
 }

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { AGENT_KINDS, AGENT_METADATA } from "../../agent/contracts";
 import { Search, Star, X } from "lucide-react";
 import { HISTORY_QUERY_LIMIT, type HistoryFilters } from "../search";
 import { ICON } from "../../theme/sizing";
@@ -17,10 +18,10 @@ export function HistorySearchControls({ filters, projects, tags, onChange }: Pro
     <p className="history-source">本地会话日志 · 搜索与恢复</p>
     <SearchInput value={filters.text} onChange={(text) => onChange({ text })} />
     <div className="history-segments" role="group" aria-label="筛选 Agent">
-      {(["all", "codex", "claude", "pi"] as const).map((agent) => <button key={agent} type="button"
+      {(["all", ...AGENT_KINDS] as const).map((agent) => <button key={agent} type="button"
         className={filters.agent === agent ? "is-active" : undefined} aria-pressed={filters.agent === agent}
         onClick={() => onChange({ agent, project: "" })}>
-        {agent === "all" ? "全部" : agent === "codex" ? "Codex" : agent === "claude" ? "Claude" : "Pi"}
+        {agent === "all" ? "全部" : AGENT_METADATA[agent].name}
       </button>)}
     </div>
     <Select ariaLabel="筛选项目" value={filters.project} onChange={(project) => onChange({ project })}

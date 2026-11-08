@@ -28,9 +28,7 @@ impl Details {
     }
 
     pub fn timestamp(&mut self, record: &Value) {
-        let at = record["timestamp"]
-            .as_str()
-            .and_then(crate::usage::timestamp::parse_rfc3339);
+        let at = crate::usage::timestamp::parse_value(&record["timestamp"]);
         self.updated_at = self.updated_at.max(at);
     }
 

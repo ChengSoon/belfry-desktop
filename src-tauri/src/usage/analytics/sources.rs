@@ -14,6 +14,7 @@ const MAX_SOURCE_ENTRIES: usize = 100_000;
 pub(super) struct SourceRoots {
     pub claude: Option<PathBuf>,
     pub codex: Option<PathBuf>,
+    pub native: bool,
 }
 
 impl Default for SourceRoots {
@@ -21,13 +22,30 @@ impl Default for SourceRoots {
         Self {
             claude: claude::sessions_dir(),
             codex: codex::sessions_dir(),
+            native: true,
         }
     }
 }
 
 impl SourceRoots {
-    pub fn files(&self, check: Check<'_>) -> Result<Vec<(AgentKind, PathBuf)>, String> {
+    pub fn files(&self, check: Check<'_>) -> Result<(Vec<(AgentKind, PathBuf)>, u32), String> {
         let mut files = Vec::new();
+        let mut skipped = 0;
+        if self.native {
+            for agent in crate::history::native::KINDS {
+                match crate::history::native::refresh(agent, None, &|| {
+                    check().map_err(crate::terminal::AppError::io)
+                }) {
+                    Ok(root) => {
+                        files.extend(collect(&root, check)?.into_iter().map(|path| (agent, path)))
+                    }
+                    Err(_) => {
+                        check()?;
+                        skipped += 1;
+                    }
+                }
+            }
+        }
         for (agent, root) in [
             (AgentKind::Claude, &self.claude),
             (AgentKind::Codex, &self.codex),
@@ -38,7 +56,7 @@ impl SourceRoots {
                 files.extend(paths.into_iter().map(|path| (agent, path)));
             }
         }
-        Ok(files)
+        Ok((files, skipped))
     }
 }
 

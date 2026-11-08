@@ -1,3 +1,5 @@
+import { AGENT_METADATA, agentRecord, type AgentKind } from "../agent/contracts";
+export type { AgentKind } from "../agent/contracts";
 export type CheckState = "ok" | "warning" | "error";
 
 export interface EnvironmentCheck {
@@ -13,7 +15,6 @@ export interface EnvironmentReport {
   checks: EnvironmentCheck[];
 }
 
-export type AgentKind = "codex" | "claude" | "pi";
 export type SkillInstallAction = "installed" | "updated" | "unchanged" | "failed";
 
 export interface SkillInstallTargetOutcome {
@@ -45,11 +46,7 @@ export function countChecks(report: EnvironmentReport): CheckCounts {
   }, { ok: 0, warning: 0, error: 0 });
 }
 
-const AGENT_LABEL: Record<AgentKind, string> = {
-  codex: "Codex",
-  claude: "Claude Code",
-  pi: "Pi",
-};
+const AGENT_LABEL = agentRecord((kind) => AGENT_METADATA[kind].name);
 
 export function summarizeSkillInstall(outcome: SkillInstallOutcome): SkillInstallFeedback {
   const failed = outcome.results.filter((result) => result.action === "failed");

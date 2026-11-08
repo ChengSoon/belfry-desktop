@@ -19,8 +19,8 @@ import "./settings.css";
 const SECTIONS = [
   { icon: Image, key: "appearance", label: "外观", group: "工作环境", keywords: "主题 字体 字号 壁纸 背景 theme font wallpaper" },
   { icon: Keyboard, key: "shortcuts", label: "快捷键", group: "工作环境", keywords: "键盘 按键 keyboard" },
-  { icon: Waypoints, key: "provider", label: "全局 Provider", group: "Agent 与连接", keywords: "claude codex pi 模型 服务 API 密钥" },
-  { icon: FolderGit2, key: "project-provider", label: "项目 Provider", group: "Agent 与连接", keywords: "claude codex pi 项目覆盖 模型 服务 API" },
+  { icon: Waypoints, key: "provider", label: "全局 Provider", group: "Agent 与连接", keywords: "claude codex pi antigravity agy opencode kimi 模型 服务 API 密钥" },
+  { icon: FolderGit2, key: "project-provider", label: "项目 Provider", group: "Agent 与连接", keywords: "claude codex pi antigravity agy opencode kimi 项目覆盖 模型 服务 API" },
   { icon: Activity, key: "agent-hooks", label: "会话状态", group: "Agent 与连接", keywords: "hooks 后台会话 background session" },
   { icon: Boxes, key: "plugins", label: "插件", group: "扩展", keywords: "安装 市场 plugin" },
   { icon: Archive, key: "backup", label: "本地备份", group: "数据与安全", keywords: "恢复 导入 导出 数据 backup" },

@@ -5,8 +5,9 @@ import {
 import { effectiveBindings } from "./custom/bindings";
 import { bindingChord } from "./custom/chord";
 import { loadShortcutSettings } from "./custom/storage";
+import type { AgentKind } from "../agent/contracts";
 
-export type GuideTab = "belfry" | "codex" | "claude";
+export type GuideTab = "belfry" | AgentKind;
 
 export interface GuideItem {
   label: string;
@@ -22,8 +23,39 @@ export interface GuideSection {
 export function guideSections(tab: GuideTab, platform: ShortcutPlatform): GuideSection[] {
   if (tab === "belfry") return belfrySections(platform);
   if (tab === "codex") return CODEX_SECTIONS;
-  return claudeSections(platform);
+  if (tab === "claude") return claudeSections(platform);
+  return NATIVE_SECTIONS[tab];
 }
+
+const commands = (items: [string, string][]): GuideSection => ({
+  label: "常用斜杠指令", items: items.map(([command, label]) => ({ command, label })),
+});
+
+const NATIVE_SECTIONS: Record<Exclude<AgentKind, "codex" | "claude">, GuideSection[]> = {
+  pi: [commands([["/model", "切换模型"], ["/settings", "查看设置"], ["/resume", "恢复历史会话"], ["/compact", "压缩上下文"]])],
+  antigravity: [commands([
+    ["/model", "切换模型"], ["/config", "打开配置"], ["/permissions", "调整权限规则"],
+    ["/mcp", "管理 MCP 工具"], ["/new", "开始新对话"], ["/resume", "恢复历史会话"],
+    ["/help", "查看完整指令与帮助"], ["/keybindings", "编辑原生快捷键"],
+  ])],
+  opencode: [commands([
+    ["/models", "切换模型"], ["/agents", "切换原生 Agent"], ["/new", "开始新对话"],
+    ["/sessions", "恢复历史会话"], ["/undo", "撤回上一轮及其修改"], ["/redo", "恢复已撤回的一轮"], ["/editor", "在外部编辑器编辑提示"],
+  ]), { label: "交互快捷键", items: [
+    { keys: ["Ctrl", "P"], label: "打开命令面板" },
+    { keys: ["Shift", "Tab"], label: "切换原生 Agent" },
+    { keys: ["Esc"], label: "中断运行" },
+    { keys: ["@"], label: "引用工作区文件" },
+  ] }],
+  kimi: [commands([
+    ["/model", "切换模型"], ["/provider", "管理服务商"], ["/permission", "切换权限模式"], ["/plan", "切换计划模式"],
+    ["/new", "开始新对话"], ["/sessions", "恢复历史会话"], ["/compact", "压缩上下文"], ["/undo", "撤回提示与上下文"],
+    ["/tasks", "查看后台任务"], ["/reload", "重新加载配置与会话"],
+  ]), { label: "交互快捷键", items: [
+    { keys: ["Esc"], label: "中断运行" }, { keys: ["Ctrl", "S"], label: "向运行中的任务补充指令" },
+    { keys: ["Ctrl", "O"], label: "展开或折叠工具输出" }, { keys: ["↑", "↓"], label: "在审批选项间移动" },
+  ] }],
+};
 
 export function guideFootnote(tab: GuideTab, platform: ShortcutPlatform) {
   if (tab === "belfry" && platform === "control") {

@@ -17,7 +17,7 @@ export function RuntimeContributions({ runtime }: { runtime: RuntimeCatalog }) {
     <PluginThemes themes={runtime.themes} />
     {runtime.commands.map((item) => <article key={`${item.pluginId}:${item.id}`}><div><strong>{item.title}</strong><small>{item.pluginName} · 命令</small></div><button disabled={busy} onClick={() => void run(() => pluginHost.runCommand(item.pluginId, item.id))} type="button">运行命令</button></article>)}
     {runtime.views.map((item) => <article key={`${item.pluginId}:view:${item.id}`}><div><strong>{localizedText(item.title, item.id)}</strong><small>{item.pluginName} · 视图</small></div><button disabled={busy} onClick={() => void run(() => pluginHost.openPanel(item.pluginId, item.id))} type="button">打开视图</button></article>)}
-    {runtime.tools.length || runtime.skills.length ? <p>工具和 Skill 可供新开的 Codex / Claude 会话使用。已打开的会话请重新启动后连接。</p> : null}
+    {runtime.tools.length || runtime.skills.length ? <p>工具和 Skill 可供新开的 Agent 会话使用。已打开的会话请重新启动后连接。</p> : null}
     {runtime.tools.map((item) => <article key={`${item.pluginId}:tool:${item.name}`}><div><strong>{item.name}</strong><small>{item.pluginName} · Agent 工具</small><p>{item.description}</p></div><span className="plugins-badge">已注册</span></article>)}
     {runtime.skills.map((item) => <article key={`${item.pluginId}:skill:${item.id}`}><div><strong>{item.name}</strong><small>{item.pluginName} · Skill</small><p>{item.description}</p></div><button disabled={busy} onClick={() => void run(async () => {
       const text = await pluginHost.requestRuntime<string>("skill", { pluginId: item.pluginId, path: item.path });

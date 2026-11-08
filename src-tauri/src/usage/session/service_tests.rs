@@ -13,6 +13,58 @@ fn query() -> SessionStatisticsQuery {
 }
 
 #[test]
+fn native_cache_statistics_verify_the_header_and_read_the_actual_record_stream() {
+    for kind in crate::history::native::KINDS {
+        let root = Fixture::new();
+        let native = session(kind);
+        let meta = crate::history::contracts::HistorySession {
+            agent: kind,
+            session_ref: native.clone(),
+            id: native.id.clone(),
+            title: "test".into(),
+            cwd: None,
+            started_at: None,
+            last_active_at: 1,
+        };
+        let header =
+            json!({"type":"session_meta", "payload":{"id":"native"}, "belfrySession":meta});
+        let name = crate::history::native::cache_file(&root.0, "native")
+            .file_name()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_owned();
+        let mut foreign = claude("foreign", 99);
+        foreign["sessionId"] = json!("other");
+        root.write(&name, &[header.clone(), claude("first", 5), foreign]);
+        let state = SessionStatisticsState::default();
+        let request = SessionStatisticsQuery {
+            session: native,
+            transcript_path: Some("/unrelated/native.jsonl".into()),
+        };
+        let report = state.read_in(&root.0, request.clone()).unwrap();
+        assert_eq!(report.tokens.output, Some(5), "{kind:?}");
+        assert_eq!(report.source_files, 1);
+        root.write(
+            &name,
+            &[header.clone(), claude("first", 5), claude("second", 2)],
+        );
+        assert_eq!(
+            state
+                .read_in(&root.0, request.clone())
+                .unwrap()
+                .tokens
+                .output,
+            Some(7)
+        );
+        let mut wrong = header;
+        wrong["belfrySession"]["agent"] = json!("claude");
+        root.write(&name, &[wrong, claude("foreign", 99)]);
+        assert_eq!(state.read_in(&root.0, request).unwrap().tokens.output, None);
+    }
+}
+
+#[test]
 fn only_the_requested_native_session_is_discovered() {
     let fixture = Fixture::new();
     let own = fixture.write("native.jsonl", &[claude("message", 3)]);

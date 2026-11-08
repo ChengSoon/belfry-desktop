@@ -48,15 +48,19 @@ fn route(kind: AgentKind, config: ProviderConfig, fallback: &str) -> Option<Mode
         stored: false,
         info,
         config,
-        protocol: if kind == AgentKind::Codex {
-            "responses"
-        } else {
-            "anthropic"
+        protocol: match kind {
+            AgentKind::Codex => "responses",
+            AgentKind::Claude | AgentKind::Pi => "anthropic",
+            AgentKind::Antigravity => "gemini",
+            AgentKind::Opencode | AgentKind::Kimi => "chat-completions",
         },
     })
 }
 fn reasoning_levels(kind: AgentKind, model: &str) -> Vec<&'static str> {
-    if kind == AgentKind::Codex {
+    if matches!(
+        kind,
+        AgentKind::Codex | AgentKind::Opencode | AgentKind::Kimi
+    ) {
         response_reasoning_levels(model)
     } else if ["claude-3-7", "claude-sonnet-4", "claude-opus-4"]
         .iter()
@@ -147,9 +151,20 @@ fn live(kind: AgentKind) -> (String, Option<ProviderConfig>) {
                     .map(|(url, key, model)| ("当前 Claude Provider".into(), url, model, key)),
             )
         }
+        AgentKind::Antigravity | AgentKind::Opencode | AgentKind::Kimi => {
+            let detected = super::native::detect_live(kind).ok().flatten();
+            let fallback = detected
+                .as_ref()
+                .map(|(_, _, _, model)| model.clone())
+                .unwrap_or_default();
+            (
+                fallback,
+                detected.map(|(name, url, key, model)| (name, url, model, key)),
+            )
+        }
     };
     let config = detected.map(|(name, base_url, model, api_key)| ProviderConfig {
-        id: format!("{}-live", kind.command_name()),
+        id: format!("{}-live", kind.id()),
         name,
         base_url,
         api_key,

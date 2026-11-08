@@ -6,6 +6,9 @@ pub(crate) fn supported(kind: AgentKind, version: Option<&str>) -> bool {
         AgentKind::Claude => (2, 1, 201),
         // Pi 没有 Hook 接口，任何版本都不声明 structured_state。
         AgentKind::Pi => return false,
+        AgentKind::Antigravity => (1, 5, 3),
+        AgentKind::Opencode => (2, 2, 6),
+        AgentKind::Kimi => (2, 5, 2),
     };
     version
         .and_then(|text| text.split_whitespace().find_map(parse))

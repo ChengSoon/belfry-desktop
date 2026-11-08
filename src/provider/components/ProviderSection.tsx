@@ -1,4 +1,5 @@
-import { useCallback, useRef, type CSSProperties } from "react";
+import { useCallback, useLayoutEffect, useRef, type CSSProperties } from "react";
+import { AGENT_KINDS, type AgentKind } from "../../agent/contracts";
 import { AlertTriangle, ArrowLeft } from "lucide-react";
 import { ICON } from "../../theme/sizing";
 import { failureLabel } from "../../workspace/errors";
@@ -12,6 +13,30 @@ import { RemoveConfirm } from "./RemoveConfirm";
 import { shatterCard } from "./shatterCard";
 import { useProviderEditor } from "./useProviderEditor";
 import "../provider.css";
+
+// 保留原有服务商页的排列顺序，其余 Agent 来自统一注册表。
+const PROVIDER_AGENTS: AgentKind[] = ["claude", ...AGENT_KINDS.filter((kind) => kind !== "claude")];
+
+function useProviderSegments(kind: AgentKind) {
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    const update = () => {
+      const active = element.querySelector<HTMLButtonElement>('[aria-selected="true"]');
+      if (!active) return;
+      element.style.setProperty("--segment-x", `${active.offsetLeft}px`);
+      element.style.setProperty("--segment-y", `${active.offsetTop}px`);
+      element.style.setProperty("--segment-width", `${active.offsetWidth}px`);
+      element.style.setProperty("--segment-height", `${active.offsetHeight}px`);
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [kind]);
+  return ref;
+}
 
 /**
  * Provider 分区：在官方端点与第三方中转之间切换各个 Agent CLI 的路由。
@@ -45,12 +70,13 @@ export function ProviderSection({ onGuardChange }: { onGuardChange: (guarded: bo
   } = useProviderEditor(onGuardChange);
 
   const { nodes: nodeById, register: registerCardNode } = useProviderCardNodes();
+  const segmentsRef = useProviderSegments(kind);
   return (
     <section aria-label="全局 Provider 设置" className="provider-section">
       <ProviderSettingsHeader busy={providers.loading} editing={draft !== null}
         onAdd={() => openDraft({ ...EMPTY_DRAFT })} onReload={() => void providers.reload()} />
-      <div className="provider-segments" data-active={kind} role="tablist" aria-label="Agent CLI">
-        {(["claude", "codex", "pi"] as const).map((value) => (
+      <div className="provider-segments" ref={segmentsRef} data-active={kind} role="tablist" aria-label="Agent CLI">
+        {PROVIDER_AGENTS.map((value) => (
           <button
             aria-selected={kind === value}
             className={kind === value ? "is-active" : undefined}
@@ -190,7 +216,7 @@ export function ProviderSection({ onGuardChange }: { onGuardChange: (guarded: bo
                   />
                 ))}
               </div>
-              <p className="provider-hint">{kind === "codex" ? "切换后，新开的 Codex 会话使用所选服务。" : kind === "claude" ? "切换后，Claude Code 的后续请求使用所选服务。" : "切换后，新开的 Pi 会话使用所选服务。"} 保存新配置后，点击「启用」应用。</p>
+              <p className="provider-hint">{kind === "claude" ? "切换后，Claude Code 的后续请求使用所选服务。" : `切换后，新开的 ${AGENT_LABEL[kind]} 会话使用所选服务。`} 保存新配置后，点击「启用」应用。</p>
             </>
           )}
         </>

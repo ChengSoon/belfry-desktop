@@ -1,5 +1,7 @@
 import type { IDisposable, Terminal } from "@xterm/xterm";
 import type { SessionActivity } from "./contracts";
+import type { AgentKind } from "../agent/contracts";
+import { nativeComposerEmpty, nativeTalking } from "./nativeScreen";
 
 /**
  * 从渲染后的屏幕文本猜 Agent 眼下在干什么。信号全部来自 Claude Code / Codex 的界面
@@ -39,7 +41,8 @@ export const ACTIVITY_TAIL_LINES = 12;
  */
 const COMPOSER_EMPTY = /\?\s+for shortcuts/i;
 
-export function composerLooksEmpty(tail: string): boolean {
+export function composerLooksEmpty(tail: string, agent?: AgentKind | null): boolean {
+  if (agent === "opencode" || agent === "kimi") return nativeComposerEmpty(tail, agent);
   return COMPOSER_EMPTY.test(tail);
 }
 
@@ -68,10 +71,12 @@ export function screenTail(lines: readonly ScreenLine[], maxLines: number): stri
 }
 
 /** 等待选择优先于正在对话：权限框弹出来时 spinner 那行已经被擦掉了，实践中两者互斥。 */
-export function detectActivity(tail: string): SessionActivity {
+export function detectActivity(tail: string, agent?: AgentKind | null): SessionActivity {
   const lines = tail.split("\n");
+  if (agent === "opencode" && /⇆\s+select/.test(tail) && /enter\s+confirm/.test(tail)) return "awaiting-choice";
+  if (agent === "antigravity" && /Yes, (?:approve|proceed|elevate|run command|allow access)/.test(tail) && /No, (?:deny|reject|cancel)/.test(tail)) return "awaiting-choice";
   if (awaitsChoice(tail, lines)) return "awaiting-choice";
-  if (TALKING.test(tail)) return "talking";
+  if (TALKING.test(tail) || nativeTalking(tail, agent)) return "talking";
   return "idle";
 }
 
@@ -99,6 +104,7 @@ const SCAN_INTERVAL_MS = 200;
 export function watchActivity(
   terminal: Terminal,
   onChange: (activity: SessionActivity) => void,
+  agent?: AgentKind | null,
 ): IDisposable {
   let current: SessionActivity = "idle";
   let scannedAt = 0;
@@ -107,7 +113,7 @@ export function watchActivity(
   const scan = () => {
     pending = 0;
     scannedAt = Date.now();
-    const next = detectActivity(screenTail(readScreen(terminal), ACTIVITY_TAIL_LINES));
+    const next = detectActivity(screenTail(readScreen(terminal), ACTIVITY_TAIL_LINES), agent);
     if (next === current) return;
     current = next;
     onChange(next);

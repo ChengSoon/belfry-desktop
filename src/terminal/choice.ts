@@ -1,4 +1,7 @@
-import { CHOICE_QUESTION } from "./activity";
+import { CHOICE_QUESTION, readScreenTail } from "./activity";
+import type { AgentKind } from "../agent/contracts";
+import type { Terminal } from "@xterm/xterm";
+import { readOpencodeChoice } from "./opencodeChoice";
 
 /**
  * 从终端屏幕底部读出 Agent 的选择框：问题、补充内容（要执行的命令等）和选项。
@@ -21,6 +24,7 @@ export interface TerminalChoice {
   options: TerminalChoiceOption[];
   /** 光标当前停在哪一项（编号）。 */
   selected: number;
+  axis?: "horizontal";
   /** 同一个选择框读两遍应当一样；发按键前拿它确认屏幕没变。 */
   signature: string;
 }
@@ -38,8 +42,14 @@ function clean(line: string) {
   return line.replace(BORDER_LEFT, "").replace(BORDER_RIGHT, "");
 }
 
-export function parseChoice(tail: string): TerminalChoice | null {
+export function readTerminalChoice(terminal: Terminal, agent?: AgentKind | null): TerminalChoice | null {
+  if (agent === "opencode") return readOpencodeChoice(terminal);
+  return parseChoice(readScreenTail(terminal, CHOICE_TAIL_LINES), agent);
+}
+
+export function parseChoice(tail: string, agent?: AgentKind | null): TerminalChoice | null {
   const lines = tail.split("\n").map(clean);
+  const kimi = agent === "kimi" && /↑\/↓ select/.test(tail) && /↵ confirm/.test(tail);
   // 从底往上找最后一段编号选项：选择框总在屏幕底部，正文里的有序列表在它上面。
   let end = -1;
   for (let at = lines.length - 1; at >= 0; at--) {
@@ -49,7 +59,8 @@ export function parseChoice(tail: string): TerminalChoice | null {
   let start = end;
   for (let at = end - 1; at >= 0; at--) {
     if (OPTION.test(lines[at])) start = at;
-    else if (lines[at].trim() !== "") break;
+    else if (lines[at].trim() !== "" && !kimi) break;
+    if (kimi && OPTION.exec(lines[at])?.[2] === "1") break;
   }
   const options: TerminalChoiceOption[] = [];
   let selected = 0;
@@ -66,7 +77,7 @@ export function parseChoice(tail: string): TerminalChoice | null {
 
   let questionAt = -1;
   for (let at = start - 1; at >= Math.max(0, start - 1 - MAX_DETAIL_LINES * 2); at--) {
-    if (CHOICE_QUESTION.test(lines[at])) { questionAt = at; break; }
+    if (CHOICE_QUESTION.test(lines[at]) || (kimi && /^(?:▶\s*)?(?:Run this command|Write this file|Apply these edits|Stop this task|Ready to build with this plan|Approve\s).*[?？]?$/.test(lines[at]))) { questionAt = at; break; }
   }
   if (questionAt < 0) {
     for (let at = start - 1; at >= 0; at--) {
@@ -95,6 +106,6 @@ export function choiceKeys(choice: TerminalChoice, index: number, applicationCur
   if (!choice.options.some((option) => option.index === index)) return null;
   const delta = index - choice.selected;
   const prefix = applicationCursor ? "\u001bO" : "\u001b[";
-  const arrow = `${prefix}${delta > 0 ? "B" : "A"}`;
+  const arrow = `${prefix}${choice.axis === "horizontal" ? (delta > 0 ? "C" : "D") : (delta > 0 ? "B" : "A")}`;
   return arrow.repeat(Math.abs(delta)) + "\r";
 }

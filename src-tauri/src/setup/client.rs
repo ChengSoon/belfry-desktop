@@ -15,6 +15,9 @@ pub fn checks(agent: AgentKind) -> Vec<EnvironmentCheck> {
         AgentKind::Codex => checks.extend(codex::checks(&executable)),
         AgentKind::Claude => checks.extend(claude::checks(&executable)),
         AgentKind::Pi => checks.extend(pi::checks(&executable)),
+        AgentKind::Antigravity | AgentKind::Opencode | AgentKind::Kimi => {
+            checks.extend(super::native::checks(agent, &checks[0].summary))
+        }
     }
     checks
 }

@@ -44,8 +44,7 @@ const STATUS_DOT = {
 
 const MemberNode = memo(function MemberNode({ data }: NodeProps<Node<MemberNodeData>>) {
   const node = data;
-  const live = node.status === "busy" || node.status === "waiting";
-  const statusText = node.status === "user" ? null : MEMBER_STATUS_TEXT[node.status];
+  const statusText = node.status === "user" ? null : node.status === "busy" ? "处理中" : MEMBER_STATUS_TEXT[node.status];
   return (
     <div
       className={cn(
@@ -72,7 +71,7 @@ const MemberNode = memo(function MemberNode({ data }: NodeProps<Node<MemberNodeD
           </AvatarFallback>
         </Avatar>
         <span aria-hidden="true" className={cn("absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full ring-2 ring-card",
-          STATUS_DOT[node.status], live && "animate-pulse")} />
+          STATUS_DOT[node.status])} />
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-1">
@@ -85,7 +84,10 @@ const MemberNode = memo(function MemberNode({ data }: NodeProps<Node<MemberNodeD
           ) : null}
         </span>
         <span className="block truncate text-xs text-muted-foreground">
-          {statusText ? <span className={cn(node.status === "waiting" && "font-medium text-warning", node.status === "busy" && "text-primary")}>{statusText}</span> : null}
+          {statusText ? <span className={cn(node.status === "waiting" && "font-medium text-warning", node.status === "busy" && "text-primary")}>
+            {node.status === "busy" ? <span aria-hidden="true" className="room-flow-activity"><i /><i /><i /></span> : null}
+            {statusText}
+          </span> : null}
           {node.subtitle ? <>{statusText ? " · " : ""}{node.subtitle}</> : null}
         </span>
       </span>
@@ -118,11 +120,11 @@ const FlowLine = memo(function FlowLine(props: EdgeProps<Edge<FlowEdgeData>>) {
       {strong ? <BaseEdge path={path} style={{ stroke, strokeWidth: 8, opacity: 0.12 }} /> : null}
       <BaseEdge className={cn(data?.animated && "room-flow-edge--animated", tone === "reply" && "room-flow-edge--dashed")}
         path={path} style={{ stroke, strokeWidth: strong ? 2 : 1.25, opacity: strong ? 1 : 0.7 }} />
-      {data?.animated ? (
-        <circle className="room-flow-pulse" fill={stroke} r={3.5}>
-          <animateMotion dur={tone === "message" ? "1.6s" : "2.4s"} path={path} repeatCount="indefinite" />
+      {data?.animated ? [0, 1].map((index) => (
+        <circle className="room-flow-pulse" fill={stroke} key={index} opacity={index ? 0.55 : 1} r={index ? 2.5 : 3.5} style={{ color: stroke }}>
+          <animateMotion begin={`${index * (tone === "message" ? -0.8 : -1.2)}s`} dur={tone === "message" ? "1.6s" : "2.4s"} path={path} repeatCount="indefinite" />
         </circle>
-      ) : null}
+      )) : null}
       {data?.label ? (
         <EdgeLabelRenderer>
           <span className={cn(
@@ -200,10 +202,10 @@ function FlowCanvas({ room, tabs, onOpenSession }: { room: Room; tabs: Workspace
 
 function FlowLegend() {
   const items: { tone: FlowTone; label: string }[] = [
-    { tone: "active", label: "正在做" },
+    { tone: "active", label: "处理中" },
     { tone: "message", label: "刚有消息" },
     { tone: "waiting", label: "等你 / 等回复" },
-    { tone: "idle", label: "暂无动静" },
+    { tone: "idle", label: "空闲 / 离线" },
   ];
   return (
     <div className="absolute right-3 bottom-3 z-10 flex items-center gap-3 rounded-lg border border-border bg-card/90 px-3 py-1.5 text-[11px] text-muted-foreground shadow-sm backdrop-blur">

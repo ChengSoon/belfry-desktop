@@ -1,5 +1,6 @@
-import type { WorkspaceTab, WorkspaceTabKind } from "../workspace/contracts";
-import type { AgentKind } from "../agent/contracts";
+import type { WorkspaceTab } from "../workspace/contracts";
+import { isAgentKind } from "../agent/contracts";
+export { isAgentKind } from "../agent/contracts";
 
 export interface PromptQueueItem {
   id: string;
@@ -20,10 +21,6 @@ export interface PromptSubmitOptions {
   /** 宿主发起的反馈只能投递给仍属于这个项目的会话。 */
   projectRoot?: string;
   onUpdate?: (update: PromptQueueUpdate) => void;
-}
-
-export function isAgentKind(kind: WorkspaceTabKind): kind is AgentKind {
-  return kind === "codex" || kind === "claude" || kind === "pi";
 }
 
 export function isPromptBusy(tab: Pick<WorkspaceTab, "activity">) {

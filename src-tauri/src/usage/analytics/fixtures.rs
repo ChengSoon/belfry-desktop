@@ -34,6 +34,7 @@ impl Fixture {
         Self {
             path,
             roots: SourceRoots {
+                native: false,
                 claude: Some(claude),
                 codex: Some(codex),
             },

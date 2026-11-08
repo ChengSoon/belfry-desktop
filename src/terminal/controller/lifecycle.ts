@@ -1,4 +1,5 @@
 import { Channel } from "@tauri-apps/api/core";
+import { agentKindFromProfile } from "../../agent/contracts";
 import type { FitAddon } from "@xterm/addon-fit";
 import type { Terminal } from "@xterm/xterm";
 import type { TerminalTheme } from "../../theme/xtermTheme";
@@ -42,7 +43,7 @@ export class TerminalLifecycle {
   private readonly queue;
 
   constructor(private readonly ports: LifecyclePorts) {
-    this.activity = new SessionActivity(ports.terminal, ports.launch.profileId.startsWith("agent:"), ports.callbacks);
+    this.activity = new SessionActivity(ports.terminal, this.agentKind, ports.callbacks);
     this.input = new TerminalInput({ ...ports, session: () => this.current });
     this.output = new TerminalOutput({ terminal: ports.terminal, themeSync: ports.themeSync,
       onOutput: (text) => ports.callbacks.onOutput?.(text),
@@ -61,6 +62,7 @@ export class TerminalLifecycle {
   }
 
   get alive() { return !this.disposed; }
+  get agentKind() { return agentKindFromProfile(this.ports.launch.profileId); }
 
   async start() {
     const { host, terminal, fit, launch, theme, callbacks } = this.ports;

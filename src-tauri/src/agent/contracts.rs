@@ -9,16 +9,41 @@ pub enum AgentKind {
     Codex,
     Claude,
     Pi,
+    Antigravity,
+    Opencode,
+    Kimi,
 }
 
 impl AgentKind {
-    pub const ALL: [Self; 3] = [Self::Codex, Self::Claude, Self::Pi];
+    pub const ALL: [Self; 6] = [
+        Self::Codex,
+        Self::Claude,
+        Self::Pi,
+        Self::Antigravity,
+        Self::Opencode,
+        Self::Kimi,
+    ];
+
+    pub fn id(self) -> &'static str {
+        match self {
+            Self::Antigravity => "antigravity",
+            _ => self.command_name(),
+        }
+    }
+
+    pub fn from_profile_id(profile: &str) -> Option<Self> {
+        let id = profile.strip_prefix("agent:")?;
+        Self::ALL.into_iter().find(|kind| kind.id() == id)
+    }
 
     pub fn command_name(self) -> &'static str {
         match self {
             Self::Codex => "codex",
             Self::Claude => "claude",
             Self::Pi => "pi",
+            Self::Antigravity => "agy",
+            Self::Opencode => "opencode",
+            Self::Kimi => "kimi",
         }
     }
 
@@ -27,6 +52,9 @@ impl AgentKind {
             Self::Codex => "Codex",
             Self::Claude => "Claude Code",
             Self::Pi => "Pi",
+            Self::Antigravity => "Antigravity CLI",
+            Self::Opencode => "OpenCode",
+            Self::Kimi => "Kimi Code",
         }
     }
 }
@@ -67,7 +95,7 @@ pub struct AgentDescriptor {
 impl AgentDescriptor {
     pub fn for_kind(kind: AgentKind) -> Self {
         Self {
-            id: format!("agent:{}", kind.command_name()),
+            id: format!("agent:{}", kind.id()),
             kind,
             display_name: kind.display_name().to_string(),
             command: kind.command_name().to_string(),

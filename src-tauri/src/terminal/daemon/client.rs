@@ -139,7 +139,7 @@ impl DaemonClient {
     ) -> Result<(), AppError> {
         session.validate().map_err(AppError::invalid_argument)?;
         let info: SessionInfo = self.call(Command::Info { id: id.into() })?;
-        if info.profile_id != format!("agent:{}", session.agent.command_name()) {
+        if info.profile_id != format!("agent:{}", session.agent.id()) {
             return Err(AppError::invalid_argument(
                 "原生会话身份与后台任务类型不匹配",
             ));
@@ -214,11 +214,7 @@ impl DaemonClient {
             // 新进程立即退出也只返回结果，不再恢复；一次调用最多创建一个新进程。
         }
         let initial_identity = request.resume.as_ref().and_then(|id| {
-            let agent = match request.profile_id.as_str() {
-                "agent:codex" => crate::agent::AgentKind::Codex,
-                "agent:claude" => crate::agent::AgentKind::Claude,
-                _ => return None,
-            };
+            let agent = crate::agent::AgentKind::from_profile_id(&request.profile_id)?;
             Some(crate::agent::AgentSessionRef {
                 agent,
                 id: id.clone(),

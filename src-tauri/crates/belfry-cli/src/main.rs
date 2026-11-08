@@ -12,7 +12,8 @@ use std::process::ExitCode;
 use std::time::{Duration, Instant};
 
 use belfry_protocol::{
-    Command, ENV_ENDPOINT, ENV_TAB_ID, ENV_TOKEN, Request, Response, ResponseData, RoomTaskOp,
+    CAPABILITY_ROOMS_V1, Command, ENV_ENDPOINT, ENV_TAB_ID, ENV_TOKEN, Request, Response,
+    ResponseData, RoomTaskOp, room_compat,
 };
 
 fn main() -> ExitCode {
@@ -57,11 +58,28 @@ fn run(args: &[String]) -> Result<String, String> {
     let action = parse(args)?;
     let session = Session::from_env()?;
     match action {
-        Action::Once(command) => match session.send(command)? {
-            Response::Ok { data } => Ok(render(data)),
-            Response::Error { message } => Err(message),
-        },
+        Action::Once(command) => {
+            let room_command = command.is_room();
+            match session.send(command).map_err(|message| explain_room_error(room_command, message))? {
+                Response::Ok { data } => Ok(render(data)),
+                Response::Error { message } => Err(explain_room_error(room_command, message)),
+            }
+        }
         Action::Wait { task, timeout } => wait_for(&session, &task, timeout),
+    }
+}
+
+fn explain_room_error(room_command: bool, message: String) -> String {
+    if room_command && message.contains("协作房间协议不兼容") {
+        return format!("{message}\n不要改用 belfry send 派房间任务，它不会写入房间任务板。恢复后先运行 belfry room status 核对，再拆解并创建任务。");
+    }
+    if room_command && ["协作请求格式无效", "应用协作响应无效", "协作协议版本不匹配", "回应看不懂"]
+        .iter().any(|hint| message.contains(hint))
+    {
+        format!("{message}\n房间命令与当前应用或常驻后台的协议不兼容。请向用户报告原始错误；更新并重新打开 Belfry 应用后先用 belfry room status 核对，终端后台无需重启。\n\
+不要改用 belfry send 派房间任务，它不会写入房间任务板。响应失败时写入结果可能未知，先核对任务板，不要自动重复创建任务。")
+    } else {
+        message
     }
 }
 
@@ -405,6 +423,47 @@ impl Session {
     }
 
     fn send(&self, command: Command) -> Result<Response, String> {
+        // wait 只能查询真实任务号；内部传输外壳由本进程通过 exchange 发送。
+        if room_compat::unwrap_command(&command).is_some() {
+            return Err("任务编号无效：房间操作请使用 belfry room 命令".into());
+        }
+        if command.is_room() {
+            // 必须在写操作之前检查。旧后台可能已经转发 room say，却丢掉回执字段；
+            // 收到解析错误后重试会重复发消息。peers 是旧后台也能处理的只读探针。
+            match self.exchange(Command::Peers)? {
+                Response::Ok {
+                    data: ResponseData::Peers { capabilities, .. },
+                } if capabilities.iter().any(|value| value == CAPABILITY_ROOMS_V1) => {}
+                Response::Error { message } => return Err(message),
+                _ => return self.send_compatible_room(command),
+            }
+        }
+        self.exchange(command)
+    }
+
+    fn send_compatible_room(&self, command: Command) -> Result<Response, String> {
+        // 缺少能力标记也可能只是旧后台把字段丢了。先走 v1 字符串外壳做只读
+        // 探测；旧应用只会报「找不到任务」，不会执行任何房间写操作。
+        let incompatible = |message: String| format!(
+            "协作房间协议不兼容：当前应用未能确认房间兼容通道，本次房间操作未发送。\n\
+             {message}\n请更新并重新打开 Belfry 应用后重试，现有终端后台无需重启。"
+        );
+        let probe = room_compat::wrap_command(&Command::Peers)?;
+        let response = self.exchange(probe)
+            .and_then(room_compat::unwrap_response)
+            .map_err(incompatible)?;
+        match response {
+            Response::Ok { data: ResponseData::Peers { capabilities, .. } }
+                if capabilities.iter().any(|value| value == CAPABILITY_ROOMS_V1) => {}
+            Response::Error { message } => return Err(incompatible(message)),
+            _ => return Err(incompatible("应用未声明房间协议能力".into())),
+        }
+        // 探测成功后只发送一次。写入后的回执异常不再换通道或重试。
+        let wrapped = room_compat::wrap_command(&command)?;
+        room_compat::unwrap_response(self.exchange(wrapped)?)
+    }
+
+    fn exchange(&self, command: Command) -> Result<Response, String> {
         let request = Request::new(self.tab_id.clone(), self.token.clone(), command);
         let mut line =
             serde_json::to_string(&request).map_err(|err| format!("请求序列化失败：{err}"))?;
@@ -568,7 +627,7 @@ fn render_status(status: &belfry_protocol::RoomStatusView) -> String {
 /// 不输出 JSON：Agent 读的是终端，人话它一样解析得了，而且用户瞟一眼也能看懂。
 fn render(data: ResponseData) -> String {
     match data {
-        ResponseData::Peers { peers } => {
+        ResponseData::Peers { peers, .. } => {
             if peers.is_empty() {
                 return "现在没有别的会话".to_string();
             }
@@ -705,6 +764,21 @@ mod tests {
     }
 
     #[test]
+    fn incompatible_room_protocols_explain_the_empty_board_without_retrying() {
+        for error in ["协作请求格式无效", "应用协作响应无效", "回应看不懂：missing field `message`"] {
+            let explained = explain_room_error(true, error.into());
+            assert!(explained.starts_with(error));
+            assert!(explained.contains("belfry room status") && explained.contains("不会写入房间任务板"));
+            assert!(explained.contains("不要自动重复创建任务"));
+        }
+        assert_eq!(explain_room_error(true, "房间里没有这个成员".into()), "房间里没有这个成员");
+        assert_eq!(explain_room_error(false, "应用协作响应无效".into()), "应用协作响应无效");
+        let unsent = explain_room_error(true, "协作房间协议不兼容，本次房间操作未发送".into());
+        assert!(unsent.contains("本次房间操作未发送") && unsent.contains("不会写入房间任务板"));
+        assert!(!unsent.contains("写入结果可能未知"));
+    }
+
+    #[test]
     fn wait_takes_a_task_and_an_optional_timeout() {
         match parse(&["wait".into(), "01abcdef".into()]) {
             Ok(Action::Wait { task, timeout }) => {
@@ -780,6 +854,7 @@ mod tests {
     #[test]
     fn peers_render_marks_self_and_readiness() {
         let text = render(ResponseData::Peers {
+            capabilities: vec![],
             peers: vec![
                 belfry_protocol::Peer {
                     tab_id: "t1".into(),
@@ -821,7 +896,7 @@ mod tests {
     #[test]
     fn an_empty_roster_says_so_instead_of_printing_nothing() {
         // 空输出会被 Agent 当成命令失败，得给一句明确的话。
-        assert!(!render(ResponseData::Peers { peers: vec![] }).is_empty());
+        assert!(!render(ResponseData::Peers { peers: vec![], capabilities: vec![] }).is_empty());
     }
 
     #[test]

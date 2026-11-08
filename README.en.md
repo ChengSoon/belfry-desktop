@@ -8,7 +8,7 @@
 
 ### Hosts your CLI agents. Still a real terminal.
 
-Run Codex and Claude Code through one interface on macOS and Windows, and see what they're doing — working, waiting on you, or done. No agent installed? It's still a full terminal.
+Run Codex, Claude Code, Pi, Antigravity CLI, OpenCode, and Kimi Code through one interface on macOS and Windows, and see what they're doing — working, waiting on you, or done. No agent installed? It's still a full terminal.
 
 **English** · [简体中文](README.md)
 
@@ -54,7 +54,7 @@ claude --version
 Then:
 
 1. Launch Belfry, click the project switcher at the top, pick a local directory.
-2. Open the new-session menu in the sidebar and choose Shell, SSH, Codex, or Claude. Undetected agents are greyed out; hover to see why.
+2. Open the new-session menu in the sidebar and choose Shell, SSH, or one of six agents. Undetected agents are greyed out; hover to see why, or install them from About.
 3. Open as many sessions per project as you want — tabs name themselves after your first prompt.
 4. Hit `⌘U` for the usage panel to see which model and project your tokens went to.
 
@@ -74,7 +74,8 @@ Neither agent detected? Doesn't matter. Shell sessions don't depend on them, and
 
 **Agent hosting**
 
-- Detects Codex and Claude Code automatically: executable path, version, and a reason when unavailable
+- Detects all six agents automatically: executable path, version, and a reason when unavailable; supports installation and updates
+- Antigravity CLI, OpenCode, and Kimi Code support native history, usage, providers, plugins, queues, and collaboration. See the [integration notes](docs/native-agent-integration.md) for tested versions and native differences
 - Session state separates process lifecycle (creating / running / exited / error) from current behavior (idle / talking / awaiting choice)
 - Tab titles are extracted from your first prompt; the untruncated original stays in the tooltip
 - Collaboration tasks queue per target Agent while it is busy or awaiting confirmation, then dispatch in order when it returns to idle
@@ -89,7 +90,7 @@ Neither agent detected? Doesn't matter. Shell sessions don't depend on them, and
 
 **Provider switching**
 
-- Switch Codex / Claude Code routing between official endpoints and third-party relays. It rewrites the CLI's own config files, so running `claude` or `codex` outside Belfry picks up the same setting
+- Global and project providers are available for all six agents. Global selections use native CLI configuration; Antigravity's Gemini endpoint and key are injected when Belfry launches it
 - Surgical field rewrites: only routing keys like `ANTHROPIC_BASE_URL` and the `[model_providers.belfry]` table are touched — your hooks, MCP definitions, and project trust records stay byte-for-byte intact
 - On first launch, whatever is already in your config files is adopted as a switchable entry, so nothing is silently overwritten
 - Codex's ChatGPT login state is backed up before switching to a third party and restored verbatim when you switch back
@@ -107,7 +108,7 @@ Neither agent detected? Doesn't matter. Shell sessions don't depend on them, and
 
 **Usage stats**
 
-- Aggregated straight from local Codex / Claude session logs — no network requests
+- Aggregated from local CLI data, including the three new agents' native stores — no network requests
 - Four token buckets on one scale: input (excluding cache hits), cachedInput, cacheWrite, output
 - Broken down by model and by project; window selectable as last 7 days / last 30 days / all time
 - Quota windows and plan type (only Codex logs carry these fields; Claude's don't)

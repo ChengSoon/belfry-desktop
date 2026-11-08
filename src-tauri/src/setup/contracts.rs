@@ -25,11 +25,11 @@ impl CheckKind {
     fn id(self) -> String {
         match self {
             Self::Diagnostics => "diagnostics".to_string(),
-            Self::Skill(agent) => format!("{}-skill", agent.command_name()),
-            Self::Cli(agent) => format!("{}-cli", agent.command_name()),
-            Self::Auth(agent) => format!("{}-auth", agent.command_name()),
-            Self::MultiAgent(agent) => format!("{}-multi-agent", agent.command_name()),
-            Self::Doctor(agent) => format!("{}-doctor", agent.command_name()),
+            Self::Skill(agent) => format!("{}-skill", agent.id()),
+            Self::Cli(agent) => format!("{}-cli", agent.id()),
+            Self::Auth(agent) => format!("{}-auth", agent.id()),
+            Self::MultiAgent(agent) => format!("{}-multi-agent", agent.id()),
+            Self::Doctor(agent) => format!("{}-doctor", agent.id()),
             Self::Collaboration => "collaboration".to_string(),
         }
     }

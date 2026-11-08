@@ -1,8 +1,8 @@
 use tauri::{AppHandle, Manager, State, ipc::Channel};
 
 use super::contracts::{
-    AppError, CreateTerminalRequest, LaunchProfileId, ShellProfile, SshTarget, TerminalEvent,
-    TerminalPalette, TerminalSession, TerminalSize,
+    AppError, CreateTerminalRequest, ShellProfile, SshTarget, TerminalEvent, TerminalPalette,
+    TerminalSession, TerminalSize,
 };
 use super::launch::detect_shell_profiles;
 use super::runtime::TerminalRuntime;
@@ -92,10 +92,7 @@ fn issue_collab_identity(
     let Some(tab_id) = request.tab_id.clone() else {
         return;
     };
-    if !matches!(
-        LaunchProfileId::parse(&request.profile_id),
-        Ok(LaunchProfileId::AgentCodex | LaunchProfileId::AgentClaude | LaunchProfileId::AgentPi)
-    ) {
+    if crate::agent::AgentKind::from_profile_id(&request.profile_id).is_none() {
         return;
     }
     let project = request.cwd.as_deref().and_then(project_path);

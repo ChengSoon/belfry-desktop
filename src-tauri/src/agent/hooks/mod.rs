@@ -1,11 +1,12 @@
 pub mod commands;
 mod config;
 mod contracts;
-pub(super) mod features;
+pub(crate) mod features;
 mod helper;
 mod input;
 mod install;
 mod machine;
+mod native_config;
 mod registry;
 mod runtime;
 mod server;

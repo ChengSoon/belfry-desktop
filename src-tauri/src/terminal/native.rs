@@ -54,11 +54,12 @@ pub(super) struct NativeSession {
 impl PtyBackend for NativePtyBackend {
     fn spawn(
         &self,
-        request: CreateTerminalRequest,
+        mut request: CreateTerminalRequest,
         sink: Arc<dyn TerminalEventSink>,
     ) -> Result<TerminalSession, AppError> {
         request.validate()?;
         validate_platform(request.platform)?;
+        crate::agent::integration::prepare(&mut request)?;
         let cwd = resolve_cwd(request.cwd.as_deref())?;
         let mut launch = resolve_launch(
             &request.profile_id,

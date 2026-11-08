@@ -9,7 +9,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { useEffect } from "react";
-import { ClaudeIcon, CodexIcon, PiIcon } from "../workspace/components/AgentIcons";
+import { AGENT_ICONS } from "../workspace/components/AgentIcons";
 import { SettingsHeader } from "../settings/SettingsHeader";
 import { ICON } from "../theme/sizing";
 import type { UpdaterState } from "../updater/contracts";
@@ -35,8 +35,6 @@ interface AboutSectionProps {
   onOpenUpdater: () => void;
   onGuardChange: (guarded: boolean) => void;
 }
-
-const AGENT_ICON = { claude: ClaudeIcon, codex: CodexIcon, pi: PiIcon } as const;
 
 export function AboutSection({ updaterState, updaterOpen, onOpenUpdater, onGuardChange }: AboutSectionProps) {
   const model = useAgentReleases(true);
@@ -150,7 +148,7 @@ function AgentCard({
   result: ReturnType<typeof useAgentReleases>["result"];
   onInstall: () => void;
 }) {
-  const Icon = AGENT_ICON[release.kind];
+  const Icon = AGENT_ICONS[release.kind];
   const busy = installing === release.kind;
   const failed = result?.kind === release.kind && !result.success;
   const actionable = release.state === "upgradable" || release.state === "missing";

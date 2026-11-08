@@ -46,10 +46,14 @@ pub(crate) async fn latest(package: &str) -> Result<Option<String>, String> {
         return Ok(None);
     }
     if !response.status().is_success() {
-        return Err(format!("npm registry 返回 HTTP {}", response.status().as_u16()));
+        return Err(format!(
+            "npm registry 返回 HTTP {}",
+            response.status().as_u16()
+        ));
     }
     let bytes = read_body(response).await?;
-    let value: Value = serde_json::from_slice(&bytes).map_err(|_| "npm registry 未返回有效的 JSON")?;
+    let value: Value =
+        serde_json::from_slice(&bytes).map_err(|_| "npm registry 未返回有效的 JSON")?;
     let latest = value
         .get("latest")
         .and_then(Value::as_str)
@@ -67,10 +71,9 @@ fn validate_package_name(package: &str) -> Result<(), String> {
     if trimmed.is_empty() || trimmed.len() > 214 {
         return Err("包名为空或过长".to_string());
     }
-    if !trimmed
-        .bytes()
-        .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'@' | b'/' | b'-' | b'_' | b'~'))
-    {
+    if !trimmed.bytes().all(|byte| {
+        byte.is_ascii_alphanumeric() || matches!(byte, b'@' | b'/' | b'-' | b'_' | b'~')
+    }) {
         return Err("包名包含非法字符".to_string());
     }
     Ok(())
@@ -78,13 +81,38 @@ fn validate_package_name(package: &str) -> Result<(), String> {
 
 async fn read_body(mut response: reqwest::Response) -> Result<Vec<u8>, String> {
     let mut bytes = Vec::new();
-    while let Some(chunk) = response.chunk().await.map_err(|_| "读取 npm registry 响应失败")? {
+    while let Some(chunk) = response
+        .chunk()
+        .await
+        .map_err(|_| "读取 npm registry 响应失败")?
+    {
         if bytes.len() + chunk.len() > MAX_RESPONSE_BYTES {
             return Err("npm registry 响应过大".to_string());
         }
         bytes.extend_from_slice(&chunk);
     }
     Ok(bytes)
+}
+
+pub(super) async fn json(url: &str) -> Result<Value, String> {
+    if rustls::crypto::CryptoProvider::get_default().is_none() {
+        let _ = rustls::crypto::ring::default_provider().install_default();
+    }
+    let client = Client::builder()
+        .timeout(Duration::from_secs(TIMEOUT_SECONDS))
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .map_err(|_| "无法创建发布请求")?;
+    let response = client
+        .get(url)
+        .send()
+        .await
+        .map_err(|_| "无法连接官方发布服务器，请检查网络")?;
+    if !response.status().is_success() {
+        return Err(format!("官方发布服务器返回 HTTP {}", response.status()));
+    }
+    serde_json::from_slice(&read_body(response).await?)
+        .map_err(|_| "发布服务器返回了无效 JSON".into())
 }
 
 #[cfg(test)]
@@ -108,7 +136,8 @@ mod tests {
 
     #[test]
     fn latest_field_parsing() {
-        let value: Value = serde_json::from_str(r#"{"latest":"2.1.263","beta":"2.2.0-beta.1"}"#).unwrap();
+        let value: Value =
+            serde_json::from_str(r#"{"latest":"2.1.263","beta":"2.2.0-beta.1"}"#).unwrap();
         assert_eq!(value.get("latest").and_then(Value::as_str), Some("2.1.263"));
     }
 }

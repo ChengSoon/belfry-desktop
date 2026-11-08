@@ -55,11 +55,8 @@ impl HookRuntime {
         let Some(tab_id) = request.tab_id.clone() else {
             return;
         };
-        let agent = match request.profile_id.as_str() {
-            "agent:codex" => AgentKind::Codex,
-            "agent:claude" => AgentKind::Claude,
-            "agent:pi" => AgentKind::Pi,
-            _ => return,
+        let Some(agent) = AgentKind::from_profile_id(&request.profile_id) else {
+            return;
         };
         let report = settings::report(agent);
         let port = self.server.as_ref().map(Server::port);

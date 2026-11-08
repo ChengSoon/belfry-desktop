@@ -33,6 +33,12 @@ function FormField({ name, label, hint, children, issue }: {
 
 export function ProviderForm({ kind, busy, draft, hasApiKey = false, issue, onCancel, onChange, onSubmit }: ProviderFormProps) {
   const [showKey, setShowKey] = useState(false);
+  const nativeModel = ["antigravity", "opencode", "kimi"].includes(kind);
+  const baseHint = kind === "antigravity"
+    ? "使用 Gemini API 基础地址（通常以 /v1beta 结尾）；地址与密钥在从 Belfry 启动会话时生效。"
+    : kind === "opencode" || kind === "kimi"
+      ? "使用 OpenAI 兼容的 Chat Completions 基础地址（通常以 /v1 结尾）。"
+      : "填写服务商提供的完整 API 基础地址，保留要求的路径。";
   const field = (key: FieldName) => ({
     id: `provider-${key}`, value: draft[key], disabled: busy,
     "aria-invalid": issue?.field === key,
@@ -45,7 +51,7 @@ export function ProviderForm({ kind, busy, draft, hasApiKey = false, issue, onCa
       <FormField name="name" label="服务名称" hint="用用途或供应商命名，方便切换时识别。" issue={issue}>
         <input autoFocus placeholder="例如：团队共享 · 主力服务" {...field("name")} />
       </FormField>
-      <FormField name="baseUrl" label="Base URL" hint="填写服务商提供的完整 API 基础地址，保留要求的路径。" issue={issue}>
+      <FormField name="baseUrl" label="Base URL" hint={baseHint} issue={issue}>
         <input placeholder="https://api.example.com" spellCheck={false} autoCapitalize="none" {...field("baseUrl")} />
       </FormField>
       <div className="provider-form__row">
@@ -71,8 +77,8 @@ export function ProviderForm({ kind, busy, draft, hasApiKey = false, issue, onCa
       </FormField>
     </fieldset>
     <fieldset disabled={busy}>
-      <legend><span>02</span> 模型偏好 <small>可选</small></legend>
-      <ProviderModelField kind={kind} draft={draft} busy={busy} onChange={onChange} />
+      <legend><span>02</span> 模型偏好 <small>{nativeModel ? "必填" : "可选"}</small></legend>
+      <ProviderModelField kind={kind} draft={draft} busy={busy} onChange={onChange} issue={issue} />
     </fieldset>
     <div className="provider-form__footer">
       <p className="provider-form__hint">Belfry 加密保存密钥，由系统凭据存储保护；外部 CLI 配置仍可能以明文保存密钥。</p>

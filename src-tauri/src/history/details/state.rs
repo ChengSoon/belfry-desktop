@@ -36,6 +36,13 @@ impl HistoryDetailState {
         let active = self.register(&request.reader_id)?;
         let id = request.reader_id.clone();
         let result = tauri::async_runtime::spawn_blocking(move || {
+            if crate::history::native::supported(request.session.agent) {
+                crate::history::native::refresh(
+                    request.session.agent,
+                    Some(&request.session.id),
+                    &|| active.cancel.check(),
+                )?;
+            }
             let mut reader = DetailReader::open(request, &root, active.cancel)?;
             let page = reader.page(0)?;
             *active.reader.lock().map_err(|_| unavailable())? = Some(reader);

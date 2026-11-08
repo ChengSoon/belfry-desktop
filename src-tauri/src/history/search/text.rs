@@ -5,10 +5,12 @@ use crate::agent::AgentKind;
 pub(super) fn record_text(agent: AgentKind, record: &Value) -> Vec<String> {
     match agent {
         AgentKind::Codex => codex_text(record),
-        AgentKind::Claude => match record["type"].as_str() {
-            Some("user" | "assistant") => content_text(&record["message"]["content"]),
-            _ => Vec::new(),
-        },
+        AgentKind::Claude | AgentKind::Antigravity | AgentKind::Opencode | AgentKind::Kimi => {
+            match record["type"].as_str() {
+                Some("user" | "assistant") => content_text(&record["message"]["content"]),
+                _ => Vec::new(),
+            }
+        }
         AgentKind::Pi => match record["role"].as_str() {
             Some("user" | "assistant" | "toolResult") => content_text(&record["content"]),
             Some("bashExecution") => content_text(&record["output"]),

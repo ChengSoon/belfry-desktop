@@ -23,9 +23,9 @@ async function readRequest(request) {
 }
 function validateSession(input) {
   if (typeof input.sessionId !== "string" || !input.sessionId || input.sessionId.length > 128 || !isAbsolute(input.workspace)) throw apiError("INVALID_ARGUMENT", "Agent 会话上下文无效");
-  if (input.agentKind != null && !["codex", "claude"].includes(input.agentKind)) throw apiError("INVALID_ARGUMENT", "Agent 类型无效");
+  if (input.agentKind != null && !["codex", "claude", "pi", "antigravity", "opencode", "kimi"].includes(input.agentKind)) throw apiError("INVALID_ARGUMENT", "Agent 类型无效");
   if (input.agentSession != null && (input.agentSession.agent !== input.agentKind
-    || !["codex", "claude"].includes(input.agentSession.agent)
+    || !["codex", "claude", "pi", "antigravity", "opencode", "kimi"].includes(input.agentSession.agent)
     || typeof input.agentSession.id !== "string" || !/^[a-zA-Z0-9_-]{1,128}$/.test(input.agentSession.id))) {
     throw apiError("INVALID_ARGUMENT", "Agent 原生会话标识无效");
   }
@@ -99,10 +99,21 @@ export class McpServer {
     }
     if (message.id === undefined) return dispatchMcp(this.manager, message, context);
     if (context.calls.has(message.id)) throw apiError("INVALID_ARGUMENT", "MCP 请求 ID 重复");
+    if (message.method === "tools/call" && ["antigravity", "opencode", "kimi"].includes(context.agentKind)) {
+      // Identity is supplied by the trusted daemon Hook channel, never by MCP tool arguments.
+      try {
+        const native = await this.manager.broker.platform({ api: "session.nativeContext", args: [context.sessionId, false] });
+        if (!context.expired && native?.agentSession?.agent === context.agentKind) {
+          validateSession({ ...context, ...native });
+          context.agentSession = native.agentSession; context.historyRoot = native.historyRoot;
+        }
+      } catch { /* Tools remain usable before the CLI supplies an identity. */ }
+    }
     bindToolContext(context, message);
     this.publishIdentity(context);
     const controller = new AbortController(); context.calls.set(message.id, controller);
-    const scoped = Object.assign(Object.create(context), { abort: { signal: AbortSignal.any([context.abort.signal, controller.signal]) } });
+    const scoped = Object.assign(Object.create(context), { agentSession: context.agentSession ? { ...context.agentSession } : null,
+      historyRoot: context.historyRoot, abort: { signal: AbortSignal.any([context.abort.signal, controller.signal]) } });
     const disconnect = () => { if (!response.writableEnded) controller.abort(apiError("CANCELLED", "Agent 已断开本次请求")); };
     response.once("close", disconnect);
     try { const result = await dispatchMcp(this.manager, message, scoped); activeContext(scoped); return result; }

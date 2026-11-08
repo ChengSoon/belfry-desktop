@@ -1,7 +1,8 @@
 import type { ProviderConfig, ProviderDraft } from "./contracts";
+import type { AgentKind } from "../agent/contracts";
 
 export interface DraftIssue {
-  field: "name" | "baseUrl" | "apiKey";
+  field: "name" | "baseUrl" | "apiKey" | "model";
   message: string;
 }
 
@@ -14,6 +15,7 @@ export interface DraftIssue {
 export function validateDraft(
   draft: ProviderDraft,
   existing: readonly ProviderConfig[],
+  kind?: AgentKind,
 ): DraftIssue | null {
   const name = draft.name.trim();
   if (!name) {
@@ -48,6 +50,9 @@ export function validateDraft(
   const original = existing.find((item) => item.id === draft.id);
   if (draft.apiKeyAction === "keep" && original && original.baseUrl.trim() !== baseUrl) {
     return { field: "apiKey", message: "更改 Base URL 后必须替换或清除密钥，不能保留原密钥。" };
+  }
+  if (kind && ["antigravity", "opencode", "kimi"].includes(kind) && !draft.model.trim()) {
+    return { field: "model", message: "请填写服务商提供的模型 ID" };
   }
   return null;
 }

@@ -3,6 +3,13 @@
 //! 两家 Agent 的日志都写 UTC（`...Z`），但仍按显式偏移解析，避免以后换格式时静默算错。
 //! 只为这一个函数引入 chrono 不划算，这里用 Howard Hinnant 的 days-from-civil 算法。
 
+pub(crate) fn parse_value(value: &serde_json::Value) -> Option<i64> {
+    value
+        .as_str()
+        .and_then(parse_rfc3339)
+        .or_else(|| value.as_i64())
+}
+
 /// 解析 `YYYY-MM-DDTHH:MM:SS[.fff][Z|±HH:MM]`。无法解析时返回 None，调用方跳过该条记录。
 pub fn parse_rfc3339(value: &str) -> Option<i64> {
     let bytes = value.as_bytes();

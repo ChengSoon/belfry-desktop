@@ -83,6 +83,44 @@ fn write_logs_never_invent_the_previous_file_or_claim_a_new_file() {
 }
 
 #[test]
+fn native_edit_and_write_tools_expose_only_the_changes_recorded_by_the_cli() {
+    for (agent, name, input) in [
+        (
+            AgentKind::Kimi,
+            "Edit",
+            json!({"path":"app.ts","old_string":"before","new_string":"after"}),
+        ),
+        (
+            AgentKind::Opencode,
+            "edit",
+            json!({"path":"app.ts","oldString":"before","newString":"after"}),
+        ),
+        (
+            AgentKind::Antigravity,
+            "replace_file_content",
+            json!({"TargetFile":"app.ts","TargetContent":"before","ReplacementContent":"after"}),
+        ),
+    ] {
+        let value = json!({"type":"assistant","sessionId":"native","message":{"content":[{"type":"tool_use","id":"edit","name":name,"input":input}]}});
+        let entry = parse(&session(agent), &value, "0:1").unwrap();
+        let changes = &entry.tools[0].changes;
+        assert_eq!(changes.len(), 1);
+        assert_eq!(changes[0].path, "app.ts");
+        assert_eq!(changes[0].old_text.as_deref(), Some("before"));
+        assert_eq!(changes[0].new_text.as_deref(), Some("after"));
+    }
+    let input = json!({"TargetFile":"app.ts","ReplacementChunks":[{"TargetContent":"a","ReplacementContent":"b"},{"TargetContent":"c","ReplacementContent":"d"}]});
+    let value = json!({"type":"assistant","message":{"content":[{"type":"tool_use","id":"multi","name":"multi_replace_file_content","input":input},{"type":"tool_use","id":"write","name":"write_to_file","input":{"TargetFile":"new.ts","CodeContent":"export {}"}}]}});
+    let entry = parse(&session(AgentKind::Antigravity), &value, "0:2").unwrap();
+    assert_eq!(entry.tools[0].changes.len(), 2);
+    assert_eq!(
+        entry.tools[1].changes[0].new_text.as_deref(),
+        Some("export {}")
+    );
+    assert!(entry.tools[1].changes[0].old_text.is_none());
+}
+
+#[test]
 fn tool_results_keep_explicit_failure_and_unknown_status_separate() {
     let claude = json!({"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"edit", "is_error":true,"content":"找不到替换片段"}]}});
     let failed = parse(&session(AgentKind::Claude), &claude, "0:2").unwrap();

@@ -246,3 +246,38 @@ fn collaboration_forwards_commands_the_daemon_does_not_know() {
         assert!(response.contains("\"status\":\"error\""), "{bad} -> {response}");
     }
 }
+
+#[test]
+fn collaboration_preserves_future_response_types_and_fields() {
+    let relay = Relay::start().unwrap();
+    let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+    let mut launch = request();
+    launch.env.insert(belfry_protocol::ENV_ENDPOINT.into(), format!("tcp:{}", listener.local_addr().unwrap()));
+    launch.env.insert(belfry_protocol::ENV_TOKEN.into(), "ui-secret".into());
+    relay.bind("pty", &mut launch).unwrap();
+    let port: u16 = launch.env[belfry_protocol::ENV_ENDPOINT].strip_prefix("tcp:127.0.0.1:").unwrap().parse().unwrap();
+    let responses = [
+        "{\"status\":\"ok\",\"data\":{\"kind\":\"futureRoomPlan\",\"tasks\":[{\"id\":\"T1\",\"title\":\"前端任务\"}]},\"revision\":2}\n",
+        "{\"status\":\"ok\",\"data\":{\"kind\":\"rooms\",\"rooms\":[],\"capabilities\":[\"roomTask\"]}}\n",
+        "{\"status\":\"error\",\"message\":\"暂不可用\",\"retryable\":false}\n",
+    ];
+    let worker = thread::spawn(move || {
+        for response in responses {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut line = String::new();
+            BufReader::new(stream.try_clone().unwrap()).read_line(&mut line).unwrap();
+            stream.write_all(response.as_bytes()).unwrap();
+        }
+    });
+    let request = belfry_protocol::Request::new(
+        "qa-tab".into(), launch.env[belfry_protocol::ENV_TOKEN].clone(), belfry_protocol::Command::Rooms,
+    );
+    for expected in responses {
+        let mut stream = transport::connect(port).unwrap();
+        writeln!(stream, "{}", serde_json::to_string(&request).unwrap()).unwrap();
+        let mut actual = String::new();
+        BufReader::new(stream).read_line(&mut actual).unwrap();
+        assert_eq!(actual, expected, "响应也必须原样转发，不能按后台自己的协议丢字段或拒绝新类型");
+    }
+    worker.join().unwrap();
+}

@@ -35,6 +35,8 @@ pub(crate) use client::DaemonClient;
 pub(crate) use leases::LeaseGuard;
 pub(crate) use protocol::SessionInfo;
 pub(crate) use server::run_if_requested;
+#[cfg(test)]
+pub(crate) use relay::Relay as TestRelay;
 
 /// 后台终端服务的存储目录名。
 ///

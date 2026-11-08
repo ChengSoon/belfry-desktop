@@ -55,7 +55,8 @@ impl Service {
         let value = match command {
             Command::Ping => Ok(
                 serde_json::json!({ "version": super::protocol::VERSION, "pid": std::process::id(),
-                    "capabilities": ["recover_exited", "session_identity"] }),
+                    "appVersion": env!("CARGO_PKG_VERSION"),
+                    "capabilities": ["recover_exited", "session_identity", "collab_passthrough_v1"] }),
             ),
             Command::Create {
                 mut launch,

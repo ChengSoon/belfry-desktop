@@ -1,5 +1,5 @@
 import { Disclosure } from "../../components/controls/Disclosure";
-import type { AgentKind } from "../contracts";
+import { AGENT_METADATA, type AgentKind } from "../contracts";
 import type { AgentHookReport, HookInstallPreview } from "./contracts";
 
 interface AgentProps {
@@ -8,7 +8,7 @@ interface AgentProps {
 }
 interface PreviewProps { preview: HookInstallPreview; busy: boolean; onConfirm: () => void; onCancel: () => void }
 
-const label = (kind: AgentKind) => kind === "codex" ? "Codex" : kind === "claude" ? "Claude Code" : "Pi";
+const label = (kind: AgentKind) => AGENT_METADATA[kind].name;
 
 export function HookAgentCard({ report, busy, onPreview }: AgentProps) {
   const name = label(report.kind);

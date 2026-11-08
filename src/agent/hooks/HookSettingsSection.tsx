@@ -24,6 +24,6 @@ export function HookSettingsSection({ onGuardChange }: { onGuardChange: (guarded
     {state.preview ? <HookPreviewCard preview={state.preview} busy={state.busy} onCancel={state.cancel} onConfirm={state.confirm} /> : null}
     {state.reports.length === 0 && state.busy ? <p role="status">正在检查 CLI 版本和 Hook 配置…</p> : null}
     {state.reports.map((report) => <HookAgentCard key={report.kind} report={report} busy={state.busy || Boolean(state.preview)} onPreview={state.inspect} />)}
-    <Disclosure className="hook-settings__footnote" title={<>版本与配置说明</>}><p>支持下限：Codex 0.154.0、Claude Code 2.1.201。较旧或无法识别的版本保持推断。安装内容可预览，移除只处理 Belfry 托管命令。</p></Disclosure>
+    <Disclosure className="hook-settings__footnote" title={<>版本与配置说明</>}><p>支持下限：Codex 0.154.0、Claude Code 2.1.201、Antigravity CLI 1.5.3、OpenCode 2.2.6、Kimi Code 2.5.2。较旧或无法识别的版本保持推断。安装内容可预览，移除只处理 Belfry 托管命令。</p></Disclosure>
   </section>;
 }

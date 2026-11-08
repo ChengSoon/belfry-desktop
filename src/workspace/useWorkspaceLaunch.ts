@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { isAgentKind } from "../agent/contracts";
 import { isShellProfileId, type ShellProfileId, type SshLaunch } from "../terminal/contracts";
 import { openProject } from "./api";
 import type { AppFailure, ProjectWorkspace, WorkspaceTabKind } from "./contracts";
@@ -70,7 +71,7 @@ function launchFailure(environment: Pick<LaunchOptions["environment"], "agents" 
   if (shell && !shell.available) {
     return { code: "NOT_FOUND", message: shell.reason ?? `${profileId} 不可用`, retryable: true };
   }
-  const agent = kind === "codex" || kind === "claude" || kind === "pi"
+  const agent = isAgentKind(kind)
     ? environment.agents.find((item) => item.kind === kind) : null;
   return agent && !agent.available
     ? { code: "NOT_FOUND", message: agent.reason ?? `${kind} 不可用`, retryable: true } : null;

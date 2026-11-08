@@ -17,7 +17,13 @@ impl ClaudeUsage {
             return;
         }
         let message = &record["message"];
-        details.model(&message["model"]);
+        if record["belfryAuxiliary"] == true {
+            if let Some(model) = text(&message["model"]) {
+                details.models.insert(model.into());
+            }
+        } else {
+            details.model(&message["model"]);
+        }
         self.usage(record);
         for part in message["content"].as_array().into_iter().flatten() {
             if part["type"] == "tool_use" {

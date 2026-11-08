@@ -41,6 +41,7 @@ impl HistorySearchState {
             codex: scan::codex_sessions_root(),
             claude: scan::claude_sessions_root(),
             pi: scan::pi_sessions_root(),
+            native: true,
         };
         tauri::async_runtime::spawn_blocking(move || {
             let mut index = index.lock().map_err(|_| AppError::io("历史索引暂不可用"))?;
@@ -60,7 +61,7 @@ impl HistoryIndex {
     ) -> Result<HistorySearchReport, AppError> {
         query::validate(query)?;
         cancel.check()?;
-        let paths = source_files(roots, cancel)?;
+        let (paths, skipped) = source_files(roots, cancel)?;
         self.cache.retain(
             &paths
                 .iter()
@@ -68,6 +69,7 @@ impl HistoryIndex {
                 .collect::<HashSet<_>>(),
         );
         let mut results = results::SearchResults::default();
+        results.report.skipped_files = skipped;
         let needle = query.text.trim().to_lowercase();
         for (agent, path) in paths {
             cancel.check()?;
@@ -96,8 +98,20 @@ impl HistoryIndex {
 fn source_files(
     roots: &SearchRoots,
     cancel: &SearchCancellation,
-) -> Result<Vec<(AgentKind, std::path::PathBuf)>, AppError> {
+) -> Result<(Vec<(AgentKind, std::path::PathBuf)>, usize), AppError> {
     let mut paths = Vec::new();
+    let mut skipped = 0;
+    if roots.native {
+        for agent in crate::history::native::KINDS {
+            match crate::history::native::refresh(agent, None, &|| cancel.check()) {
+                Ok(root) => paths.extend(collect_source_files(&root, agent, cancel)?),
+                Err(_) => {
+                    cancel.check()?;
+                    skipped += 1;
+                }
+            }
+        }
+    }
     for (agent, root) in [
         (AgentKind::Codex, &roots.codex),
         (AgentKind::Claude, &roots.claude),
@@ -109,7 +123,7 @@ fn source_files(
         }
     }
     paths.sort_by(|left, right| left.1.cmp(&right.1));
-    Ok(paths)
+    Ok((paths, skipped))
 }
 
 fn collect_source_files(
@@ -128,7 +142,7 @@ fn collect_source_files(
                 return Err(AppError::io(format!(
                     "无法扫描历史目录 {}：{error}",
                     directory.display()
-                )))
+                )));
             }
         };
         for entry in entries {

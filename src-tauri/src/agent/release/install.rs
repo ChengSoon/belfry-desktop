@@ -10,8 +10,8 @@ use std::sync::Mutex;
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
-use crate::agent::detection::{find_agent, find_in_path, find_in_user_environment};
 use crate::agent::AgentKind;
+use crate::agent::detection::{find_agent, find_in_path, find_in_user_environment};
 use crate::setup::process::{command_for, first_output_line};
 use crate::terminal::AppError;
 
@@ -26,23 +26,40 @@ const LOG_TAIL_LINES: usize = 24;
 /// 进程内只允许一个安装任务，避免两个 npm 抢同一个全局目录互相踩。
 static INSTALL_LOCK: Mutex<()> = Mutex::new(());
 
-pub(crate) fn install(kind: AgentKind, package: &str) -> Result<AgentReleaseInstall, AppError> {
+pub(crate) fn install(kind: AgentKind) -> Result<AgentReleaseInstall, AppError> {
     let _guard = INSTALL_LOCK
         .try_lock()
         .map_err(|_| AppError::unsupported("已有安装任务在进行中"))?;
 
-    let npm = find_npm()
-        .ok_or_else(|| AppError::not_found("未找到 npm，请确认 Node.js 已安装并在登录 shell 的 PATH 中"))?;
-
-    let mut command = command_for(&npm);
-    command.args(["install", "-g", &format!("{package}@latest"), "--no-fund", "--no-audit"]);
+    let (mut command, package) = if let Some(command) = super::native::command(kind)? {
+        (command, kind.display_name().to_string())
+    } else {
+        let package = super::package_for(kind)?;
+        let npm = find_npm().ok_or_else(|| {
+            AppError::not_found("未找到 npm，请确认 Node.js 已安装并在登录 shell 的 PATH 中")
+        })?;
+        let mut command = command_for(&npm);
+        command.args([
+            "install",
+            "-g",
+            &format!("{package}@latest"),
+            "--no-fund",
+            "--no-audit",
+        ]);
+        (command, package)
+    };
     command.env("NO_COLOR", "1");
     if let Some(path) = crate::agent::login_shell_env().get("PATH") {
         command.env("PATH", path);
     }
-    command.stdout(Stdio::piped()).stderr(Stdio::piped());
+    command
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
 
-    let mut child = command.spawn().map_err(|error| AppError::io(format!("无法启动 npm：{error}")))?;
+    let mut child = command
+        .spawn()
+        .map_err(|error| AppError::io(format!("无法启动安装器：{error}")))?;
     // 各起一个 reader 线程读到 EOF：只轮询 try_wait 而不排空管道，
     // 会在缓冲区写满时死锁，npm 安装输出很长时必现。
     let stdout = drain(child.stdout.take());
@@ -58,7 +75,7 @@ pub(crate) fn install(kind: AgentKind, package: &str) -> Result<AgentReleaseInst
                 let _ = child.kill();
                 let _ = stdout.join();
                 let _ = stderr.join();
-                return Err(AppError::io(format!("等待 npm 退出失败：{error}")));
+                return Err(AppError::io(format!("等待安装器退出失败：{error}")));
             }
         }
         if started.elapsed() >= TIMEOUT {

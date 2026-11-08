@@ -70,6 +70,9 @@ export function flowGraph(room: Room, statusOf: (member: RoomMember) => MemberSt
   const members = activeMembers(room);
   const foreman = foremanOf(room);
   const peers = members.filter((member) => member.id !== foreman?.id);
+  const statuses = new Map(members.map((member) => [member.id, statusOf(member)]));
+  const busyPeers = peers.filter((member) => statuses.get(member.id) === "busy").length;
+  const activeTasks = room.tasks.filter((task) => task.status === "active").length;
   const nodes: FlowNode[] = [];
 
   // 从左往右读：你 → 统筹 → 成员一列排开。派活的方向就是阅读的方向，一眼看得出谁把活交给了谁。
@@ -85,10 +88,10 @@ export function flowGraph(room: Room, statusOf: (member: RoomMember) => MemberSt
     const current = active[0] ?? null;
     const subtitle = current
       ? `${current.id} ${current.title}`
-      : kind === "foreman" ? `统筹 · ${room.tasks.filter((task) => task.status === "active").length} 件进行中`
+      : kind === "foreman" ? (busyPeers ? `${busyPeers} 位成员忙碌` : activeTasks ? `${activeTasks} 件任务进行中` : "协调与分工")
         : member.duty || (planned.length ? `${planned.length} 件待开工` : "暂时没活");
     return {
-      id: member.id, kind, x, y, title: member.title, subtitle, status: statusOf(member),
+      id: member.id, kind, x, y, title: member.title, subtitle, status: statuses.get(member.id)!,
       memberId: member.id, tabId: member.tabId, current, load: active.length + planned.length,
     };
   };
@@ -112,18 +115,23 @@ export function flowGraph(room: Room, statusOf: (member: RoomMember) => MemberSt
     });
   };
 
-  // 骨架：你 → 统筹 → 每位成员。成员手上的活标在连线上。
+  // 流动表示会话此刻在处理，不要求先登记任务卡；任务状态只决定连线上的文字。
+  // 等待确认只高亮、不流动，避免看起来仍在推进。
+  const connectMember = (source: string, member: RoomMember) => {
+    const { active, planned } = tasksOf(room, member.id);
+    const status = statuses.get(member.id);
+    const parts: string[] = [];
+    if (active.length) parts.push(active.length === 1 ? `${active[0].id} 进行中` : `${active.length} 件进行中`);
+    if (planned.length) parts.push(`${planned.length} 件待开工`);
+    if (status === "waiting") connect(source, member.id, "waiting", "等你选择", false);
+    else if (status === "busy") connect(source, member.id, "active", parts.join(" · ") || (member.role === "foreman" ? "协调中" : "处理中"), true);
+    else connect(source, member.id, "idle", parts.join(" · ") || null, false);
+  };
+
+  // 骨架：你 → 统筹 → 每位成员，包括统筹自己的工作状态。
   if (foreman) {
-    connect(USER_ID, foreman.id, "idle", null, false);
-    for (const member of peers) {
-      const { active, planned } = tasksOf(room, member.id);
-      const status = statusOf(member);
-      const parts: string[] = [];
-      if (active.length) parts.push(active.length === 1 ? `${active[0].id} 进行中` : `${active.length} 件进行中`);
-      if (planned.length) parts.push(`${planned.length} 件待开工`);
-      if (status === "waiting") connect(foreman.id, member.id, "waiting", "等你选择", true);
-      else connect(foreman.id, member.id, active.length ? "active" : "idle", parts.join(" · ") || null, active.length > 0 && status === "busy");
-    }
+    connectMember(USER_ID, foreman);
+    for (const member of peers) connectMember(foreman.id, member);
   }
 
   // 最近的消息：连线亮起来；骨架之外的（成员之间、你直接找成员）临时补一条。
@@ -134,7 +142,8 @@ export function flowGraph(room: Room, statusOf: (member: RoomMember) => MemberSt
       if (existing && (existing.tone === "waiting" || existing.tone === "active")) continue;
       const source = existing && existing.source !== message.by ? existing.target : message.by;
       const to = existing && existing.source !== message.by ? existing.source : target;
-      connect(existing ? existing.source : source, existing ? existing.target : to, "message", existing?.label ?? "刚有消息", true);
+      const canAnimate = [message.by, target].every((id) => !["offline", "waiting"].includes(statuses.get(id) ?? "user"));
+      connect(existing ? existing.source : source, existing ? existing.target : to, "message", existing?.label ?? "刚有消息", canAnimate);
     }
   }
 
@@ -143,7 +152,9 @@ export function flowGraph(room: Room, statusOf: (member: RoomMember) => MemberSt
     for (const waiter of awaitingReply(message)) {
       const existing = edges.get(key(message.by, waiter));
       if (!existing || existing.tone === "waiting") continue;
-      edges.set(key(message.by, waiter), { ...existing, tone: "reply", label: `等${position.get(waiter)?.title ?? ""}回复`, animated: true });
+      // 正在处理回复时保留工作动效；欠回复本身不代表会话还在运行。
+      const working = existing.tone === "active";
+      edges.set(key(message.by, waiter), { ...existing, tone: working ? "active" : "reply", label: `等${position.get(waiter)?.title ?? ""}回复`, animated: working });
     }
   }
 

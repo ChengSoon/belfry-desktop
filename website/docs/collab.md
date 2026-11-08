@@ -37,7 +37,7 @@ description: 让多个 CLI Agent 会话互相配合
 协作依赖一套运行环境（Belfry skill、CLI 登录态、协作通道）。设置页提供**诊断**：
 
 - Belfry skill 是否就位、是最新版吗
-- Codex / Claude Code 的登录与功能状态
+- 各 CLI 的登录、Provider 与功能状态
 - doctor 结果与协作通道连通性
 
-诊断可以**自动同步或手动更新**内置 skill。三个客户端分别报告状态，**保留部分成功结果**——比如 Claude 正常而 Codex 没登录时，不会因为一个失败就全盘报错。
+诊断可以**自动同步或手动更新**内置 skill。六种客户端分别报告状态，**保留部分成功结果**——比如 Claude 正常而 Codex 没登录时，不会因为一个失败就全盘报错。

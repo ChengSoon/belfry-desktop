@@ -22,6 +22,20 @@ fn claude_message(id: &str, output: u64) -> Value {
 }
 
 #[test]
+fn native_auxiliary_usage_is_billed_without_replacing_the_current_model() {
+    let mut stats = accumulator(AgentKind::Opencode);
+    stats.consume(&claude_message("actual-message", 5));
+    let mut auxiliary = claude_message("auxiliary-usage", 2);
+    auxiliary["belfryAuxiliary"] = json!(true);
+    auxiliary["message"]["model"] = json!("unknown");
+    stats.consume(&auxiliary);
+    stats.consume(&auxiliary);
+    let report = stats.report();
+    assert_eq!(report.tokens.output, Some(7));
+    assert_eq!(report.current_model.as_deref(), Some("claude-test"));
+}
+
+#[test]
 fn codex_subtracts_cached_input_without_counting_reasoning_twice() {
     let mut stats = accumulator(AgentKind::Codex);
     stats.consume(&json!({"type":"turn_context","payload":{"model":"gpt-test"}}));

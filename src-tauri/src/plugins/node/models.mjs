@@ -29,6 +29,13 @@ export class PluginModels {
   async session(entry, context) {
     permission(entry, "session.read"); active(context);
     if (!context.toolName || !context.sessionId) throw apiError("INVALID_ARGUMENT", "会话上下文仅在 Agent 工具执行期间可用");
+    if (["antigravity", "opencode", "kimi"].includes(context.agentKind)) {
+      if (!context.agentSession) throw apiError("UNAVAILABLE", "工具调用开始时尚未收到 CLI 会话身份，请开启 Hook 后重试");
+      const native = await this.platform({ api: "session.nativeContext", args: [context.sessionId, true] }); active(context);
+      if (!native?.agentSession || native.agentSession.agent !== context.agentKind
+        || (context.agentSession && native.agentSession.id !== context.agentSession.id)) throw apiError("SESSION_MISMATCH", "读取期间 CLI 会话已切换，请重试");
+      context = Object.assign(Object.create(context), native);
+    }
     const result = await readSessionContext(context, qualified(entry.manifest.id, context.toolName), async (modelId) => {
       const models = await this.platform({ api: "models.list", pluginId: entry.manifest.id, args: [] });
       const matches = Array.isArray(models) ? models.filter((model) => model.modelId === modelId) : [];

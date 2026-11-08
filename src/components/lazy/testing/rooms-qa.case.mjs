@@ -140,9 +140,68 @@ for (const theme of ["dark", "light"]) {
     assert.ok(flow.labels.includes("等你选择"), `前端在等你选择：${flow.labels}`);
     assert.ok(flow.labels.some((x) => x.includes("T3 进行中")), `后端正在做 T3：${flow.labels}`);
     assert.ok(flow.waiting, "等你选择的节点高亮");
-    assert.ok(flow.animated >= 1, "正在做 / 等你的连线在动");
+    assert.ok(flow.animated >= 1, "正在做的连线在动");
     assert.equal(flow.overlap, false, "节点不重叠");
     await capturePanel(view, `room-flow-${theme}`);
+  });
+}
+
+for (const theme of ["dark", "light"]) {
+  test(`busy sessions animate without task cards and stop with activity changes (${theme})`, async (t) => {
+    const { view } = await browserFixture(t, `${PAGE}?theme=${theme}&attention=0&flow=untracked`);
+    await view.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "no-preference" }] });
+    await view.bounds({ x: 0, y: 0, width: 1440, height: 900 });
+    await waitFor(view, "!!document.querySelector('[role=tab]') && typeof window.qaSetActivity === 'function'");
+    await view.cdp.evaluate("[...document.querySelectorAll('[role=tab]')].find((tab) => tab.textContent.includes('流程')).dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }))");
+    await waitFor(view, "document.querySelectorAll('.room-flow-edge--animated').length === 3");
+    assert.equal(await view.cdp.evaluate("document.querySelectorAll('.room-flow-node--busy').length"), 3, "统筹和两位成员都显示工作状态");
+    assert.equal(await view.cdp.evaluate("document.querySelectorAll('aside[aria-label=任务板] article').length"), 0, "复现没有登记任务的场景");
+    assert.ok(await view.cdp.evaluate("document.querySelector('[data-id=foreman]').textContent.includes('2 位成员忙碌')"));
+
+    // 比较真实渲染帧：仅存在动画元素并不能证明动效在运行。
+    const frames = await view.cdp.evaluate(`(async () => {
+      const sample = () => [...document.querySelectorAll('.react-flow__edge')].filter((edge) => edge.querySelector('.room-flow-edge--animated')).map((edge) => {
+        const pulse = edge.querySelector('.room-flow-pulse').getCTM();
+        return { id: edge.dataset.id, dash: getComputedStyle(edge.querySelector('.room-flow-edge--animated')).strokeDashoffset, x: pulse.e, y: pulse.f };
+      });
+      const before = sample();
+      const bar = document.querySelector('.room-flow-activity i');
+      const beforeBar = getComputedStyle(bar).transform;
+      await new Promise((resolve) => setTimeout(resolve, 350));
+      return { before, after: sample(), beforeBar, afterBar: getComputedStyle(bar).transform };
+    })()`);
+    assert.equal(frames.before.length, 3);
+    for (let i = 0; i < frames.before.length; i++) {
+      assert.notEqual(frames.before[i].dash, frames.after[i].dash, `${frames.before[i].id} 的虚线确实流动`);
+      assert.ok(Math.hypot(frames.after[i].x - frames.before[i].x, frames.after[i].y - frames.before[i].y) > 1, `${frames.before[i].id} 的光点确实移动`);
+    }
+    assert.notEqual(frames.beforeBar, frames.afterBar, "节点上的工作指示持续变化");
+    await capturePanel(view, `room-flow-untracked-${theme}`);
+
+    assert.ok(await view.cdp.evaluate("document.querySelector('aside[aria-label=任务板]').textContent.includes('尚未登记任务')"));
+    await view.cdp.evaluate("[...document.querySelectorAll('aside[aria-label=任务板] button')].find((button) => button.textContent.includes('查看统筹终端')).click()");
+    assert.deepEqual(await view.cdp.evaluate("window.qaOpened"), ["t1"]);
+
+    await view.cdp.evaluate("['t1', 't2', 't3'].forEach((id) => window.qaSetActivity(id, 'idle'))");
+    await waitFor(view, "document.querySelectorAll('.room-flow-node--busy, .room-flow-edge--animated, .room-flow-pulse').length === 0");
+    await view.cdp.evaluate("window.qaSetActivity('t2', 'awaiting-choice')");
+    await waitFor(view, "!!document.querySelector('.room-flow-node--waiting')");
+    assert.equal(await view.cdp.evaluate("document.querySelectorAll('.room-flow-edge--animated').length"), 0, "等待确认不冒充工作中的流动");
+
+    await view.cdp.evaluate("window.qaSetActivity('t2', 'talking')");
+    await waitFor(view, "document.querySelectorAll('.room-flow-edge--animated').length === 1");
+    await view.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "reduce" }] });
+    await waitFor(view, "getComputedStyle(document.querySelector('.room-flow-edge--animated')).animationName === 'none'");
+    const reduced = await view.cdp.evaluate(`({
+      bar: getComputedStyle(document.querySelector('.room-flow-activity i')).animationName,
+      halo: getComputedStyle(document.querySelector('.room-flow-node--busy'), '::after').animationName,
+      particle: getComputedStyle(document.querySelector('.room-flow-pulse')).display,
+      text: document.querySelector('.room-flow-node--busy').textContent,
+    })`);
+    assert.equal(reduced.bar, "none");
+    assert.equal(reduced.halo, "none");
+    assert.equal(reduced.particle, "none");
+    assert.ok(reduced.text.includes("处理中"), "减少动态效果时仍然明确显示工作状态");
   });
 }
 

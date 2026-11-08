@@ -138,12 +138,12 @@ export default function App() {
     workspace.renameAgent(id, outcome.name);
     return null;
   }, [workspace.renameAgent, workspace.tabs]);
-  // 房间成员用协作模式启动（总线只认 Codex/Claude 两个配置）；不抢当前焦点，切回去看房间。
+  // 房间成员用协作模式启动；不抢当前焦点，切回去看房间。
   const launchRoomMember = useCallback(async (kind: AgentKind, projectRoot: string) => {
     if (workspace.activeProject && pathKey(workspace.activeProject.rootPath) === pathKey(projectRoot)) {
       unfold(workspace.activeProject.id);
     }
-    return workspace.launch(kind, undefined, projectRoot, false, kind === "codex" || kind === "claude");
+    return workspace.launch(kind, undefined, projectRoot, false, isAgentKind(kind));
   }, [unfold, workspace.activeProject, workspace.launch]);
   const promptQueue = usePromptQueue({ tabs: workspace.tabs, targets: terminalTargets.targets });
   // `belfry send` 的任务经后台队列投进目标终端，等待目标 Agent 空闲。

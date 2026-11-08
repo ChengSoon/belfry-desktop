@@ -1,4 +1,5 @@
 import { constants } from "node:fs";
+import { createHash } from "node:crypto";
 import { open, readdir, realpath } from "node:fs/promises";
 import { basename, isAbsolute, join, relative, sep } from "node:path";
 import { apiError } from "./errors.mjs";
@@ -8,7 +9,17 @@ const HEAD_BYTES = 64 * 1024, TAIL_BYTES = 2 * 1024 * 1024, MAX_FILES = 8, MAX_E
 const unavailable = () => apiError("UNAVAILABLE", "当前 CLI 尚未提供可核验的会话上下文，请继续当前会话后重试");
 function validId(id) { return typeof id === "string" && /^[a-zA-Z0-9_-]{1,128}$/.test(id); }
 export function bindToolContext(context, request) {
-  if (context.agentKind !== "codex" || request.method !== "tools/call") return context;
+  if (request.method !== "tools/call") return context;
+  if (["antigravity", "opencode"].includes(context.agentKind)) {
+    const meta = request.params?._meta;
+    const id = context.agentKind === "opencode" ? meta?.["ai.opencode/sessionID"] : meta?.conversation_id;
+    if (id !== undefined && (!validId(id) || (context.agentSession && context.agentSession.id !== id))) {
+      throw apiError("SESSION_MISMATCH", "MCP 工具调用与当前 CLI 主会话不匹配");
+    }
+    // Native metadata corroborates the daemon identity; it never establishes one.
+    return context;
+  }
+  if (context.agentKind !== "codex") return context;
   // 已核对 codex-cli 0.153.4：core/src/mcp_tool_call.rs 在每次 tools/call 的 _meta 中加入 threadId。
   const id = request.params?._meta?.threadId;
   if (id === undefined) return context;
@@ -18,6 +29,9 @@ export function bindToolContext(context, request) {
   return context;
 }
 async function candidates(root, session) {
+  if (["antigravity", "opencode", "kimi"].includes(session.agent)) {
+    return [join(root, `${createHash("sha256").update(session.id).digest("hex")}.jsonl`)];
+  }
   const queue = [{ path: root, depth: 0 }], files = []; let visited = 0;
   while (queue.length) {
     const item = queue.shift();
@@ -46,6 +60,10 @@ function records(bytes, partialStart = false) {
   return (end < 0 ? [] : source.slice(0, end).split("\n")).flatMap((line) => { try { return [JSON.parse(line)]; } catch { return []; } });
 }
 function metadata(lines, session) {
+  if (["antigravity", "opencode", "kimi"].includes(session.agent)) {
+    const meta = lines.find(line => line.type === "session_meta")?.belfrySession;
+    return meta?.id === session.id && meta.agent === session.agent ? meta : null;
+  }
   if (session.agent === "codex") {
     const meta = lines.find((line) => line.type === "session_meta")?.payload;
     return meta && (meta.id ?? meta.session_id) === session.id ? meta : null;
@@ -95,6 +113,6 @@ export async function readSessionContext(context, stripName, resolveModel) {
 }
 async function sessionScope(context) {
   const session = context.agentSession;
-  if (!session || !["codex", "claude"].includes(session.agent) || !validId(session.id) || !context.historyRoot || !context.workspace) throw unavailable();
+  if (!session || !["codex", "claude", "antigravity", "opencode", "kimi"].includes(session.agent) || !validId(session.id) || !context.historyRoot || !context.workspace) throw unavailable();
   return { session, root: await realpath(context.historyRoot).catch(() => { throw unavailable(); }), workspace: await realpath(context.workspace) };
 }

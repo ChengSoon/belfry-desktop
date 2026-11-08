@@ -43,10 +43,11 @@ fn a_valid_request_is_served() {
 
     match response {
         Response::Ok {
-            data: ResponseData::Peers { peers },
+            data: ResponseData::Peers { peers, capabilities },
         } => {
             assert_eq!(peers.len(), 2);
             assert!(peers[0].is_self);
+            assert!(capabilities.iter().any(|value| value == belfry_protocol::CAPABILITY_ROOMS_V1));
         }
         other => panic!("应该拿到名册：{other:?}"),
     }
@@ -133,6 +134,61 @@ fn malformed_input_does_not_panic() {
         let response = handle_line(bad, &identities, &registry, &board, &RoomAccess::default());
         assert!(matches!(response, Response::Error { .. }), "输入 {bad:?}");
     }
+}
+
+#[test]
+fn compatible_room_requests_keep_the_authenticated_identity() {
+    struct Directory(std::sync::Mutex<Vec<String>>);
+    impl RoomDirectory for Directory {
+        fn handle(&self, tab_id: &str, command: &Command) -> Result<(ResponseData, Vec<RoomPost>), String> {
+            assert!(matches!(command, Command::Rooms));
+            self.0.lock().unwrap().push(tab_id.into());
+            Ok((ResponseData::Rooms { rooms: vec![] }, vec![]))
+        }
+    }
+    let identities = SessionIdentities::default();
+    let registry = SessionRegistry::default();
+    let board = TaskBoard::default();
+    let rooms = RoomAccess::default();
+    let directory = Arc::new(Directory(std::sync::Mutex::new(vec![])));
+    rooms.set(directory.clone());
+    let token = token_of(&identities.issue("t1", None));
+    let wrapped = belfry_protocol::room_compat::wrap_command(&Command::Rooms).unwrap();
+
+    for (tab, credential) in [("t1", "wrong"), ("t2", token.as_str())] {
+        let denied = handle_line(&line(tab, credential, wrapped.clone()), &identities, &registry, &board, &rooms);
+        assert!(matches!(denied, Response::Error { message } if message.contains("身份校验失败")));
+    }
+    let mut wrong_version = Request::new("t1".into(), token.clone(), wrapped.clone());
+    wrong_version.version += 1;
+    let denied = handle_line(&serde_json::to_string(&wrong_version).unwrap(), &identities, &registry, &board, &rooms);
+    assert!(matches!(denied, Response::Error { message } if message.contains("版本")));
+    assert!(directory.0.lock().unwrap().is_empty());
+
+    let reply = handle_line(&line("t1", &token, wrapped), &identities, &registry, &board, &rooms);
+    let reply = belfry_protocol::room_compat::unwrap_response(reply).unwrap();
+    assert!(matches!(reply, Response::Ok { data: ResponseData::Rooms { .. } }));
+    assert_eq!(*directory.0.lock().unwrap(), ["t1"]);
+    assert!(board.snapshot().is_empty(), "兼容外壳不能创建点对点任务");
+}
+
+#[test]
+fn compatibility_requests_reject_other_commands_and_nested_envelopes() {
+    let identities = SessionIdentities::default();
+    let registry = SessionRegistry::default();
+    let board = TaskBoard::default();
+    let token = token_of(&identities.issue("t1", None));
+    for payload in [
+        "not json",
+        r#"{"kind":"send","to":"other","instruction":"不能派出"}"#,
+        r#"{"kind":"taskState","task":"belfry:rooms:v1:{\"kind\":\"rooms\"}"}"#,
+        r#"{"version":1,"tabId":"other","token":"other","command":{"kind":"rooms"}}"#,
+    ] {
+        let command = Command::TaskState { task: format!("belfry:rooms:v1:{payload}") };
+        let reply = handle_line(&line("t1", &token, command), &identities, &registry, &board, &RoomAccess::default());
+        assert!(matches!(reply, Response::Error { message } if message.contains("房间兼容")));
+    }
+    assert!(board.snapshot().is_empty());
 }
 
 /// 同一个人常常同时开两个实例（正式版干活 + dev 调试）。

@@ -23,7 +23,7 @@ claude --version
 
 ### 2. 新建一个会话
 
-在侧栏的**新会话菜单**里挑选会话类型：Shell、SSH、Codex 或 Claude。
+在侧栏的**新会话菜单**里挑选会话类型：Shell、SSH，或 Codex、Claude Code、Pi、Antigravity CLI、OpenCode、Kimi Code。
 
 :::info 检测不到的 Agent 会标灰
 菜单里检测不到的 Agent 会显示为灰色，鼠标悬停能看到原因（没装、不在 PATH 里、版本太旧等）。

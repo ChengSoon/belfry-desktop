@@ -32,11 +32,26 @@ impl AgentHookReport {
 }
 
 pub(super) fn config_path(kind: AgentKind) -> Result<PathBuf, AppError> {
+    if kind == AgentKind::Antigravity {
+        return crate::history::scan::home_dir()
+            .map(|p| p.join(".gemini/config/hooks.json"))
+            .ok_or_else(|| AppError::not_found("找不到 Antigravity 配置目录"));
+    }
+    if matches!(kind, AgentKind::Kimi | AgentKind::Opencode) {
+        let root = crate::agent::paths::config_dir(kind)
+            .ok_or_else(|| AppError::not_found("找不到 CLI 配置目录"))?;
+        return Ok(root.join(if kind == AgentKind::Kimi {
+            "config.toml"
+        } else {
+            "plugins/belfry-status.js"
+        }));
+    }
     let (variable, directory, file) = match kind {
         AgentKind::Codex => ("CODEX_HOME", ".codex", "hooks.json"),
         AgentKind::Claude => ("CLAUDE_CONFIG_DIR", ".claude", "settings.json"),
         // Pi 没有 Hook 配置文件；report() 会因 supported=false 提前不走到这里。
         AgentKind::Pi => return Err(AppError::unsupported("Pi 不支持 Hook")),
+        AgentKind::Antigravity | AgentKind::Opencode | AgentKind::Kimi => unreachable!(),
     };
     let base = std::env::var_os(variable)
         .filter(|value| !value.is_empty())
@@ -75,14 +90,20 @@ fn inspect_config(kind: AgentKind, report: &mut AgentHookReport) -> Result<(), A
         return Ok(());
     }
     let path = config_path(kind)?;
-    let value = config::parse(&read_config(&path)?)?;
+    let value = config::parse_for(&read_config(&path)?, kind)?;
     report.config_path = Some(path.to_string_lossy().into());
     report.installed = config::owned_count(&value, kind);
-    report.stale = config::stale_count(&value, kind);
+    report.stale = if kind == AgentKind::Opencode {
+        0
+    } else {
+        config::stale_count(&value, kind)
+    };
     report.disabled = if kind == AgentKind::Claude {
         value["disableAllHooks"] == true
-    } else {
+    } else if kind == AgentKind::Codex {
         codex_disabled(&path)
+    } else {
+        false
     };
     Ok(())
 }

@@ -5,7 +5,7 @@ use super::{
 use crate::agent::{AgentKind, AgentSessionRef};
 use serde_json::Value;
 use std::{
-    collections::HashSet,
+    collections::{BTreeSet, HashSet},
     hash::{DefaultHasher, Hash, Hasher},
 };
 
@@ -19,6 +19,7 @@ pub(super) struct Accumulator {
     details: Details,
     seen: HashSet<u64>,
     limited: bool,
+    notes: BTreeSet<String>,
 }
 
 impl Accumulator {
@@ -31,6 +32,7 @@ impl Accumulator {
             details: Details::default(),
             seen: HashSet::new(),
             limited: false,
+            notes: BTreeSet::new(),
         }
     }
 
@@ -46,9 +48,14 @@ impl Accumulator {
             return;
         }
         self.details.timestamp(record);
+        if let Some(note) = record["belfryNote"].as_str() {
+            self.notes.insert(note.into());
+        }
         match self.session.agent {
             AgentKind::Codex => self.codex.consume(record, &mut self.details),
-            AgentKind::Claude => self.claude.consume(record, &mut self.details),
+            AgentKind::Claude | AgentKind::Antigravity | AgentKind::Opencode | AgentKind::Kimi => {
+                self.claude.consume(record, &mut self.details)
+            }
             AgentKind::Pi => self.pi.consume(record, &mut self.details),
         }
     }
@@ -64,7 +71,9 @@ impl Accumulator {
     pub fn report(&self) -> SessionStatistics {
         let tokens = match self.session.agent {
             AgentKind::Codex => self.codex.tokens(),
-            AgentKind::Claude => self.claude.tokens(),
+            AgentKind::Claude | AgentKind::Antigravity | AgentKind::Opencode | AgentKind::Kimi => {
+                self.claude.tokens()
+            }
             AgentKind::Pi => self.pi.tokens(),
         };
         SessionStatistics {
@@ -90,6 +99,7 @@ impl Accumulator {
 
     fn note(&self) -> Option<String> {
         let mut notes = Vec::new();
+        notes.extend(self.notes.iter().map(String::as_str));
         if self.limited {
             notes.push("日志超过 20 万条，显示已读取部分");
         }

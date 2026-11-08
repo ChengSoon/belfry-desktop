@@ -249,6 +249,16 @@ fn handle_line(
         // 不区分「会话不存在」和「token 不对」：区分本身就是一个可试探的信号。
         return Response::error("身份校验失败：这条会话不能通过 belfry 说话");
     }
+    if let Some(command) = belfry_protocol::room_compat::unwrap_command(&request.command) {
+        return match command {
+            Ok(command) => {
+                // 只更换命令，身份沿用已经鉴权的外层请求；正常房间权限和投递不变。
+                let request = Request { command, ..request };
+                belfry_protocol::room_compat::wrap_response(&dispatch(&request, registry, board, rooms))
+            }
+            Err(message) => Response::error(message),
+        };
+    }
     dispatch(&request, registry, board, rooms)
 }
 
@@ -261,6 +271,7 @@ fn dispatch(
     match &request.command {
         Command::Peers => Response::Ok {
             data: ResponseData::Peers {
+                capabilities: vec![belfry_protocol::CAPABILITY_ROOMS_V1.into()],
                 peers: registry.peers_for(&request.tab_id),
             },
         },

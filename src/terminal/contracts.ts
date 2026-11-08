@@ -1,6 +1,6 @@
 export type Platform = "macos" | "windows";
 import type { HookSnapshot } from "../agent/hooks/contracts";
-import type { AgentSessionRef } from "../agent/contracts";
+import type { AgentKind, AgentSessionRef } from "../agent/contracts";
 import type { ProjectLaunch } from "../workspace/projects/contracts";
 
 export type TerminalPhase = "idle" | "creating" | "running" | "exited" | "error";
@@ -21,7 +21,7 @@ export type ShellProfileId =
   | "shell:cmd"
   | "shell:wsl"
   | "shell:git-bash";
-export type LaunchProfileId = ShellProfileId | "agent:codex" | "agent:claude" | "agent:pi" | "ssh";
+export type LaunchProfileId = ShellProfileId | `agent:${AgentKind}` | "ssh";
 
 export interface ShellProfile {
   id: ShellProfileId;

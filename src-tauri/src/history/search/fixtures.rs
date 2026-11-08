@@ -13,6 +13,7 @@ impl Fixture {
         let root =
             std::env::temp_dir().join(format!("belfry-history-index-{}", ulid::Ulid::generate()));
         let roots = SearchRoots {
+            native: false,
             codex: Some(root.join("codex")),
             claude: Some(root.join("claude")),
             pi: Some(root.join("pi")),

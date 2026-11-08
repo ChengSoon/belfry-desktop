@@ -1,3 +1,4 @@
+import { isAgentKind } from "../agent/contracts";
 import type {
   AgentSessionRef,
   ProjectWorkspace,
@@ -233,7 +234,7 @@ function isPersistedTab(value: unknown): value is PersistedTab {
     && (value.agentSessionRef === undefined
       || value.agentSessionRef === null
       || isAgentSessionRef(value.agentSessionRef))
-    && ((value.kind === "codex" || value.kind === "claude" || value.kind === "pi")
+    && ((isAgentKind(value.kind))
       ? (value.agentSessionRef === undefined
         || value.agentSessionRef === null
         || value.agentSessionRef.agent === value.kind)
@@ -248,7 +249,7 @@ function isPersistedTab(value: unknown): value is PersistedTab {
 }
 
 function sessionRefForPersistedTab(value: PersistedTab): AgentSessionRef | null {
-  if (value.kind !== "codex" && value.kind !== "claude" && value.kind !== "pi") return null;
+  if (!isAgentKind(value.kind)) return null;
   if (value.agentSessionRef?.agent === value.kind && value.agentSessionRef.id) {
     return value.agentSessionRef;
   }
@@ -258,7 +259,7 @@ function sessionRefForPersistedTab(value: PersistedTab): AgentSessionRef | null 
 }
 
 function isAgentSessionIdForKind(kind: WorkspaceTabKind, value: string) {
-  return (kind === "codex" || kind === "claude" || kind === "pi") && isAgentSessionId(value);
+  return (isAgentKind(kind)) && isAgentSessionId(value);
 }
 
 function isSshTarget(value: unknown): value is SshTarget {
@@ -272,7 +273,7 @@ function isProjectWorkspace(value: unknown): value is ProjectWorkspace {
 }
 
 function isWorkspaceTabKind(value: unknown): value is WorkspaceTabKind {
-  return value === "shell" || value === "ssh" || value === "codex" || value === "claude" || value === "pi";
+  return value === "shell" || value === "ssh" || isAgentKind(value);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

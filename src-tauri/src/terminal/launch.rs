@@ -42,6 +42,15 @@ pub(super) fn resolve_launch(
         LaunchProfileId::AgentPi => {
             resolve_agent_launch(AgentKind::Pi, cwd, env, resume, collaboration_mode)
         }
+        LaunchProfileId::AgentAntigravity => {
+            resolve_agent_launch(AgentKind::Antigravity, cwd, env, resume, collaboration_mode)
+        }
+        LaunchProfileId::AgentOpencode => {
+            resolve_agent_launch(AgentKind::Opencode, cwd, env, resume, collaboration_mode)
+        }
+        LaunchProfileId::AgentKimi => {
+            resolve_agent_launch(AgentKind::Kimi, cwd, env, resume, collaboration_mode)
+        }
         LaunchProfileId::Ssh => resolve_ssh_launch(cwd, env, ssh),
         _ => Err(AppError::invalid_argument(
             "unsupported terminal launch profile",
@@ -175,6 +184,9 @@ fn resolve_named_shell_launch(
         | LaunchProfileId::AgentCodex
         | LaunchProfileId::AgentClaude
         | LaunchProfileId::AgentPi
+        | LaunchProfileId::AgentAntigravity
+        | LaunchProfileId::AgentOpencode
+        | LaunchProfileId::AgentKimi
         | LaunchProfileId::Ssh => {
             return Err(AppError::invalid_argument("profile is not a named shell"));
         }
@@ -199,6 +211,9 @@ fn resolve_shell_executable(profile: LaunchProfileId) -> Result<String, AppError
         LaunchProfileId::AgentCodex
         | LaunchProfileId::AgentClaude
         | LaunchProfileId::AgentPi
+        | LaunchProfileId::AgentAntigravity
+        | LaunchProfileId::AgentOpencode
+        | LaunchProfileId::AgentKimi
         | LaunchProfileId::Ssh => Err(AppError::invalid_argument("profile is not a shell")),
     }
 }

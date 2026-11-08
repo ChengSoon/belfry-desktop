@@ -45,9 +45,7 @@ pub(super) fn display(value: &Value) -> String {
 }
 
 pub(super) fn timestamp(value: &Value) -> Option<i64> {
-    value
-        .as_str()
-        .and_then(crate::usage::timestamp::parse_rfc3339)
+    crate::usage::timestamp::parse_value(value)
 }
 
 pub(super) fn bounded(mut entry: HistoryEntry) -> HistoryEntry {

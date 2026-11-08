@@ -1,12 +1,12 @@
 ---
 sidebar_position: 21
 title: Provider 切换
-description: 在官方端点与第三方中转之间切换 Codex / Claude Code 的路由
+description: 配置六种 CLI Agent 的全局与项目 Provider
 ---
 
 # Provider 切换
 
-在官方端点与第三方中转之间切换 Codex / Claude Code 的路由。
+六种 Agent 均支持全局与项目 Provider。Antigravity CLI 的自定义接口使用 Gemini API；OpenCode、Kimi Code 使用 OpenAI Chat Completions。这三种 Agent 必须填写模型 ID。
 
 ## 关键：改的是 CLI 自己的配置
 
@@ -14,6 +14,8 @@ description: 在官方端点与第三方中转之间切换 Codex / Claude Code �
 
 - 在 Belfry 里切完，**在 Belfry 之外直接敲 `claude`、`codex` 一样生效**
 - API Key 按 CLI 的方式保存在本机配置中
+
+Antigravity 的 Gemini 地址和 Key 由 Belfry 启动时注入，在 Belfry 外运行 `agy` 时需自行配置。项目 Provider 只覆盖本次启动；原生会话数据、MCP、Hook 和登录态使用原来的目录。
 
 ## 精准字段改写
 

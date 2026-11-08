@@ -1,9 +1,9 @@
 import { useCallback, useRef, useState, type RefObject } from "react";
-import { agentDescriptor } from "../agent/contracts";
+import { AGENT_KINDS, agentDescriptor } from "../agent/contracts";
 import { listShellProfiles } from "../terminal/api";
 import type { ShellProfile, ShellProfileId } from "../terminal/contracts";
 import { detectAgents } from "./api";
-import type { AgentAvailability, AgentKind } from "./contracts";
+import type { AgentAvailability } from "./contracts";
 import { toAppFailure } from "./errors";
 
 export function useWorkspaceEnvironment(requestVersion: RefObject<number>) {
@@ -36,7 +36,7 @@ export function useWorkspaceEnvironment(requestVersion: RefObject<number>) {
 }
 
 function pendingAgents(): AgentAvailability[] {
-  return (["codex", "claude", "pi"] as AgentKind[]).map((kind) => ({
+  return AGENT_KINDS.map((kind) => ({
     descriptor: agentDescriptor(kind), kind, available: false, executable: null, version: null,
     reason: "正在检测用户命令环境…",
   }));

@@ -27,11 +27,17 @@ pub(crate) fn detect(executable: &Path) -> Option<Resolved> {
         let text = std::fs::read_to_string(executable).ok()?;
         let package = shim_package(&text)?;
         let root = executable.parent()?.join(NODE_MODULES).join(&package);
-        return Some(Resolved { package, version: read_manifest(&root).map(|(_, version)| version) });
+        return Some(Resolved {
+            package,
+            version: read_manifest(&root).map(|(_, version)| version),
+        });
     }
     let root = package_root(executable)?;
     let (package, version) = read_manifest(&root)?;
-    Some(Resolved { package, version: Some(version) })
+    Some(Resolved {
+        package,
+        version: Some(version),
+    })
 }
 
 fn is_shim(path: &Path) -> bool {
@@ -90,7 +96,9 @@ pub(crate) fn shim_package(text: &str) -> Option<String> {
     let rest = text[anchor + NODE_MODULES.len()..]
         .trim_start_matches(|character| character == '\\' || character == '/');
     // 末尾可能还挂着引号和 `%*` 之类的参数，按引号或空白切断。
-    let rest = rest.split(|character| character == '"' || character == ' ').next()?;
+    let rest = rest
+        .split(|character| character == '"' || character == ' ')
+        .next()?;
     let mut parts = rest
         .split(|character: char| character == '\\' || character == '/')
         .filter(|part| !part.is_empty());
@@ -104,12 +112,15 @@ pub(crate) fn shim_package(text: &str) -> Option<String> {
 }
 
 /// 反查不到包名时，仅用于「未安装 → 安装」的官方默认包名。
-pub(crate) fn default_package(kind: AgentKind) -> &'static str {
-    match kind {
+pub(crate) fn default_package(kind: AgentKind) -> Option<&'static str> {
+    Some(match kind {
         AgentKind::Codex => "@openai/codex",
         AgentKind::Claude => "@anthropic-ai/claude-code",
         AgentKind::Pi => "@earendil-works/pi-coding-agent",
-    }
+        AgentKind::Opencode => "@opencode/cli",
+        AgentKind::Kimi => "@moonshot-ai/kimi-code",
+        AgentKind::Antigravity => return None,
+    })
 }
 
 #[cfg(test)]
@@ -122,7 +133,9 @@ mod tests {
         let scoped = Path::new("/usr/local/lib/node_modules/@cometix/claude-code/cli.js");
         assert_eq!(
             package_root(scoped),
-            Some(PathBuf::from("/usr/local/lib/node_modules/@cometix/claude-code"))
+            Some(PathBuf::from(
+                "/usr/local/lib/node_modules/@cometix/claude-code"
+            ))
         );
         let with_bin = Path::new("/usr/local/lib/node_modules/@openai/codex/bin/codex.js");
         assert_eq!(
@@ -132,7 +145,9 @@ mod tests {
         let unscoped = Path::new("/home/u/.nvm/versions/node/v24/lib/node_modules/pi/dist/cli.js");
         assert_eq!(
             package_root(unscoped),
-            Some(PathBuf::from("/home/u/.nvm/versions/node/v24/lib/node_modules/pi"))
+            Some(PathBuf::from(
+                "/home/u/.nvm/versions/node/v24/lib/node_modules/pi"
+            ))
         );
     }
 
@@ -145,8 +160,15 @@ mod tests {
     #[test]
     fn read_manifest_picks_name_and_version() {
         let dir = tempfile_dir();
-        std::fs::write(dir.join(PACKAGE_JSON), r#"{"name":"@openai/codex","version":"0.154.0"}"#).unwrap();
-        assert_eq!(read_manifest(&dir), Some(("@openai/codex".into(), "0.154.0".into())));
+        std::fs::write(
+            dir.join(PACKAGE_JSON),
+            r#"{"name":"@openai/codex","version":"0.154.0"}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            read_manifest(&dir),
+            Some(("@openai/codex".into(), "0.154.0".into()))
+        );
     }
 
     #[test]

@@ -10,7 +10,10 @@ pub(super) fn parse(
 ) -> Option<HistoryEntry> {
     let entry = match session.agent {
         crate::agent::AgentKind::Codex => codex::parse(value, source),
-        crate::agent::AgentKind::Claude => claude::parse(session, value, source),
+        crate::agent::AgentKind::Claude
+        | crate::agent::AgentKind::Antigravity
+        | crate::agent::AgentKind::Opencode
+        | crate::agent::AgentKind::Kimi => claude::parse(session, value, source),
         crate::agent::AgentKind::Pi => pi::parse(session, value, source),
     }?;
     if entry.text.is_empty() && entry.tools.is_empty() && entry.omitted_blocks == 0 {

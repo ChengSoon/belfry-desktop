@@ -53,9 +53,30 @@ describe("room flow graph", () => {
     expect(graph.nodes.find((node) => node.id === "fe")).toMatchObject({ subtitle: "T2 T2 标题", load: 2 });
   });
 
+  it("animates busy sessions even without task cards or recent messages", () => {
+    const graph = flowGraph(room(), () => "busy", now);
+    expect(edge(graph, "user", "boss")).toMatchObject({ tone: "active", label: "协调中", animated: true });
+    for (const id of ["fe", "be"]) {
+      expect(edge(graph, "boss", id)).toMatchObject({ tone: "active", label: "处理中", animated: true });
+      expect(graph.nodes.find((node) => node.id === id)).toMatchObject({ status: "busy", current: null });
+    }
+    expect(graph.nodes.find((node) => node.id === "boss")?.subtitle).toBe("2 位成员忙碌");
+  });
+
+  it("stops work animations when a session becomes idle or offline despite active task cards", () => {
+    const assigned = room({ tasks: [task("T2", "active", "fe")] });
+    for (const status of ["idle", "offline"] as const) {
+      const graph = flowGraph(assigned, () => status, now);
+      expect(edge(graph, "boss", "fe")).toMatchObject({ tone: "idle", animated: false });
+      expect(edge(graph, "boss", "fe")?.label).toContain("T2 进行中");
+      expect(graph.edges.every((item) => !item.animated)).toBe(true);
+    }
+  });
+
   it("marks a member waiting for your choice", () => {
     const waiting = (m: RoomMember): MemberStatus => (m.id === "be" ? "waiting" : "idle");
-    expect(edge(flowGraph(room(), waiting, now), "boss", "be")).toMatchObject({ tone: "waiting", label: "等你选择", animated: true });
+    expect(edge(flowGraph(room(), waiting, now), "boss", "be")).toMatchObject({ tone: "waiting", label: "等你选择", animated: false });
+    expect(edge(flowGraph(room(), () => "waiting", now), "user", "boss")).toMatchObject({ tone: "waiting", label: "等你选择", animated: false });
   });
 
   it("lights up recent messages and adds edges between members who talked directly", () => {
@@ -68,7 +89,15 @@ describe("room flow graph", () => {
 
   it("shows who still owes a reply", () => {
     const messages = [message("boss", ["fe"], now - 10 * FLOW_RECENT_MS, { mode: "request_reply" })];
-    expect(edge(flowGraph(room({ messages }), allIdle, now), "boss", "fe")).toMatchObject({ tone: "reply", label: "等前端回复" });
+    expect(edge(flowGraph(room({ messages }), allIdle, now), "boss", "fe")).toMatchObject({ tone: "reply", label: "等前端回复", animated: false });
+    expect(edge(flowGraph(room({ messages }), () => "busy", now), "boss", "fe")).toMatchObject({ tone: "active", label: "等前端回复", animated: true });
+  });
+
+  it("keeps waiting and offline sessions from looking busy after recent messages", () => {
+    const messages = [message("boss", ["fe"], now - 1_000)];
+    for (const status of ["waiting", "offline"] as const) {
+      expect(edge(flowGraph(room({ messages }), () => status, now), "boss", "fe")?.animated).toBe(false);
+    }
   });
 
   it("still draws members in a row when there is no foreman", () => {

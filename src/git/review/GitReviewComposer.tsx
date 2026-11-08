@@ -48,7 +48,7 @@ export function GitReviewComposer({ context, diff, onRefresh }: {
         onChange={(targetId) => review.edit(context, { targetId })} />
         <button type="submit" className="git-review__send" disabled={!current || !target || !draft.comment.trim()}>
           <Send size={ICON.sm} aria-hidden="true" />发送反馈</button></div>
-      <p className="git-review__note">{!targets.length ? "先在当前项目新建 Codex、Claude Code 或 Pi 会话。"
+      <p className="git-review__note">{!targets.length ? "先在当前项目新建 Agent 会话。"
         : draft.targetId && !target ? "原接收会话已不可用，请重新选择。"
           : target && target.activity !== "idle" ? "接收会话忙碌或等待确认，反馈会排队到空闲后发送。"
             : "附带所选行附近的差异和文件位置。⌘ / Ctrl + Enter 发送。"}</p>

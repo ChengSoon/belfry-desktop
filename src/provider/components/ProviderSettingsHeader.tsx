@@ -10,7 +10,7 @@ export function ProviderSettingsHeader({ busy, editing, onAdd, onReload }: {
 }) {
   return <SettingsHeader
     title="全局 Provider"
-    description="管理 Claude Code 与 Codex 的默认模型服务。"
+    description="管理各个 Agent CLI 的默认模型服务。"
     actions={<>
       <button className="provider-add" disabled={busy || editing} onClick={onAdd} type="button">
         <Plus aria-hidden="true" size={ICON.sm} />新增 Provider

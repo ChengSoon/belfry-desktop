@@ -19,7 +19,7 @@ mod runtime_tests;
 mod ssh_auth;
 
 pub(crate) use contracts::{
-    AppError, CreateTerminalRequest, LaunchProfileId, SshTarget, TerminalEvent,
+    AppError, CreateTerminalRequest, LaunchProfileId, SshTarget, TerminalEvent, TerminalStatus,
 };
 pub(crate) use launch::resolve_ssh_executable;
 pub use runtime::TerminalRuntime;

@@ -8,7 +8,7 @@
 
 ### 托管你的 CLI Agent，也是一把称手的终端。
 
-在 macOS 和 Windows 上用同一套界面跑 Codex、Claude Code，顺带看清它们在忙什么、在等谁。Agent 不在，它照样是完整终端。
+在 macOS 和 Windows 上用同一套界面跑 Codex、Claude Code、Pi、Antigravity CLI、OpenCode 和 Kimi Code，顺带看清它们在忙什么、在等谁。Agent 不在，它照样是完整终端。
 
 [English](README.en.md) · **简体中文**
 
@@ -51,7 +51,7 @@ claude --version
 然后：
 
 1. 启动 Belfry，点顶部的项目选择器，选一个本地目录。
-2. 侧栏的新会话菜单里挑 Shell、SSH、Codex 或 Claude。检测不到的 Agent 会标灰，鼠标悬停能看到原因。
+2. 侧栏的新会话菜单里挑 Shell、SSH 或六种 Agent。检测不到的 Agent 会标灰，鼠标悬停能看到原因；可到「关于」页安装。
 3. 同一个项目下可以并排开多个会话，标签自己按你输入的第一句话命名。
 4. `⌘U` 打开用量面板，看 token 花在哪个模型、哪个项目上。
 
@@ -71,7 +71,8 @@ claude --version
 
 **Agent 托管**
 
-- 自动检测 Codex 与 Claude Code：可执行文件路径、版本号，不可用时给出原因
+- 自动检测六种 Agent 的可执行文件路径和版本，不可用时给出原因；支持安装与更新
+- Antigravity CLI、OpenCode、Kimi Code 接入历史、统计、Provider、插件、队列与协作，版本要求和原生差异见[集成说明](docs/native-agent-integration.md)
 - 会话状态区分进程生命周期（创建中/运行/已退出/出错）与当下行为（闲着/正在输出/等你选）
 - 标签标题从你的第一句输入里提取，完整原文留在 tooltip
 - 协作任务按目标 Agent 分别排队；Agent 忙碌或等待确认时暂缓投递，回到空闲后按顺序发送
@@ -86,7 +87,7 @@ claude --version
 
 **Provider 切换**
 
-- 在官方端点与第三方中转之间切换 Codex / Claude Code 的路由，改的是 CLI 自己的配置文件，所以在 Belfry 之外直接敲 `claude`、`codex` 一样生效
+- 六种 Agent 均支持全局及项目 Provider。全局选择写入各自原生配置；Antigravity 的 Gemini 地址与 Key 在 Belfry 启动时注入
 - 精准字段改写：只动 `ANTHROPIC_BASE_URL` 这类路由键和 `[model_providers.belfry]` 这张表，你的 hooks、MCP 定义、项目信任记录逐字不动
 - 首次打开时把配置文件里已有的设置收编成一条可切回的条目，不会静默覆盖
 - 切到三方 provider 前先备份 Codex 的 ChatGPT 登录态，切回官方时原样还原
@@ -106,7 +107,7 @@ claude --version
 
 **用量统计**
 
-- 直接读本地 Codex / Claude 会话日志聚合，不发任何网络请求
+- 直接读本地 CLI 会话数据聚合，支持新增三种 Agent 的原生存储，不发任何网络请求
 - 四类 token 归一口径：input（不含缓存命中）、cachedInput、cacheWrite、output
 - 按模型、按项目两个维度拆分；时间窗口可选近 7 天 / 近 30 天 / 全部
 - 配额窗口与套餐类型（目前只有 Codex 的日志带这些字段，Claude 的不带）

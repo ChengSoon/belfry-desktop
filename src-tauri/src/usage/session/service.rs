@@ -43,6 +43,11 @@ pub(crate) struct SessionStatisticsState {
 
 impl SessionStatisticsState {
     pub fn read(&self, query: SessionStatisticsQuery) -> Result<SessionStatistics, AppError> {
+        if crate::history::native::supported(query.session.agent) {
+            crate::history::native::refresh(query.session.agent, Some(&query.session.id), &|| {
+                Ok(())
+            })?;
+        }
         self.read_in(&paths::root(query.session.agent)?, query)
     }
 

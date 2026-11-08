@@ -7,6 +7,7 @@
 //! 也不做流式——CLI 的每次调用都是一次性的，多余的状态只会带来重连语义。
 
 pub mod hooks;
+pub mod room_compat;
 
 use serde::{Deserialize, Serialize};
 
@@ -15,6 +16,12 @@ use serde::{Deserialize, Serialize};
 /// app 升级后用户的终端里可能还留着旧 CLI 进程，握手对不上时要明确报错，
 /// 而不是让字段缺失表现成「参数没传对」这种误导性行为。
 pub const PROTOCOL_VERSION: u32 = 1;
+
+/// 房间命令及其回执的能力标记，随 `peers` 返回。
+///
+/// 旧后台也认识 peers，但会在重编码响应时丢掉 capabilities。CLI 因而能在真正
+/// 发消息、建任务之前识别整条链路是否兼容，避免操作成功后回执损坏导致重复提交。
+pub const CAPABILITY_ROOMS_V1: &str = "rooms_v1";
 
 /// 注入到 Agent PTY 环境里的变量名。CLI 靠它们知道自己是谁、往哪连。
 pub const ENV_TAB_ID: &str = "BELFRY_TAB_ID";
@@ -147,6 +154,20 @@ pub enum Command {
     TaskState { task: String },
 }
 
+impl Command {
+    pub fn is_room(&self) -> bool {
+        matches!(
+            self,
+            Self::Rooms
+                | Self::RoomStatus { .. }
+                | Self::RoomSay { .. }
+                | Self::RoomLog { .. }
+                | Self::RoomTask { .. }
+                | Self::RoomBrief { .. }
+        )
+    }
+}
+
 /// 一次响应。
 ///
 /// 刻意不用 `Result`：CLI 要把失败原因原样打给 Agent 看，而 Agent 读到的是
@@ -171,6 +192,8 @@ impl Response {
 pub enum ResponseData {
     Peers {
         peers: Vec<Peer>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        capabilities: Vec<String>,
     },
     Rooms {
         rooms: Vec<RoomBrief>,

@@ -14,7 +14,7 @@ use super::contracts::{
     ProviderDraft, ProviderSummary, SwitchOutcome,
 };
 use super::store::StoreFile;
-use super::{claude, codex, envcheck, pi, store};
+use super::{claude, codex, envcheck, native, pi, store};
 use crate::atomic::read_text_optional;
 
 /// 首次接管时给导入条目起的名字。
@@ -35,6 +35,7 @@ pub(super) fn save_provider(
     draft: ProviderDraft,
 ) -> Result<ProviderCatalog, AppError> {
     draft.validate()?;
+    native::validate_model(kind, &draft.model)?;
     let _guard = store::lock()?;
 
     let mut store = store::load(app)?;
@@ -157,6 +158,9 @@ fn write_live(
             claude::write_settings(&settings)
         }
         AgentKind::Pi => pi::apply_live(target),
+        AgentKind::Antigravity | AgentKind::Opencode | AgentKind::Kimi => {
+            native::apply_live(kind, target)
+        }
         AgentKind::Codex => {
             store.resolve_official_auth(app)?;
             let mut auth = store.codex_official_auth.take();
@@ -193,6 +197,9 @@ pub(super) fn config_files(
         }
         AgentKind::Codex => codex::config_files(),
         AgentKind::Pi => pi::config_files(),
+        AgentKind::Antigravity | AgentKind::Opencode | AgentKind::Kimi => {
+            native::config_files(kind, None)
+        }
     }
 }
 
@@ -221,6 +228,9 @@ pub(super) fn config_files_for_draft(
         AgentKind::Claude => preview_claude(&provider),
         AgentKind::Codex => preview_codex(&provider),
         AgentKind::Pi => pi::config_files_for_provider(&provider),
+        AgentKind::Antigravity | AgentKind::Opencode | AgentKind::Kimi => {
+            native::config_files(kind, Some(&provider))
+        }
     }
 }
 
@@ -307,6 +317,9 @@ pub(super) fn save_config_file(
         AgentKind::Claude => claude::save_config_file(&path, &content),
         AgentKind::Codex => codex::save_config_file(&path, &content),
         AgentKind::Pi => pi::save_config_file(&path, &content),
+        AgentKind::Antigravity | AgentKind::Opencode | AgentKind::Kimi => {
+            native::save_config_file(kind, &path, &content)
+        }
     }
 }
 
@@ -427,6 +440,7 @@ type LiveProvider = Option<(String, String, String, String)>;
 
 fn detect_live(kind: AgentKind) -> Result<LiveProvider, AppError> {
     match kind {
+        AgentKind::Antigravity | AgentKind::Opencode | AgentKind::Kimi => native::detect_live(kind),
         AgentKind::Claude => {
             let settings = claude::read_settings()?;
             Ok(

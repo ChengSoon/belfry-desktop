@@ -3,6 +3,7 @@ import {
   agentDescriptor,
   agentProfileId,
   agentResetCommand,
+  AGENT_KINDS,
   isAgentKind,
   isAgentSessionRef,
 } from "./contracts";
@@ -25,7 +26,8 @@ describe("agent adapter contracts", () => {
 
   it("rejects unknown adapter kinds at the boundary", () => {
     expect(isAgentKind("codex")).toBe(true);
-    expect(isAgentKind("opencode")).toBe(false);
+    for (const kind of AGENT_KINDS) expect(isAgentKind(kind)).toBe(true);
+    for (const kind of ["unknown", "agy", "__proto__", "toString", null]) expect(isAgentKind(kind)).toBe(false);
   });
 
   it("validates opaque session references without accepting path-like ids", () => {
@@ -43,7 +45,8 @@ describe("agent adapter contracts", () => {
       expect(isAgentSessionRef({ agent: "codex", id })).toBe(false);
     }
     expect(isAgentSessionRef({ agent: "codex", id: "会".repeat(170) })).toBe(true);
-    expect(isAgentSessionRef({ agent: "opencode", id: "session-1" })).toBe(false);
+    for (const agent of AGENT_KINDS) expect(isAgentSessionRef({ agent, id: "session-1" })).toBe(true);
+    expect(isAgentSessionRef({ agent: "unknown", id: "session-1" })).toBe(false);
   });
 
   it("maps each agent to its own context reset command", () => {
@@ -51,5 +54,7 @@ describe("agent adapter contracts", () => {
     expect(agentResetCommand("claude")).toBe("/clear");
     expect(agentResetCommand("codex")).toBe("/new");
     expect(agentResetCommand("pi")).toBeNull();
+    for (const kind of ["antigravity", "opencode", "kimi"] as const) expect(agentResetCommand(kind)).toBe("/new");
+    expect(agentDescriptor("antigravity")).toMatchObject({ id: "agent:antigravity", command: "agy" });
   });
 });

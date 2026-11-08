@@ -40,7 +40,7 @@ pub(super) fn refresh(
         .as_deref()
         .map(str::trim)
         .filter(|path| !path.is_empty());
-    let files = request.roots.files(request.check)?;
+    let (files, skipped_files) = request.roots.files(request.check)?;
     // 共享已完成记录，新增内容写入临时快照；取消/失败不会留下半份缓存。
     let mut staged = cache.clone();
     staged.retain(&files.iter().map(|(_, path)| path.clone()).collect());
@@ -49,7 +49,7 @@ pub(super) fn refresh(
         project_root,
         diagnostics: ScanDiagnostics::default(),
         scanned_files: 0,
-        skipped_files: 0,
+        skipped_files,
     };
     scan.read(&mut staged, &files, request.check)?;
     let report = scan.report(request, period)?;

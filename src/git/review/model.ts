@@ -1,4 +1,5 @@
 import { isAgentKind } from "../../prompt/contracts";
+import { AGENT_METADATA } from "../../agent/contracts";
 import type { PromptQueueUpdate } from "../../prompt/contracts";
 import type { WorkspaceTab } from "../../workspace/contracts";
 import { pathKey } from "../../workspace/path";
@@ -45,7 +46,7 @@ export function reviewTargets(tabs: readonly WorkspaceTab[], projectRoot: string
 
 export function reviewTargetLabel(tab: WorkspaceTab) {
   const name = tab.agentName || tab.title;
-  const agent = tab.kind === "codex" ? "Codex" : tab.kind === "claude" ? "Claude Code" : "Pi";
+  const agent = isAgentKind(tab.kind) ? AGENT_METADATA[tab.kind].name : tab.kind;
   return `${name} · ${agent}`;
 }
 

@@ -1,5 +1,5 @@
 import type { TerminalSnapshot } from "../components/TerminalViewport";
-import { isAgentKind, type AgentSessionRef } from "../agent/contracts";
+import { AGENT_METADATA, isAgentKind, type AgentSessionRef } from "../agent/contracts";
 import type { LaunchProfileId, ShellProfileId, SshLaunch } from "../terminal/contracts";
 import { sshDisplayName } from "../terminal/contracts";
 import type { ProjectWorkspace, WorkspaceTab, WorkspaceTabKind } from "./contracts";
@@ -170,6 +170,6 @@ function tabTitle(kind: WorkspaceTabKind, ordinal: number, sshTarget: SshLaunch 
   if (kind === "ssh") {
     return sshTarget ? sshDisplayName(sshTarget) : `SSH ${String(ordinal).padStart(2, "0")}`;
   }
-  const label = { shell: "Shell", codex: "Codex", claude: "Claude", pi: "Pi" }[kind];
+  const label = kind === "shell" ? "Shell" : kind === "claude" ? "Claude" : AGENT_METADATA[kind].name;
   return `${label} ${String(ordinal).padStart(2, "0")}`;
 }

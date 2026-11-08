@@ -35,7 +35,9 @@ impl Cursor {
             && path
                 .file_stem()
                 .and_then(|value| value.to_str())
-                .is_some_and(|name| name == session.id || name.ends_with(&format!("_{}", session.id)));
+                .is_some_and(|name| {
+                    name == session.id || name.ends_with(&format!("_{}", session.id))
+                });
         Self {
             path,
             session,
@@ -132,6 +134,11 @@ impl Cursor {
     }
 
     fn record(&mut self, value: Value, accumulator: &mut Accumulator) {
+        if crate::history::native::supported(self.session.agent) && value["type"] == "session_meta"
+        {
+            self.verified = value["belfrySession"]["id"].as_str() == Some(&self.session.id)
+                && value["belfrySession"]["agent"].as_str() == Some(self.session.agent.id());
+        }
         if self.session.agent == AgentKind::Codex && value["type"] == "session_meta" {
             self.verified = value["payload"]["session_id"]
                 .as_str()

@@ -3,8 +3,9 @@
 (() => {
   const qa = window.__productionQA;
   const original = window.__TAURI_INTERNALS__.invoke;
-  const kinds = ["claude", "codex", "pi"];
-  const labels = { claude: "Claude Code", codex: "Codex", pi: "Pi" };
+  const kinds = ["claude", "codex", "pi", "antigravity", "opencode", "kimi"];
+  const labels = { claude: "Claude Code", codex: "Codex", pi: "Pi", antigravity: "Antigravity CLI", opencode: "OpenCode", kimi: "Kimi Code" };
+  const commands = { ...Object.fromEntries(kinds.map(kind => [kind, kind])), antigravity: "agy" };
   const rootPath = "/qa/synthetic-project/very-long-directory-name-for-layout-coverage/packages/workbench";
   const project = { id: "production-ui-project", name: "Synthetic Graphite workbench with a deliberately long project name", rootPath, rootUri: `file://${rootPath}` };
   const workspace = JSON.parse(localStorage.getItem("belfry.workspace.v1"));
@@ -17,7 +18,7 @@
   qa.catalog = { agents: kinds.map(kind => ({ kind, currentId: null, providers: [{ id: `${kind}-qa`, name: `Synthetic ${labels[kind]} service with a long descriptive name`, baseUrl: "https://synthetic.invalid/v1", hasApiKey: true, model: "synthetic-model", createdAt: 1 }] })), envConflicts: [] };
   qa.tasks = [{ id: "qa-waiting", shortId: "qa-wait", fromLabel: "synthetic-reviewer", toLabel: "synthetic-builder", instruction: "Review the synthetic Graphite workbench and keyboard focus behavior", state: "pendingapproval", hop: 1, createdAt: Date.now(), result: null },
     { id: "qa-complete", shortId: "qa-done", fromLabel: "synthetic-builder", toLabel: "synthetic-reviewer", instruction: "Inspect synthetic layout", state: "done", hop: 1, createdAt: Date.now(), result: "Synthetic result: layout review complete; no real user data was accessed." }];
-  const descriptor = kind => ({ id: `agent:${kind}`, kind, displayName: labels[kind], command: kind, capabilities: { launch: true, resume: true, history: true, prompt: true, structuredState: false } });
+  const descriptor = kind => ({ id: `agent:${kind}`, kind, displayName: labels[kind], command: commands[kind], capabilities: { launch: true, resume: true, history: true, prompt: true, structuredState: false } });
   const history = { agent: "claude", id: "synthetic-history", title: "Synthetic Graphite history search and resume session with a long title", cwd: rootPath, startedAt: 1700000000, lastActiveAt: 1700000100, sessionRef: { agent: "claude", id: "synthetic-history" } };
   const filename = "synthetic-workbench-file-with-a-long-descriptive-name.ts";
   const manifest = { schemaVersion: 1, id: "qa.synthetic", name: "Synthetic permissions plugin with a long name", version: "1.0.0", author: "QA", description: "Synthetic host UI fixture", icon: null,
@@ -41,7 +42,7 @@
   };
   const handlers = {
     agent_descriptors: () => kinds.map(descriptor),
-    agent_detect: () => kinds.map(kind => ({ kind, descriptor: descriptor(kind), available: true, executable: `/qa/bin/${kind}`, version: "synthetic-1.0", reason: null })),
+    agent_detect: () => kinds.map(kind => ({ kind, descriptor: descriptor(kind), available: true, executable: `/qa/bin/${commands[kind]}`, version: "synthetic-1.0", reason: null })),
     agent_resume_plan: ({ session }) => ({ schemaVersion: 1, session, supported: true, arguments: ["--resume", session.id] }),
     project_open: () => project,
     provider_list: () => qa.catalog,
@@ -61,7 +62,7 @@
     project_provider_report: () => ({ rootPath, envConflicts: [], agents: kinds.map(kind => ({ kind, providerId: null, source: "global", effectiveName: "官方登录", missing: false, choices: qa.catalog.agents.find(item => item.kind === kind).providers.map(item => ({ ...item, configured: item.hasApiKey })) })) }),
     agent_hooks_report: () => kinds.map(kind => ({ kind, version: "synthetic-1", supported: true, configPath: `/qa/${kind}/config`, installed: 0, expected: 1, stale: 0, disabled: false, note: "Synthetic fixture", error: null })),
     setup_diagnose: () => ({ overall: "ok", checkedAt: Date.now(), checks: [{ id: "synthetic", label: "Synthetic CLI environment", state: "ok", summary: "Fixture only; no real CLI was launched" }] }),
-    agent_release_report: () => kinds.map(kind => ({ kind, displayName: labels[kind], command: kind, executable: `/qa/bin/${kind}`, currentVersion: "1.0.0", latestVersion: "1.0.0", package: "synthetic", state: "ready", notice: "Synthetic fixture", installCommand: null })),
+    agent_release_report: () => kinds.map(kind => ({ kind, displayName: labels[kind], command: commands[kind], executable: `/qa/bin/${commands[kind]}`, currentVersion: "1.0.0", latestVersion: "1.0.0", package: "synthetic", state: "ready", notice: "Synthetic fixture", installCommand: null })),
     ssh_aliases: () => ({ aliases: [], warnings: [] }),
     collab_tasks: () => ({ tasks: qa.tasks }),
     collab_approve: ({ id }) => { qa.tasks.find(task => task.id === id).state = "done"; return null; },
@@ -70,7 +71,12 @@
     project_read_file: ({ relativePath }) => ({ name: filename, relativePath, content: "export const syntheticGraphite = true;\n", size: 41, modifiedAt: 1, language: "typescript", binary: false, truncated: false }),
     git_status: () => ({ repository: true, rootPath, branch: "qa/long-synthetic-graphite-branch-name", head: "abcdef", upstream: null, ahead: 0, behind: 0, entries: [{ path: filename, originalPath: null, indexStatus: " ", worktreeStatus: "M", untracked: false, conflicted: false, submodule: false }], truncated: false }),
     git_diff: () => ({ text: `diff --git a/${filename} b/${filename}\n--- a/${filename}\n+++ b/${filename}\n@@ -1 +1 @@\n-export const syntheticGraphite = false;\n+export const syntheticGraphite = true;\n`, binary: false, truncated: false }),
-    history_search: ({ request }) => ({ hits: !request.query.text || history.title.toLowerCase().includes(request.query.text.toLowerCase()) ? [{ session: history, snippet: "Synthetic Graphite session transcript" }] : [], projects: [rootPath], scannedFiles: 1, indexedFiles: 1, skippedFiles: 0, skippedLines: 0 }),
+    history_search: ({ request }) => {
+      const agent = request.query.agent ?? "claude";
+      const id = agent === "claude" ? history.id : `synthetic-history-${agent}`;
+      const session = { ...history, agent, id, sessionRef: { agent, id } };
+      return { hits: !request.query.text || session.title.toLowerCase().includes(request.query.text.toLowerCase()) ? [{ session, snippet: "Synthetic Graphite session transcript" }] : [], projects: [rootPath], scannedFiles: 1, indexedFiles: 1, skippedFiles: 0, skippedLines: 0 };
+    },
     plugins_list: () => registry,
     plugins_runtime: ({ method = "catalog", params = {} }) => {
       if (!runtimeHandlers[method]) { qa.unhandled.push(`plugins_runtime:${method}`); throw new Error(`Synthetic fixture missing runtime method ${method}`); }

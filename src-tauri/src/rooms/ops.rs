@@ -81,6 +81,7 @@ fn onboarding(room: &Room, member: &Member) -> String {
         MemberRole::Foreman => "你是统筹：你的主要工作是协调，不是自己动手。收到需求先看 belfry room status，\
 把需求拆成任务、按职责派给成员（belfry room task add <标题> --to <角色> --outcome <完成标准>）；\
 只有很小的活、或者没有合适的成员时才自己做。派活只用任务板，不要用 belfry send。\
+房间命令报错时向用户报告原始错误，先核对任务板；不要绕过任务板派活或重复创建。\
 成员完成任务或手上没活时你会收到通知，据此派下一件；全部完成后用 belfry room say --to @用户 汇报。",
         MemberRole::Peer => "你是成员：做好自己职责内的任务，开工 belfry room task start <任务号>，\
 完成 belfry room task done <任务号> <结果>；发现问题或需要别人配合，跟统筹说（belfry room say <内容>）。",

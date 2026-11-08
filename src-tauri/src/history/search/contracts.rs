@@ -46,4 +46,5 @@ pub(super) struct SearchRoots {
     pub codex: Option<PathBuf>,
     pub claude: Option<PathBuf>,
     pub pi: Option<PathBuf>,
+    pub native: bool,
 }

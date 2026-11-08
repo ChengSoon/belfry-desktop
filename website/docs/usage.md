@@ -10,7 +10,9 @@ description: 本地聚合 CLI 会话日志，看清 token 花在哪
 
 ## 数据从哪来
 
-**直接读取本地的 Codex / Claude 会话日志并聚合，不发任何网络请求。** 数据全程留在你机器上。
+**直接读取本地 CLI 会话数据并聚合，不发任何网络请求。** 支持 Codex、Claude Code，以及新增的 Antigravity CLI、OpenCode、Kimi Code。数据全程留在你机器上。
+
+原生记录没有提供的模型、缓存量和套餐额度保持未知。OpenCode 总量包含辅助请求；无法归属模型的部分单独显示。Kimi 的逐条用量只累计一次，Antigravity 缺少的完整文件内容不会被推算成 diff。
 
 ## 四类 token
 

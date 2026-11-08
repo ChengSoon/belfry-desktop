@@ -5,9 +5,11 @@ import type { AgentKind } from "../../workspace/contracts";
 import { toAppFailure } from "../../workspace/errors";
 import { fetchProviderModels } from "../api";
 import type { ProviderDraft } from "../contracts";
+import type { DraftIssue } from "../validate";
 
-export function ProviderModelField({ kind, draft, busy, onChange }: {
+export function ProviderModelField({ kind, draft, busy, onChange, issue }: {
   kind: AgentKind; draft: ProviderDraft; busy: boolean; onChange: (draft: ProviderDraft) => void;
+  issue?: DraftIssue | null;
 }) {
   const [models, setModels] = useState<string[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -40,7 +42,8 @@ export function ProviderModelField({ kind, draft, busy, onChange }: {
     </div>
     {error && <p className="provider-form__issue" role="alert">{error}</p>}
     <p className="provider-form__hint" role="status">{models?.length === 0 ? "服务未返回模型，可手动填写模型 ID。" : models ? `已获取 ${models.length} 个模型，选择后再保存配置。` : ""}</p>
-    <p id="provider-model-hint" className="provider-form__hint">使用当前地址和密钥获取服务公布的模型，不验证调用权限。也可手动填写，留空沿用 CLI 设置。</p>
+    {issue?.field === "model" && <p className="provider-form__issue" role="alert">{issue.message}</p>}
+    <p id="provider-model-hint" className="provider-form__hint">使用当前地址和密钥获取服务公布的模型，不验证调用权限。{["antigravity", "opencode", "kimi"].includes(kind) ? "请选择或填写模型 ID。" : "也可手动填写，留空沿用 CLI 设置。"}</p>
   </div>;
 }
 

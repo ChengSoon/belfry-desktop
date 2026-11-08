@@ -164,13 +164,20 @@ impl Machine {
             "PreToolUse" => {
                 if matches!(
                     input.tool_name.as_deref(),
-                    Some("AskUserQuestion" | "request_user_input")
+                    Some(
+                        "AskUserQuestion"
+                            | "request_user_input"
+                            | "AskUser"
+                            | "question"
+                            | "notify_user"
+                            | "ask_question"
+                    )
                 ) {
                     self.waiting.insert(wait_key(input));
                 }
                 Some(self.working())
             }
-            "PostToolUse" | "PostToolUseFailure" => {
+            "PostToolUse" | "PostToolUseFailure" | "PermissionResult" => {
                 self.waiting.remove(&wait_key(input));
                 self.waiting.remove("notification");
                 Some(if input.is_interrupt && self.waiting.is_empty() {

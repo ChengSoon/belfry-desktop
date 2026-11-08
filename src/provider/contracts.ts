@@ -1,4 +1,5 @@
 import type { AgentKind } from "../workspace/contracts";
+import { AGENT_KINDS, AGENT_METADATA } from "../agent/contracts";
 
 export interface ProviderConfig {
   id: string;
@@ -57,11 +58,7 @@ export const EMPTY_DRAFT: ProviderDraft = {
   model: "",
 };
 
-export const AGENT_LABEL: Record<AgentKind, string> = {
-  codex: "Codex",
-  claude: "Claude Code",
-  pi: "Pi",
-};
+export const AGENT_LABEL = Object.fromEntries(AGENT_KINDS.map((kind) => [kind, AGENT_METADATA[kind].name])) as Record<AgentKind, string>;
 
 export function toDraft(config: ProviderConfig): ProviderDraft {
   return {

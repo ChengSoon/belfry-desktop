@@ -23,7 +23,8 @@ export class Transcript {
   }
   call(name, id, input) {
     if (typeof name !== "string" || typeof id !== "string") return;
-    const stripped = name === this.stripName || name.endsWith(`__${this.stripName}`);
+    const stripped = name === this.stripName || name.endsWith(`__${this.stripName}`)
+      || name === `belfry_plugins_${this.stripName}` || name === `mcp_belfry_plugins_${this.stripName}`;
     this.calls.set(id, { name, stripped });
     if (this.calls.size > MESSAGE_COUNT * 4) this.calls.delete(this.calls.keys().next().value);
     if (!stripped) this.add("assistant", typeof input === "string" ? input : JSON.stringify(input ?? {}), name);
@@ -55,7 +56,7 @@ export class Transcript {
   claude(record, id) {
     if (record.sessionId !== id || record.isSidechain || !["user", "assistant"].includes(record.type)) return;
     const message = record.message ?? {}, parts = message.content;
-    if (message.model) this.modelId = message.model;
+    if (message.model && !record.belfryAuxiliary) this.modelId = message.model;
     if (typeof parts === "string") { this.add(record.type, parts); return; }
     for (const part of Array.isArray(parts) ? parts : []) this.claudePart(part, record.type);
   }

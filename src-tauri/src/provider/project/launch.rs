@@ -26,7 +26,84 @@ pub(super) fn prepare(
         AgentKind::Codex => Ok(codex(provider)),
         AgentKind::Claude => claude(base, provider),
         AgentKind::Pi => pi(base, provider),
+        AgentKind::Antigravity => antigravity(base, provider),
+        AgentKind::Opencode => opencode(provider),
+        AgentKind::Kimi => kimi(provider),
     }
+}
+
+fn antigravity(base: &Path, provider: &ProviderConfig) -> Result<LaunchOverlay, AppError> {
+    let settings =
+        super::super::native::apply(AgentKind::Antigravity, "{}", Some(provider), &json!({}))?;
+    let file = LaunchFile::create(base, &settings)?;
+    Ok(LaunchOverlay {
+        arguments: vec![
+            "--settings".into(),
+            file.path().to_string_lossy().into_owned(),
+            "--model".into(),
+            "Belfry".into(),
+        ],
+        environment: [
+            ("GEMINI_API_KEY".into(), provider.api_key.clone()),
+            (
+                "GOOGLE_GEMINI_BASE_URL".into(),
+                provider.base_url.trim_end_matches('/').into(),
+            ),
+        ]
+        .into(),
+        retained_files: vec![file],
+        ..Default::default()
+    })
+}
+
+fn opencode(provider: &ProviderConfig) -> Result<LaunchOverlay, AppError> {
+    super::super::native::validate_model(AgentKind::Opencode, &provider.model)?;
+    let mut entry = super::super::native::opencode_provider(provider);
+    entry["settings"]["apiKey"] = json!("{env:BELFRY_PROVIDER_API_KEY}");
+    Ok(LaunchOverlay {
+        environment: [
+            ("BELFRY_PROVIDER_API_KEY".into(), provider.api_key.clone()),
+            ("OPENCODE_CONFIG_CONTENT".into(), json!({"providers":{"belfry":entry},"model":format!("belfry/{}",provider.model.trim())}).to_string()),
+        ].into(),
+        ..Default::default()
+    })
+}
+
+pub(super) fn merge_opencode_environment(
+    overlay: &mut LaunchOverlay,
+    existing: &str,
+) -> Result<(), AppError> {
+    let Some(text) = overlay.environment.get("OPENCODE_CONFIG_CONTENT") else {
+        return Ok(());
+    };
+    let selection = crate::provider::json_config::parse(text)?;
+    let config = crate::provider::json_config::set(
+        existing,
+        &["providers", "belfry"],
+        selection["providers"].get("belfry"),
+    )?;
+    let config = crate::provider::json_config::set(&config, &["model"], selection.get("model"))?;
+    overlay
+        .environment
+        .insert("OPENCODE_CONFIG_CONTENT".into(), config);
+    Ok(())
+}
+
+fn kimi(provider: &ProviderConfig) -> Result<LaunchOverlay, AppError> {
+    super::super::native::validate_model(AgentKind::Kimi, &provider.model)?;
+    Ok(LaunchOverlay {
+        // The documented environment model is in memory; logs, hooks, MCP and OAuth retain their native locations.
+        arguments: vec!["--model".into(), "__kimi_env_model__".into()],
+        environment: [
+            ("KIMI_MODEL_NAME".into(), provider.model.trim().into()),
+            ("KIMI_MODEL_PROVIDER_TYPE".into(), "openai".into()),
+            ("KIMI_MODEL_BASE_URL".into(), provider.base_url.clone()),
+            ("KIMI_MODEL_API_KEY".into(), provider.api_key.clone()),
+            ("KIMI_MODEL_CAPABILITIES".into(), String::new()),
+        ]
+        .into(),
+        ..Default::default()
+    })
 }
 
 fn codex(provider: &ProviderConfig) -> LaunchOverlay {

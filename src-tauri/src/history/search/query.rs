@@ -70,7 +70,7 @@ pub(super) fn excerpt(text: &str, needle: &str) -> Option<String> {
 }
 
 pub(super) fn merge_hit(hits: &mut BTreeMap<String, HistorySearchHit>, hit: HistorySearchHit) {
-    let key = format!("{}:{}", hit.session.agent.command_name(), hit.session.id);
+    let key = format!("{}:{}", hit.session.agent.id(), hit.session.id);
     let Some(current) = hits.get_mut(&key) else {
         hits.insert(key, hit);
         return;

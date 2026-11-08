@@ -146,7 +146,7 @@ impl AnalyticsAccumulator {
             left.day
                 .unwrap_or(i64::MAX)
                 .cmp(&right.day.unwrap_or(i64::MAX))
-                .then_with(|| left.agent.command_name().cmp(right.agent.command_name()))
+                .then_with(|| left.agent.id().cmp(right.agent.id()))
                 .then_with(|| left.model.cmp(&right.model))
                 .then_with(|| left.project_root.cmp(&right.project_root))
         });

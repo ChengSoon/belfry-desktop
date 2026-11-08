@@ -1,7 +1,7 @@
 use super::{SYNTHETIC_MODEL, matches_project, message_delta, read_tokens};
 use crate::{
     agent::AgentKind,
-    usage::{aggregate::UsageAccumulator, contracts::TokenTotals, timestamp::parse_rfc3339},
+    usage::{aggregate::UsageAccumulator, contracts::TokenTotals, timestamp::parse_value},
 };
 use serde_json::Value;
 use std::collections::{HashMap, hash_map::Entry};
@@ -13,6 +13,7 @@ pub(crate) struct ClaudeRecord {
     cwd: Option<String>,
     key: (String, String),
     tokens: TokenTotals,
+    agent: AgentKind,
 }
 
 impl ClaudeRecord {
@@ -27,7 +28,7 @@ impl ClaudeRecord {
             return None;
         }
         Some(Self {
-            at: record["timestamp"].as_str().and_then(parse_rfc3339),
+            at: parse_value(&record["timestamp"]),
             model: model.to_string(),
             cwd: record["cwd"].as_str().map(ToOwned::to_owned),
             key: (
@@ -35,6 +36,7 @@ impl ClaudeRecord {
                 record["requestId"].as_str().unwrap_or_default().to_string(),
             ),
             tokens: read_tokens(&message["usage"]),
+            agent: AgentKind::Claude,
         })
     }
 
@@ -56,13 +58,7 @@ impl ClaudeRecord {
             }
         };
         let delta = message_delta(previous, self.tokens);
-        accumulator.record(
-            AgentKind::Claude,
-            &self.model,
-            delta,
-            self.at,
-            self.cwd.as_deref(),
-        );
+        accumulator.record(self.agent, &self.model, delta, self.at, self.cwd.as_deref());
         retained
     }
 
@@ -71,5 +67,11 @@ impl ClaudeRecord {
             + self.cwd.as_ref().map_or(0, String::capacity)
             + self.key.0.capacity()
             + self.key.1.capacity()
+    }
+
+    pub(crate) fn with_agent(mut self, agent: AgentKind) -> Self {
+        self.agent = agent;
+        self.key.0 = format!("{}:{}", agent.id(), self.key.0);
+        self
     }
 }

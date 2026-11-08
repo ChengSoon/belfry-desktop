@@ -215,7 +215,7 @@ export function RoomView(props: RoomViewProps) {
               <BriefPanel room={room} rooms={rooms} />
               <CenterTabs onOpenSession={props.onOpenSession} room={room} rooms={rooms} tabs={props.tabs} />
             </main>
-            <TaskBoard room={room} rooms={rooms} />
+            <TaskBoard onOpenSession={props.onOpenSession} room={room} rooms={rooms} tabs={props.tabs} />
           </>
         ) : (
           <main className="col-span-2 flex min-h-0 items-center justify-center">
@@ -1232,11 +1232,13 @@ function Composer(props: { room: Room; rooms: RoomsState; replyTo: RoomMessage |
 
 // ---- 右栏：任务板 ----
 
-function TaskBoard({ room, rooms }: { room: Room; rooms: RoomsState }) {
+function TaskBoard({ room, rooms, tabs, onOpenSession }: { room: Room; rooms: RoomsState; tabs: WorkspaceTab[]; onOpenSession?: (tabId: string) => void }) {
   const [adding, setAdding] = useState(false);
   const columns = taskColumns(room);
   const archived = room.tasks.filter((task) => task.status === "archived").length;
   const live = room.tasks.length - archived;
+  const foreman = foremanOf(room);
+  const busyMembers = activeMembers(room).filter((member) => memberStatus(tabs.find((tab) => tab.id === member.tabId)) === "busy").length;
   useEffect(() => setAdding(false), [room.id]);
   return (
     <aside aria-label="任务板" className="flex min-h-0 flex-col border-l border-border bg-(--panel)">
@@ -1254,9 +1256,15 @@ function TaskBoard({ room, rooms }: { room: Room; rooms: RoomsState }) {
           <Empty className="flex-none border border-dashed border-border py-8">
             <EmptyHeader>
               <EmptyMedia variant="icon"><ListTodo /></EmptyMedia>
-              <EmptyTitle className="text-sm">任务板是空的</EmptyTitle>
-              <EmptyDescription className="text-xs">通常由统筹拆需求、建任务；你也可以直接在这里建。</EmptyDescription>
+              <EmptyTitle className="text-sm">{busyMembers ? "尚未登记任务" : "任务板是空的"}</EmptyTitle>
+              <EmptyDescription className="text-xs">
+                {busyMembers ? `已有 ${busyMembers} 位成员在处理，但任务板仍为空。查看统筹的拆解进度或执行错误，确认任务是否创建成功。`
+                  : "通常由统筹拆需求、建任务；你也可以直接在这里建。"}
+              </EmptyDescription>
             </EmptyHeader>
+            {foreman && onOpenSession ? (
+              <EmptyContent><Button onClick={() => onOpenSession(foreman.tabId)} size="xs" variant="outline"><SquareTerminal /> 查看统筹终端</Button></EmptyContent>
+            ) : null}
           </Empty>
         ) : null}
         {(["active", "planned", "done"] as const).map((status) => columns[status].length ? (
@@ -1408,7 +1416,7 @@ function TaskForm({ room, rooms, onDone }: { room: Room; rooms: RoomsState; onDo
 
 function agentOptions(agents: AgentAvailability[]) {
   return agents
-    .filter((agent) => agent.available && (agent.kind === "claude" || agent.kind === "codex"))
+    .filter((agent) => agent.available && isAgentKind(agent.kind))
     .map((agent) => ({ value: agent.kind, label: agent.descriptor.displayName }));
 }
 

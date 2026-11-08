@@ -5,11 +5,8 @@ use std::path::{Path, PathBuf};
 pub(super) const CLAUDE_SESSION_ENV: &str = "BELFRY_PLUGIN_CLAUDE_SESSION_ID";
 
 pub(super) fn connection(request: &CreateTerminalRequest, workspace: &Path, ticket: &str) -> Value {
-    let kind = if request.profile_id == "agent:claude" {
-        AgentKind::Claude
-    } else {
-        AgentKind::Codex
-    };
+    let kind = AgentKind::from_profile_id(&request.profile_id)
+        .expect("agent connection requires an agent profile");
     // 重连已有 PTY 不会重新执行启动参数，不能给旧 Claude 进程虚构一个 --session-id。
     let launch_id = (kind == AgentKind::Claude
         && request.resume.is_none()
@@ -27,6 +24,12 @@ fn history_root(
     kind: AgentKind,
     workspace: &Path,
 ) -> Option<PathBuf> {
+    if crate::history::native::supported(kind) {
+        return crate::history::native::root(kind);
+    }
+    if !matches!(kind, AgentKind::Codex | AgentKind::Claude) {
+        return crate::agent::paths::sessions_root(kind);
+    }
     let (key, folder, suffix) = if kind == AgentKind::Codex {
         ("CODEX_HOME", ".codex", "sessions")
     } else {

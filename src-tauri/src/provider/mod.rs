@@ -9,12 +9,14 @@
 
 mod claude;
 mod codex;
-mod pi;
 pub mod commands;
 mod contracts;
 mod envcheck;
+pub(crate) mod json_config;
 mod models;
-pub(crate) mod project;
+mod native;
+mod pi;
 pub(crate) mod plugin_gateway;
+pub(crate) mod project;
 mod service;
 mod store;

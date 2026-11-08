@@ -5,10 +5,11 @@ import { parseRecentProjects, parseWorkspaceState } from "../workspace/storage";
 import type { ProjectWorkspace, WorkspaceTab } from "../workspace/contracts";
 import { cleanTarget } from "../workspace/ssh/model";
 import { record, type WorkspaceBackup } from "./contracts";
+import { AGENT_METADATA, agentRecord } from "../agent/contracts";
 
 const MAX_LABEL_LENGTH = 200;
 const MAX_PATH_LENGTH = 4096;
-const DISPLAY_NAME = { shell: "Shell", ssh: "SSH", claude: "Claude", codex: "Codex", pi: "Pi" };
+const DISPLAY_NAME = { ...agentRecord((kind) => AGENT_METADATA[kind].name), shell: "Shell", ssh: "SSH", claude: "Claude" };
 
 export function cleanWorkspace(input: unknown): WorkspaceBackup {
   if (!record(input) || !record(input.state) || !Array.isArray(input.state.tabs)) throw new Error("工作区数据无效");

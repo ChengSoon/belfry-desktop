@@ -18,6 +18,9 @@ impl Record {
             AgentKind::Codex => CodexRecord::parse(&value).map(Self::Codex),
             // Pi 的用量在会话视图里统计（usage/session），聚合扫描不重复解析。
             AgentKind::Pi => None,
+            AgentKind::Antigravity | AgentKind::Opencode | AgentKind::Kimi => {
+                ClaudeRecord::parse(&value).map(|record| Self::Claude(record.with_agent(agent)))
+            }
         })
     }
 
@@ -31,7 +34,9 @@ impl Record {
 
 pub(super) fn relevant(agent: AgentKind, bytes: &[u8]) -> bool {
     let keywords: &[&str] = match agent {
-        AgentKind::Claude => &["\"usage\""],
+        AgentKind::Claude | AgentKind::Antigravity | AgentKind::Opencode | AgentKind::Kimi => {
+            &["\"usage\""]
+        }
         AgentKind::Codex => &["\"session_meta\"", "\"turn_context\"", "token_count"],
         AgentKind::Pi => &["\"usage\""],
     };
