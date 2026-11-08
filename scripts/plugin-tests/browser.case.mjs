@@ -43,6 +43,43 @@ test("workspace-relative browser URLs resolve files and keep the preview inside 
   assert.equal(await preview.target({ url: "https://example.com" }), "https://example.com/");
 });
 
+test("local preview reloads changed page resources without discarding input for unrelated directory events", async (t) => {
+  const lifetime = cleanupScope(t), root = await temporary(lifetime);
+  await writeFile(join(root, "index.html"), '<title>Local</title><link rel="stylesheet" href="style.css">');
+  await writeFile(join(root, "style.css"), "body { color: red; }");
+  let reloads = 0;
+  const preview = new BrowserPreview(root, async () => { reloads++; });
+  lifetime.after(() => preview.close());
+  const url = await preview.target({ path: "index.html" });
+  assert.equal((await fetch(url)).status, 200);
+  assert.equal((await fetch(new URL("style.css", url))).status, 200);
+  assert.equal((await fetch(new URL("generated.js", url))).status, 404);
+  await mkdir(join(root, "upload"));
+  await writeFile(join(root, "upload", "note.txt"), "upload only");
+  await writeFile(join(root, "unrelated.txt"), "not a page resource");
+  // A watcher notification alone is not evidence that a displayed resource changed.
+  preview.watcher.emit("change", "change", "index.html");
+  await new Promise(resolve => setTimeout(resolve, 600));
+  assert.equal(reloads, 0, "unrelated/metadata notifications must preserve the current document");
+  await writeFile(join(root, "style.css"), "body { color: blue; }");
+  await waitForReloads(() => reloads, 1);
+  await writeFile(join(root, "index.html"), "<title>Updated page</title>");
+  await waitForReloads(() => reloads, 2);
+  await writeFile(join(root, "generated.js"), "console.log('build ready');");
+  await waitForReloads(() => reloads, 3);
+  preview.watcher.emit("change", "change", "index.html");
+  await preview.target({ url: "https://example.com" });
+  await writeFile(join(root, "index.html"), "<title>Inactive preview</title>");
+  await new Promise(resolve => setTimeout(resolve, 600));
+  assert.equal(reloads, 3, "an inactive preview must not reload an external page");
+});
+
+async function waitForReloads(count, expected) {
+  const deadline = Date.now() + 5_000;
+  while (count() < expected && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 40));
+  assert.equal(count(), expected);
+}
+
 test("a crashed browser releases stale targets and restarts on the next navigation", async (t) => {
   const lifetime = cleanupScope(t);
   const root = await temporary(lifetime), context = { workspace: root, sessionId: "restart" };
