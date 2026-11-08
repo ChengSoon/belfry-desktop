@@ -1,4 +1,6 @@
 .DS_Store
+# Local Rust toolchain bootstrap download; never part of the app source or release.
+/rustup-init.exe
 node_modules/
 dist/
 src-tauri/target/
