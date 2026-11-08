@@ -201,3 +201,48 @@ fn native_codex_is_not_given_daemon_relay_credentials() {
     relay.bind("claude-pty", &mut claude).unwrap();
     assert!(claude.env.contains_key(belfry_protocol::ENV_ENDPOINT));
 }
+
+#[test]
+fn collaboration_forwards_commands_the_daemon_does_not_know() {
+    // 后台比应用老：应用新加的命令也要原样转过去，由应用解释。
+    let relay = Relay::start().unwrap();
+    let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+    let mut launch = request();
+    launch.env.insert(belfry_protocol::ENV_ENDPOINT.into(), format!("tcp:{}", listener.local_addr().unwrap()));
+    launch.env.insert(belfry_protocol::ENV_TOKEN.into(), "ui-secret".into());
+    relay.bind("pty", &mut launch).unwrap();
+    let port: u16 = launch.env[belfry_protocol::ENV_ENDPOINT].strip_prefix("tcp:127.0.0.1:").unwrap().parse().unwrap();
+    let worker = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        let mut line = String::new();
+        BufReader::new(stream.try_clone().unwrap()).read_line(&mut line).unwrap();
+        let forwarded: serde_json::Value = serde_json::from_str(&line).unwrap();
+        assert_eq!(forwarded["token"], "ui-secret", "换成应用的票");
+        assert_eq!(forwarded["command"]["kind"], "someFutureCommand");
+        assert_eq!(forwarded["command"]["payload"], 42, "命令原样转发");
+        stream.write_all(b"{\"status\":\"error\",\"message\":\"app-handled\"}\n").unwrap();
+    });
+    let line = format!(
+        "{{\"version\":{},\"tabId\":\"qa-tab\",\"token\":\"{}\",\"command\":{{\"kind\":\"someFutureCommand\",\"payload\":42}}}}\n",
+        belfry_protocol::PROTOCOL_VERSION, launch.env[belfry_protocol::ENV_TOKEN]
+    );
+    let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
+    stream.write_all(line.as_bytes()).unwrap();
+    let mut response = String::new();
+    BufReader::new(stream).read_line(&mut response).unwrap();
+    assert!(response.contains("app-handled"), "{response}");
+    worker.join().unwrap();
+
+    // 版本不对、缺身份字段的照样拒绝，不往应用转。
+    for bad in [
+        "{\"version\":99,\"tabId\":\"qa-tab\",\"token\":\"x\",\"command\":{}}\n".to_string(),
+        "{\"version\":1,\"command\":{}}\n".to_string(),
+        "[1,2]\n".to_string(),
+    ] {
+        let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
+        stream.write_all(bad.as_bytes()).unwrap();
+        let mut response = String::new();
+        BufReader::new(stream).read_line(&mut response).unwrap();
+        assert!(response.contains("\"status\":\"error\""), "{bad} -> {response}");
+    }
+}
