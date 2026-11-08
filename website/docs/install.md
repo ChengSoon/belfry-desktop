@@ -16,6 +16,24 @@ description: 下载 Belfry 与首次打开的放行说明
 | macOS Intel | `x64` 安装包 |
 | Windows | 安装程序 |
 
+## 如何核对 SHA256
+
+在同一个版本的 Releases 页面下载 `SHA256SUMS.txt` 和所需安装包。进入下载目录，把下列示例文件名换成实际下载的文件名。
+
+Windows 在命令提示符或 PowerShell 中运行：
+
+```powershell
+certutil -hashfile "Belfry_版本号_x64-setup.exe" SHA256
+```
+
+macOS 在终端中运行（Intel 安装包的文件名使用 `x64`）：
+
+```sh
+shasum -a 256 "Belfry_版本号_aarch64.dmg"
+```
+
+将输出的 64 位十六进制值与 `SHA256SUMS.txt` 中**同名文件**的一行对照，忽略大小写和显示用空格，应完全一致。不一致时重新下载安装包后再核对。清单也包含自动更新包和更新元数据，只需核对自己下载的安装包。
+
 ## 系统要求
 
 - **macOS** 14 或更高

@@ -16,6 +16,24 @@ Installers are published on the [GitHub Releases](https://github.com/ChengSoon/b
 | macOS Intel | `x64` installer |
 | Windows | installer |
 
+## How to verify SHA256
+
+Download `SHA256SUMS.txt` and your installer from the **same release**. Open a terminal in your download directory and replace the example filename below with the name of the file you downloaded.
+
+On Windows, run this in Command Prompt or PowerShell:
+
+```powershell
+certutil -hashfile "Belfry_VERSION_x64-setup.exe" SHA256
+```
+
+On macOS, run this in Terminal (the Intel installer uses `x64` in its filename):
+
+```sh
+shasum -a 256 "Belfry_VERSION_aarch64.dmg"
+```
+
+Compare the 64 hexadecimal digits with the entry for the **same filename** in `SHA256SUMS.txt`, ignoring letter case and spaces used for display. The values must match exactly. If they differ, download the installer again and repeat the check. The manifest also covers updater packages and update metadata; you only need to check the installer you downloaded.
+
 ## System requirements
 
 - **macOS** 14 or later

@@ -268,6 +268,22 @@ See the [CLI feature backlog](docs/cli-manager-feature-backlog.md) and [implemen
 - **v0.15.0 · Session collaboration**: give Agent sessions stable names, delegate and settle work between same-project sessions with the bundled `belfry` CLI, and track approvals, safety limits, queued delivery, and task state in the collaboration panel.
 - **v0.16.0 · Collaboration setup**: diagnose the Belfry skill, Codex login and feature state, doctor results, and the collaboration channel from Settings, with automatic synchronization and manual updates for the bundled skill.
 - **v0.17.0 · Multi-client collaboration setup**: extend collaboration diagnostics and bundled skill synchronization to both Codex and Claude Code, report each client independently, and preserve partial-success results.
+- **v0.18.0 · Collaboration timeline**: add an event timeline, task waiting times, and prominent completion results and failure reasons to the collaboration panel.
+- **v0.19.0 · Terminal readability**: improve contrast and font weight in light terminals, with separate background underlay preferences for light and dark themes.
+- **v0.20.x · Plugin ecosystem**: add the plugin center and PI plugin marketplace, dynamic tool discovery, and todo synchronization; bundle real JetBrains Mono weights on Windows. Remove the dedicated Prompt Composer and Recipe panels while retaining background queues.
+- **v0.21.x · Workspace & Agent tools**: background terminals, named workspaces, Agent Hooks, full-text history search, project Providers, Git Worktrees, SSH profiles, backups, and usage trends; add Pi CLI, installation and update tools, bilingual documentation, credential encryption, and improved background recovery.
+- **v0.22.0 · Collaboration rooms**: introduce project rooms with an embedded member terminal viewer, separate windows, and session context controls.
+- **v0.23.0 · Coordinator & shared task board**: organize rooms around a coordinator and members, with a brief, shared T-number tasks and dependencies, pending replies, a flow graph, file sharing, and user notifications; provide the `room status / say / log / task / brief` commands.
+- **v0.24.0 · Six Agent clients**: add Antigravity CLI, OpenCode, and Kimi Code alongside Codex, Claude Code, and Pi, integrating native history, usage, Providers, plugins, and room collaboration, with room protocol compatibility for older background services.
+
+### v0.25.0 · Reliability & bilingual app
+
+- **Collaboration reliability**: fix room switching, drafts, operation errors, and read status; persist tasks and pending deliveries, distinguish queues from terminal submission, and offer manual checks for uncertain delivery; retain early pending replies and add history pagination, capacity display, and startup from snapshots.
+- **Plugins and CLI**: preserve existing settings when a save exceeds the size limit, clean up descendant processes after plugin timeouts or cancellation, and enforce a deadline for `wait --timeout` even when the service does not respond.
+- **Logs and diagnostics**: rotate local logs daily with a total size limit, record crashes, export redacted diagnostics, and offer diagnostic copying and reload controls on the crash screen.
+- **Content Security Policy (CSP)**: restrict application content sources and verify terminal, WebGL, plugin panel, media, and web preview functionality.
+- **Internationalization**: support Simplified Chinese, English, and the system language, with localized dates and numbers; provide bilingual CLI help, native notifications and menus, Agent collaboration instructions, and the Windows installer.
+- **Release checksums**: publish `SHA256SUMS.txt`, verify assets before making the release public, and document verification on Windows and macOS.
 
 ### Long-term tracks
 

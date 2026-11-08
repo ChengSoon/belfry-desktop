@@ -279,6 +279,22 @@ pnpm exec docusaurus build       # 生产构建，输出到 website/build
 - **v0.15.0 · Session collaboration**：为 Agent 会话设置稳定名字，通过内置 `belfry` CLI 在同项目会话间派活、等待和交差；提供批准闸门、循环与层级限制、Prompt Queue 投递和协作状态面板。
 - **v0.16.0 · Collaboration setup**：在设置中诊断 Belfry skill、Codex 登录与功能状态、doctor 结果和协作通道，并自动同步或手动更新内置 skill。
 - **v0.17.0 · Multi-client collaboration setup**：将协作环境诊断与内置 skill 同步扩展到 Codex 和 Claude Code，分别报告客户端状态，并保留部分成功结果。
+- **v0.18.0 · Collaboration timeline**：协作面板增加事件时间线、任务等待时长，以及醒目的完成结果与失败原因。
+- **v0.19.0 · Terminal readability**：改善浅色主题下的终端对比度与字重，深浅主题可分别保存背景底图偏好。
+- **v0.20.x · Plugin ecosystem**：加入插件中心与 PI 插件市场，支持动态工具发现和待办同步；Windows 内置 JetBrains Mono 的真实字重。移除独立 Prompt Composer 与 Recipe 面板，保留后台队列。
+- **v0.21.x · Workspace & Agent tools**：后台终端、命名工作区、Agent Hook、历史全文搜索、项目 Provider、Git Worktree、SSH 配置、备份和用量趋势；加入 Pi CLI，提供安装更新工具与双语手册，完善凭据加密和后台恢复。
+- **v0.22.0 · Collaboration rooms**：首次引入项目协作房间，支持房间内查看成员终端、独立窗口和会话上下文管理。
+- **v0.23.0 · Coordinator & shared task board**：房间改为统筹与成员协作，加入需求简报、T 编号任务板与依赖、待回复事项、流程图、文件发送和用户通知；提供 `room status / say / log / task / brief` 命令。
+- **v0.24.0 · Six Agent clients**：新增 Antigravity CLI、OpenCode、Kimi Code，与 Codex、Claude Code、Pi 一起接入原生历史、用量、Provider、插件和房间协作，并改善旧后台的房间协议兼容。
+
+### v0.25.0 · Reliability & bilingual app
+
+- **协作可靠性**：修复房间切换、草稿、操作错误与已读判断；任务和待投递记录持久化，区分排队与终端提交，对不确定投递提供人工核对；保留早期待回复，支持历史分页、容量展示与快照启动。
+- **插件与 CLI**：设置超限保留原文件，插件超时或取消后回收子孙进程，`wait --timeout` 为服务端无响应设置截止时间。
+- **日志与诊断**：本地日志按天滚动并限制总量，记录崩溃、导出脱敏诊断，崩溃页提供复制诊断与重新加载入口。
+- **内容安全策略（CSP）**：限制应用内容来源，并验证终端、WebGL、插件面板、媒体与网页预览。
+- **国际化**：应用支持简体中文、English 与跟随系统，统一日期和数字格式；CLI 帮助、原生通知与菜单、Agent 协作说明及 Windows 安装器支持中英。
+- **发布校验和**：发布时附带 `SHA256SUMS.txt`，公开前校验资产，并提供 Windows / macOS 核对步骤。
 
 ### 长期方向
 
