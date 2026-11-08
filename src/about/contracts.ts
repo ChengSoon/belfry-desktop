@@ -1,3 +1,4 @@
+import { localized, t } from "../i18n";
 import type { AgentKind } from "../agent/contracts";
 /** 后端 `agent_release_report` 的返回。字段名与 `AgentRelease` 的 camelCase 序列化一致。 */
 export type ReleaseState = "ready" | "upgradable" | "missing" | "unmanaged" | "unknown";
@@ -25,13 +26,13 @@ export interface AgentReleaseInstall {
   log: string;
 }
 
-export const RELEASE_LABEL: Record<ReleaseState, string> = {
-  ready: "已是最新",
-  upgradable: "有新版本",
-  missing: "未安装",
-  unmanaged: "通过原渠道更新",
-  unknown: "状态未知",
-};
+export const RELEASE_LABEL: Record<ReleaseState, string> = localized(() => ({
+  ready: t("about.contracts.text_4219a7449e"),
+  upgradable: t("about.contracts.text_daedea3858"),
+  missing: t("about.contracts.text_156219e305"),
+  unmanaged: t("about.contracts.text_e9d5f09a6a"),
+  unknown: t("about.contracts.text_93e474c68e"),
+}));
 
 export const REPO_URL = "https://github.com/ChengSoon/belfry-desktop";
 export const CHANGELOG_URL = "https://github.com/ChengSoon/belfry-desktop/releases";

@@ -1,3 +1,4 @@
+import { t, useTranslation } from "../../i18n";
 // Adapted from PI-Desktop (vastsa), commit 4fb58d3. LGPL-3.0; see third_party/pi-desktop/NOTICE.md.
 import type { ButtonHTMLAttributes, InputHTMLAttributes, Ref, TextareaHTMLAttributes } from "react";
 import { Select as ControlSelect, type SelectProps } from "../../components/controls/Select";
@@ -21,6 +22,7 @@ export function Button({
   /* React 19 passes ref as a plain prop; an anchored menu needs the element. */
   ref?: Ref<HTMLButtonElement>;
 }) {
+  useTranslation();
   return (
     <button
       ref={ref}
@@ -50,6 +52,7 @@ export function Input({
   ref,
   ...props
 }: InputHTMLAttributes<HTMLInputElement> & { ref?: Ref<HTMLInputElement> }) {
+  useTranslation();
   return (
     <input
       ref={ref}
@@ -63,6 +66,7 @@ export function Input({
 }
 
 export function Textarea({ className, spellCheck = false, autoCorrect = "off", autoCapitalize = "off", ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  useTranslation();
   return (
     <textarea
       className={cx("field-textarea", className)}
@@ -76,6 +80,7 @@ export function Textarea({ className, spellCheck = false, autoCorrect = "off", a
 
 /** 插件中心复用应用的下拉控件，保持历史调用方的 props。 */
 export function Dropdown<T extends string | number>(props: Omit<SelectProps<T>, "ariaLabel"> & { ariaLabel?: string }) {
-  return <ControlSelect {...props} ariaLabel={props.ariaLabel ?? "选择选项"}
+  useTranslation();
+  return <ControlSelect {...props} ariaLabel={props.ariaLabel ?? t("plugins.ui.text_558f727c56")}
     className={cx("plugins-dropdown-wrap", props.className)} />;
 }

@@ -26,6 +26,7 @@ export function usePromptQueue({ tabs, targets }: PromptQueueOptions) {
     publish();
     return resumed;
   }, [publish]);
+  const resolvePersisted = useCallback((id: string) => { runtime.current.resolvePersisted(id); publish(); }, [publish]);
 
   useEffect(() => {
     const sync = () => { runtime.current.sync(tabs, targets); publish(); };
@@ -34,7 +35,7 @@ export function usePromptQueue({ tabs, targets }: PromptQueueOptions) {
     return () => window.clearInterval(timer);
   }, [tabs, targets]);
 
-  return { submit, cancel, paused, resume };
+  return { submit, cancel, paused, resume, resolvePersisted };
 }
 
 function sameDeliveries(a: readonly PausedDelivery[], b: readonly PausedDelivery[]) {

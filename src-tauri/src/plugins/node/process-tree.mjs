@@ -6,7 +6,7 @@ export function terminate(child, signal = "SIGTERM") {
   if (detachedGroup) {
     try { process.kill(-child.pid, signal); } catch (error) { if (error.code !== "ESRCH") child.kill(signal); }
   } else {
-    const cleanup = spawn("taskkill.exe", ["/PID", String(child.pid), "/T", "/F"], { stdio: "ignore", windowsHide: true });
-    cleanup.on("error", () => child.kill());
+    const cleanup = spawn("taskkill.exe", ["/PID", String(child.pid), "/T", ...(signal === "SIGKILL" ? ["/F"] : [])], { stdio: "ignore", windowsHide: true });
+    cleanup.on("error", () => child.kill(signal));
   }
 }

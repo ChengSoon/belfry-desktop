@@ -1,3 +1,4 @@
+import { t } from "../../i18n";
 import { getCurrentWebview, type DragDropEvent } from "@tauri-apps/api/webview";
 import type { Terminal } from "@xterm/xterm";
 import { writeTerminal } from "../api";
@@ -39,7 +40,7 @@ export class TerminalInput {
       paste: (text) => terminal.paste(text),
       enter: () => terminal.input("\r", true),
       write: (id, data) => writeTerminal(id, new TextEncoder().encode(data)),
-      error: (error) => callbacks.onError(`终端输入失败，已停止自动提交：${errorMessage(error)}`),
+      error: (error) => callbacks.onError(t("terminal.input.text_48ac6518d5", { error: errorMessage(error) })),
       settleMs: pasteSettleMs(navigator.userAgent),
     });
     this.input = terminal.onData((data) => this.onData(data));

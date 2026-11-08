@@ -50,7 +50,7 @@ pub fn attach(app: &AppHandle, request: &mut CreateTerminalRequest) -> Option<St
             if let Ok(mut identities) = app.state::<PluginRuntime>().identities.lock() {
                 identities.remove(&session_id);
             }
-            let _ = app.emit_to("main", "plugin-notice", json!({"pluginId":"插件连接", "args":[format!("Agent 可正常使用，插件连接暂不可用：{}", error.message)]}));
+            let _ = app.emit_to("main", "plugin-notice", json!({"pluginId":belfry_i18n::text("插件连接"), "args":[belfry_i18n::lformat!("Agent 可正常使用，插件连接暂不可用：{}", error.message)]}));
             None
         }
     }
@@ -77,7 +77,7 @@ fn open(
     let _operation = state
         .operations
         .lock()
-        .map_err(|_| AppError::io("插件操作锁不可用"))?;
+        .map_err(|_| AppError::io(belfry_i18n::text("插件操作锁不可用")))?;
     let registry = with_host(app, |host| host.list())?;
     state
         .engine
@@ -92,7 +92,7 @@ fn open(
         session[key]
             .as_str()
             .map(String::from)
-            .ok_or_else(|| AppError::io("插件会话响应无效"))
+            .ok_or_else(|| AppError::io(belfry_i18n::text("插件会话响应无效")))
     };
     let native = serde_json::from_value(session["agentSession"].clone()).ok();
     Ok((

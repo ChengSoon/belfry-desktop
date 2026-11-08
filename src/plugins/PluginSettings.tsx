@@ -1,3 +1,4 @@
+import { useFeedback, t, useTranslation } from "../i18n";
 import { useEffect, useState } from "react";
 import type { PiSetting } from "./runtimeContracts";
 import { pluginHost } from "./useDirectoryRegistry";
@@ -9,13 +10,14 @@ import { NumericField } from "../components/controls/NumericField";
 import { guardComposingEnter } from "../utils/keyboard";
 
 export function PluginSettings({ pluginId, settings }: { pluginId: string; settings: PiSetting[] }) {
+  useTranslation();
   const [values, setValues] = useState<Record<string, unknown> | null>(null);
   const [draft, setDraft] = useState<Record<string, string>>({});
-  const [busy, setBusy] = useState(false), [notice, setNotice] = useState("");
+  const [busy, setBusy] = useState(false), [notice, setNotice] = useFeedback("");
   useEffect(() => {
     let live = true;
     setValues(null); setDraft({});
-    void pluginHost.getSettings(pluginId).then((result) => { if (live) setValues(result); }).catch((error) => { if (live) setNotice(pluginError(error)); });
+    void pluginHost.getSettings(pluginId).then((result) => { if (live) setValues(result); }).catch((error) => { if (live) setNotice(() => pluginError(error)); });
     return () => { live = false; };
   }, [pluginId]);
   async function save(event: React.FormEvent) {
@@ -23,18 +25,19 @@ export function PluginSettings({ pluginId, settings }: { pluginId: string; setti
     setBusy(true); setNotice("");
     try {
       const partial = Object.fromEntries(settings.filter((setting) => Object.hasOwn(draft, setting.key)).map((setting) => [setting.key, parseSettingDraft(setting, draft[setting.key])]));
-      setValues(await pluginHost.setSettings(pluginId, partial)); setDraft({}); setNotice("设置已保存");
-    } catch (reason) { setNotice(pluginError(reason)); } finally { setBusy(false); }
+      setValues(await pluginHost.setSettings(pluginId, partial)); setDraft({}); setNotice(() => t("plugins.PluginSettings.text_bd03c0aad7"));
+    } catch (reason) { setNotice(() => pluginError(reason)); } finally { setBusy(false); }
   }
-  return <form onKeyDown={guardComposingEnter} className="plugins-settings" onSubmit={(event) => void save(event)} aria-label="插件设置">
-    <h4>插件设置</h4>
+  return <form onKeyDown={guardComposingEnter} className="plugins-settings" onSubmit={(event) => void save(event)} aria-label={t("plugins.PluginSettings.text_b1bc554af4")}>
+    <h4>{t("plugins.PluginSettings.text_b1bc554af4")}</h4>
     {settings.map((setting) => <label key={setting.key}><span>{setting.title ?? setting.key}</span><SettingInput setting={setting}
       disabled={busy || values === null} value={draft[setting.key] ?? settingDraft(setting, values?.[setting.key] ?? setting.default)}
       onChange={(value) => setDraft((previous) => ({ ...previous, [setting.key]: value }))} /><small>{setting.description}</small></label>)}
-    <div className="plugins-actions"><button type="submit" disabled={busy || !values || !Object.keys(draft).length}>保存设置</button><span role="status">{notice}</span></div>
+    <div className="plugins-actions"><button type="submit" disabled={busy || !values || !Object.keys(draft).length}>{t("plugins.PluginSettings.text_c8550237ba")}</button><span role="status">{notice}</span></div>
   </form>;
 }
 function SettingInput({ setting, value, disabled, onChange }: { setting: PiSetting; value: string; disabled: boolean; onChange: (value: string) => void }) {
+  useTranslation();
   const ariaLabel = setting.title ?? setting.key;
   if (setting.type === "boolean") return <Checkbox ariaLabel={ariaLabel} checked={value === "true"} disabled={disabled} onChange={(checked) => onChange(String(checked))} />;
   if (setting.type === "select") return <Select ariaLabel={ariaLabel} value={value} disabled={disabled} onChange={onChange}

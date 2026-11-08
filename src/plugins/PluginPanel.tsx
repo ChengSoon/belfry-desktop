@@ -1,4 +1,6 @@
+import { t } from "../i18n";
 import { useEffect } from "react";
+import { useTranslation } from "../i18n";
 import { PageContext, usePageModel } from "./center/context";
 import { PageHeader } from "./center/PageHeader";
 import { PageToolbar } from "./center/PageToolbar";
@@ -12,11 +14,12 @@ import { PublishDialog } from "./center/PublishDialog";
 import "./center/styles/index.css";
 
 export function PluginPanel({ onGuardChange }: { onGuardChange?: (value: boolean) => void }) {
+  useTranslation();
   const model = usePageModel();
   const guarded = [model.actions.busy, model.actions.pending, model.template, model.settingsPlugin, model.publishDirectory].some(Boolean);
   useEffect(() => { onGuardChange?.(guarded); return () => onGuardChange?.(false); }, [guarded, onGuardChange]);
   const error = model.actions.error || model.data.error;
-  return <PageContext.Provider value={model}><section className="pi-plugins" aria-label="插件中心" aria-busy={model.actions.busy}>
+  return <PageContext.Provider value={model}><section className="pi-plugins" aria-label={t("plugins.PluginPanel.text_b1e1262a12")} aria-busy={model.actions.busy}>
     <div className="thread-scroll"><div className="page-frame plugins-page">
       <PageHeader /><PageToolbar />
       {error ? <p className="plugins-inline-error" role="alert">{error}</p> : null}

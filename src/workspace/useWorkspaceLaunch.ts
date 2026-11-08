@@ -1,3 +1,4 @@
+import { t, useTranslation } from "../i18n";
 import { useCallback } from "react";
 import { isAgentKind } from "../agent/contracts";
 import { isShellProfileId, type ShellProfileId, type SshLaunch } from "../terminal/contracts";
@@ -20,6 +21,7 @@ export interface LaunchOptions {
 }
 
 export function useWorkspaceLaunch({ state, environment, projects, registerTab }: LaunchOptions) {
+  useTranslation();
   const { tabs, setTabs, setFailure } = state;
   const { activeProject, acceptProject } = projects;
   const { agents, shellProfiles } = environment;
@@ -69,10 +71,10 @@ function launchFailure(environment: Pick<LaunchOptions["environment"], "agents" 
   const shell = profileId && profileId !== "system-default"
     ? environment.shellProfiles.find((profile) => profile.id === profileId) : null;
   if (shell && !shell.available) {
-    return { code: "NOT_FOUND", message: shell.reason ?? `${profileId} 不可用`, retryable: true };
+    return { code: "NOT_FOUND", message: shell.reason ?? t("workspace.useWorkspaceLaunch.text_bdb4b715a3", { profileId: profileId }), retryable: true };
   }
   const agent = isAgentKind(kind)
     ? environment.agents.find((item) => item.kind === kind) : null;
   return agent && !agent.available
-    ? { code: "NOT_FOUND", message: agent.reason ?? `${kind} 不可用`, retryable: true } : null;
+    ? { code: "NOT_FOUND", message: agent.reason ?? t("workspace.useWorkspaceLaunch.text_051de5ca9e", { kind: kind }), retryable: true } : null;
 }

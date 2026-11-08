@@ -1,3 +1,4 @@
+import { t, useTranslation } from "../i18n";
 import {
   AlertTriangle,
   ArrowUpCircle,
@@ -37,6 +38,7 @@ interface AboutSectionProps {
 }
 
 export function AboutSection({ updaterState, updaterOpen, onOpenUpdater, onGuardChange }: AboutSectionProps) {
+  useTranslation();
   const model = useAgentReleases(true);
   // 更新对话框叠在设置页之上时，Escape 只关对话框，别把设置页也一起关了。
   useEffect(() => {
@@ -48,65 +50,57 @@ export function AboutSection({ updaterState, updaterOpen, onOpenUpdater, onGuard
   const busy = model.installing !== null;
 
   return (
-    <section className="about-section" aria-label="关于">
+    <section className="about-section" aria-label={t("about.AboutSection.text_52d25a9e30")}>
       <SettingsHeader
-        title="关于"
-        description="查看版本信息与更新状态。"
+        title={t("about.AboutSection.text_52d25a9e30")}
+        description={t("about.AboutSection.text_ec8fdf4ff2")}
       />
 
       <div className="provider-official about-app">
         <img alt="" className="about-app__icon" src={appIconUrl} />
         <div className="about-app__copy">
           <strong>Belfry</strong>
-          <p>托管你的 CLI Agent，也是一把称手的终端。</p>
+          <p>{t("about.AboutSection.text_342a0e3ee8")}</p>
           <span className={`about-app__version about-app__version--${updaterState.status}`}>
-            {updaterState.availableVersion ? `v${updaterState.currentVersion} → v${updaterState.availableVersion}` : `版本 v${updaterState.currentVersion}`}
+            {updaterState.availableVersion ? `v${updaterState.currentVersion} → v${updaterState.availableVersion}` : t("about.AboutSection.text_45bf8d8881", { currentVersion: updaterState.currentVersion })}
           </span>
         </div>
         <div className="about-app__actions">
           <button onClick={() => void openExternal(DOCS_URL)} type="button">
-            <ExternalLink aria-hidden="true" size={ICON.xs} />用户手册
-          </button>
+            <ExternalLink aria-hidden="true" size={ICON.xs} />{t("about.AboutSection.text_acbf912bf3")}</button>
           <button onClick={() => void openExternal(REPO_URL)} type="button">
-            <ExternalLink aria-hidden="true" size={ICON.xs} />GitHub 仓库
-          </button>
+            <ExternalLink aria-hidden="true" size={ICON.xs} />{t("about.AboutSection.text_720f02a99a")}</button>
           <button onClick={() => void openExternal(CHANGELOG_URL)} type="button">
-            <ExternalLink aria-hidden="true" size={ICON.xs} />更新日志
-          </button>
-          <button className="provider-add" disabled={busy} onClick={onOpenUpdater} type="button">
-            检查更新
-          </button>
+            <ExternalLink aria-hidden="true" size={ICON.xs} />{t("about.AboutSection.text_de6811e73d")}</button>
+          <button className="provider-add" disabled={busy} onClick={onOpenUpdater} type="button">{t("about.AboutSection.text_7f68ebad19")}</button>
         </div>
       </div>
 
       <div className="provider-library-heading about-cli-heading">
         <h3>Agent CLI</h3>
         <div className="about-cli-heading__actions">
-          <span>{model.releases ? `${model.releases.length} 个 · ${platformLabel()}` : "正在检测"}</span>
+          <span>{model.releases ? t("about.AboutSection.text_4673b19698", { count: model.releases.length, platform: platformLabel() }) : t("about.AboutSection.text_2b5941013c")}</span>
           <button
             disabled={model.loading || busy}
             onClick={() => void model.refresh()}
-            title="重新检测本地与 registry 版本"
+            title={t("about.AboutSection.text_32371085de")}
             type="button"
           >
-            <RefreshCw aria-hidden="true" className={model.loading ? "environment-spin" : undefined} size={ICON.xs} />
-            刷新
-          </button>
+            <RefreshCw aria-hidden="true" className={model.loading ? "environment-spin" : undefined} size={ICON.xs} />{t("about.AboutSection.text_aee8874341")}</button>
           {upgradable > 0 ? (
             <button
               className="provider-add"
               disabled={busy}
               onClick={() => void installAll(model)}
               type="button"
-            >
-              全部升级 ({upgradable})
+            >{t("about.AboutSection.upgradeAll", { count: upgradable })}
             </button>
           ) : null}
         </div>
       </div>
 
       {model.releases === null ? (
-        <p className="provider-empty">{model.loading ? "正在检测本地 CLI 与 registry 版本…" : "暂无检测结果。"}</p>
+        <p className="provider-empty">{model.loading ? t("about.AboutSection.text_abb8e4e2ab") : t("about.AboutSection.text_0220c76d0a")}</p>
       ) : (
         <div className="about-list">
           {model.releases.map((release) => (
@@ -148,24 +142,25 @@ function AgentCard({
   result: ReturnType<typeof useAgentReleases>["result"];
   onInstall: () => void;
 }) {
+  useTranslation();
   const Icon = AGENT_ICONS[release.kind];
   const busy = installing === release.kind;
   const failed = result?.kind === release.kind && !result.success;
   const actionable = release.state === "upgradable" || release.state === "missing";
-  const actionLabel = release.state === "missing" ? "安装" : release.state === "upgradable" ? "升级" : RELEASE_LABEL[release.state];
+  const actionLabel = release.state === "missing" ? t("about.AboutSection.text_e8f88f51cc") : release.state === "upgradable" ? t("about.AboutSection.text_94996ca622") : RELEASE_LABEL[release.state];
 
   return (
     <article className="provider-card about-card" data-state={release.state}>
       <header className="about-card__head">
         <Icon aria-hidden="true" size={ICON.md} />
         <strong className="about-card__name">{release.displayName}</strong>
-        <span className="about-card__version" title="当前版本">
-          {release.currentVersion ?? "未安装"}
+        <span className="about-card__version" title={t("about.AboutSection.text_837bc95767")}>
+          {release.currentVersion ?? t("about.AboutSection.text_156219e305")}
         </span>
       </header>
 
       <dl className="about-card__meta">
-        <div><dt>最新版本</dt><dd>{release.latestVersion ?? "—"}</dd></div>
+        <div><dt>{t("about.AboutSection.text_c2a497830e")}</dt><dd>{release.latestVersion ?? "—"}</dd></div>
       </dl>
 
       {release.notice ? <p className="about-card__notice">{release.notice}</p> : null}
@@ -185,7 +180,7 @@ function AgentCard({
           type="button"
         >
           {busy ? <LoaderCircle aria-hidden="true" className="environment-spin" size={ICON.sm} /> : null}
-          <span>{busy ? (release.state === "missing" ? "正在安装" : "正在升级") : actionLabel}</span>
+          <span>{busy ? (release.state === "missing" ? t("about.AboutSection.text_afa17e72ae") : t("about.AboutSection.text_bc572b56dd")) : actionLabel}</span>
         </button> : (
           <span className="about-card__state">
             <StateIcon state={release.state} />
@@ -195,11 +190,9 @@ function AgentCard({
         {failed && release.installCommand ? (
           <button
             onClick={() => void copyToTerminal(release.installCommand!)}
-            title="复制安装命令，到终端里粘贴执行"
+            title={t("about.AboutSection.text_cfd7b08d21")}
             type="button"
-          >
-            在终端中重试
-          </button>
+          >{t("about.AboutSection.text_285e03314f")}</button>
         ) : null}
       </div>
     </article>
@@ -207,6 +200,7 @@ function AgentCard({
 }
 
 function StateIcon({ state }: { state: ReleaseState }) {
+  useTranslation();
   if (state === "ready") return <CheckCircle2 aria-hidden="true" size={ICON.md} />;
   if (state === "upgradable") return <ArrowUpCircle aria-hidden="true" size={ICON.md} />;
   if (state === "missing") return <Download aria-hidden="true" size={ICON.md} />;

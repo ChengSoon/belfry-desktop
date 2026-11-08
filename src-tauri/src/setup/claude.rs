@@ -14,16 +14,16 @@ pub fn checks(executable: &Path) -> Vec<EnvironmentCheck> {
 fn auth_check(executable: &Path) -> EnvironmentCheck {
     match process::run(executable, &["auth", "status", "--json"]) {
         Ok(output) if output.status.success() => auth_result(&output.stdout),
-        Ok(_) => check(CheckState::Warning, "无法读取 Claude Code 登录状态"),
-        Err(error) => check(CheckState::Warning, format!("登录检查失败：{error}")),
+        Ok(_) => check(CheckState::Warning, belfry_i18n::text("无法读取 Claude Code 登录状态")),
+        Err(error) => check(CheckState::Warning, belfry_i18n::lformat!("登录检查失败：{error}")),
     }
 }
 
 fn auth_result(stdout: &[u8]) -> EnvironmentCheck {
     match auth_logged_in(stdout) {
-        Some(true) => check(CheckState::Ok, "Claude Code 已登录"),
-        Some(false) => check(CheckState::Warning, "Claude Code 尚未登录"),
-        None => check(CheckState::Warning, "无法解析 Claude Code 登录状态"),
+        Some(true) => check(CheckState::Ok, belfry_i18n::text("Claude Code 已登录")),
+        Some(false) => check(CheckState::Warning, belfry_i18n::text("Claude Code 尚未登录")),
+        None => check(CheckState::Warning, belfry_i18n::text("无法解析 Claude Code 登录状态")),
     }
 }
 

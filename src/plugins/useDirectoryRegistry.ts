@@ -1,3 +1,4 @@
+import { useFeedback } from "../i18n";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { PluginHostClient, pluginError } from "./hostClient";
@@ -5,7 +6,7 @@ import type { DirectoryRegistry } from "./hostContracts";
 export const pluginHost = new PluginHostClient();
 export function useDirectoryRegistry() {
   const [registry, setRegistry] = useState<DirectoryRegistry | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useFeedback<string | null>(null);
   const epoch = useRef(0);
   const refresh = useCallback(async () => {
     const request = ++epoch.current;
@@ -13,7 +14,7 @@ export function useDirectoryRegistry() {
       const value = await pluginHost.list();
       if (request === epoch.current) { setRegistry(value); setError(null); }
     } catch (reason) {
-      if (request === epoch.current) { setRegistry(null); setError(pluginError(reason)); }
+      if (request === epoch.current) { setRegistry(null); setError(() => pluginError(reason)); }
     }
   }, []);
   useEffect(() => {

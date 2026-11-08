@@ -1,3 +1,4 @@
+import { useFeedback } from "../../i18n";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
@@ -23,12 +24,12 @@ export function TerminalExitDialog() {
 
 function ExitChoice({ onClose }: { onClose: () => void }) {
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useFeedback<string | null>(null);
   const choose = (choice: "confirm" | "cancel") => {
     if (busy) return;
     setBusy(true); setError(null);
     void invoke("terminal_exit", { choice }).then(() => { if (choice === "cancel") onClose(); })
-      .catch((error) => setError(errorMessage(error))).finally(() => setBusy(false));
+      .catch((error) => setError(() => errorMessage(error))).finally(() => setBusy(false));
   };
   const ref = useDialog(() => choose("cancel"), busy);
   return createPortal(<div className="modal-scrim terminal-exit-backdrop">

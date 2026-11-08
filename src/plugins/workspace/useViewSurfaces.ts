@@ -1,3 +1,4 @@
+import { useFeedback } from "../../i18n";
 import { useEffect, useState } from "react";
 import { pluginHost } from "../useDirectoryRegistry";
 import { pluginError } from "../hostClient";
@@ -8,7 +9,7 @@ export interface ViewSurface { key: string; url: string; title: string; pid: num
 const MAX_CACHED_VIEWS = 4;
 export function useViewSurfaces(active: RuntimeView | undefined, runtime: RuntimeCatalog) {
   const [cache, setCache] = useState<ViewSurface[]>([]);
-  const [error, setError] = useState("");
+  const [error, setError] = useFeedback("");
   const [revision, setRevision] = useState(0);
   const key = active ? viewKey(active.pluginId, active.id) : "";
   const pid = runtime.plugins.find((plugin) => plugin.id === active?.pluginId)?.pid ?? 0;
@@ -22,7 +23,7 @@ export function useViewSurfaces(active: RuntimeView | undefined, runtime: Runtim
       .then((surface) => {
         if (!live) return;
         setCache((values) => [...values.filter((item) => item.key !== key), { ...surface, key, pid, revision }].slice(-MAX_CACHED_VIEWS));
-      }).catch((reason) => { if (live) setError(pluginError(reason)); });
+      }).catch((reason) => { if (live) setError(() => pluginError(reason)); });
     return () => { live = false; };
   }, [key, pid, revision]);
   return { surfaces: cache, error, key, refresh: () => setRevision((value) => value + 1) };

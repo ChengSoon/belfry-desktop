@@ -1,3 +1,4 @@
+import { useFeedback } from "../i18n";
 import { useEffect, useRef, useState, type ComponentProps } from "react";
 import { FilePreviewPane } from "../filepreview/FilePreviewPane";
 import { openProject } from "../workspace/api";
@@ -12,7 +13,7 @@ interface PreviewTarget { project: ProjectWorkspace; path: string }
 export function ProjectInspector(props: Props) {
   const [view, setView] = useState<"files" | "git">("files");
   const [target, setTarget] = useState<PreviewTarget | null>(null);
-  const [failure, setFailure] = useState<string | null>(null);
+  const [failure, setFailure] = useFeedback<string | null>(null);
   const generation = useRef(0);
   useEffect(() => {
     generation.current += 1; setTarget(null); setFailure(null); setView("files");
@@ -25,7 +26,7 @@ export function ProjectInspector(props: Props) {
       const project = await openProject(file.rootPath);
       if (request !== generation.current) return;
       setTarget({ project, path: file.path }); setView("files");
-    } catch (error) { if (request === generation.current) setFailure(toAppFailure(error).message); }
+    } catch (error) { if (request === generation.current) setFailure(() => toAppFailure(error).message); }
   };
   if (view === "git") return <GitPanel project={props.project} failure={failure} onClose={props.onClose}
     onOpenProject={props.onOpenProject}

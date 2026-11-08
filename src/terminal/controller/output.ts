@@ -1,3 +1,4 @@
+import { TranslationError, t } from "../../i18n";
 import type { Terminal } from "@xterm/xterm";
 import type { HookSnapshot } from "../../agent/hooks/contracts";
 import type { AgentSessionRef } from "../../agent/contracts";
@@ -77,12 +78,12 @@ export class TerminalOutput {
       this.ports.themeSync.flush();
       this.ports.terminal.reset();
       this.ports.onGap();
-      await this.writeChunks([encoder.encode("\r\n[较早输出已超出后台缓存，以下从仍保留的位置继续]\r\n")]);
+      await this.writeChunks([encoder.encode(`\r\n${t("terminal.output.text_04f2c441d3")}\r\n`)]);
       return;
     }
     const held = this.utf8.push(new Uint8Array(this.ports.themeSync.flush()), true);
     this.publish(this.decoder.decode(held));
-    await this.writeChunks([held, encoder.encode(`\r\n\x1b[90m[process exited ${event.exitCode}]\x1b[0m\r\n`)]);
+    await this.writeChunks([held, encoder.encode(`\r\n\x1b[90m[${t("terminal.output.processExited", { code: event.exitCode })}]\x1b[0m\r\n`)]);
     if (!this.disposed) this.ports.onExit(event.exitCode, this.tail);
   }
 
@@ -95,7 +96,7 @@ export class TerminalOutput {
   private writeChunks(chunks: Uint8Array[]) {
     if (!chunks.length) return Promise.resolve();
     const size = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
-    if (size > MAX_RENDER_BYTES) throw new Error("终端过滤后的输出超出渲染预算，请重新连接。");
+    if (size > MAX_RENDER_BYTES) throw new TranslationError("terminal.output.text_6c78a63652");
     const bytes = new Uint8Array(size);
     let offset = 0;
     for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }

@@ -1,3 +1,4 @@
+import { formatNumber, localized, t, useTranslation } from "../i18n";
 import { Keyboard, X } from "lucide-react";
 import {
   useEffect,
@@ -29,17 +30,18 @@ const GUIDE_TABS: Array<{ key: GuideTab; label: string; icon: ReactNode }> = [
   }; }),
 ];
 
-const GUIDE_TAB_DESCRIPTIONS: Record<GuideTab, string> = {
-  belfry: "工作区与终端操作",
-  codex: "Codex CLI 交互指令",
-  claude: "Claude Code 交互指令",
-  pi: "Pi 交互指令",
-  antigravity: "Antigravity CLI 交互指令",
-  opencode: "OpenCode 交互指令",
-  kimi: "Kimi Code 交互指令",
-};
+const GUIDE_TAB_DESCRIPTIONS: Record<GuideTab, string> = localized(() => ({
+  belfry: t("shortcuts.ShortcutGuide.text_423d007c5d"),
+  codex: t("shortcuts.ShortcutGuide.text_aedd02d5e3"),
+  claude: t("shortcuts.ShortcutGuide.text_e5a6fe5300"),
+  pi: t("shortcuts.ShortcutGuide.text_1e47e914d8"),
+  antigravity: t("shortcuts.ShortcutGuide.text_dcba5cba5b"),
+  opencode: t("shortcuts.ShortcutGuide.text_2b3931746c"),
+  kimi: t("shortcuts.ShortcutGuide.text_cf0b10128c"),
+}));
 
 export function ShortcutGuide({ onClose, platform }: ShortcutGuideProps) {
+  useTranslation();
   useShortcutSettings();
   const [activeTab, setActiveTab] = useState<GuideTab>("belfry");
   const sections = guideSections(activeTab, platform);
@@ -64,9 +66,7 @@ export function ShortcutGuide({ onClose, platform }: ShortcutGuideProps) {
         <p className="shortcut-guide__context" aria-live="polite">
           <span className="shortcut-guide__context-dot" aria-hidden="true" />
           {GUIDE_TAB_DESCRIPTIONS[activeTab]}
-          <span className="shortcut-guide__context-count">
-            {itemCount} 条
-          </span>
+          <span className="shortcut-guide__context-count">{t("shortcuts.ShortcutGuide.text_74dd05e60f", { count: itemCount })}</span>
         </p>
         <div
           aria-labelledby={`shortcut-tab-${activeTab}`}
@@ -83,6 +83,7 @@ export function ShortcutGuide({ onClose, platform }: ShortcutGuideProps) {
 }
 
 function useRestoreFocus(closeRef: RefObject<HTMLButtonElement | null>) {
+  useTranslation();
   const returnFocusRef = useRef<HTMLElement | null>(
     document.activeElement instanceof HTMLElement ? document.activeElement : null,
   );
@@ -94,6 +95,7 @@ function useRestoreFocus(closeRef: RefObject<HTMLButtonElement | null>) {
 }
 
 function useTopLayerEscape(onClose: () => void) {
+  useTranslation();
   useEffect(() => {
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
       if (event.key !== "Escape" || composingKey(event)) return;
@@ -110,15 +112,16 @@ function ShortcutHeader({ closeRef, onClose }: {
   closeRef: RefObject<HTMLButtonElement | null>;
   onClose: () => void;
 }) {
+  useTranslation();
   return (
     <header className="shortcut-guide__head">
       <span className="shortcut-guide__mark" aria-hidden="true"><Keyboard size={ICON.lg} /></span>
       <div>
-        <strong id="shortcut-guide-title">快捷指令</strong>
-        <p id="shortcut-guide-description">Belfry 与 Agent 的键盘速查</p>
+        <strong id="shortcut-guide-title">{t("shortcuts.ShortcutGuide.text_c813e695f2")}</strong>
+        <p id="shortcut-guide-description">{t("shortcuts.ShortcutGuide.text_d766d2565b")}</p>
       </div>
-      <button aria-label="关闭快捷指令" className="icon-button icon-button--sm" onClick={onClose}
-        ref={closeRef} title="关闭" type="button">
+      <button aria-label={t("shortcuts.ShortcutGuide.text_d9a2987f14")} className="icon-button icon-button--sm" onClick={onClose}
+        ref={closeRef} title={t("shortcuts.ShortcutGuide.text_3fd47edce4")} type="button">
         <X aria-hidden="true" size={ICON.md} />
       </button>
     </header>
@@ -126,8 +129,9 @@ function ShortcutHeader({ closeRef, onClose }: {
 }
 
 function GuideTabs({ active, onSelect }: { active: GuideTab; onSelect: (tab: GuideTab) => void }) {
+  useTranslation();
   return (
-    <nav aria-label="快捷指令分类" className="shortcut-guide__tabs" role="tablist">
+    <nav aria-label={t("shortcuts.ShortcutGuide.text_21a30357df")} className="shortcut-guide__tabs" role="tablist">
       {GUIDE_TABS.map((tab) => (
         <button aria-controls={`shortcut-panel-${tab.key}`} aria-selected={active === tab.key}
           data-tab={tab.key}
@@ -152,13 +156,14 @@ function moveTabFocus(event: ReactKeyboardEvent, current: GuideTab, select: (tab
 }
 
 function ShortcutGroups({ groups }: { groups: GuideSection[] }) {
+  useTranslation();
   return (
     <div className="shortcut-guide__groups">
       {groups.map((group) => (
         <section className="shortcut-group" key={group.label}>
           <div className="shortcut-group__head">
             <h2>{group.label}</h2>
-            <span className="shortcut-group__count">{group.items.length}</span>
+            <span className="shortcut-group__count">{formatNumber(group.items.length)}</span>
           </div>
           <ul className="shortcut-group__list">
             {group.items.map((item) => (
@@ -177,6 +182,7 @@ function ShortcutGroups({ groups }: { groups: GuideSection[] }) {
 }
 
 function ShortcutFooter({ copy, tab }: { copy: string; tab: GuideTab }) {
+  useTranslation();
   return (
     <footer className="shortcut-guide__foot">
       <span aria-hidden="true">{tab === "belfry" ? "TIP" : "CLI"}</span>
@@ -186,8 +192,9 @@ function ShortcutFooter({ copy, tab }: { copy: string; tab: GuideTab }) {
 }
 
 function KeyChord({ keys }: { keys: string[] }) {
+  useTranslation();
   return (
-    <span aria-label={keys.join(" 加 ")} className="key-chord">
+    <span aria-label={keys.join(" + ")} className="key-chord">
       {keys.map((key, index) => <kbd key={`${key}-${index}`}>{key}</kbd>)}
     </span>
   );

@@ -1,3 +1,4 @@
+import { useFeedback, t, useTranslation } from "../../i18n";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { Check, ChevronsUpDown, FolderOpen, Settings2, Star, Trash2 } from "lucide-react";
 import { useRef, useState } from "react";
@@ -32,9 +33,10 @@ export function ProjectSwitcher({
   onOpen,
   onRequestRemove,
 }: ProjectSwitcherProps) {
+  useTranslation();
   const [open, setOpen] = useState(false);
   const [manage, setManage] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useFeedback<string | null>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const library = useProjectCatalog();
   const ref = useDismiss<HTMLDivElement>(open, () => setOpen(false));
@@ -49,7 +51,7 @@ export function ProjectSwitcher({
     const selected = await openDialog({
       directory: true,
       multiple: false,
-      title: "选择项目目录",
+      title: t("workspace.ProjectSwitcher.text_5451425735"),
       // 文件对话框不认 `\\?\` 前缀，传进去会被静默忽略、退回默认位置。
       defaultPath: project ? normalizePath(project.rootPath) : undefined,
     });
@@ -64,7 +66,7 @@ export function ProjectSwitcher({
     try {
       const entry = findProfile(library.catalog, project.rootPath) ?? createProfile(project);
       library.save({ ...entry, favorite: !entry.favorite }); setError(null);
-    } catch (error) { setError(errorMessage(error)); }
+    } catch (error) { setError(() => errorMessage(error)); }
   };
   const showManagement = () => { trigger.current?.focus(); setOpen(false); setManage(true); };
 
@@ -75,16 +77,16 @@ export function ProjectSwitcher({
         className="project-trigger"
         ref={trigger}
         onClick={() => setOpen((value) => !value)}
-        title={project ? `${normalizePath(project.rootPath)}（点击在新会话中切换目录）` : "选择项目"}
+        title={project ? t("workspace.ProjectSwitcher.text_12c0e0d50c", { path: normalizePath(project.rootPath) }) : t("workspace.ProjectSwitcher.text_682279bfae")}
         type="button"
       >
-        <span className="project-trigger__name">{project?.name ?? "选择项目"}</span>
-        <span className="project-trigger__path">{shortPath(project?.rootPath) || "正在定位…"}</span>
+        <span className="project-trigger__name">{project?.name ?? t("workspace.ProjectSwitcher.text_682279bfae")}</span>
+        <span className="project-trigger__path">{shortPath(project?.rootPath) || t("workspace.ProjectSwitcher.text_145fdf789f")}</span>
         <ChevronsUpDown aria-hidden="true" size={ICON.xs} />
       </button>
 
       {open ? (
-        <div className="popover popover--project" role="dialog" aria-label="在新会话中切换目录">
+        <div className="popover popover--project" role="dialog" aria-label={t("workspace.ProjectSwitcher.text_ee150acd9b")}>
           {project ? <p className="project-location" title={normalizePath(project.rootPath)}>{normalizePath(project.rootPath)}</p> : null}
           {library.error || error ? <p className="project-library__error" role="alert">{library.error ?? error}</p> : null}
           <FavoriteProjects catalog={library.catalog} onPick={pick} currentKey={currentKey} />
@@ -103,10 +105,10 @@ export function ProjectSwitcher({
                       <Check aria-hidden="true" className="popover-list__check" size={ICON.sm} />
                     ) : null}
                     <button
-                      aria-label={`删除 ${item.name} 的最近记录`}
+                      aria-label={t("workspace.ProjectSwitcher.text_f3967db2ce", { name: item.name })}
                       className="popover-list__delete"
                       onClick={() => onRequestRemove(item)}
-                      title={`删除 ${item.name} 的最近记录`}
+                      title={t("workspace.ProjectSwitcher.text_f3967db2ce", { name: item.name })}
                       type="button"
                     >
                       <Trash2 aria-hidden="true" size={ICON.xs} />
@@ -118,12 +120,12 @@ export function ProjectSwitcher({
           ) : null}
           <button className="popover-browse" disabled={opening} onClick={() => void browse()} type="button">
             <FolderOpen aria-hidden="true" size={ICON.md} />
-            <span>浏览目录…</span>
+            <span>{t("workspace.ProjectSwitcher.text_75ae759022")}</span>
           </button>
           <div className="project-picker-actions">
             <button type="button" disabled={!project || !!library.error} aria-pressed={!!favorite} onClick={toggleFavorite}>
-              <Star size={14} className={favorite ? "project-favorites__star" : undefined} />{favorite ? "取消收藏" : "收藏当前项目"}</button>
-            <button type="button" onClick={showManagement}><Settings2 size={14} />项目设置</button>
+              <Star size={14} className={favorite ? "project-favorites__star" : undefined} />{favorite ? t("workspace.ProjectSwitcher.text_dca60869e7") : t("workspace.ProjectSwitcher.text_fab8e17b97")}</button>
+            <button type="button" onClick={showManagement}><Settings2 size={14} />{t("workspace.ProjectSwitcher.text_a2923487e0")}</button>
           </div>
         </div>
       ) : null}
@@ -132,9 +134,10 @@ export function ProjectSwitcher({
 }
 
 function FavoriteProjects({ catalog, onPick, currentKey }: { catalog: ProjectCatalog; onPick: (path: string) => void; currentKey: string | null }) {
+  useTranslation();
   const groups = favoriteGroups(catalog);
   if (!groups.length) return null;
-  return <div className="project-favorites">{groups.map(([name, entries]) => <section key={name} aria-label={`收藏分组：${name}`}>
+  return <div className="project-favorites">{groups.map(([name, entries]) => <section key={name} aria-label={t("workspace.ProjectSwitcher.text_86e967e5d2", { name: name })}>
     <h3>{name}</h3><div className="popover-list">{entries.map((entry) => <div className="popover-list__item" key={entry.id}>
       <button type="button" className="popover-list__main" onClick={() => onPick(entry.project.rootPath)}>
         <span className="popover-list__text"><strong>{entry.project.name}</strong><small>{shortPath(entry.project.rootPath)}</small></span></button>

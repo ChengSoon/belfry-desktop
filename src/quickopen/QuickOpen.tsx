@@ -1,3 +1,4 @@
+import { getLocale, t, useTranslation } from "../i18n";
 import {
   ArrowDown,
   ArrowUp,
@@ -35,6 +36,7 @@ interface QuickOpenProps {
 }
 
 export function QuickOpen({ items, shortcutLabel, onClose, onSelect }: QuickOpenProps) {
+  useTranslation();
   const active = useMotionActive();
   const motion = useMotionState();
   const chosen = useRef(false);
@@ -42,8 +44,8 @@ export function QuickOpen({ items, shortcutLabel, onClose, onSelect }: QuickOpen
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const panelRef = useDialog(onClose);
-  const matches = useMemo(() => searchQuickOpen(items, query), [items, query]);
-  const enabledIndices = useMemo(() => matches.flatMap(({ item }, index) => item.disabled ? [] : [index]), [matches]);
+  const matches = useMemo(() => searchQuickOpen(items, query), [items, query, getLocale()]);
+  const enabledIndices = useMemo(() => matches.flatMap(({ item }, index) => item.disabled ? [] : [index]), [matches, getLocale()]);
   const selectedIndex = enabledIndices.includes(activeIndex) ? activeIndex : enabledIndices[0] ?? -1;
 
   useLayoutEffect(() => {
@@ -98,7 +100,7 @@ export function QuickOpen({ items, shortcutLabel, onClose, onSelect }: QuickOpen
               aria-activedescendant={selectedIndex >= 0 ? `quick-open-option-${selectedIndex}` : undefined}
               aria-controls="quick-open-results"
               aria-expanded="true"
-              aria-label="搜索会话、项目或动作"
+              aria-label={t("quickopen.QuickOpen.text_ef1dd49d49")}
               autoComplete="off"
               onChange={(event) => {
                 setQuery(event.target.value);
@@ -127,23 +129,23 @@ export function QuickOpen({ items, shortcutLabel, onClose, onSelect }: QuickOpen
                   onClose();
                 }
               }}
-              placeholder="搜索会话、项目或动作"
+              placeholder={t("quickopen.QuickOpen.text_ef1dd49d49")}
               ref={inputRef}
               role="combobox"
               spellCheck={false}
               value={query}
             />
           </div>
-          <button aria-label="关闭 Quick Open" className="icon-button icon-button--sm" onClick={onClose} title="关闭" type="button">
+          <button aria-label={t("quickopen.QuickOpen.text_542b631e04")} className="icon-button icon-button--sm" onClick={onClose} title={t("quickopen.QuickOpen.text_3fd47edce4")} type="button">
             <X aria-hidden="true" size={ICON.md} />
           </button>
         </header>
         <div className="quick-open__context" role="status" aria-live="polite">
-          <span>会话 / 项目 / 动作</span><span>{matches.length} 个结果</span>
+          <span>{t("quickopen.QuickOpen.text_8c12b8c3af")}</span><span>{t("quickopen.QuickOpen.text_c6118401cc", { count: matches.length })}</span>
         </div>
 
         <div
-          aria-label="Quick Open 结果"
+          aria-label={t("quickopen.QuickOpen.text_6faae5ccfd")}
           className="quick-open__results"
           id="quick-open-results"
           role="listbox"
@@ -172,15 +174,15 @@ export function QuickOpen({ items, shortcutLabel, onClose, onSelect }: QuickOpen
           )) : (
             <div className="quick-open__empty" role="status">
               <SearchX aria-hidden="true" size={ICON.lg} />
-              <span>没有匹配结果</span>
+              <span>{t("quickopen.QuickOpen.text_5620cc4ae5")}</span>
             </div>
           )}
         </div>
 
         <footer className="quick-open__foot">
-          <span><kbd><ArrowUp size={ICON.xs} /><ArrowDown size={ICON.xs} /></kbd> 选择</span>
-          <span><kbd><CornerDownLeft size={ICON.xs} /></kbd> 打开</span>
-          <span><kbd>Esc</kbd> 关闭</span>
+          <span><kbd><ArrowUp size={ICON.xs} /><ArrowDown size={ICON.xs} /></kbd>{t("quickopen.QuickOpen.text_c11330b852")}</span>
+          <span><kbd><CornerDownLeft size={ICON.xs} /></kbd>{t("quickopen.QuickOpen.text_c771248e51")}</span>
+          <span><kbd>Esc</kbd>{t("quickopen.QuickOpen.text_3fd47edce4")}</span>
           <span className="quick-open__shortcut"><Keyboard aria-hidden="true" size={ICON.xs} /> {shortcutLabel}</span>
         </footer>
       </div>
@@ -189,6 +191,7 @@ export function QuickOpen({ items, shortcutLabel, onClose, onSelect }: QuickOpen
 }
 
 function ItemIcon({ kind, icon }: { kind: QuickOpenItemKind; icon?: QuickOpenIcon }) {
+  useTranslation();
   const Icon = iconComponent(icon, kind);
   return <Icon aria-hidden="true" className="quick-open__item-icon" size={ICON.md} />;
 }
@@ -209,5 +212,5 @@ function iconComponent(icon: QuickOpenIcon | undefined, kind: QuickOpenItemKind)
 }
 
 function kindLabel(kind: QuickOpenItemKind) {
-  return kind === "session" ? "会话" : kind === "project" ? "项目" : "动作";
+  return kind === "session" ? t("quickopen.QuickOpen.text_a63280253f") : kind === "project" ? t("quickopen.QuickOpen.text_79f326be44") : t("quickopen.QuickOpen.text_be37d84119");
 }

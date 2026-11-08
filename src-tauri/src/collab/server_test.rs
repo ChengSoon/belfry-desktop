@@ -2,6 +2,39 @@ use super::*;
 use crate::collab::registry::SessionSnapshot;
 use crate::collab::task::TaskBoard;
 
+#[cfg(unix)]
+#[test]
+fn an_unterminated_frame_is_not_dispatched() {
+    use std::io::Read;
+    let identities = SessionIdentities::default();
+    let token = token_of(&identities.issue("t1", None));
+    let (mut client, stream) = std::os::unix::net::UnixStream::pair().unwrap();
+    let worker = thread::spawn(move || serve_connection(stream, &identities, &SessionRegistry::default(), &TaskBoard::default(), &RoomAccess::default()));
+    client.write_all(line("t1", &token, Command::Peers).as_bytes()).unwrap();
+    client.shutdown(std::net::Shutdown::Write).unwrap();
+    let mut reply = String::new();
+    client.read_to_string(&mut reply).unwrap();
+    worker.join().unwrap();
+    assert!(reply.is_empty(), "没有换行的半帧不能触发业务操作：{reply}");
+}
+
+#[cfg(unix)]
+#[test]
+fn idle_connections_release_at_their_deadline_and_connection_slots_are_bounded() {
+    use std::io::Read;
+    let (_client, stream) = std::os::unix::net::UnixStream::pair().unwrap();
+    let started = Instant::now();
+    let mut stream = DeadlineConnection { stream, deadline: started + Duration::from_millis(75) };
+    assert!(stream.read(&mut [0u8; 1]).is_err());
+    assert!(started.elapsed() < Duration::from_millis(300));
+    let budget = Arc::new(AtomicUsize::new(0));
+    let permits: Vec<_> = (0..MAX_CONNECTIONS).map(|_| ConnectionPermit::acquire(&budget).unwrap()).collect();
+    assert!(ConnectionPermit::acquire(&budget).is_none());
+    drop(permits);
+    assert_eq!(budget.load(Ordering::Acquire), 0);
+    assert!(ConnectionPermit::acquire(&budget).is_some());
+}
+
 fn snapshot(tab_id: &str, agent: &str) -> SessionSnapshot {
     SessionSnapshot {
         tab_id: tab_id.to_string(),
@@ -383,7 +416,7 @@ fn room_commands_go_to_the_directory_and_posts_reach_live_sessions_only() {
     let queued = board.snapshot();
     assert_eq!(queued.len(), 1, "只给还在的会话排投递：{queued:?}");
     assert_eq!(queued[0].to, "t2");
-    assert_eq!(queued[0].from, "t1");
+    assert_eq!(queued[0].from, "room:r1");
     assert!(queued[0].chat.is_some());
     assert!(stub.seen.lock().unwrap()[0].starts_with("t1:"), "房间层要知道是谁在说");
 

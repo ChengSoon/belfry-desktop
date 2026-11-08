@@ -1,0 +1,26 @@
+{
+  "scope": {
+    "title": "Scope",
+    "sheetHint": "Choose where this plugin is enabled.",
+    "ariaLabel": "Scope for {{name}}",
+    "off": "Off",
+    "projects": "Selected projects",
+    "global": "Global",
+    "offHint": "Disabled; this plugin will not load.",
+    "projectsHint": "Enabled only in the projects you select.",
+    "globalHint": "Enabled in all projects and sessions without an open project.",
+    "pickProjects": "Choose projects",
+    "projectCount": {
+      "one": "{{count}} project",
+      "other": "{{count}} projects"
+    },
+    "projectCount_one": "1 project",
+    "projectCount_other": "{{count}} projects",
+    "pickerTitle": "Projects using {{name}}",
+    "searchProjects": "Search projects",
+    "noProjects": "No projects yet",
+    "noProjectsWarning": "Select at least one project to enable this plugin.",
+    "currentProject": "Currently open",
+    "subdirectoryNote": "Subdirectories of selected projects are included."
+  }
+}

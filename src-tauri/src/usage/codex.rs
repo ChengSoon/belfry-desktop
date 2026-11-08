@@ -242,7 +242,7 @@ fn incremental_usage(
     let delta = diff(*previous, current);
     *previous = current;
     if cache_only_reset || delta.cached_input > delta.input {
-        return Err("Codex 日志包含缓存回溯修正，无法可靠地按日期和模型分配费用");
+        return Err(belfry_i18n::text("Codex 日志包含缓存回溯修正，无法可靠地按日期和模型分配费用"));
     }
     Ok(normalize(delta))
 }

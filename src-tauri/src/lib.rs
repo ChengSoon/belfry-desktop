@@ -10,6 +10,8 @@ mod collab;
 mod collaboration_protocol;
 mod git;
 mod history;
+mod i18n;
+mod logging;
 mod plugins;
 mod project;
 mod provider;
@@ -27,6 +29,9 @@ use terminal::{TerminalRuntime, commands};
 pub fn run() {
     use tauri::Manager;
 
+    let context = tauri::generate_context!();
+    logging::init(&context.config().identifier);
+    i18n::initialize(&context.config().identifier);
     if agent::hooks::run_if_requested() {
         return;
     }
@@ -34,7 +39,7 @@ pub fn run() {
     setup::install_skill_on_startup();
     let identities = std::sync::Arc::new(collab::SessionIdentities::default());
     let sessions = std::sync::Arc::new(collab::SessionRegistry::default());
-    let board = std::sync::Arc::new(collab::TaskBoard::default());
+    let board = std::sync::Arc::new(collab::TaskBoard::load(dirs::data_dir().map(|root| root.join(&context.config().identifier).join("collab"))));
     // 房间目录先挂空位：服务线程在 setup 之前就要起来，而房间存储要等 app
     // 句柄才拿得到路径；装载完成后挂进去，晚到的请求自动看到真实数据。
     let room_access = std::sync::Arc::new(collab::RoomAccess::default());
@@ -68,6 +73,7 @@ pub fn run() {
             let rooms = std::sync::Arc::new(rooms::RoomStore::load(rooms_root));
             room_access.set(rooms::member_directory(rooms.clone(), sessions_for_rooms.clone()));
             app.manage(rooms);
+            if let Err(error) = i18n::refresh_menu(app.handle()) { log::warn!("Cannot initialize native menu language: {error}"); }
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -89,6 +95,9 @@ pub fn run() {
         .manage(sessions)
         .manage(board)
         .invoke_handler(tauri::generate_handler![
+            logging::app_log_write,
+            i18n::app_set_locale,
+            logging::diagnostics_export,
             agent::commands::agent_detect,
             agent::commands::agent_descriptors,
             agent::commands::agent_resume_plan,
@@ -107,6 +116,10 @@ pub fn run() {
             collab::commands::collab_sync_sessions,
             collab::commands::collab_pending_tasks,
             collab::commands::collab_mark_dispatched,
+            collab::commands::collab_claim_delivery,
+            collab::commands::collab_release_delivery,
+            collab::commands::collab_delivery_update,
+            collab::commands::collab_resolve_delivery,
             collab::commands::collab_tasks,
             collab::commands::collab_sessions,
             collab::commands::collab_approve,
@@ -114,6 +127,7 @@ pub fn run() {
             collab::commands::collab_stop_all,
             rooms::commands::room_list,
             rooms::commands::room_get,
+            rooms::commands::room_history,
             rooms::commands::room_create,
             rooms::commands::room_rename,
             rooms::commands::room_delete,
@@ -195,7 +209,7 @@ pub fn run() {
             plugins::plugins_skill,
             plugins::runtime_commands::plugins_runtime,
         ])
-        .build(tauri::generate_context!())
+        .build(context)
         .expect("failed to build Belfry desktop");
     plugins::start(app.handle());
     app.run(|handle, event| {

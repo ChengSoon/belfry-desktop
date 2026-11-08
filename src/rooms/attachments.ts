@@ -1,3 +1,4 @@
+import { formatList, formatNumber, t } from "../i18n";
 import type { RoomAttachment, RoomMessage } from "./contracts";
 
 export const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024;
@@ -9,9 +10,9 @@ export function isPreviewImage(mimeType: string) {
 }
 
 export function attachmentSize(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Math.ceil(bytes / 1024)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1).replace(/\.0$/, "")} MB`;
+  if (bytes < 1024) return `${formatNumber(bytes)} B`;
+  if (bytes < 1024 * 1024) return `${formatNumber(Math.ceil(bytes / 1024))} KB`;
+  return `${formatNumber(bytes / (1024 * 1024), { maximumFractionDigits: 1 })} MB`;
 }
 
 /** 文件扩展名（大写），没有扩展名时为空串。附件卡片上当类型标签。 */
@@ -31,5 +32,5 @@ export function transferFiles(data: DataTransfer): File[] {
 /** 一句话摘要：有正文用正文，只有附件时列出文件名。引用、回复横幅用它。与 Rust `attachments::summary` 一致。 */
 export function messageSummary(message: Pick<RoomMessage, "text" | "attachments">) {
   if (message.text.trim() || !message.attachments?.length) return message.text;
-  return `[附件] ${message.attachments.map((attachment: RoomAttachment) => attachment.name).join("、")}`;
+  return t("rooms.attachments.text_8faa7f2fcd", { names: formatList(message.attachments.map((attachment: RoomAttachment) => attachment.name)) });
 }

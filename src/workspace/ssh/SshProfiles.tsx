@@ -1,3 +1,4 @@
+import { useFeedback, getLocale, t, useTranslation } from "../../i18n";
 import { useEffect, useRef, useState } from "react";
 import { Select } from "../../components/controls/Select";
 import { Combobox } from "../../components/controls/Combobox";
@@ -8,10 +9,11 @@ import { message } from "./storage";
 import type { SshFormState } from "./useSshForm";
 
 export function SshProfiles({ state }: { state: SshFormState }) {
-  const sorted = [...state.hosts.catalog.entries].sort((a, b) => a.group.localeCompare(b.group, "zh-CN") || a.name.localeCompare(b.name, "zh-CN"));
+  useTranslation();
+  const sorted = [...state.hosts.catalog.entries].sort((a, b) => a.group.localeCompare(b.group, getLocale()) || a.name.localeCompare(b.name, getLocale()));
   return <div className="ssh-profiles">
-    <label className="ssh-form__field"><span>主机档案</span><Select ariaLabel="选择 SSH 主机档案" value={state.selected?.id ?? ""}
-      options={[{ value: "", label: "临时连接" }, ...sorted.map((item) => ({ value: item.id, label: item.group ? `${item.group} · ${item.name}` : item.name,
+    <label className="ssh-form__field"><span>{t("workspace.SshProfiles.text_a0e8673971")}</span><Select ariaLabel={t("workspace.SshProfiles.text_e46d759243")} value={state.selected?.id ?? ""}
+      options={[{ value: "", label: t("workspace.SshProfiles.text_10c3725e36") }, ...sorted.map((item) => ({ value: item.id, label: item.group ? `${item.group} · ${item.name}` : item.name,
         description: `${item.target.host}${item.target.remotePath ?? ""}` }))]}
       onChange={(id) => state.select(state.hosts.catalog.entries.find((item) => item.id === id) ?? null)} /></label>
     <AliasPicker onSelect={state.alias} />
@@ -19,33 +21,35 @@ export function SshProfiles({ state }: { state: SshFormState }) {
 }
 
 function AliasPicker({ onSelect }: { onSelect: (name: string) => void }) {
-  const [report, setReport] = useState<AliasReport | null>(null), [error, setError] = useState<string | null>(null);
+  useTranslation();
+  const [report, setReport] = useState<AliasReport | null>(null), [error, setError] = useFeedback<string | null>(null);
   const [busy, setBusy] = useState(false); const active = useRef(true);
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
   const load = async () => {
     setBusy(true); setError(null);
     try { const result = await readAliases(); if (active.current) setReport(result); }
-    catch (error) { if (active.current) setError(message(error)); }
+    catch (error) { if (active.current) setError(() => message(error)); }
     finally { if (active.current) setBusy(false); }
   };
   return <div className="ssh-aliases">
-    <button type="button" className="ssh-link" disabled={busy} onClick={() => void load()}>{busy ? "读取中…" : "从 SSH 配置选择别名"}</button>
-    {report ? <><Select ariaLabel="SSH 配置别名" value="" options={[{ value: "", label: "选择别名…", disabled: true },
+    <button type="button" className="ssh-link" disabled={busy} onClick={() => void load()}>{busy ? t("workspace.SshProfiles.text_346ff60e6c") : t("workspace.SshProfiles.text_0e68ca3eb1")}</button>
+    {report ? <><Select ariaLabel={t("workspace.SshProfiles.text_ad6e89f4a0")} value="" options={[{ value: "", label: t("workspace.SshProfiles.text_819b0629a5"), disabled: true },
       ...report.aliases.map((alias) => ({ value: alias.name, label: alias.name, description: alias.source }))]} onChange={onSelect} />
-      {!report.aliases.length ? <p className="ssh-note">没有可导入的明确别名，可直接输入主机。</p> : null}
-      {report.warnings.length ? <Disclosure title="部分配置未导入">{report.warnings.map((warning) => <p className="ssh-note" key={warning}>{warning}</p>)}</Disclosure> : null}</> : null}
+      {!report.aliases.length ? <p className="ssh-note">{t("workspace.SshProfiles.text_19553e1f56")}</p> : null}
+      {report.warnings.length ? <Disclosure title={t("workspace.SshProfiles.text_bf7369ec02")}>{report.warnings.map((warning) => <p className="ssh-note" key={warning}>{warning}</p>)}</Disclosure> : null}</> : null}
     {error ? <p className="ssh-form__error" role="alert">{error}</p> : null}
   </div>;
 }
 
 export function SaveHost({ state }: { state: SshFormState }) {
+  useTranslation();
   const groups = [...new Set(state.hosts.catalog.entries.map((item) => item.group).filter(Boolean))];
-  return <Disclosure title={state.selected ? "更新主机档案" : "保存为主机档案"} className="ssh-section">
-    <div className="ssh-form__row"><label className="ssh-form__field"><span>名称</span><input aria-label="SSH 档案名称"
-      value={state.name} maxLength={100} placeholder={state.fields.host || "例如开发服务器"} onChange={(event) => state.setName(event.target.value)} /></label>
-      <label className="ssh-form__field"><span>分组</span><Combobox ariaLabel="SSH 主机分组" value={state.group} maxLength={80}
-        onChange={state.setGroup} options={groups.map((value) => ({ value, label: value }))} placeholder="不分组" /></label></div>
-    <p className="ssh-note">保存连接目标和远端目录，密码继续留在系统凭据库。</p>
-    <button className="ssh-link" type="button" onClick={state.save}>保存主机档案</button>
+  return <Disclosure title={state.selected ? t("workspace.SshProfiles.text_80e68e5faf") : t("workspace.SshProfiles.text_fc645b18f1")} className="ssh-section">
+    <div className="ssh-form__row"><label className="ssh-form__field"><span>{t("workspace.SshProfiles.text_d44e9b3d3b")}</span><input aria-label={t("workspace.SshProfiles.text_c487d08ef3")}
+      value={state.name} maxLength={100} placeholder={state.fields.host || t("workspace.SshProfiles.text_08afb19cc3")} onChange={(event) => state.setName(event.target.value)} /></label>
+      <label className="ssh-form__field"><span>{t("workspace.SshProfiles.text_399ee69347")}</span><Combobox ariaLabel={t("workspace.SshProfiles.text_139c626197")} value={state.group} maxLength={80}
+        onChange={state.setGroup} options={groups.map((value) => ({ value, label: value }))} placeholder={t("workspace.SshProfiles.text_fcd40ee3f0")} /></label></div>
+    <p className="ssh-note">{t("workspace.SshProfiles.text_be3c2cdebe")}</p>
+    <button className="ssh-link" type="button" onClick={state.save}>{t("workspace.SshProfiles.text_3500133568")}</button>
   </Disclosure>;
 }

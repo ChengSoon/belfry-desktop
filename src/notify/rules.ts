@@ -1,3 +1,4 @@
+import { localized, t } from "../i18n";
 import type { SessionActivity } from "../terminal/contracts";
 import type { WorkspaceTabKind } from "../workspace/contracts";
 
@@ -49,11 +50,11 @@ export interface NotifyContent {
   body: string;
 }
 
-const REASON_TITLE: Record<NotifyReason, string> = {
-  finished: "已跑完",
-  "awaiting-choice": "在等你确认",
-  failed: "本轮未完成",
-};
+const REASON_TITLE: Record<NotifyReason, string> = localized(() => ({
+  finished: t("notify.rules.text_d3e9c9d95d"),
+  "awaiting-choice": t("notify.rules.text_0f8dd60260"),
+  failed: t("notify.rules.text_6f3d1c797f"),
+}));
 
 /**
  * 状态放 title、身份放 body：用户扫一眼通知，先要判断的是"要不要现在去处理"，

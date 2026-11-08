@@ -1,3 +1,4 @@
+import { formatDateTime, t } from "../../i18n";
 import type { TokenTotals } from "../contracts";
 import { pathKey } from "../../workspace/path";
 import { totalTokens } from "../format";
@@ -5,7 +6,7 @@ import type { AnalyticsReport, InsightFilter, UsageBucket } from "./contracts";
 
 export const DAY_SECONDS = 86_400;
 export const CHART_DAYS = 30;
-export const dayLabel = (day: number) => new Date(day * 1000).toISOString().slice(0, 10);
+export const dayLabel = (day: number, short = false) => formatDateTime(day * 1000, { ...(short ? {} : { year: "numeric" }), month: "short", day: "numeric", timeZone: "UTC" });
 
 export function filterRows(rows: UsageBucket[], filter: InsightFilter): UsageBucket[] {
   return rows.filter((row) => (filter.day === undefined || row.day === filter.day)
@@ -45,7 +46,7 @@ export function groupModels(rows: UsageBucket[]) {
 
 export function groupProjects(rows: UsageBucket[]) {
   return group(rows, (row) => JSON.stringify(row.projectRoot === null ? null : pathKey(row.projectRoot)))
-    .map((item) => ({ ...item, root: item.rows[0].projectRoot, name: item.rows[0].projectName ?? "项目未知" }));
+    .map((item) => ({ ...item, root: item.rows[0].projectRoot, name: item.rows[0].projectName ?? t("usage.model.text_6e0bc07ed6") }));
 }
 
 export function calendarPage(report: AnalyticsReport, rows: UsageBucket[], requested: number) {

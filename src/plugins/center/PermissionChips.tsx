@@ -1,3 +1,4 @@
+import { useTranslation } from "../../i18n";
 // Adapted from PI-Desktop PluginsPage.tsx, LGPL-3.0; see third_party/pi-desktop/NOTICE.md.
 import { CAPABILITY_ORDER, FS_MODES, orderPermissions, permissionRisk, RISK_LABEL_KEYS } from "./helpers";
 import type { PluginCapability, PluginFsPolicy, PluginServiceStatus } from "./types";
@@ -5,6 +6,7 @@ import { cx } from "./ui";
 import { t } from "./i18n";
 
 export function PermissionChips({ permissions, limit = 3 }: { permissions?: readonly string[]; limit?: number }) {
+  useTranslation();
   const ordered = orderPermissions(permissions), shown = ordered.slice(0, limit), hidden = ordered.length - shown.length;
   if (!ordered.length) return <span className="plugins-perm-none">{t("plugins.noPermissions")}</span>;
   return <span className="plugins-perm-chips">
@@ -15,10 +17,12 @@ export function PermissionChips({ permissions, limit = 3 }: { permissions?: read
 }
 export function permissionLabel(key: string) { return t(`plugins.permissions.${key}`, { defaultValue: key }); }
 export function CapabilityChips({ capabilities }: { capabilities?: readonly PluginCapability[] }) {
+  useTranslation();
   return <span className="plugins-cap-chips">{CAPABILITY_ORDER.filter((cap) => capabilities?.includes(cap)).map((cap) =>
-    <span key={cap} className="plugins-cap-chip">{t(`plugins.capabilities.${cap}`, { defaultValue: cap === "views" ? "工作面板" : cap })}</span>)}</span>;
+    <span key={cap} className="plugins-cap-chip">{t(`plugins.capabilities.${cap}`, { defaultValue: cap === "views" ? t("plugins.PermissionChips.text_c2730bc7b3") : cap })}</span>)}</span>;
 }
 export function FsScopeChips({ policy }: { policy?: PluginFsPolicy }) {
+  useTranslation();
   const chips = FS_MODES.flatMap((mode) => {
     const rule = policy?.[mode]; if (!rule) return [];
     const parts = [rule.root === "userSelected" ? t("plugins.fsRootPicked") : "", rule.scope?.join(" · "), rule.own ? t("plugins.fsOwnFiles") : ""].filter(Boolean);
@@ -28,6 +32,7 @@ export function FsScopeChips({ policy }: { policy?: PluginFsPolicy }) {
     className={cx("plugins-perm-chip", `risk-${permissionRisk(`fs.${chip.mode}`)}`)} title={chip.text}>{chip.text}</span>)}</span>;
 }
 export function ServiceChips({ statuses }: { statuses: PluginServiceStatus[] }) {
+  useTranslation();
   return <span className="plugins-service-chips">{statuses.map((status) =>
     <span key={status.serviceId} className={cx("plugins-service-chip", `is-${status.state}`)} title={status.message}>
       <span className="plugins-service-dot" aria-hidden /><span className="plugins-service-name">{status.label}</span>
@@ -36,6 +41,7 @@ export function ServiceChips({ statuses }: { statuses: PluginServiceStatus[] }) 
     </span>)}</span>;
 }
 export function PermissionList({ permissions, added = [], plain = false }: { permissions: string[]; added?: string[]; plain?: boolean }) {
+  useTranslation();
   return <ul className={cx("plugins-perm-list", plain && "is-plain")}>{permissions.map((permission) => {
     const risk = permissionRisk(permission);
     return <li key={permission} className={`risk-${risk}`}>

@@ -1,3 +1,4 @@
+import { t, useTranslation } from "../../i18n";
 import { Check, Search } from "lucide-react";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { findOption, moveOption } from "./controlModel";
@@ -7,6 +8,7 @@ export interface SelectOption<T> { value: T; label: string; description?: string
 interface NavigationProps<T> { options: readonly SelectOption<T>[]; selected: number; open: boolean; setOpen: (open: boolean) => void; onChoose: (index: number) => void; autoHighlight?: boolean }
 
 export function useOptionNavigation<T>(props: NavigationProps<T>) {
+  useTranslation();
   const { options, selected, open, setOpen, onChoose } = props;
   const start = selected >= 0 && !options[selected]?.disabled ? selected : props.autoHighlight === false ? -1 : moveOption(options, -1, 1);
   const [active, setActive] = useState(start);
@@ -42,6 +44,7 @@ export function OptionList<T>({ options, selected, active, id, label, onChoose, 
   options: readonly SelectOption<T>[]; selected: number; active: number; id: string; label: string;
   onChoose: (index: number) => void; onActive: (index: number) => void;
 }) {
+  useTranslation();
   useEffect(() => { document.getElementById(`${id}-option-${active}`)?.scrollIntoView({ block: "nearest" }); }, [active, id]);
   return <div id={id} className="ui-options" role="listbox" aria-label={label}>
     {options.map((option, index) => <button key={String(option.value)} id={`${id}-option-${index}`} type="button"
@@ -52,7 +55,7 @@ export function OptionList<T>({ options, selected, active, id, label, onChoose, 
       <span><strong>{option.label}</strong>{option.description ? <small>{option.description}</small> : null}</span>
       {selected === index ? <Check size={14} aria-hidden="true" /> : null}
     </button>)}
-    {!options.length ? <p className="ui-popover__empty">没有匹配的选项</p> : null}
+    {!options.length ? <p className="ui-popover__empty">{t("components.options.text_e4a57cc0e6")}</p> : null}
   </div>;
 }
 
@@ -60,10 +63,11 @@ export function OptionSearch({ value, onChange, onKeyDown, label, listId, active
   value: string; onChange: (value: string) => void; onKeyDown: (event: KeyboardEvent) => void;
   label: string; listId: string; active: number;
 }) {
+  useTranslation();
   const ref = useRef<HTMLInputElement>(null);
   useEffect(() => { ref.current?.focus({ preventScroll: true }); }, []);
   return <div className="ui-popover__search"><Search size={14} aria-hidden="true" />
-    <input ref={ref} value={value} placeholder="搜索选项…" aria-label={`${label}：搜索选项`} role="combobox"
+    <input ref={ref} value={value} placeholder={t("components.options.text_7f8160a4d3")} aria-label={t("components.options.text_241fe91caa", { label: label })} role="combobox"
       aria-expanded="true" aria-autocomplete="list" aria-controls={listId}
       aria-activedescendant={active >= 0 ? `${listId}-option-${active}` : undefined}
       onChange={(event) => onChange(event.target.value)} onKeyDown={onKeyDown} />

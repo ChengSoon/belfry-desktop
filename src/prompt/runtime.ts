@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 import type { PromptDeliveryResult, TerminalCommandTarget } from "../terminal/contracts";
 import type { WorkspaceTab } from "../workspace/contracts";
 import { pathKey } from "../workspace/path";
@@ -22,6 +23,7 @@ interface InFlightPrompt {
   submitted: boolean;
   sessionId: string | null;
   issue?: string;
+  resolved?: boolean;
 }
 
 /** 接管、PTY 提交和 Agent 开始处理是不同阶段；不确定的输入不能盲目重贴。 */
@@ -36,6 +38,15 @@ export class PromptQueueRuntime {
   /** 暂停中的会话与原因，房间界面拿它显示「消息暂停了」。 */
   pausedDeliveries(): PausedDelivery[] {
     return [...this.paused.entries()].map(([tabId, pending]) => ({ tabId, message: pending.issue ?? "" }));
+  }
+
+  /** A durable manual decision resolves this task, but residual input still blocks later tasks. */
+  resolvePersisted(id: string): boolean {
+    const pending = [...this.paused.values(), ...this.inFlight.values()].find(pending => pending.item.id === id);
+    if (!pending) return false;
+    pending.resolved = true;
+    this.observers.delete(id);
+    return true;
   }
 
   /** 用户在终端里核对过了：放开暂停，后面的消息接着送。 */
@@ -76,12 +87,12 @@ export class PromptQueueRuntime {
     this.queue = this.queue.filter((item) => {
       const tab = tabs.find((candidate) => candidate.id === item.tabId);
       if (alive.has(item.tabId) && tab && this.matchesProject(item, tab)) return true;
-      this.update(item.id, { state: "cancelled", message: "接收会话已关闭、退出或切换项目，排队内容未发送。" });
+      this.update(item.id, { state: "cancelled", message: t("prompt.runtime.text_170a45f4ad") });
       return false;
     });
     for (const pending of [...this.inFlight.values(), ...this.paused.values()]) {
       if (alive.has(pending.item.tabId)) continue;
-      this.update(pending.item.id, { state: "attention", message: "发送期间接收会话已关闭或退出，无法确认是否送达，请检查会话。" });
+      this.update(pending.item.id, { state: "attention", message: t("prompt.runtime.text_149d4fff97") });
       this.inFlight.delete(pending.item.tabId);
       this.paused.delete(pending.item.tabId);
     }
@@ -91,7 +102,7 @@ export class PromptQueueRuntime {
   cancel(id: string): boolean {
     if (!this.queue.some((item) => item.id === id)) return false;
     this.queue = removePrompt(this.queue, id);
-    this.update(id, { state: "cancelled", message: "已取消排队，反馈未发送。" });
+    this.update(id, { state: "cancelled", message: t("prompt.runtime.text_b169186a2e") });
     return true;
   }
 
@@ -101,23 +112,25 @@ export class PromptQueueRuntime {
       // 包括用户手动确认当前输入；后续任务等它回到 idle 再发送。
       const pending = this.inFlight.get(tab.id);
       if (pending && !pending.submitted) this.update(pending.item.id, {
-        state: "attention", message: "会话已开始交互，但反馈的提交结果尚未确认，请在会话中核对。",
+        state: "attention", message: t("prompt.runtime.text_0e00f89a3c"),
       });
       this.inFlight.delete(tab.id);
       this.paused.delete(tab.id);
       return;
     }
     this.reconcileTarget(tab.id, targets.get(tab.id));
+    const paused = this.paused.get(tab.id);
+    if (paused?.resolved && paused.target.composerEmpty?.()) this.paused.delete(tab.id);
     const pending = this.inFlight.get(tab.id);
     const elapsed = pending ? Date.now() - pending.startedAt : 0;
-    if (pending?.submitted && elapsed >= PROMPT_EMPTY_CONFIRM_MS && pending.target.composerEmpty?.()) {
+    if ((pending?.submitted || pending?.resolved) && elapsed >= PROMPT_EMPTY_CONFIRM_MS && pending.target.composerEmpty?.()) {
       // 回车已经写进去、输入区也空了：任务被提交走了，Agent 只是处理得太快没被看到在工作。
       this.inFlight.delete(tab.id);
       this.dispatch(tab, targets);
       return;
     }
     if (pending && elapsed >= PROMPT_CONFIRM_TIMEOUT_MS) {
-      this.pause(tab.id, pending, "协作任务尚未确认开始处理，已暂停后续自动投递。请检查输入区，必要时手动按 Enter；不要重复粘贴任务。");
+      this.pause(tab.id, pending, t("prompt.runtime.text_7f5b31fc2f"));
     }
     this.dispatch(tab, targets);
   }
@@ -129,7 +142,7 @@ export class PromptQueueRuntime {
     if (!item || !target) return false;
     if (!this.matchesProject(item, tab)) {
       this.queue = removePrompt(this.queue, item.id);
-      this.update(item.id, { state: "cancelled", message: "接收会话已切换项目，反馈未发送。" });
+      this.update(item.id, { state: "cancelled", message: t("prompt.runtime.text_1a3998ba0b") });
       return this.dispatch(tab, targets);
     }
     const pending: InFlightPrompt = { item, target, startedAt: Date.now(), submitted: false,
@@ -138,21 +151,50 @@ export class PromptQueueRuntime {
     // 先移除再调用，兼容同步结果回调；未接管时再恢复到队首。
     this.queue = removePrompt(this.queue, item.id);
     this.update(item.id, { state: "sending" });
+    const beforeSend = this.observers.get(item.id)?.beforeSend;
+    if (beforeSend) {
+      let permission: Promise<boolean>;
+      try { permission = beforeSend(); }
+      catch { this.requeueInFlight(tab.id); return false; }
+      void permission.then((allowed) => {
+        if (this.inFlight.get(tab.id) !== pending || pending.resolved) return;
+        if (!allowed) {
+          this.inFlight.delete(tab.id);
+          this.update(item.id, { state: "cancelled", message: t("prompt.runtime.text_1b2ea5dbb0") });
+        } else if (pending.target !== target) {
+          this.requeueInFlight(tab.id);
+        } else {
+          pending.startedAt = Date.now();
+          this.sendToTarget(tab.id, pending, target);
+        }
+      }).catch(() => {
+        if (this.inFlight.get(tab.id) === pending) this.requeueInFlight(tab.id);
+      });
+      return true;
+    }
+    return this.sendToTarget(tab.id, pending, target);
+  }
+
+  private sendToTarget(tabId: string, pending: InFlightPrompt, target: TerminalCommandTarget): boolean {
     let accepted = false;
     try {
-      accepted = target.sendText(item.text, {
+      accepted = target.sendText(pending.item.text, {
         background: true,
-        onResult: (result) => this.deliveryResult(tab.id, pending, result),
+        onResult: (result) => this.deliveryResult(tabId, pending, result),
       });
-    } catch { accepted = false; }
+    } catch {
+      this.pause(tabId, pending, t("prompt.runtime.text_9fd30020f3"));
+      return true;
+    }
     if (!accepted) {
-      this.requeueInFlight(tab.id);
+      this.requeueInFlight(tabId);
       return false;
     }
     return true;
   }
 
   private deliveryResult(tabId: string, pending: InFlightPrompt, result: PromptDeliveryResult) {
+    if (pending.resolved) return;
     if (this.inFlight.get(tabId) !== pending && this.paused.get(tabId) !== pending) return;
     if (result === "submitted") {
       pending.submitted = true;
@@ -164,10 +206,10 @@ export class PromptQueueRuntime {
       return;
     }
     this.pause(tabId, pending, result === "cancelled"
-      ? "用户输入中断了协作任务的自动回车，已暂停后续投递。请检查当前输入并手动提交；Agent 开始处理后队列会继续。"
+      ? t("prompt.runtime.text_18d27d4e4d")
       : result === "detached"
-        ? "协作任务写入后终端连接中断，未自动重贴任务。请检查重连后的输入并手动确认，避免重复执行。"
-        : "协作任务输入写入失败，已暂停后续投递。请检查输入区后手动提交；同一终端重连不会清除残留输入，未自动重贴任务。");
+        ? t("prompt.runtime.text_7c2c6c7751")
+        : t("prompt.runtime.text_0c451864cd"));
   }
 
   private pause(tabId: string, pending: InFlightPrompt, message: string) {
@@ -197,7 +239,7 @@ export class PromptQueueRuntime {
         else pending.target = target;
       } else {
         pending.target = target;
-        this.pause(tabId, pending, "终端重新连接，但协作任务写入状态尚未确认。请检查输入区后手动提交；未自动重贴任务。");
+        this.pause(tabId, pending, t("prompt.runtime.text_6d7cfaeab9"));
       }
     }
   }
@@ -208,7 +250,7 @@ export class PromptQueueRuntime {
     this.inFlight.delete(tabId);
     this.paused.delete(tabId);
     // Enter 已写入后重挂不能再重贴，否则会重复执行同一任务。
-    if (pending.submitted) return;
+    if (pending.submitted || pending.resolved) return;
     if (!this.queue.some((candidate) => candidate.id === pending.item.id)) {
       this.queue = [pending.item, ...this.queue];
       this.update(pending.item.id, { state: "queued" });
@@ -222,7 +264,7 @@ export class PromptQueueRuntime {
 
   private update(id: string, update: PromptQueueUpdate) {
     const observer = this.observers.get(id);
-    if (update.state === "submitted" || update.state === "attention" || update.state === "cancelled") this.observers.delete(id);
+    if (update.state === "submitted" || update.state === "cancelled") this.observers.delete(id);
     // UI 的回执处理不能打断终端投递。
     try { observer?.onUpdate?.(update); } catch { /* The input queue remains authoritative. */ }
   }

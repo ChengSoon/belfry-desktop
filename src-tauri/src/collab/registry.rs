@@ -105,10 +105,10 @@ impl SessionRegistry {
     pub fn resolve(&self, query: &str, exclude: &str) -> Result<SessionSnapshot, String> {
         let query = query.trim();
         if query.is_empty() {
-            return Err("要指定派给谁".into());
+            return Err(belfry_i18n::text("要指定派给谁").into());
         }
         let Ok(sessions) = self.sessions.lock() else {
-            return Err("会话名册读不到".into());
+            return Err(belfry_i18n::text("会话名册读不到").into());
         };
         let candidates: Vec<&SessionSnapshot> = sessions
             .iter()
@@ -134,7 +134,7 @@ impl SessionRegistry {
             1 => Ok((*hits[0]).clone()),
             // 唯一性由命名那一侧把关，这里兜一道：真撞了也不能随便挑一条。
             0 => Err(unresolved_message(query, &candidates)),
-            _ => Err(format!(
+            _ => Err(belfry_i18n::lformat!(
                 "「{query}」对应多条会话，先在侧栏把名字改成不重复的"
             )),
         }
@@ -143,7 +143,7 @@ impl SessionRegistry {
 
 fn unresolved_message(query: &str, candidates: &[&SessionSnapshot]) -> String {
     if candidates.is_empty() {
-        return "现在没有别的会话可以派活".into();
+        return belfry_i18n::text("现在没有别的会话可以派活").into();
     }
     let named: Vec<&str> = candidates
         .iter()
@@ -151,16 +151,16 @@ fn unresolved_message(query: &str, candidates: &[&SessionSnapshot]) -> String {
         .collect();
     let unnamed = candidates.len() - named.len();
 
-    let mut message = format!("找不到叫「{query}」的会话。");
+    let mut message = belfry_i18n::lformat!("找不到叫「{query}」的会话。");
     if !named.is_empty() {
-        message.push_str(&format!("能派的有：{}。", named.join("、")));
+        message.push_str(&belfry_i18n::lformat!("能派的有：{}。", named.join("、")));
     }
     if unnamed > 0 {
-        message.push_str(&format!(
+        message.push_str(&belfry_i18n::lformat!(
             "另有 {unnamed} 条还没起名字，要派给它得先在侧栏命名。"
         ));
     }
-    message.push_str("用 belfry peers 看详情。");
+    message.push_str(belfry_i18n::text("用 belfry peers 看详情。"));
     message
 }
 

@@ -1,3 +1,4 @@
+import { t, useTranslation } from "../i18n";
 import { Minus, Square, X } from "lucide-react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import appIconUrl from "../../src-tauri/icons/32x32.png";
@@ -5,6 +6,7 @@ import appIconUrl from "../../src-tauri/icons/32x32.png";
 const appWindow = getCurrentWindow();
 
 export function WindowTitlebar() {
+  useTranslation();
   const toggleMaximize = () => void appWindow.toggleMaximize();
 
   return (
@@ -20,21 +22,21 @@ export function WindowTitlebar() {
         <div className="window-titlebar-spacer" data-tauri-drag-region />
         <div className="window-controls" onDoubleClick={(event) => event.stopPropagation()}>
           <button
-            aria-label="最小化"
+            aria-label={t("components.WindowTitlebar.text_ac29e57a46")}
             onClick={() => void appWindow.minimize()}
-            title="最小化"
+            title={t("components.WindowTitlebar.text_ac29e57a46")}
             type="button"
           >
             <Minus aria-hidden="true" size={17} strokeWidth={1.5} />
           </button>
-          <button aria-label="最大化" onClick={toggleMaximize} title="最大化" type="button">
+          <button aria-label={t("components.WindowTitlebar.text_82c4aa13b7")} onClick={toggleMaximize} title={t("components.WindowTitlebar.text_82c4aa13b7")} type="button">
             <Square aria-hidden="true" size={13} strokeWidth={1.5} />
           </button>
           <button
-            aria-label="关闭"
+            aria-label={t("components.WindowTitlebar.text_3fd47edce4")}
             className="window-control-close"
             onClick={() => void appWindow.close()}
-            title="关闭"
+            title={t("components.WindowTitlebar.text_3fd47edce4")}
             type="button"
           >
             <X aria-hidden="true" size={18} strokeWidth={1.5} />

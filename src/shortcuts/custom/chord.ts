@@ -1,3 +1,4 @@
+import { t } from "../../i18n";
 import type { ShortcutPlatform } from "../resolveShortcut";
 import type { KeyInput, ShortcutBinding } from "./contracts";
 import { composingKey } from "../../utils/keyboard";
@@ -16,17 +17,17 @@ export function hasHostModifiers(event: KeyInput, platform: ShortcutPlatform) {
 }
 
 export function bindingProblem(binding: ShortcutBinding, platform: ShortcutPlatform): string | null {
-  if (!/^Key[A-Z]$|^Digit[0-9]$/.test(binding.code) && !Object.hasOwn(KEY_LABELS, binding.code)) return "请使用字母、数字或标点键";
-  if (platform === "control" && !binding.shift) return "Windows / Linux 使用 Ctrl+Shift，保留 CLI 原生 Ctrl 快捷键";
-  if (TERMINAL_KEYS.has(binding.code)) return "此组合键保留给终端编辑、查找或刷新保护";
-  if (WINDOW_KEYS.has(binding.code)) return "此组合键保留给系统窗口操作";
+  if (!/^Key[A-Z]$|^Digit[0-9]$/.test(binding.code) && !Object.hasOwn(KEY_LABELS, binding.code)) return t("shortcuts.chord.text_85c3f38590");
+  if (platform === "control" && !binding.shift) return t("shortcuts.chord.text_a57ab4b87d");
+  if (TERMINAL_KEYS.has(binding.code)) return t("shortcuts.chord.text_64edfd613c");
+  if (WINDOW_KEYS.has(binding.code)) return t("shortcuts.chord.text_606af63ed8");
   if (platform === "macos" && ((binding.code === "KeyH" && !binding.shift)
-    || (binding.shift && /^Digit[345]$/.test(binding.code)))) return "此组合键保留给系统隐藏或截屏操作";
+    || (binding.shift && /^Digit[345]$/.test(binding.code)))) return t("shortcuts.chord.text_be0ff4323b");
   return null;
 }
 
 export function bindingChord(binding: ShortcutBinding | null | undefined, platform: ShortcutPlatform): string[] {
-  if (!binding) return ["未分配"];
+  if (!binding) return [t("shortcuts.chord.text_52496e5aef")];
   const modifiers = platform === "macos" ? ["⌘"] : ["Ctrl"];
   if (binding.shift) modifiers.push("Shift");
   return [...modifiers, keyLabel(binding.code)];

@@ -1,0 +1,22 @@
+{
+  "all": "@全体",
+  "reserved": [
+    "统筹",
+    "全体",
+    "成员",
+    "用户",
+    "系统",
+    "all",
+    "peers",
+    "members",
+    "foreman",
+    "coordinator",
+    "user",
+    "system"
+  ],
+  "selectors": {
+    "foreman": "统筹",
+    "all": "全体",
+    "peers": "成员"
+  }
+}

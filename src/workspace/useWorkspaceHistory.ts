@@ -1,3 +1,4 @@
+import { t, useTranslation } from "../i18n";
 import { useCallback } from "react";
 import { isAgentSessionRef } from "../agent/contracts";
 import type { HistorySession } from "../history/contracts";
@@ -9,6 +10,7 @@ import { createWorkspaceTab, nextOrdinal } from "./tabs";
 import { resolveLaunchProject, type LaunchOptions } from "./useWorkspaceLaunch";
 
 export function useWorkspaceHistory({ state, projects, environment, registerTab }: LaunchOptions) {
+  useTranslation();
   const { setTabs, setFailure } = state;
   const { activeProject, acceptProject } = projects;
   const { waitForAgents } = environment;
@@ -45,14 +47,14 @@ async function historyProject(session: HistorySession, active: ProjectWorkspace 
 export function validateHistoryResume(session: HistorySession, agents: AgentAvailability[]): AppFailure | null {
   if (!isAgentSessionRef(session.sessionRef) || session.agent !== session.sessionRef.agent
     || session.id !== session.sessionRef.id) {
-    return { code: "INVALID_ARGUMENT", message: "历史会话的 Agent 身份不一致，无法恢复", retryable: false };
+    return { code: "INVALID_ARGUMENT", message: t("workspace.useWorkspaceHistory.text_140e511b88"), retryable: false };
   }
   const availability = agents.find((item) => item.kind === session.sessionRef.agent);
   if (!availability?.available) {
-    return { code: "NOT_FOUND", message: availability?.reason ?? `${session.sessionRef.agent} 不可用`, retryable: true };
+    return { code: "NOT_FOUND", message: availability?.reason ?? t("workspace.useWorkspaceHistory.text_719caccb0a", { agent: session.sessionRef.agent }), retryable: true };
   }
   if (!availability.descriptor.capabilities.resume) {
-    return { code: "UNSUPPORTED", message: `${availability.descriptor.displayName} 不支持恢复历史会话`, retryable: false };
+    return { code: "UNSUPPORTED", message: t("workspace.useWorkspaceHistory.text_2fea2a0433", { displayName: availability.descriptor.displayName }), retryable: false };
   }
   return null;
 }

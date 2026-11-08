@@ -1,7 +1,19 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { pluginAppearance } from "./appearance";
+import { setLocalePreference } from "../i18n";
+import { localizedText } from "./runtimeCatalog";
+
+afterEach(() => setLocalePreference("zh-CN"));
 
 describe("pluginAppearance", () => {
+  it("propagates the chosen language and resolves plugin labels with a Chinese fallback", () => {
+    setLocalePreference("en");
+    expect(pluginAppearance({ mode: "light", pinned: false }, "").locale).toBe("en");
+    expect(localizedText({ en: "Notes", "zh-CN": "笔记" }, "fallback")).toBe("Notes");
+    expect(localizedText({ "zh-CN": "笔记" }, "fallback")).toBe("笔记");
+    setLocalePreference("zh-CN");
+    expect(localizedText({ en: "Notes", "zh-CN": "笔记" }, "fallback")).toBe("笔记");
+  });
   it("preserves the raw preference and passes the validated full theme to panels", () => {
     const css = ":root { --ds-bg-primary: #102030; }";
     const appearance = pluginAppearance({ mode: "dark", pinned: true }, "mine.theme:night", { id: "night", base: "dark", css });

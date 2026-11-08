@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import { setLocalePreference } from "../i18n";
 import { formatTaskTime, formatTaskTimestamp } from "./relativeTime";
 
 /** 本地时区构造，避免测试跟着 TZ 漂。月份 0 起算，8 = 九月。 */
@@ -7,6 +8,7 @@ function at(month: number, day: number, hour: number, minute: number, second = 0
 }
 
 const NOW = at(8, 3, 14, 30);
+afterEach(() => setLocalePreference("zh-CN"));
 
 describe("formatTaskTime", () => {
   it("一分钟内是「刚刚」", () => {
@@ -52,9 +54,8 @@ describe("formatTaskTime", () => {
   });
 
   it("更早只报月日", () => {
-    expect(formatTaskTime(at(7, 28, 22, 30), NOW)).toBe("8-28");
-    // 个位月日不补零：窄栏里 8-28 比 08-28 省一格，也不需要对齐。
-    expect(formatTaskTime(at(6, 9, 1, 5), NOW)).toBe("7-9");
+    expect(formatTaskTime(at(7, 28, 22, 30), NOW)).toBe("8月28日");
+    expect(formatTaskTime(at(6, 9, 1, 5), NOW)).toBe("7月9日");
   });
 
   it("createdAt 是毫秒不是秒", () => {
@@ -70,6 +71,13 @@ describe("formatTaskTime", () => {
 
 describe("formatTaskTimestamp", () => {
   it("补零到秒", () => {
-    expect(formatTaskTimestamp(at(8, 3, 14, 2, 31))).toBe("2026-09-03 14:02:31");
+    expect(formatTaskTimestamp(at(8, 3, 14, 2, 31))).toBe("2026/09/03 14:02:31");
+  });
+  it("uses English date order and singular/plural relative times after switching", () => {
+    setLocalePreference("en");
+    expect(formatTaskTime(NOW - 60_000, NOW)).toBe("1 minute ago");
+    expect(formatTaskTime(NOW - 120_000, NOW)).toBe("2 minutes ago");
+    expect(formatTaskTime(at(7, 28, 22, 30), NOW)).toBe("Aug 28");
+    expect(formatTaskTimestamp(at(8, 3, 14, 2, 31))).toBe("09/03/2026, 14:02:31");
   });
 });

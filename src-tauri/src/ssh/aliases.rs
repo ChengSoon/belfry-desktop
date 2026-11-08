@@ -14,7 +14,7 @@ const MAX_INCLUDE_MATCHES: usize = 512;
 
 pub(super) fn read_default() -> Result<AliasReport, AppError> {
     let home = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE"))
-        .map(PathBuf::from).ok_or_else(|| AppError::not_found("无法定位用户 SSH 配置目录"))?;
+        .map(PathBuf::from).ok_or_else(|| AppError::not_found(belfry_i18n::text("无法定位用户 SSH 配置目录")))?;
     read(&home.join(".ssh"))
 }
 
@@ -34,8 +34,8 @@ struct ConfigReader<'a> {
 
 impl ConfigReader<'_> {
     fn visit(&mut self, path: &Path, depth: usize) {
-        if depth > MAX_DEPTH || self.files.len() >= MAX_FILES { self.warn("部分 Include 超出读取上限，可直接输入别名连接"); return; }
-        let path = match fs::canonicalize(path) { Ok(path) => path, Err(_) => { self.warn(&format!("未读取 {}", path.display())); return; } };
+        if depth > MAX_DEPTH || self.files.len() >= MAX_FILES { self.warn(belfry_i18n::text("部分 Include 超出读取上限，可直接输入别名连接")); return; }
+        let path = match fs::canonicalize(path) { Ok(path) => path, Err(_) => { self.warn(&belfry_i18n::lformat!("未读取 {}", path.display())); return; } };
         if !self.files.insert(path.clone()) { return; }
         match read_file(&path) {
             Ok(content) => self.lines(&path, &content, depth),
@@ -56,7 +56,7 @@ impl ConfigReader<'_> {
 
     fn add_aliases(&mut self, path: &Path, names: &[String]) {
         for name in names.iter().filter(|name| explicit_alias(name)) {
-            if self.report.aliases.len() >= MAX_ALIASES { self.warn("别名超过 200 项，仅显示前 200 项"); return; }
+            if self.report.aliases.len() >= MAX_ALIASES { self.warn(belfry_i18n::text("别名超过 200 项，仅显示前 200 项")); return; }
             if self.names.insert(name.to_ascii_lowercase()) {
                 self.report.aliases.push(SshAlias { name: name.clone(), source: path.to_string_lossy().into_owned() });
             }
@@ -70,7 +70,7 @@ impl ConfigReader<'_> {
             } else { self.root.join(value) };
             match expand(&path) {
                 Some(paths) => { for path in paths { self.visit(&path, depth + 1); } }
-                None => self.warn("含动态目录或复杂模式的 Include 未导入，可手动输入其别名"),
+                None => self.warn(belfry_i18n::text("含动态目录或复杂模式的 Include 未导入，可手动输入其别名")),
             }
         }
     }
@@ -84,15 +84,15 @@ impl ConfigReader<'_> {
 
 fn read_file(path: &Path) -> Result<String, AppError> {
     if !fs::metadata(path).is_ok_and(|meta| meta.is_file()) {
-        return Err(AppError::io("SSH 配置不是可读取的普通文件"));
+        return Err(AppError::io(belfry_i18n::text("SSH 配置不是可读取的普通文件")));
     }
-    let file = fs::File::open(path).map_err(|error| AppError::io(format!("SSH 配置无法读取：{error}")))?;
+    let file = fs::File::open(path).map_err(|error| AppError::io(belfry_i18n::lformat!("SSH 配置无法读取：{error}")))?;
     if !file.metadata().map_err(|error| AppError::io(error.to_string()))?.is_file() {
-        return Err(AppError::io("SSH 配置不是普通文件"));
+        return Err(AppError::io(belfry_i18n::text("SSH 配置不是普通文件")));
     }
     let mut bytes = Vec::new(); file.take(MAX_BYTES + 1).read_to_end(&mut bytes).map_err(|error| AppError::io(error.to_string()))?;
-    if bytes.len() as u64 > MAX_BYTES { return Err(AppError::io("SSH 配置超过读取上限")); }
-    String::from_utf8(bytes).map_err(|_| AppError::io("SSH 配置不是 UTF-8"))
+    if bytes.len() as u64 > MAX_BYTES { return Err(AppError::io(belfry_i18n::text("SSH 配置超过读取上限"))); }
+    String::from_utf8(bytes).map_err(|_| AppError::io(belfry_i18n::text("SSH 配置不是 UTF-8")))
 }
 
 fn explicit_alias(name: &str) -> bool {

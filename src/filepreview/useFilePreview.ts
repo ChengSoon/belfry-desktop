@@ -1,3 +1,4 @@
+import { toAppFailure } from "../workspace/errors";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ProjectWorkspace } from "../workspace/contracts";
 import { listProjectDirectory, readProjectFile } from "./api";
@@ -7,7 +8,7 @@ import { parentPath } from "./path";
 interface FilePreviewState {
   directory: ProjectDirectory | null;
   directoryPath: string;
-  failure: string | null;
+  failure: ReturnType<typeof toAppFailure> | null;
   loadingDirectory: boolean;
   loadingFile: boolean;
   preview: ProjectFilePreview | null;
@@ -54,7 +55,7 @@ export function useFilePreview(project: ProjectWorkspace | null) {
       if (version === directoryRequestVersion.current) {
         setState((current) => ({
           ...current,
-          failure: errorMessage(error),
+          failure: toAppFailure(error),
           loadingDirectory: false,
         }));
       }
@@ -81,7 +82,7 @@ export function useFilePreview(project: ProjectWorkspace | null) {
       setState((current) => ({ ...current, loadingFile: false, preview, stale: false }));
     } catch (error) {
       if (version === fileRequestVersion.current) {
-        setState((current) => ({ ...current, failure: errorMessage(error), loadingFile: false }));
+        setState((current) => ({ ...current, failure: toAppFailure(error), loadingFile: false }));
       }
     }
   }, [rootPath]);
@@ -131,6 +132,7 @@ export function useFilePreview(project: ProjectWorkspace | null) {
 
   return {
     ...state,
+    failure: state.failure?.message ?? null,
     clearFailure: () => setState((current) => ({ ...current, failure: null })),
     loadDirectory,
     openDirectory,
@@ -152,12 +154,4 @@ function initialState(): FilePreviewState {
     selectedPath: null,
     stale: false,
   };
-}
-
-function errorMessage(error: unknown) {
-  if (error instanceof Error) return error.message;
-  if (typeof error === "object" && error && "message" in error) {
-    return String((error as { message: unknown }).message);
-  }
-  return String(error);
 }

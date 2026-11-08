@@ -1,3 +1,4 @@
+import { useFeedback, t, useTranslation } from "../i18n";
 import { useEffect, useRef, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import type { DirectoryEntry, DirectoryRegistry, InstallPreview, PluginOperation } from "./hostContracts";
@@ -7,20 +8,22 @@ import { pluginHost } from "./useDirectoryRegistry";
 import { refreshPluginRuntime } from "./usePluginRuntime";
 
 function usePluginTask(refresh: () => Promise<void>, guard?: (value: boolean) => void) {
-  const [busy, setBusy] = useState(false), [notice, setNotice] = useState("");
+  useTranslation();
+  const [busy, setBusy] = useState(false), [notice, setNotice] = useFeedback("");
   const locked = useRef(false);
   useEffect(() => { guard?.(busy); return () => guard?.(false); }, [busy, guard]);
   async function run(operation: () => Promise<void>) {
     if (locked.current) return false;
     locked.current = true; setBusy(true); setNotice("");
     let success = false;
-    try { await operation(); success = true; } catch (reason) { setNotice(pluginError(reason)); }
+    try { await operation(); success = true; } catch (reason) { setNotice(() => pluginError(reason)); }
     finally { await refresh(); await refreshPluginRuntime(); locked.current = false; setBusy(false); }
     return success;
   }
   return { busy, notice, setNotice, run };
 }
 export function usePluginCenter(input: { registry: DirectoryRegistry | null; refresh: () => Promise<void>; guard?: (value: boolean) => void }) {
+  useTranslation();
   const task = usePluginTask(input.refresh, input.guard);
   const [preview, setPreview] = useState<InstallPreview | null>(null);
   const pending = useRef(preview); pending.current = preview;
@@ -31,8 +34,8 @@ export function usePluginCenter(input: { registry: DirectoryRegistry | null; ref
   }
   function inspect(source: "package" | "directory" | "development") {
     return task.run(async () => {
-      const path = await open({ directory: source !== "package", multiple: false, title: source === "package" ? "选择插件包" : "选择插件目录",
-        filters: source === "package" ? [{ name: "插件包", extensions: ["piplug", "zip"] }] : undefined });
+      const path = await open({ directory: source !== "package", multiple: false, title: source === "package" ? t("plugins.usePluginCenter.text_9d233d58ce") : t("plugins.usePluginCenter.text_caf9b4c940"),
+        filters: source === "package" ? [{ name: t("plugins.usePluginCenter.text_2f965f0c5a"), extensions: ["piplug", "zip"] }] : undefined });
       if (typeof path === "string") await previewDirectory(path, source === "development");
     });
   }
@@ -40,14 +43,14 @@ export function usePluginCenter(input: { registry: DirectoryRegistry | null; ref
     return task.run(async () => {
       if (!preview || !input.registry) return;
       await pluginHost.install(preview.previewId, input.registry.revision);
-      setPreview(null); task.setNotice("安装成功。点击启用即可运行插件。");
+      setPreview(null); task.setNotice(t("plugins.usePluginCenter.text_4207a63a93"));
     });
   }
   function mutate(entry: DirectoryEntry, action: PluginOperation) {
     return task.run(async () => {
       if (!input.registry) return;
       const result = await pluginHost.mutate(entry.manifest.id, action, input.registry.revision);
-      task.setNotice(result.plugins.find((item) => item.manifest.id === entry.manifest.id)?.error ?? "插件状态已更新");
+      task.setNotice(result.plugins.find((item) => item.manifest.id === entry.manifest.id)?.error ?? t("plugins.usePluginCenter.text_ff93b0b6ad"));
     });
   }
   function create(options: ScaffoldInput) {
@@ -62,11 +65,11 @@ export function usePluginCenter(input: { registry: DirectoryRegistry | null; ref
 async function authorAction(entry: DirectoryEntry, operation: "check" | "pack", notice: (message: string) => void) {
   if (operation === "check") {
     const result = await pluginHost.check(entry.sourcePath);
-    notice(`校验通过：${result.fileCount} 个文件，${Math.ceil(result.totalBytes / 1024)} KB。${result.warnings.join("；")}`);
+    notice([t("plugins.usePluginCenter.validationPassed", { count: result.fileCount, kilobytes: Math.ceil(result.totalBytes / 1024) }), ...result.warnings].join("\n"));
     return;
   }
-  const out = await open({ directory: true, multiple: false, title: "选择插件包保存目录" });
+  const out = await open({ directory: true, multiple: false, title: t("plugins.usePluginCenter.text_17bcea3225") });
   if (typeof out !== "string") return;
   const result = await pluginHost.pack(entry.sourcePath, out);
-  notice(`已生成插件包：${result.packagePath}`);
+  notice(t("plugins.usePluginCenter.text_94601752bc", { packagePath: result.packagePath }));
 }

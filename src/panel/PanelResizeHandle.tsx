@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { panelWidthDelta, panelWidthFromKey, type PanelWidthSpec } from "./panelWidth";
 import "./panel.css";
+import { t, useTranslation } from "../i18n";
 
 interface PanelResizeHandleProps {
   spec: PanelWidthSpec;
@@ -19,6 +20,7 @@ export function PanelResizeHandle({
   onCommit,
   onReset,
 }: PanelResizeHandleProps) {
+  useTranslation();
   const handlers = useResizeHandle(spec, width, onResize, onCommit);
 
   return (
@@ -28,7 +30,7 @@ export function PanelResizeHandle({
       aria-valuemax={spec.max}
       aria-valuemin={spec.min}
       aria-valuenow={width}
-      aria-valuetext={`${width} 像素`}
+      aria-valuetext={t("panel.width", { count: width })}
       className={`panel-resize-handle${handlers.dragging ? " is-dragging" : ""}`}
       data-edge={spec.edge}
       onDoubleClick={onReset}
@@ -39,7 +41,7 @@ export function PanelResizeHandle({
       onPointerUp={handlers.finishDrag}
       role="separator"
       tabIndex={0}
-      title={`拖动${label}；双击复位`}
+      title={t("panel.resizeHint")}
     />
   );
 }

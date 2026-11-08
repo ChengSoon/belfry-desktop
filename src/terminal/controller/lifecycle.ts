@@ -1,3 +1,4 @@
+import { t } from "../../i18n";
 import { Channel } from "@tauri-apps/api/core";
 import { agentKindFromProfile } from "../../agent/contracts";
 import type { FitAddon } from "@xterm/addon-fit";
@@ -48,7 +49,7 @@ export class TerminalLifecycle {
     this.output = new TerminalOutput({ terminal: ports.terminal, themeSync: ports.themeSync,
       onOutput: (text) => ports.callbacks.onOutput?.(text),
       onPasswordPrompt: () => this.input.mute(),
-      onGap: () => ports.callbacks.onError("较早输出已超出缓存；原进程仍在继续运行。"),
+      onGap: () => ports.callbacks.onError(t("terminal.lifecycle.text_6f9801c626")),
       onExit: (code, tail) => this.finishExit(code, tail),
       onAgentState: (snapshot) => {
         if (snapshot.session) ports.callbacks.onSessionIdentity?.(snapshot.session);
@@ -160,15 +161,15 @@ export class TerminalLifecycle {
     this.ports.onReady();
     if ((this.restoredMissingAttachment || this.ports.launch.recoverExited) && !session.reconnected) {
       this.ports.callbacks.onError(this.resumeSessionId
-        ? "原后台进程已结束，已重新启动 Agent，正在恢复历史对话；未重发旧指令。"
-        : "原后台进程已结束，已自动重新建立会话；未重发旧指令。");
+        ? t("terminal.lifecycle.text_2bdbc35554")
+        : t("terminal.lifecycle.text_0dd9be7668"));
     }
     const skipStartup = session.reconnected || this.restoredMissingAttachment || this.ports.launch.attachmentId || this.ports.launch.skipStartup;
     void runStartupOnce({ intent: skipStartup ? undefined : this.ports.launch.projectLaunch?.startup,
       sessionId: session.id, current: () => !this.disposed && !this.failed && this.current?.id === session.id,
       write: writeTerminal,
     }).catch((error) => {
-      if (this.current?.id === session.id) this.ports.callbacks.onError(`启动命令发送失败，未自动重试：${errorMessage(error)}`);
+      if (this.current?.id === session.id) this.ports.callbacks.onError(t("terminal.lifecycle.text_450722eb7c", { error: errorMessage(error) }));
     });
   }
 

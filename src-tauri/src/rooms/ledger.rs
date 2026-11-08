@@ -9,23 +9,27 @@
 //! `runtime.delivery` 只记 `accepted`（进过终端），不记读没读。
 
 use std::fs::{self, OpenOptions};
-use std::io::{Read, Seek, SeekFrom, Write};
+use std::io::{BufRead, BufReader, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::attachments::RoomAttachment;
-use super::model::{Message, MessageKind, MessageMode, Room, MAX_MESSAGES};
-use crate::atomic::write_atomic;
+use super::model::{Message, MessageKind, MessageMode, Room};
 use crate::terminal::AppError;
 
 /// 信封版本。认不出的版本整行跳过——CCCS 规定改信封语义必须升版本。
 pub const LEDGER_VERSION: u32 = 1;
 
-/// 账本事件多于这么多条时，启动时按投影压缩一次。投影最多 MAX_MESSAGES 条消息，
-/// 每条再带几笔送达，三倍的余量让压缩不会每次启动都发生。
-pub const COMPACT_AFTER: usize = MAX_MESSAGES * 3;
+#[cfg(test)]
+thread_local! { static REPLAY_BYTES: std::cell::Cell<u64> = const { std::cell::Cell::new(0) }; }
+#[cfg(test)]
+pub(super) fn take_replay_bytes() -> u64 { REPLAY_BYTES.replace(0) }
+
+/// 旧版本的破坏性压缩阈值，仅用于兼容回归；原账本现保留到删除房间。
+#[cfg(test)]
+pub const COMPACT_AFTER: usize = super::model::MAX_MESSAGES * 3;
 
 pub const CHAT_MESSAGE: &str = "chat.message";
 pub const SYSTEM_NOTIFY: &str = "system.notify";
@@ -121,12 +125,12 @@ pub fn apply(room: &mut Room, event: &LedgerEvent) {
     match event.kind.as_str() {
         CHAT_MESSAGE | SYSTEM_NOTIFY => {
             let Ok(data) = MessageData::deserialize(&event.data) else { return };
-            if room.messages.iter().any(|message| message.id == event.id) {
+            if room.all_messages().any(|message| message.id == event.id) {
                 return;
             }
             // 带 reply_to 的回复了结发件人在原消息上的回复义务（CCCS §6.1）。
             if let Some(target) = &data.reply_to
-                && let Some(original) = room.messages.iter_mut().find(|message| &message.id == target)
+                && let Some(original) = room.message_mut(target)
                 && original.to.contains(&event.by)
                 && !original.replied_by.contains(&event.by)
             {
@@ -146,17 +150,13 @@ pub fn apply(room: &mut Room, event: &LedgerEvent) {
                 replied_by: Vec::new(),
                 reply_cancelled: false,
             });
-            if room.messages.len() > MAX_MESSAGES {
-                let overflow = room.messages.len() - MAX_MESSAGES;
-                room.messages.drain(..overflow);
-            }
         }
         RUNTIME_DELIVERY => {
             let Ok(data) = DeliveryData::deserialize(&event.data) else { return };
             if data.state != "accepted" {
                 return;
             }
-            if let Some(message) = room.messages.iter_mut().find(|m| m.id == data.source_event_id)
+            if let Some(message) = room.message_mut(&data.source_event_id)
                 && !message.delivered_to.contains(&data.actor_id)
             {
                 message.delivered_to.push(data.actor_id);
@@ -164,12 +164,13 @@ pub fn apply(room: &mut Room, event: &LedgerEvent) {
         }
         REPLY_CANCELLED => {
             let Ok(data) = CancelData::deserialize(&event.data) else { return };
-            if let Some(message) = room.messages.iter_mut().find(|m| m.id == data.source_event_id) {
+            if let Some(message) = room.message_mut(&data.source_event_id) {
                 message.reply_cancelled = true;
             }
         }
         _ => {}
     }
+    room.trim_messages();
 }
 
 pub fn path(root: &Path, room_id: &str) -> Result<PathBuf, AppError> {
@@ -183,30 +184,70 @@ pub fn path(root: &Path, room_id: &str) -> Result<PathBuf, AppError> {
 
 /// 读整份账本。不存在是空账本；读不出的行跳过并打日志——写到一半的末行
 /// 从没向调用方报过成功，丢掉它不算丢消息。
-pub fn read(path: &Path) -> Result<Vec<LedgerEvent>, AppError> {
-    let bytes = match fs::read(path) {
-        Ok(bytes) => bytes,
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
-        Err(err) => return Err(AppError::io(format!("读不了 {}：{err}", path.display()))),
-    };
-    let mut events = Vec::new();
-    for (index, line) in bytes.split(|byte| *byte == b'\n').enumerate() {
-        if line.iter().all(u8::is_ascii_whitespace) {
-            continue;
+pub fn length(path: &Path) -> Result<u64, AppError> {
+    match fs::metadata(path) {
+        Ok(metadata) if metadata.is_file() => Ok(metadata.len()),
+        Ok(_) => Err(AppError::io("消息账本不是普通文件")),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(0),
+        Err(error) => Err(AppError::io(error.to_string())),
+    }
+}
+
+/// 旧存储升级时只保留一行与当前投影；日常启动直接使用 rooms.json 的完整投影快照。
+pub fn visit_committed(path: &Path, committed: u64, mut visit: impl FnMut(LedgerEvent)) -> Result<(), AppError> {
+    if committed == 0 { return Ok(()); }
+    if length(path)? < committed { return Err(AppError::io("消息账本短于已提交游标，已保留现场")); }
+    let file = fs::File::open(path).map_err(|error| AppError::io(error.to_string()))?;
+    let mut reader = BufReader::new(file.take(committed));
+    let mut line = Vec::new();
+    let mut oversized = false;
+    let mut index = 1;
+    loop {
+        let buffer = reader.fill_buf().map_err(|error| AppError::io(error.to_string()))?;
+        if buffer.is_empty() {
+            visit_line(path, index, &line, oversized, &mut visit);
+            break;
         }
-        match serde_json::from_slice::<LedgerEvent>(line) {
-            Ok(event) if event.v == LEDGER_VERSION => events.push(event),
-            Ok(event) => eprintln!(
-                "[belfry] 房间账本 {} 第 {} 行是信封版本 {}，不认识，已跳过",
-                path.display(), index + 1, event.v
-            ),
-            Err(error) => eprintln!(
-                "[belfry] 房间账本 {} 第 {} 行读不出来，已跳过：{error}",
-                path.display(), index + 1
-            ),
+        let newline = buffer.iter().position(|byte| *byte == b'\n');
+        let count = newline.map_or(buffer.len(), |at| at + 1);
+        let bytes = &buffer[..count];
+        // 正常房间消息最多 16K 字符；异常超大行仍逐字保留在账本里，只跳过投影。
+        if !oversized && line.len() + bytes.len() <= 4 * 1024 * 1024 { line.extend_from_slice(bytes); }
+        else { oversized = true; }
+        reader.consume(count);
+        #[cfg(test)]
+        REPLAY_BYTES.set(REPLAY_BYTES.get() + count as u64);
+        if newline.is_some() {
+            visit_line(path, index, &line, oversized, &mut visit);
+            line.clear();
+            oversized = false;
+            index += 1;
         }
     }
-    Ok(events)
+    Ok(())
+}
+
+fn visit_line(path: &Path, index: usize, line: &[u8], oversized: bool, visit: &mut impl FnMut(LedgerEvent)) {
+    if oversized {
+        log::warn!("Ledger {} line {index} exceeds the projection record limit; raw history retained", path.display());
+    } else if !line.iter().all(u8::is_ascii_whitespace) {
+        match serde_json::from_slice::<LedgerEvent>(line) {
+            Ok(event) if event.v == LEDGER_VERSION => visit(event),
+            Ok(event) => log::warn!("Ledger {} line {index}: unsupported version {}; raw history retained", path.display(), event.v),
+            Err(error) => log::warn!("Ledger {} line {index}: {error}; raw history retained", path.display()),
+        }
+    }
+}
+
+/// 未提交尾部从来没有成功回执；重试前裁掉，不能把旧失败操作随新提交带进去。
+pub fn discard_uncommitted(path: &Path, committed: u64) -> Result<(), AppError> {
+    let actual = length(path)?;
+    if actual < committed { return Err(AppError::io("消息账本短于已提交游标")); }
+    if actual > committed {
+        let file = OpenOptions::new().write(true).open(path).map_err(|error| AppError::io(error.to_string()))?;
+        file.set_len(committed).and_then(|_| file.sync_data()).map_err(|error| AppError::io(error.to_string()))?;
+    }
+    Ok(())
 }
 
 /// 追加一批事件。末尾缺换行（上次写到一半）时先补换行，原有字节不动（CCCS §4.3）。
@@ -243,25 +284,4 @@ fn encode(events: &[LedgerEvent]) -> Result<String, AppError> {
         text.push('\n');
     }
     Ok(text)
-}
-
-/// 用一组事件整份替换账本（原子替换：写到一半崩溃不会留下半份账本）。
-pub fn rewrite(path: &Path, events: &[LedgerEvent]) -> Result<(), AppError> {
-    write_atomic(path, &encode(events)?, false)
-}
-
-/// 按当前投影重新生成最少的事件：每条消息、它的送达、撤销的回复请求。
-/// 回复关系由回复消息本身的 `reply_to` 重放出来，不用单独记。重放结果与投影一致。
-pub fn snapshot(room: &Room) -> Vec<LedgerEvent> {
-    let mut events = Vec::new();
-    for message in &room.messages {
-        events.push(message_event(&room.id, message));
-        for member_id in &message.delivered_to {
-            events.push(delivery_event(&room.id, &message.id, member_id, message.at));
-        }
-        if message.reply_cancelled {
-            events.push(cancel_event(&room.id, &message.id, "user", message.at));
-        }
-    }
-    events
 }

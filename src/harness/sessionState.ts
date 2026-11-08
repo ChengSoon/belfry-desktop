@@ -1,3 +1,4 @@
+import { t, useTranslation } from "../i18n";
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BrokerClient } from "./brokerClient";
@@ -34,10 +35,11 @@ export class HarnessSessionCoordinator {
   }
   async close(tabId: string) { const item = this.sessions.get(tabId); if (!item) return; this.sessions.delete(tabId); this.invalidate(item.sessionId); await item.runtime.close(); }
   async retain(tabIds: ReadonlySet<string>) { await Promise.all([...this.sessions.keys()].filter((id) => !tabIds.has(id)).map((id) => this.close(id))); }
-  async revoke(tabId: string) { const item = this.sessions.get(tabId); if (!item) return; this.invalidate(item.sessionId); try { await item.runtime.authorize([]); item.state = { ...item.state, grants: [], runtime: item.runtime.state }; } catch { item.state = { ...item.state, runtime: "reconcile-required", error: "授权同步失败，需要重新协调" }; } }
+  async revoke(tabId: string) { const item = this.sessions.get(tabId); if (!item) return; this.invalidate(item.sessionId); try { await item.runtime.authorize([]); item.state = { ...item.state, grants: [], runtime: item.runtime.state }; } catch { item.state = { ...item.state, runtime: "reconcile-required", error: t("harness.sessionState.text_77c98b617e") }; } }
 }
 
 export function useHarnessSessions() {
+  useTranslation();
   const [plugins, setPlugins] = useState<HarnessPlugin[]>([]);
   const [states, setStates] = useState<Map<string, HarnessTabState>>(new Map());
   const registry = useMemo(() => new HarnessRegistryClient(), []);

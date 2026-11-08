@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 import type { RecentProject } from "./contracts";
 
 /**
@@ -5,8 +6,5 @@ import type { RecentProject } from "./contracts";
  * 磁盘上的目录原封不动——把"删除"这件事真正会发生的代价列出来。
  */
 export function removeRecentConfirmBody(project: RecentProject, openTabCount: number) {
-  const closingClause = openTabCount > 0
-    ? `，并关闭该目录下的 ${openTabCount} 个会话`
-    : "";
-  return `将从最近项目中移除 ${project.name}${closingClause}。目录本身不会被删除。`;
+  return t(openTabCount > 0 ? "workspace.removeRecentConfirm.withSessions" : "workspace.removeRecentConfirm.onlyRecent", { name: project.name, count: openTabCount });
 }

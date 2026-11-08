@@ -1,9 +1,11 @@
+import { t, useTranslation } from "../../i18n";
 import { useCallback, useEffect, useRef } from "react";
 import { NAMED_WORKSPACES_KEY, type WorkspaceSeed } from "./contracts";
 import { loadNamedWorkspaces, message, replaceNamedArchive, saveNamedWorkspaces } from "./storage";
 import type { CollectionPort } from "./useCollectionState";
 
 export function useCollectionPersistence(port: CollectionPort, seed: WorkspaceSeed) {
+  useTranslation();
   const { ref, commit, snapshot } = port;
   const seedRef = useRef(seed);
   seedRef.current = seed;
@@ -17,7 +19,7 @@ export function useCollectionPersistence(port: CollectionPort, seed: WorkspaceSe
   useEffect(() => {
     const changed = (event: StorageEvent) => {
       if (event.key !== NAMED_WORKSPACES_KEY || event.newValue === ref.current.raw) return;
-      commit({ ...ref.current, error: "工作区已在其他窗口修改，请先重新读取存档" });
+      commit({ ...ref.current, error: t("workspace.useCollectionPersistence.text_4b300b655d") });
     };
     window.addEventListener("storage", changed);
     return () => window.removeEventListener("storage", changed);

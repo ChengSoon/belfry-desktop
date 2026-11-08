@@ -71,7 +71,7 @@ fn storage_dir(app: &AppHandle) -> Result<PathBuf, AppError> {
     let base = app
         .path()
         .app_data_dir()
-        .map_err(|err| AppError::io(format!("找不到应用数据目录：{err}")))?;
+        .map_err(|err| AppError::io(belfry_i18n::lformat!("找不到应用数据目录：{err}")))?;
     Ok(base.join(DIR))
 }
 
@@ -82,19 +82,19 @@ fn managed_file_name(format: FontFormat) -> String {
 
 fn managed_path(dir: &Path, file_name: &str) -> Result<PathBuf, AppError> {
     let Some((stem, extension)) = file_name.rsplit_once('.') else {
-        return Err(AppError::invalid_argument("字体文件名无效"));
+        return Err(AppError::invalid_argument(belfry_i18n::text("字体文件名无效")));
     };
     if !FontFormat::extensions().contains(&extension) {
-        return Err(AppError::invalid_argument("字体文件名无效"));
+        return Err(AppError::invalid_argument(belfry_i18n::text("字体文件名无效")));
     }
     if stem == LEGACY_STEM {
         return Ok(dir.join(file_name));
     }
     let Some(id) = stem.strip_prefix(FILE_PREFIX) else {
-        return Err(AppError::invalid_argument("字体文件名无效"));
+        return Err(AppError::invalid_argument(belfry_i18n::text("字体文件名无效")));
     };
     if id.len() != ULID_LENGTH || !id.bytes().all(|byte| byte.is_ascii_alphanumeric()) {
-        return Err(AppError::invalid_argument("字体文件名无效"));
+        return Err(AppError::invalid_argument(belfry_i18n::text("字体文件名无效")));
     }
     Ok(dir.join(file_name))
 }
@@ -104,34 +104,34 @@ fn remove_file(dir: &Path, file_name: &str) -> Result<(), AppError> {
     match fs::remove_file(path) {
         Ok(()) => Ok(()),
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
-        Err(err) => Err(AppError::io(format!("删不掉字体：{err}"))),
+        Err(err) => Err(AppError::io(belfry_i18n::lformat!("删不掉字体：{err}"))),
     }
 }
 
 pub(super) fn import(app: &AppHandle, source: &str) -> Result<ImportedFontAsset, AppError> {
     let path = canonicalize(Path::new(source))
-        .map_err(|err| AppError::not_found(format!("打不开这个文件：{err}")))?;
-    let meta = fs::metadata(&path).map_err(|err| AppError::io(format!("读不到文件信息：{err}")))?;
+        .map_err(|err| AppError::not_found(belfry_i18n::lformat!("打不开这个文件：{err}")))?;
+    let meta = fs::metadata(&path).map_err(|err| AppError::io(belfry_i18n::lformat!("读不到文件信息：{err}")))?;
     if !meta.is_file() {
-        return Err(AppError::invalid_argument("字体必须是一个文件"));
+        return Err(AppError::invalid_argument(belfry_i18n::text("字体必须是一个文件")));
     }
     if meta.len() > MAX_BYTES {
-        return Err(AppError::invalid_argument(format!(
+        return Err(AppError::invalid_argument(belfry_i18n::lformat!(
             "字体太大了（{} MB），上限 {} MB",
             meta.len() / 1024 / 1024,
             MAX_BYTES / 1024 / 1024
         )));
     }
 
-    let bytes = fs::read(&path).map_err(|err| AppError::io(format!("读不了这个文件：{err}")))?;
+    let bytes = fs::read(&path).map_err(|err| AppError::io(belfry_i18n::lformat!("读不了这个文件：{err}")))?;
     let format = sniff_format(&bytes)
-        .ok_or_else(|| AppError::unsupported("只支持 TTF / OTF / WOFF / WOFF2 字体"))?;
+        .ok_or_else(|| AppError::unsupported(belfry_i18n::text("只支持 TTF / OTF / WOFF / WOFF2 字体")))?;
     let dir = storage_dir(app)?;
-    fs::create_dir_all(&dir).map_err(|err| AppError::io(format!("建不了字体目录：{err}")))?;
+    fs::create_dir_all(&dir).map_err(|err| AppError::io(belfry_i18n::lformat!("建不了字体目录：{err}")))?;
 
     let file_name = managed_file_name(format);
     fs::write(dir.join(&file_name), &bytes)
-        .map_err(|err| AppError::io(format!("写不进字体文件：{err}")))?;
+        .map_err(|err| AppError::io(belfry_i18n::lformat!("写不进字体文件：{err}")))?;
     Ok(ImportedFontAsset {
         file_name,
         display_name: display_name(&path),
@@ -143,7 +143,7 @@ pub(super) fn import(app: &AppHandle, source: &str) -> Result<ImportedFontAsset,
 pub(super) fn read(app: &AppHandle, file_name: &str) -> Result<Vec<u8>, AppError> {
     let dir = storage_dir(app)?;
     let path = managed_path(&dir, file_name)?;
-    fs::read(&path).map_err(|err| AppError::io(format!("读不了字体文件：{err}")))
+    fs::read(&path).map_err(|err| AppError::io(belfry_i18n::lformat!("读不了字体文件：{err}")))
 }
 
 pub(super) fn remove(app: &AppHandle, file_name: &str) -> Result<(), AppError> {
@@ -157,7 +157,7 @@ fn display_name(path: &Path) -> String {
         .unwrap_or_default();
     let normalized = name.split_whitespace().collect::<Vec<_>>().join(" ");
     if normalized.is_empty() {
-        return "导入字体".to_string();
+        return belfry_i18n::text("导入字体").to_string();
     }
     normalized.chars().take(MAX_DISPLAY_NAME_CHARS).collect()
 }

@@ -1,3 +1,4 @@
+import { useFeedback, TranslationError, getLocale, t, useTranslation } from "../../i18n";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AgentKind } from "../../workspace/contracts";
 import { agentRecord } from "../../agent/contracts";
@@ -8,6 +9,7 @@ import { useProviders } from "../useProviders";
 import { type DraftIssue, validateDraft } from "../validate";
 
 export function useProviderEditor(onGuardChange: (guarded: boolean) => void) {
+  useTranslation();
   const providers = useProviders(true);
   const [kind, updateKind] = useState<AgentKind>("claude");
   const [draft, setDraft] = useState<ProviderDraft | null>(null);
@@ -15,9 +17,9 @@ export function useProviderEditor(onGuardChange: (guarded: boolean) => void) {
   const [pendingRemove, setPendingRemove] = useState<ProviderConfig | null>(null);
   const [configFiles, setConfigFiles] = useState<ConfigFilePreview[] | null>(null);
   const [configLoading, setConfigLoading] = useState(false);
-  const [configFailure, setConfigFailure] = useState<string | null>(null);
+  const [configFailure, setConfigFailure] = useFeedback<string | null>(null);
   const [copiedPath, setCopiedPath] = useState<string | null>(null);
-  const [formNotice, setFormNotice] = useState<string | null>(null);
+  const [formNotice, setFormNotice] = useFeedback<string | null>(null);
   const configRequest = useRef(0);
   const [revealSecrets, setRevealSecrets] = useState(false);
   const revealAllowed = useRef(false);
@@ -35,7 +37,7 @@ export function useProviderEditor(onGuardChange: (guarded: boolean) => void) {
     setEditsByKind((all) => ({ ...all, [kind]: updater(all[kind]) }));
   };
   const [savingPath, setSavingPath] = useState<string | null>(null);
-  const [saveFailure, setSaveFailure] = useState<string | null>(null);
+  const [saveFailure, setSaveFailure] = useFeedback<string | null>(null);
   const [savedPath, setSavedPath] = useState<string | null>(null);
 
   const dirtyPaths = useMemo(() => {
@@ -55,21 +57,21 @@ export function useProviderEditor(onGuardChange: (guarded: boolean) => void) {
   }, [draft, hasDirty, onGuardChange]);
 
   const group = providers.catalog?.agents.find((item) => item.kind === kind);
-  const list = useMemo(() => group?.providers ?? [], [group]);
+  const list = useMemo(() => group?.providers ?? [], [group, getLocale()]);
 
   const conflicts = useMemo(
     () => providers.catalog?.envConflicts.filter((item) => item.kind === kind) ?? [],
-    [kind, providers.catalog],
+    [kind, providers.catalog, getLocale()],
   );
 
   const submit = () => {
     if (!draft) return;
     if (savingPath !== null) {
-      setFormNotice("配置文件正在保存，请稍候再保存 provider 信息。");
+      setFormNotice(() => t("provider.useProviderEditor.text_6c8fa121fb"));
       return;
     }
     if (hasDirty) {
-      setFormNotice("配置文件还有未保存的修改，请先保存或还原，再保存 provider 信息。");
+      setFormNotice(() => t("provider.useProviderEditor.text_f292f91463"));
       return;
     }
     const found = validateDraft(draft, list, kind);
@@ -91,7 +93,7 @@ export function useProviderEditor(onGuardChange: (guarded: boolean) => void) {
         if (request === configRequest.current) setConfigFiles(files);
       })
       .catch((error) => {
-        if (request === configRequest.current) setConfigFailure(failureLabel(toAppFailure(error)));
+        if (request === configRequest.current) setConfigFailure(() => failureLabel(toAppFailure(error)));
       })
       .finally(() => {
         if (request === configRequest.current) setConfigLoading(false);
@@ -190,7 +192,7 @@ export function useProviderEditor(onGuardChange: (guarded: boolean) => void) {
       const synced = await providers.syncLive(kind);
       if (session !== editorSession.current) return;
       if (!synced) {
-        throw new Error("配置文件已保存，但 provider 列表同步失败，请重新读取");
+        throw new TranslationError("provider.useProviderEditor.text_b893c124a4");
       }
       // 直接改原始文件后，当前条目的表单值也要跟着 live 配置走，避免用户
       // 紧接着点「保存 provider」时又把刚改好的 JSON/TOML 覆盖回去。
@@ -214,7 +216,7 @@ export function useProviderEditor(onGuardChange: (guarded: boolean) => void) {
         setSavedPath((current) => (current === file.path ? null : current));
       }, 1500);
     } catch (error) {
-      if (session === editorSession.current) setSaveFailure(failureLabel(toAppFailure(error)));
+      if (session === editorSession.current) setSaveFailure(() => failureLabel(toAppFailure(error)));
     } finally {
       if (session === editorSession.current) setSavingPath(null);
     }

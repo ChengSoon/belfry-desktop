@@ -101,13 +101,13 @@ impl Accumulator {
         let mut notes = Vec::new();
         notes.extend(self.notes.iter().map(String::as_str));
         if self.limited {
-            notes.push("日志超过 20 万条，显示已读取部分");
+            notes.push(belfry_i18n::text("日志超过 20 万条，显示已读取部分"));
         }
         if self.details.incomplete_tools {
-            notes.push("部分工具缺少调用 ID，工具总数不可用");
+            notes.push(belfry_i18n::text("部分工具缺少调用 ID，工具总数不可用"));
         }
         if self.claude.incomplete {
-            notes.push("部分用量缺少消息 ID，Token 合计不可用");
+            notes.push(belfry_i18n::text("部分用量缺少消息 ID，Token 合计不可用"));
         }
         (!notes.is_empty()).then(|| notes.join("；"))
     }

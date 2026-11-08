@@ -1,0 +1,19 @@
+[package]
+name = "belfry-i18n"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Shared locale preferences and text catalog for Belfry and its CLI"
+
+[dependencies]
+belfry-i18n-macros = { path = "../belfry-i18n-macros" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+dirs = "6"
+regex = "1"
+
+[target.'cfg(not(target_os = "macos"))'.dependencies]
+sys-locale = "0.3"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+libloading = "0.7.4"

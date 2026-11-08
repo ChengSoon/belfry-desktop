@@ -1,3 +1,4 @@
+import { useFeedback, t, useTranslation } from "../i18n";
 import { useState } from "react";
 import { exportBackupFile, importBackupFile } from "./api";
 import { createBackup, parseBackup } from "./package";
@@ -5,21 +6,22 @@ import { backupStatus, cancelPendingBackup, scheduleRestore, scheduleUndo } from
 import { message, type BackupDomain, type BackupPackage } from "./contracts";
 
 export function useBackup() {
+  useTranslation();
   const [preview, setPreview] = useState<BackupPackage | null>(null);
   const [domains, setDomains] = useState<BackupDomain[]>([]);
   const [status, setStatus] = useState(() => readStatus());
-  const [error, setError] = useState<string | null>(status.error);
-  const [notice, setNotice] = useState("");
+  const [error, setError] = useFeedback<string | null>(status.error);
+  const [notice, setNotice] = useFeedback("");
   const [busy, setBusy] = useState(false);
   const [undoConfirm, setUndoConfirm] = useState(false);
   const run = async (action: () => void | Promise<void>) => {
     setBusy(true); setError(null); setNotice("");
-    try { await action(); setStatus(readStatus()); } catch (error) { setError(message(error)); }
+    try { await action(); setStatus(readStatus()); } catch (error) { setError(() => message(error)); }
     finally { setBusy(false); }
   };
   const exportFile = () => run(async () => {
     const path = await exportBackupFile(JSON.stringify(createBackup(), null, 2));
-    if (path) setNotice(`备份已保存：${path}`);
+    if (path) setNotice(() => t("backup.useBackup.text_1db3acdaf5", { path: path }));
   });
   const importFile = () => run(async () => {
     const raw = await importBackupFile();
@@ -30,10 +32,10 @@ export function useBackup() {
   const restore = () => run(() => {
     if (!preview) return;
     scheduleRestore({ backup: preview, domains }); setPreview(null);
-    setNotice("已安排下次启动恢复。当前任务继续运行，退出前仍可取消。");
+    setNotice(() => t("backup.useBackup.text_fbe9843884"));
   });
   const undo = () => run(() => { scheduleUndo(); setUndoConfirm(false); });
-  const cancel = () => run(() => { cancelPendingBackup(); setNotice("已取消恢复安排，现有配置不变。"); });
+  const cancel = () => run(() => { cancelPendingBackup(); setNotice(() => t("backup.useBackup.text_33d06f64a5")); });
   const toggleDomain = (domain: BackupDomain) => setDomains((current) => current.includes(domain)
     ? current.filter((item) => item !== domain) : [...current, domain]);
   return { preview, domains, status, error, notice, busy, undoConfirm, setUndoConfirm,

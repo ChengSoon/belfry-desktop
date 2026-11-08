@@ -1,3 +1,4 @@
+import { useFeedback } from "../../i18n";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toAppFailure } from "../../workspace/errors";
 import * as api from "./api";
@@ -7,13 +8,13 @@ export function useWorktrees(rootPath: string) {
   const [report, setReport] = useState<WorktreeReport | null>(null);
   const [preview, setPreview] = useState<WorktreePreview | null>(null);
   const [result, setResult] = useState<ActionResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useFeedback<string | null>(null);
   const [busy, setBusy] = useState(false);
   const locked = useRef(false), generation = useRef(0);
   const refresh = useCallback(async () => {
     const version = ++generation.current;
     try { const next = await api.listWorktrees(rootPath); if (version === generation.current) { setReport(next); setError(null); } }
-    catch (error) { if (version === generation.current) setError(toAppFailure(error).message); }
+    catch (error) { if (version === generation.current) setError(() => toAppFailure(error).message); }
   }, [rootPath]);
   useEffect(() => { void refresh(); return () => { generation.current++; }; }, [refresh]);
   const run = async (action: () => Promise<WorktreePreview | ActionResult>, execute = false) => {
@@ -25,7 +26,7 @@ export function useWorktrees(rootPath: string) {
       if (version !== generation.current) return;
       if (execute) { setPreview(null); setResult(value as ActionResult); await refresh(); }
       else setPreview(value as WorktreePreview);
-    } catch (error) { if (version === generation.current) { setPreview(null); setError(toAppFailure(error).message); } }
+    } catch (error) { if (version === generation.current) { setPreview(null); setError(() => toAppFailure(error).message); } }
     finally { locked.current = false; setBusy(false); }
   };
   return { report, preview, result, error, busy, refresh,

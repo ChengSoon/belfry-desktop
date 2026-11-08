@@ -8,6 +8,32 @@
   padding-top: var(--titlebar-inset);
 }
 
+.room-compact-nav, .room-pane-scrim { display: none; }
+.room-history-controls { display: grid; justify-items: center; gap: 4px; min-height: 32px; margin-bottom: 8px; color: var(--text-muted); font-size: 12px; }
+.room-history-controls p { max-width: 100%; overflow-wrap: anywhere; color: var(--danger); }
+.room-history-entry { margin: 8px 12px; padding: 8px 12px; border-left: 2px solid var(--border); overflow-wrap: anywhere; }
+.room-history-entry header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; font-size: 11px; color: var(--text-muted); }
+.room-history-entry details { margin-top: 6px; font-size: 12px; }
+.room-history-entry summary { cursor: pointer; color: var(--text-muted); }
+.room-history-entry pre { max-height: 240px; overflow: auto; white-space: pre-wrap; font-size: 11px; }
+.room-history-entry [role="note"] { font-size: 12px; color: var(--warning); }
+@media (max-width: 900px) {
+  .room-view { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .room-compact-nav { display: flex; align-items: center; gap: 4px; min-width: 0; padding: 4px 8px; border-bottom: 1px solid var(--border); z-index: 32; background: var(--surface); }
+  .room-main { grid-column: 1; grid-row: 2; overflow: hidden; }
+  .room-sidebar, .room-taskboard { display: none; position: absolute; z-index: 31; top: calc(var(--titlebar-inset, 0px) + 44px); bottom: 0; width: min(85%, 320px); box-shadow: var(--shadow-lg); }
+  .room-sidebar { left: 0; }
+  .room-taskboard { right: 0; }
+  .room-view[data-room-panel="members"] > .room-sidebar,
+  .room-view[data-room-panel="tasks"] > .room-taskboard { display: flex; }
+  .room-pane-scrim { display: block; position: absolute; inset: 0; z-index: 30; border: 0; background: rgb(0 0 0 / 35%); }
+  .room-composer { padding: 4px 8px 8px; }
+  .room-main > section { max-height: 22vh; overflow: auto; }
+  .room-main > header { min-width: 0; gap: 4px; padding-inline: 8px; }
+  .room-message { display: grid; grid-template-columns: 2rem minmax(0, 1fr); row-gap: 4px; }
+  .room-message-actions { position: static; grid-column: 2; justify-self: end; translate: none; opacity: 1; }
+}
+
 /* 成员头像：按成员 id 散列出的色相，亮暗两套色阶。 */
 [data-slot="avatar-fallback"].room-avatar {
   background-color: hsl(var(--avatar-hue) 32% 30%);

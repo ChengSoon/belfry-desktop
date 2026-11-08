@@ -1,3 +1,4 @@
+import { localized, t } from "../i18n";
 import type { AgentKind } from "../workspace/contracts";
 
 /** 四类 token 的统一口径，两家 Agent 归一后可直接对比。input 不含缓存命中部分。 */
@@ -58,8 +59,8 @@ export interface UsageQuery {
   projectRoot: string | null;
 }
 
-export const USAGE_WINDOWS: { label: string; days: UsageWindow }[] = [
-  { label: "近 7 天", days: 7 },
-  { label: "近 30 天", days: 30 },
-  { label: "全部", days: null },
-];
+export const USAGE_WINDOWS: { label: string; days: UsageWindow }[] = localized(() => ([
+  { label: t("usage.contracts.text_2261b06712"), days: 7 },
+  { label: t("usage.contracts.text_f729bb3d3f"), days: 30 },
+  { label: t("usage.contracts.text_5c55a67935"), days: null },
+]));

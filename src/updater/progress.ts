@@ -1,4 +1,5 @@
 import type { DownloadEvent } from "@tauri-apps/plugin-updater";
+import { formatNumber } from "../i18n";
 
 export interface DownloadProgress {
   downloadedBytes: number;
@@ -41,5 +42,6 @@ export function formatBytes(bytes: number) {
   const units = ["B", "KB", "MB", "GB"];
   const unitIndex = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
   const value = bytes / 1024 ** unitIndex;
-  return `${value >= 100 || unitIndex === 0 ? Math.round(value) : value.toFixed(1)} ${units[unitIndex]}`;
+  const digits = value >= 100 || unitIndex === 0 ? 0 : 1;
+  return `${formatNumber(value, { minimumFractionDigits: digits, maximumFractionDigits: digits })} ${units[unitIndex]}`;
 }

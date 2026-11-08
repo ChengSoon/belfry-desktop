@@ -1,0 +1,9 @@
+{
+  "AppErrorBoundary.text_bc813d3e23": "Diagnostics copied. Paste them into a report for the developer.",
+  "AppErrorBoundary.text_b2c0a5351d": "Could not copy diagnostics. Try again. Existing logs are saved in the application data directory.",
+  "AppErrorBoundary.text_9ad73d82ce": "Restart failed. Close and reopen Belfry.",
+  "AppErrorBoundary.text_59544b4a83": "Belfry encountered an error",
+  "AppErrorBoundary.text_0614781255": "The interface cannot continue. Copy the diagnostics, then restart the app.",
+  "AppErrorBoundary.text_045e09f57e": "Copy diagnostics",
+  "AppErrorBoundary.text_d750ba6ab1": "Restart Belfry"
+}

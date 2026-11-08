@@ -23,7 +23,7 @@ pub const MAX_ROOM_NAME_CHARS: usize = 40;
 pub const MAX_TASK_TITLE_CHARS: usize = 80;
 const MAX_NOTES_CHARS: usize = 4000;
 /// 角色名不能和收件人记号撞车，否则 `@统筹` 指谁就说不清了。
-const RESERVED_TITLES: &[&str] = &["统筹", "全体", "成员", "用户", "系统", "all", "peers", "foreman", "user", "system"];
+const RESERVED_TITLES: &[&str] = &["统筹", "全体", "成员", "用户", "系统", "all", "peers", "members", "foreman", "coordinator", "user", "system"];
 
 #[allow(clippy::too_many_arguments)]
 fn post(
@@ -54,6 +54,11 @@ fn post(
     let event = ledger::message_event(&room.id, &message);
     ledger::apply(room, &event);
     room.pending.push(event);
+    if !room.paused {
+        for member_id in to.iter().filter(|id| room.active_member(id).is_some()).cloned().collect::<Vec<_>>() {
+            room.delivery_outbox.push(RoomDelivery { message_id: message.id.clone(), member_id, phase: Default::default(), message: None });
+        }
+    }
     Posted { message_id: message.id, to }
 }
 
@@ -72,21 +77,21 @@ fn others(room: &Room, except: &str) -> Vec<String> {
 /// 给角色发的上手说明。注入成员终端的第一条消息，决定它在房间里怎么做事。
 fn onboarding(room: &Room, member: &Member) -> String {
     let objective = if room.brief.objective.trim().is_empty() {
-        "还没写".to_string()
+        belfry_i18n::text("还没写").to_string()
     } else {
         excerpt(&room.brief.objective, 120)
     };
-    let duty = if member.duty.trim().is_empty() { "（未写）" } else { member.duty.trim() };
+    let duty = if member.duty.trim().is_empty() { belfry_i18n::text("（未写）") } else { member.duty.trim() };
     let role = match member.role {
-        MemberRole::Foreman => "你是统筹：你的主要工作是协调，不是自己动手。收到需求先看 belfry room status，\
+        MemberRole::Foreman => belfry_i18n::text("你是统筹：你的主要工作是协调，不是自己动手。收到需求先看 belfry room status，\
 把需求拆成任务、按职责派给成员（belfry room task add <标题> --to <角色> --outcome <完成标准>）；\
 只有很小的活、或者没有合适的成员时才自己做。派活只用任务板，不要用 belfry send。\
 房间命令报错时向用户报告原始错误，先核对任务板；不要绕过任务板派活或重复创建。\
-成员完成任务或手上没活时你会收到通知，据此派下一件；全部完成后用 belfry room say --to @用户 汇报。",
-        MemberRole::Peer => "你是成员：做好自己职责内的任务，开工 belfry room task start <任务号>，\
-完成 belfry room task done <任务号> <结果>；发现问题或需要别人配合，跟统筹说（belfry room say <内容>）。",
+成员完成任务或手上没活时你会收到通知，据此派下一件；全部完成后用 belfry room say --to @用户 汇报。"),
+        MemberRole::Peer => belfry_i18n::text("你是成员：做好自己职责内的任务，开工 belfry room task start <任务号>，\
+完成 belfry room task done <任务号> <结果>；发现问题或需要别人配合，跟统筹说（belfry room say <内容>）。"),
     };
-    format!(
+    belfry_i18n::lformat!(
         "你加入了房间「{}」，角色「{}」，职责：{duty}。需求目标：{objective}。\n{role}\n全貌（需求、成员、任务板）：belfry room status",
         room.name, member.title
     )
@@ -95,22 +100,22 @@ fn onboarding(room: &Room, member: &Member) -> String {
 fn validate_title(room: &Room, raw: &str, except: Option<&str>) -> Result<String, String> {
     let title = raw.trim().trim_start_matches('@').trim().to_string();
     if title.is_empty() {
-        return Err("角色名是必填的".to_string());
+        return Err(belfry_i18n::text("角色名是必填的").to_string());
     }
     if title.chars().count() > MAX_TITLE_CHARS {
-        return Err(format!("角色名最多 {MAX_TITLE_CHARS} 个字"));
+        return Err(belfry_i18n::lformat!("角色名最多 {MAX_TITLE_CHARS} 个字"));
     }
     if title.chars().any(char::is_whitespace) {
-        return Err("角色名不能带空格：点名时 @ 后面要能一口气写完".to_string());
+        return Err(belfry_i18n::text("角色名不能带空格：点名时 @ 后面要能一口气写完").to_string());
     }
     if RESERVED_TITLES.iter().any(|reserved| reserved.eq_ignore_ascii_case(&title)) {
-        return Err(format!("「{title}」是收件人记号，换个角色名"));
+        return Err(belfry_i18n::lformat!("「{title}」是收件人记号，换个角色名"));
     }
     let taken = room.active_members().any(|member| {
         Some(member.id.as_str()) != except && member.title.to_lowercase() == title.to_lowercase()
     });
     if taken {
-        return Err(format!("房间里已经有「{title}」了"));
+        return Err(belfry_i18n::lformat!("房间里已经有「{title}」了"));
     }
     Ok(title)
 }
@@ -127,7 +132,7 @@ pub fn add_member(
     now: i64,
 ) -> Result<(String, Vec<Posted>), String> {
     if room.member_by_tab(tab_id).is_some() {
-        return Err("这条会话已经在房间里了".to_string());
+        return Err(belfry_i18n::text("这条会话已经在房间里了").to_string());
     }
     let title = validate_title(room, title, None)?;
     // 第一位成员自动当统筹（CCCC：第一个启用的 actor 成为 foreman）。
@@ -148,8 +153,8 @@ pub fn add_member(
         left_at: None,
     });
     let member = room.active_member(&id).cloned().expect("刚加入");
-    let role = if becomes_foreman { "统筹" } else { "成员" };
-    posted.push(notice(room, format!("「{title}」以{role}身份加入了房间。"), Vec::new(), now));
+    let role = if becomes_foreman { belfry_i18n::text("统筹") } else { belfry_i18n::text("成员") };
+    posted.push(notice(room, belfry_i18n::lformat!("「{title}」以{role}身份加入了房间。"), Vec::new(), now));
     posted.push(notice(room, onboarding(room, &member), vec![id.clone()], now));
     Ok((id, posted))
 }
@@ -161,9 +166,9 @@ fn demote(room: &mut Room, member_id: &str) {
 }
 
 pub fn set_foreman(room: &mut Room, member_id: &str, now: i64) -> Result<Vec<Posted>, String> {
-    let member = room.active_member(member_id).cloned().ok_or("找不到这位成员（或已离开）")?;
+    let member = room.active_member(member_id).cloned().ok_or(belfry_i18n::text("找不到这位成员（或已离开）"))?;
     if member.role == MemberRole::Foreman {
-        return Err(format!("「{}」已经是统筹了", member.title));
+        return Err(belfry_i18n::lformat!("「{}」已经是统筹了", member.title));
     }
     let previous = room.foreman().cloned();
     if let Some(previous) = &previous {
@@ -173,12 +178,12 @@ pub fn set_foreman(room: &mut Room, member_id: &str, now: i64) -> Result<Vec<Pos
         target.role = MemberRole::Foreman;
     }
     let promoted = room.active_member(member_id).cloned().expect("刚查过");
-    let mut posted = vec![notice(room, format!("「{}」现在是统筹。", promoted.title), Vec::new(), now)];
+    let mut posted = vec![notice(room, belfry_i18n::lformat!("「{}」现在是统筹。", promoted.title), Vec::new(), now)];
     posted.push(notice(room, onboarding(room, &promoted), vec![promoted.id.clone()], now));
     if let Some(previous) = previous {
         posted.push(notice(
             room,
-            format!("统筹换成了「{}」，你现在是成员，手上的任务照常做。", promoted.title),
+            belfry_i18n::lformat!("统筹换成了「{}」，你现在是成员，手上的任务照常做。", promoted.title),
             vec![previous.id],
             now,
         ));
@@ -194,12 +199,12 @@ pub fn update_member(
     tab_id: Option<&str>,
     now: i64,
 ) -> Result<Vec<Posted>, String> {
-    let current = room.active_member(member_id).cloned().ok_or("找不到这位成员（或已离开）")?;
+    let current = room.active_member(member_id).cloned().ok_or(belfry_i18n::text("找不到这位成员（或已离开）"))?;
     let title = title.map(|raw| validate_title(room, raw, Some(member_id))).transpose()?;
     if let Some(tab) = tab_id
         && room.active_members().any(|member| member.tab_id == tab && member.id != member_id)
     {
-        return Err("这条会话已经是另一位成员了".to_string());
+        return Err(belfry_i18n::text("这条会话已经是另一位成员了").to_string());
     }
     let member = room.members.iter_mut().find(|member| member.id == member_id).expect("刚查过");
     if let Some(title) = &title {
@@ -213,7 +218,7 @@ pub fn update_member(
     }
     let mut posted = Vec::new();
     if let Some(title) = title.filter(|title| *title != current.title) {
-        posted.push(notice(room, format!("「{}」改名为「{title}」。", current.title), Vec::new(), now));
+        posted.push(notice(room, belfry_i18n::lformat!("「{}」改名为「{title}」。", current.title), Vec::new(), now));
     }
     // 换了会话：新会话对房间一无所知，重发一遍上手说明。
     if tab_id.is_some_and(|tab| tab != current.tab_id) {
@@ -224,11 +229,11 @@ pub fn update_member(
 }
 
 pub fn remove_member(room: &mut Room, member_id: &str, now: i64) -> Result<Vec<Posted>, String> {
-    let leaving = room.active_member(member_id).cloned().ok_or("找不到这位成员（或已离开）")?;
+    let leaving = room.active_member(member_id).cloned().ok_or(belfry_i18n::text("找不到这位成员（或已离开）"))?;
     if let Some(member) = room.members.iter_mut().find(|member| member.id == member_id) {
         member.left_at = Some(now);
     }
-    let mut posted = vec![notice(room, format!("「{}」离开了房间。", leaving.title), Vec::new(), now)];
+    let mut posted = vec![notice(room, belfry_i18n::lformat!("「{}」离开了房间。", leaving.title), Vec::new(), now)];
     // 统筹走了：最早加入的在场成员接任，不让房间失去统筹。
     if leaving.role == MemberRole::Foreman {
         demote(room, member_id);
@@ -257,7 +262,7 @@ pub fn remove_member(room: &mut Room, member_id: &str, now: i64) -> Result<Vec<P
         let to = room.foreman().map(|member| vec![member.id.clone()]).unwrap_or_default();
         posted.push(notice(
             room,
-            format!("「{}」离开后 {} 没人负责了，请重新分派。", leaving.title, orphaned.join("、")),
+            belfry_i18n::lformat!("「{}」离开后 {} 没人负责了，请重新分派。", leaving.title, orphaned.join("、")),
             to,
             now,
         ));
@@ -276,10 +281,10 @@ pub fn update_brief(
     now: i64,
 ) -> Result<Posted, String> {
     if !actor.coordinates() {
-        return Err("需求简报只有统筹和用户能改；有想法跟统筹说".to_string());
+        return Err(belfry_i18n::text("需求简报只有统筹和用户能改；有想法跟统筹说").to_string());
     }
     if objective.is_none() && focus.is_none() && constraints.is_none() {
-        return Err("要改哪一项？目标、当前重点、约束至少给一个".to_string());
+        return Err(belfry_i18n::text("要改哪一项？目标、当前重点、约束至少给一个").to_string());
     }
     let brief = &mut room.brief;
     if let Some(value) = objective {
@@ -295,15 +300,15 @@ pub fn update_brief(
     brief.updated_at = Some(now);
     let mut parts = Vec::new();
     if let Some(value) = objective {
-        parts.push(format!("目标：{}", excerpt(value, 200)));
+        parts.push(belfry_i18n::lformat!("目标：{}", excerpt(value, 200)));
     }
     if let Some(value) = focus {
-        parts.push(format!("当前重点：{}", excerpt(value, 200)));
+        parts.push(belfry_i18n::lformat!("当前重点：{}", excerpt(value, 200)));
     }
     if !room.brief.constraints.is_empty() && parts.len() < 2 {
-        parts.push(format!("约束：{}", room.brief.constraints.join("；")));
+        parts.push(belfry_i18n::lformat!("约束：{}", room.brief.constraints.join("；")));
     }
-    let text = format!("{}更新了需求简报。{}", room.label(actor.id()), parts.join("；"));
+    let text = belfry_i18n::lformat!("{}更新了需求简报。{}", room.label(actor.id()), parts.join("；"));
     let to = others(room, actor.id());
     Ok(notice(room, text, to, now))
 }
@@ -336,22 +341,22 @@ pub fn say_with(
 ) -> Result<Posted, String> {
     let text = text.trim();
     if text.is_empty() && attachments.is_empty() {
-        return Err("说点什么再发".to_string());
+        return Err(belfry_i18n::text("说点什么再发").to_string());
     }
     if text.chars().count() > MAX_TEXT_CHARS {
-        return Err(format!("一条消息最多 {MAX_TEXT_CHARS} 字"));
+        return Err(belfry_i18n::lformat!("一条消息最多 {MAX_TEXT_CHARS} 字"));
     }
     let target = match reply_hint.map(str::trim).filter(|hint| !hint.is_empty()) {
         None => None,
         Some(hint) => Some(
             room.message(hint)
                 .cloned()
-                .ok_or_else(|| format!("没有编号 {hint} 的消息，用 belfry room log 看看"))?,
+                .ok_or_else(|| belfry_i18n::lformat!("没有编号 {hint} 的消息，用 belfry room log 看看"))?,
         ),
     };
     if ask && target.is_some() {
         // CCCS：回复不能再要求回复，免得义务一层套一层。
-        return Err("回复不能再要求回复；要追问就另发一条".to_string());
+        return Err(belfry_i18n::text("回复不能再要求回复；要追问就另发一条").to_string());
     }
     let implicit = tokens.iter().all(|token| token.trim().is_empty()) && mentions_in(room, text).is_empty();
     let to = match &target {
@@ -367,7 +372,7 @@ pub fn say_with(
         _ => resolve_recipients(room, actor, tokens, text)?,
     };
     if ask && to.iter().any(|id| id == "user") {
-        return Err("要求回复只能发给成员；问用户直接发给 @用户 就行".to_string());
+        return Err(belfry_i18n::text("要求回复只能发给成员；问用户直接发给 @用户 就行").to_string());
     }
     let mode = if ask { MessageMode::RequestReply } else { MessageMode::Send };
     let by = actor.id().to_string();
@@ -376,12 +381,12 @@ pub fn say_with(
 
 /// 撤销「要求回复」：还没回的人不用再回了。只有原发件人和用户能撤。
 pub fn cancel_reply(room: &mut Room, actor: &Actor, hint: &str, now: i64) -> Result<(), String> {
-    let message = room.message(hint).cloned().ok_or_else(|| format!("没有编号 {hint} 的消息"))?;
+    let message = room.message(hint).cloned().ok_or_else(|| belfry_i18n::lformat!("没有编号 {hint} 的消息"))?;
     if message.mode != MessageMode::RequestReply || message.reply_cancelled {
-        return Err("这条消息没有在等回复".to_string());
+        return Err(belfry_i18n::text("这条消息没有在等回复").to_string());
     }
     if !matches!(actor, Actor::User) && message.by != actor.id() {
-        return Err("只有发这条消息的人能撤销回复请求".to_string());
+        return Err(belfry_i18n::text("只有发这条消息的人能撤销回复请求").to_string());
     }
     let event = ledger::cancel_event(&room.id, &message.id, actor.id(), now);
     ledger::apply(room, &event);
@@ -392,8 +397,7 @@ pub fn cancel_reply(room: &mut Room, actor: &Actor, hint: &str, now: i64) -> Res
 /// 记一笔送达。已经记过的不重复记。
 pub fn record_delivery(room: &mut Room, message_id: &str, member_id: &str, now: i64) -> bool {
     let fresh = room
-        .messages
-        .iter()
+        .all_messages()
         .any(|message| message.id == message_id && !message.delivered_to.iter().any(|id| id == member_id));
     if fresh {
         let event = ledger::delivery_event(&room.id, message_id, member_id, now);
@@ -408,13 +412,13 @@ pub fn record_delivery(room: &mut Room, message_id: &str, member_id: &str, now: 
 /// 暂停或恢复房间。暂停期间消息只记在时间线上，不送进成员终端；恢复后不补发，避免一次涌进一堆旧消息。
 pub fn set_paused(room: &mut Room, paused: bool, now: i64) -> Result<Posted, String> {
     if room.paused == paused {
-        return Err(if paused { "房间已经暂停了".to_string() } else { "房间没有暂停".to_string() });
+        return Err(if paused { belfry_i18n::text("房间已经暂停了").to_string() } else { belfry_i18n::text("房间没有暂停").to_string() });
     }
     room.paused = paused;
     let text = if paused {
-        "你暂停了房间：之后的消息只记在房间里，不再送进成员终端，空闲提醒也停了。成员手上正在做的不会被打断。"
+        belfry_i18n::text("你暂停了房间：之后的消息只记在房间里，不再送进成员终端，空闲提醒也停了。成员手上正在做的不会被打断。")
     } else {
-        "你恢复了房间：新消息照常送进成员终端。暂停期间的消息不会补发，需要的话再说一遍。"
+        belfry_i18n::text("你恢复了房间：新消息照常送进成员终端。暂停期间的消息不会补发，需要的话再说一遍。")
     };
     Ok(notice(room, text.to_string(), Vec::new(), now))
 }
@@ -447,7 +451,8 @@ pub fn idle_nudge(room: &mut Room, session_idle: &dyn Fn(&Member) -> bool, now: 
     let last = room
         .messages
         .iter()
-        .filter(|message| !(message.kind == MessageKind::Notice && message.text.starts_with(IDLE_NUDGE_PREFIX)))
+        .filter(|message| !(message.kind == MessageKind::Notice &&
+            (message.text.starts_with(IDLE_NUDGE_PREFIX) || message.text.starts_with("[Idle reminder] "))))
         .map(|message| message.at)
         .chain(room.tasks.iter().map(|task| task.updated_at))
         .max()?;
@@ -463,8 +468,9 @@ pub fn idle_nudge(room: &mut Room, session_idle: &dyn Fn(&Member) -> bool, now: 
         return None;
     }
     room.idle_nudged_after = Some(last);
-    let text = format!(
-        "{IDLE_NUDGE_PREFIX}「{}」手上没有任务，房间已经安静 {} 分钟。还有要做的就拆成任务派给他们\
+    let prefix = belfry_i18n::text(IDLE_NUDGE_PREFIX);
+    let text = belfry_i18n::lformat!(
+        "{prefix}「{}」手上没有任务，房间已经安静 {} 分钟。还有要做的就拆成任务派给他们\
 （belfry room task add <标题> --to <角色>）；没有就不用回复。",
         idle.join("」「"),
         (now - last) / 60_000
@@ -477,7 +483,7 @@ pub fn idle_nudge(room: &mut Room, session_idle: &dyn Fn(&Member) -> bool, now: 
 fn task_mut<'a>(room: &'a mut Room, raw: &str) -> Result<&'a mut Task, String> {
     let index = room
         .task_index(raw)
-        .ok_or_else(|| format!("没有任务 {}，用 belfry room status 看任务板", raw.trim()))?;
+        .ok_or_else(|| belfry_i18n::lformat!("没有任务 {}，用 belfry room status 看任务板", raw.trim()))?;
     Ok(&mut room.tasks[index])
 }
 
@@ -487,7 +493,7 @@ fn assignee_id(room: &Room, title: Option<&str>) -> Result<Option<String>, Strin
         Some(title) => room
             .member_by_title(title)
             .map(|member| Some(member.id.clone()))
-            .ok_or_else(|| format!("房间里没有「{}」", title.trim_start_matches('@'))),
+            .ok_or_else(|| belfry_i18n::lformat!("房间里没有「{}」", title.trim_start_matches('@'))),
     }
 }
 
@@ -514,18 +520,18 @@ pub fn task_add(
 ) -> Result<(String, Vec<Posted>), String> {
     let title = title.trim();
     if title.is_empty() {
-        return Err("任务要有标题".to_string());
+        return Err(belfry_i18n::text("任务要有标题").to_string());
     }
     if title.chars().count() > MAX_TASK_TITLE_CHARS {
-        return Err(format!("任务标题最多 {MAX_TASK_TITLE_CHARS} 个字；细节写进 --outcome"));
+        return Err(belfry_i18n::lformat!("任务标题最多 {MAX_TASK_TITLE_CHARS} 个字；细节写进 --outcome"));
     }
     let assignee = assignee_id(room, assignee)?;
     may_assign(room, actor, assignee.as_deref())?;
     let mut blocked_by = Vec::new();
     for raw in after {
-        let id = normalize_task_id(raw).ok_or_else(|| format!("「{raw}」不是任务号（写成 T1 这样）"))?;
+        let id = normalize_task_id(raw).ok_or_else(|| belfry_i18n::lformat!("「{raw}」不是任务号（写成 T1 这样）"))?;
         if room.task_index(&id).is_none() {
-            return Err(format!("没有任务 {id}"));
+            return Err(belfry_i18n::lformat!("没有任务 {id}"));
         }
         if !blocked_by.contains(&id) {
             blocked_by.push(id);
@@ -547,16 +553,16 @@ pub fn task_add(
         updated_at: now,
         rev: 1,
     });
-    let mut text = format!("{}新建了 {id}「{title}」", room.label(actor.id()));
+    let mut text = belfry_i18n::lformat!("{}新建了 {id}「{title}」", room.label(actor.id()));
     match &assignee {
-        Some(member) => text.push_str(&format!("，交给「{}」", room.label(member))),
-        None => text.push_str("，还没人负责"),
+        Some(member) => text.push_str(&belfry_i18n::lformat!("，交给「{}」", room.label(member))),
+        None => text.push_str(belfry_i18n::text("，还没人负责")),
     }
     if !blocked_by.is_empty() {
-        text.push_str(&format!("，要等 {} 完成", blocked_by.join("、")));
+        text.push_str(&belfry_i18n::lformat!("，要等 {} 完成", blocked_by.join("、")));
     }
     if let Some(outcome) = outcome.map(str::trim).filter(|value| !value.is_empty()) {
-        text.push_str(&format!("。完成标准：{}", excerpt(outcome, 200)));
+        text.push_str(&belfry_i18n::lformat!("。完成标准：{}", excerpt(outcome, 200)));
     }
     text.push('。');
     let mut to: Vec<String> = assignee.into_iter().filter(|member| member != actor.id()).collect();
@@ -570,19 +576,19 @@ pub fn task_add(
 }
 
 pub fn task_assign(room: &mut Room, actor: &Actor, raw: &str, assignee: &str, now: i64) -> Result<Vec<Posted>, String> {
-    let assignee = assignee_id(room, Some(assignee))?.ok_or("要写交给谁")?;
-    let snapshot = room.tasks[room.task_index(raw).ok_or_else(|| format!("没有任务 {}", raw.trim()))?].clone();
+    let assignee = assignee_id(room, Some(assignee))?.ok_or(belfry_i18n::text("要写交给谁"))?;
+    let snapshot = room.tasks[room.task_index(raw).ok_or_else(|| belfry_i18n::lformat!("没有任务 {}", raw.trim()))?].clone();
     if matches!(snapshot.status, TaskStatus::Done | TaskStatus::Archived) {
-        return Err(format!("{} 已经{}了", snapshot.id, snapshot.status.label()));
+        return Err(belfry_i18n::lformat!("{} 已经{}了", snapshot.id, snapshot.status.label()));
     }
     if !actor.coordinates() {
         // 成员只能把没人接的任务认领给自己。
         if snapshot.assignee.is_some() || assignee != actor.id() {
-            return Err("成员只能认领没人负责的任务给自己；换人跟统筹说".to_string());
+            return Err(belfry_i18n::text("成员只能认领没人负责的任务给自己；换人跟统筹说").to_string());
         }
     }
     if snapshot.assignee.as_deref() == Some(assignee.as_str()) {
-        return Err(format!("{} 已经是「{}」负责的了", snapshot.id, room.label(&assignee)));
+        return Err(belfry_i18n::lformat!("{} 已经是「{}」负责的了", snapshot.id, room.label(&assignee)));
     }
     let previous = snapshot.assignee.clone();
     let task = task_mut(room, raw)?;
@@ -594,9 +600,9 @@ pub fn task_assign(room: &mut Room, actor: &Actor, raw: &str, assignee: &str, no
     let actor_label = room.label(actor.id());
     let assignee_label = room.label(&assignee);
     let text = if assignee == actor.id() {
-        format!("{actor_label}认领了 {id}「{title}」。")
+        belfry_i18n::lformat!("{actor_label}认领了 {id}「{title}」。")
     } else {
-        format!("{actor_label}把 {id}「{title}」交给了「{assignee_label}」。")
+        belfry_i18n::lformat!("{actor_label}把 {id}「{title}」交给了「{assignee_label}」。")
     };
     let mut to: Vec<String> = vec![assignee.clone()];
     to.retain(|member| member != actor.id());
@@ -611,13 +617,13 @@ pub fn task_assign(room: &mut Room, actor: &Actor, raw: &str, assignee: &str, no
 }
 
 pub fn task_start(room: &mut Room, actor: &Actor, raw: &str, now: i64) -> Result<Vec<Posted>, String> {
-    let index = room.task_index(raw).ok_or_else(|| format!("没有任务 {}", raw.trim()))?;
+    let index = room.task_index(raw).ok_or_else(|| belfry_i18n::lformat!("没有任务 {}", raw.trim()))?;
     let snapshot = room.tasks[index].clone();
     may_work_on(actor, &snapshot)?;
     check_move(actor, snapshot.status, TaskStatus::Active)?;
     let waiting = open_blockers(room, &snapshot);
     if !waiting.is_empty() {
-        return Err(format!("{} 还在等 {} 完成", snapshot.id, waiting.join("、")));
+        return Err(belfry_i18n::lformat!("{} 还在等 {} 完成", snapshot.id, waiting.join("、")));
     }
     let task = &mut room.tasks[index];
     task.status = TaskStatus::Active;
@@ -625,18 +631,18 @@ pub fn task_start(room: &mut Room, actor: &Actor, raw: &str, now: i64) -> Result
         task.assignee = Some(member.id.clone());
     }
     touch(task, now);
-    let text = format!("{}开始做 {}「{}」。", room.label(actor.id()), snapshot.id, snapshot.title);
+    let text = belfry_i18n::lformat!("{}开始做 {}「{}」。", room.label(actor.id()), snapshot.id, snapshot.title);
     Ok(vec![notice(room, text, Vec::new(), now)])
 }
 
 pub fn task_done(room: &mut Room, actor: &Actor, raw: &str, result: Option<&str>, now: i64) -> Result<Vec<Posted>, String> {
-    let index = room.task_index(raw).ok_or_else(|| format!("没有任务 {}", raw.trim()))?;
+    let index = room.task_index(raw).ok_or_else(|| belfry_i18n::lformat!("没有任务 {}", raw.trim()))?;
     let snapshot = room.tasks[index].clone();
     may_work_on(actor, &snapshot)?;
     check_move(actor, snapshot.status, TaskStatus::Done)?;
     let waiting = open_blockers(room, &snapshot);
     if !waiting.is_empty() {
-        return Err(format!("{} 还在等 {} 完成", snapshot.id, waiting.join("、")));
+        return Err(belfry_i18n::lformat!("{} 还在等 {} 完成", snapshot.id, waiting.join("、")));
     }
     let result = result.map(str::trim).filter(|value| !value.is_empty()).map(String::from);
     let task = &mut room.tasks[index];
@@ -648,7 +654,7 @@ pub fn task_done(room: &mut Room, actor: &Actor, raw: &str, result: Option<&str>
     touch(task, now);
     let worker = room.tasks[index].assignee.clone();
     let mut posted = Vec::new();
-    let mut text = format!("{}完成了 {}「{}」", room.label(actor.id()), snapshot.id, snapshot.title);
+    let mut text = belfry_i18n::lformat!("{}完成了 {}「{}」", room.label(actor.id()), snapshot.id, snapshot.title);
     match &result {
         Some(result) => text.push_str(&format!("：{}", excerpt(result, 300))),
         None => text.push('。'),
@@ -660,12 +666,12 @@ pub fn task_done(room: &mut Room, actor: &Actor, raw: &str, result: Option<&str>
                 && matches!(task.status, TaskStatus::Planned | TaskStatus::Active)
         });
         if idle && room.active_member(worker).is_some_and(|member| member.role == MemberRole::Peer) {
-            text.push_str(&format!("「{}」手上没有别的活了。", room.label(worker)));
+            text.push_str(&belfry_i18n::lformat!("「{}」手上没有别的活了。", room.label(worker)));
         }
     }
     let open = room.tasks.iter().filter(|task| matches!(task.status, TaskStatus::Planned | TaskStatus::Active)).count();
     if open == 0 {
-        text.push_str("任务板上的活都完成了。");
+        text.push_str(belfry_i18n::text("任务板上的活都完成了。"));
     }
     let to = foreman_unless(room, actor);
     posted.push(notice(room, text, to, now));
@@ -681,7 +687,7 @@ pub fn task_done(room: &mut Room, actor: &Actor, raw: &str, result: Option<&str>
         if member != actor.id() {
             posted.push(notice(
                 room,
-                format!("{id}「{title}」的前置都完成了，可以开工：belfry room task start {id}"),
+                belfry_i18n::lformat!("{id}「{title}」的前置都完成了，可以开工：belfry room task start {id}"),
                 vec![member],
                 now,
             ));
@@ -691,7 +697,7 @@ pub fn task_done(room: &mut Room, actor: &Actor, raw: &str, result: Option<&str>
 }
 
 pub fn task_reopen(room: &mut Room, actor: &Actor, raw: &str, now: i64) -> Result<Vec<Posted>, String> {
-    let index = room.task_index(raw).ok_or_else(|| format!("没有任务 {}", raw.trim()))?;
+    let index = room.task_index(raw).ok_or_else(|| belfry_i18n::lformat!("没有任务 {}", raw.trim()))?;
     let snapshot = room.tasks[index].clone();
     may_work_on(actor, &snapshot)?;
     check_move(actor, snapshot.status, TaskStatus::Planned)?;
@@ -701,7 +707,7 @@ pub fn task_reopen(room: &mut Room, actor: &Actor, raw: &str, now: i64) -> Resul
         task.result = None;
     }
     touch(task, now);
-    let text = format!("{}把 {}「{}」退回待开工。", room.label(actor.id()), snapshot.id, snapshot.title);
+    let text = belfry_i18n::lformat!("{}把 {}「{}」退回待开工。", room.label(actor.id()), snapshot.id, snapshot.title);
     let to: Vec<String> = snapshot.assignee.into_iter().filter(|member| member != actor.id()).collect();
     Ok(vec![notice(room, text, to, now)])
 }
@@ -709,9 +715,9 @@ pub fn task_reopen(room: &mut Room, actor: &Actor, raw: &str, now: i64) -> Resul
 pub fn task_note(room: &mut Room, actor: &Actor, raw: &str, text: &str, now: i64) -> Result<Vec<Posted>, String> {
     let text = text.trim();
     if text.is_empty() {
-        return Err("备注是空的".to_string());
+        return Err(belfry_i18n::text("备注是空的").to_string());
     }
-    let index = room.task_index(raw).ok_or_else(|| format!("没有任务 {}", raw.trim()))?;
+    let index = room.task_index(raw).ok_or_else(|| belfry_i18n::lformat!("没有任务 {}", raw.trim()))?;
     may_work_on(actor, &room.tasks[index])?;
     let label = room.label(actor.id());
     let task = &mut room.tasks[index];
@@ -729,12 +735,12 @@ pub fn task_note(room: &mut Room, actor: &Actor, raw: &str, text: &str, now: i64
 }
 
 pub fn task_archive(room: &mut Room, actor: &Actor, raw: &str, now: i64) -> Result<Vec<Posted>, String> {
-    let index = room.task_index(raw).ok_or_else(|| format!("没有任务 {}", raw.trim()))?;
+    let index = room.task_index(raw).ok_or_else(|| belfry_i18n::lformat!("没有任务 {}", raw.trim()))?;
     let snapshot = room.tasks[index].clone();
     check_move(actor, snapshot.status, TaskStatus::Archived)?;
     let task = &mut room.tasks[index];
     task.status = TaskStatus::Archived;
     touch(task, now);
-    let text = format!("{}归档了 {}「{}」。", room.label(actor.id()), snapshot.id, snapshot.title);
+    let text = belfry_i18n::lformat!("{}归档了 {}「{}」。", room.label(actor.id()), snapshot.id, snapshot.title);
     Ok(vec![notice(room, text, Vec::new(), now)])
 }

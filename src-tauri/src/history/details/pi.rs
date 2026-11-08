@@ -29,7 +29,7 @@ pub(super) fn parse(session: &AgentSessionRef, value: &Value, source: &str) -> O
             let (body, _) = text::content(&value["content"]);
             let tools = vec![HistoryTool {
                 id: text::identity(value["toolCallId"].as_str(), source),
-                name: value["toolName"].as_str().unwrap_or("未知工具").to_string(),
+                name: value["toolName"].as_str().unwrap_or(belfry_i18n::text("未知工具")).to_string(),
                 kind: "result".to_string(),
                 text: String::new(),
                 success: Some(value["isError"] != true),
@@ -61,7 +61,7 @@ fn tool_call(block: &Value, source: &str) -> Option<HistoryTool> {
     }
     Some(HistoryTool {
         id: text::identity(block["id"].as_str(), source),
-        name: block["name"].as_str().unwrap_or("未知工具").to_string(),
+        name: block["name"].as_str().unwrap_or(belfry_i18n::text("未知工具")).to_string(),
         kind: "call".to_string(),
         text: text::display(&block["arguments"]),
         ..Default::default()

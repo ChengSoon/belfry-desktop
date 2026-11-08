@@ -44,7 +44,7 @@ pub(super) fn root(agent: AgentKind) -> Result<PathBuf, AppError> {
             crate::history::native::root(agent)
         }
     };
-    path.ok_or_else(|| AppError::not_found("找不到 CLI 日志目录"))
+    path.ok_or_else(|| AppError::not_found(belfry_i18n::text("找不到 CLI 日志目录")))
 }
 
 pub(super) fn discover(
@@ -74,21 +74,41 @@ pub(super) fn discover(
     };
     scan.run()?;
     scan.files.sort_by(|left, right| left.path.cmp(&right.path));
-    let note = (scan.limited || scan.skipped > 0).then(|| {
-        format!(
-            "日志扫描可能不完整：{} 处无法读取{}",
-            scan.skipped,
-            if scan.limited {
-                "，已达到扫描上限"
-            } else {
-                ""
-            }
-        )
-    });
+    let note = scan_note(scan.skipped, scan.limited);
     Ok(Sources {
         files: scan.files,
         note,
     })
+}
+
+fn scan_note(count: usize, limited: bool) -> Option<String> {
+    if limited {
+        Some(belfry_i18n::lformat!("日志扫描可能不完整：{count} 处无法读取，已达到扫描上限。"))
+    } else if count > 0 {
+        Some(belfry_i18n::lformat!("日志扫描可能不完整：{count} 处无法读取。"))
+    } else {
+        None
+    }
+}
+
+#[cfg(test)]
+mod notice_tests {
+    use super::*;
+
+    #[test]
+    fn regression_scan_notices_keep_complete_templates_and_count_only_parameters() {
+        for locale in [belfry_i18n::Locale::ZhCn, belfry_i18n::Locale::En] {
+            belfry_i18n::with_locale(locale, || {
+                assert!(scan_note(0, false).is_none());
+                for (limited, code) in [(true, "HISTORY_SCAN_LIMIT_REACHED"), (false, "HISTORY_THE_LOG_SCAN_MAY_BE_INCOMPLETE_UNREADABLE")] {
+                    let note = scan_note(2, limited).unwrap();
+                    let text = belfry_i18n::error_text(&note).unwrap();
+                    assert_eq!(text.code, code);
+                    assert_eq!(text.params, std::collections::BTreeMap::from([("count".into(), serde_json::json!(2))]));
+                }
+            });
+        }
+    }
 }
 
 impl Discovery<'_> {

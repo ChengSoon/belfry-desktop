@@ -1,3 +1,4 @@
+import { localized, useTranslation } from "../../i18n";
 // Adapted from PI-Desktop MarketplaceSourceSettings.tsx, LGPL-3.0; see third_party/pi-desktop/NOTICE.md.
 import { useEffect, useState } from "react";
 import { usePluginsPage } from "./context";
@@ -10,15 +11,16 @@ import { guardComposingEnter } from "../../utils/keyboard";
 
 // 每个来源都带一句说明，占住标题下的预留位：切换来源时卡片高度不跳，说明也
 // 和它描述的下拉留在同一行里。
-const SOURCES: Array<{ value: PluginMarketSource; label: string; hint: string }> = [
-  { value: "personal", label: "我的插件市场", hint: "插件存放在本机目录，可发布新版本并导出成独立站点。" },
-  { value: "belfry", label: "Belfry 插件中心 · GitHub", hint: "从你的 GitHub 插件中心安装；仓库公开并发布目录后，其他人才能安装其中的插件。" },
-  { value: "custom", label: "自有在线市场", hint: "从你自己的网址加载插件目录。" },
-  { value: "official", label: "PI 公开市场 · GitHub", hint: "PI 官方维护的公开市场，直接从 GitHub 获取。" },
-  { value: "mirror", label: "PI 公开市场 · 镜像", hint: "PI 公开市场的镜像源，GitHub 访问不畅时更稳定。" },
-];
+const SOURCES: Array<{ value: PluginMarketSource; label: string; hint: string }> = localized(() => ([
+  { value: "personal", label: t("plugins.MarketplaceSourceSettings.text_391af6eb3e"), hint: t("plugins.MarketplaceSourceSettings.text_8ccf3293e1") },
+  { value: "belfry", label: t("plugins.MarketplaceSourceSettings.text_96e37d56ab"), hint: t("plugins.MarketplaceSourceSettings.text_5c66ea2185") },
+  { value: "custom", label: t("plugins.MarketplaceSourceSettings.text_f089223c8d"), hint: t("plugins.MarketplaceSourceSettings.text_7b5a1336a7") },
+  { value: "official", label: t("plugins.MarketplaceSourceSettings.text_c2c1ddb426"), hint: t("plugins.MarketplaceSourceSettings.text_6cd2ab367c") },
+  { value: "mirror", label: t("plugins.MarketplaceSourceSettings.text_7f57c0726c"), hint: t("plugins.MarketplaceSourceSettings.text_9edbacb262") },
+]));
 
 export function MarketplaceSourceSettings() {
+  useTranslation();
   const { data, actions, market } = usePluginsPage();
   const settings = data.management.settings;
   const [customUrl, setCustomUrl] = useState(settings.pluginMarketCustomUrl);
@@ -35,7 +37,7 @@ export function MarketplaceSourceSettings() {
       const url = new URL(customUrl.trim());
       if (!["http:", "https:"].includes(url.protocol)) throw new Error("protocol");
       setUrlError(""); void apply({ pluginMarketCustomUrl: customUrl.trim() });
-    } catch { setUrlError("请输入完整的 http:// 或 https:// 市场地址"); }
+    } catch { setUrlError(t("plugins.MarketplaceSourceSettings.text_4d97356dd3")); }
   };
   const active = SOURCES.find((source) => source.value === settings.pluginMarketSource);
   return <section className="plugins-market-settings" aria-labelledby="plugins-market-settings-title">
@@ -50,7 +52,7 @@ export function MarketplaceSourceSettings() {
       <form onKeyDown={guardComposingEnter} className="plugins-market-settings-control plugins-market-url-form" noValidate onSubmit={(event) => { event.preventDefault(); commit(); }}>
         <Input type="text" inputMode="url" aria-required="true" value={customUrl} disabled={actions.busy} aria-invalid={!!urlError}
         placeholder={t("settings.marketCustomUrlPlaceholder")} aria-label={t("settings.marketCustomUrl")} onChange={(event) => { setCustomUrl(event.target.value); setUrlError(""); }}
-        /><Button type="submit" disabled={actions.busy}>{actions.busy ? "正在连接…" : "保存并连接"}</Button>
+        /><Button type="submit" disabled={actions.busy}>{actions.busy ? t("plugins.MarketplaceSourceSettings.text_8be0ea36a9") : t("plugins.MarketplaceSourceSettings.text_107fecedcc")}</Button>
         {urlError ? <p className="plugins-settings-error" role="alert">{urlError}</p> : null}</form></div> : null}
     {settings.pluginMarketSource === "personal" ? <PersonalMarketControls /> : null}
   </section>;

@@ -1,3 +1,4 @@
+import { useFeedback } from "../../i18n";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { centerApi } from "./api";
 import { pluginError } from "../hostClient";
@@ -11,7 +12,7 @@ export function useMarket(tab: TabId) {
   const [items, setItems] = useState<MarketPluginSummary[]>([]);
   const [source, setSource] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useFeedback("");
   const generation = useRef(0);
   const refresh = useCallback(async (remote = false) => {
     const current = ++generation.current;
@@ -22,7 +23,7 @@ export function useMarket(tab: TabId) {
         setCategory((current) => result.plugins.some((item) => item.categories?.includes(current)) ? current : "");
         setSource(result.sourceUrl);
       } });
-    } catch (reason) { if (current === generation.current) setError(pluginError(reason)); }
+    } catch (reason) { if (current === generation.current) setError(() => pluginError(reason)); }
     finally { if (current === generation.current) setLoading(false); }
   }, [query]);
   useEffect(() => {
@@ -40,7 +41,7 @@ export function useMarketDetail() {
   const [detail, setDetail] = useState<MarketPluginDetail | null>(null);
   const [version, setVersion] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useFeedback("");
   const generation = useRef(0);
   const open = async (id: string) => {
     const current = ++generation.current;
@@ -49,7 +50,7 @@ export function useMarketDetail() {
       const value = await centerApi.marketDetail(id);
       if (current !== generation.current) return;
       setDetail(value); setVersion(value.latestVersion);
-    } catch (reason) { if (current === generation.current) setError(pluginError(reason)); }
+    } catch (reason) { if (current === generation.current) setError(() => pluginError(reason)); }
     finally { if (current === generation.current) setLoading(false); }
   };
   const close = () => { ++generation.current; setSelectedId(null); setDetail(null); setVersion(""); };

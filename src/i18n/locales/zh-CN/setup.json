@@ -1,0 +1,11 @@
+{
+  "EnvironmentSection.text_c8958814a5": "环境就绪",
+  "EnvironmentSection.text_425d80b663": "需要处理部分项目",
+  "EnvironmentSection.text_dfa8130320": "存在阻塞项",
+  "EnvironmentSection.text_bfc960b0ec": "同步全部 skill",
+  "EnvironmentSection.text_69611f40d2": "重新检查协作环境",
+  "EnvironmentSection.text_821f9ff1ad": "协作环境",
+  "EnvironmentSection.text_6b72c3d685": "正在检查…",
+  "EnvironmentSection.text_e41906d038": "{{ok}} 正常 · {{warning}} 警告 · {{error}} 异常",
+  "contracts.text_69dc809232": "已同步 {{count}} 个客户端（安装/更新 {{changed}}，已是最新 {{unchanged}}）"
+}

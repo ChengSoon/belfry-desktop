@@ -465,3 +465,11 @@
 .collab-event__result-detail summary { padding-block: 4px; cursor: pointer; color: var(--accent); }
 .collab-panel :is(button, summary):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { .collab-panel { animation: none; } }
+.collab-event__status { flex-wrap: wrap; }
+.collab-event__receipt, .collab-event__delivery-message, .collab-delivery-actions > small {
+  color: var(--text-muted); font-size: var(--fs-xs); overflow-wrap: anywhere;
+}
+.collab-delivery-actions, .collab-delivery-confirm { display: grid; gap: 8px; margin-top: 10px; }
+.collab-delivery-actions p { margin: 0; font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.collab-delivery-actions .collab-event__actions { flex-wrap: wrap; }
+.collab-delivery-confirm { padding: 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); }

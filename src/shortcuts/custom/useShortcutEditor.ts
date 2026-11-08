@@ -1,3 +1,4 @@
+import { useFeedback, t, useTranslation } from "../../i18n";
 import { useState } from "react";
 import type { ActionId, ShortcutBinding, ShortcutOverrides } from "./contracts";
 import { saveBindingDraft, saveDefaultBindings, type BindingDraft, type EditContext } from "./changes";
@@ -5,9 +6,10 @@ import { saveBindingDraft, saveDefaultBindings, type BindingDraft, type EditCont
 export type ShortcutEdit = { kind: "binding"; draft: BindingDraft } | { kind: "defaults"; expected: ShortcutOverrides };
 
 export function useShortcutEditor(context: EditContext, overrides: ShortcutOverrides) {
+  useTranslation();
   const [edit, setEdit] = useState<ShortcutEdit | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useFeedback<string | null>(null);
+  const [message, setMessage] = useFeedback<string | null>(null);
   const begin = (action?: ActionId) => {
     setError(null); setMessage(null);
     setEdit(action ? { kind: "binding", draft: { action, binding: overrides[action], original: overrides[action] } }
@@ -23,9 +25,9 @@ export function useShortcutEditor(context: EditContext, overrides: ShortcutOverr
     try {
       if (edit.kind === "binding") saveBindingDraft(edit.draft, context);
       else saveDefaultBindings(edit.expected, context);
-      setMessage(edit.kind === "binding" ? "快捷键已保存，立即生效" : "已恢复当前平台的默认快捷键");
+      setMessage(() => edit.kind === "binding" ? t("shortcuts.useShortcutEditor.text_04db35e234") : t("shortcuts.useShortcutEditor.text_98694ec523"));
       cancel();
-    } catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)); }
+    } catch (reason) { setError(() => reason instanceof Error ? reason.message : String(reason)); }
   };
   return { edit, error, message, begin, change, cancel, save };
 }

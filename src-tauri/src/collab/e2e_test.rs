@@ -231,7 +231,7 @@ fn exercise_cli(mode: ConnectionMode) {
     assert!(timed_text.contains("还没结"), "要说清还没结：{timed_text}");
     // 超时也要把当前状态交代清楚，Agent 才知道是在排队还是已经送到了。
     assert!(
-        timed_text.contains("排队") || timed_text.contains("送到"),
+        timed_text.contains("已受理"),
         "超时消息里要带上当前状态：{timed_text}"
     );
 
@@ -292,7 +292,7 @@ fn exercise_cli(mode: ConnectionMode) {
     std::thread::spawn(move || {
         std::thread::sleep(Duration::from_millis(1_200));
         // 前端发现会话关了之后走的就是这条：同步名册时把派给它的未结任务收掉。
-        abandoner.abandon_for("t2");
+        abandoner.abandon_for("t2").unwrap();
     });
 
     let started = Instant::now();
@@ -454,6 +454,7 @@ fn run_as(
 ) -> std::process::Output {
     Command::new(binary)
         .args(args)
+        .env("BELFRY_LANG", "zh-CN")
         .env(belfry_protocol::ENV_ENDPOINT, endpoint)
         .env(belfry_protocol::ENV_TAB_ID, tab_id)
         .env(belfry_protocol::ENV_TOKEN, token)

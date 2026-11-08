@@ -1,3 +1,4 @@
+import { TranslationError } from "../../i18n";
 import type { PluginSettingDefinition } from "./types";
 import { numberFromDraft } from "../../components/controls/controlModel";
 
@@ -18,12 +19,12 @@ export function settingsPayload(settings: PluginSettingDefinition[], draft: Reco
   for (const setting of settings) {
     if (setting.type === "number") {
       const value = numberFromDraft(String(draft[setting.key] ?? ""));
-      if (value === null) throw new Error(`${setting.title} 需要有效数字`);
+      if (value === null) throw new TranslationError("plugins.settingsValues.text_40ad1e543f", { title: setting.title });
       payload[setting.key] = value;
     }
     if (setting.type !== "json") continue;
     try { payload[setting.key] = JSON.parse(String(draft[setting.key] ?? "{}")); }
-    catch { throw new Error(`${setting.title} 的 JSON 格式不正确`); }
+    catch { throw new TranslationError("plugins.settingsValues.text_085885e507", { title: setting.title }); }
   }
   return payload;
 }

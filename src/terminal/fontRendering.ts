@@ -1,7 +1,9 @@
 import type { FontWeight, ITerminalOptions } from "@xterm/xterm";
 import { isLightTheme, type TerminalTheme } from "../theme/xtermTheme";
+import fontSample from "./fontSample.json";
 
-const FONT_LOAD_SAMPLE = "Belfry 终端";
+// Coverage sample, never shown in the UI: preload CJK glyphs in every language.
+const FONT_LOAD_SAMPLE = fontSample.sample;
 const MEASUREMENT_FONT_WEIGHT = 400;
 
 /** Windows 默认字体随包提供真实的 400/500/600，亮色补偿不再依赖系统的 Medium。 */

@@ -35,11 +35,11 @@ pub(super) fn config_path(kind: AgentKind) -> Result<PathBuf, AppError> {
     if kind == AgentKind::Antigravity {
         return crate::history::scan::home_dir()
             .map(|p| p.join(".gemini/config/hooks.json"))
-            .ok_or_else(|| AppError::not_found("找不到 Antigravity 配置目录"));
+            .ok_or_else(|| AppError::not_found(belfry_i18n::text("找不到 Antigravity 配置目录")));
     }
     if matches!(kind, AgentKind::Kimi | AgentKind::Opencode) {
         let root = crate::agent::paths::config_dir(kind)
-            .ok_or_else(|| AppError::not_found("找不到 CLI 配置目录"))?;
+            .ok_or_else(|| AppError::not_found(belfry_i18n::text("找不到 CLI 配置目录")))?;
         return Ok(root.join(if kind == AgentKind::Kimi {
             "config.toml"
         } else {
@@ -50,14 +50,14 @@ pub(super) fn config_path(kind: AgentKind) -> Result<PathBuf, AppError> {
         AgentKind::Codex => ("CODEX_HOME", ".codex", "hooks.json"),
         AgentKind::Claude => ("CLAUDE_CONFIG_DIR", ".claude", "settings.json"),
         // Pi 没有 Hook 配置文件；report() 会因 supported=false 提前不走到这里。
-        AgentKind::Pi => return Err(AppError::unsupported("Pi 不支持 Hook")),
+        AgentKind::Pi => return Err(AppError::unsupported(belfry_i18n::text("Pi 不支持 Hook"))),
         AgentKind::Antigravity | AgentKind::Opencode | AgentKind::Kimi => unreachable!(),
     };
     let base = std::env::var_os(variable)
         .filter(|value| !value.is_empty())
         .map(PathBuf::from)
         .or_else(|| crate::usage::home_dir().map(|home| home.join(directory)))
-        .ok_or_else(|| AppError::not_found("找不到 CLI 配置目录"))?;
+        .ok_or_else(|| AppError::not_found(belfry_i18n::text("找不到 CLI 配置目录")))?;
     Ok(base.join(file))
 }
 
@@ -132,37 +132,37 @@ fn codex_hooks_disabled(text: &str) -> bool {
 
 fn status_note(report: &AgentHookReport) -> &'static str {
     if report.kind == AgentKind::Pi {
-        return "Pi 尚未提供 Hook 接口，会话状态保持屏幕推断";
+        return belfry_i18n::text("Pi 尚未提供 Hook 接口，会话状态保持屏幕推断");
     }
     if report.error.is_some() {
-        return "配置不可读取，保持屏幕推断，原文件未改动";
+        return belfry_i18n::text("配置不可读取，保持屏幕推断，原文件未改动");
     }
     if !report.supported {
-        return "CLI 未安装或版本尚未验证 Hook 接口，保持屏幕推断";
+        return belfry_i18n::text("CLI 未安装或版本尚未验证 Hook 接口，保持屏幕推断");
     }
     if report.disabled {
-        return "CLI 全局设置已关闭 Hook；本页保留该设置，启用 CLI Hook 后再重开会话";
+        return belfry_i18n::text("CLI 全局设置已关闭 Hook；本页保留该设置，启用 CLI Hook 后再重开会话");
     }
     if report.installed == 0 {
-        return "尚未启用 Hook，当前使用屏幕推断";
+        return belfry_i18n::text("尚未启用 Hook，当前使用屏幕推断");
     }
     if report.installed < report.expected {
-        return "Hook 安装不完整，可重新预览并启用";
+        return belfry_i18n::text("Hook 安装不完整，可重新预览并启用");
     }
     if report.stale > 0 {
         if cfg!(windows) {
             return if report.kind == AgentKind::Codex {
-                "Hook 路径失效或仍使用旧桌面入口；请重新预览并启用轻量 Hook，重开会话后在 Codex /hooks 中重新信任命令"
+                belfry_i18n::text("Hook 路径失效或仍使用旧桌面入口；请重新预览并启用轻量 Hook，重开会话后在 Codex /hooks 中重新信任命令")
             } else {
-                "Hook 路径失效或仍使用旧桌面入口；请重新预览并启用轻量 Hook，然后重开会话"
+                belfry_i18n::text("Hook 路径失效或仍使用旧桌面入口；请重新预览并启用轻量 Hook，然后重开会话")
             };
         }
-        return "Hook 指向的应用已不存在，可能移动过应用或清理过构建；请重新预览并启用";
+        return belfry_i18n::text("Hook 指向的应用已不存在，可能移动过应用或清理过构建；请重新预览并启用");
     }
     if report.kind == AgentKind::Codex {
-        "已安装；重开会话后，在 Codex /hooks 中审阅并信任这些命令"
+        belfry_i18n::text("已安装；重开会话后，在 Codex /hooks 中审阅并信任这些命令")
     } else {
-        "已安装；重开会话后接收 Hook，未连接前仍显示屏幕推断"
+        belfry_i18n::text("已安装；重开会话后接收 Hook，未连接前仍显示屏幕推断")
     }
 }
 

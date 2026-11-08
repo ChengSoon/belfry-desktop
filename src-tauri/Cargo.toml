@@ -30,6 +30,11 @@ tauri-build = { version = "2.6.3", features = [] }
 # 控制 CLI 与 app 共用一份线上协议类型：手抄两份迟早漂移，
 # 而漂移的症状是「命令静默地不生效」。
 belfry-protocol = { path = "crates/belfry-protocol" }
+belfry-i18n = { path = "crates/belfry-i18n" }
+log = { version = "0.4", features = ["std"] }
+dirs = "6"
+time = "0.3.45"
+regex = "1"
 portable-pty = "0.9.0"
 reqwest = { version = "0.13.4", default-features = false, features = ["rustls-no-provider"] }
 rustls = { version = "0.23", default-features = false, features = ["ring"] }

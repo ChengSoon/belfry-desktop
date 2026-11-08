@@ -9,6 +9,7 @@ const hooks = vi.hoisted(() => ({ cursor: 0, slots: [] as unknown[] }));
 vi.mock("react", async (original) => {
   const react = await original<typeof import("react")>();
   return { ...react,
+    useSyncExternalStore: (_subscribe: unknown, getSnapshot: () => unknown) => getSnapshot(),
     useState: <T,>(initial: T | (() => T)) => {
       const index = hooks.cursor++;
       if (!(index in hooks.slots)) hooks.slots[index] = typeof initial === "function" ? (initial as () => T)() : initial;

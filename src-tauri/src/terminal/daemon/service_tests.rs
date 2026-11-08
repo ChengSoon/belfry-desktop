@@ -280,8 +280,8 @@ fn stale_attachment_lookup_does_not_cross_project_boundaries_or_spawn_a_duplicat
         .create(changed, WireOverlay::default(), Some("missing".into()))
         .unwrap_err();
     assert_eq!(
-        crate::terminal::contracts::AppErrorCode::InvalidArgument,
-        error.code
+        "TERMINAL_THE_BACKGROUND_TASK_PROJECT_OR_TYPE_CHANGED",
+        error.code.0
     );
     assert_eq!(1, fixture.service.list().len());
     assert_eq!(session.id, fixture.service.list()[0].session.id);
@@ -311,8 +311,8 @@ fn viewer_attaches_by_tab_when_the_launch_directory_is_unknown() {
         .create(stranger, WireOverlay::default(), Some(session.id.clone()))
         .unwrap_err();
     assert_eq!(
-        crate::terminal::contracts::AppErrorCode::InvalidArgument,
-        error.code
+        "TERMINAL_THE_BACKGROUND_TASK_PROJECT_OR_TYPE_CHANGED",
+        error.code.0
     );
     assert_eq!(1, fixture.service.list().len());
 }

@@ -1,0 +1,5557 @@
+[
+  {
+    "code": "ROOM_NAME_REQUIRED",
+    "zh": "房间名是必填的",
+    "en": "A room name is required."
+  },
+  {
+    "code": "ROOM_ROLE_NAME_LIMIT",
+    "zh": "角色名最多 {max} 个字",
+    "en": "Role names may contain at most {max} characters."
+  },
+  {
+    "code": "ROOM_NOT_FOUND",
+    "zh": "找不到这个房间",
+    "en": "Room not found."
+  },
+  {
+    "code": "PROVIDER_NOT_FOUND",
+    "zh": "找不到 provider：{id}",
+    "en": "Provider not found: {id}"
+  },
+  {
+    "code": "DIALOG_CHOOSE_FILE",
+    "zh": "选择文件",
+    "en": "Choose a file"
+  },
+  {
+    "code": "DIALOG_ROOM_ATTACHMENTS",
+    "zh": "添加图片或文档",
+    "en": "Add images or documents"
+  },
+  {
+    "code": "DIALOG_SAVE_BACKUP",
+    "zh": "保存 Belfry 备份",
+    "en": "Save Belfry backup"
+  },
+  {
+    "code": "DIALOG_OPEN_BACKUP",
+    "zh": "选择 Belfry 备份",
+    "en": "Choose Belfry backup"
+  },
+  {
+    "code": "DIALOG_BACKUP_TYPE",
+    "zh": "Belfry 备份",
+    "en": "Belfry backup"
+  },
+  {
+    "code": "DIALOG_PLUGIN_DIRECTORY",
+    "zh": "选择插件可访问的目录",
+    "en": "Choose a directory the plugin may access"
+  },
+  {
+    "code": "DIALOG_NEW_PLUGIN_DIRECTORY",
+    "zh": "为新插件选择一个空文件夹",
+    "en": "Choose an empty folder for the new plugin"
+  },
+  {
+    "code": "PLUGIN_NOTIFICATION_TITLE",
+    "zh": "插件通知",
+    "en": "Plugin notification"
+  },
+  {
+    "code": "PLUGIN_WINDOW_TITLE",
+    "zh": "插件",
+    "en": "Plugin"
+  },
+  {
+    "code": "STORAGE_CANNOT_READ",
+    "zh": "读不了 {path}：{error}",
+    "en": "Cannot read {path}: {error}"
+  },
+  {
+    "code": "STORAGE_THE_FILE_PATH_HAS_NO_PARENT_DIRECTORY",
+    "zh": "文件路径没有父目录",
+    "en": "The file path has no parent directory."
+  },
+  {
+    "code": "STORAGE_CANNOT_CREATE_DIRECTORY",
+    "zh": "建不了目录 {path}：{error}",
+    "en": "Cannot create directory {path}: {error}"
+  },
+  {
+    "code": "STORAGE_CANNOT_WRITE_TEMPORARY_FILE",
+    "zh": "写不了临时文件 {path}：{error}",
+    "en": "Cannot write temporary file {path}: {error}"
+  },
+  {
+    "code": "STORAGE_CANNOT_WRITE_TEMPORARY_FILE_8944B9",
+    "zh": "写不了临时文件：{error}",
+    "en": "Cannot write temporary file: {error}"
+  },
+  {
+    "code": "STORAGE_CANNOT_SYNC_TEMPORARY_FILE",
+    "zh": "同步不了临时文件：{error}",
+    "en": "Cannot sync temporary file: {error}"
+  },
+  {
+    "code": "STORAGE_CANNOT_REPLACE",
+    "zh": "替换不了 {path}：{error}",
+    "en": "Cannot replace {path}: {error}"
+  },
+  {
+    "code": "STORAGE_STORAGE_IS_IN_USE_OR_IS_NOT",
+    "zh": "存储正在被使用或不可写：{error}",
+    "en": "Storage is in use or is not writable: {error}"
+  },
+  {
+    "code": "STORAGE_ANOTHER_INSTANCE_IS_SAVING_PLEASE_TRY_AGAIN",
+    "zh": "另一实例正在保存，请稍后重试",
+    "en": "Another instance is saving. Please try again shortly."
+  },
+  {
+    "code": "STORAGE_CANNOT_SET_FILE_PERMISSIONS",
+    "zh": "设不了文件权限：{error}",
+    "en": "Cannot set file permissions: {error}"
+  },
+  {
+    "code": "STORAGE_CANNOT_LOCATE_THE_APPLICATION_DATA_DIRECTORY",
+    "zh": "找不到应用数据目录：{error}",
+    "en": "Cannot locate the application data directory: {error}"
+  },
+  {
+    "code": "STORAGE_CANNOT_LOCATE_THE_APPLICATION_DATA_DIRECTORY_EDB931",
+    "zh": "找不到应用数据目录。",
+    "en": "Cannot locate the application data directory."
+  },
+  {
+    "code": "STORAGE_CANNOT_LOCATE_THE_CURRENT_USER_HOME_DIRECTORY",
+    "zh": "找不到当前用户的 home 目录",
+    "en": "Cannot locate the current user home directory."
+  },
+  {
+    "code": "STORAGE_CANNOT_LOCATE_THE_CLI_CONFIGURATION_DIRECTORY",
+    "zh": "找不到 CLI 配置目录",
+    "en": "Cannot locate the CLI configuration directory."
+  },
+  {
+    "code": "STORAGE_CANNOT_DELETE",
+    "zh": "删不掉 {path}：{error}",
+    "en": "Cannot delete {path}: {error}"
+  },
+  {
+    "code": "STORAGE_THE_SAVED_BACKUP_DOES_NOT_MATCH_THE",
+    "zh": "备份写入后回读不一致",
+    "en": "The saved backup does not match the original content."
+  },
+  {
+    "code": "STORAGE_SELECT_A_REGULAR_BACKUP_FILE",
+    "zh": "请选择普通备份文件",
+    "en": "Select a regular backup file."
+  },
+  {
+    "code": "STORAGE_CANNOT_READ_BACKUP",
+    "zh": "无法读取备份：{error}",
+    "en": "Cannot read backup: {error}"
+  },
+  {
+    "code": "STORAGE_THE_BACKUP_EXCEEDS_THE_MIB_LIMIT",
+    "zh": "备份超过 4 MiB 上限",
+    "en": "The backup exceeds the 4 MiB limit."
+  },
+  {
+    "code": "STORAGE_THE_BACKUP_IS_NOT_A_VALID_JSON",
+    "zh": "备份不是有效 JSON 文件",
+    "en": "The backup is not a valid JSON file."
+  },
+  {
+    "code": "STORAGE_THE_BACKUP_FORMAT_OR_VERSION_IS_NOT",
+    "zh": "备份格式或版本不支持",
+    "en": "The backup format or version is not supported."
+  },
+  {
+    "code": "STORAGE_CANNOT_DELETE_THE_PREVIOUS_BACKGROUND_IMAGE",
+    "zh": "删不掉旧背景图：{error}",
+    "en": "Cannot delete the previous background image: {error}"
+  },
+  {
+    "code": "STORAGE_CANNOT_OPEN_THIS_FILE",
+    "zh": "打不开这个文件：{error}",
+    "en": "Cannot open this file: {error}"
+  },
+  {
+    "code": "STORAGE_CANNOT_READ_FILE_METADATA",
+    "zh": "读不到文件信息：{error}",
+    "en": "Cannot read file metadata: {error}"
+  },
+  {
+    "code": "STORAGE_THE_WALLPAPER_MUST_BE_A_REGULAR_FILE",
+    "zh": "壁纸必须是一个文件",
+    "en": "The wallpaper must be a regular file."
+  },
+  {
+    "code": "STORAGE_CANNOT_READ_THIS_FILE",
+    "zh": "读不了这个文件：{error}",
+    "en": "Cannot read this file: {error}"
+  },
+  {
+    "code": "STORAGE_SUPPORTED_FORMATS_ARE_PNG_JPEG_WEBP_MP",
+    "zh": "只支持 PNG / JPEG / WebP 图片和 MP4 / WebM 视频",
+    "en": "Supported formats are PNG, JPEG, WebP, MP4, and WebM."
+  },
+  {
+    "code": "STORAGE_THE_WALLPAPER_IS_TOO_LARGE_MB_THE",
+    "zh": "壁纸文件太大了（{sizeMb} MB），上限 {maxMb} MB",
+    "en": "The wallpaper is too large ({sizeMb} MB); the limit is {maxMb} MB."
+  },
+  {
+    "code": "STORAGE_CANNOT_CREATE_THE_BACKGROUND_DIRECTORY",
+    "zh": "建不了背景图目录：{error}",
+    "en": "Cannot create the background directory: {error}"
+  },
+  {
+    "code": "STORAGE_CANNOT_SAVE_THE_BACKGROUND_IMAGE",
+    "zh": "写不进背景图：{error}",
+    "en": "Cannot save the background image: {error}"
+  },
+  {
+    "code": "STORAGE_NO_BACKGROUND_IMAGE_HAS_BEEN_SET",
+    "zh": "还没有设置背景图",
+    "en": "No background image has been set."
+  },
+  {
+    "code": "STORAGE_CANNOT_READ_THE_BACKGROUND_IMAGE",
+    "zh": "读不了背景图：{error}",
+    "en": "Cannot read the background image: {error}"
+  },
+  {
+    "code": "STORAGE_INVALID_FONT_FILE_NAME",
+    "zh": "字体文件名无效",
+    "en": "Invalid font file name."
+  },
+  {
+    "code": "STORAGE_CANNOT_DELETE_FONT",
+    "zh": "删不掉字体：{error}",
+    "en": "Cannot delete font: {error}"
+  },
+  {
+    "code": "STORAGE_THE_FONT_MUST_BE_A_REGULAR_FILE",
+    "zh": "字体必须是一个文件",
+    "en": "The font must be a regular file."
+  },
+  {
+    "code": "STORAGE_THE_FONT_IS_TOO_LARGE_MB_THE",
+    "zh": "字体太大了（{sizeMb} MB），上限 {maxMb} MB",
+    "en": "The font is too large ({sizeMb} MB); the limit is {maxMb} MB."
+  },
+  {
+    "code": "STORAGE_SUPPORTED_FONT_FORMATS_ARE_TTF_OTF_WOFF",
+    "zh": "只支持 TTF / OTF / WOFF / WOFF2 字体",
+    "en": "Supported font formats are TTF, OTF, WOFF, and WOFF2."
+  },
+  {
+    "code": "STORAGE_CANNOT_CREATE_THE_FONT_DIRECTORY",
+    "zh": "建不了字体目录：{error}",
+    "en": "Cannot create the font directory: {error}"
+  },
+  {
+    "code": "STORAGE_CANNOT_SAVE_THE_FONT_FILE",
+    "zh": "写不进字体文件：{error}",
+    "en": "Cannot save the font file: {error}"
+  },
+  {
+    "code": "STORAGE_CANNOT_READ_THE_FONT_FILE",
+    "zh": "读不了字体文件：{error}",
+    "en": "Cannot read the font file: {error}"
+  },
+  {
+    "code": "STORAGE_CANNOT_READ_AGENT_SESSION_LOGS",
+    "zh": "读取 Agent 会话日志失败: {error}",
+    "en": "Cannot read Agent session logs: {error}"
+  },
+  {
+    "code": "STORAGE_THE_AGENT_SESSION_LOG_DIRECTORY_DOES_NOT",
+    "zh": "Agent 会话日志目录不存在",
+    "en": "The Agent session log directory does not exist."
+  },
+  {
+    "code": "STORAGE_THIS_AGENT_PROVIDER_IS_NOT_SUPPORTED",
+    "zh": "不支持的 Agent provider",
+    "en": "This Agent provider is not supported."
+  },
+  {
+    "code": "STORAGE_INVALID_COLLABORATION_MARKER",
+    "zh": "协作 marker 无效",
+    "en": "Invalid collaboration marker."
+  },
+  {
+    "code": "STORAGE_THE_AGENT_SESSION_LOG_DIRECTORY_IS_UNAVAILABLE",
+    "zh": "Agent 会话日志目录不可用: {error}",
+    "en": "The Agent session log directory is unavailable: {error}"
+  },
+  {
+    "code": "STORAGE_THE_AGENT_SESSION_LOG_IS_UNAVAILABLE",
+    "zh": "Agent 会话日志不可用: {error}",
+    "en": "The Agent session log is unavailable: {error}"
+  },
+  {
+    "code": "STORAGE_THE_AGENT_SESSION_LOG_PATH_IS_OUTSIDE",
+    "zh": "Agent 会话日志路径越界",
+    "en": "The Agent session log path is outside its allowed directory."
+  },
+  {
+    "code": "SSH_THE_REMOTE_DIRECTORY_MUST_BE_AN_ABSOLUTE",
+    "zh": "远端目录必须是绝对 POSIX 路径，且不能包含控制字符",
+    "en": "The remote directory must be an absolute POSIX path without control characters."
+  },
+  {
+    "code": "SSH_THE_REMOTE_DIRECTORY_NAME_IS_NOT_VALID",
+    "zh": "远端目录名称不是 UTF-8，无法安全显示",
+    "en": "The remote directory name is not valid UTF-8 and cannot be displayed safely."
+  },
+  {
+    "code": "SSH_THE_REMOTE_DIRECTORY_RESPONSE_IS_INCOMPLETE",
+    "zh": "远端目录响应不完整",
+    "en": "The remote directory response is incomplete."
+  },
+  {
+    "code": "SSH_THE_REMOTE_HOST_RETURNED_NO_DIRECTORY_INFORMATION",
+    "zh": "远端未返回目录信息；需要 POSIX Shell，且启动脚本不能向标准输出添加内容",
+    "en": "The remote host returned no directory information. A POSIX shell is required, and startup scripts must not write to standard output."
+  },
+  {
+    "code": "SSH_THE_REMOTE_DIRECTORY_RESPONSE_CONTAINS_INVALID_ENTRIES",
+    "zh": "远端目录响应包含无效条目",
+    "en": "The remote directory response contains invalid entries."
+  },
+  {
+    "code": "SSH_SSH_DIRECTORY_BROWSING_DOES_NOT_ACCEPT_PASSWORDS",
+    "zh": "SSH 目录浏览不接收密码，请使用密钥或在终端连接",
+    "en": "SSH directory browsing does not accept passwords. Use a key or connect in the terminal."
+  },
+  {
+    "code": "SSH_SSH_CONNECTION_FAILED_IF_A_PASSWORD_OR",
+    "zh": "SSH 连接失败：{error}\n需要密码或首次确认主机指纹时，请先通过连接按钮在终端完成。",
+    "en": "SSH connection failed: {error}\nIf a password or first host-key confirmation is required, connect in the terminal first."
+  },
+  {
+    "code": "SSH_INVALID_SSH_REQUEST_IDENTITY",
+    "zh": "SSH 请求身份无效",
+    "en": "Invalid SSH request identity."
+  },
+  {
+    "code": "SSH_THE_SSH_REQUEST_MANAGER_IS_UNAVAILABLE",
+    "zh": "SSH 请求管理器不可用",
+    "en": "The SSH request manager is unavailable."
+  },
+  {
+    "code": "SSH_THE_SSH_REQUEST_WAS_CANCELLED",
+    "zh": "SSH 请求已取消",
+    "en": "The SSH request was cancelled."
+  },
+  {
+    "code": "SSH_TOO_MANY_SSH_REQUESTS_OR_A_REQUEST",
+    "zh": "SSH 请求过多或身份重复",
+    "en": "Too many SSH requests, or a request identity was reused."
+  },
+  {
+    "code": "SSH_CANNOT_START_OPENSSH",
+    "zh": "无法启动 OpenSSH：{error}",
+    "en": "Cannot start OpenSSH: {error}"
+  },
+  {
+    "code": "SSH_THE_SSH_REQUEST_TIMED_OUT_CHECK_THE",
+    "zh": "SSH 请求超时，请检查网络、跳板机或主机地址",
+    "en": "The SSH request timed out. Check the network, jump host, and host address."
+  },
+  {
+    "code": "SSH_THE_REMOTE_RESPONSE_EXCEEDS_THE_SIZE_LIMIT",
+    "zh": "远端响应超过大小上限，请选择更具体的目录",
+    "en": "The remote response exceeds the size limit. Select a more specific directory."
+  },
+  {
+    "code": "SSH_SSH_OUTPUT_DID_NOT_FINISH_THE_REQUEST",
+    "zh": "SSH 输出读取未结束，已停止本次请求",
+    "en": "SSH output did not finish. The request was stopped."
+  },
+  {
+    "code": "SSH_CANNOT_READ_SSH_OUTPUT",
+    "zh": "SSH 输出读取失败：{error}",
+    "en": "Cannot read SSH output: {error}"
+  },
+  {
+    "code": "SSH_CANNOT_LOCATE_THE_USER_SSH_CONFIGURATION_DIRECTORY",
+    "zh": "无法定位用户 SSH 配置目录",
+    "en": "Cannot locate the user SSH configuration directory."
+  },
+  {
+    "code": "SSH_THE_SSH_CONFIGURATION_IS_NOT_A_READABLE",
+    "zh": "SSH 配置不是可读取的普通文件",
+    "en": "The SSH configuration is not a readable regular file."
+  },
+  {
+    "code": "SSH_CANNOT_READ_SSH_CONFIGURATION",
+    "zh": "SSH 配置无法读取：{error}",
+    "en": "Cannot read SSH configuration: {error}"
+  },
+  {
+    "code": "SSH_THE_SSH_CONFIGURATION_IS_NOT_A_REGULAR",
+    "zh": "SSH 配置不是普通文件",
+    "en": "The SSH configuration is not a regular file."
+  },
+  {
+    "code": "SSH_THE_SSH_CONFIGURATION_EXCEEDS_THE_READ_LIMIT",
+    "zh": "SSH 配置超过读取上限",
+    "en": "The SSH configuration exceeds the read limit."
+  },
+  {
+    "code": "SSH_THE_SSH_CONFIGURATION_IS_NOT_VALID_UTF",
+    "zh": "SSH 配置不是 UTF-8",
+    "en": "The SSH configuration is not valid UTF-8."
+  },
+  {
+    "code": "PROVIDER_THIS_PROVIDER_TYPE_IS_NOT_SUPPORTED",
+    "zh": "不支持的 Provider 类型",
+    "en": "This Provider type is not supported."
+  },
+  {
+    "code": "PROVIDER_A_CUSTOM_PROVIDER_FOR_THIS_CLI_REQUIRES",
+    "zh": "此 CLI 的自定义 Provider 需要填写模型 ID",
+    "en": "A custom Provider for this CLI requires a model ID."
+  },
+  {
+    "code": "PROVIDER_THE_KIMI_CONFIGURATION_IS_NOT_VALID_TOML",
+    "zh": "Kimi 配置不是有效 TOML，已保留原文件",
+    "en": "The Kimi configuration is not valid TOML. The original file was preserved."
+  },
+  {
+    "code": "PROVIDER_THE_BELFRY_PROVIDER_NAME_IS_ALREADY_USED",
+    "zh": "CLI 中 belfry Provider 名称已被现有配置占用，未覆盖；请先重命名原生配置中的该条目",
+    "en": "The belfry Provider name is already used by another CLI configuration. Rename that entry first; it was not overwritten."
+  },
+  {
+    "code": "PROVIDER_KIMI_PROVIDERS_AND_MODELS_MUST_BE_TOML",
+    "zh": "Kimi providers / models 必须为表",
+    "en": "Kimi providers and models must be TOML tables."
+  },
+  {
+    "code": "PROVIDER_ONLY_CONFIGURATION_FILES_FOR_THE_CURRENT_CLI",
+    "zh": "只能编辑当前 CLI 的配置文件",
+    "en": "Only configuration files for the current CLI may be edited."
+  },
+  {
+    "code": "PROVIDER_IS_NOT_VALID_JSON_REPAIR_IT_BEFORE",
+    "zh": "{path} 不是合法的 JSON，请先修好再切换 provider（解析详情已脱敏）",
+    "en": "{path} is not valid JSON. Repair it before switching Providers (parse details were redacted)."
+  },
+  {
+    "code": "PROVIDER_THE_TOP_LEVEL_OF_MODELS_JSON_MUST",
+    "zh": "models.json 的顶层必须是一个对象",
+    "en": "The top level of models.json must be an object."
+  },
+  {
+    "code": "PROVIDER_THE_PROVIDERS_FIELD_IN_MODELS_JSON_MUST",
+    "zh": "models.json 的 providers 必须是一个对象",
+    "en": "The providers field in models.json must be an object."
+  },
+  {
+    "code": "PROVIDER_THE_TOP_LEVEL_OF_SETTINGS_JSON_MUST",
+    "zh": "settings.json 的顶层必须是一个对象",
+    "en": "The top level of settings.json must be an object."
+  },
+  {
+    "code": "PROVIDER_THE_PROVIDERS_BELFRY_FIELD_IN_MODELS_JSON",
+    "zh": "models.json 的 providers.belfry 必须是一个对象",
+    "en": "The providers.belfry field in models.json must be an object."
+  },
+  {
+    "code": "PROVIDER_CANNOT_SERIALIZE",
+    "zh": "序列化 {path} 失败：{error}",
+    "en": "Cannot serialize {path}: {error}"
+  },
+  {
+    "code": "PROVIDER_ONLY_OR_MAY_BE_MODIFIED",
+    "zh": "只允许修改 {firstPath} 或 {secondPath}，不能动别的文件",
+    "en": "Only {firstPath} or {secondPath} may be modified."
+  },
+  {
+    "code": "PROVIDER_ONLY_MAY_BE_MODIFIED",
+    "zh": "只允许修改 {path}，不能动别的文件",
+    "en": "Only {path} may be modified."
+  },
+  {
+    "code": "PROVIDER_IS_NOT_VALID_JSON_THE_FILE_WAS",
+    "zh": "{path} 不是合法的 JSON，文件没有改动（解析详情已脱敏）",
+    "en": "{path} is not valid JSON. The file was not changed (parse details were redacted)."
+  },
+  {
+    "code": "PROVIDER_CANNOT_SERIALIZE_THE_CONFIGURATION_PREVIEW",
+    "zh": "序列化配置预览失败：{error}",
+    "en": "Cannot serialize the configuration preview: {error}"
+  },
+  {
+    "code": "PROVIDER_THE_ENV_FIELD_IN_SETTINGS_JSON_MUST",
+    "zh": "settings.json 的 env 必须是一个对象",
+    "en": "The env field in settings.json must be an object."
+  },
+  {
+    "code": "PROVIDER_CANNOT_SERIALIZE_SETTINGS_JSON",
+    "zh": "序列化 settings.json 失败：{error}",
+    "en": "Cannot serialize settings.json: {error}"
+  },
+  {
+    "code": "PROVIDER_THE_CLI_CONFIGURATION_IS_NOT_VALID_JSON",
+    "zh": "CLI 配置不是有效 JSON/JSONC，已保留原文件",
+    "en": "The CLI configuration is not valid JSON or JSONC. The original file was preserved."
+  },
+  {
+    "code": "PROVIDER_IS_NOT_VALID_TOML_REPAIR_IT_BEFORE",
+    "zh": "{path} 不是合法的 TOML，请先修好再切换 provider（解析详情已脱敏）",
+    "en": "{path} is not valid TOML. Repair it before switching Providers (parse details were redacted)."
+  },
+  {
+    "code": "PROVIDER_THE_MODEL_PROVIDERS_FIELD_IN_CONFIG_TOML",
+    "zh": "config.toml 的 model_providers 必须是一张表",
+    "en": "The model_providers field in config.toml must be a table."
+  },
+  {
+    "code": "PROVIDER_THE_MODEL_PROVIDERS_BELFRY_FIELD_IN_CONFIG",
+    "zh": "config.toml 的 model_providers.belfry 必须是一张表",
+    "en": "The model_providers.belfry field in config.toml must be a table."
+  },
+  {
+    "code": "PROVIDER_IS_NOT_VALID_JSON_PARSE_DETAILS_WERE",
+    "zh": "{path} 不是合法的 JSON（解析详情已脱敏）",
+    "en": "{path} is not valid JSON (parse details were redacted)."
+  },
+  {
+    "code": "PROVIDER_CANNOT_SERIALIZE_AUTH_JSON",
+    "zh": "序列化 auth.json 失败：{error}",
+    "en": "Cannot serialize auth.json: {error}"
+  },
+  {
+    "code": "PROVIDER_IS_NOT_VALID_TOML_THE_FILE_WAS",
+    "zh": "{path} 不是合法的 TOML，文件没有改动（解析详情已脱敏）",
+    "en": "{path} is not valid TOML. The file was not changed (parse details were redacted)."
+  },
+  {
+    "code": "PROVIDER_ONLY_THE_CODEX_CONFIG_TOML_AND_AUTH",
+    "zh": "只允许修改 Codex 的 config.toml 和 auth.json",
+    "en": "Only the Codex config.toml and auth.json files may be modified."
+  },
+  {
+    "code": "PROVIDER_CANNOT_SERIALIZE_THE_AUTH_JSON_PREVIEW",
+    "zh": "序列化 auth.json 预览失败：{error}",
+    "en": "Cannot serialize the auth.json preview: {error}"
+  },
+  {
+    "code": "PROVIDER_ENTER_A_VALID_BASE_URL",
+    "zh": "请填写有效的 Base URL",
+    "en": "Enter a valid Base URL."
+  },
+  {
+    "code": "PROVIDER_THE_BASE_URL_MUST_USE_HTTP_OR",
+    "zh": "Base URL 需为 HTTP/HTTPS 地址，不能包含账号、查询参数或片段",
+    "en": "The Base URL must use HTTP or HTTPS and contain no credentials, query parameters, or fragment."
+  },
+  {
+    "code": "PROVIDER_CANNOT_CREATE_THE_MODEL_REQUEST",
+    "zh": "无法创建模型请求",
+    "en": "Cannot create the model request."
+  },
+  {
+    "code": "PROVIDER_THIS_SERVICE_DOES_NOT_PROVIDE_A_MODEL",
+    "zh": "该服务未提供模型列表，请手动填写模型 ID",
+    "en": "This service does not provide a model list. Enter the model ID manually."
+  },
+  {
+    "code": "PROVIDER_THE_MODEL_REQUEST_TIMED_OUT_PLEASE_TRY",
+    "zh": "获取模型超时，请稍后重试",
+    "en": "The model request timed out. Please try again shortly."
+  },
+  {
+    "code": "PROVIDER_CANNOT_CONNECT_TO_THE_MODEL_SERVICE_CHECK",
+    "zh": "无法连接模型服务，请检查地址、网络和密钥格式",
+    "en": "Cannot connect to the model service. Check the address, network, and API key format."
+  },
+  {
+    "code": "PROVIDER_CANNOT_READ_THE_MODEL_LIST",
+    "zh": "读取模型列表失败",
+    "en": "Cannot read the model list."
+  },
+  {
+    "code": "PROVIDER_THE_MODEL_LIST_RESPONSE_IS_TOO_LARGE",
+    "zh": "模型列表响应过大",
+    "en": "The model list response is too large."
+  },
+  {
+    "code": "PROVIDER_THE_SERVICE_DID_NOT_RETURN_A_VALID",
+    "zh": "服务未返回有效的 JSON 模型列表，请检查 Base URL",
+    "en": "The service did not return a valid JSON model list. Check the Base URL."
+  },
+  {
+    "code": "PROVIDER_THE_MODEL_LIST_FORMAT_IS_NOT_SUPPORTED",
+    "zh": "服务返回了不支持的模型列表格式，请手动填写模型 ID",
+    "en": "The model list format is not supported. Enter the model ID manually."
+  },
+  {
+    "code": "PROVIDER_THE_MODEL_LIST_IS_MISSING_PAGINATION_INFORMATION",
+    "zh": "模型列表缺少分页信息，请手动填写模型 ID",
+    "en": "The model list is missing pagination information. Enter the model ID manually."
+  },
+  {
+    "code": "PROVIDER_THE_MODEL_LIST_HAS_TOO_MANY_OR",
+    "zh": "模型列表分页过多或重复，请手动填写模型 ID",
+    "en": "The model list has too many or repeated pages. Enter the model ID manually."
+  },
+  {
+    "code": "PROVIDER_INVALID_GEMINI_API_ADDRESS",
+    "zh": "无效的 Gemini API 地址",
+    "en": "Invalid Gemini API address."
+  },
+  {
+    "code": "PROVIDER_THE_PROVIDER_OPERATION_WAS_INTERRUPTED_RESTART_THE",
+    "zh": "Provider 操作中断；请重启应用后重试。",
+    "en": "The Provider operation was interrupted. Restart the app and try again."
+  },
+  {
+    "code": "PROVIDER_THE_PROVIDER_DOES_NOT_EXIST",
+    "zh": "Provider 不存在。",
+    "en": "The Provider does not exist."
+  },
+  {
+    "code": "PROVIDER_CANNOT_ACCESS_SECURE_PROVIDER_STORAGE_CHECK_DISK",
+    "zh": "Provider 安全存储读写失败；请检查磁盘空间和权限后重试。",
+    "en": "Cannot access secure Provider storage. Check disk space and permissions, then try again."
+  },
+  {
+    "code": "PROVIDER_CONFIRM_BEFORE_VIEWING_RAW_CONFIGURATION_CONTAINING_CREDENTIALS",
+    "zh": "请先确认查看含密钥的原始配置",
+    "en": "Confirm before viewing raw configuration containing credentials."
+  },
+  {
+    "code": "PROVIDER_THE_PROVIDER_NO_LONGER_EXISTS_REFRESH_THE",
+    "zh": "Provider 已不存在，请重新读取",
+    "en": "The Provider no longer exists. Refresh the data."
+  },
+  {
+    "code": "PROVIDER_THE_ENDPOINT_CHANGED_REPLACE_OR_CLEAR_ITS",
+    "zh": "端点已修改，请明确替换或清除密钥，避免把已有密钥发送到新地址",
+    "en": "The endpoint changed. Replace or clear its key explicitly to avoid sending an existing key to a new address."
+  },
+  {
+    "code": "PROVIDER_CANNOT_SERIALIZE_THE_SETTINGS_JSON_PREVIEW",
+    "zh": "序列化 settings.json 预览失败：{error}",
+    "en": "Cannot serialize the settings.json preview: {error}"
+  },
+  {
+    "code": "PROVIDER_THE_PROVIDER_STORE_FORMAT_IS_UNKNOWN_OR",
+    "zh": "Provider 库格式未知或损坏；为避免丢失配置，已停止迁移和写入。",
+    "en": "The Provider store format is unknown or damaged. Migration and writes were stopped to preserve the configuration."
+  },
+  {
+    "code": "PROVIDER_A_PROVIDER_NAME_IS_REQUIRED",
+    "zh": "provider 名称不能为空",
+    "en": "A Provider name is required."
+  },
+  {
+    "code": "PROVIDER_A_BASE_URL_IS_REQUIRED",
+    "zh": "Base URL 不能为空",
+    "en": "A Base URL is required."
+  },
+  {
+    "code": "PROVIDER_THE_BASE_URL_MUST_START_WITH_HTTP",
+    "zh": "Base URL 必须以 http:// 或 https:// 开头",
+    "en": "The Base URL must start with http:// or https://."
+  },
+  {
+    "code": "PROVIDER_A_NEW_PROVIDER_CANNOT_KEEP_A_KEY",
+    "zh": "新增 Provider 不能保留不存在的密钥",
+    "en": "A new Provider cannot keep a key that does not exist."
+  },
+  {
+    "code": "PROVIDER_A_REPLACEMENT_KEY_MUST_NOT_BE_EMPTY",
+    "zh": "替换密钥不能为空；如需删除请选择清除",
+    "en": "A replacement key must not be empty. Select Clear to remove it."
+  },
+  {
+    "code": "PROVIDER_A_KEY_MAY_ONLY_BE_SUPPLIED_FOR",
+    "zh": "只有替换操作可以提交密钥",
+    "en": "A key may only be supplied for a Replace operation."
+  },
+  {
+    "code": "PROVIDER_SECURE_PROVIDER_STORAGE_IS_UNAVAILABLE_OR_DAMAGED",
+    "zh": "Provider 安全存储不可用或凭据损坏；请解锁系统凭据库并恢复原主密钥/密文后重试。未回退明文存储。",
+    "en": "Secure Provider storage is unavailable or damaged. Unlock the system credential store and restore the original master key or ciphertext. Plaintext storage was not used."
+  },
+  {
+    "code": "PROVIDER_THE_PROVIDER_NO_LONGER_EXISTS_REFRESH_THE_9ACB75",
+    "zh": "Provider 已不存在，请刷新列表后重新选择",
+    "en": "The Provider no longer exists. Refresh the list and choose again."
+  },
+  {
+    "code": "PROVIDER_CONFIGURE_A_DEDICATED_API_KEY_FOR_THIS",
+    "zh": "请先为此 Provider 配置独立 API Key",
+    "en": "Configure a dedicated API key for this Provider first."
+  },
+  {
+    "code": "PROVIDER_THE_PROJECT_PROVIDER_WAS_DELETED_CHOOSE_ANOTHER",
+    "zh": "当前项目的 Provider 已被删除。请在项目 Provider 设置中重新选择或改为跟随全局",
+    "en": "The project Provider was deleted. Choose another Provider in project settings or follow the global setting."
+  },
+  {
+    "code": "PROVIDER_CANNOT_ACCESS_THE_PROJECT_DIRECTORY",
+    "zh": "项目目录无法读取：{error}",
+    "en": "Cannot access the project directory: {error}"
+  },
+  {
+    "code": "PROVIDER_THE_PROJECT_PATH_MUST_BE_A_LOCAL",
+    "zh": "项目路径必须是本地目录",
+    "en": "The project path must be a local directory."
+  },
+  {
+    "code": "PROVIDER_CANNOT_READ_THE_PROJECT_PROVIDER",
+    "zh": "无法读取项目 Provider：{error}",
+    "en": "Cannot read the project Provider: {error}"
+  },
+  {
+    "code": "PROVIDER_THE_PROJECT_PROVIDER_STORE_EXCEEDS_THE_READ",
+    "zh": "项目 Provider 存档超过读取上限",
+    "en": "The project Provider store exceeds the read limit."
+  },
+  {
+    "code": "PROVIDER_THE_PROJECT_PROVIDER_STORE_IS_DAMAGED_THE",
+    "zh": "项目 Provider 存档已损坏，已停止操作以保留原文件",
+    "en": "The project Provider store is damaged. The operation stopped to preserve the original file."
+  },
+  {
+    "code": "PROVIDER_THE_PROJECT_PROVIDER_STORE_VERSION_IS_NOT",
+    "zh": "项目 Provider 存档版本不支持",
+    "en": "The project Provider store version is not supported."
+  },
+  {
+    "code": "PROVIDER_THE_PROJECT_PROVIDER_SAVE_LOCK_IS_UNAVAILABLE",
+    "zh": "项目 Provider 保存锁不可用",
+    "en": "The project Provider save lock is unavailable."
+  },
+  {
+    "code": "PROVIDER_THIS_PROVIDER_HAS_NO_DEDICATED_API_KEY",
+    "zh": "此 Provider 未配置独立 API Key，无法启用项目隔离",
+    "en": "This Provider has no dedicated API key, so project isolation cannot be enabled."
+  },
+  {
+    "code": "ROOM_NOT_STARTED",
+    "zh": "待开工",
+    "en": "Not started"
+  },
+  {
+    "code": "ROOM_IN_PROGRESS",
+    "zh": "进行中",
+    "en": "In progress"
+  },
+  {
+    "code": "ROOM_COMPLETED",
+    "zh": "已完成",
+    "en": "Completed"
+  },
+  {
+    "code": "ROOM_ARCHIVED",
+    "zh": "已归档",
+    "en": "Archived"
+  },
+  {
+    "code": "ROOM_USER",
+    "zh": "用户",
+    "en": "User"
+  },
+  {
+    "code": "ROOM_SYSTEM",
+    "zh": "系统",
+    "en": "System"
+  },
+  {
+    "code": "ROOM_MEMBER_HAS_LEFT",
+    "zh": "（已离开的成员）",
+    "en": "(member has left)"
+  },
+  {
+    "code": "ROOM_COORDINATOR",
+    "zh": "统筹",
+    "en": "Coordinator"
+  },
+  {
+    "code": "ROOM_MEMBER",
+    "zh": "成员",
+    "en": "Member"
+  },
+  {
+    "code": "ROOM_NOT_SET",
+    "zh": "还没写",
+    "en": "Not set"
+  },
+  {
+    "code": "ROOM_NOT_SET_1C3E57",
+    "zh": "（未写）",
+    "en": "(not set)"
+  },
+  {
+    "code": "ROOM_RECIPIENT_IS_NOT_IN_THIS_ROOM_USE",
+    "zh": "房间里没有「{recipient}」。可以写的收件人：@统筹、@全体、@成员、@用户，或角色名（{names}）",
+    "en": "Recipient \"{recipient}\" is not in this room. Use @coordinator, @all, @members, @user, or a role name ({names})."
+  },
+  {
+    "code": "ROOM_SEND_SEPARATE_MESSAGES_TO_THE_USER_AND",
+    "zh": "发给用户和发给成员要分成两条消息",
+    "en": "Send separate messages to the user and to members."
+  },
+  {
+    "code": "ROOM_THIS_MESSAGE_HAS_NO_RECIPIENTS_CHECK_WHETHER",
+    "zh": "这条消息没有可以收的人（房间里还没有别的成员？）",
+    "en": "This message has no recipients. Check whether any other members have joined the room."
+  },
+  {
+    "code": "ROOM_MEMBERS_CANNOT_ASSIGN_WORK_TO_OTHER_MEMBERS",
+    "zh": "成员不能给别的成员派活；需要别人做的，跟统筹说",
+    "en": "Members cannot assign work to other members. Ask the coordinator to assign it."
+  },
+  {
+    "code": "ROOM_YOU_ARE_NOT_ASSIGNED_TO_ASK_THE",
+    "zh": "{task} 不是你负责的；要换人跟统筹说",
+    "en": "You are not assigned to {task}. Ask the coordinator to reassign it."
+  },
+  {
+    "code": "ROOM_THE_TASK_IS_ALREADY",
+    "zh": "已经是「{status}」了",
+    "en": "The task is already \"{status}\"."
+  },
+  {
+    "code": "ROOM_ONLY_THE_COORDINATOR_OR_THE_USER_CAN",
+    "zh": "只有统筹或用户能归档任务",
+    "en": "Only the coordinator or the user can archive tasks."
+  },
+  {
+    "code": "ROOM_ONLY_THE_COORDINATOR_OR_THE_USER_CAN_AC42F1",
+    "zh": "已完成的任务只有统筹或用户能重开",
+    "en": "Only the coordinator or the user can reopen completed tasks."
+  },
+  {
+    "code": "ROOM_ONLY_THE_COORDINATOR_OR_THE_USER_CAN_7A52D9",
+    "zh": "已归档的任务只有统筹或用户能恢复",
+    "en": "Only the coordinator or the user can restore archived tasks."
+  },
+  {
+    "code": "ROOM_THIS_TASK_STATUS_TRANSITION_IS_NOT_ALLOWED",
+    "zh": "这一步走不通",
+    "en": "This task status transition is not allowed."
+  },
+  {
+    "code": "ROOM_YOU_ARE_THE_COORDINATOR_FOCUS_ON_COORDINATING",
+    "zh": "你是统筹：你的主要工作是协调，不是自己动手。收到需求先看 belfry room status，把需求拆成任务、按职责派给成员（belfry room task add <标题> --to <角色> --outcome <完成标准>）；只有很小的活、或者没有合适的成员时才自己做。派活只用任务板，不要用 belfry send。房间命令报错时向用户报告原始错误，先核对任务板；不要绕过任务板派活或重复创建。成员完成任务或手上没活时你会收到通知，据此派下一件；全部完成后用 belfry room say --to @用户 汇报。",
+    "en": "You are the coordinator. Focus on coordinating the team. Start with belfry room status, break the request into tasks, and assign each to the appropriate member (belfry room task add <title> --to <role> --outcome <criteria>). Do work yourself only when it is very small or no suitable member is available. Assign room work through the task board, never belfry send. If a room command fails, report the original error to the user and inspect the task board before proceeding; do not bypass it or create duplicate tasks. You will receive notifications when members finish or have no remaining work; assign the next task accordingly. When everything is complete, report with belfry room say --to @user."
+  },
+  {
+    "code": "ROOM_YOU_ARE_A_MEMBER_COMPLETE_TASKS_WITHIN",
+    "zh": "你是成员：做好自己职责内的任务，开工 belfry room task start <任务号>，完成 belfry room task done <任务号> <结果>；发现问题或需要别人配合，跟统筹说（belfry room say <内容>）。",
+    "en": "You are a member. Complete tasks within your role. Start with belfry room task start <task-id> and finish with belfry room task done <task-id> <result>. Report issues or requests for assistance to the coordinator (belfry room say <text>)."
+  },
+  {
+    "code": "ROOM_YOU_JOINED_ROOM_AS_RESPONSIBILITIES_OBJECTIVE_VIEW",
+    "zh": "你加入了房间「{room}」，角色「{title}」，职责：{duty}。需求目标：{objective}。\n{role}\n全貌（需求、成员、任务板）：belfry room status",
+    "en": "You joined room \"{room}\" as \"{title}\". Responsibilities: {duty}. Objective: {objective}.\n{role}\nView the brief, members, and task board: belfry room status"
+  },
+  {
+    "code": "ROOM_A_ROLE_NAME_IS_REQUIRED",
+    "zh": "角色名是必填的",
+    "en": "A role name is required."
+  },
+  {
+    "code": "ROOM_ROLE_NAMES_CANNOT_CONTAIN_SPACES_SO_THEY",
+    "zh": "角色名不能带空格：点名时 @ 后面要能一口气写完",
+    "en": "Role names cannot contain spaces, so they can be addressed with a single @mention."
+  },
+  {
+    "code": "ROOM_IS_A_RESERVED_RECIPIENT_SELECTOR_CHOOSE_A",
+    "zh": "「{title}」是收件人记号，换个角色名",
+    "en": "\"{title}\" is a reserved recipient selector. Choose a different role name."
+  },
+  {
+    "code": "ROOM_THIS_ROOM_ALREADY_HAS_A_ROLE_NAMED",
+    "zh": "房间里已经有「{title}」了",
+    "en": "This room already has a role named \"{title}\"."
+  },
+  {
+    "code": "ROOM_THIS_SESSION_IS_ALREADY_IN_THE_ROOM",
+    "zh": "这条会话已经在房间里了",
+    "en": "This session is already in the room."
+  },
+  {
+    "code": "ROOM_JOINED_THE_ROOM_AS",
+    "zh": "「{title}」以{role}身份加入了房间。",
+    "en": "\"{title}\" joined the room as {role}."
+  },
+  {
+    "code": "ROOM_THIS_MEMBER_WAS_NOT_FOUND_OR_HAS",
+    "zh": "找不到这位成员（或已离开）",
+    "en": "This member was not found or has already left."
+  },
+  {
+    "code": "ROOM_IS_ALREADY_THE_COORDINATOR",
+    "zh": "「{title}」已经是统筹了",
+    "en": "\"{title}\" is already the coordinator."
+  },
+  {
+    "code": "ROOM_IS_NOW_THE_COORDINATOR",
+    "zh": "「{title}」现在是统筹。",
+    "en": "\"{title}\" is now the coordinator."
+  },
+  {
+    "code": "ROOM_IS_NOW_THE_COORDINATOR_YOU_ARE_A",
+    "zh": "统筹换成了「{title}」，你现在是成员，手上的任务照常做。",
+    "en": "\"{title}\" is now the coordinator. You are a member; continue your current tasks."
+  },
+  {
+    "code": "ROOM_WAS_RENAMED_TO",
+    "zh": "「{previous}」改名为「{title}」。",
+    "en": "\"{previous}\" was renamed to \"{title}\"."
+  },
+  {
+    "code": "ROOM_THIS_SESSION_IS_ALREADY_ASSIGNED_TO_ANOTHER",
+    "zh": "这条会话已经是另一位成员了",
+    "en": "This session is already assigned to another member."
+  },
+  {
+    "code": "ROOM_LEFT_THE_ROOM",
+    "zh": "「{title}」离开了房间。",
+    "en": "\"{title}\" left the room."
+  },
+  {
+    "code": "ROOM_AFTER_LEFT_BECAME_UNASSIGNED_PLEASE_REASSIGN_THESE",
+    "zh": "「{title}」离开后 {tasks} 没人负责了，请重新分派。",
+    "en": "After \"{title}\" left, {tasks} became unassigned. Please reassign these tasks."
+  },
+  {
+    "code": "ROOM_ONLY_THE_COORDINATOR_OR_THE_USER_CAN_8AEABA",
+    "zh": "需求简报只有统筹和用户能改；有想法跟统筹说",
+    "en": "Only the coordinator or the user can change the brief. Share suggestions with the coordinator."
+  },
+  {
+    "code": "ROOM_SPECIFY_AT_LEAST_ONE_BRIEF_FIELD_OBJECTIVE",
+    "zh": "要改哪一项？目标、当前重点、约束至少给一个",
+    "en": "Specify at least one brief field: objective, focus, or constraints."
+  },
+  {
+    "code": "ROOM_OBJECTIVE",
+    "zh": "目标：{objective}",
+    "en": "Objective: {objective}"
+  },
+  {
+    "code": "ROOM_FOCUS",
+    "zh": "当前重点：{focus}",
+    "en": "Focus: {focus}"
+  },
+  {
+    "code": "ROOM_CONSTRAINTS",
+    "zh": "约束：{constraints}",
+    "en": "Constraints: {constraints}"
+  },
+  {
+    "code": "ROOM_UPDATED_THE_BRIEF",
+    "zh": "{actor}更新了需求简报。{changes}",
+    "en": "{actor} updated the brief. {changes}"
+  },
+  {
+    "code": "ROOM_ENTER_A_MESSAGE_BEFORE_SENDING",
+    "zh": "说点什么再发",
+    "en": "Enter a message before sending."
+  },
+  {
+    "code": "ROOM_A_MESSAGE_MAY_CONTAIN_AT_MOST_CHARACTERS",
+    "zh": "一条消息最多 {max} 字",
+    "en": "A message may contain at most {max} characters."
+  },
+  {
+    "code": "ROOM_MESSAGE_WAS_NOT_FOUND_RUN_BELFRY_ROOM",
+    "zh": "没有编号 {hint} 的消息，用 belfry room log 看看",
+    "en": "Message {hint} was not found. Run belfry room log to check message IDs."
+  },
+  {
+    "code": "ROOM_A_REPLY_CANNOT_REQUEST_ANOTHER_REPLY_SEND",
+    "zh": "回复不能再要求回复；要追问就另发一条",
+    "en": "A reply cannot request another reply. Send a separate follow-up message."
+  },
+  {
+    "code": "ROOM_REPLY_REQUESTS_CAN_ONLY_BE_SENT_TO",
+    "zh": "要求回复只能发给成员；问用户直接发给 @用户 就行",
+    "en": "Reply requests can only be sent to members. To ask the user, send directly to @user."
+  },
+  {
+    "code": "ROOM_MESSAGE_WAS_NOT_FOUND",
+    "zh": "没有编号 {hint} 的消息",
+    "en": "Message {hint} was not found."
+  },
+  {
+    "code": "ROOM_THIS_MESSAGE_HAS_NO_PENDING_REPLY_REQUEST",
+    "zh": "这条消息没有在等回复",
+    "en": "This message has no pending reply request."
+  },
+  {
+    "code": "ROOM_ONLY_THE_SENDER_CAN_CANCEL_THIS_REPLY",
+    "zh": "只有发这条消息的人能撤销回复请求",
+    "en": "Only the sender can cancel this reply request."
+  },
+  {
+    "code": "ROOM_THE_ROOM_IS_ALREADY_PAUSED",
+    "zh": "房间已经暂停了",
+    "en": "The room is already paused."
+  },
+  {
+    "code": "ROOM_THE_ROOM_IS_NOT_PAUSED",
+    "zh": "房间没有暂停",
+    "en": "The room is not paused."
+  },
+  {
+    "code": "ROOM_YOU_PAUSED_THE_ROOM_NEW_MESSAGES_WILL",
+    "zh": "你暂停了房间：之后的消息只记在房间里，不再送进成员终端，空闲提醒也停了。成员手上正在做的不会被打断。",
+    "en": "You paused the room. New messages will be saved in the room without delivery to member terminals, and idle reminders are paused. Work already in progress continues."
+  },
+  {
+    "code": "ROOM_YOU_RESUMED_THE_ROOM_NEW_MESSAGES_WILL",
+    "zh": "你恢复了房间：新消息照常送进成员终端。暂停期间的消息不会补发，需要的话再说一遍。",
+    "en": "You resumed the room. New messages will be delivered to member terminals. Messages saved while paused will not be delivered automatically; send them again if needed."
+  },
+  {
+    "code": "ROOM_IDLE_REMINDER",
+    "zh": "【空闲提醒】",
+    "en": "[Idle reminder] "
+  },
+  {
+    "code": "ROOM_HAVE_NO_ASSIGNED_TASKS_AND_THE_ROOM",
+    "zh": "{prefix}「{members}」手上没有任务，房间已经安静 {minutes} 分钟。还有要做的就拆成任务派给他们（belfry room task add <标题> --to <角色>）；没有就不用回复。",
+    "en": "{prefix}\"{members}\" have no assigned tasks, and the room has been quiet for {minutes} minutes. Assign any remaining work with belfry room task add <title> --to <role>; otherwise no reply is needed."
+  },
+  {
+    "code": "ROOM_TASK_WAS_NOT_FOUND_RUN_BELFRY_ROOM",
+    "zh": "没有任务 {task}，用 belfry room status 看任务板",
+    "en": "Task {task} was not found. Run belfry room status to view the task board."
+  },
+  {
+    "code": "ROOM_IS_NOT_IN_THIS_ROOM",
+    "zh": "房间里没有「{title}」",
+    "en": "\"{title}\" is not in this room."
+  },
+  {
+    "code": "ROOM_A_TASK_TITLE_IS_REQUIRED",
+    "zh": "任务要有标题",
+    "en": "A task title is required."
+  },
+  {
+    "code": "ROOM_TASK_TITLES_MAY_CONTAIN_AT_MOST_CHARACTERS",
+    "zh": "任务标题最多 {max} 个字；细节写进 --outcome",
+    "en": "Task titles may contain at most {max} characters. Put details in --outcome."
+  },
+  {
+    "code": "ROOM_IS_NOT_A_TASK_ID_USE_A",
+    "zh": "「{raw}」不是任务号（写成 T1 这样）",
+    "en": "\"{raw}\" is not a task ID. Use a value such as T1."
+  },
+  {
+    "code": "ROOM_TASK_WAS_NOT_FOUND",
+    "zh": "没有任务 {id}",
+    "en": "Task {id} was not found."
+  },
+  {
+    "code": "ROOM_CREATED",
+    "zh": "{actor}新建了 {id}「{title}」",
+    "en": "{actor} created {id} \"{title}\""
+  },
+  {
+    "code": "ROOM_ASSIGNED_TO",
+    "zh": "，交给「{assignee}」",
+    "en": ", assigned to \"{assignee}\""
+  },
+  {
+    "code": "ROOM_CURRENTLY_UNASSIGNED",
+    "zh": "，还没人负责",
+    "en": ", currently unassigned"
+  },
+  {
+    "code": "ROOM_WAITING_FOR_TO_FINISH",
+    "zh": "，要等 {tasks} 完成",
+    "en": ", waiting for {tasks} to finish"
+  },
+  {
+    "code": "ROOM_COMPLETION_CRITERIA",
+    "zh": "。完成标准：{outcome}",
+    "en": ". Completion criteria: {outcome}"
+  },
+  {
+    "code": "ROOM_SPECIFY_AN_ASSIGNEE",
+    "zh": "要写交给谁",
+    "en": "Specify an assignee."
+  },
+  {
+    "code": "ROOM_IS_ALREADY",
+    "zh": "{task} 已经{status}了",
+    "en": "{task} is already {status}."
+  },
+  {
+    "code": "ROOM_MEMBERS_MAY_ONLY_CLAIM_UNASSIGNED_TASKS_FOR",
+    "zh": "成员只能认领没人负责的任务给自己；换人跟统筹说",
+    "en": "Members may only claim unassigned tasks for themselves. Ask the coordinator to reassign work."
+  },
+  {
+    "code": "ROOM_IS_ALREADY_ASSIGNED_TO",
+    "zh": "{task} 已经是「{assignee}」负责的了",
+    "en": "{task} is already assigned to \"{assignee}\"."
+  },
+  {
+    "code": "ROOM_CLAIMED",
+    "zh": "{actor_label}认领了 {id}「{title}」。",
+    "en": "{actor_label} claimed {id} \"{title}\"."
+  },
+  {
+    "code": "ROOM_ASSIGNED_TO_276B51",
+    "zh": "{actor_label}把 {id}「{title}」交给了「{assignee_label}」。",
+    "en": "{actor_label} assigned {id} \"{title}\" to \"{assignee_label}\"."
+  },
+  {
+    "code": "ROOM_IS_STILL_WAITING_FOR_TO_FINISH",
+    "zh": "{task} 还在等 {blockers} 完成",
+    "en": "{task} is still waiting for {blockers} to finish."
+  },
+  {
+    "code": "ROOM_STARTED",
+    "zh": "{actor}开始做 {task}「{title}」。",
+    "en": "{actor} started {task} \"{title}\"."
+  },
+  {
+    "code": "ROOM_COMPLETED_7F4502",
+    "zh": "{actor}完成了 {task}「{title}」",
+    "en": "{actor} completed {task} \"{title}\""
+  },
+  {
+    "code": "ROOM_HAS_NO_REMAINING_ASSIGNED_WORK",
+    "zh": "「{title}」手上没有别的活了。",
+    "en": "\"{title}\" has no remaining assigned work."
+  },
+  {
+    "code": "ROOM_ALL_TASKS_ON_THE_BOARD_ARE_COMPLETE",
+    "zh": "任务板上的活都完成了。",
+    "en": "All tasks on the board are complete."
+  },
+  {
+    "code": "ROOM_ALL_PREREQUISITES_FOR_ARE_COMPLETE_START_WITH",
+    "zh": "{id}「{title}」的前置都完成了，可以开工：belfry room task start {id}",
+    "en": "All prerequisites for {id} \"{title}\" are complete. Start with: belfry room task start {id}"
+  },
+  {
+    "code": "ROOM_REOPENED",
+    "zh": "{actor}把 {task}「{title}」退回待开工。",
+    "en": "{actor} reopened {task} \"{title}\"."
+  },
+  {
+    "code": "ROOM_THE_TASK_NOTE_IS_EMPTY",
+    "zh": "备注是空的",
+    "en": "The task note is empty."
+  },
+  {
+    "code": "ROOM_ARCHIVED_0382D7",
+    "zh": "{actor}归档了 {task}「{title}」。",
+    "en": "{actor} archived {task} \"{title}\"."
+  },
+  {
+    "code": "ROOM_THE_MESSAGE_RATE_LIMIT_LOCK_IS_UNAVAILABLE",
+    "zh": "发言记录锁不上，请重启应用后重试",
+    "en": "The message rate-limit lock is unavailable. Restart the app and try again."
+  },
+  {
+    "code": "ROOM_MESSAGE_RATE_LIMIT_REACHED_AT_MOST_PER",
+    "zh": "说太快了：一分钟最多 {max} 条，先把手上的活推进一下",
+    "en": "Message rate limit reached: at most {max} per minute. Continue your current work before sending more."
+  },
+  {
+    "code": "ROOM_REPLY_TO",
+    "zh": "回复 [{id}] {author}：「{text}」",
+    "en": "Reply to [{id}] {author}: \"{text}\""
+  },
+  {
+    "code": "ROOM_THE_UPDATED_TASK_COULD_NOT_BE_FOUND",
+    "zh": "任务刚改完就找不到了",
+    "en": "The updated task could not be found."
+  },
+  {
+    "code": "ROOM_SAVED_TO_THE_TASK_BOARD",
+    "zh": "已记在任务板上。",
+    "en": "Saved to the task board."
+  },
+  {
+    "code": "ROOM_NOTIFICATION_ACCEPTED_FOR_DELIVERY_TO",
+    "zh": "已通知：{recipients}。",
+    "en": "Notification accepted for delivery to: {recipients}."
+  },
+  {
+    "code": "ROOM_THE_SESSION_FOR_NO_LONGER_EXISTS_THE",
+    "zh": "「{title}」的会话已经不在了，消息只记在房间里",
+    "en": "The session for \"{title}\" no longer exists. The message was saved only in the room."
+  },
+  {
+    "code": "ROOM_THE_ROOM_IS_PAUSED_MESSAGES_ARE_SAVED",
+    "zh": "房间暂停中：消息只记在房间里，暂不送进成员终端",
+    "en": "The room is paused. Messages are saved in the room without delivery to member terminals."
+  },
+  {
+    "code": "ROOM_THIS_IS_NOT_A_ROOM_COMMAND",
+    "zh": "这不是房间命令",
+    "en": "This is not a room command."
+  },
+  {
+    "code": "ROOM_REPLY_TO_FF55A6",
+    "zh": "（回复 [{id}] {author}：「{text}」）",
+    "en": " (reply to [{id}] {author}: \"{text}\")"
+  },
+  {
+    "code": "ROOM_NO_RESPONSIBILITIES_SET",
+    "zh": "未写职责",
+    "en": "no responsibilities set"
+  },
+  {
+    "code": "ROOM_ASSIGNED_TASKS",
+    "zh": "{title}（{duty}，手上 {count} 件）",
+    "en": "{title} ({duty}, {count} assigned tasks)"
+  },
+  {
+    "code": "ROOM_AVAILABLE_MEMBERS_BREAK_THE_WORK_INTO_TASKS",
+    "zh": "可以派活的成员：{members}。先拆成任务派出去：belfry room task add <标题> --to <角色>",
+    "en": "Available members: {members}. Break the work into tasks and assign them: belfry room task add <title> --to <role>"
+  },
+  {
+    "code": "ROOM_THE_APP_DATA_DIRECTORY_WAS_NOT_FOUND",
+    "zh": "找不到应用数据目录，房间无法保存。",
+    "en": "The app data directory was not found. Rooms cannot be saved."
+  },
+  {
+    "code": "ROOM_THE_ROOM_STORAGE_LOCK_IS_UNAVAILABLE_RESTART",
+    "zh": "房间存储锁不上，请重启应用后重试。",
+    "en": "The room storage lock is unavailable. Restart the app and try again."
+  },
+  {
+    "code": "ROOM_ROOM_STORAGE_IS_CURRENTLY_UNREADABLE",
+    "zh": "房间存储当前不可读",
+    "en": "Room storage is currently unreadable."
+  },
+  {
+    "code": "ROOM_ROOM_NAMES_MAY_CONTAIN_AT_MOST_CHARACTERS",
+    "zh": "房间名最多 {max} 个字",
+    "en": "Room names may contain at most {max} characters."
+  },
+  {
+    "code": "ROOM_A_ROOM_MUST_BELONG_TO_A_PROJECT",
+    "zh": "房间要挂在一个项目上",
+    "en": "A room must belong to a project."
+  },
+  {
+    "code": "ROOM_THE_ATTACHMENT_STORAGE_DIRECTORY_WAS_NOT_FOUND",
+    "zh": "找不到附件存储目录",
+    "en": "The attachment storage directory was not found."
+  },
+  {
+    "code": "ROOM_YOU_ARE_NOT_A_MEMBER_OF_THIS",
+    "zh": "你不在这间房里",
+    "en": "You are not a member of this room."
+  },
+  {
+    "code": "ROOM_ROOM_STORAGE_IS_CURRENTLY_READ_ONLY",
+    "zh": "房间存储当前不可写",
+    "en": "Room storage is currently read-only."
+  },
+  {
+    "code": "ROOM_ANOTHER_APP_INSTANCE_UPDATED_THIS_ROOM_RELOAD",
+    "zh": "房间已被另一应用实例更新，请重新加载后再操作；本次修改未提交。",
+    "en": "Another app instance updated this room. Reload before trying again; this change was not committed."
+  },
+  {
+    "code": "ROOM_THE_ROOM_REVISION_COUNTER_HAS_OVERFLOWED",
+    "zh": "房间提交版本溢出",
+    "en": "The room revision counter has overflowed."
+  },
+  {
+    "code": "ROOM_FAILED_TO_SERIALIZE_ROOM_STORAGE",
+    "zh": "房间存储序列化失败：{error}",
+    "en": "Failed to serialize room storage: {error}"
+  },
+  {
+    "code": "ROOM_FAILED_TO_READ_ROOM_STORAGE",
+    "zh": "房间存储读取失败：{error}",
+    "en": "Failed to read room storage: {error}"
+  },
+  {
+    "code": "ROOM_FAILED_TO_PARSE_ROOM_STORAGE_IT_HAS",
+    "zh": "房间存储解析失败：{error}；已按只读处理。",
+    "en": "Failed to parse room storage: {error}. It has been opened read-only."
+  },
+  {
+    "code": "ROOM_ROOM_STORAGE_VERSION_IS_NOT_SUPPORTED_MAXIMUM",
+    "zh": "房间存储版本是 {version}，当前版本只认识 {supported}；已按只读处理，请在更新前保留原文件。",
+    "en": "Room storage version {version} is not supported (maximum: {supported}). It has been opened read-only. Keep the original file before updating."
+  },
+  {
+    "code": "ROOM_THE_ROOM_IS_MISSING_ITS_COMMITTED_LEDGER",
+    "zh": "房间缺少账本提交游标，已按只读处理",
+    "en": "The room is missing its committed ledger offset. It has been opened read-only."
+  },
+  {
+    "code": "ROOM_THE_MESSAGE_LEDGER_IS_SHORTER_THAN_ITS",
+    "zh": "消息账本短于已提交游标，已保留现场",
+    "en": "The message ledger is shorter than its committed offset. The existing data has been preserved."
+  },
+  {
+    "code": "ROOM_FAILED_TO_READ_THE_ROOM_MESSAGE_LEDGER",
+    "zh": "房间消息账本读取失败：{error}",
+    "en": "Failed to read the room message ledger: {error}"
+  },
+  {
+    "code": "ROOM_THE_ROOM_SNAPSHOT_DOES_NOT_MATCH_ITS",
+    "zh": "房间投影与账本提交游标不一致，已按只读处理",
+    "en": "The room snapshot does not match its committed ledger offset. It has been opened read-only."
+  },
+  {
+    "code": "ROOM_YOU_ARE_NOT_IN_ANY_COLLABORATION_ROOMS",
+    "zh": "你不在任何协作房间里——被用户拉进房间之后才能用 belfry room",
+    "en": "You are not in any collaboration rooms. The user must add you to a room before you can use belfry room."
+  },
+  {
+    "code": "ROOM_YOU_BELONG_TO_ROOMS_SELECT_ONE_WITH",
+    "zh": "你在 {count} 间房里，用 --room 写明哪一间：{names}",
+    "en": "You belong to {count} rooms. Select one with --room: {names}"
+  },
+  {
+    "code": "ROOM_YOU_DO_NOT_BELONG_TO_A_ROOM",
+    "zh": "你的房间里没有「{hint}」；用 belfry rooms 看看你在哪几间",
+    "en": "You do not belong to a room named \"{hint}\". Run belfry rooms to list your rooms."
+  },
+  {
+    "code": "ROOM_MULTIPLE_ROOMS_MATCH_USE_A_MORE_COMPLETE",
+    "zh": "有多间房匹配「{hint}」，把名字写全一点",
+    "en": "Multiple rooms match \"{hint}\". Use a more complete name."
+  },
+  {
+    "code": "COLLAB_THE_INSTRUCTION_IS_EMPTY",
+    "zh": "指令是空的",
+    "en": "The instruction is empty."
+  },
+  {
+    "code": "COLLAB_YOU_CANNOT_ASSIGN_WORK_TO_YOURSELF",
+    "zh": "不能给自己派活",
+    "en": "You cannot assign work to yourself."
+  },
+  {
+    "code": "COLLAB_THE_TARGET_SESSION_NO_LONGER_EXISTS",
+    "zh": "目标会话不在了",
+    "en": "The target session no longer exists."
+  },
+  {
+    "code": "COLLAB_THE_TARGET_SESSION_CANNOT_RECEIVE_INSTRUCTIONS_IT",
+    "zh": "目标会话现在收不了指令（不是 Agent，或已退出）",
+    "en": "The target session cannot receive instructions: it is not an Agent session, or it has exited."
+  },
+  {
+    "code": "COLLAB_WORK_CANNOT_BE_ASSIGNED_ACROSS_PROJECTS",
+    "zh": "不能跨项目派活",
+    "en": "Work cannot be assigned across projects."
+  },
+  {
+    "code": "COLLAB_DELEGATION_EXCEEDS_THE_MAXIMUM_DEPTH_OF_HOPS",
+    "zh": "转包层数超过上限（{max} 手）",
+    "en": "Delegation exceeds the maximum depth of {max} hops."
+  },
+  {
+    "code": "COLLAB_THE_TARGET_SESSION_IS_ALREADY_IN_THIS",
+    "zh": "这条调用链里已经有目标会话了，会绕成环",
+    "en": "The target session is already in this delegation chain. This would create a cycle."
+  },
+  {
+    "code": "COLLAB_THIS_RUN_HAS_REACHED_ITS_LIMIT_OF",
+    "zh": "这一轮的消息数已达上限（{max} 条）",
+    "en": "This run has reached its limit of {max} messages."
+  },
+  {
+    "code": "COLLAB_A_MESSAGE_REQUIRES_YOUR_REPLY_BELFRY_ROOM",
+    "zh": "有消息要求你回复：belfry room say --reply <短id> <你的话>",
+    "en": "A message requires your reply: belfry room say --reply <short-id> <text>"
+  },
+  {
+    "code": "COLLAB_TO_RESPOND_RUN_BELFRY_ROOM_SAY_TEXT",
+    "zh": "要接话用 belfry room say <你的话>（回复某条加 --reply <短id>）；没有要补充的不必回复。",
+    "en": "To respond, run belfry room say <text> (add --reply <short-id> to reply to a message). No reply is needed if you have nothing to add."
+  },
+  {
+    "code": "COLLAB_BELFRY_ROOM",
+    "zh": "[belfry] 房间「{from_label}」：\n{instruction}\n{footer}",
+    "en": "[belfry] Room \"{from_label}\":\n{instruction}\n{footer}"
+  },
+  {
+    "code": "COLLAB_BELFRY_TASK_FROM_WHEN_FINISHED_RUN_BELFRY",
+    "zh": "[belfry] 来自「{from_label}」的任务 {id}\n{instruction}\n完成后执行：belfry done {id}",
+    "en": "[belfry] Task {id} from \"{from_label}\"\n{instruction}\nWhen finished, run: belfry done {id}"
+  },
+  {
+    "code": "COLLAB_THE_ROOM_DIRECTORY_IS_NOT_READY_TRY",
+    "zh": "房间目录还没就绪，稍后再试",
+    "en": "The room directory is not ready. Try again shortly."
+  },
+  {
+    "code": "COLLAB_THE_RESPONSE_EXCEEDS_THE_MIB_LIMIT_NARROW",
+    "zh": "响应超过 1 MiB 上限，请减少查询范围",
+    "en": "The response exceeds the 1 MiB limit. Narrow the query."
+  },
+  {
+    "code": "COLLAB_INVALID_REQUEST_FORMAT",
+    "zh": "请求格式不对：{error}",
+    "en": "Invalid request format: {error}"
+  },
+  {
+    "code": "COLLAB_THE_BELFRY_CLI_AND_APP_VERSIONS_DO",
+    "zh": "belfry 命令行版本与应用不匹配（协议 {client} vs {server}），请更新后重试",
+    "en": "The belfry CLI and app versions do not match (protocol {client} vs {server}). Update and try again."
+  },
+  {
+    "code": "COLLAB_AUTHENTICATION_FAILED_THIS_SESSION_IS_NOT_AUTHORIZED",
+    "zh": "身份校验失败：这条会话不能通过 belfry 说话",
+    "en": "Authentication failed. This session is not authorized to use belfry."
+  },
+  {
+    "code": "COLLAB_ROOM",
+    "zh": "房间「{name}」",
+    "en": "Room \"{name}\""
+  },
+  {
+    "code": "COLLAB_TASK_WAS_NOT_FOUND_RUN_BELFRY_INBOX",
+    "zh": "没有编号 {short} 的任务，用 belfry inbox 看看",
+    "en": "Task {short} was not found. Run belfry inbox to check your tasks."
+  },
+  {
+    "code": "COLLAB_THE_TASK_STORAGE_DIRECTORY_WAS_NOT_FOUND",
+    "zh": "找不到任务存储目录",
+    "en": "The task storage directory was not found."
+  },
+  {
+    "code": "COLLAB_THE_APP_RESTARTED_DURING_SUBMISSION_TERMINAL_DELIVERY",
+    "zh": "应用在提交期间重启，无法确认是否已进入终端；未自动重复投递。",
+    "en": "The app restarted during submission. Terminal delivery is uncertain; the task has not been submitted again automatically."
+  },
+  {
+    "code": "COLLAB_THE_TASK_BOARD_LOCK_IS_UNAVAILABLE",
+    "zh": "任务表锁不上",
+    "en": "The task board lock is unavailable."
+  },
+  {
+    "code": "COLLAB_ANOTHER_APP_INSTANCE_UPDATED_THE_TASK_BOARD",
+    "zh": "任务表已被另一实例更新，请重新加载；本次操作未提交。",
+    "en": "Another app instance updated the task board. Reload before retrying; this operation was not committed."
+  },
+  {
+    "code": "COLLAB_THE_TASK_REVISION_COUNTER_HAS_OVERFLOWED",
+    "zh": "任务版本溢出",
+    "en": "The task revision counter has overflowed."
+  },
+  {
+    "code": "COLLAB_THE_TASK_ID_ALREADY_EXISTS_NO_TASK",
+    "zh": "任务编号重复，未创建任务",
+    "en": "The task ID already exists. No task was created."
+  },
+  {
+    "code": "COLLAB_THE_DELIVERY_RECEIPT_ID_IS_INVALID",
+    "zh": "投递回执编号无效",
+    "en": "The delivery receipt ID is invalid."
+  },
+  {
+    "code": "COLLAB_THE_DELIVERY_EXPLANATION_EXCEEDS_THE_SIZE_LIMIT",
+    "zh": "投递说明超过限制",
+    "en": "The delivery explanation exceeds the size limit."
+  },
+  {
+    "code": "COLLAB_SUBMISSION_INTENT_HAS_NOT_BEEN_PERSISTED_A",
+    "zh": "缺少已持久化的提交意图，不能把排队标为已提交",
+    "en": "Submission intent has not been persisted. A queued task cannot be marked submitted."
+  },
+  {
+    "code": "COLLAB_USE_THE_DELIVERY_RELEASE_COMMAND",
+    "zh": "请使用释放投递接口",
+    "en": "Use the delivery release command."
+  },
+  {
+    "code": "COLLAB_TASK_WAS_NOT_FOUND",
+    "zh": "没有编号 {id} 的任务",
+    "en": "Collaboration task {id} was not found."
+  },
+  {
+    "code": "COLLAB_THIS_TASK_IS_NOT_ASSIGNED_TO_YOU",
+    "zh": "这条任务不是派给你的",
+    "en": "This task is not assigned to you."
+  },
+  {
+    "code": "COLLAB_THIS_TASK_HAS_ALREADY_BEEN_SETTLED",
+    "zh": "这条任务已经结了",
+    "en": "This task has already been settled."
+  },
+  {
+    "code": "COLLAB_THIS_TASK_IS_NOT_AWAITING_APPROVAL",
+    "zh": "这条任务不在等确认",
+    "en": "This task is not awaiting approval."
+  },
+  {
+    "code": "COLLAB_THE_USER_REJECTED_THIS_TASK_ASSIGNMENT",
+    "zh": "用户拒绝了这条派活",
+    "en": "The user rejected this task assignment."
+  },
+  {
+    "code": "COLLAB_THE_USER_STOPPED_COLLABORATION",
+    "zh": "用户中止了协作",
+    "en": "The user stopped collaboration."
+  },
+  {
+    "code": "COLLAB_THE_TARGET_SESSION_WAS_CLOSED",
+    "zh": "目标会话已关闭",
+    "en": "The target session was closed."
+  },
+  {
+    "code": "COLLAB_THE_TASK_FILE_IS_INVALID_THE_ORIGINAL",
+    "zh": "任务文件无效，已保留现场：{error}",
+    "en": "The task file is invalid. The original data has been preserved: {error}"
+  },
+  {
+    "code": "COLLAB_THIS_TASK_FILE_VERSION_IS_NOT_SUPPORTED",
+    "zh": "任务文件版本不支持，已按只读处理",
+    "en": "This task file version is not supported. It has been opened read-only."
+  },
+  {
+    "code": "CLI_DO_NOT_SWITCH_TO_BELFRY_SEND_FOR",
+    "zh": "{message}\n不要改用 belfry send 派房间任务，它不会写入房间任务板。恢复后先运行 belfry room status 核对，再拆解并创建任务。",
+    "en": "{message}\nDo not switch to belfry send for room tasks; it does not update the room task board. After recovery, run belfry room status before creating tasks."
+  },
+  {
+    "code": "CLI_ROOM_COMMANDS_ARE_INCOMPATIBLE_WITH_THE_APP",
+    "zh": "{message}\n房间命令与当前应用或常驻后台的协议不兼容。请向用户报告原始错误；更新并重新打开 Belfry 应用后先用 belfry room status 核对，终端后台无需重启。\n不要改用 belfry send 派房间任务，它不会写入房间任务板。响应失败时写入结果可能未知，先核对任务板，不要自动重复创建任务。",
+    "en": "{message}\nRoom commands are incompatible with the app or background service protocol. Report the original error to the user. Update and reopen Belfry, then check belfry room status; the terminal service does not need restarting.\nDo not switch to belfry send for room tasks; it does not update the room task board. A failed response may leave the write result uncertain. Check the board before creating more tasks; do not automatically create duplicates."
+  },
+  {
+    "code": "CLI_NO_TASK_STATUS_HAS_BEEN_RECEIVED_COMPLETION",
+    "zh": "尚未收到任务状态，任务未完成确认。",
+    "en": "No task status has been received. Completion is unconfirmed."
+  },
+  {
+    "code": "CLI_THE_TASK_IS_STILL_UNSETTLED_AFTER_SECONDS",
+    "zh": "等了 {seconds} 秒它还没结。{latest}\n要接着等就再敲一次 belfry wait。",
+    "en": "The task is still unsettled after {seconds} seconds. {latest}\nRun belfry wait again to continue waiting."
+  },
+  {
+    "code": "CLI_TASK_COMPLETION_IS_UNCONFIRMED",
+    "zh": "任务未完成确认。{latest}\n{error}",
+    "en": "Task completion is unconfirmed. {latest}\n{error}"
+  },
+  {
+    "code": "CLI_THE_TASK_IS_STILL_UNSETTLED_AFTER_SECONDS_9C1A47",
+    "zh": "等了 {seconds} 秒它还没结。{status}\n要接着等就再敲一次 belfry wait（不加 --timeout 就一直等）。",
+    "en": "The task is still unsettled after {seconds} seconds. {status}\nRun belfry wait again to continue waiting (omit --timeout to wait indefinitely)."
+  },
+  {
+    "code": "CLI_REQUIRES_A_VALUE",
+    "zh": "{arg} 后面要跟一个值",
+    "en": "{arg} requires a value."
+  },
+  {
+    "code": "CLI_UNKNOWN_OPTION_RUN_BELFRY_HELP_FOR_USAGE",
+    "zh": "不认识的参数 `{arg}`，用 belfry help 看看",
+    "en": "Unknown option `{arg}`. Run belfry help for usage."
+  },
+  {
+    "code": "CLI_COUNT_REQUIRES_A_MESSAGE_COUNT_RECEIVED",
+    "zh": "--count 要是条数，收到的是 `{raw}`",
+    "en": "--count requires a message count; received `{raw}`."
+  },
+  {
+    "code": "CLI_EXPECTED_STATUS_SAY_LOG_TASK_OR_BRIEF",
+    "zh": "belfry room 后面要写 status、say、log、task 或 brief。\n\n{usage}",
+    "en": "Expected status, say, log, task, or brief after belfry room.\n\n{usage}"
+  },
+  {
+    "code": "CLI_BELFRY_ROOM_SAY_REQUIRES_A_MESSAGE_FOR",
+    "zh": "belfry room say 要说点什么，比如：belfry room say @后端 接口定了吗",
+    "en": "belfry room say requires a message, for example: belfry room say @backend Is the API ready?"
+  },
+  {
+    "code": "CLI_SPECIFY_A_TASK_ID_SUCH_AS_T",
+    "zh": "要写任务号（比如 T1），用 belfry room status 看任务板",
+    "en": "Specify a task ID such as T1. Run belfry room status to view the task board."
+  },
+  {
+    "code": "CLI_BELFRY_ROOM_TASK_ADD_REQUIRES_A_TASK",
+    "zh": "belfry room task add 要写任务标题",
+    "en": "belfry room task add requires a task title."
+  },
+  {
+    "code": "CLI_BELFRY_ROOM_TASK_ASSIGN_REQUIRES_AN_ASSIGNEE",
+    "zh": "belfry room task assign 要写交给谁：belfry room task assign T1 前端",
+    "en": "belfry room task assign requires an assignee, for example: belfry room task assign T1 frontend"
+  },
+  {
+    "code": "CLI_BELFRY_ROOM_TASK_NOTE_REQUIRES_A_PROGRESS",
+    "zh": "belfry room task note 要写进展：belfry room task note T1 接口已联调",
+    "en": "belfry room task note requires a progress update, for example: belfry room task note T1 API integration verified"
+  },
+  {
+    "code": "CLI_EXPECTED_ADD_START_DONE_ASSIGN_NOTE_REOPEN",
+    "zh": "belfry room task 后面要写 add、start、done、assign、note、reopen 或 archive",
+    "en": "Expected add, start, done, assign, note, reopen, or archive after belfry room task."
+  },
+  {
+    "code": "CLI_TIMEOUT_REQUIRES_A_NUMBER_OF_SECONDS",
+    "zh": "--timeout 后面要跟秒数",
+    "en": "--timeout requires a number of seconds."
+  },
+  {
+    "code": "CLI_TIMEOUT_REQUIRES_A_NUMBER_OF_SECONDS_RECEIVED",
+    "zh": "--timeout 要是秒数，收到的是 `{raw}`",
+    "en": "--timeout requires a number of seconds; received `{raw}`."
+  },
+  {
+    "code": "CLI_TIMEOUT_MUST_BE_AT_LEAST_SECOND",
+    "zh": "--timeout 至少 1 秒",
+    "en": "--timeout must be at least 1 second."
+  },
+  {
+    "code": "CLI_BELFRY_WAIT_ACCEPTS_ONE_TASK_ONLY_UNEXPECTED",
+    "zh": "belfry wait 只等一条任务，多出来的是 `{arg}`",
+    "en": "belfry wait accepts one task only; unexpected argument `{arg}`."
+  },
+  {
+    "code": "CLI_BELFRY_WAIT_REQUIRES_A_TASK_ID_RUN",
+    "zh": "belfry wait 需要任务号，用 belfry inbox 查",
+    "en": "belfry wait requires a task ID. Run belfry inbox to find it."
+  },
+  {
+    "code": "CLI_PARENT_REQUIRES_A_TASK_ID",
+    "zh": "--parent 后面要跟任务号",
+    "en": "--parent requires a task ID."
+  },
+  {
+    "code": "CLI_BELFRY_SEND_REQUIRES_A_TARGET_RUN_BELFRY",
+    "zh": "belfry send 需要一个目标，用 belfry peers 看看有谁",
+    "en": "belfry send requires a target. Run belfry peers to list sessions."
+  },
+  {
+    "code": "CLI_BELFRY_SEND_REQUIRES_AN_INSTRUCTION",
+    "zh": "belfry send 需要一条指令",
+    "en": "belfry send requires an instruction."
+  },
+  {
+    "code": "CLI_BELFRY_DONE_REQUIRES_A_TASK_ID_RUN",
+    "zh": "belfry done 需要任务号，用 belfry inbox 查",
+    "en": "belfry done requires a task ID. Run belfry inbox to find it."
+  },
+  {
+    "code": "CLI_BELFRY_FAIL_REQUIRES_A_TASK_ID_RUN",
+    "zh": "belfry fail 需要任务号，用 belfry inbox 查",
+    "en": "belfry fail requires a task ID. Run belfry inbox to find it."
+  },
+  {
+    "code": "CLI_BELFRY_FAIL_REQUIRES_A_REASON_THE_SENDER",
+    "zh": "belfry fail 要说明原因：派活那边只能看到你写的这句",
+    "en": "belfry fail requires a reason. The sender will see the explanation you provide."
+  },
+  {
+    "code": "CLI_THIS_IS_NOT_A_BELFRY_AGENT_SESSION",
+    "zh": "这里不是 Belfry 的 Agent 会话（缺少身份信息），belfry 命令只在那里面能用",
+    "en": "This is not a Belfry Agent session (identity information is missing). Run belfry inside a hosted Agent session."
+  },
+  {
+    "code": "CLI_THE_BELFRY_COLLABORATION_SERVICE_IS_UNAVAILABLE_THIS",
+    "zh": "Belfry 的协作服务没有启动，这个会话没法和别的会话通信",
+    "en": "The Belfry collaboration service is unavailable. This session cannot communicate with other sessions."
+  },
+  {
+    "code": "CLI_INVALID_TASK_ID_USE_BELFRY_ROOM_COMMANDS",
+    "zh": "任务编号无效：房间操作请使用 belfry room 命令",
+    "en": "Invalid task ID. Use belfry room commands for room operations."
+  },
+  {
+    "code": "CLI_INCOMPATIBLE_ROOM_PROTOCOL_THE_APP_DID_NOT",
+    "zh": "协作房间协议不兼容：当前应用未能确认房间兼容通道，本次房间操作未发送。\n{message}\n请更新并重新打开 Belfry 应用后重试，现有终端后台无需重启。",
+    "en": "Incompatible room protocol: the app did not confirm a compatible room channel, so this operation was not sent.\n{message}\nUpdate and reopen Belfry before retrying; the existing terminal service does not need restarting."
+  },
+  {
+    "code": "CLI_THE_APP_DID_NOT_ADVERTISE_ROOM_PROTOCOL",
+    "zh": "应用未声明房间协议能力",
+    "en": "The app did not advertise room protocol support."
+  },
+  {
+    "code": "CLI_FAILED_TO_SERIALIZE_THE_REQUEST",
+    "zh": "请求序列化失败：{error}",
+    "en": "Failed to serialize the request: {error}"
+  },
+  {
+    "code": "CLI_THE_REQUEST_EXCEEDS_THE_MIB_LIMIT",
+    "zh": "请求超过 1 MiB 上限",
+    "en": "The request exceeds the 1 MiB limit."
+  },
+  {
+    "code": "CLI_CANNOT_CONNECT_TO_BELFRY",
+    "zh": "连不上 Belfry：{error}",
+    "en": "Cannot connect to Belfry: {error}"
+  },
+  {
+    "code": "CLI_FAILED_TO_SEND_THE_REQUEST",
+    "zh": "发不出去：{error}",
+    "en": "Failed to send the request: {error}"
+  },
+  {
+    "code": "CLI_NO_RESPONSE_RECEIVED",
+    "zh": "没收到回应：{error}",
+    "en": "No response received: {error}"
+  },
+  {
+    "code": "CLI_THE_RESPONSE_EXCEEDS_THE_MIB_LIMIT",
+    "zh": "回应超过 1 MiB 上限",
+    "en": "The response exceeds the 1 MiB limit."
+  },
+  {
+    "code": "CLI_THE_RESPONSE_IS_INCOMPLETE_AND_THE_RESULT",
+    "zh": "回应不完整，结果未知；请先查询状态，勿自动重复写入",
+    "en": "The response is incomplete and the result is uncertain. Check the current status before retrying; do not automatically repeat writes."
+  },
+  {
+    "code": "CLI_INVALID_RESPONSE",
+    "zh": "回应看不懂：{error}",
+    "en": "Invalid response: {error}"
+  },
+  {
+    "code": "CLI_AWAITING_USER_APPROVAL_NOT_DELIVERED",
+    "zh": "还等用户点头，没送出去",
+    "en": "awaiting user approval; not delivered"
+  },
+  {
+    "code": "CLI_ACCEPTED_NOT_YET_QUEUED_FOR_TERMINAL_DELIVERY",
+    "zh": "已受理，尚未进入终端投递队列",
+    "en": "accepted; not yet queued for terminal delivery"
+  },
+  {
+    "code": "CLI_QUEUED_WAITING_FOR_THE_RECIPIENT_TO_BECOME",
+    "zh": "已排队，等对方空闲",
+    "en": "queued; waiting for the recipient to become available"
+  },
+  {
+    "code": "CLI_SUBMITTING_TO_THE_TERMINAL_NO_SUBMISSION_RECEIPT",
+    "zh": "正在提交到终端，尚未收到提交回执",
+    "en": "submitting to the terminal; no submission receipt yet"
+  },
+  {
+    "code": "CLI_SUBMISSION_UNCERTAIN_CHECK_THE_TARGET_TERMINAL_NO",
+    "zh": "提交结果不确定，请核对目标终端；未自动重复投递",
+    "en": "submission uncertain; check the target terminal; no automatic resubmission"
+  },
+  {
+    "code": "CLI_DELIVERY_CANCELLED",
+    "zh": "投递已取消",
+    "en": "delivery cancelled"
+  },
+  {
+    "code": "CLI_SUBMITTED_TO_THE_RECIPIENT_TERMINAL_NO_COMPLETION",
+    "zh": "已送到对方终端，它还没交差",
+    "en": "submitted to the recipient terminal; no completion report yet"
+  },
+  {
+    "code": "CLI_THE_RECIPIENT_REPORTED_THAT_IT_CANNOT_COMPLETE",
+    "zh": "对方说做不了",
+    "en": "the recipient reported that it cannot complete the task"
+  },
+  {
+    "code": "CLI_ABANDONED_THE_RECIPIENT_SESSION_ENDED_OR_WAS",
+    "zh": "已作废（对方会话没了或被中止）",
+    "en": "abandoned (the recipient session ended or was stopped)"
+  },
+  {
+    "code": "CLI_REPLY_REQUIRED",
+    "zh": "  ← 等你回复",
+    "en": "  <- reply required"
+  },
+  {
+    "code": "CLI_UNASSIGNED",
+    "zh": "没人负责",
+    "en": "unassigned"
+  },
+  {
+    "code": "CLI_WAITING_FOR_TO_FINISH",
+    "zh": " 等 {tasks} 完成",
+    "en": " waiting for {tasks} to finish"
+  },
+  {
+    "code": "CLI_COMPLETION_CRITERIA",
+    "zh": "\n    完成标准：{outcome}",
+    "en": "\n    Completion criteria: {outcome}"
+  },
+  {
+    "code": "CLI_RESULT",
+    "zh": "\n    结果：{result}",
+    "en": "\n    Result: {result}"
+  },
+  {
+    "code": "CLI_LATEST_PROGRESS",
+    "zh": "\n    最近进展：{last}",
+    "en": "\n    Latest progress: {last}"
+  },
+  {
+    "code": "CLI_ROOM_I_AM",
+    "zh": "房间「{room}」，我是{role}「{title}」",
+    "en": "Room \"{room}\"; I am {role} \"{title}\""
+  },
+  {
+    "code": "CLI_BRIEF",
+    "zh": "需求简报",
+    "en": "Brief"
+  },
+  {
+    "code": "CLI_ME",
+    "zh": "（我）",
+    "en": " (me)"
+  },
+  {
+    "code": "CLI_THE_TASK_BOARD_IS_EMPTY_ASSIGN_WORK",
+    "zh": "任务板是空的。拆活：belfry room task add <标题> --to <角色>",
+    "en": "The task board is empty. Assign work with: belfry room task add <title> --to <role>"
+  },
+  {
+    "code": "CLI_THE_TASK_BOARD_IS_EMPTY_WAIT_FOR",
+    "zh": "任务板是空的，等统筹派活。",
+    "en": "The task board is empty. Wait for the coordinator to assign work."
+  },
+  {
+    "code": "CLI_TASK_BOARD",
+    "zh": "任务板",
+    "en": "Task board"
+  },
+  {
+    "code": "CLI_REPLIES_REQUIRED_BELFRY_ROOM_SAY_REPLY_ID",
+    "zh": "等你回复（belfry room say --reply <id> <话>）",
+    "en": "Replies required (belfry room say --reply <id> <text>)"
+  },
+  {
+    "code": "CLI_THERE_ARE_NO_OTHER_SESSIONS",
+    "zh": "现在没有别的会话",
+    "en": "There are no other sessions."
+  },
+  {
+    "code": "CLI_UNNAMED",
+    "zh": "(未命名)",
+    "en": "(unnamed)"
+  },
+  {
+    "code": "CLI_MY_SESSION",
+    "zh": "（我自己）",
+    "en": "(my session)"
+  },
+  {
+    "code": "CLI_NAME_THIS_SESSION_IN_THE_SIDEBAR_BEFORE",
+    "zh": "要派活得先在侧栏给它起个名字",
+    "en": "name this session in the sidebar before assigning work"
+  },
+  {
+    "code": "CLI_AVAILABLE_FOR_ASSIGNMENTS",
+    "zh": "{activity} · 可以派活",
+    "en": "{activity} - available for assignments"
+  },
+  {
+    "code": "CLI_UNAVAILABLE",
+    "zh": "{activity} · 现在收不了",
+    "en": "{activity} - unavailable"
+  },
+  {
+    "code": "CLI_YOU_ARE_NOT_IN_ANY_COLLABORATION_ROOMS",
+    "zh": "你不在任何协作房间里。房间由用户在界面上搭好，把你拉进去之后才用得上 belfry room。",
+    "en": "You are not in any collaboration rooms. The user creates rooms in the app and adds sessions; then you can use belfry room."
+  },
+  {
+    "code": "CLI_ROOM_I_AM_5FE048",
+    "zh": "房间「{room}」：我是{role}「{title}」",
+    "en": "Room \"{room}\": I am {role} \"{title}\""
+  },
+  {
+    "code": "CLI_RESPONSIBILITIES",
+    "zh": "  职责：{duty}",
+    "en": "  Responsibilities: {duty}"
+  },
+  {
+    "code": "CLI_COORDINATOR",
+    "zh": "  统筹：{coordinator}",
+    "en": "  Coordinator: {coordinator}"
+  },
+  {
+    "code": "CLI_NOT_ASSIGNED",
+    "zh": "还没定",
+    "en": "not assigned"
+  },
+  {
+    "code": "CLI_OBJECTIVE",
+    "zh": "  目标：{objective}",
+    "en": "  Objective: {objective}"
+  },
+  {
+    "code": "CLI_OPEN_TASKS_REPLIES_REQUIRED",
+    "zh": "  没完成的任务 {tasks} 条；等我回复的消息 {replies} 条",
+    "en": "  Open tasks: {tasks}; replies required: {replies}"
+  },
+  {
+    "code": "CLI_RUN_BELFRY_ROOM_STATUS_FOR_THE_FULL",
+    "zh": "\n\n全貌用 belfry room status。",
+    "en": "\n\nRun belfry room status for the full picture."
+  },
+  {
+    "code": "CLI_SAVED_TO_ROOM_RECIPIENTS_TERMINAL_DELIVERY_IS",
+    "zh": "已发到房间「{room}」[{message}]，收件人：{recipients}。",
+    "en": "Saved to room \"{room}\" [{message}], recipients: {recipients}. Terminal delivery is pending."
+  },
+  {
+    "code": "CLI_THE_REPLY_REQUEST_STAYS_OPEN_UNTIL_EACH",
+    "zh": "对方回复之前会一直挂着「等你回复」。",
+    "en": " The reply request stays open until each recipient responds."
+  },
+  {
+    "code": "CLI_ROOM_HAS_NO_MESSAGES_YET",
+    "zh": "房间「{room}」还没有消息。",
+    "en": "Room \"{room}\" has no messages yet."
+  },
+  {
+    "code": "CLI_RECENT_MESSAGES_IN_ROOM_REPLY_WITH_BELFRY",
+    "zh": "房间「{room}」最近的对话（回复某条：belfry room say --reply <id> <话>）：",
+    "en": "Recent messages in room \"{room}\" (reply with belfry room say --reply <id> <text>):"
+  },
+  {
+    "code": "CLI_THE_BRIEF_FOR_ROOM_WAS_UPDATED_NOTIFICATIONS",
+    "zh": "房间「{room}」的需求简报已更新，成员都会收到通知。\n{brief}",
+    "en": "The brief for room \"{room}\" was updated. Notifications are queued for members.\n{brief}"
+  },
+  {
+    "code": "CLI_TASK_WAS_PROPOSED_FOR_DELIVERY_REQUIRES_USER",
+    "zh": "任务 {task} 已提交给「{to}」，等用户确认后才会送达",
+    "en": "Task {task} was proposed for \"{to}\". Delivery requires user approval."
+  },
+  {
+    "code": "CLI_TASK_WAS_ACCEPTED_FOR_AND_IS_AWAITING",
+    "zh": "任务 {task} 已受理，等待投递给「{to}」（目标空闲时自动提交；受理不等于已开始处理）",
+    "en": "Task {task} was accepted for \"{to}\" and is awaiting delivery. It will be submitted when the target is available; acceptance does not mean work has started."
+  },
+  {
+    "code": "CLI_TASK_HAS_BEEN_SETTLED",
+    "zh": "任务 {task} 已结",
+    "en": "Task {task} has been settled."
+  },
+  {
+    "code": "CLI_TASK",
+    "zh": "任务 {task} {state}",
+    "en": "Task {task}: {state}"
+  },
+  {
+    "code": "CLI_NO_TASKS_HAVE_BEEN_ASSIGNED_TO_YOU",
+    "zh": "没有派给你的任务",
+    "en": "No tasks have been assigned to you."
+  },
+  {
+    "code": "CLI_FROM",
+    "zh": "{id}  来自 {sender}  [{state}]\n    {instruction}",
+    "en": "{id}  from {sender}  [{state}]\n    {instruction}"
+  },
+  {
+    "code": "COLLAB_SPECIFY_A_TARGET_SESSION",
+    "zh": "要指定派给谁",
+    "en": "Specify a target session."
+  },
+  {
+    "code": "COLLAB_THE_SESSION_REGISTRY_IS_UNAVAILABLE",
+    "zh": "会话名册读不到",
+    "en": "The session registry is unavailable."
+  },
+  {
+    "code": "COLLAB_MULTIPLE_SESSIONS_ARE_NAMED_GIVE_THEM_UNIQUE",
+    "zh": "「{query}」对应多条会话，先在侧栏把名字改成不重复的",
+    "en": "Multiple sessions are named \"{query}\". Give them unique names in the sidebar first."
+  },
+  {
+    "code": "COLLAB_NO_OTHER_SESSIONS_CAN_RECEIVE_ASSIGNMENTS_RIGHT",
+    "zh": "现在没有别的会话可以派活",
+    "en": "No other sessions can receive assignments right now."
+  },
+  {
+    "code": "COLLAB_NO_SESSION_IS_NAMED",
+    "zh": "找不到叫「{query}」的会话。",
+    "en": "No session is named \"{query}\"."
+  },
+  {
+    "code": "COLLAB_AVAILABLE_SESSIONS",
+    "zh": "能派的有：{sessions}。",
+    "en": "Available sessions: {sessions}."
+  },
+  {
+    "code": "COLLAB_THERE_ARE_ALSO_UNNAMED_SESSIONS_NAME_THEM",
+    "zh": "另有 {unnamed} 条还没起名字，要派给它得先在侧栏命名。",
+    "en": "There are also {unnamed} unnamed sessions. Name them in the sidebar before assigning work."
+  },
+  {
+    "code": "COLLAB_RUN_BELFRY_PEERS_FOR_DETAILS",
+    "zh": "用 belfry peers 看详情。",
+    "en": "Run belfry peers for details."
+  },
+  {
+    "code": "COLLAB_THE_LEGACY_RECEIPT_HAS_NO_PTY_SUBMITTED",
+    "zh": "旧回执没有 PTY submitted 证据，请更新前端投递协议",
+    "en": "The legacy receipt has no PTY submitted evidence. Update the frontend delivery protocol."
+  },
+  {
+    "code": "COLLAB_THE_ROOM_WAS_PAUSED_OR_DELETED_AUTOMATIC",
+    "zh": "房间已暂停或删除，未继续自动投递",
+    "en": "The room was paused or deleted. Automatic delivery has stopped."
+  },
+  {
+    "code": "ROOM_THE_ROOM_ID_IS_INVALID_ITS_MESSAGE",
+    "zh": "房间编号无效，找不到它的消息账本",
+    "en": "The room ID is invalid. Its message ledger cannot be located."
+  },
+  {
+    "code": "ROOM_THE_MESSAGE_LEDGER_IS_NOT_A_REGULAR",
+    "zh": "消息账本不是普通文件",
+    "en": "The message ledger is not a regular file."
+  },
+  {
+    "code": "ROOM_THE_MESSAGE_LEDGER_IS_SHORTER_THAN_ITS_4F6287",
+    "zh": "消息账本短于已提交游标",
+    "en": "The message ledger is shorter than its committed offset."
+  },
+  {
+    "code": "ROOM_CANNOT_WRITE_MESSAGE_LEDGER",
+    "zh": "写不了消息账本 {path}：{error}",
+    "en": "Cannot write message ledger {path}: {error}"
+  },
+  {
+    "code": "ROOM_FAILED_TO_SERIALIZE_A_MESSAGE_EVENT",
+    "zh": "消息事件序列化失败：{error}",
+    "en": "Failed to serialize a message event: {error}"
+  },
+  {
+    "code": "ROOM_ATTACHMENT_METADATA_IS_INCOMPLETE",
+    "zh": "附件信息不完整",
+    "en": "Attachment metadata is incomplete."
+  },
+  {
+    "code": "ROOM_THE_ATTACHMENT_DOES_NOT_CONTAIN_BINARY_DATA",
+    "zh": "附件内容不是二进制数据",
+    "en": "The attachment does not contain binary data."
+  },
+  {
+    "code": "ROOM_AN_ATTACHMENT_CANNOT_EXCEED_MB",
+    "zh": "单个附件不能超过 20 MB",
+    "en": "An attachment cannot exceed 20 MB."
+  },
+  {
+    "code": "ROOM_THE_ATTACHMENT_EXCEEDS_MB",
+    "zh": "附件超过 20 MB",
+    "en": "The attachment exceeds 20 MB."
+  },
+  {
+    "code": "ROOM_CANNOT_OPEN_THE_ATTACHMENT_DIRECTORY",
+    "zh": "打不开附件目录：{error}",
+    "en": "Cannot open the attachment directory: {error}"
+  },
+  {
+    "code": "ROOM_THE_CLIPBOARD_IS_BUSY_TRY_PASTING_AGAIN",
+    "zh": "剪贴板正被占用，请重试粘贴",
+    "en": "The clipboard is busy. Try pasting again."
+  },
+  {
+    "code": "ROOM_THE_ATTACHMENT_PATH_IS_UNAVAILABLE",
+    "zh": "附件路径不可用：{error}",
+    "en": "The attachment path is unavailable: {error}"
+  },
+  {
+    "code": "ROOM_THE_ATTACHMENT_HAS_AN_INVALID_ROOM_ID",
+    "zh": "附件的房间编号无效",
+    "en": "The attachment has an invalid room ID."
+  },
+  {
+    "code": "ROOM_THE_ATTACHMENT_ID_IS_INVALID",
+    "zh": "附件编号无效",
+    "en": "The attachment ID is invalid."
+  },
+  {
+    "code": "ROOM_ATTACHMENT",
+    "zh": "附件",
+    "en": "Attachment"
+  },
+  {
+    "code": "ROOM_ATTACHMENT_265DE5",
+    "zh": "附件-{name}",
+    "en": "Attachment-{name}"
+  },
+  {
+    "code": "ROOM_CANNOT_READ_ATTACHMENT_METADATA",
+    "zh": "读不了附件信息：{error}",
+    "en": "Cannot read attachment metadata: {error}"
+  },
+  {
+    "code": "ROOM_FOLDERS_ARE_NOT_SUPPORTED_SELECT_AN_IMAGE",
+    "zh": "暂不支持文件夹，请选择图片或文档文件",
+    "en": "Folders are not supported. Select an image or document file."
+  },
+  {
+    "code": "ROOM_CANNOT_READ_THE_ATTACHMENT",
+    "zh": "读不了附件：{error}",
+    "en": "Cannot read the attachment: {error}"
+  },
+  {
+    "code": "ROOM_CANNOT_CREATE_THE_ATTACHMENT_DIRECTORY",
+    "zh": "建不了附件目录：{error}",
+    "en": "Cannot create the attachment directory: {error}"
+  },
+  {
+    "code": "ROOM_FAILED_TO_SAVE_THE_ATTACHMENT",
+    "zh": "保存附件失败：{error}",
+    "en": "Failed to save the attachment: {error}"
+  },
+  {
+    "code": "ROOM_A_MESSAGE_MAY_CONTAIN_AT_MOST_ATTACHMENTS",
+    "zh": "每条消息最多添加 10 个附件",
+    "en": "A message may contain at most 10 attachments."
+  },
+  {
+    "code": "ROOM_THE_SAME_ATTACHMENT_WAS_ADDED_TWICE",
+    "zh": "同一个附件被添加了两次",
+    "en": "The same attachment was added twice."
+  },
+  {
+    "code": "ROOM_THE_ATTACHMENT_NO_LONGER_EXISTS_ADD_IT",
+    "zh": "附件已不存在，请重新添加",
+    "en": "The attachment no longer exists. Add it again."
+  },
+  {
+    "code": "ROOM_THE_ATTACHMENT_METADATA_IS_DAMAGED_ADD_IT",
+    "zh": "附件信息损坏，请重新添加",
+    "en": "The attachment metadata is damaged. Add it again."
+  },
+  {
+    "code": "ROOM_THE_ATTACHMENT_PATH_IS_INVALID_ADD_IT",
+    "zh": "附件路径无效，请重新添加",
+    "en": "The attachment path is invalid. Add it again."
+  },
+  {
+    "code": "ROOM_ATTACHMENT_NO_LONGER_EXISTS_ADD_IT_AGAIN",
+    "zh": "附件「{name}」已不存在，请重新添加",
+    "en": "Attachment \"{name}\" no longer exists. Add it again."
+  },
+  {
+    "code": "ROOM_ATTACHMENT_HAS_CHANGED_ADD_IT_AGAIN",
+    "zh": "附件「{name}」已改变，请重新添加",
+    "en": "Attachment \"{name}\" has changed. Add it again."
+  },
+  {
+    "code": "ROOM_FAILED_TO_REMOVE_THE_ATTACHMENT",
+    "zh": "移除附件失败：{error}",
+    "en": "Failed to remove the attachment: {error}"
+  },
+  {
+    "code": "ROOM_ATTACHMENTS_LOCAL_FILES_READ_AS_NEEDED",
+    "zh": "附件（本地文件，请按需读取）：",
+    "en": "Attachments (local files; read as needed):"
+  },
+  {
+    "code": "ROOM_ATTACHMENTS",
+    "zh": "[附件] {names}",
+    "en": "[Attachments] {names}"
+  },
+  {
+    "code": "NATIVE_FILE",
+    "zh": "文件",
+    "en": "File"
+  },
+  {
+    "code": "NATIVE_EDIT",
+    "zh": "编辑",
+    "en": "Edit"
+  },
+  {
+    "code": "NATIVE_VIEW",
+    "zh": "视图",
+    "en": "View"
+  },
+  {
+    "code": "NATIVE_WINDOW",
+    "zh": "窗口",
+    "en": "Window"
+  },
+  {
+    "code": "NATIVE_HELP",
+    "zh": "帮助",
+    "en": "Help"
+  },
+  {
+    "code": "NATIVE_UNDO",
+    "zh": "撤销",
+    "en": "Undo"
+  },
+  {
+    "code": "NATIVE_REDO",
+    "zh": "重做",
+    "en": "Redo"
+  },
+  {
+    "code": "NATIVE_CUT",
+    "zh": "剪切",
+    "en": "Cut"
+  },
+  {
+    "code": "NATIVE_COPY",
+    "zh": "复制",
+    "en": "Copy"
+  },
+  {
+    "code": "NATIVE_PASTE",
+    "zh": "粘贴",
+    "en": "Paste"
+  },
+  {
+    "code": "NATIVE_SELECT_ALL",
+    "zh": "全选",
+    "en": "Select All"
+  },
+  {
+    "code": "NATIVE_MINIMIZE",
+    "zh": "最小化",
+    "en": "Minimize"
+  },
+  {
+    "code": "NATIVE_ZOOM",
+    "zh": "缩放",
+    "en": "Zoom"
+  },
+  {
+    "code": "NATIVE_MAXIMIZE",
+    "zh": "最大化",
+    "en": "Maximize"
+  },
+  {
+    "code": "NATIVE_ENTER_FULL_SCREEN",
+    "zh": "进入全屏",
+    "en": "Enter Full Screen"
+  },
+  {
+    "code": "NATIVE_EXIT_FULL_SCREEN",
+    "zh": "退出全屏",
+    "en": "Exit Full Screen"
+  },
+  {
+    "code": "NATIVE_FULLSCREEN",
+    "zh": "全屏",
+    "en": "Fullscreen"
+  },
+  {
+    "code": "NATIVE_HIDE_OTHERS",
+    "zh": "隐藏其他应用",
+    "en": "Hide Others"
+  },
+  {
+    "code": "NATIVE_SHOW_ALL",
+    "zh": "显示全部",
+    "en": "Show All"
+  },
+  {
+    "code": "NATIVE_CLOSE_WINDOW",
+    "zh": "关闭窗口",
+    "en": "Close Window"
+  },
+  {
+    "code": "NATIVE_CLOSE",
+    "zh": "关闭",
+    "en": "Close"
+  },
+  {
+    "code": "NATIVE_SERVICES",
+    "zh": "服务",
+    "en": "Services"
+  },
+  {
+    "code": "NATIVE_QUIT",
+    "zh": "退出",
+    "en": "Quit"
+  },
+  {
+    "code": "NATIVE_ABOUT",
+    "zh": "关于",
+    "en": "About"
+  },
+  {
+    "code": "NATIVE_HIDE",
+    "zh": "隐藏",
+    "en": "Hide"
+  },
+  {
+    "code": "NATIVE_ABOUT_614556",
+    "zh": "关于 {app}",
+    "en": "About {app}"
+  },
+  {
+    "code": "NATIVE_HIDE_554741",
+    "zh": "隐藏 {app}",
+    "en": "Hide {app}"
+  },
+  {
+    "code": "NATIVE_QUIT_AC3022",
+    "zh": "退出 {app}",
+    "en": "Quit {app}"
+  },
+  {
+    "code": "NATIVE_COPY_49AE51",
+    "zh": "复制(&C)",
+    "en": "&Copy"
+  },
+  {
+    "code": "NATIVE_CU_T",
+    "zh": "剪切(&C)",
+    "en": "Cu&t"
+  },
+  {
+    "code": "NATIVE_PASTE_9D2AE9",
+    "zh": "粘贴(&P)",
+    "en": "&Paste"
+  },
+  {
+    "code": "NATIVE_SELECT_ALL_78F85E",
+    "zh": "全选(&A)",
+    "en": "Select &All"
+  },
+  {
+    "code": "NATIVE_UNDO_0B4B4A",
+    "zh": "撤销(&U)",
+    "en": "&Undo"
+  },
+  {
+    "code": "NATIVE_REDO_F654C3",
+    "zh": "重做(&R)",
+    "en": "&Redo"
+  },
+  {
+    "code": "NATIVE_MINIMIZE_A07E42",
+    "zh": "最小化(&M)",
+    "en": "&Minimize"
+  },
+  {
+    "code": "NATIVE_MAXIMIZE_489C9C",
+    "zh": "最大化(&M)",
+    "en": "&Maximize"
+  },
+  {
+    "code": "NATIVE_ZOOM_CBF37E",
+    "zh": "缩放(&Z)",
+    "en": "&Zoom"
+  },
+  {
+    "code": "NATIVE_FULLSCREEN_ED6BCC",
+    "zh": "全屏(&F)",
+    "en": "&Fullscreen"
+  },
+  {
+    "code": "NATIVE_HIDE_E99C9A",
+    "zh": "隐藏(&H)",
+    "en": "&Hide"
+  },
+  {
+    "code": "NATIVE_CLOSE_44D906",
+    "zh": "关闭(&C)",
+    "en": "&Close"
+  },
+  {
+    "code": "NATIVE_QUIT_9A6151",
+    "zh": "退出(&Q)",
+    "en": "&Quit"
+  },
+  {
+    "code": "NATIVE_ABOUT_C9095A",
+    "zh": "关于(&A)",
+    "en": "&About"
+  },
+  {
+    "code": "NATIVE_SERVICES_5CD62D",
+    "zh": "服务(&S)",
+    "en": "&Services"
+  },
+  {
+    "code": "NATIVE_LOCALE_MUST_BE_ZH_CN_OR_EN",
+    "zh": "语言必须是 zh-CN 或 en。",
+    "en": "Locale must be zh-CN or en."
+  },
+  {
+    "code": "NATIVE_LOCALE_SETTINGS_ARE_UNAVAILABLE",
+    "zh": "语言设置不可用。",
+    "en": "Locale settings are unavailable."
+  },
+  {
+    "code": "SETUP_SUPPORTS_BELFRY_STATUS_HISTORY_AND_PLUGIN_INTEGRATION",
+    "zh": "支持 Belfry 状态、历史和插件集成",
+    "en": "Supports Belfry status, history, and plugin integration."
+  },
+  {
+    "code": "SETUP_FULL_INTEGRATION_REQUIRES_OR_LATER_UPDATE_IT",
+    "zh": "完整集成需要 {agent} {minimum} 或更新版本，请在关于页更新",
+    "en": "Full integration requires {agent} {minimum} or later. Update it from the About page."
+  },
+  {
+    "code": "SETUP_RUN_CONNECT_IN_A_SESSION_OR_CONFIGURE",
+    "zh": "在会话中执行 /connect，或在 Provider 设置中配置接口",
+    "en": "Run /connect in a session, or configure an endpoint in Provider settings."
+  },
+  {
+    "code": "SETUP_RUN_KIMI_LOGIN_OR_CONFIGURE_AN_ENDPOINT",
+    "zh": "执行 kimi login，或在 Provider 设置中配置接口",
+    "en": "Run kimi login, or configure an endpoint in Provider settings."
+  },
+  {
+    "code": "SETUP_START_AGY_TO_SIGN_IN_WITH_GOOGLE",
+    "zh": "启动 agy 完成 Google 登录，或在 Provider 设置中配置 Gemini API",
+    "en": "Start agy to sign in with Google, or configure the Gemini API in Provider settings."
+  },
+  {
+    "code": "SETUP_PROVIDER_OR_CREDENTIAL_CONFIGURATION_WAS_DETECTED_THE",
+    "zh": "已检测到 Provider 或凭据配置；联网鉴权由 CLI 完成",
+    "en": "Provider or credential configuration was detected. The CLI verifies authentication online."
+  },
+  {
+    "code": "SETUP_PI_HAS_CONFIGURED_CREDENTIALS",
+    "zh": "Pi 已配置凭据（{count} 项）",
+    "en": "Pi has {count} configured credentials."
+  },
+  {
+    "code": "SETUP_PI_IS_NOT_SIGNED_IN_RUN_LOGIN",
+    "zh": "Pi 尚未登录：在会话内执行 /login，或设置 API Key 环境变量",
+    "en": "Pi is not signed in. Run /login in a session, or set the API key environment variable."
+  },
+  {
+    "code": "SETUP_PI_COULD_NOT_START_SO_ITS_SIGN",
+    "zh": "Pi 无法正常启动，无法确认登录状态",
+    "en": "Pi could not start, so its sign-in status could not be verified."
+  },
+  {
+    "code": "SETUP_SIGN_IN_CHECK_FAILED",
+    "zh": "登录检查失败：{error}",
+    "en": "Sign-in check failed: {error}"
+  },
+  {
+    "code": "SETUP_SYNCED_TO",
+    "zh": "已同步到 {path}",
+    "en": "Synced to {path}"
+  },
+  {
+    "code": "SETUP_PROVIDED_BY_THE_SHARED_DIRECTORY",
+    "zh": "已由共享目录提供：{path}",
+    "en": "Provided by the shared directory: {path}"
+  },
+  {
+    "code": "SETUP_NOT_YET_INSTALLED_AT",
+    "zh": "尚未安装到 {path}",
+    "en": "Not yet installed at {path}"
+  },
+  {
+    "code": "SETUP_UPDATE_REQUIRED",
+    "zh": "需要更新：{path}",
+    "en": "Update required: {path}"
+  },
+  {
+    "code": "SETUP_THE_BELFRY_COLLABORATION_SERVICE_IS_NOT_RUNNING",
+    "zh": "Belfry 协作服务未启动",
+    "en": "The Belfry collaboration service is not running."
+  },
+  {
+    "code": "SETUP_THE_INSTALLATION_IS_MISSING_THE_BELFRY_CONTROL",
+    "zh": "安装包中缺少 belfry 控制 CLI",
+    "en": "The installation is missing the belfry control CLI."
+  },
+  {
+    "code": "SETUP_THE_CONTROL_CLI_PROTOCOL_AND_COLLABORATION_SERVICE",
+    "zh": "控制 CLI、协议与协作服务已连通",
+    "en": "The control CLI, protocol, and collaboration service are connected."
+  },
+  {
+    "code": "SETUP_THE_BELFRY_PEERS_SELF_CHECK_FAILED",
+    "zh": "belfry peers 自检失败",
+    "en": "The belfry peers self-check failed."
+  },
+  {
+    "code": "SETUP_THE_CONTROL_CLI_COULD_NOT_START",
+    "zh": "控制 CLI 无法启动：{error}",
+    "en": "The control CLI could not start: {error}"
+  },
+  {
+    "code": "SETUP_CANNOT_READ_CLAUDE_CODE_SIGN_IN_STATUS",
+    "zh": "无法读取 Claude Code 登录状态",
+    "en": "Cannot read Claude Code sign-in status."
+  },
+  {
+    "code": "SETUP_CLAUDE_CODE_IS_SIGNED_IN",
+    "zh": "Claude Code 已登录",
+    "en": "Claude Code is signed in."
+  },
+  {
+    "code": "SETUP_CLAUDE_CODE_IS_NOT_SIGNED_IN",
+    "zh": "Claude Code 尚未登录",
+    "en": "Claude Code is not signed in."
+  },
+  {
+    "code": "SETUP_CANNOT_PARSE_CLAUDE_CODE_SIGN_IN_STATUS",
+    "zh": "无法解析 Claude Code 登录状态",
+    "en": "Cannot parse Claude Code sign-in status."
+  },
+  {
+    "code": "SETUP_THE_CLI_WAS_NOT_FOUND_OPTIONAL",
+    "zh": "未找到 {agent} CLI（可选）",
+    "en": "The {agent} CLI was not found (optional)."
+  },
+  {
+    "code": "SETUP_INSTALLED",
+    "zh": "已安装",
+    "en": "Installed"
+  },
+  {
+    "code": "SETUP_COULD_NOT_START",
+    "zh": "{agent} 无法正常启动",
+    "en": "{agent} could not start."
+  },
+  {
+    "code": "SETUP_STARTUP_FAILED",
+    "zh": "启动失败：{error}",
+    "en": "Startup failed: {error}"
+  },
+  {
+    "code": "SETUP_CODEX_IS_SIGNED_IN",
+    "zh": "Codex 已登录",
+    "en": "Codex is signed in."
+  },
+  {
+    "code": "SETUP_CODEX_IS_NOT_SIGNED_IN",
+    "zh": "Codex 尚未登录",
+    "en": "Codex is not signed in."
+  },
+  {
+    "code": "SETUP_CANNOT_CHECK_SIGN_IN_STATUS",
+    "zh": "无法检查登录状态：{error}",
+    "en": "Cannot check sign-in status: {error}"
+  },
+  {
+    "code": "SETUP_CANNOT_READ_THE_CODEX_FEATURE_LIST",
+    "zh": "无法读取 Codex 功能列表",
+    "en": "Cannot read the Codex feature list."
+  },
+  {
+    "code": "SETUP_FEATURE_CHECK_FAILED",
+    "zh": "功能检查失败：{error}",
+    "en": "Feature check failed: {error}"
+  },
+  {
+    "code": "SETUP_CODEX_MULTI_AGENT_IS_ENABLED",
+    "zh": "Codex multi_agent 已启用",
+    "en": "Codex multi_agent is enabled."
+  },
+  {
+    "code": "SETUP_CODEX_MULTI_AGENT_IS_DISABLED",
+    "zh": "Codex multi_agent 未启用",
+    "en": "Codex multi_agent is disabled."
+  },
+  {
+    "code": "SETUP_THIS_CODEX_VERSION_DID_NOT_REPORT_THE",
+    "zh": "当前 Codex 未报告 multi_agent 功能",
+    "en": "This Codex version did not report the multi_agent feature."
+  },
+  {
+    "code": "SETUP_CANNOT_RUN_DOCTOR",
+    "zh": "无法运行 doctor：{error}",
+    "en": "Cannot run doctor: {error}"
+  },
+  {
+    "code": "SETUP_CANNOT_PARSE_CODEX_DOCTOR_OUTPUT",
+    "zh": "无法解析 codex doctor 输出",
+    "en": "Cannot parse codex doctor output."
+  },
+  {
+    "code": "SETUP_PASSED_WARNINGS_FAILED",
+    "zh": "通过 {ok}，警告 {warnings}，失败 {failed}",
+    "en": "Passed: {ok}; warnings: {warnings}; failed: {failed}"
+  },
+  {
+    "code": "SETUP_PROVIDED_BY_THE_SHARED_DIRECTORY_THE_DUPLICATE",
+    "zh": "已由共享目录提供，移除了重复的一份",
+    "en": "Provided by the shared directory; the duplicate copy was removed."
+  },
+  {
+    "code": "SETUP_PROVIDED_BY_THE_SHARED_DIRECTORY_AEC075",
+    "zh": "已由共享目录提供",
+    "en": "Provided by the shared directory."
+  },
+  {
+    "code": "SETUP_UPDATED",
+    "zh": "已更新",
+    "en": "Updated"
+  },
+  {
+    "code": "SETUP_ALREADY_UP_TO_DATE",
+    "zh": "已是最新",
+    "en": "Already up to date"
+  },
+  {
+    "code": "SETUP_INSTALLATION_FAILED",
+    "zh": "安装失败",
+    "en": "Installation failed"
+  },
+  {
+    "code": "SETUP_THE_ENVIRONMENT_CHECK_STOPPED_UNEXPECTEDLY",
+    "zh": "环境检查异常退出：{error}",
+    "en": "The environment check stopped unexpectedly: {error}"
+  },
+  {
+    "code": "SETUP_SKILL_INSTALLATION_STOPPED_UNEXPECTEDLY",
+    "zh": "Skill 安装任务异常退出：{error}",
+    "en": "Skill installation stopped unexpectedly: {error}"
+  },
+  {
+    "code": "SETUP_ENVIRONMENT_CHECK",
+    "zh": "环境检查",
+    "en": "Environment check"
+  },
+  {
+    "code": "SETUP_SIGN_IN_STATUS",
+    "zh": "{agent} 登录状态",
+    "en": "{agent} sign-in status"
+  },
+  {
+    "code": "SETUP_MULTI_AGENT_SUPPORT",
+    "zh": "{agent} 多 Agent",
+    "en": "{agent} multi-agent support"
+  },
+  {
+    "code": "SETUP_SELF_CHECK",
+    "zh": "{agent} 自检",
+    "en": "{agent} self-check"
+  },
+  {
+    "code": "SETUP_COLLABORATION_CHANNEL",
+    "zh": "协作通道",
+    "en": "Collaboration channel"
+  },
+  {
+    "code": "AGENT_RELEASE_NO_OFFICIAL_INSTALLATION_SOURCE_IS_AVAILABLE",
+    "zh": "没有官方安装来源",
+    "en": "No official installation source is available."
+  },
+  {
+    "code": "AGENT_RELEASE_NO_OFFICIAL_ANTIGRAVITY_RELEASE_IS_AVAILABLE_FOR",
+    "zh": "此平台尚无 Antigravity 官方发行版",
+    "en": "No official Antigravity release is available for this platform."
+  },
+  {
+    "code": "AGENT_RELEASE_CANNOT_CREATE_THE_REGISTRY_REQUEST",
+    "zh": "无法创建 registry 请求",
+    "en": "Cannot create the registry request."
+  },
+  {
+    "code": "AGENT_RELEASE_THE_NPM_REGISTRY_REQUEST_TIMED_OUT_CHECK",
+    "zh": "查询 npm registry 超时，请检查网络后重试",
+    "en": "The npm registry request timed out. Check your connection and try again."
+  },
+  {
+    "code": "AGENT_RELEASE_CANNOT_CONNECT_TO_THE_NPM_REGISTRY_CHECK",
+    "zh": "无法连接 npm registry，请检查网络",
+    "en": "Cannot connect to the npm registry. Check your connection."
+  },
+  {
+    "code": "AGENT_RELEASE_THE_NPM_REGISTRY_RETURNED_HTTP",
+    "zh": "npm registry 返回 HTTP {status}",
+    "en": "The npm registry returned HTTP {status}."
+  },
+  {
+    "code": "AGENT_RELEASE_THE_NPM_REGISTRY_DID_NOT_RETURN_VALID",
+    "zh": "npm registry 未返回有效的 JSON",
+    "en": "The npm registry did not return valid JSON."
+  },
+  {
+    "code": "AGENT_RELEASE_THE_NPM_REGISTRY_DID_NOT_RETURN_A",
+    "zh": "npm registry 未返回 latest 版本号",
+    "en": "The npm registry did not return a latest version."
+  },
+  {
+    "code": "AGENT_RELEASE_THE_PACKAGE_NAME_IS_EMPTY_OR_TOO",
+    "zh": "包名为空或过长",
+    "en": "The package name is empty or too long."
+  },
+  {
+    "code": "AGENT_RELEASE_THE_PACKAGE_NAME_CONTAINS_INVALID_CHARACTERS",
+    "zh": "包名包含非法字符",
+    "en": "The package name contains invalid characters."
+  },
+  {
+    "code": "AGENT_RELEASE_FAILED_TO_READ_THE_NPM_REGISTRY_RESPONSE",
+    "zh": "读取 npm registry 响应失败",
+    "en": "Failed to read the npm registry response."
+  },
+  {
+    "code": "AGENT_RELEASE_THE_NPM_REGISTRY_RESPONSE_IS_TOO_LARGE",
+    "zh": "npm registry 响应过大",
+    "en": "The npm registry response is too large."
+  },
+  {
+    "code": "AGENT_RELEASE_CANNOT_CREATE_THE_RELEASE_REQUEST",
+    "zh": "无法创建发布请求",
+    "en": "Cannot create the release request."
+  },
+  {
+    "code": "AGENT_RELEASE_CANNOT_CONNECT_TO_THE_OFFICIAL_RELEASE_SERVER",
+    "zh": "无法连接官方发布服务器，请检查网络",
+    "en": "Cannot connect to the official release server. Check your connection."
+  },
+  {
+    "code": "AGENT_RELEASE_THE_OFFICIAL_RELEASE_SERVER_RETURNED_HTTP",
+    "zh": "官方发布服务器返回 HTTP {status}",
+    "en": "The official release server returned HTTP {status}."
+  },
+  {
+    "code": "AGENT_RELEASE_THE_RELEASE_SERVER_RETURNED_INVALID_JSON",
+    "zh": "发布服务器返回了无效 JSON",
+    "en": "The release server returned invalid JSON."
+  },
+  {
+    "code": "AGENT_RELEASE_INSTALLATION_STOPPED_UNEXPECTEDLY",
+    "zh": "安装任务意外终止：{error}",
+    "en": "Installation stopped unexpectedly: {error}"
+  },
+  {
+    "code": "AGENT_RELEASE_WAS_NOT_FOUND_IN_THE_USER_COMMAND",
+    "zh": "未在用户命令环境中找到 {agent}",
+    "en": "{agent} was not found in the user command environment."
+  },
+  {
+    "code": "AGENT_RELEASE_ALREADY_INSTALLED_UPDATE_IT_USING_THE_ORIGINAL",
+    "zh": "已安装，请通过原安装渠道更新",
+    "en": "Already installed. Update it using the original installation method."
+  },
+  {
+    "code": "AGENT_RELEASE_THIS_CLI_IS_NOT_A_GLOBAL_NPM",
+    "zh": "该 CLI 不是 npm 全局包，无法一键升级，请在终端中手动更新",
+    "en": "This CLI is not a global npm package. Update it manually in the terminal."
+  },
+  {
+    "code": "AGENT_RELEASE_THIS_CLI_USES_THE_OFFICIAL_NATIVE_INSTALLER",
+    "zh": "此 CLI 使用官方原生安装器",
+    "en": "This CLI uses the official native installer."
+  },
+  {
+    "code": "AGENT_RELEASE_THE_CURRENT_VERSION_COULD_NOT_BE_COMPARED",
+    "zh": "无法确定当前版本与最新版本的关系",
+    "en": "The current version could not be compared with the latest version."
+  },
+  {
+    "code": "AGENT_RELEASE_THIS_PACKAGE_WAS_NOT_FOUND_IN_THE",
+    "zh": "npm registry 上找不到该包",
+    "en": "This package was not found in the npm registry."
+  },
+  {
+    "code": "AGENT_RELEASE_THE_OFFICIAL_PACKAGE_HAS_RELEASED_THIS_DEVICE",
+    "zh": "官方包 {official} 已发布 {official_latest}；本机装的是第三方镜像 {package}（最新 {mirror_latest}），一键升级只能拿到镜像的版本。要换用官方包：npm install -g {official}@latest",
+    "en": "The official package {official} has released {official_latest}. This device uses the third-party mirror {package} (latest: {mirror_latest}), so the update action only installs the mirror version. To switch to the official package, run: npm install -g {official}@latest"
+  },
+  {
+    "code": "AGENT_RELEASE_THE_OFFICIAL_RELEASE_SERVER_DID_NOT_RETURN",
+    "zh": "官方发布服务器未返回版本号",
+    "en": "The official release server did not return a version number."
+  },
+  {
+    "code": "AGENT_RELEASE_AN_INSTALLATION_IS_ALREADY_IN_PROGRESS",
+    "zh": "已有安装任务在进行中",
+    "en": "An installation is already in progress."
+  },
+  {
+    "code": "AGENT_RELEASE_NPM_WAS_NOT_FOUND_INSTALL_NODE_JS",
+    "zh": "未找到 npm，请确认 Node.js 已安装并在登录 shell 的 PATH 中",
+    "en": "npm was not found. Install Node.js and ensure it is on the login shell PATH."
+  },
+  {
+    "code": "AGENT_RELEASE_CANNOT_START_THE_INSTALLER",
+    "zh": "无法启动安装器：{error}",
+    "en": "Cannot start the installer: {error}"
+  },
+  {
+    "code": "AGENT_RELEASE_FAILED_TO_WAIT_FOR_THE_INSTALLER_TO",
+    "zh": "等待安装器退出失败：{error}",
+    "en": "Failed to wait for the installer to exit: {error}"
+  },
+  {
+    "code": "PLUGIN_PLUGIN_MANAGEMENT_IS_ONLY_AVAILABLE_FROM_THE",
+    "zh": "插件管理仅允许主窗口调用",
+    "en": "Plugin management is only available from the main window."
+  },
+  {
+    "code": "PLUGIN_THIS_PLUGIN_HOST_METHOD_IS_NOT_ALLOWED",
+    "zh": "不允许的插件宿主方法",
+    "en": "This plugin host method is not allowed."
+  },
+  {
+    "code": "PLUGIN_THE_PLUGIN_OPERATION_LOCK_IS_UNAVAILABLE",
+    "zh": "插件操作锁不可用",
+    "en": "The plugin operation lock is unavailable."
+  },
+  {
+    "code": "PLUGIN_TOO_MANY_INSTALLATION_PREVIEWS_ARE_OPEN_CANCEL",
+    "zh": "安装预览过多，请取消已有预览",
+    "en": "Too many installation previews are open. Cancel an existing preview."
+  },
+  {
+    "code": "PLUGIN_THE_PLUGIN_STORAGE_DIRECTORY_CANNOT_BE_A",
+    "zh": "插件存储目录不能为符号链接",
+    "en": "The plugin storage directory cannot be a symbolic link."
+  },
+  {
+    "code": "PLUGIN_THE_DIRECTORY_MANIFEST_HAS_CHANGED_RELOAD_AND",
+    "zh": "目录 manifest 已变化，请重载并核对权限",
+    "en": "The directory manifest has changed. Reload and review its permissions."
+  },
+  {
+    "code": "PLUGIN_THE_PLUGIN_DOES_NOT_EXIST",
+    "zh": "插件不存在",
+    "en": "The plugin does not exist."
+  },
+  {
+    "code": "PLUGIN_UNKNOWN_PLUGIN_OPERATION",
+    "zh": "未知插件操作",
+    "en": "Unknown plugin operation."
+  },
+  {
+    "code": "PLUGIN_THE_PLUGIN_IDENTITY_OR_PERMISSIONS_CHANGED_UNINSTALL",
+    "zh": "插件身份或权限已变化，请卸载后重新预览安装",
+    "en": "The plugin identity or permissions changed. Uninstall it and preview the installation again."
+  },
+  {
+    "code": "PLUGIN_THE_MANIFEST_CHANGED_RELOAD_IT_TO_REVIEW",
+    "zh": "manifest 已变化，请先重载查看贡献",
+    "en": "The manifest changed. Reload it to review the contributions."
+  },
+  {
+    "code": "PLUGIN_THE_PLUGIN_WAS_UNINSTALLED_BUT_DIRECTORY_CLEANUP",
+    "zh": "插件已卸载，但目录清理失败：{error}；请重新读取列表",
+    "en": "The plugin was uninstalled, but directory cleanup failed: {error}. Reload the plugin list."
+  },
+  {
+    "code": "PLUGIN_THE_MANAGED_PARENT_DIRECTORY_CANNOT_BE_A",
+    "zh": "受管父目录不能为符号链接",
+    "en": "The managed parent directory cannot be a symbolic link."
+  },
+  {
+    "code": "PLUGIN_THE_MANAGED_PLUGIN_PATH_IS_INVALID",
+    "zh": "受管插件路径无效",
+    "en": "The managed plugin path is invalid."
+  },
+  {
+    "code": "PLUGIN_A_MANAGED_DIRECTORY_CANNOT_BE_A_SYMBOLIC",
+    "zh": "受管目录不能为符号链接",
+    "en": "A managed directory cannot be a symbolic link."
+  },
+  {
+    "code": "PLUGIN_THE_PLUGIN_LIST_CHANGED_REFRESH_AND_TRY",
+    "zh": "插件列表已变化，请刷新后重试",
+    "en": "The plugin list changed. Refresh and try again."
+  },
+  {
+    "code": "PLUGIN_ENGINES_MUST_BE_AN_OBJECT",
+    "zh": "engines 必须为对象",
+    "en": "engines must be an object."
+  },
+  {
+    "code": "PLUGIN_THE_ENGINES_FIELD_IS_INVALID",
+    "zh": "engines 字段无效",
+    "en": "The engines field is invalid."
+  },
+  {
+    "code": "PLUGIN_THE_PI_ENGINE_VERSION_RANGE_IS_INVALID",
+    "zh": "PI engine 版本范围无效",
+    "en": "The PI engine version range is invalid."
+  },
+  {
+    "code": "PLUGIN_THE_PLUGIN_REQUIRES_PI_API_THE_CURRENT",
+    "zh": "插件需要 PI API {range}，当前兼容版本为 0.14.6",
+    "en": "The plugin requires PI API {range}; the current compatible version is 0.14.6."
+  },
+  {
+    "code": "PLUGIN_THE_PI_ENGINE_VERSION_FORMAT_IS_INVALID",
+    "zh": "PI engine 版本格式无效",
+    "en": "The PI engine version format is invalid."
+  },
+  {
+    "code": "PLUGIN_WILDCARD_VERSIONS_CANNOT_USE_COMPARISON_OPERATORS",
+    "zh": "通配版本不能使用比较运算符",
+    "en": "Wildcard versions cannot use comparison operators."
+  },
+  {
+    "code": "PLUGIN_THE_PI_ENGINE_VERSION_IS_INVALID",
+    "zh": "PI engine 版本无效",
+    "en": "The PI engine version is invalid."
+  },
+  {
+    "code": "PLUGIN_THE_PI_ENGINE_VERSION_EXCEEDS_THE_SUPPORTED",
+    "zh": "PI engine 版本超额",
+    "en": "The PI engine version exceeds the supported range."
+  },
+  {
+    "code": "PLUGIN_THE_PI_ENGINE_VERSION_RANGE_IS_NOT",
+    "zh": "PI engine 版本范围不受支持",
+    "en": "The PI engine version range is not supported."
+  },
+  {
+    "code": "PLUGIN_HARNESS_SUPPORT_WAS_REMOVED_USE_A_PI",
+    "zh": "Harness 功能已移除，请使用 PI 插件",
+    "en": "Harness support was removed. Use a PI plugin."
+  },
+  {
+    "code": "PLUGIN_THE_VERSION_MUST_USE_MAJOR_MINOR_PATCH",
+    "zh": "版本必须为 major.minor.patch",
+    "en": "The version must use major.minor.patch format."
+  },
+  {
+    "code": "PLUGIN_THE_VERSION_IS_INVALID",
+    "zh": "版本无效",
+    "en": "The version is invalid."
+  },
+  {
+    "code": "PLUGIN_THE_VERSION_IS_OUT_OF_RANGE",
+    "zh": "版本超出范围",
+    "en": "The version is out of range."
+  },
+  {
+    "code": "PLUGIN_THE_PI_MANIFEST_DOES_NOT_MATCH_THE",
+    "zh": "PI 清单与宿主记录不一致",
+    "en": "The PI manifest does not match the host record."
+  },
+  {
+    "code": "PLUGIN_THE_MANIFEST_VERSION_OR_PLUGIN_ID_IS",
+    "zh": "不支持的 manifest 版本或插件 ID",
+    "en": "The manifest version or plugin ID is not supported."
+  },
+  {
+    "code": "PLUGIN_UNKNOWN_PERMISSION",
+    "zh": "未知权限：{permission}",
+    "en": "Unknown permission: {permission}"
+  },
+  {
+    "code": "PLUGIN_P_ONLY_SUPPORTS_ONENABLE_ACTIVATION",
+    "zh": "P0 仅支持 onEnable 激活",
+    "en": "P0 only supports onEnable activation."
+  },
+  {
+    "code": "PLUGIN_THE_PLUGIN_REQUIRES_A_NEWER_APP_VERSION",
+    "zh": "插件需要更新的应用版本",
+    "en": "The plugin requires a newer app version."
+  },
+  {
+    "code": "PLUGIN_THE_PLUGIN_IS_INCOMPATIBLE_WITH_THIS_APP",
+    "zh": "插件不兼容当前应用版本",
+    "en": "The plugin is incompatible with this app version."
+  },
+  {
+    "code": "PLUGIN_THE_CONTRIBUTION_COUNT_EXCEEDS_THE_LIMIT",
+    "zh": "贡献数量超额",
+    "en": "The contribution count exceeds the limit."
+  },
+  {
+    "code": "PLUGIN_A_CONTRIBUTION_IS_MISSING_THE_DECLARED_PERMISSION",
+    "zh": "贡献缺少声明权限：{permission}",
+    "en": "A contribution is missing the declared permission: {permission}"
+  },
+  {
+    "code": "PLUGIN_THE_CONTRIBUTION_ID_IS_INVALID",
+    "zh": "贡献 ID 无效",
+    "en": "The contribution ID is invalid."
+  },
+  {
+    "code": "PLUGIN_DUPLICATE_IDENTIFIER",
+    "zh": "重复标识",
+    "en": "Duplicate identifier."
+  },
+  {
+    "code": "PLUGIN_THE_NAME_AND_CONTENT_MUST_NOT_BE",
+    "zh": "名称或正文不能为空",
+    "en": "The name and content must not be empty."
+  },
+  {
+    "code": "PLUGIN_THE_TEXT_EXCEEDS_THE_LIMIT_OR_CONTAINS",
+    "zh": "文本超额或含控制字符",
+    "en": "The text exceeds the limit or contains control characters."
+  },
+  {
+    "code": "PLUGIN_RESOURCE_PATHS_MUST_BE_RELATIVE_PATHS_WITHIN",
+    "zh": "资源路径必须为插件内相对路径",
+    "en": "Resource paths must be relative paths within the plugin."
+  },
+  {
+    "code": "PLUGIN_THE_RESOURCE_PATH_ESCAPES_THE_PLUGIN_DIRECTORY",
+    "zh": "资源路径越界",
+    "en": "The resource path escapes the plugin directory."
+  },
+  {
+    "code": "PLUGIN_THE_PLUGIN_PATH_IS_TOO_LONG_OR",
+    "zh": "插件路径过长或含控制字符",
+    "en": "The plugin path is too long or contains control characters."
+  },
+  {
+    "code": "PLUGIN_THE_PLUGIN_PATH_CONTAINS_A_RESERVED_SYSTEM",
+    "zh": "插件路径包含系统保留名称或 Windows 不支持的字符",
+    "en": "The plugin path contains a reserved system name or characters unsupported by Windows."
+  },
+  {
+    "code": "PLUGIN_THE_REGISTRY_PATH_HAS_NO_PARENT_DIRECTORY",
+    "zh": "registry 路径无父目录",
+    "en": "The registry path has no parent directory."
+  },
+  {
+    "code": "PLUGIN_THE_REGISTRY_EXCEEDS_THE_SIZE_LIMIT",
+    "zh": "registry 大小超额",
+    "en": "The registry exceeds the size limit."
+  },
+  {
+    "code": "PLUGIN_THIS_LEGACY_REGISTRY_IS_NOT_SUPPORTED_THE",
+    "zh": "不支持旧 registry，原文件已保留",
+    "en": "This legacy registry is not supported. The original file was preserved."
+  },
+  {
+    "code": "PLUGIN_THE_PLUGIN_COUNT_EXCEEDS_THE_LIMIT",
+    "zh": "插件数量超额",
+    "en": "The plugin count exceeds the limit."
+  },
+  {
+    "code": "PLUGIN_THE_REGISTRY_CONTAINS_AN_INVALID_OR_DUPLICATE",
+    "zh": "registry 插件 ID 无效或重复",
+    "en": "The registry contains an invalid or duplicate plugin ID."
+  },
+  {
+    "code": "PLUGIN_THE_REGISTRY_SOURCE_IS_INVALID",
+    "zh": "registry 来源无效",
+    "en": "The registry source is invalid."
+  },
+  {
+    "code": "PLUGIN_THE_REGISTRY_REVISION_IS_INVALID",
+    "zh": "registry revision 无效",
+    "en": "The registry revision is invalid."
+  },
+  {
+    "code": "PLUGIN_THE_REGISTRY_REVISION_IS_OUT_OF_RANGE",
+    "zh": "registry revision 超额",
+    "en": "The registry revision is out of range."
+  },
+  {
+    "code": "PLUGIN_THE_REGISTRY_REVISION_COUNTER_IS_EXHAUSTED",
+    "zh": "registry revision 已耗尽",
+    "en": "The registry revision counter is exhausted."
+  },
+  {
+    "code": "PLUGIN_THE_MARKETPLACE_PACKAGE_IDENTITY_OR_VERSION_DOES",
+    "zh": "市场插件包的身份或版本与目录不一致",
+    "en": "The marketplace package identity or version does not match the catalog."
+  },
+  {
+    "code": "PLUGIN_THE_MARKETPLACE_PREVIEW_LOCK_IS_UNAVAILABLE",
+    "zh": "市场预览锁不可用",
+    "en": "The marketplace preview lock is unavailable."
+  },
+  {
+    "code": "PLUGIN_PREVIEW_THE_MARKETPLACE_PACKAGE_FIRST",
+    "zh": "请先预览市场插件包",
+    "en": "Preview the marketplace package first."
+  },
+  {
+    "code": "PLUGIN_THE_MARKETPLACE_INSTALLATION_PREVIEW_EXPIRED_SELECT_INSTALL",
+    "zh": "市场安装预览已过期，请重新选择安装",
+    "en": "The marketplace installation preview expired. Select Install again."
+  },
+  {
+    "code": "PLUGIN_THE_PREVIEW_DOES_NOT_EXIST",
+    "zh": "预览不存在",
+    "en": "The preview does not exist."
+  },
+  {
+    "code": "PLUGIN_PLUGIN_PERMISSIONS_CHANGED_PREVIEW_AND_CONFIRM_THEM",
+    "zh": "插件权限已变化，请重新预览并确认",
+    "en": "Plugin permissions changed. Preview and confirm them again."
+  },
+  {
+    "code": "PLUGIN_THE_INSTALLATION_TARGET_DOES_NOT_MATCH_THE",
+    "zh": "插件安装目标与预览不一致",
+    "en": "The installation target does not match the preview."
+  },
+  {
+    "code": "PLUGIN_THE_MARKETPLACE_DOWNLOAD_PATH_IS_INVALID",
+    "zh": "市场下载路径无效",
+    "en": "The marketplace download path is invalid."
+  },
+  {
+    "code": "PLUGIN_THE_PREVIEW_ID_IS_MISSING",
+    "zh": "缺少预览标识",
+    "en": "The preview ID is missing."
+  },
+  {
+    "code": "PLUGIN_THE_PLUGIN_WAS_UNINSTALLED",
+    "zh": "插件已卸载",
+    "en": "The plugin was uninstalled."
+  },
+  {
+    "code": "PLUGIN_AUTOMATIC_UPDATE_REQUIRES_CONFIRMATION_OF_NEW_PERMISSIONS",
+    "zh": "自动更新需要新的权限确认",
+    "en": "Automatic update requires confirmation of new permissions."
+  },
+  {
+    "code": "PLUGIN_THE_PLUGIN_SOURCE_CANNOT_BE_A_SYMBOLIC",
+    "zh": "插件来源不能是符号链接",
+    "en": "The plugin source cannot be a symbolic link."
+  },
+  {
+    "code": "PLUGIN_FOR_DEVELOPMENT_LOADING_SELECT_A_PLUGIN_DIRECTORY",
+    "zh": "开发加载请选择插件目录，不能引用插件包",
+    "en": "For development loading, select a plugin directory rather than a package."
+  },
+  {
+    "code": "PLUGIN_SELECT_A_PIPLUG_OR_ZIP_PLUGIN_PACKAGE",
+    "zh": "请选择 .piplug / .zip 插件包或插件目录",
+    "en": "Select a .piplug or .zip plugin package, or a plugin directory."
+  },
+  {
+    "code": "PLUGIN_THE_PACKAGE_FILE_COUNT_OR_TOTAL_SIZE",
+    "zh": "插件包文件数量或总大小超额",
+    "en": "The package file count or total size exceeds the limit."
+  },
+  {
+    "code": "PLUGIN_THE_PACKAGE_DIRECTORY_DEPTH_EXCEEDS_THE_LIMIT",
+    "zh": "插件包目录层数超额",
+    "en": "The package directory depth exceeds the limit."
+  },
+  {
+    "code": "PLUGIN_THE_PACKAGE_CONTAINS_DUPLICATE_PATHS",
+    "zh": "插件包包含重复路径",
+    "en": "The package contains duplicate paths."
+  },
+  {
+    "code": "PLUGIN_THE_PACKAGE_CONTAINS_DUPLICATE_PATHS_OR_A",
+    "zh": "插件包路径重名或文件/目录冲突",
+    "en": "The package contains duplicate paths or a file/directory conflict."
+  },
+  {
+    "code": "PLUGIN_THE_PACKAGE_ENTRY_COUNT_EXCEEDS_THE_LIMIT",
+    "zh": "插件包总条目超额（含隐含目录）",
+    "en": "The package entry count exceeds the limit, including implicit directories."
+  },
+  {
+    "code": "PLUGIN_DUPLICATE_JSON_FIELD",
+    "zh": "重复 JSON 键：{field}",
+    "en": "Duplicate JSON field: {field}"
+  },
+  {
+    "code": "PLUGIN_INVALID_FORMAT_LEGACY_PLUGIN_REGISTRIES_ARE_NOT",
+    "zh": "格式无效（不支持旧插件 registry）：{error}",
+    "en": "Invalid format (legacy plugin registries are not supported): {error}"
+  },
+  {
+    "code": "PLUGIN_THE_PLUGIN_ROOT_DIRECTORY_CANNOT_BE_A",
+    "zh": "插件根目录不能是符号链接",
+    "en": "The plugin root directory cannot be a symbolic link."
+  },
+  {
+    "code": "PLUGIN_SELECT_A_PLUGIN_DIRECTORY",
+    "zh": "请选择插件目录",
+    "en": "Select a plugin directory."
+  },
+  {
+    "code": "PLUGIN_THE_ROOT_DIRECTORY_IS_MISSING_MANIFEST_JSON",
+    "zh": "根目录缺少 manifest.json",
+    "en": "The root directory is missing manifest.json."
+  },
+  {
+    "code": "PLUGIN_THE_MANIFEST_EXCEEDS_THE_SIZE_LIMIT",
+    "zh": "manifest 超额",
+    "en": "The manifest exceeds the size limit."
+  },
+  {
+    "code": "PLUGIN_DIRECTORY_DEPTH_EXCEEDS_THE_LIMIT",
+    "zh": "目录层数超额",
+    "en": "Directory depth exceeds the limit."
+  },
+  {
+    "code": "PLUGIN_THE_DIRECTORY_ENTRY_COUNT_EXCEEDS_THE_LIMIT",
+    "zh": "目录总条目超额（含空目录）",
+    "en": "The directory entry count exceeds the limit, including empty directories."
+  },
+  {
+    "code": "PLUGIN_SYMBOLIC_LINKS_AND_PATHS_OUTSIDE_THE_ALLOWED",
+    "zh": "拒绝符号链接或路径逃逸",
+    "en": "Symbolic links and paths outside the allowed directory are not permitted."
+  },
+  {
+    "code": "PLUGIN_THE_PATH_IS_NOT_VALID_UTF",
+    "zh": "路径不是 UTF-8",
+    "en": "The path is not valid UTF-8."
+  },
+  {
+    "code": "PLUGIN_PLUGIN_PATHS_HAVE_A_CASE_INSENSITIVE_NAME",
+    "zh": "插件路径大小写冲突",
+    "en": "Plugin paths have a case-insensitive name conflict."
+  },
+  {
+    "code": "PLUGIN_THE_FILE_TYPE_IS_INVALID_OR_THE",
+    "zh": "文件类型无效或数量/大小超额",
+    "en": "The file type is invalid, or the file count or size exceeds the limit."
+  },
+  {
+    "code": "PLUGIN_THE_PLUGIN_DIRECTORY_EXCEEDS_THE_TOTAL_SIZE",
+    "zh": "插件目录总大小超额",
+    "en": "The plugin directory exceeds the total size limit."
+  },
+  {
+    "code": "PLUGIN_THE_FILE_EXCEEDS_THE_SIZE_LIMIT",
+    "zh": "文件大小超额",
+    "en": "The file exceeds the size limit."
+  },
+  {
+    "code": "PLUGIN_THE_SKILL_FILE_DOES_NOT_EXIST",
+    "zh": "Skill 文件不存在",
+    "en": "The Skill file does not exist."
+  },
+  {
+    "code": "PLUGIN_THE_SKILL_MUST_BE_UTF",
+    "zh": "Skill 必须为 UTF-8",
+    "en": "The Skill must be UTF-8."
+  },
+  {
+    "code": "PLUGIN_THE_SKILL_CONTENT_EXCEEDS_THE_LIMIT_OR",
+    "zh": "Skill 正文超额或含控制字符",
+    "en": "The Skill content exceeds the limit or contains control characters."
+  },
+  {
+    "code": "PLUGIN_THE_ICON_FILE_DOES_NOT_EXIST",
+    "zh": "图标文件不存在",
+    "en": "The icon file does not exist."
+  },
+  {
+    "code": "PLUGIN_THE_MANIFEST_CANNOT_BE_A_SYMBOLIC_LINK",
+    "zh": "manifest 不能为符号链接",
+    "en": "The manifest cannot be a symbolic link."
+  },
+  {
+    "code": "PLUGIN_THE_FILE_PATH_HAS_NO_PARENT_DIRECTORY",
+    "zh": "文件路径无父目录",
+    "en": "The plugin file path has no parent directory."
+  },
+  {
+    "code": "PLUGIN_THE_PLUGIN_HOST_LOCK_IS_UNAVAILABLE",
+    "zh": "插件宿主锁不可用",
+    "en": "The plugin host lock is unavailable."
+  },
+  {
+    "code": "PLUGIN_THE_PLUGIN_HOST_IS_UNAVAILABLE",
+    "zh": "插件宿主不可用",
+    "en": "The plugin host is unavailable."
+  },
+  {
+    "code": "PLUGIN_THE_PLUGIN_IS_NOT_ENABLED",
+    "zh": "插件未启用",
+    "en": "The plugin is not enabled."
+  },
+  {
+    "code": "PLUGIN_THE_PLUGIN_CHANGED_REFRESH_TO_CONTINUE",
+    "zh": "插件已变化，请刷新",
+    "en": "The plugin changed. Refresh to continue."
+  },
+  {
+    "code": "PLUGIN_THE_SKILL_DOES_NOT_EXIST",
+    "zh": "Skill 不存在",
+    "en": "The Skill does not exist."
+  },
+  {
+    "code": "PLUGIN_THE_PANEL_SIZE_IS_INVALID",
+    "zh": "面板尺寸无效",
+    "en": "The panel size is invalid."
+  },
+  {
+    "code": "PLUGIN_MAIN_MUST_POINT_TO_A_JAVASCRIPT_ENTRY",
+    "zh": "main 必须为 JavaScript 入口",
+    "en": "main must point to a JavaScript entry file."
+  },
+  {
+    "code": "PLUGIN_MUST_BE_A_STRING",
+    "zh": "{field} 必须为字符串",
+    "en": "{field} must be a string."
+  },
+  {
+    "code": "PLUGIN_ICON_MUST_BE_A_PATH",
+    "zh": "icon 必须为路径",
+    "en": "icon must be a path."
+  },
+  {
+    "code": "PLUGIN_MUST_BE_AN_OBJECT",
+    "zh": "{field} 必须为对象",
+    "en": "{field} must be an object."
+  },
+  {
+    "code": "PLUGIN_UNKNOWN_CONTRIBUTION",
+    "zh": "未知贡献：{field}",
+    "en": "Unknown contribution: {field}"
+  },
+  {
+    "code": "PLUGIN_THE_IDENTIFIER_IS_INVALID",
+    "zh": "{group} 标识无效",
+    "en": "The {group} identifier is invalid."
+  },
+  {
+    "code": "PLUGIN_A_TOOL_SCHEMA_MUST_BE_AN_OBJECT",
+    "zh": "工具 schema 必须为对象",
+    "en": "A tool schema must be an object."
+  },
+  {
+    "code": "PLUGIN_THE_THEME_BASE_IS_INVALID",
+    "zh": "主题 base 无效",
+    "en": "The theme base is invalid."
+  },
+  {
+    "code": "PLUGIN_THE_LOCALIZED_TITLE_IS_INVALID",
+    "zh": "本地化标题无效",
+    "en": "The localized title is invalid."
+  },
+  {
+    "code": "PLUGIN_THE_SETTING_IS_MISSING_ITS_TYPE",
+    "zh": "设置缺少 type",
+    "en": "The setting is missing its type."
+  },
+  {
+    "code": "PLUGIN_THE_SETTING_TYPE_IS_INVALID_OR_REQUIRES",
+    "zh": "设置类型无效，或要求尚未提供的机密存储",
+    "en": "The setting type is invalid or requires unavailable secret storage."
+  },
+  {
+    "code": "PLUGIN_THE_DEFAULT_SETTING_VALUE_HAS_AN_INVALID",
+    "zh": "设置默认值类型无效",
+    "en": "The default setting value has an invalid type."
+  },
+  {
+    "code": "PLUGIN_THE_SETTING_OPTIONS_ARE_INVALID",
+    "zh": "设置选项无效",
+    "en": "The setting options are invalid."
+  },
+  {
+    "code": "PLUGIN_THE_DEFAULT_SETTING_IS_NOT_ONE_OF",
+    "zh": "默认设置不在选项中",
+    "en": "The default setting is not one of the available options."
+  },
+  {
+    "code": "PLUGIN_BUS_MUST_BE_AN_OBJECT",
+    "zh": "bus 必须为对象",
+    "en": "bus must be an object."
+  },
+  {
+    "code": "PLUGIN_BUS_IS_MISSING_A_REQUIRED_PERMISSION",
+    "zh": "bus.{mode} 缺少权限",
+    "en": "bus.{mode} is missing a required permission."
+  },
+  {
+    "code": "PLUGIN_THE_MESSAGE_TOPIC_IS_INVALID",
+    "zh": "消息主题无效",
+    "en": "The message topic is invalid."
+  },
+  {
+    "code": "PLUGIN_THE_AGENT_CONNECTION_ID_IS_MISSING",
+    "zh": "缺少 Agent 连接标识",
+    "en": "The Agent connection ID is missing."
+  },
+  {
+    "code": "PLUGIN_THE_PLUGIN_SESSION_TABLE_IS_UNAVAILABLE",
+    "zh": "插件会话表不可用",
+    "en": "The plugin session table is unavailable."
+  },
+  {
+    "code": "PLUGIN_THE_AGENT_CONNECTION_IS_CLOSED",
+    "zh": "Agent 连接已关闭",
+    "en": "The Agent connection is closed."
+  },
+  {
+    "code": "PLUGIN_THE_TERMINAL_SESSION_IS_CLOSED",
+    "zh": "终端会话已关闭",
+    "en": "The terminal session is closed."
+  },
+  {
+    "code": "PLUGIN_THE_CLI_NATIVE_SESSION_IDENTITY_HAS_NOT",
+    "zh": "尚未收到 CLI 的原生会话身份，请开启 Hook 后重试",
+    "en": "The CLI native session identity has not been received. Enable Hooks and try again."
+  },
+  {
+    "code": "PLUGIN_THE_CLI_TYPE_DOES_NOT_MATCH_THE",
+    "zh": "CLI 类型与原生会话身份不匹配",
+    "en": "The CLI type does not match the native session identity."
+  },
+  {
+    "code": "PLUGIN_THE_NATIVE_HISTORY_CACHE_DIRECTORY_WAS_NOT",
+    "zh": "找不到原生历史缓存目录",
+    "en": "The native history cache directory was not found."
+  },
+  {
+    "code": "PLUGIN_THE_NATIVE_SESSION_CHANGED_WHILE_READING_TRY",
+    "zh": "读取期间原生会话已切换，请重试",
+    "en": "The native session changed while reading. Try again."
+  },
+  {
+    "code": "PLUGIN_THE_PREVIEW_DOES_NOT_EXIST_CREATE_A",
+    "zh": "预览不存在，请重新预览",
+    "en": "The preview does not exist. Create a new preview."
+  },
+  {
+    "code": "PLUGIN_THE_PREVIEW_EXPIRED_CREATE_A_NEW_PREVIEW",
+    "zh": "预览已过期，请重新预览",
+    "en": "The preview expired. Create a new preview."
+  },
+  {
+    "code": "PLUGIN_PLUGIN_CONTENTS_CHANGED_PREVIEW_AND_CONFIRM_THEM",
+    "zh": "插件内容已变化，请重新预览并确认",
+    "en": "Plugin contents changed. Preview and confirm them again."
+  },
+  {
+    "code": "PLUGIN_A_PLUGIN_WITH_THE_SAME_ID_IS",
+    "zh": "同 ID 插件已安装，请先卸载",
+    "en": "A plugin with the same ID is already installed. Uninstall it first."
+  },
+  {
+    "code": "PLUGIN_THE_MCP_TRANSPORT_IS_INVALID",
+    "zh": "MCP transport 无效",
+    "en": "The MCP transport is invalid."
+  },
+  {
+    "code": "PLUGIN_THE_MCP_SERVER_IS_MISSING_A_REQUIRED",
+    "zh": "MCP 服务缺少权限",
+    "en": "The MCP server is missing a required permission."
+  },
+  {
+    "code": "PLUGIN_THE_MCP_URL_IS_INVALID",
+    "zh": "MCP URL 无效",
+    "en": "The MCP URL is invalid."
+  },
+  {
+    "code": "PLUGIN_THE_MCP_URL_IS_MISSING_A_HOSTNAME",
+    "zh": "MCP URL 缺少域名",
+    "en": "The MCP URL is missing a hostname."
+  },
+  {
+    "code": "PLUGIN_THE_MCP_URL_IS_OUTSIDE_THE_ALLOWED",
+    "zh": "MCP URL 不在 net.domains 范围内",
+    "en": "The MCP URL is outside the allowed net.domains scope."
+  },
+  {
+    "code": "PLUGIN_THE_MCP_COMMAND_IS_INVALID",
+    "zh": "MCP 命令无效",
+    "en": "The MCP command is invalid."
+  },
+  {
+    "code": "PLUGIN_MCP_ENV_AND_HEADERS_MUST_BE_OBJECTS",
+    "zh": "MCP env/headers 必须为对象",
+    "en": "MCP env and headers must be objects."
+  },
+  {
+    "code": "PLUGIN_THE_MCP_SETTING_REFERENCE_IS_INVALID",
+    "zh": "MCP 设置引用无效",
+    "en": "The MCP setting reference is invalid."
+  },
+  {
+    "code": "PLUGIN_THE_MANIFEST_MUST_BE_AN_OBJECT",
+    "zh": "manifest 必须为对象",
+    "en": "The manifest must be an object."
+  },
+  {
+    "code": "PLUGIN_THE_PI_MANIFEST_VERSION_OR_ID_IS",
+    "zh": "PI manifest 版本或 ID 无效",
+    "en": "The PI manifest version or ID is invalid."
+  },
+  {
+    "code": "PLUGIN_UNKNOWN_PI_PLUGIN_PERMISSION",
+    "zh": "未知 PI 插件权限：{permission}",
+    "en": "Unknown PI plugin permission: {permission}"
+  },
+  {
+    "code": "PLUGIN_THE_PLUGIN_VERSION_SUFFIX_IS_INVALID",
+    "zh": "插件版本后缀无效",
+    "en": "The plugin version suffix is invalid."
+  },
+  {
+    "code": "PLUGIN_CONTRIBUTES_MUST_BE_AN_OBJECT",
+    "zh": "contributes 必须为对象",
+    "en": "contributes must be an object."
+  },
+  {
+    "code": "PLUGIN_THE_NUMBER_OF_CONTRIBUTIONS_EXCEEDS_THE_LIMIT",
+    "zh": "{kind} 贡献数量超额",
+    "en": "The number of {kind} contributions exceeds the limit."
+  },
+  {
+    "code": "PLUGIN_THE_SKILL_COUNT_EXCEEDS_THE_LIMIT",
+    "zh": "Skill 数量超额",
+    "en": "The Skill count exceeds the limit."
+  },
+  {
+    "code": "PLUGIN_IS_MISSING_PERMISSION",
+    "zh": "{kind} 缺少权限 {permission}",
+    "en": "{kind} is missing permission {permission}."
+  },
+  {
+    "code": "PLUGIN_THE_PANEL_IS_MISSING_UI_PANEL_PERMISSION",
+    "zh": "panel 缺少 ui.panel 权限",
+    "en": "The panel is missing ui.panel permission."
+  },
+  {
+    "code": "PLUGIN_NET_DOMAINS_MUST_BE_A_LIST_OF",
+    "zh": "net.domains 必须为域名列表",
+    "en": "net.domains must be a list of domain names."
+  },
+  {
+    "code": "PLUGIN_THE_FS_SCOPE_IS_INVALID_OR_MISSING",
+    "zh": "fs.{mode} 范围无效或缺少权限",
+    "en": "The fs.{mode} scope is invalid or missing a required permission."
+  },
+  {
+    "code": "PLUGIN_THE_FILE_SCOPE_ROOT_IS_INVALID",
+    "zh": "文件范围 root 无效",
+    "en": "The file scope root is invalid."
+  },
+  {
+    "code": "PLUGIN_WRITE_AND_DELETE_SCOPES_CANNOT_COVER_THE",
+    "zh": "写入和删除范围不能覆盖整个工作区",
+    "en": "Write and delete scopes cannot cover the entire workspace."
+  },
+  {
+    "code": "PLUGIN_A_CONTRIBUTION_OR_PERMISSION_IDENTIFIER_IS_EMPTY",
+    "zh": "贡献或权限标识为空/重复",
+    "en": "A contribution or permission identifier is empty or duplicated."
+  },
+  {
+    "code": "PLUGIN_UNKNOWN_PLUGIN_TEMPLATE",
+    "zh": "未知插件模板",
+    "en": "Unknown plugin template."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_IS_AN_INTERNAL_HOST_FIELD_USE",
+    "zh": "runtime 为宿主内部字段，请使用 PI manifest 的 main 字段",
+    "en": "runtime is an internal host field. Use the PI manifest main field."
+  },
+  {
+    "code": "PLUGIN_THE_SKILL_IS_MISSING_ITS_PATH",
+    "zh": "Skill 缺少 path",
+    "en": "The Skill is missing its path."
+  },
+  {
+    "code": "PLUGIN_THE_PLUGIN_RESOURCE_DOES_NOT_EXIST",
+    "zh": "插件资源不存在：{path}",
+    "en": "The plugin resource does not exist: {path}"
+  },
+  {
+    "code": "PLUGIN_THE_THEME_FILE_DOES_NOT_EXIST",
+    "zh": "主题文件不存在",
+    "en": "The theme file does not exist."
+  },
+  {
+    "code": "PLUGIN_THE_THEME_MUST_BE_UTF",
+    "zh": "主题必须为 UTF-8",
+    "en": "The theme must be UTF-8."
+  },
+  {
+    "code": "PLUGIN_THE_THEME_CONTENT_EXCEEDS_THE_LIMIT_OR",
+    "zh": "主题正文超额或含控制字符",
+    "en": "The theme content exceeds the limit or contains control characters."
+  },
+  {
+    "code": "PLUGIN_THE_PI_MANIFEST_IS_MISSING",
+    "zh": "PI manifest 缺少 {field}",
+    "en": "The PI manifest is missing {field}."
+  },
+  {
+    "code": "PLUGIN_THE_FIELD_MUST_BE_AN_ARRAY_OF",
+    "zh": "字段必须为字符串数组",
+    "en": "The field must be an array of strings."
+  },
+  {
+    "code": "PLUGIN_CONTRIBUTES_MUST_BE_AN_ARRAY",
+    "zh": "contributes.{field} 必须为数组",
+    "en": "contributes.{field} must be an array."
+  },
+  {
+    "code": "PLUGIN_ZIP_ENTRY_OFFSETS_OVERLAP_ARE_OUT_OF",
+    "zh": "ZIP 成员索引重叠、乱序或含未声明内容",
+    "en": "ZIP entry offsets overlap, are out of order, or contain undeclared content."
+  },
+  {
+    "code": "PLUGIN_THE_ZIP_DIRECTORY_SIZE_OR_ENTRY_COUNT",
+    "zh": "ZIP 目录大小或成员数量不一致",
+    "en": "The ZIP directory size or entry count is inconsistent."
+  },
+  {
+    "code": "PLUGIN_THE_PLUGIN_PACKAGE_IS_TRUNCATED",
+    "zh": "插件包已截断",
+    "en": "The plugin package is truncated."
+  },
+  {
+    "code": "PLUGIN_THE_PACKAGE_HAS_AN_INCOMPLETE_ZIP_DIRECTORY",
+    "zh": "插件包缺少完整 ZIP 目录或含尾随数据",
+    "en": "The package has an incomplete ZIP directory or trailing data."
+  },
+  {
+    "code": "PLUGIN_SPLIT_ZIP_PACKAGES_ARE_NOT_SUPPORTED",
+    "zh": "不支持分卷 ZIP 插件包",
+    "en": "Split ZIP packages are not supported."
+  },
+  {
+    "code": "PLUGIN_THE_ZIP_DIRECTORY_COUNT_OR_SIZE_IS",
+    "zh": "ZIP 目录数量、大小无效或超额，不支持 ZIP64",
+    "en": "The ZIP directory count or size is invalid or exceeds the limit. ZIP64 is not supported."
+  },
+  {
+    "code": "PLUGIN_A_PACKAGE_ENTRY_HAS_AN_INVALID_SIZE",
+    "zh": "插件包成员大小无效或超额",
+    "en": "A package entry has an invalid size or exceeds the limit."
+  },
+  {
+    "code": "PLUGIN_PACKAGE_PATHS_MUST_BE_UTF",
+    "zh": "包内路径必须为 UTF-8",
+    "en": "Package paths must be UTF-8."
+  },
+  {
+    "code": "PLUGIN_A_ZIP_LOCAL_RECORD_DOES_NOT_MATCH",
+    "zh": "ZIP 本地记录与目录不一致",
+    "en": "A ZIP local record does not match the directory."
+  },
+  {
+    "code": "PLUGIN_THE_PACKAGE_CRC_CHECK_FAILED_THE_FILE",
+    "zh": "插件包 CRC 校验失败，文件可能已损坏",
+    "en": "The package CRC check failed. The file may be damaged."
+  },
+  {
+    "code": "PLUGIN_A_ZIP_DIRECTORY_ENTRY_CANNOT_CONTAIN_FILE",
+    "zh": "ZIP 目录不能包含文件正文",
+    "en": "A ZIP directory entry cannot contain file data."
+  },
+  {
+    "code": "PLUGIN_ONLY_ZIP_STORE_PACKAGES_ARE_CURRENTLY_SUPPORTED",
+    "zh": "当前仅支持 ZIP32 Store 插件包",
+    "en": "Only ZIP32 Store packages are currently supported."
+  },
+  {
+    "code": "PLUGIN_ENCRYPTED_PLUGIN_PACKAGES_ARE_NOT_SUPPORTED",
+    "zh": "不支持加密插件包",
+    "en": "Encrypted plugin packages are not supported."
+  },
+  {
+    "code": "PLUGIN_THIS_COMPRESSION_METHOD_IS_NOT_SUPPORTED_USE",
+    "zh": "暂不支持该压缩方式，请使用未压缩（Store）插件包",
+    "en": "This compression method is not supported. Use an uncompressed (Store) package."
+  },
+  {
+    "code": "PLUGIN_THE_PACKAGE_USES_UNSUPPORTED_ZIP_FLAGS",
+    "zh": "插件包使用了未支持的 ZIP 标志",
+    "en": "The package uses unsupported ZIP flags."
+  },
+  {
+    "code": "PLUGIN_PLUGIN_PACKAGES_CANNOT_CONTAIN_SYMBOLIC_LINKS_OR",
+    "zh": "插件包不能包含符号链接或特殊文件",
+    "en": "Plugin packages cannot contain symbolic links or special files."
+  },
+  {
+    "code": "PLUGIN_A_ZIP_ENTRY_TYPE_DOES_NOT_MATCH",
+    "zh": "ZIP 成员类型与路径不一致",
+    "en": "A ZIP entry type does not match its path."
+  },
+  {
+    "code": "PLUGIN_THE_ZIP_INDEX_EXCEEDS_THE_LIMIT",
+    "zh": "ZIP 索引超额",
+    "en": "The ZIP index exceeds the limit."
+  },
+  {
+    "code": "PLUGIN_THE_PLUGIN_PACKAGE_IS_TRUNCATED_OR_AN",
+    "zh": "插件包已截断或索引越界",
+    "en": "The plugin package is truncated or an index is out of bounds."
+  },
+  {
+    "code": "PLUGIN_THE_ZIP_RECORD_IDENTIFIER_IS_INVALID",
+    "zh": "ZIP 记录标识无效",
+    "en": "The ZIP record identifier is invalid."
+  },
+  {
+    "code": "PLUGIN_PLUGIN_CONNECTION",
+    "zh": "插件连接",
+    "en": "Plugin connection"
+  },
+  {
+    "code": "PLUGIN_THE_AGENT_IS_AVAILABLE_BUT_ITS_PLUGIN",
+    "zh": "Agent 可正常使用，插件连接暂不可用：{error}",
+    "en": "The Agent is available, but its plugin connection is unavailable: {error}"
+  },
+  {
+    "code": "PLUGIN_THE_PLUGIN_SESSION_RESPONSE_IS_INVALID",
+    "zh": "插件会话响应无效",
+    "en": "The plugin session response is invalid."
+  },
+  {
+    "code": "GIT_CANNOT_START_GIT",
+    "zh": "无法启动 Git：{error}",
+    "en": "Cannot start Git: {error}"
+  },
+  {
+    "code": "GIT_THE_GIT_READ_TIMED_OUT_REFRESH_AGAIN",
+    "zh": "Git 读取超时，请稍后刷新",
+    "en": "The Git read timed out. Refresh again shortly."
+  },
+  {
+    "code": "GIT_READING_GIT_OUTPUT_WAS_INTERRUPTED",
+    "zh": "Git 输出读取中断",
+    "en": "Reading Git output was interrupted."
+  },
+  {
+    "code": "GIT_FAILED_TO_READ_GIT_OUTPUT",
+    "zh": "Git 输出读取失败：{error}",
+    "en": "Failed to read Git output: {error}"
+  },
+  {
+    "code": "GIT_THE_GIT_STATUS_FORMAT_IS_NOT_RECOGNIZED",
+    "zh": "Git 状态格式无法识别",
+    "en": "The Git status format is not recognized."
+  },
+  {
+    "code": "GIT_THE_GIT_FILE_PATH_IS_NOT_VALID",
+    "zh": "Git 文件路径不是有效 UTF-8，无法安全展示",
+    "en": "The Git file path is not valid UTF-8 and cannot be displayed safely."
+  },
+  {
+    "code": "GIT_THE_PROJECT_PATH_MUST_BE_A_DIRECTORY",
+    "zh": "项目路径必须是目录",
+    "en": "The project path must be a directory."
+  },
+  {
+    "code": "GIT_FAILED_TO_READ_GIT_STATUS",
+    "zh": "Git 状态读取失败：{error}",
+    "en": "Failed to read Git status: {error}"
+  },
+  {
+    "code": "GIT_CANNOT_READ_THE_GIT_REPOSITORY",
+    "zh": "Git 仓库无法读取：{error}",
+    "en": "Cannot read the Git repository: {error}"
+  },
+  {
+    "code": "GIT_THE_GIT_REPOSITORY_PATH_EXCEEDS_THE_READ",
+    "zh": "Git 仓库路径超过读取限制",
+    "en": "The Git repository path exceeds the read limit."
+  },
+  {
+    "code": "GIT_THE_REPOSITORY_PATH_IS_NOT_VALID_UTF",
+    "zh": "仓库路径不是有效 UTF-8",
+    "en": "The repository path is not valid UTF-8."
+  },
+  {
+    "code": "GIT_CANNOT_READ_THE_GIT_ROOT_DIRECTORY",
+    "zh": "Git 根目录无法读取：{error}",
+    "en": "Cannot read the Git root directory: {error}"
+  },
+  {
+    "code": "GIT_THE_CURRENT_DIRECTORY_IS_NOT_A_GIT",
+    "zh": "当前目录不是 Git 工作树",
+    "en": "The current directory is not a Git worktree."
+  },
+  {
+    "code": "GIT_FAILED_TO_READ_THE_DIFF",
+    "zh": "Diff 读取失败：{error}",
+    "en": "Failed to read the diff: {error}"
+  },
+  {
+    "code": "GIT_THE_FILE_IS_NOW_TRACKED_REFRESH_GIT",
+    "zh": "文件已被跟踪，请刷新 Git 状态",
+    "en": "The file is now tracked. Refresh Git status."
+  },
+  {
+    "code": "GIT_CANNOT_READ_THE_FILE",
+    "zh": "文件无法读取：{error}",
+    "en": "Cannot read the file: {error}"
+  },
+  {
+    "code": "GIT_THE_FILE_POINTS_OUTSIDE_THE_REPOSITORY_AND",
+    "zh": "文件指向仓库之外，无法预览",
+    "en": "The file points outside the repository and cannot be previewed."
+  },
+  {
+    "code": "GIT_THE_PATH_IS_NOT_A_REGULAR_FILE",
+    "zh": "该路径不是普通文件",
+    "en": "The path is not a regular file."
+  },
+  {
+    "code": "GIT_THE_DIFF_PATH_MUST_BE_INSIDE_THE",
+    "zh": "Diff 路径必须位于仓库内",
+    "en": "The diff path must be inside the repository."
+  },
+  {
+    "code": "GIT_ENTER_A_VALID_COMMIT_MESSAGE_AT_MOST",
+    "zh": "请输入有效提交说明（最多 500 字节）",
+    "en": "Enter a valid commit message (at most 500 bytes)."
+  },
+  {
+    "code": "GIT_THERE_ARE_NO_CHANGES_TO_COMMIT",
+    "zh": "没有需要提交的变更",
+    "en": "There are no changes to commit."
+  },
+  {
+    "code": "GIT_THE_TASK_DIRECTORY_HAS_UNCOMMITTED_CHANGES_COMMIT",
+    "zh": "任务目录有未提交改动，请先提交",
+    "en": "The task directory has uncommitted changes. Commit them first."
+  },
+  {
+    "code": "GIT_SELECT_A_CHECKED_OUT_TARGET_BRANCH",
+    "zh": "请选择已检出的目标分支",
+    "en": "Select a checked-out target branch."
+  },
+  {
+    "code": "GIT_THE_TARGET_MUST_BE_ANOTHER_BRANCH_IN",
+    "zh": "目标须为同一仓库中的另一分支",
+    "en": "The target must be another branch in the same repository."
+  },
+  {
+    "code": "GIT_THE_WORKTREE_REPOSITORY_BRANCH_OR_OWNERSHIP_CHANGED",
+    "zh": "工作树的仓库、分支或归属已变化，已停止操作",
+    "en": "The worktree repository, branch, or ownership changed. The operation was stopped."
+  },
+  {
+    "code": "GIT_THE_WORKTREE_IS_LOCKED_MOVED_OR_NO",
+    "zh": "工作树被锁定、移动或不再登记，已停止操作",
+    "en": "The worktree is locked, moved, or no longer registered. The operation was stopped."
+  },
+  {
+    "code": "GIT_FILE_CONTENTS_CHANGED_DURING_STAGING_THE_STAGED",
+    "zh": "暂存期间文件内容已变化，已保留暂存状态，请重新预览",
+    "en": "File contents changed during staging. The staged state was preserved; preview again."
+  },
+  {
+    "code": "GIT_FILES_OR_HEAD_CHANGED_DURING_STAGING_THE",
+    "zh": "暂存期间文件或 HEAD 已变化，已保留暂存内容，请重新审查",
+    "en": "Files or HEAD changed during staging. The staged contents were preserved; review them again."
+  },
+  {
+    "code": "GIT_THE_TASK_CHANGES_WERE_COMMITTED",
+    "zh": "任务变更已提交。",
+    "en": "The task changes were committed."
+  },
+  {
+    "code": "GIT_THE_TARGET_WORKTREE_STILL_HAS_RUNNING_BELFRY",
+    "zh": "目标工作树还有运行中的 Belfry 会话，请先结束会话",
+    "en": "The target worktree still has running Belfry sessions. End them first."
+  },
+  {
+    "code": "GIT_THE_MERGE_DID_NOT_COMPLETE_EXISTING_FILES",
+    "zh": "合并未完成：{error}；现有文件已保留",
+    "en": "The merge did not complete: {error}. Existing files were preserved."
+  },
+  {
+    "code": "GIT_THE_MERGE_STOPPED_BECAUSE_OF_CONFLICTS_RESOLVE",
+    "zh": "合并遇到冲突，已停止。请在目标目录处理，任务分支与文件均已保留。",
+    "en": "The merge stopped because of conflicts. Resolve them in the target directory. The task branch and all files were preserved."
+  },
+  {
+    "code": "GIT_MERGED_INTO_THE_TARGET_BRANCH_YOU_CAN",
+    "zh": "已合并到目标分支，可以继续预览清理。",
+    "en": "Merged into the target branch. You can now preview cleanup."
+  },
+  {
+    "code": "GIT_THE_TASK_DIRECTORY_STILL_HAS_RUNNING_BELFRY",
+    "zh": "任务目录还有运行中的 Belfry 会话，请先结束会话",
+    "en": "The task directory still has running Belfry sessions. End them first."
+  },
+  {
+    "code": "GIT_THE_WORKTREE_DIRECTORY_WAS_REMOVED_THE_TASK",
+    "zh": "已清理工作树目录，任务分支仍保留。",
+    "en": "The worktree directory was removed. The task branch was preserved."
+  },
+  {
+    "code": "GIT_THE_TASK_CONTAINS_COMMITS_NOT_YET_MERGED",
+    "zh": "任务含尚未合并到目标的提交，不能清理",
+    "en": "The task contains commits not yet merged into the target and cannot be cleaned up."
+  },
+  {
+    "code": "GIT_THE_DIRECTORY_STILL_CONTAINS_UNTRACKED_OR_IGNORED",
+    "zh": "目录仍含未跟踪或忽略文件，请先自行检查与处理后再清理",
+    "en": "The directory still contains untracked or ignored files. Review and handle them before cleanup."
+  },
+  {
+    "code": "GIT_THE_WORKTREE_STORE_EXCEEDS_THE_SIZE_LIMIT",
+    "zh": "Worktree 存档超过上限",
+    "en": "The worktree store exceeds the size limit."
+  },
+  {
+    "code": "GIT_THE_WORKTREE_STORE_IS_DAMAGED_THE_ORIGINAL",
+    "zh": "Worktree 存档损坏，已保留原文",
+    "en": "The worktree store is damaged. The original data was preserved."
+  },
+  {
+    "code": "GIT_THE_WORKTREE_STORE_VERSION_OR_ENTRY_COUNT",
+    "zh": "Worktree 存档版本或数量不支持",
+    "en": "The worktree store version or entry count is not supported."
+  },
+  {
+    "code": "GIT_AT_MOST_WORKTREE_TASKS_CAN_BE_SAVED",
+    "zh": "最多保存 200 个 Worktree 任务",
+    "en": "At most 200 worktree tasks can be saved."
+  },
+  {
+    "code": "GIT_WORKTREE_DATA_READ_AFTER_SAVING_DID_NOT",
+    "zh": "Worktree 保存回读不一致",
+    "en": "Worktree data read after saving did not match."
+  },
+  {
+    "code": "GIT_THE_WORKTREE_OWNERSHIP_RECORD_IS_INVALID",
+    "zh": "Worktree 所有权记录无效",
+    "en": "The worktree ownership record is invalid."
+  },
+  {
+    "code": "GIT_ANOTHER_WINDOW_IS_MODIFYING_A_WORKTREE_TRY",
+    "zh": "其他窗口正在操作 Worktree，请稍后重试",
+    "en": "Another window is modifying a worktree. Try again shortly."
+  },
+  {
+    "code": "GIT_CREATE_FROM_THE_COMMITTED_CONTENTS_OF_UNCOMMITTED",
+    "zh": "从 {branch} 的已提交内容创建；当前未提交文件不会复制。",
+    "en": "Create from the committed contents of {branch}. Uncommitted files will not be copied."
+  },
+  {
+    "code": "GIT_CREATE_TASK",
+    "zh": "创建任务「{name}」",
+    "en": "Create task \"{name}\""
+  },
+  {
+    "code": "GIT_ONLY_MANAGED_WORKTREES_CREATED_BY_BELFRY_CAN",
+    "zh": "只能操作 Belfry 创建的受管 Worktree",
+    "en": "Only managed worktrees created by Belfry can be modified."
+  },
+  {
+    "code": "GIT_COMMIT_ALL_TASK_CHANGES",
+    "zh": "提交任务全部变更",
+    "en": "Commit all task changes"
+  },
+  {
+    "code": "GIT_MERGE_INTO_THE_TARGET_BRANCH",
+    "zh": "合并到目标分支",
+    "en": "Merge into the target branch"
+  },
+  {
+    "code": "GIT_REMOVE_THE_WORKTREE_DIRECTORY",
+    "zh": "清理工作树目录",
+    "en": "Remove the worktree directory"
+  },
+  {
+    "code": "GIT_COMMIT_MESSAGE",
+    "zh": "提交说明：{message}",
+    "en": "Commit message: {message}"
+  },
+  {
+    "code": "GIT_INCLUDES_EVERY_LISTED_CHANGE_THE_WIZARD_DOES",
+    "zh": "包含列表中的全部变更；向导不执行 Git Hook 或签名。",
+    "en": "Includes every listed change. The wizard does not run Git Hooks or sign commits."
+  },
+  {
+    "code": "GIT_MERGE_COMMIT",
+    "zh": "合并提交：{commit}",
+    "en": "Merge commit: {commit}"
+  },
+  {
+    "code": "GIT_IF_CONFLICTS_OCCUR_STOP_IN_THE_TARGET",
+    "zh": "冲突时停在目标目录，保留全部成果。",
+    "en": "If conflicts occur, stop in the target directory and preserve all work."
+  },
+  {
+    "code": "GIT_REMOVE_ONLY_THE_TASK_DIRECTORY_AND_KEEP",
+    "zh": "仅移除任务目录，保留分支。请先关闭在此目录运行的外部终端或编辑器。",
+    "en": "Remove only the task directory and keep the branch. Close external terminals or editors using this directory first."
+  },
+  {
+    "code": "GIT_TARGET_BRANCH",
+    "zh": "目标分支：{branch} · {path}",
+    "en": "Target branch: {branch} - {path}"
+  },
+  {
+    "code": "GIT_THE_PREVIEW_EXPIRED_OR_WAS_ALREADY_APPLIED",
+    "zh": "预览已失效或已执行，请重新预览",
+    "en": "The preview expired or was already applied. Create a new preview."
+  },
+  {
+    "code": "GIT_THE_WORKTREE_OWNERSHIP_RECORD_CHANGED",
+    "zh": "Worktree 所有权记录已变化",
+    "en": "The worktree ownership record changed."
+  },
+  {
+    "code": "GIT_THE_BASE_BRANCH_CHANGED_AFTER_THE_PREVIEW",
+    "zh": "预览后基础分支已变化，请重新预览",
+    "en": "The base branch changed after the preview. Create a new preview."
+  },
+  {
+    "code": "GIT_THE_SEPARATE_TASK_DIRECTORY_WAS_CREATED_YOU",
+    "zh": "独立任务目录已创建，可打开为新会话。",
+    "en": "The separate task directory was created. You can open it as a new session."
+  },
+  {
+    "code": "GIT_THE_TASK_NAME_OR_BRANCH_ALREADY_EXISTS",
+    "zh": "任务名称或分支已经存在",
+    "en": "The task name or branch already exists."
+  },
+  {
+    "code": "GIT_THE_TARGET_DIRECTORY_ALREADY_EXISTS_AND_CANNOT",
+    "zh": "目标目录已经存在，不能覆盖",
+    "en": "The target directory already exists and cannot be overwritten."
+  },
+  {
+    "code": "GIT_THE_TARGET_BRANCH_ALREADY_EXISTS_CHOOSE_A",
+    "zh": "目标分支已经存在，请使用新分支",
+    "en": "The target branch already exists. Choose a new branch."
+  },
+  {
+    "code": "GIT_CANNOT_VERIFY_WHETHER_THE_TARGET_BRANCH_EXISTS",
+    "zh": "无法核对目标分支是否存在",
+    "en": "Cannot verify whether the target branch exists."
+  },
+  {
+    "code": "GIT_THE_TASK_NAME_IS_INVALID_USE_AT",
+    "zh": "任务名称无效，最多 60 字且不能包含路径符号",
+    "en": "The task name is invalid. Use at most 60 characters without path separators."
+  },
+  {
+    "code": "GIT_DEPENDENCIES_ARE_NOT_INSTALLED_AUTOMATICALLY_FOLLOW_THE",
+    "zh": "依赖不会自动安装；可在任务终端中按项目文档初始化。",
+    "en": "Dependencies are not installed automatically. Follow the project documentation in the task terminal to initialize them."
+  },
+  {
+    "code": "GIT_DETECTED_RUN_THIS_IF_NEEDED",
+    "zh": "检测到 {file}，可按需执行：{command}",
+    "en": "Detected {file}. Run this if needed: {command}"
+  },
+  {
+    "code": "GIT_COMMITS_TO_MERGE_CHANGES_FROM_THE_COMMON",
+    "zh": "将合并的提交\n{log}\n相对共同基础的变更\n{diff}",
+    "en": "Commits to merge\n{log}\nChanges from the common base\n{diff}"
+  },
+  {
+    "code": "GIT_WORKTREE_STATE_IS_BUSY_TRY_AGAIN",
+    "zh": "Worktree 状态忙，请重试",
+    "en": "Worktree state is busy. Try again."
+  },
+  {
+    "code": "GIT_THE_CURRENT_CHANGES_CONTAIN_CONFLICTS_SUBMODULES_OR",
+    "zh": "当前变更含冲突、子模块或超限文件，请先在终端处理",
+    "en": "The current changes contain conflicts, submodules, or oversized files. Handle them in the terminal first."
+  },
+  {
+    "code": "GIT_THE_CHANGES_EXCEED_THE_FULL_PREVIEW_LIMIT",
+    "zh": "变更超过完整预览上限",
+    "en": "The changes exceed the full preview limit."
+  },
+  {
+    "code": "GIT_THE_CHANGES_EXCEED_THE_MIB_PREVIEW_LIMIT",
+    "zh": "变更超过 16 MiB 预览上限，请在终端处理",
+    "en": "The changes exceed the 16 MiB preview limit. Handle them in the terminal."
+  },
+  {
+    "code": "GIT_STAGED_UNSTAGED",
+    "zh": "已暂存\n{staged}\n未暂存\n{unstaged}",
+    "en": "Staged\n{staged}\nUnstaged\n{unstaged}"
+  },
+  {
+    "code": "GIT_NEW_FILE",
+    "zh": "\n新文件：{path}\n{content}",
+    "en": "\nNew file: {path}\n{content}"
+  },
+  {
+    "code": "GIT_BINARY_FILE_INSPECT_IT_IN_THE_FILE",
+    "zh": "[二进制文件，请在文件视图检查]",
+    "en": "[Binary file; inspect it in the file view]"
+  },
+  {
+    "code": "GIT_PREVIEW_TRUNCATED_USE_THE_FILE_LIST_TO",
+    "zh": "{preview}\n…预览已截断；请结合文件列表在终端审查完整内容。",
+    "en": "{preview}\n...Preview truncated. Use the file list to review the full contents in the terminal."
+  },
+  {
+    "code": "GIT_GIT_STATUS_OR_FILE_CONTENTS_CHANGED_AFTER",
+    "zh": "预览后 Git 状态或文件内容已变化，请重新预览",
+    "en": "Git status or file contents changed after the preview. Create a new preview."
+  },
+  {
+    "code": "GIT_THE_WORKTREE_HAS_UNCOMMITTED_CHANGES_COMMIT_THEM",
+    "zh": "工作树有未提交改动，请先提交或在终端处理",
+    "en": "The worktree has uncommitted changes. Commit them or handle them in the terminal first."
+  },
+  {
+    "code": "GIT_THE_FULL_CHANGE_PREVIEW_COULD_NOT_BE",
+    "zh": "无法完整读取变更预览，请在终端审查",
+    "en": "The full change preview could not be read. Review it in the terminal."
+  },
+  {
+    "code": "GIT_THE_NEW_FILE_TYPE_OR_SIZE_IS",
+    "zh": "新文件类型或大小不适合向导预览",
+    "en": "The new file type or size is not suitable for the wizard preview."
+  },
+  {
+    "code": "GIT_THE_FILE_EXCEEDED_THE_SIZE_LIMIT_WHILE",
+    "zh": "文件在读取中超过上限",
+    "en": "The file exceeded the size limit while being read."
+  },
+  {
+    "code": "GIT_GIT_OPERATION_FAILED",
+    "zh": "Git 操作失败：{error}",
+    "en": "Git operation failed: {error}"
+  },
+  {
+    "code": "GIT_GIT_OUTPUT_EXCEEDS_THE_PREVIEW_LIMIT_HANDLE",
+    "zh": "Git 输出超过预览上限，请在终端处理",
+    "en": "Git output exceeds the preview limit. Handle it in the terminal."
+  },
+  {
+    "code": "GIT_GIT_OUTPUT_IS_NOT_VALID_UTF",
+    "zh": "Git 输出不是有效 UTF-8",
+    "en": "Git output is not valid UTF-8."
+  },
+  {
+    "code": "GIT_SWITCH_TO_A_NAMED_BRANCH_BEFORE_MODIFYING",
+    "zh": "请先切换到命名分支后操作 Worktree",
+    "en": "Switch to a named branch before modifying a worktree."
+  },
+  {
+    "code": "GIT_THE_REPOSITORY_HAS_NO_COMMITS_CREATE_AN",
+    "zh": "仓库尚无提交，请先创建初始提交",
+    "en": "The repository has no commits. Create an initial commit first."
+  },
+  {
+    "code": "GIT_THE_BRANCH_NAME_IS_INVALID_CHANGE_IT",
+    "zh": "分支名称无效，请修改后重试",
+    "en": "The branch name is invalid. Change it and try again."
+  },
+  {
+    "code": "GIT_A_MERGE_REBASE_OR_CONFLICT_IS_UNRESOLVED",
+    "zh": "存在未完成的合并、变基或冲突，请先在终端处理",
+    "en": "A merge, rebase, or conflict is unresolved. Handle it in the terminal first."
+  },
+  {
+    "code": "GIT_GIT_DID_NOT_COMPLETE_THE_OPERATION_FILES",
+    "zh": "Git 未完成操作，文件与暂存状态已保留：{error}",
+    "en": "Git did not complete the operation. Files and staged state were preserved: {error}"
+  },
+  {
+    "code": "USAGE_THE_CODEX_LOG_CONTAINS_RETROSPECTIVE_CACHE_CORRECTIONS",
+    "zh": "Codex 日志包含缓存回溯修正，无法可靠地按日期和模型分配费用",
+    "en": "The Codex log contains retrospective cache corrections. Costs cannot be reliably assigned by date and model."
+  },
+  {
+    "code": "USAGE_THE_USAGE_DETAIL_SCAN_HAS_NOT_BEEN",
+    "zh": "未初始化用量明细扫描",
+    "en": "The usage detail scan has not been initialized."
+  },
+  {
+    "code": "USAGE_USAGE_REQUEST_STATE_IS_UNAVAILABLE",
+    "zh": "用量请求状态不可用",
+    "en": "Usage request state is unavailable."
+  },
+  {
+    "code": "USAGE_THIS_USAGE_REQUEST_ID_IS_ALREADY_IN",
+    "zh": "用量请求 ID 已被使用",
+    "en": "This usage request ID is already in use."
+  },
+  {
+    "code": "USAGE_TOO_MANY_USAGE_REQUESTS_ARE_RUNNING_TRY",
+    "zh": "同时进行的用量请求过多，请稍后重试",
+    "en": "Too many usage requests are running. Try again shortly."
+  },
+  {
+    "code": "USAGE_THE_USAGE_SCANNER_IS_CLEANING_UP_OLD",
+    "zh": "用量扫描正在清理旧请求，请稍后重试",
+    "en": "The usage scanner is cleaning up old requests. Try again shortly."
+  },
+  {
+    "code": "USAGE_THE_USAGE_REQUEST_ID_IS_INVALID",
+    "zh": "无效的用量请求 ID",
+    "en": "The usage request ID is invalid."
+  },
+  {
+    "code": "USAGE_THE_SUPPORTED_USAGE_RANGES_ARE_THE_LAST",
+    "zh": "统计范围只支持近 7 天、近 30 天或全部",
+    "en": "The supported usage ranges are the last 7 days, last 30 days, or all time."
+  },
+  {
+    "code": "USAGE_THE_USAGE_QUERY_WAS_CANCELLED",
+    "zh": "用量查询已取消",
+    "en": "The usage query was cancelled."
+  },
+  {
+    "code": "USAGE_USAGE_EXCEEDS_THE_RANGE_THAT_CAN_BE",
+    "zh": "用量超过可精确显示的范围，请缩小统计范围",
+    "en": "Usage exceeds the range that can be displayed accurately. Narrow the date range."
+  },
+  {
+    "code": "USAGE_A_MODEL_NAME_OR_PROJECT_PATH_IN",
+    "zh": "日志中的模型名或项目路径过长，无法统计",
+    "en": "A model name or project path in the log is too long to aggregate."
+  },
+  {
+    "code": "USAGE_THERE_ARE_TOO_MANY_USAGE_DETAILS_NARROW",
+    "zh": "用量明细过多，请缩小统计范围后重试",
+    "en": "There are too many usage details. Narrow the range and try again."
+  },
+  {
+    "code": "USAGE_THE_PROJECT_PATH_FOR_USAGE_STATISTICS_IS",
+    "zh": "统计项目路径过长",
+    "en": "The project path for usage statistics is too long."
+  },
+  {
+    "code": "USAGE_USAGE_SCAN_FAILED",
+    "zh": "用量扫描失败：{error}",
+    "en": "Usage scan failed: {error}"
+  },
+  {
+    "code": "USAGE_THE_USAGE_CACHE_IS_UNAVAILABLE_RESTART_THE",
+    "zh": "用量缓存状态不可用，请重启后重试",
+    "en": "The usage cache is unavailable. Restart the app and try again."
+  },
+  {
+    "code": "USAGE_THE_USAGE_LOG_CHANGED_OR_COULD_NOT",
+    "zh": "用量日志在流式扫描期间发生变化或读取失败，请重试",
+    "en": "The usage log changed or could not be read during scanning. Try again."
+  },
+  {
+    "code": "USAGE_THE_USAGE_LOG_IS_NOT_A_REGULAR",
+    "zh": "用量日志不是普通文件",
+    "en": "The usage log is not a regular file."
+  },
+  {
+    "code": "USAGE_THE_DEDUPLICATION_AND_AGGREGATION_DATA_EXCEEDS_THE",
+    "zh": "用量统计保留的去重与聚合状态超过内存上限，无法完整统计",
+    "en": "The deduplication and aggregation data exceeds the memory limit. Complete usage statistics are unavailable."
+  },
+  {
+    "code": "USAGE_CANNOT_READ_THE_LOCAL_USAGE_LOG_DIRECTORY",
+    "zh": "无法读取本地用量日志目录，请检查访问权限后重试",
+    "en": "Cannot read the local usage log directory. Check access permissions and try again."
+  },
+  {
+    "code": "USAGE_THE_USAGE_LOG_DIRECTORY_CONTAINS_TOO_MANY",
+    "zh": "用量日志目录项目过多，超过扫描上限",
+    "en": "The usage log directory contains too many projects to scan."
+  },
+  {
+    "code": "USAGE_CANNOT_READ_A_USAGE_LOG_DIRECTORY_ENTRY",
+    "zh": "无法读取用量日志目录项",
+    "en": "Cannot read a usage log directory entry."
+  },
+  {
+    "code": "USAGE_CANNOT_READ_USAGE_LOG_FILE_METADATA",
+    "zh": "无法读取用量日志文件信息",
+    "en": "Cannot read usage log file metadata."
+  },
+  {
+    "code": "USAGE_THIS_SESSION_HAS_NO_LOCAL_LOG_YET",
+    "zh": "尚未找到此会话的本地日志，稍后自动重试",
+    "en": "This session has no local log yet. The app will retry automatically."
+  },
+  {
+    "code": "USAGE_SOME_SESSION_LOGS_COULD_NOT_BE_READ",
+    "zh": "部分会话日志无法读取，显示可读取部分",
+    "en": "Some session logs could not be read. Showing the available data."
+  },
+  {
+    "code": "USAGE_SKIPPED_DAMAGED_OR_OVERSIZED_RECORDS_TOTALS_MAY",
+    "zh": "跳过 {count} 条损坏或超大记录，合计可能不完整",
+    "en": "Skipped {count} damaged or oversized records. Totals may be incomplete."
+  },
+  {
+    "code": "USAGE_THE_HISTORY_CACHE_DIRECTORY_WAS_NOT_FOUND",
+    "zh": "找不到历史缓存目录",
+    "en": "The history cache directory was not found."
+  },
+  {
+    "code": "USAGE_THE_CLI_LOG_DIRECTORY_WAS_NOT_FOUND",
+    "zh": "找不到 CLI 日志目录",
+    "en": "The CLI log directory was not found."
+  },
+  {
+    "code": "USAGE_THE_SESSION_LOG_MUST_BE_A_JSONL",
+    "zh": "会话日志必须是 CLI 日志目录内的 JSONL 文件",
+    "en": "The session log must be a JSONL file inside the CLI log directory."
+  },
+  {
+    "code": "USAGE_THE_SESSION_STATISTICS_CACHE_IS_UNAVAILABLE",
+    "zh": "会话统计缓存不可用",
+    "en": "The session statistics cache is unavailable."
+  },
+  {
+    "code": "USAGE_LOG_DISCOVERY_REACHED_ITS_LIMIT_SHOWING_THE",
+    "zh": "日志发现达到数量上限，显示已识别部分",
+    "en": "Log discovery reached its limit. Showing the logs found so far."
+  },
+  {
+    "code": "USAGE_THE_LOG_EXCEEDS_RECORDS_SHOWING_THE_RECORDS",
+    "zh": "日志超过 20 万条，显示已读取部分",
+    "en": "The log exceeds 200,000 records. Showing the records read so far."
+  },
+  {
+    "code": "USAGE_SOME_TOOLS_ARE_MISSING_CALL_IDS_THE",
+    "zh": "部分工具缺少调用 ID，工具总数不可用",
+    "en": "Some tools are missing call IDs. The total tool count is unavailable."
+  },
+  {
+    "code": "USAGE_SOME_USAGE_RECORDS_ARE_MISSING_MESSAGE_IDS",
+    "zh": "部分用量缺少消息 ID，Token 合计不可用",
+    "en": "Some usage records are missing message IDs. The token total is unavailable."
+  },
+  {
+    "code": "USAGE_THE_SESSION_LOG_IS_NOT_A_REGULAR",
+    "zh": "会话日志不是普通文件",
+    "en": "The session log is not a regular file."
+  },
+  {
+    "code": "HISTORY_CLOSE_THE_AGENT_SESSION_USING_THIS_HISTORY",
+    "zh": "请先关闭使用该历史的 Agent 会话，再删除历史",
+    "en": "Close the Agent session using this history before deleting it."
+  },
+  {
+    "code": "HISTORY_THE_NATIVE_SESSION_CHANGED_WHILE_READING_REFRESH",
+    "zh": "原生会话在读取期间发生变化，请刷新后重试",
+    "en": "The native session changed while reading. Refresh and try again."
+  },
+  {
+    "code": "HISTORY_THE_NATIVE_SESSION_EXCEEDS_MIB_VIEW_IT",
+    "zh": "原生会话内容超过 64 MiB，请在 CLI 中查看",
+    "en": "The native session exceeds 64 MiB. View it in the CLI."
+  },
+  {
+    "code": "HISTORY_THE_OPENCODE_SESSION_COUNT_EXCEEDS_THE_SCAN",
+    "zh": "OpenCode 会话数超过扫描上限",
+    "en": "The OpenCode session count exceeds the scan limit."
+  },
+  {
+    "code": "HISTORY_THE_OPENCODE_SESSION_EXCEEDS_THE_READ_LIMIT",
+    "zh": "OpenCode 会话超过读取上限",
+    "en": "The OpenCode session exceeds the read limit."
+  },
+  {
+    "code": "HISTORY_THE_NATIVE_TOTAL_INCLUDES_AUXILIARY_CALLS_WHOSE",
+    "zh": "原生总量包含辅助调用；其模型和逐次时间未记录，按会话最后活跃时间归入未知模型",
+    "en": "The native total includes auxiliary calls whose models and individual timestamps were not recorded. They are grouped under an unknown model at the session last-active time."
+  },
+  {
+    "code": "HISTORY_OPENCODE_COULD_NOT_DELETE_THE_NATIVE_SESSION",
+    "zh": "OpenCode 未能删除原生会话，请关闭该会话后重试",
+    "en": "OpenCode could not delete the native session. Close it and try again."
+  },
+  {
+    "code": "HISTORY_OPENCODE_DELETION_TIMED_OUT_CHECK_THE_SESSION",
+    "zh": "OpenCode 删除超时，请在 CLI 中确认会话状态后刷新",
+    "en": "OpenCode deletion timed out. Check the session state in the CLI, then refresh."
+  },
+  {
+    "code": "HISTORY_THIS_NATIVE_HISTORY_TYPE_IS_NOT_SUPPORTED",
+    "zh": "不支持的原生历史类型",
+    "en": "This native history type is not supported."
+  },
+  {
+    "code": "HISTORY_THE_CLI_DATA_DIRECTORY_WAS_NOT_FOUND",
+    "zh": "找不到 CLI 数据目录",
+    "en": "The CLI data directory was not found."
+  },
+  {
+    "code": "HISTORY_THE_HISTORY_CACHE_IS_TEMPORARILY_UNAVAILABLE",
+    "zh": "历史缓存暂不可用",
+    "en": "The history cache is temporarily unavailable."
+  },
+  {
+    "code": "HISTORY_THE_NATIVE_HISTORY_CACHE_FORMAT_IS_INVALID",
+    "zh": "原生历史缓存格式无效",
+    "en": "The native history cache format is invalid."
+  },
+  {
+    "code": "HISTORY_THE_SESSION_NO_LONGER_EXISTS",
+    "zh": "会话已不存在",
+    "en": "The session no longer exists."
+  },
+  {
+    "code": "HISTORY_THE_ANTIGRAVITY_SESSION_COUNT_EXCEEDS_THE_SCAN",
+    "zh": "Antigravity 会话数超过扫描上限",
+    "en": "The Antigravity session count exceeds the scan limit."
+  },
+  {
+    "code": "HISTORY_THE_NATIVE_ANTIGRAVITY_TRANSCRIPT_DOES_NOT_RECORD",
+    "zh": "Antigravity 原生转录未记录模型名称或缓存写入量；未知字段保持为空",
+    "en": "The native Antigravity transcript does not record model names or cache writes. Unknown fields remain empty."
+  },
+  {
+    "code": "HISTORY_STOP_THE_ANTIGRAVITY_SESSION_BEFORE_DELETING_ITS",
+    "zh": "请先停止 Antigravity 会话，再删除历史",
+    "en": "Stop the Antigravity session before deleting its history."
+  },
+  {
+    "code": "HISTORY_THE_SESSION_FILE_IS_OUTSIDE_THE_NATIVE",
+    "zh": "会话文件超出原生数据目录",
+    "en": "The session file is outside the native data directory."
+  },
+  {
+    "code": "HISTORY_THE_SESSION_METADATA_EXCEEDS_THE_READ_LIMIT",
+    "zh": "会话元数据超过读取上限",
+    "en": "The session metadata exceeds the read limit."
+  },
+  {
+    "code": "HISTORY_THE_NATIVE_SESSION_EXCEEDS_MIB_VIEW_IT_E28E54",
+    "zh": "原生会话超过 128 MiB，请在 CLI 中查看",
+    "en": "The native session exceeds 128 MiB. View it in the CLI."
+  },
+  {
+    "code": "HISTORY_THE_NATIVE_SESSION_EXCEEDS_RECORDS_VIEW_IT",
+    "zh": "原生会话超过 20 万条记录，请在 CLI 中查看",
+    "en": "The native session exceeds 200,000 records. View it in the CLI."
+  },
+  {
+    "code": "HISTORY_THE_NATIVE_LOG_CONTAINS_RECORDS_LARGER_THAN",
+    "zh": "原生日志含超过 8 MiB 的记录，无法完整读取",
+    "en": "The native log contains records larger than 8 MiB and cannot be read completely."
+  },
+  {
+    "code": "HISTORY_THE_NATIVE_SESSION_DIRECTORY_EXCEEDS_THE_SCAN",
+    "zh": "原生会话目录超过扫描上限",
+    "en": "The native session directory exceeds the scan limit."
+  },
+  {
+    "code": "HISTORY_THE_NATIVE_HISTORY_DATABASE_IS_UPDATING_TRY",
+    "zh": "原生历史数据库正在更新，请稍后重试",
+    "en": "The native history database is updating. Try again shortly."
+  },
+  {
+    "code": "HISTORY_THE_DATABASE_PATH_IS_INVALID",
+    "zh": "数据库路径无效",
+    "en": "The database path is invalid."
+  },
+  {
+    "code": "HISTORY_THE_KIMI_SESSION_COUNT_EXCEEDS_THE_SCAN",
+    "zh": "Kimi 会话数超过扫描上限",
+    "en": "The Kimi session count exceeds the scan limit."
+  },
+  {
+    "code": "HISTORY_THE_KIMI_SESSION_DIRECTORY_DOES_NOT_MATCH",
+    "zh": "Kimi 会话目录与 ID 不匹配",
+    "en": "The Kimi session directory does not match its ID."
+  },
+  {
+    "code": "HISTORY_THE_KIMI_SESSION_STILL_HAS_A_NATIVE",
+    "zh": "Kimi 会话仍有原生锁，请退出该会话后重试；异常退出的会话可先在 Kimi 恢复并正常退出",
+    "en": "The Kimi session still has a native lock. Exit the session and try again. If it ended unexpectedly, resume it in Kimi and exit normally first."
+  },
+  {
+    "code": "HISTORY_UNKNOWN_TOOL",
+    "zh": "未知工具",
+    "en": "Unknown tool"
+  },
+  {
+    "code": "HISTORY_TOOL_RESULT",
+    "zh": "工具结果",
+    "en": "Tool result"
+  },
+  {
+    "code": "HISTORY_WRITE_CONTENT_FROM_THE_LOG_THE_ORIGINAL",
+    "zh": "日志中的写入内容；原内容未记录，无法判定是新建还是覆盖",
+    "en": "Write content from the log. The original content was not recorded, so creation cannot be distinguished from replacement."
+  },
+  {
+    "code": "HISTORY_THE_LOG_DOES_NOT_CONTAIN_ENOUGH_INFORMATION",
+    "zh": "日志内容不足，无法完整展示这次替换",
+    "en": "The log does not contain enough information to display the full replacement."
+  },
+  {
+    "code": "HISTORY_REPLACE_ALL_MATCHES_THE_LOG_CONTAINS_ONLY",
+    "zh": "替换全部匹配位置；日志仅记录替换片段",
+    "en": "Replace all matches. The log contains only the replacement fragments."
+  },
+  {
+    "code": "HISTORY_REPLACEMENT_FRAGMENTS_FROM_THE_LOG_THIS_IS",
+    "zh": "日志中的替换片段，不代表完整文件",
+    "en": "Replacement fragments from the log; this is not the complete file."
+  },
+  {
+    "code": "HISTORY_READING_HISTORY_DETAILS_WAS_CANCELLED",
+    "zh": "历史详情读取已取消",
+    "en": "Reading history details was cancelled."
+  },
+  {
+    "code": "HISTORY_DELETION_REQUEST_THE_LOG_DOES_NOT_CONTAIN",
+    "zh": "删除请求；日志没有保留原文件全文",
+    "en": "Deletion request. The log does not contain the complete original file."
+  },
+  {
+    "code": "HISTORY_PATCH_REQUEST_FROM_THE_LOG",
+    "zh": "日志中的 patch 请求",
+    "en": "Patch request from the log"
+  },
+  {
+    "code": "HISTORY_THE_DETAIL_REQUEST_ID_IS_INVALID",
+    "zh": "详情读取标识无效",
+    "en": "The detail request ID is invalid."
+  },
+  {
+    "code": "HISTORY_THE_DETAIL_REQUEST_ID_ALREADY_EXISTS",
+    "zh": "详情读取标识已存在",
+    "en": "The detail request ID already exists."
+  },
+  {
+    "code": "HISTORY_THE_HISTORY_DETAILS_WERE_CLOSED_OR_EXPIRED",
+    "zh": "历史详情已关闭或过期，请刷新后重试",
+    "en": "The history details were closed or expired. Refresh and try again."
+  },
+  {
+    "code": "HISTORY_HISTORY_DETAILS_CAN_ONLY_READ_REGULAR_FILES",
+    "zh": "详情只能读取 CLI 日志目录内的普通文件",
+    "en": "History details can only read regular files inside the CLI log directory."
+  },
+  {
+    "code": "HISTORY_THE_SESSION_LOG_CHANGED_REFRESH_THE_DETAILS",
+    "zh": "会话日志已变化，请刷新详情后重试",
+    "en": "The session log changed. Refresh the details and try again."
+  },
+  {
+    "code": "HISTORY_THE_PAGE_ORDER_CHANGED_REFRESH_THE_DETAILS",
+    "zh": "分页顺序已变化，请刷新详情",
+    "en": "The page order changed. Refresh the details."
+  },
+  {
+    "code": "HISTORY_LOG_READING_ENDED_EARLY_REFRESH_THE_DETAILS",
+    "zh": "日志读取提前结束，请刷新详情后重试",
+    "en": "Log reading ended early. Refresh the details and try again."
+  },
+  {
+    "code": "HISTORY_THE_LOG_SCAN_MAY_BE_INCOMPLETE_UNREADABLE",
+    "zh": "日志扫描可能不完整：{count} 处无法读取。",
+    "en": "The log scan may be incomplete. Unreadable locations: {count}."
+  },
+  {
+    "code": "HISTORY_SCAN_LIMIT_REACHED",
+    "zh": "日志扫描可能不完整：{count} 处无法读取，已达到扫描上限。",
+    "en": "The log scan may be incomplete. Unreadable locations: {count}. The scan limit was reached."
+  },
+  {
+    "code": "HISTORY_THE_HISTORY_SESSION_IDENTITY_COULD_NOT_BE",
+    "zh": "无法识别历史会话身份",
+    "en": "The history session identity could not be recognized."
+  },
+  {
+    "code": "HISTORY_THE_HISTORY_SEARCH_WAS_CANCELLED",
+    "zh": "历史搜索已取消",
+    "en": "The history search was cancelled."
+  },
+  {
+    "code": "HISTORY_SEARCH_STATE_IS_TEMPORARILY_UNAVAILABLE",
+    "zh": "搜索状态暂不可用",
+    "en": "Search state is temporarily unavailable."
+  },
+  {
+    "code": "HISTORY_SEARCH_TEXT_MAY_CONTAIN_AT_MOST_CHARACTERS",
+    "zh": "搜索文字最多 256 字",
+    "en": "Search text may contain at most 256 characters."
+  },
+  {
+    "code": "HISTORY_THE_START_DATE_CANNOT_BE_LATER_THAN",
+    "zh": "开始日期不能晚于结束日期",
+    "en": "The start date cannot be later than the end date."
+  },
+  {
+    "code": "HISTORY_THE_HISTORY_INDEX_IS_TEMPORARILY_UNAVAILABLE",
+    "zh": "历史索引暂不可用",
+    "en": "The history index is temporarily unavailable."
+  },
+  {
+    "code": "HISTORY_CANNOT_SCAN_HISTORY_DIRECTORY",
+    "zh": "无法扫描历史目录 {path}：{error}",
+    "en": "Cannot scan history directory {path}: {error}"
+  },
+  {
+    "code": "PLUGIN_RUNTIME_THE_THEME_DIRECTORY_FORMAT_IS_INVALID",
+    "zh": "主题目录格式无效",
+    "en": "The theme directory format is invalid."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_THE_THEME_CONTENT_FORMAT_IS_INVALID",
+    "zh": "主题内容格式无效",
+    "en": "The theme content format is invalid."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_THE_THEME_CSS_EXCEEDS_KIB",
+    "zh": "主题 CSS 超过 256 KiB",
+    "en": "The theme CSS exceeds 256 KiB."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_THE_PLUGIN_RUNTIME_DIRECTORY_CANNOT_BE_A",
+    "zh": "插件运行目录不能为符号链接",
+    "en": "The plugin runtime directory cannot be a symbolic link."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_THE_EMBEDDED_PLUGIN_HOST_FILE_WAS_MODIFIED",
+    "zh": "嵌入插件宿主文件被修改，请检查应用数据目录",
+    "en": "The embedded plugin host file was modified. Check the app data directory."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_THE_PLUGIN_RUNTIME_LOCK_IS_UNAVAILABLE",
+    "zh": "插件运行锁不可用",
+    "en": "The plugin runtime lock is unavailable."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_RUNNING_PLUGINS_REQUIRES_NODE_JS_OR_LATER",
+    "zh": "插件运行需要 Node.js 20 或更新版本",
+    "en": "Running plugins requires Node.js 20 or later."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_THE_PLUGIN_CONTEXT_LOCK_IS_UNAVAILABLE",
+    "zh": "插件上下文锁不可用",
+    "en": "The plugin context lock is unavailable."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_THE_PLUGIN_LOADING_LOCK_IS_UNAVAILABLE",
+    "zh": "插件加载锁不可用",
+    "en": "The plugin loading lock is unavailable."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_THE_PLUGIN_ERROR_STATE_LOCK_IS_UNAVAILABLE",
+    "zh": "插件错误锁不可用",
+    "en": "The plugin error state lock is unavailable."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_THE_PLUGIN_CONTEXT_MUST_BE_AN_OBJECT",
+    "zh": "插件上下文必须为对象",
+    "en": "The plugin context must be an object."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_THE_PLUGIN_WORKSPACE_PATH_IS_INVALID",
+    "zh": "插件工作区路径无效",
+    "en": "The plugin workspace path is invalid."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_NODE_JS_WAS_NOT_FOUND_INSTALL_NODE",
+    "zh": "未找到 Node.js。请安装 Node.js 20 或更新版本并重新打开 Belfry；已安装的静态插件仍可使用。",
+    "en": "Node.js was not found. Install Node.js 20 or later and reopen Belfry. Installed static plugins remain available."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_THE_PLUGIN_ID_IS_MISSING",
+    "zh": "缺少插件 ID",
+    "en": "The plugin ID is missing."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_THE_PLUGIN_WINDOW_IS_NOT_OPEN",
+    "zh": "插件窗口未打开",
+    "en": "The plugin window is not open."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_THE_WINDOW_ACTION_IS_MISSING",
+    "zh": "缺少窗口动作",
+    "en": "The window action is missing."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_THE_WINDOW_ACTION_IS_INVALID",
+    "zh": "窗口动作无效",
+    "en": "The window action is invalid."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_THE_PANEL_URL_IS_MISSING",
+    "zh": "缺少面板 URL",
+    "en": "The panel URL is missing."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_THE_PANEL_URL_IS_INVALID",
+    "zh": "面板 URL 无效",
+    "en": "The panel URL is invalid."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_PANELS_MAY_ONLY_ACCESS_LOCAL_HOST_RESOURCES",
+    "zh": "面板只允许访问宿主本地资源",
+    "en": "Panels may only access local host resources."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_THE_PANEL_PATH_IS_INVALID",
+    "zh": "面板路径无效",
+    "en": "The panel path is invalid."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_THE_PANEL_RESOURCE_TOKEN_IS_INVALID",
+    "zh": "面板资源令牌无效",
+    "en": "The panel resource token is invalid."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_THE_CLIPBOARD_CONTENTS_ARE_TOO_LARGE",
+    "zh": "剪贴板内容过大",
+    "en": "The clipboard contents are too large."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_THE_CLIPBOARD_IS_UNAVAILABLE",
+    "zh": "剪贴板不可用：{error}",
+    "en": "The clipboard is unavailable: {error}"
+  },
+  {
+    "code": "PLUGIN_RUNTIME_CLIPBOARD_INPUT_IS_UNAVAILABLE",
+    "zh": "剪贴板输入不可用",
+    "en": "Clipboard input is unavailable."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_CLIPBOARD_OUTPUT_IS_UNAVAILABLE",
+    "zh": "剪贴板输出不可用",
+    "en": "Clipboard output is unavailable."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_CLIPBOARD_READ_OR_WRITE_FAILED",
+    "zh": "剪贴板读写失败",
+    "en": "Clipboard read or write failed."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_THE_CLIPBOARD_TEXT_IS_NOT_VALID_UTF",
+    "zh": "剪贴板文本不是 UTF-8",
+    "en": "The clipboard text is not valid UTF-8."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_BELFRY_NOTIFICATION",
+    "zh": "Belfry 通知",
+    "en": "Belfry notification"
+  },
+  {
+    "code": "PLUGIN_RUNTIME_NATIVE_APP_NOTIFICATIONS_ARE_ENABLED",
+    "zh": "应用原生通知已启用。",
+    "en": "Native app notifications are enabled."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_THE_PLUGIN_HOST_STDIN_IS_UNAVAILABLE",
+    "zh": "插件宿主 stdin 不可用",
+    "en": "The plugin host stdin is unavailable."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_THE_PLUGIN_HOST_STDOUT_IS_UNAVAILABLE",
+    "zh": "插件宿主 stdout 不可用",
+    "en": "The plugin host stdout is unavailable."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_THE_PLUGIN_HOST_STDERR_IS_UNAVAILABLE",
+    "zh": "插件宿主 stderr 不可用",
+    "en": "The plugin host stderr is unavailable."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_THE_PLUGIN_REQUEST_TIMED_OUT_BEFORE_WRITING",
+    "zh": "插件请求在写入前已超时",
+    "en": "The plugin request timed out before writing."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_THE_PLUGIN_HOST_INPUT_IS_UNAVAILABLE",
+    "zh": "插件宿主输入不可用",
+    "en": "The plugin host input is unavailable."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_THE_PLUGIN_HOST_EXITED_OR_THE_MESSAGE",
+    "zh": "插件宿主已退出或消息格式无效",
+    "en": "The plugin host exited or the message format is invalid."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_THE_PLUGIN_HOST_EXITED_READ_AGAIN_TO",
+    "zh": "插件宿主已退出，请重新读取以恢复",
+    "en": "The plugin host exited. Read again to recover."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_THE_PLUGIN_REQUEST_FAILED",
+    "zh": "插件请求失败",
+    "en": "The plugin request failed."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_THE_PLUGIN_REQUEST_EXCEEDS_THE_SIZE_LIMIT",
+    "zh": "插件请求大小超额",
+    "en": "The plugin request exceeds the size limit."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_THE_PLUGIN_WRITE_QUEUE_IS_FULL_OR",
+    "zh": "插件写入队列已满或宿主已退出",
+    "en": "The plugin write queue is full or the host has exited."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_WRITING_TO_THE_PLUGIN_HOST_TIMED_OUT",
+    "zh": "插件宿主写入超时",
+    "en": "Writing to the plugin host timed out."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_THE_PLUGIN_DEADLINE_IS_INVALID",
+    "zh": "插件截止时间无效",
+    "en": "The plugin deadline is invalid."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_THE_PLUGIN_HOST_IS_NOT_RUNNING",
+    "zh": "插件宿主未运行",
+    "en": "The plugin host is not running."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_THE_PLUGIN_REQUEST_LOCK_IS_UNAVAILABLE",
+    "zh": "插件请求锁不可用",
+    "en": "The plugin request lock is unavailable."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_TOO_MANY_PLUGIN_REQUESTS_ARE_PENDING",
+    "zh": "插件请求过多",
+    "en": "Too many plugin requests are pending."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_THE_PLUGIN_HOST_RESPONSE_TIMED_OUT",
+    "zh": "插件宿主响应超时",
+    "en": "The plugin host response timed out."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_THE_PLUGIN_REQUEST_TIMED_OUT",
+    "zh": "插件请求超时：{method}",
+    "en": "The plugin request timed out: {method}"
+  },
+  {
+    "code": "PLUGIN_RUNTIME_THE_PLUGIN_HOST_STOPPED",
+    "zh": "插件宿主已停止",
+    "en": "The plugin host stopped."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_CANNOT_START_THE_NODE_PLUGIN_HOST",
+    "zh": "无法启动 Node 插件宿主：{error}",
+    "en": "Cannot start the Node plugin host: {error}"
+  },
+  {
+    "code": "PLUGIN_RUNTIME_THE_PLUGIN_HOST_WAS_RELEASED",
+    "zh": "插件宿主已释放",
+    "en": "The plugin host was released."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_THE_PLUGIN_RESPONSE_EXCEEDS_THE_SIZE_LIMIT",
+    "zh": "插件响应大小超额",
+    "en": "The plugin response exceeds the size limit."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_THE_API_NAME_IS_MISSING",
+    "zh": "缺少 API 名称",
+    "en": "The API name is missing."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_THE_CLIPBOARD_TEXT_IS_INVALID",
+    "zh": "剪贴板文本无效",
+    "en": "The clipboard text is invalid."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_THE_TARGET_PATH_IS_MISSING",
+    "zh": "缺少目标路径",
+    "en": "The target path is missing."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_THE_CURRENT_DESKTOP_HOST_DOES_NOT_PROVIDE",
+    "zh": "当前桌面宿主不提供 {api}",
+    "en": "The current desktop host does not provide {api}."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_THE_URL_IS_INVALID",
+    "zh": "URL 无效",
+    "en": "The URL is invalid."
+  },
+  {
+    "code": "PLUGIN_RUNTIME_THE_EXTERNAL_LINK_PROTOCOL_IS_NOT_SUPPORTED",
+    "zh": "外部链接协议不受支持",
+    "en": "The external link protocol is not supported."
+  },
+  {
+    "code": "EXTERNAL_ONLY_HTTP_AND_HTTPS_LINKS_ARE_SUPPORTED",
+    "zh": "仅支持 http/https 链接: {url}",
+    "en": "Only HTTP and HTTPS links are supported: {url}"
+  },
+  {
+    "code": "EXTERNAL_CANNOT_CONSTRUCT_THE_URL",
+    "zh": "无法构造 URL: {url}",
+    "en": "Cannot construct the URL: {url}"
+  },
+  {
+    "code": "EXTERNAL_MAIN_THREAD_DISPATCH_FAILED",
+    "zh": "主线程派发失败: {error}",
+    "en": "Main-thread dispatch failed: {error}"
+  },
+  {
+    "code": "EXTERNAL_FAILED_TO_RETURN_THE_MAIN_THREAD_RESULT",
+    "zh": "主线程结果回传失败: {error}",
+    "en": "Failed to return the main-thread result: {error}"
+  },
+  {
+    "code": "EXTERNAL_FAILED_TO_RUN_XDG_OPEN",
+    "zh": "执行 xdg-open 失败: {error}",
+    "en": "Failed to run xdg-open: {error}"
+  },
+  {
+    "code": "EXTERNAL_XDG_OPEN_EXIT_CODE",
+    "zh": "xdg-open 退出码 {status}",
+    "en": "xdg-open exit code: {status}"
+  },
+  {
+    "code": "EXTERNAL_THE_URL_CANNOT_CONTAIN_NUL_CHARACTERS",
+    "zh": "URL 不能包含 NUL 字符",
+    "en": "The URL cannot contain NUL characters."
+  },
+  {
+    "code": "EXTERNAL_FAILED_TO_OPEN_THE_DEFAULT_BROWSER_SHELLEXECUTEW",
+    "zh": "打开默认浏览器失败（ShellExecuteW 错误码 {status}）",
+    "en": "Failed to open the default browser (ShellExecuteW error {status})."
+  },
+  {
+    "code": "PROVIDER_AUTHENTICATION_FAILED_CHECK_THE_API_KEY_AND",
+    "zh": "认证失败，请检查 API Key 与访问权限",
+    "en": "Authentication failed. Check the API key and access permissions."
+  },
+  {
+    "code": "PROVIDER_THIS_ENDPOINT_DOES_NOT_PROVIDE_A_MODEL",
+    "zh": "该端点未提供模型列表，请手动填写模型 ID",
+    "en": "This endpoint does not provide a model list. Enter the model ID manually."
+  },
+  {
+    "code": "PROVIDER_TOO_MANY_REQUESTS_TRY_AGAIN_SHORTLY",
+    "zh": "请求过于频繁，请稍后重试",
+    "en": "Too many requests. Try again shortly."
+  },
+  {
+    "code": "PROVIDER_THE_MODEL_SERVICE_RETURNED_HTTP_CHECK_THE",
+    "zh": "模型服务返回 HTTP {status}，请检查端点后重试",
+    "en": "The model service returned HTTP {status}. Check the endpoint and try again."
+  },
+  {
+    "code": "PROVIDER_CURRENT_CLAUDE_PROVIDER",
+    "zh": "当前 Claude Provider",
+    "en": "Current Claude Provider"
+  },
+  {
+    "code": "PROVIDER_THIS_MODEL_OPERATION_IS_NOT_SUPPORTED",
+    "zh": "不支持的模型操作",
+    "en": "This model operation is not supported."
+  },
+  {
+    "code": "PROVIDER_THE_MODEL_IDENTIFIER_IS_INVALID",
+    "zh": "模型标识无效",
+    "en": "The model identifier is invalid."
+  },
+  {
+    "code": "PROVIDER_THE_MODEL_IS_NOT_CONFIGURED_OR_WAS",
+    "zh": "模型未配置或已移除，请在 Provider 中设置模型",
+    "en": "The model is not configured or was removed. Configure a model in Provider settings."
+  },
+  {
+    "code": "PROVIDER_IMPORTED_CONFIGURATION",
+    "zh": "导入的配置",
+    "en": "Imported configuration"
+  },
+  {
+    "code": "PROVIDER_GLOBAL_CLI_CONFIGURATION",
+    "zh": "全局 CLI 配置",
+    "en": "Global CLI configuration"
+  },
+  {
+    "code": "TERMINAL_THE_APP_IS_QUITTING_NEW_TASKS_CANNOT",
+    "zh": "正在退出，已停止创建新任务",
+    "en": "The app is quitting. New tasks cannot be created."
+  },
+  {
+    "code": "TERMINAL_THE_SESSION_WAS_CLOSED_THE_DELAYED_CREATION",
+    "zh": "会话已关闭，已取消迟到的创建请求",
+    "en": "The session was closed. The delayed creation request was cancelled."
+  },
+  {
+    "code": "TERMINAL_THE_TERMINAL_BACKGROUND_SERVICE_IS_NOT_ENABLED",
+    "zh": "终端后台未启用",
+    "en": "The terminal background service is not enabled."
+  },
+  {
+    "code": "TERMINAL_CANNOT_CREATE_THE_LAUNCH_SNAPSHOT_DIRECTORY",
+    "zh": "无法创建启动快照目录：{error}",
+    "en": "Cannot create the launch snapshot directory: {error}"
+  },
+  {
+    "code": "TERMINAL_CANNOT_PROTECT_THE_LAUNCH_SNAPSHOT_DIRECTORY",
+    "zh": "无法保护启动快照目录：{error}",
+    "en": "Cannot protect the launch snapshot directory: {error}"
+  },
+  {
+    "code": "TERMINAL_CANNOT_CREATE_THE_CODEX_COLLABORATION_STATE_DIRECTORY",
+    "zh": "无法创建 Codex 协作状态目录：{error}",
+    "en": "Cannot create the Codex collaboration state directory: {error}"
+  },
+  {
+    "code": "TERMINAL_CANNOT_PROTECT_THE_CODEX_COLLABORATION_STATE_DIRECTORY",
+    "zh": "无法保护 Codex 协作状态目录：{error}",
+    "en": "Cannot protect the Codex collaboration state directory: {error}"
+  },
+  {
+    "code": "TERMINAL_THE_BACKGROUND_TASK_STOPPED_UNEXPECTEDLY_WHILE_DETECTING",
+    "zh": "检测 {agent} 时后台任务异常退出",
+    "en": "The background task stopped unexpectedly while detecting {agent}."
+  },
+  {
+    "code": "TERMINAL_THE_SESSION_ID_CANNOT_BE_A_CLI",
+    "zh": "会话 ID 不能是 CLI 选项",
+    "en": "The session ID cannot be a CLI option."
+  },
+  {
+    "code": "TERMINAL_THE_CLI_MCP_CONFIGURATION_DIRECTORY_WAS_NOT",
+    "zh": "找不到 CLI MCP 配置目录",
+    "en": "The CLI MCP configuration directory was not found."
+  },
+  {
+    "code": "TERMINAL_ANOTHER_CLI_CONFIGURATION_ALREADY_USES_THE_BELFRY",
+    "zh": "CLI 中 belfry_plugins MCP 名称已被其他配置占用",
+    "en": "Another CLI configuration already uses the belfry_plugins MCP name."
+  },
+  {
+    "code": "TERMINAL_THE_NATIVE_SESSION_IDENTITY_DOES_NOT_MATCH",
+    "zh": "原生会话身份与后台任务类型不匹配",
+    "en": "The native session identity does not match the background task type."
+  },
+  {
+    "code": "TERMINAL_THE_BACKGROUND_SERVICE_ALREADY_HAS_A_NEWER",
+    "zh": "后台已记录更新的原生会话身份",
+    "en": "The background service already has a newer native session identity."
+  },
+  {
+    "code": "TERMINAL_CANNOT_START_THE_TERMINAL_BACKGROUND_SERVICE",
+    "zh": "无法启动终端后台：{error}",
+    "en": "Cannot start the terminal background service: {error}"
+  },
+  {
+    "code": "TERMINAL_THE_TERMINAL_SERVICE_IS_NOT_READY_AN",
+    "zh": "终端后台未就绪，可能有不兼容的旧后台仍在运行。原任务已保留。",
+    "en": "The terminal service is not ready. An incompatible older service may still be running. The original task was preserved."
+  },
+  {
+    "code": "TERMINAL_THE_BACKGROUND_SERVICE_MESSAGE_EXCEEDS_THE_SIZE",
+    "zh": "后台消息大小超出限制",
+    "en": "The background service message exceeds the size limit."
+  },
+  {
+    "code": "TERMINAL_THE_BACKGROUND_SERVICE_MESSAGE_FORMAT_IS_NOT",
+    "zh": "后台消息格式不支持",
+    "en": "The background service message format is not supported."
+  },
+  {
+    "code": "TERMINAL_THE_ORIGINAL_BACKGROUND_TASK_NO_LONGER_EXISTS",
+    "zh": "原后台任务已不存在。",
+    "en": "The original background task no longer exists."
+  },
+  {
+    "code": "TERMINAL_THE_BACKGROUND_SERVICE_RESPONSE_FORMAT_IS_NOT",
+    "zh": "后台响应格式不支持",
+    "en": "The background service response format is not supported."
+  },
+  {
+    "code": "TERMINAL_BACKGROUND_SERVICE_CONNECTION_FAILED",
+    "zh": "后台连接失败：{error}",
+    "en": "Background service connection failed: {error}"
+  },
+  {
+    "code": "TERMINAL_THE_TERMINAL_OUTPUT_CONNECTION_IS_CLOSED",
+    "zh": "终端输出连接已关闭",
+    "en": "The terminal output connection is closed."
+  },
+  {
+    "code": "TERMINAL_THE_BACKGROUND_SERVICE_CONNECTION_WAS_INTERRUPTED_RECONNECT",
+    "zh": "后台连接已中断。可重新连接；原任务不会被自动重启。",
+    "en": "The background service connection was interrupted. Reconnect to continue; the original task will not be restarted automatically."
+  },
+  {
+    "code": "TERMINAL_A_WORKTREE_OPERATION_IS_IN_PROGRESS_FINISH",
+    "zh": "Worktree 正在执行操作，请完成后再创建会话",
+    "en": "A worktree operation is in progress. Finish it before creating a session."
+  },
+  {
+    "code": "TERMINAL_THE_BACKGROUND_SERVICE_DIRECTORY_IS_MISSING",
+    "zh": "后台目录缺失",
+    "en": "The background service directory is missing."
+  },
+  {
+    "code": "TERMINAL_BELFRY_BACKGROUND_SERVICE",
+    "zh": "Belfry 后台：{error}",
+    "en": "Belfry background service: {error}"
+  },
+  {
+    "code": "TERMINAL_THE_BACKGROUND_SERVICE_PROTOCOL_VERSIONS_DO_NOT",
+    "zh": "后台协议版本不匹配",
+    "en": "The background service protocol versions do not match."
+  },
+  {
+    "code": "TERMINAL_BACKGROUND_SERVICE_AUTHENTICATION_FAILED",
+    "zh": "后台身份校验失败",
+    "en": "Background service authentication failed."
+  },
+  {
+    "code": "TERMINAL_THE_BACKGROUND_SERVICE_IS_UNAVAILABLE",
+    "zh": "后台服务不可用：{error}",
+    "en": "The background service is unavailable: {error}"
+  },
+  {
+    "code": "TERMINAL_THE_BACKGROUND_SERVICE_OPERATION_IS_INVALID",
+    "zh": "后台操作无效",
+    "en": "The background service operation is invalid."
+  },
+  {
+    "code": "TERMINAL_THE_BACKGROUND_SERVICE_IS_QUITTING_TRY_AGAIN",
+    "zh": "后台正在退出，请稍后重试",
+    "en": "The background service is quitting. Try again shortly."
+  },
+  {
+    "code": "TERMINAL_THE_BACKGROUND_TASK_PROJECT_OR_TYPE_CHANGED",
+    "zh": "后台任务的项目或类型已改变，请先结束原任务再重新启动",
+    "en": "The background task project or type changed. End the original task before starting again."
+  },
+  {
+    "code": "TERMINAL_THE_BACKGROUND_SERVICE_CAN_RETAIN_AT_MOST",
+    "zh": "后台最多保留 64 条会话，请关闭已结束的会话后重试",
+    "en": "The background service can retain at most 64 sessions. Close finished sessions and try again."
+  },
+  {
+    "code": "TERMINAL_THE_BACKGROUND_SERVICE_LAUNCH_SNAPSHOT_EXCEEDS_THE",
+    "zh": "后台启动快照超过限制",
+    "en": "The background service launch snapshot exceeds the size limit."
+  },
+  {
+    "code": "TERMINAL_INVALID_COLLABORATION_REQUEST",
+    "zh": "协作请求格式无效",
+    "en": "Invalid collaboration request"
+  },
+  {
+    "code": "TERMINAL_COLLABORATION_PROTOCOL_VERSION_MISMATCH",
+    "zh": "协作协议版本不匹配",
+    "en": "Collaboration protocol version mismatch"
+  },
+  {
+    "code": "TERMINAL_BACKGROUND_COLLABORATION_AUTHENTICATION_FAILED",
+    "zh": "后台协作身份校验失败",
+    "en": "Background collaboration authentication failed."
+  },
+  {
+    "code": "TERMINAL_THE_APP_IS_DISCONNECTED_REOPEN_BELFRY_TO",
+    "zh": "应用未连接，重新打开 Belfry 后可继续协作",
+    "en": "The app is disconnected. Reopen Belfry to continue collaboration."
+  },
+  {
+    "code": "TERMINAL_FAILED_TO_ENCODE_THE_COLLABORATION_REQUEST",
+    "zh": "协作请求编码失败",
+    "en": "Failed to encode the collaboration request."
+  },
+  {
+    "code": "TERMINAL_INVALID_APPLICATION_COLLABORATION_RESPONSE",
+    "zh": "应用协作响应无效",
+    "en": "Invalid application collaboration response"
+  },
+  {
+    "code": "TERMINAL_ONLY_LOCAL_COLLABORATION_ENDPOINTS_ARE_SUPPORTED",
+    "zh": "仅支持本机协作端点",
+    "en": "Only local collaboration endpoints are supported."
+  },
+  {
+    "code": "TERMINAL_THE_COLLABORATION_MESSAGE_EXCEEDS_THE_LIMIT_OR",
+    "zh": "协作消息超过上限或不完整",
+    "en": "The collaboration message exceeds the limit or is incomplete."
+  },
+  {
+    "code": "TERMINAL_THE_APP_IS_DISCONNECTED_BUT_THE_TASK",
+    "zh": "应用暂未连接；任务仍在后台运行，重新打开 Belfry 后重试",
+    "en": "The app is disconnected, but the task is still running in the background. Reopen Belfry and try again."
+  },
+  {
+    "code": "TERMINAL_THE_BACKGROUND_OUTPUT_BATCH_EXCEEDS_THE_CONSUMPTION",
+    "zh": "后台输出批次超出消费预算，请重新连接。",
+    "en": "The background output batch exceeds the consumption budget. Reconnect to continue."
+  },
+  {
+    "code": "TERMINAL_TERMINAL_OUTPUT_ACKNOWLEDGEMENT_TIMED_OUT_RECONNECT_TO",
+    "zh": "终端输出消费确认超时。可重新连接；原任务仍在后台运行。",
+    "en": "Terminal output acknowledgement timed out. Reconnect to continue; the original task is still running in the background."
+  },
+  {
+    "code": "TERMINAL_THE_QUIT_OPTION_IS_INVALID",
+    "zh": "退出选择无效",
+    "en": "The quit option is invalid."
+  },
+  {
+    "code": "TERMINAL_THE_BACKGROUND_SERVICE_DIRECTORY_CANNOT_BE_A",
+    "zh": "后台目录不能是符号链接",
+    "en": "The background service directory cannot be a symbolic link."
+  },
+  {
+    "code": "TERMINAL_THE_BACKGROUND_SERVICE_LOCK_FILE_CANNOT_BE",
+    "zh": "后台锁文件不能是符号链接",
+    "en": "The background service lock file cannot be a symbolic link."
+  },
+  {
+    "code": "TERMINAL_THE_BACKGROUND_SERVICE_IS_ALREADY_RUNNING",
+    "zh": "后台实例已经运行",
+    "en": "The background service is already running."
+  },
+  {
+    "code": "TERMINAL_THE_BACKGROUND_SERVICE_ENDPOINT_FILE_IS_INVALID",
+    "zh": "后台端点文件无效",
+    "en": "The background service endpoint file is invalid."
+  },
+  {
+    "code": "TERMINAL_THE_BACKGROUND_SERVICE_ENDPOINT_PERMISSIONS_ARE_TOO",
+    "zh": "后台端点权限过宽",
+    "en": "The background service endpoint permissions are too broad."
+  },
+  {
+    "code": "TERMINAL_THE_BACKGROUND_SERVICE_VERSION_OR_IDENTITY_IS",
+    "zh": "后台版本或身份无效，请结束旧后台后重试",
+    "en": "The background service version or identity is invalid. Stop the old service and try again."
+  },
+  {
+    "code": "TERMINAL_BACKGROUND_SERVICE_STORAGE_IS_UNAVAILABLE",
+    "zh": "后台存储不可用：{error}",
+    "en": "Background service storage is unavailable: {error}"
+  },
+  {
+    "code": "TERMINAL_THE_BACKGROUND_RELAY_SESSION_LIMIT_HAS_BEEN",
+    "zh": "后台代理会话已达上限",
+    "en": "The background relay session limit has been reached."
+  },
+  {
+    "code": "TERMINAL_THE_BACKGROUND_RELAY_IS_UNAVAILABLE",
+    "zh": "后台代理不可用：{error}",
+    "en": "The background relay is unavailable: {error}"
+  },
+  {
+    "code": "TERMINAL_THE_REPLAY_CURSOR_IS_OUTSIDE_THE_BACKGROUND",
+    "zh": "回放游标超出后台输出范围",
+    "en": "The replay cursor is outside the background output range."
+  },
+  {
+    "code": "SSH_ERROR_OUTPUT_TRUNCATED",
+    "zh": "\n（错误输出已截断）",
+    "en": "\n(error output truncated)"
+  },
+  {
+    "code": "SSH_SOME_INCLUDE_FILES_EXCEED_THE_READ_LIMIT",
+    "zh": "部分 Include 超出读取上限，可直接输入别名连接",
+    "en": "Some Include files exceed the read limit. Enter an alias directly to connect."
+  },
+  {
+    "code": "SSH_NOT_READ",
+    "zh": "未读取 {path}",
+    "en": "Not read: {path}"
+  },
+  {
+    "code": "SSH_MORE_THAN_ALIASES_WERE_FOUND_SHOWING_THE",
+    "zh": "别名超过 200 项，仅显示前 200 项",
+    "en": "More than 200 aliases were found. Showing the first 200."
+  },
+  {
+    "code": "SSH_INCLUDE_ENTRIES_WITH_DYNAMIC_DIRECTORIES_OR_COMPLEX",
+    "zh": "含动态目录或复杂模式的 Include 未导入，可手动输入其别名",
+    "en": "Include entries with dynamic directories or complex patterns were not imported. Enter their aliases manually."
+  },
+  {
+    "code": "DIAGNOSTICS_IMPORT_FONT",
+    "zh": "导入字体",
+    "en": "Import font"
+  },
+  {
+    "code": "DIAGNOSTICS_THE_LOG_ENTRY_EXCEEDS_THE_LIMIT",
+    "zh": "日志条目超过限制",
+    "en": "The log entry exceeds the limit."
+  },
+  {
+    "code": "DIAGNOSTICS_THE_LOG_ENTRY_EXCEEDS_THE_LIMIT_OR",
+    "zh": "日志条目超过限制或来源为空",
+    "en": "The log entry exceeds the limit or has an empty source."
+  },
+  {
+    "code": "DIAGNOSTICS_APPLICATION_LOGGING_IS_UNAVAILABLE",
+    "zh": "应用日志不可用：{error}",
+    "en": "Application logging is unavailable: {error}"
+  },
+  {
+    "code": "HOOK_THE_LOCAL_HOOK_ENDPOINT_IS_UNAVAILABLE_STATUS",
+    "zh": "Hook 本机端点不可用，当前使用屏幕推断",
+    "en": "The local Hook endpoint is unavailable. Status is currently inferred from the screen."
+  },
+  {
+    "code": "HOOK_THE_HOOK_IDENTITY_REGISTRY_IS_UNAVAILABLE",
+    "zh": "Hook 身份表不可用",
+    "en": "The Hook identity registry is unavailable."
+  },
+  {
+    "code": "HOOK_THE_HOOK_SESSION_LIMIT_HAS_BEEN_REACHED",
+    "zh": "Hook 会话数量已达上限",
+    "en": "The Hook session limit has been reached."
+  },
+  {
+    "code": "HOOK_BELFRY_SESSION_STATUS",
+    "zh": "Belfry 会话状态",
+    "en": "Belfry session status"
+  },
+  {
+    "code": "HOOK_THE_HOOK_CONFIGURATION_IS_NOT_VALID_JSON",
+    "zh": "Hook 配置不是有效 JSON，已保留原文件",
+    "en": "The Hook configuration is not valid JSON. The original file was preserved."
+  },
+  {
+    "code": "HOOK_THE_HOOK_CONFIGURATION_MUST_BE_A_JSON",
+    "zh": "Hook 配置顶层必须是对象",
+    "en": "The Hook configuration must be a JSON object."
+  },
+  {
+    "code": "HOOK_HOOKS_MUST_BE_AN_OBJECT",
+    "zh": "hooks 必须是对象",
+    "en": "hooks must be an object."
+  },
+  {
+    "code": "HOOK_A_HOOK_EVENT_MUST_CONTAIN_AN_ARRAY",
+    "zh": "Hook 事件必须包含命令数组，已保留原文件",
+    "en": "A Hook event must contain an array of commands. The original file was preserved."
+  },
+  {
+    "code": "HOOK_THE_APP_PATH_CANNOT_BE_SAFELY_CONVERTED",
+    "zh": "应用路径无法安全转换为 Hook 命令",
+    "en": "The app path cannot be safely converted into a Hook command."
+  },
+  {
+    "code": "HOOK_THE_APP_PATH_CONTAINS_COMMAND_EXPANSION_CHARACTERS",
+    "zh": "应用路径含命令展开字符，请移动应用后重试",
+    "en": "The app path contains command expansion characters. Move the app and try again."
+  },
+  {
+    "code": "HOOK_THE_LIGHTWEIGHT_HOOK_EXECUTABLE_BELFRY_EXE_IS",
+    "zh": "缺少轻量 Hook 程序 belfry.exe，请修复安装；开发模式请先构建 belfry-cli",
+    "en": "The lightweight Hook executable belfry.exe is missing. Repair the installation, or build belfry-cli first in development mode."
+  },
+  {
+    "code": "HOOK_THE_KIMI_HOOK_CONFIGURATION_IS_NOT_VALID",
+    "zh": "Kimi Hook 配置不是有效 TOML",
+    "en": "The Kimi Hook configuration is not valid TOML."
+  },
+  {
+    "code": "HOOK_KIMI_HOOKS_MUST_BE_AN_ARRAY_OF",
+    "zh": "Kimi hooks 必须为表数组",
+    "en": "Kimi hooks must be an array of tables."
+  },
+  {
+    "code": "HOOK_ANOTHER_CONFIGURATION_USES_THE_SAME_ANTIGRAVITY_HOOK",
+    "zh": "Antigravity 同名 Hook 已被其他配置占用，未覆盖",
+    "en": "Another configuration uses the same Antigravity Hook name. It was not overwritten."
+  },
+  {
+    "code": "HOOK_AN_OPENCODE_PLUGIN_WITH_THE_SAME_NAME",
+    "zh": "OpenCode 同名插件已被占用，未覆盖",
+    "en": "An OpenCode plugin with the same name already exists. It was not overwritten."
+  },
+  {
+    "code": "HOOK_THIS_HOOK_TYPE_IS_NOT_SUPPORTED",
+    "zh": "不支持的 Hook 类型",
+    "en": "This Hook type is not supported."
+  },
+  {
+    "code": "HOOK_THE_OPENCODE_HOOK_PLUGIN_IS_NOT_MANAGED",
+    "zh": "OpenCode Hook 插件不是 Belfry 管理的文件",
+    "en": "The OpenCode Hook plugin is not managed by Belfry."
+  },
+  {
+    "code": "HOOK_THE_OPENCODE_HOOK_PLUGIN_IDENTIFIER_IS_INVALID",
+    "zh": "OpenCode Hook 插件标识无效",
+    "en": "The OpenCode Hook plugin identifier is invalid."
+  },
+  {
+    "code": "HOOK_BELFRY_SESSION_STATUS_22BAB6",
+    "zh": "Belfry 会话状态 · {kind}",
+    "en": "Belfry session status - {kind}"
+  },
+  {
+    "code": "HOOK_THE_HOOK_INTERFACE_HAS_NOT_BEEN_VERIFIED",
+    "zh": "当前 CLI 版本尚未验证 Hook 接口，请升级后重试",
+    "en": "The Hook interface has not been verified for this CLI version. Upgrade and try again."
+  },
+  {
+    "code": "HOOK_HOOK_PREVIEW_STATE_IS_UNAVAILABLE",
+    "zh": "Hook 预览状态不可用",
+    "en": "Hook preview state is unavailable."
+  },
+  {
+    "code": "HOOK_THE_PREVIEW_EXPIRED_CREATE_A_NEW_PREVIEW",
+    "zh": "预览已失效，请重新预览",
+    "en": "The Hook preview expired. Create a new preview."
+  },
+  {
+    "code": "HOOK_THE_CONFIGURATION_CHANGED_AFTER_THE_PREVIEW_THE",
+    "zh": "配置已在预览后变化，已保留新内容，请重新预览",
+    "en": "The configuration changed after the preview. The new contents were preserved; preview again."
+  },
+  {
+    "code": "HOOK_THE_HOOK_CONFIGURATION_FILE_IS_TOO_LARGE",
+    "zh": "Hook 配置文件过大，未读取或修改",
+    "en": "The Hook configuration file is too large. It was not read or modified."
+  },
+  {
+    "code": "HOOK_THE_HOOK_CONFIGURATION_IS_NOT_VALID_UTF",
+    "zh": "Hook 配置不是有效 UTF-8，已保留原文件",
+    "en": "The Hook configuration is not valid UTF-8. The original file was preserved."
+  },
+  {
+    "code": "HOOK_THE_ANTIGRAVITY_CONFIGURATION_DIRECTORY_WAS_NOT_FOUND",
+    "zh": "找不到 Antigravity 配置目录",
+    "en": "The Antigravity configuration directory was not found."
+  },
+  {
+    "code": "HOOK_PI_DOES_NOT_SUPPORT_HOOKS",
+    "zh": "Pi 不支持 Hook",
+    "en": "Pi does not support Hooks."
+  },
+  {
+    "code": "HOOK_PI_DOES_NOT_YET_PROVIDE_A_HOOK",
+    "zh": "Pi 尚未提供 Hook 接口，会话状态保持屏幕推断",
+    "en": "Pi does not yet provide a Hook interface. Session status is inferred from the screen."
+  },
+  {
+    "code": "HOOK_THE_CONFIGURATION_IS_UNREADABLE_STATUS_IS_INFERRED",
+    "zh": "配置不可读取，保持屏幕推断，原文件未改动",
+    "en": "The configuration is unreadable. Status is inferred from the screen and the original file was not changed."
+  },
+  {
+    "code": "HOOK_THE_CLI_IS_NOT_INSTALLED_OR_ITS",
+    "zh": "CLI 未安装或版本尚未验证 Hook 接口，保持屏幕推断",
+    "en": "The CLI is not installed or its Hook interface is unverified. Status is inferred from the screen."
+  },
+  {
+    "code": "HOOK_HOOKS_ARE_DISABLED_IN_THE_CLI_GLOBAL",
+    "zh": "CLI 全局设置已关闭 Hook；本页保留该设置，启用 CLI Hook 后再重开会话",
+    "en": "Hooks are disabled in the CLI global settings. This setting is preserved. Enable CLI Hooks, then reopen the session."
+  },
+  {
+    "code": "HOOK_HOOKS_ARE_NOT_ENABLED_STATUS_IS_CURRENTLY",
+    "zh": "尚未启用 Hook，当前使用屏幕推断",
+    "en": "Hooks are not enabled. Status is currently inferred from the screen."
+  },
+  {
+    "code": "HOOK_HOOK_INSTALLATION_IS_INCOMPLETE_PREVIEW_AND_ENABLE",
+    "zh": "Hook 安装不完整，可重新预览并启用",
+    "en": "Hook installation is incomplete. Preview and enable it again."
+  },
+  {
+    "code": "HOOK_THE_HOOK_PATH_IS_INVALID_OR_STILL",
+    "zh": "Hook 路径失效或仍使用旧桌面入口；请重新预览并启用轻量 Hook，重开会话后在 Codex /hooks 中重新信任命令",
+    "en": "The Hook path is invalid or still uses the old desktop entry. Preview and enable the lightweight Hook again, reopen the session, and trust the commands again in Codex /hooks."
+  },
+  {
+    "code": "HOOK_THE_HOOK_PATH_IS_INVALID_OR_STILL_EE1BAE",
+    "zh": "Hook 路径失效或仍使用旧桌面入口；请重新预览并启用轻量 Hook，然后重开会话",
+    "en": "The Hook path is invalid or still uses the old desktop entry. Preview and enable the lightweight Hook again, then reopen the session."
+  },
+  {
+    "code": "HOOK_THE_APP_TARGETED_BY_THE_HOOK_NO",
+    "zh": "Hook 指向的应用已不存在，可能移动过应用或清理过构建；请重新预览并启用",
+    "en": "The app targeted by the Hook no longer exists. It may have moved or its build was cleaned. Preview and enable the Hook again."
+  },
+  {
+    "code": "HOOK_INSTALLED_REOPEN_THE_SESSION_THEN_REVIEW_AND",
+    "zh": "已安装；重开会话后，在 Codex /hooks 中审阅并信任这些命令",
+    "en": "Installed. Reopen the session, then review and trust these commands in Codex /hooks."
+  },
+  {
+    "code": "HOOK_INSTALLED_REOPEN_THE_SESSION_TO_RECEIVE_HOOKS",
+    "zh": "已安装；重开会话后接收 Hook，未连接前仍显示屏幕推断",
+    "en": "Installed. Reopen the session to receive Hooks. Until connected, status is inferred from the screen."
+  },
+  {
+    "code": "HOOK_HOOKS_ARE_NOT_CONNECTED_STATUS_IS_CURRENTLY",
+    "zh": "Hook 尚未连接，当前使用屏幕推断",
+    "en": "Hooks are not connected. Status is currently inferred from the screen."
+  },
+  {
+    "code": "HOOK_THE_SESSION_IS_CLOSED",
+    "zh": "会话已关闭",
+    "en": "The session is closed."
+  },
+  {
+    "code": "HOOK_THE_PROCESS_EXITED",
+    "zh": "进程已退出（{code}）",
+    "en": "The process exited ({code})."
+  },
+  {
+    "code": "HOOK_STARTING",
+    "zh": "正在启动",
+    "en": "Starting"
+  },
+  {
+    "code": "HOOK_WORKING",
+    "zh": "正在处理",
+    "en": "Working"
+  },
+  {
+    "code": "HOOK_WAITING_FOR_APPROVAL_OR_INPUT",
+    "zh": "等待确认或输入",
+    "en": "Waiting for approval or input"
+  },
+  {
+    "code": "HOOK_RESPONSE_COMPLETED",
+    "zh": "本轮响应结束",
+    "en": "Response completed"
+  },
+  {
+    "code": "HOOK_RESPONSE_FAILED",
+    "zh": "本轮响应失败",
+    "en": "Response failed"
+  },
+  {
+    "code": "HOOK_THE_SESSION_WAS_INTERRUPTED_OR_EXITED",
+    "zh": "会话已中断或退出",
+    "en": "The session was interrupted or exited."
+  },
+  {
+    "code": "HOOK_HOOKS_ARE_CONNECTED_WAITING_FOR_A_NEW",
+    "zh": "Hook 已连接，等待新指令",
+    "en": "Hooks are connected. Waiting for a new instruction."
+  },
+  {
+    "code": "COLLAB_THE_ROOM_COMPATIBILITY_CHANNEL_ONLY_ACCEPTS_CAPABILITY",
+    "zh": "房间兼容通道只接受能力探测和房间命令",
+    "en": "The room compatibility channel only accepts capability probes and room commands."
+  },
+  {
+    "code": "COLLAB_THE_ROOM_COMPATIBILITY_REQUEST_FORMAT_IS_INVALID",
+    "zh": "房间兼容请求格式无效",
+    "en": "The room compatibility request format is invalid."
+  },
+  {
+    "code": "COLLAB_FAILED_TO_ENCODE_THE_ROOM_COMPATIBILITY_RESPONSE",
+    "zh": "房间兼容响应编码失败",
+    "en": "Failed to encode the room compatibility response."
+  },
+  {
+    "code": "COLLAB_INVALID_RESPONSE_INVALID_ROOM_COMPATIBILITY_RECEIPT",
+    "zh": "回应看不懂：房间兼容回执无效：{error}",
+    "en": "Invalid response: invalid room compatibility receipt: {error}"
+  },
+  {
+    "code": "COLLAB_INVALID_RESPONSE_THE_ROOM_COMPATIBILITY_RECEIPT_MARKER",
+    "zh": "回应看不懂：房间兼容回执标记不匹配",
+    "en": "Invalid response: the room compatibility receipt marker does not match."
+  },
+  {
+    "code": "NATIVE_MA_XIMIZE",
+    "zh": "最大化(&X)",
+    "en": "Ma&ximize"
+  },
+  {
+    "code": "NATIVE_TOGGLE_FULL_SCREEN",
+    "zh": "切换全屏",
+    "en": "Toggle Full Screen"
+  },
+  {
+    "code": "NATIVE_C_LOSE_WINDOW",
+    "zh": "关闭窗口(&L)",
+    "en": "C&lose Window"
+  },
+  {
+    "code": "NATIVE_EXIT",
+    "zh": "退出(&X)",
+    "en": "&Exit"
+  },
+  {
+    "code": "NATIVE_BRING_ALL_TO_FRONT",
+    "zh": "全部置于前台",
+    "en": "Bring All to Front"
+  }
+]

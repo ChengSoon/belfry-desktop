@@ -1,3 +1,4 @@
+import { TranslationError } from "../i18n";
 import { BACKGROUND_FITS, MAX_BLUR } from "../background/contracts";
 import { BACKGROUND_KEY, parseBackground } from "../background/storage";
 import { THEME_MODE_KEY, parseThemeMode } from "../theme/storage";
@@ -25,10 +26,10 @@ export function createBackup(storage: Pick<Storage, "getItem"> = localStorage): 
 export function parseBackup(raw: string): BackupPackage {
   assertSize(raw);
   const value: unknown = JSON.parse(raw);
-  if (!record(value) || value.format !== "belfry.backup" || value.version !== 1) throw new Error("备份格式或版本不支持");
-  if (typeof value.createdAt !== "string" || !Number.isFinite(Date.parse(value.createdAt))) throw new Error("备份时间无效");
+  if (!record(value) || value.format !== "belfry.backup" || value.version !== 1) throw new TranslationError("backup.package.text_2dcaf7c880");
+  if (typeof value.createdAt !== "string" || !Number.isFinite(Date.parse(value.createdAt))) throw new TranslationError("backup.package.text_53e91800e7");
   if (!record(value.domains) || !Object.keys(value.domains).length
-    || Object.keys(value.domains).some((key) => key !== "appearance" && key !== "workspace")) throw new Error("备份数据域不支持");
+    || Object.keys(value.domains).some((key) => key !== "appearance" && key !== "workspace")) throw new TranslationError("backup.package.text_69c833881c");
   return { format: "belfry.backup", version: 1, createdAt: new Date(value.createdAt).toISOString(), domains: {
     ...(value.domains.workspace === undefined ? {} : { workspace: cleanWorkspace(value.domains.workspace) }),
     ...(value.domains.appearance === undefined ? {} : { appearance: cleanAppearance(value.domains.appearance) }),
@@ -36,14 +37,14 @@ export function parseBackup(raw: string): BackupPackage {
 }
 
 function cleanAppearance(value: unknown): AppearanceBackup {
-  if (!record(value) || !record(value.typography) || !record(value.background)) throw new Error("外观数据无效");
-  if (value.theme !== null && value.theme !== "light" && value.theme !== "dark") throw new Error("备份主题无效");
+  if (!record(value) || !record(value.typography) || !record(value.background)) throw new TranslationError("backup.package.text_12d236402b");
+  if (value.theme !== null && value.theme !== "light" && value.theme !== "dark") throw new TranslationError("backup.package.text_5ae53a9cc7");
   const font = value.typography;
   if (typeof font.fontFamily !== "string" || font.fontFamily.length > MAX_FONT_FAMILY_LENGTH
-    || /[\u0000-\u001f\u007f]/u.test(font.fontFamily)) throw new Error("备份字体无效");
+    || /[\u0000-\u001f\u007f]/u.test(font.fontFamily)) throw new TranslationError("backup.package.text_3d2200f1e6");
   const background = value.background;
   if (!BACKGROUND_FITS.includes(background.fit as never) || !record(background.veil)
-    || typeof background.videoPaused !== "boolean") throw new Error("备份背景参数无效");
+    || typeof background.videoPaused !== "boolean") throw new TranslationError("backup.package.text_27a06e2c77");
   return { theme: value.theme, typography: { fontFamily: font.fontFamily,
     fontSize: finite(font.fontSize, [MIN_FONT_SIZE, MAX_FONT_SIZE]) }, background: {
     fit: background.fit as AppearanceBackup["background"]["fit"], opacity: finite(background.opacity, [0, 1]),
@@ -54,7 +55,7 @@ function cleanAppearance(value: unknown): AppearanceBackup {
 
 function finite(value: unknown, range: [number, number]) {
   if (typeof value !== "number" || !Number.isFinite(value) || value < range[0] || value > range[1]) {
-    throw new Error("备份外观参数超出范围");
+    throw new TranslationError("backup.package.text_12ce7a49cb");
   }
   return value;
 }

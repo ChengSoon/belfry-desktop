@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 import { invoke } from "@tauri-apps/api/core";
 
 // Tauri 2 会在 window 上注入 __TAURI_INTERNALS__，存在即说明跑在桌面外壳里。
@@ -20,7 +21,7 @@ export async function openExternal(href: string): Promise<void> {
   } catch (error) {
     // 调用点多是 void openExternal(...)，rejection 无人接手；这里留一条日志，
     // 免得「点了没反应」又变成没有任何线索的哑故障。
-    console.error("[openExternal] 打开失败", href, error);
+    console.error(t("utils.openExternal.text_f4b6d1f4cc"), href, error);
     throw error;
   }
 }

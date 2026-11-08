@@ -10,5 +10,7 @@ name = "belfry"
 path = "src/main.rs"
 
 [dependencies]
+belfry-i18n = { path = "../belfry-i18n" }
 belfry-protocol = { path = "../belfry-protocol" }
 serde_json = { workspace = true }
+socket2 = "0.6"

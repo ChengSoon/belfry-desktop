@@ -57,7 +57,7 @@ fn sources(
         AgentKind::Antigravity => antigravity::list(data, id, check),
         AgentKind::Opencode => opencode::list(data, id, check),
         AgentKind::Kimi => kimi::list(data, id, check),
-        _ => Err(AppError::invalid_argument("不支持的原生历史类型")),
+        _ => Err(AppError::invalid_argument(belfry_i18n::text("不支持的原生历史类型"))),
     }
 }
 
@@ -81,8 +81,8 @@ pub(crate) fn refresh(
     if let Some(id) = id {
         super::scan::validate_session_id(id)?;
     }
-    let data = paths::data_dir(kind).ok_or_else(|| AppError::not_found("找不到 CLI 数据目录"))?;
-    let root = root(kind).ok_or_else(|| AppError::not_found("找不到历史缓存目录"))?;
+    let data = paths::data_dir(kind).ok_or_else(|| AppError::not_found(belfry_i18n::text("找不到 CLI 数据目录")))?;
+    let root = root(kind).ok_or_else(|| AppError::not_found(belfry_i18n::text("找不到历史缓存目录")))?;
     refresh_in(kind, &data, &root, id, check)?;
     Ok(root)
 }
@@ -96,7 +96,7 @@ fn refresh_in(
 ) -> Result<(), AppError> {
     let _guard = CACHE_LOCK
         .lock()
-        .map_err(|_| AppError::io("历史缓存暂不可用"))?;
+        .map_err(|_| AppError::io(belfry_i18n::text("历史缓存暂不可用")))?;
     check()?;
     let sources = sources(kind, data, id, check)?;
     cache::refresh(kind, data, root, &sources, id, check)
@@ -111,24 +111,24 @@ pub(crate) fn read_cached(path: &Path) -> Result<Option<HistorySession>, AppErro
         .and_then(|header| header.get("belfrySession").cloned())
         .map(serde_json::from_value)
         .transpose()
-        .map_err(|_| AppError::invalid_argument("原生历史缓存格式无效"))
+        .map_err(|_| AppError::invalid_argument(belfry_i18n::text("原生历史缓存格式无效")))
 }
 
 pub(crate) fn delete(kind: AgentKind, id: &str) -> Result<(), AppError> {
     super::scan::validate_session_id(id)?;
     let _guard = CACHE_LOCK
         .lock()
-        .map_err(|_| AppError::io("历史缓存暂不可用"))?;
-    let data = paths::data_dir(kind).ok_or_else(|| AppError::not_found("找不到 CLI 数据目录"))?;
+        .map_err(|_| AppError::io(belfry_i18n::text("历史缓存暂不可用")))?;
+    let data = paths::data_dir(kind).ok_or_else(|| AppError::not_found(belfry_i18n::text("找不到 CLI 数据目录")))?;
     let source = sources(kind, &data, Some(id), &|| Ok(()))?
         .into_iter()
         .next()
-        .ok_or_else(|| AppError::not_found("会话已不存在"))?;
+        .ok_or_else(|| AppError::not_found(belfry_i18n::text("会话已不存在")))?;
     match kind {
         AgentKind::Antigravity => antigravity::delete(&data, &source)?,
         AgentKind::Opencode => opencode::delete(&data, &source)?,
         AgentKind::Kimi => kimi::delete(&data, &source)?,
-        _ => return Err(AppError::invalid_argument("不支持的原生历史类型")),
+        _ => return Err(AppError::invalid_argument(belfry_i18n::text("不支持的原生历史类型"))),
     }
     if let Some(root) = root(kind) {
         let _ = std::fs::remove_file(cache_file(&root, id));
@@ -137,7 +137,7 @@ pub(crate) fn delete(kind: AgentKind, id: &str) -> Result<(), AppError> {
 }
 
 pub(crate) fn clear(kind: AgentKind) -> Result<u32, AppError> {
-    let data = paths::data_dir(kind).ok_or_else(|| AppError::not_found("找不到 CLI 数据目录"))?;
+    let data = paths::data_dir(kind).ok_or_else(|| AppError::not_found(belfry_i18n::text("找不到 CLI 数据目录")))?;
     let sessions = sources(kind, &data, None, &|| Ok(()))?;
     let mut count = 0;
     for source in sessions {
@@ -221,7 +221,7 @@ fn normalize(
         AgentKind::Antigravity => antigravity::read(source, check),
         AgentKind::Opencode => opencode::read(data, source, check),
         AgentKind::Kimi => kimi::read(source, check),
-        _ => Err(AppError::invalid_argument("不支持的原生历史类型")),
+        _ => Err(AppError::invalid_argument(belfry_i18n::text("不支持的原生历史类型"))),
     }
 }
 

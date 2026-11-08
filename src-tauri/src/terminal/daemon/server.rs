@@ -28,7 +28,7 @@ pub fn run_if_requested() -> bool {
         .ok_or_else(|| "后台目录缺失".to_string())
         .and_then(|root| run(&root));
     if let Err(error) = result {
-        eprintln!("Belfry 后台：{error}");
+        log::error!("Belfry 后台：{error}");
     }
     true
 }

@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 // Adapted from PI-Desktop plugin-sdk/theme-css.ts, LGPL-3.0; see third_party/pi-desktop/NOTICE.md.
 export const THEME_CSS_MAX_BYTES = 256 * 1024;
 type ThemeCssResult = { ok: true; css: string } | { ok: false; error: string };
@@ -5,22 +6,22 @@ type ThemeCssResult = { ok: true; css: string } | { ok: false; error: string };
 /** 保留整份主题；先按 CSS 转义规则检查所有可发起网络加载的写法。 */
 export function sanitizeThemeCss(raw: string): ThemeCssResult {
   const css = raw.replace(/^\uFEFF/, "");
-  if (new TextEncoder().encode(css).length > THEME_CSS_MAX_BYTES) return invalid("主题 CSS 超过 256 KiB");
-  if (!css.trim()) return invalid("主题 CSS 为空");
+  if (new TextEncoder().encode(css).length > THEME_CSS_MAX_BYTES) return invalid(t("plugins.themeCss.text_cf2f20ffe5"));
+  if (!css.trim()) return invalid(t("plugins.themeCss.text_fd7d63517b"));
   const normalized = css.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\\(?:([0-9a-f]{1,6})\s?|([^\r\n]))/gi, (_, hex, char) => {
     const point = hex ? parseInt(hex, 16) : 0;
     return hex ? String.fromCodePoint(point > 0 && point <= 0x10ffff ? point : 0xfffd) : char;
   });
-  if (/@(?:import|namespace)\b/i.test(normalized)) return invalid("主题不能导入外部样式");
-  if (/<\/?\s*style|<!--/i.test(normalized)) return invalid("主题不能包含 HTML 标签");
-  if (/javascript\s*:|expression\s*\(/i.test(normalized)) return invalid("主题不能包含脚本");
+  if (/@(?:import|namespace)\b/i.test(normalized)) return invalid(t("plugins.themeCss.text_bad035bf3c"));
+  if (/<\/?\s*style|<!--/i.test(normalized)) return invalid(t("plugins.themeCss.text_c5adbd5a65"));
+  if (/javascript\s*:|expression\s*\(/i.test(normalized)) return invalid(t("plugins.themeCss.text_173a37c738"));
   let validUrls = 0;
   const withoutUrls = normalized.replace(/url\(\s*(['"]?)([^'")]*)\1\s*\)/gi, (match, _quote, target: string) => {
     if (/^data:/i.test(target.trim())) { validUrls++; return "none"; }
     return match;
   });
-  if ((normalized.match(/url\s*\(/gi) ?? []).length !== validUrls) return invalid("主题只能引用格式完整的 data: URL");
-  if (/(?:image-set|image|src)\s*\([^)]*['"]/i.test(withoutUrls)) return invalid("主题不能通过图片函数加载外部地址");
+  if ((normalized.match(/url\s*\(/gi) ?? []).length !== validUrls) return invalid(t("plugins.themeCss.text_654496bf59"));
+  if (/(?:image-set|image|src)\s*\([^)]*['"]/i.test(withoutUrls)) return invalid(t("plugins.themeCss.text_bf2b2e2e4c"));
   return { ok: true, css: css.trim() };
 }
 function invalid(error: string): ThemeCssResult { return { ok: false, error }; }

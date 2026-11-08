@@ -1,3 +1,4 @@
+import { TranslationError, useTranslation } from "../../i18n";
 import { createContext, useContext, useEffect, useState } from "react";
 import { useCenterData } from "./useCenterData";
 import { useCenterActions } from "./useCenterActions";
@@ -6,6 +7,7 @@ import type { TabId, TemplateId } from "./helpers";
 import type { PluginSummary } from "./types";
 
 export function usePageModel() {
+  useTranslation();
   const [tab, setTab] = useState<TabId>("installed");
   const [query, setQuery] = useState("");
   const [template, setTemplate] = useState<TemplateId | null>(null);
@@ -30,7 +32,8 @@ function currentWorkspace(): string | null {
 export type PageModel = ReturnType<typeof usePageModel>;
 export const PageContext = createContext<PageModel | null>(null);
 export function usePluginsPage() {
+  useTranslation();
   const model = useContext(PageContext);
-  if (!model) throw new Error("缺少插件页面上下文");
+  if (!model) throw new TranslationError("plugins.context.text_4b3b7138d3");
   return model;
 }

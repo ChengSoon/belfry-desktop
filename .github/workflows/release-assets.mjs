@@ -1,3 +1,5 @@
+import { verifyReleaseChecksums } from "./release-checksums.mjs";
+
 const TARGETS = ["darwin-aarch64", "darwin-x86_64", "windows-x86_64"];
 
 export function parseUpdaterManifest(value) {
@@ -12,7 +14,7 @@ export function parseUpdaterManifest(value) {
 }
 
 /** 只有三个平台的可用签名更新包和安装包都到齐，草稿才允许发布。 */
-export function validateReleaseAssets({ release, assets, manifest }) {
+export function validateReleaseAssets({ release, assets, manifest, checksums, hashes }) {
   if (!release.draft) throw new Error("仅允许发布尚未公开的草稿");
   if (`v${manifest.version}` !== release.tag_name) throw new Error("更新清单版本与 tag 不一致");
   const uploaded = assets.filter((asset) => asset.size > 0);
@@ -32,4 +34,5 @@ export function validateReleaseAssets({ release, assets, manifest }) {
   for (const pattern of [/aarch64\.dmg$/, /(?:x64|x86_64)\.dmg$/, /(?:x64|x86_64).*setup\.exe$/]) {
     if (![...names].some((name) => pattern.test(name))) throw new Error(`缺少安装包：${pattern}`);
   }
+  verifyReleaseChecksums({ assets, checksums, hashes });
 }

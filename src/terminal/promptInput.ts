@@ -1,3 +1,4 @@
+import { TranslationError } from "../i18n";
 import type { PromptDeliveryOptions, PromptDeliveryResult } from "./contracts";
 
 /**
@@ -46,7 +47,7 @@ export class PromptInput {
     const sessionId = this.session();
     if (!sessionId) return;
     this.lastWrite = this.tail.then(() => {
-      if (this.session() !== sessionId) throw new Error("终端会话已变更，已取消输入");
+      if (this.session() !== sessionId) throw new TranslationError("terminal.promptInput.text_76e5a39b93");
       this.writeAttempts += 1;
       return this.ports.write(sessionId, data);
     });

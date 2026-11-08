@@ -11,8 +11,8 @@ const MAX_BYTES: usize = 4 * 1024 * 1024;
 pub async fn backup_export(app: AppHandle, text: String) -> Result<Option<String>, AppError> {
     validate(&text)?;
     tauri::async_runtime::spawn_blocking(move || {
-        let selected = app.dialog().file().set_title("保存 Belfry 备份")
-            .set_file_name("belfry-backup.json").add_filter("Belfry 备份", &["json"])
+        let selected = app.dialog().file().set_title(belfry_i18n::text("保存 Belfry 备份"))
+            .set_file_name("belfry-backup.json").add_filter(belfry_i18n::text("Belfry 备份"), &["json"])
             .blocking_save_file();
         let Some(selected) = selected else { return Ok(None); };
         let path = selected.into_path().map_err(|error| AppError::io(error.to_string()))?;
@@ -25,8 +25,8 @@ pub async fn backup_export(app: AppHandle, text: String) -> Result<Option<String
 #[tauri::command]
 pub async fn backup_import(app: AppHandle) -> Result<Option<String>, AppError> {
     tauri::async_runtime::spawn_blocking(move || {
-        let selected = app.dialog().file().set_title("选择 Belfry 备份")
-            .add_filter("Belfry 备份", &["json"]).blocking_pick_file();
+        let selected = app.dialog().file().set_title(belfry_i18n::text("选择 Belfry 备份"))
+            .add_filter(belfry_i18n::text("Belfry 备份"), &["json"]).blocking_pick_file();
         let Some(selected) = selected else { return Ok(None); };
         let path = selected.into_path().map_err(|error| AppError::io(error.to_string()))?;
         read(&path).map(Some)

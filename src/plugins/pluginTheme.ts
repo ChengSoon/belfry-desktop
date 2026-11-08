@@ -1,3 +1,4 @@
+import { TranslationError, useTranslation } from "../i18n";
 import { useSyncExternalStore } from "react";
 
 const KEY = "belfry.plugin-theme.v1";
@@ -10,7 +11,7 @@ const MAP: Record<string, string> = {
 const COLORS = new Set(["--canvas", "--surface", "--surface-raised", "--surface-hover", "--sidebar", "--sidebar-active", "--sidebar-hover", "--border", "--border-strong",
   "--text", "--text-muted", "--text-faint", "--accent", "--accent-hover", "--accent-soft", "--accent-contrast", "--success", "--warning", "--danger", "--danger-hover", "--scrollbar"]);
 export function themeTokens(css: string) {
-  if (css.length > 64 * 1024) throw new Error("插件主题过大");
+  if (css.length > 64 * 1024) throw new TranslationError("plugins.pluginTheme.text_1bb901a362");
   const result: Record<string, string> = {};
   const clean = css.replace(/\/\*[\s\S]*?\*\//g, "");
   for (const match of clean.matchAll(/(--[a-zA-Z0-9-]+)\s*:\s*([^;{}]+)\s*;?/g)) {
@@ -30,4 +31,5 @@ export function selectPluginTheme(key: string) {
   try { localStorage.setItem(KEY, key); } catch { /* 存储不可用时仍保持现有外观。 */ }
   window.dispatchEvent(new Event(EVENT));
 }
-export function usePluginTheme() { return useSyncExternalStore(subscribe, selected, () => ""); }
+export function usePluginTheme() {
+  useTranslation(); return useSyncExternalStore(subscribe, selected, () => ""); }

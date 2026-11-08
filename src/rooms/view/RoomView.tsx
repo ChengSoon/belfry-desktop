@@ -1,10 +1,19 @@
+import { formatNumber } from "../../i18n";
+import { useFeedback, formatDateTime, formatList } from "../../i18n";
+import { getLocale, t } from "../../i18n";
+import { roomMessageDelivery as deliveryState } from "../deliveryState";
+import { useTranslation } from "../../i18n";
+import { historyTimeline } from "../history";
+import { useRoomHistory } from "../useRoomHistory";
+import { RoomHistoryEntry, RoomInformation } from "./RoomHistory";
+import { TimelineAnchor } from "./TimelineAnchor";
 import {
   AlertTriangle, Archive, BellRing, Check, CheckCheck, CircleCheck, CircleDashed, CircleDot, Clock, Crown, FolderGit2,
   Inbox, Info, ListTodo, MessageSquareReply, MessagesSquare, MoreHorizontal, Network, Paperclip, Pause, Pencil, Play, Plus, RotateCcw, Search, ArrowDown, Eraser,
   SendHorizontal, SquareTerminal, Trash2, UserMinus, UserPlus, Users, X,
 } from "lucide-react";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
-import { createContext, Fragment, memo, useContext, useEffect, useId, useMemo, useRef, useState, type ClipboardEvent, type ReactNode } from "react";
+import { createContext, memo, useContext, useEffect, useId, useMemo, useRef, useState, type ClipboardEvent, type ReactNode } from "react";
 import { isAgentKind, type AgentAvailability, type AgentKind } from "../../agent/contracts";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -43,18 +52,20 @@ import type { ProjectWorkspace, WorkspaceTab } from "../../workspace/contracts";
 import * as api from "../api";
 import { clipboardRoomFiles } from "../attachmentApi";
 import { MAX_ATTACHMENTS, messageSummary, transferFiles } from "../attachments";
-import { firstUnread, isUnread, latestToUser, markSeen, readSeen, useSeenVersion } from "../inbox";
+import { firstUnread, isUnread, latestToUser, markSeen, readSeen, useSeenVersion, watchRoom } from "../inbox";
 import type { Room, RoomMember, RoomMessage, RoomTask, TaskStatus } from "../contracts";
 import {
-  activeMembers, awaitingReply, continues, dayKey, dayLabel, DEFAULT_ROSTER, excerpt, foremanOf,
+  activeMembers, awaitingReply, continues, dayKey, dayLabel, DEFAULT_ROSTER, excerpt, findRoomMessage, foremanOf,
   formatTime, hueOf, initialOf, labelOf, MEMBER_STATUS_TEXT as STATUS_TEXT, memberStatus, type MemberStatus, openBlockers, progress, recipientOptions, shortId, STATUS_LABEL, taskColumns,
   titleError, workload, type RosterRow, applyMention, mentionOptions, mentionQuery, type MentionOption,
 } from "../model";
 import { useRoomAttachments } from "../useRoomAttachments";
+import { useRoomDraft } from "../drafts";
 import { useRooms, type RoomsState } from "../useRooms";
 import { AttachmentCard, MessageAttachments } from "./RoomAttachments";
 import { RoomFlow } from "./RoomFlow";
 import { RoomMarkdown } from "./RoomMarkdown";
+import { RoomMessagePreview, RoomReplyInbox } from "./RoomReplyInbox";
 import "../tailwind.css";
 import "./room.css";
 
@@ -97,8 +108,10 @@ const OPEN_LAYER = "[data-radix-popper-content-wrapper], [data-slot=dialog-conte
 const AUTO_RECIPIENT = "__auto";
 
 export function RoomView(props: RoomViewProps) {
+  useTranslation();
   const rooms = useRooms();
   const [dialog, setDialog] = useState<DialogState | null>(null);
+  const [compactPanel, setCompactPanel] = useState<"members" | "tasks" | null>(null);
   const room = rooms.room;
 
   // Escape 关整个视图。Radix 的下拉菜单、选择框、提示在 document 捕获阶段处理 Escape，但不 preventDefault；
@@ -107,39 +120,46 @@ export function RoomView(props: RoomViewProps) {
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "Escape" || event.defaultPrevented || composingKey(event) || dialog) return;
       if (document.querySelector(OPEN_LAYER)) return;
+      if (compactPanel) { setCompactPanel(null); return; }
       props.onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [dialog, props.onClose]);
+  }, [dialog, compactPanel, props.onClose]);
 
   const [search, setSearch] = useState("");
   useSeenVersion();
   const ordered = useMemo(
     () => [...rooms.rooms].sort((a, b) => (b.lastMessageAt ?? b.createdAt) - (a.lastMessageAt ?? a.createdAt)),
-    [rooms.rooms],
+    [rooms.rooms, getLocale()],
   );
   const shown = useMemo(() => {
     const q = search.trim().toLowerCase();
     return q ? ordered.filter((summary) => `${summary.name} ${summary.objective}`.toLowerCase().includes(q)) : ordered;
-  }, [ordered, search]);
-  const actions = useMemo(() => ({ onOpenFile: props.onOpenFile, onClearContext: props.onClearContext }), [props.onOpenFile, props.onClearContext]);
+  }, [ordered, search, getLocale()]);
+  const actions = useMemo(() => ({ onOpenFile: props.onOpenFile, onClearContext: props.onClearContext }), [props.onOpenFile, props.onClearContext, getLocale()]);
   const close = () => setDialog(null);
   const canCreate = props.project !== null && rooms.loadError === null;
 
   return (
     <RoomActions.Provider value={actions}>
     <TooltipProvider delayDuration={300}>
-      <section aria-label="协作房间"
+      <section aria-label={t("rooms.RoomView.text_63235691ff")} data-room-panel={compactPanel ?? ""}
         className="room-view grid min-h-0 min-w-0 grid-cols-[256px_minmax(0,1fr)_320px] bg-background text-foreground text-sm max-[1080px]:grid-cols-[232px_minmax(0,1fr)_280px]">
-        <aside className="flex min-h-0 flex-col border-r border-border bg-(--sidebar)">
+        <div className="room-compact-nav">
+          <Button aria-expanded={compactPanel === "members"} onClick={() => setCompactPanel(compactPanel === "members" ? null : "members")} size="sm" variant="ghost"><Users />{t("rooms.RoomView.text_39e2b2a360")}</Button>
+          <Button aria-expanded={compactPanel === "tasks"} disabled={!room} onClick={() => setCompactPanel(compactPanel === "tasks" ? null : "tasks")} size="sm" variant="ghost"><ListTodo />{t("rooms.RoomView.text_0f45344baf")}</Button>
+          <IconButton className="ml-auto" label={t("rooms.RoomView.text_a072161fe7")} onClick={props.onClose}><X /></IconButton>
+        </div>
+        {compactPanel ? <button aria-label={t("rooms.RoomView.text_e5461f24cd")} className="room-pane-scrim" onClick={() => setCompactPanel(null)} type="button" /> : null}
+        <aside className="room-sidebar flex min-h-0 flex-col border-r border-border bg-(--sidebar)">
           <header className="flex h-12 shrink-0 items-center gap-1 px-3">
-            <span className="flex-1 text-[15px] font-semibold tracking-tight">协作房间</span>
-            <IconButton disabled={!canCreate} label={props.project ? "新建房间" : "先在左侧打开一个项目，房间归属项目"}
+            <span className="flex-1 text-[15px] font-semibold tracking-tight">{t("rooms.RoomView.text_63235691ff")}</span>
+            <IconButton disabled={!canCreate} label={props.project ? t("rooms.RoomView.text_b88f06080b") : t("rooms.RoomView.text_9e26f2e2ce")}
               onClick={() => setDialog({ kind: "new-room" })}>
               <Plus />
             </IconButton>
-            <IconButton label="关闭房间（Esc）" onClick={props.onClose}><X /></IconButton>
+            <IconButton label={t("rooms.RoomView.text_a072161fe7")} onClick={props.onClose}><X /></IconButton>
           </header>
           {rooms.loadError ? (
             <p className="mx-3 mb-2 rounded-md border border-warning/40 bg-warning/10 px-2.5 py-2 text-xs text-warning" role="alert">
@@ -149,18 +169,18 @@ export function RoomView(props: RoomViewProps) {
           {ordered.length > 3 ? (
             <div className="relative mx-2 mb-1.5">
               <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input aria-label="搜索房间" className="h-7 pl-7 text-xs" onChange={(event) => setSearch(event.target.value)}
+              <Input aria-label={t("rooms.RoomView.text_155a07483d")} className="h-7 pl-7 text-xs" onChange={(event) => setSearch(event.target.value)}
                 onKeyDown={(event) => { if (event.key === "Escape" && search) { event.preventDefault(); setSearch(""); } }}
-                placeholder="搜索房间" value={search} />
+                placeholder={t("rooms.RoomView.text_155a07483d")} value={search} />
             </div>
           ) : null}
-          <nav aria-label="房间列表" className="flex shrink-0 flex-col gap-0.5 overflow-y-auto px-2 pb-2 max-h-[40%]">
+          <nav aria-label={t("rooms.RoomView.text_b910914041")} className="flex shrink-0 flex-col gap-0.5 overflow-y-auto px-2 pb-2 max-h-[40%]">
             {shown.map((summary) => {
               const active = summary.id === rooms.selectedId;
               const total = summary.doneTasks + summary.openTasks;
               const unread = !active && isUnread(summary);
               return (
-                <button aria-current={active} key={summary.id} onClick={() => rooms.select(summary.id)}
+                <button aria-current={active} key={summary.id} onClick={() => { rooms.select(summary.id); setCompactPanel(null); }}
                   title={summary.projectRoot} type="button"
                   className={cn(
                     "group flex flex-col gap-1 rounded-md px-2.5 py-2 text-left transition-colors outline-none",
@@ -169,28 +189,26 @@ export function RoomView(props: RoomViewProps) {
                   )}>
                   <span className="flex items-center gap-1.5">
                     <span className={cn("truncate font-medium", unread && "font-semibold")}>{summary.name}</span>
-                    {summary.paused ? <Pause aria-label="已暂停" className="size-3 shrink-0 text-warning" /> : null}
+                    {summary.paused ? <Pause aria-label={t("rooms.RoomView.text_eb0c326b60")} className="size-3 shrink-0 text-warning" /> : null}
                     {unread ? (
-                      <span className="ml-auto size-2 shrink-0 rounded-full bg-primary" title={`${summary.lastToUser?.from}：${summary.lastToUser?.text}`}>
-                        <span className="sr-only">有发给你的新消息</span>
+                      <span className="ml-auto size-2 shrink-0 rounded-full bg-primary" title={`${summary.lastToUser?.from}: ${summary.lastToUser?.text}`}>
+                        <span className="sr-only">{t("rooms.RoomView.text_44b9780d17")}</span>
                       </span>
                     ) : null}
                   </span>
                   <span className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Users className="size-3" /> {summary.memberCount}
-                    <ListTodo className="ml-1 size-3" /> {summary.doneTasks}/{total}
+                    <Users className="size-3" /> {formatNumber(summary.memberCount)}
+                    <ListTodo className="ml-1 size-3" /> {summary.doneTasks}/{formatNumber(total)}
                     {total ? <Progress className="ml-auto h-1 w-12" value={(summary.doneTasks / total) * 100} /> : null}
                   </span>
                 </button>
               );
             })}
             {ordered.length > 0 && shown.length === 0 ? (
-              <p className="px-2.5 py-2 text-xs text-muted-foreground">没有匹配「{search}」的房间。</p>
+              <p className="px-2.5 py-2 text-xs text-muted-foreground">{t("rooms.RoomView.text_8bd555f450", { search: search })}</p>
             ) : null}
             {ordered.length === 0 ? (
-              <p className="px-2.5 py-2 text-xs leading-relaxed text-muted-foreground">
-                还没有房间。一间房里一位统筹拆需求、派活、跟进度，其他成员各管自己的职责，一起把一个需求做完。
-              </p>
+              <p className="px-2.5 py-2 text-xs leading-relaxed text-muted-foreground">{t("rooms.RoomView.text_354b8f2e82")}</p>
             ) : null}
           </nav>
           {room ? (
@@ -201,13 +219,13 @@ export function RoomView(props: RoomViewProps) {
 
         {room ? (
           <>
-            <main className="relative flex min-h-0 min-w-0 flex-col">
+            <main className="room-main relative flex min-h-0 min-w-0 flex-col">
               <RoomHeader onDelete={() => setDialog({ kind: "delete-room", room })} room={room} rooms={rooms} />
               {room.paused ? (
                 <div className="flex shrink-0 items-center gap-2 border-b border-warning/40 bg-warning/10 px-4 py-1.5 text-xs" role="status">
                   <Pause className="size-3.5 shrink-0 text-warning" />
-                  <span className="flex-1">房间已暂停：消息只记在这里，不送进成员终端，空闲提醒也停了。成员手上正在做的不会被打断。</span>
-                  <Button onClick={() => void rooms.run(() => api.roomSetPaused(room.id, false))} size="xs" variant="outline"><Play /> 恢复</Button>
+                  <span className="flex-1">{t("rooms.RoomView.text_588f4872c2")}</span>
+                  <Button onClick={() => void rooms.run(() => api.roomSetPaused(room.id, false))} size="xs" variant="outline"><Play />{t("rooms.RoomView.text_e0534b8a4e")}</Button>
                 </div>
               ) : null}
               <AttentionPanel onOpenSession={props.onOpenSession} onResume={props.onResumeDelivery}
@@ -218,21 +236,21 @@ export function RoomView(props: RoomViewProps) {
             <TaskBoard onOpenSession={props.onOpenSession} room={room} rooms={rooms} tabs={props.tabs} />
           </>
         ) : (
-          <main className="col-span-2 flex min-h-0 items-center justify-center">
+          <main className="room-main col-span-2 flex min-h-0 items-center justify-center">
             <Empty>
               <EmptyHeader>
                 <EmptyMedia variant="icon"><MessagesSquare /></EmptyMedia>
-                <EmptyTitle>{ordered.length ? "选一间房" : "还没有协作房间"}</EmptyTitle>
+                <EmptyTitle>{ordered.length ? t("rooms.RoomView.text_96f91aacab") : t("rooms.RoomView.text_a7507e1e8b")}</EmptyTitle>
                 <EmptyDescription>
                   {ordered.length
-                    ? "从左侧选一间房，看对话、任务板和成员。"
-                    : "一间房对应一个需求：写下要做成什么，拉几个 Agent 进来，统筹会把它拆成任务派给成员。"}
+                    ? t("rooms.RoomView.text_ccbc3059b1")
+                    : t("rooms.RoomView.text_91ba8a75c7")}
                 </EmptyDescription>
               </EmptyHeader>
               {!ordered.length ? (
                 <EmptyContent>
-                  <Button disabled={!canCreate} onClick={() => setDialog({ kind: "new-room" })}><Plus /> 新建房间</Button>
-                  {!props.project ? <span className="text-xs text-muted-foreground">先在左侧打开一个项目，房间归属项目。</span> : null}
+                  <Button disabled={!canCreate} onClick={() => setDialog({ kind: "new-room" })}><Plus />{t("rooms.RoomView.text_b88f06080b")}</Button>
+                  {!props.project ? <span className="text-xs text-muted-foreground">{t("rooms.RoomView.text_b74fd0280e")}</span> : null}
                 </EmptyContent>
               ) : null}
             </Empty>
@@ -244,7 +262,7 @@ export function RoomView(props: RoomViewProps) {
             role="alert">
             <AlertTriangle className="mt-0.5 size-4 shrink-0 text-destructive" />
             <span className="flex-1 leading-relaxed">{rooms.error}</span>
-            <Button aria-label="关闭提示" className="-my-1 -mr-1" onClick={rooms.dismissError} size="icon-xs" variant="ghost"><X /></Button>
+            <Button aria-label={t("rooms.RoomView.text_d301bc1258")} className="-my-1 -mr-1" onClick={rooms.dismissError} size="icon-xs" variant="ghost"><X /></Button>
           </div>
         ) : null}
 
@@ -257,13 +275,13 @@ export function RoomView(props: RoomViewProps) {
             onRenameAgent={props.onRenameAgent} room={room} rooms={rooms} tabs={props.tabs} />
         ) : null}
         {dialog?.kind === "delete-room" ? (
-          <ConfirmDialog body="房间、任务板和聊天记录都会删掉，找不回来。成员的会话不受影响。"
-            confirmLabel="删除房间" onCancel={close} open title={`删除「${dialog.room.name}」？`}
+          <ConfirmDialog body={t("rooms.RoomView.text_91bff70848")}
+            confirmLabel={t("rooms.RoomView.text_8486647747")} onCancel={close} open title={t("rooms.RoomView.text_1bb2e45463", { name: dialog.room.name })}
             onConfirm={() => { void rooms.remove(dialog.room.id); close(); }} />
         ) : null}
         {dialog?.kind === "remove-member" && room ? (
-          <ConfirmDialog body="会话不会关掉；他手上没做完的任务会交还统筹重新分派。"
-            confirmLabel="移出" onCancel={close} open title={`把「${dialog.member.title}」移出房间？`}
+          <ConfirmDialog body={t("rooms.RoomView.text_33348a6b6d")}
+            confirmLabel={t("rooms.RoomView.text_95861c4b5c")} onCancel={close} open title={t("rooms.RoomView.text_d3168a28c8", { title: dialog.member.title })}
             onConfirm={() => { void rooms.run(() => api.roomRemoveMember(room.id, dialog.member.id)); close(); }} />
         ) : null}
       </section>
@@ -272,19 +290,10 @@ export function RoomView(props: RoomViewProps) {
   );
 }
 
-/** 用户发给成员的消息的送达情况。只记送达，读没读我们看不到。 */
-function deliveryState(room: Room, message: RoomMessage): { label: string; title: string; pending: boolean } | null {
-  const members = message.to.filter((id) => id !== "user");
-  if (message.kind !== "chat" || message.by !== "user" || members.length === 0) return null;
-  const pending = members.filter((id) => !message.deliveredTo.includes(id));
-  const names = (ids: string[]) => ids.map((id) => labelOf(room, id)).join("、");
-  if (pending.length === 0) return { label: "已送达", title: `已送进 ${names(members)} 的终端`, pending: false };
-  return { label: `排队中 ${pending.length}/${members.length}`, title: `还没送进 ${names(pending)} 的终端`, pending: true };
-}
-
 // ---- 小部件 ----
 
 function IconButton({ label, children, className, ...props }: React.ComponentProps<typeof Button> & { label: string }) {
+  useTranslation();
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -301,8 +310,9 @@ function IconButton({ label, children, className, ...props }: React.ComponentPro
 function MemberAvatar({ room, id, size = "default", status }: {
   room: Room; id: string; size?: "sm" | "default"; status?: MemberStatus;
 }) {
+  useTranslation();
   const member = room.members.find((candidate) => candidate.id === id);
-  const label = id === "user" ? "你" : initialOf(member?.title ?? "?");
+  const label = id === "user" ? t("rooms.RoomView.text_a0c7716669") : initialOf(member?.title ?? "?");
   const style = id === "user" ? undefined : { "--avatar-hue": hueOf(id) } as React.CSSProperties;
   return (
     <span className="relative inline-flex shrink-0">
@@ -325,6 +335,7 @@ function MemberAvatar({ room, id, size = "default", status }: {
 function ConfirmDialog(props: {
   open: boolean; title: string; body: string; confirmLabel: string; onConfirm: () => void; onCancel: () => void;
 }) {
+  useTranslation();
   return (
     <AlertDialog onOpenChange={(open) => { if (!open) props.onCancel(); }} open={props.open}>
       <AlertDialogContent>
@@ -333,7 +344,7 @@ function ConfirmDialog(props: {
           <AlertDialogDescription>{props.body}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>取消</AlertDialogCancel>
+          <AlertDialogCancel>{t("rooms.RoomView.text_2cd0f3be87")}</AlertDialogCancel>
           <AlertDialogAction onClick={props.onConfirm} variant="destructive">{props.confirmLabel}</AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -342,10 +353,11 @@ function ConfirmDialog(props: {
 }
 
 function SectionHeader({ title, count, children }: { title: string; count?: number; children?: ReactNode }) {
+  useTranslation();
   return (
     <header className="flex h-9 shrink-0 items-center gap-2 px-3">
       <span className="text-xs font-semibold tracking-wide text-muted-foreground">{title}</span>
-      {count !== undefined ? <span className="text-xs text-muted-foreground/70">{count}</span> : null}
+      {count !== undefined ? <span className="text-xs text-muted-foreground/70">{formatNumber(count)}</span> : null}
       <span className="ml-auto flex items-center gap-0.5">{children}</span>
     </header>
   );
@@ -364,14 +376,15 @@ function MemberList(props: {
   room: Room; rooms: RoomsState; tabs: WorkspaceTab[];
   onAdd: () => void; onRemove: (member: RoomMember) => void; onOpenSession?: (tabId: string) => void;
 }) {
+  useTranslation();
   const { room, rooms } = props;
   const members = activeMembers(room);
   const { onClearContext } = useContext(RoomActions);
   const [cleared, setCleared] = useState<string | null>(null);
   return (
-    <section aria-label="成员" className="flex min-h-0 flex-1 flex-col border-t border-border">
-      <SectionHeader count={members.length} title="成员">
-        <IconButton label="添加成员" onClick={props.onAdd}><UserPlus /></IconButton>
+    <section aria-label={t("rooms.RoomView.text_6e6d6ddbb7")} className="flex min-h-0 flex-1 flex-col border-t border-border">
+      <SectionHeader count={members.length} title={t("rooms.RoomView.text_6e6d6ddbb7")}>
+        <IconButton label={t("rooms.RoomView.text_ad9737dafd")} onClick={props.onAdd}><UserPlus /></IconButton>
       </SectionHeader>
       <div className="flex min-h-0 flex-col gap-0.5 overflow-y-auto px-2 pb-3">
         {members.map((member) => {
@@ -391,46 +404,44 @@ function MemberList(props: {
                   <span className="truncate font-medium">{member.title}</span>
                   {member.role === "foreman" ? (
                     <Tooltip>
-                      <TooltipTrigger asChild><Crown aria-label="统筹" className="size-3.5 shrink-0 text-warning" /></TooltipTrigger>
-                      <TooltipContent>统筹：拆需求、派活、跟进度</TooltipContent>
+                      <TooltipTrigger asChild><Crown aria-label={t("rooms.RoomView.text_8153348240")} className="size-3.5 shrink-0 text-warning" /></TooltipTrigger>
+                      <TooltipContent>{t("rooms.RoomView.text_0825dfe0f4")}</TooltipContent>
                     </Tooltip>
                   ) : null}
                 </div>
                 <div className="truncate text-xs text-muted-foreground" title={current ? `${current.id} ${current.title}` : member.duty || undefined}>
-                  <span className={cn(status === "waiting" && "font-medium text-warning")}>{cleared === member.id ? "已清除上下文" : STATUS_TEXT[status]}</span>
+                  <span className={cn(status === "waiting" && "font-medium text-warning")}>{cleared === member.id ? t("rooms.RoomView.text_1fa489c596") : STATUS_TEXT[status]}</span>
                   {current ? <> · <span className="text-foreground/80">{current.id} {current.title}</span></> : member.duty ? <> · {member.duty}</> : null}
                 </div>
               </div>
               {load ? (
-                <span className="flex items-center gap-0.5 text-[11px] text-muted-foreground tabular-nums" title={`手上 ${load} 件没完成`}>
+                <span className="flex items-center gap-0.5 text-[11px] text-muted-foreground tabular-nums" title={t("rooms.RoomView.text_1d08cac920", { count: load })}>
                   <ListTodo className="size-3" />{load}
                 </span>
               ) : null}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button aria-label={`${member.title} 的操作`} size="icon-xs" variant="ghost"
+                  <Button aria-label={t("rooms.RoomView.text_b994b06352", { title: member.title })} size="icon-xs" variant="ghost"
                     className="text-muted-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100">
                     <MoreHorizontal />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-40">
                   {tab && props.onOpenSession ? (
-                    <DropdownMenuItem onSelect={() => props.onOpenSession?.(tab.id)}><SquareTerminal /> 打开终端</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => props.onOpenSession?.(tab.id)}><SquareTerminal />{t("rooms.RoomView.text_b89a0e4584")}</DropdownMenuItem>
                   ) : null}
                   {tab && onClearContext ? (
                     <DropdownMenuItem onSelect={() => {
                       if (onClearContext(tab.id)) { setCleared(member.id); window.setTimeout(() => setCleared(null), 4000); }
                     }}>
-                      <Eraser /> 清除上下文
-                    </DropdownMenuItem>
+                      <Eraser />{t("rooms.RoomView.text_5c38d831bf")}</DropdownMenuItem>
                   ) : null}
                   {member.role !== "foreman" ? (
                     <DropdownMenuItem onSelect={() => void rooms.run(() => api.roomSetForeman(room.id, member.id))}>
-                      <Crown /> 设为统筹
-                    </DropdownMenuItem>
+                      <Crown />{t("rooms.RoomView.text_6204fb86cf")}</DropdownMenuItem>
                   ) : null}
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onSelect={() => props.onRemove(member)} variant="destructive"><UserMinus /> 移出房间</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => props.onRemove(member)} variant="destructive"><UserMinus />{t("rooms.RoomView.text_5f0bf4e6b9")}</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -438,8 +449,8 @@ function MemberList(props: {
         })}
         {members.length === 0 ? (
           <div className="flex flex-col items-start gap-2 px-2 py-2">
-            <p className="text-xs leading-relaxed text-muted-foreground">还没有成员。第一位加入的成员自动当统筹。</p>
-            <Button onClick={props.onAdd} size="sm" variant="outline"><UserPlus /> 添加成员</Button>
+            <p className="text-xs leading-relaxed text-muted-foreground">{t("rooms.RoomView.text_8955d288a5")}</p>
+            <Button onClick={props.onAdd} size="sm" variant="outline"><UserPlus />{t("rooms.RoomView.text_ad9737dafd")}</Button>
           </div>
         ) : null}
       </div>
@@ -450,6 +461,8 @@ function MemberList(props: {
 // ---- 中栏：标题 ----
 
 function RoomHeader({ room, rooms, onDelete }: { room: Room; rooms: RoomsState; onDelete: () => void }) {
+  const { t } = useTranslation();
+  const [information, setInformation] = useState(false);
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(room.name);
   const { done, total } = progress(room);
@@ -461,7 +474,7 @@ function RoomHeader({ room, rooms, onDelete }: { room: Room; rooms: RoomsState; 
   return (
     <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border px-4">
       {editing ? (
-        <Input aria-label="房间名" autoFocus className="h-8 max-w-xs text-[15px] font-semibold" maxLength={40}
+        <Input aria-label={t("rooms.RoomView.text_9d9f6a08cf")} autoFocus className="h-8 max-w-xs text-[15px] font-semibold" maxLength={40}
           onBlur={() => void save()} onChange={(event) => setName(event.target.value)} value={name}
           onKeyDown={(event) => {
             if (composingKey(event)) return;
@@ -470,35 +483,37 @@ function RoomHeader({ room, rooms, onDelete }: { room: Room; rooms: RoomsState; 
           }} />
       ) : (
         <button className="group flex min-w-0 items-center gap-1.5 rounded-md px-1 py-0.5 text-[15px] font-semibold tracking-tight hover:bg-accent"
-          onClick={() => setEditing(true)} title="点击改名" type="button">
+          onClick={() => setEditing(true)} title={t("rooms.RoomView.text_b620c44beb")} type="button">
           <span className="truncate">{room.name}</span>
           <Pencil className="size-3.5 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100" />
         </button>
       )}
-      {room.paused ? <Badge className="border-warning/50 text-warning" variant="outline"><Pause /> 已暂停</Badge> : null}
+      {room.paused ? <Badge className="border-warning/50 text-warning" variant="outline"><Pause />{t("rooms.RoomView.text_eb0c326b60")}</Badge> : null}
       <span className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground" title={room.projectRoot}>
         <FolderGit2 className="size-3.5 shrink-0" />
         <span className="truncate">{room.projectRoot.split(/[\\/]/).filter(Boolean).at(-1) ?? room.projectRoot}</span>
       </span>
-      <span className="ml-auto flex shrink-0 items-center gap-2 text-xs text-muted-foreground" title="已完成 / 任务总数（不含归档）">
+      <span className="ml-auto flex shrink-0 items-center gap-2 text-xs text-muted-foreground" title={t("rooms.RoomView.text_f8e2dcf19e")}>
         <Progress className="h-1.5 w-24" value={total ? (done / total) * 100 : 0} />
-        <span className="tabular-nums">{done}/{total}</span>
+        <span className="tabular-nums">{done}/{formatNumber(total)}</span>
       </span>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button aria-label="房间操作" className="text-muted-foreground" size="icon-sm" variant="ghost"><MoreHorizontal /></Button>
+          <Button aria-label={t("rooms.RoomView.text_5f6dfbf037")} className="text-muted-foreground" size="icon-sm" variant="ghost"><MoreHorizontal /></Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-36">
-          <DropdownMenuItem onSelect={() => setEditing(true)}><Pencil /> 改名</DropdownMenuItem>
+          <DropdownMenuItem data-room-information-open onSelect={() => setInformation(true)}><Info /> {t("rooms.history.information")}</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => setEditing(true)}><Pencil />{t("rooms.RoomView.text_83c37e8a4a")}</DropdownMenuItem>
           {room.paused ? (
-            <DropdownMenuItem onSelect={() => void rooms.run(() => api.roomSetPaused(room.id, false))}><Play /> 恢复房间</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => void rooms.run(() => api.roomSetPaused(room.id, false))}><Play />{t("rooms.RoomView.text_eb75bd11df")}</DropdownMenuItem>
           ) : (
-            <DropdownMenuItem onSelect={() => void rooms.run(() => api.roomSetPaused(room.id, true))}><Pause /> 暂停房间</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => void rooms.run(() => api.roomSetPaused(room.id, true))}><Pause />{t("rooms.RoomView.text_21583165d3")}</DropdownMenuItem>
           )}
           <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={onDelete} variant="destructive"><Trash2 /> 删除房间</DropdownMenuItem>
+          <DropdownMenuItem onSelect={onDelete} variant="destructive"><Trash2 />{t("rooms.RoomView.text_8486647747")}</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      <RoomInformation room={room} open={information} onClose={() => setInformation(false)} />
     </header>
   );
 }
@@ -518,6 +533,7 @@ function AttentionPanel(props: {
   targets?: ReadonlyMap<string, TerminalCommandTarget>;
   onOpenSession?: (tabId: string) => void; onResume?: (tabId: string) => boolean;
 }) {
+  useTranslation();
   const { room, tabs, targets } = props;
   const members = activeMembers(room);
   const waiting = members.filter((member) => memberStatus(tabs.find((tab) => tab.id === member.tabId)) === "waiting");
@@ -544,13 +560,13 @@ function AttentionPanel(props: {
   const note = (tabId: string, text: string) => setNotes((current) => new Map(current).set(tabId, text));
   const answer = (member: RoomMember, choice: TerminalChoice, index: number) => {
     const result = targets?.get(member.tabId)?.answerChoice?.(choice.signature, index) ?? "unavailable";
-    if (result === "sent") note(member.tabId, `已替你选了「${choice.options[index - 1]?.label ?? index}」`);
-    else if (result === "changed") note(member.tabId, "选择框刚刚变了，没有发送。看一下新的内容再选。");
-    else note(member.tabId, "终端现在接不了按键，去终端里处理。");
+    if (result === "sent") note(member.tabId, t("rooms.RoomView.text_8f5bdb120f", { choice: choice.options[index - 1]?.label ?? index }));
+    else if (result === "changed") note(member.tabId, t("rooms.RoomView.text_266ab0486a"));
+    else note(member.tabId, t("rooms.RoomView.text_c96d79dd47"));
   };
 
   return (
-    <section aria-label="需要你处理" className="flex max-h-[40%] shrink-0 flex-col gap-2 overflow-y-auto border-b border-border bg-warning/5 px-4 py-3">
+    <section aria-label={t("rooms.RoomView.text_f50a99897d")} className="flex max-h-[40%] shrink-0 flex-col gap-2 overflow-y-auto border-b border-border bg-warning/5 px-4 py-3">
       {waiting.map((member) => {
         const choice = choices.get(member.tabId) ?? null;
         return (
@@ -558,11 +574,10 @@ function AttentionPanel(props: {
             <header className="flex items-center gap-2">
               <MemberAvatar id={member.id} room={room} size="sm" />
               <span className="font-medium">{member.title}</span>
-              <Badge className="border-warning/50 text-warning" variant="outline">在等你选择</Badge>
+              <Badge className="border-warning/50 text-warning" variant="outline">{t("rooms.RoomView.text_fae18df542")}</Badge>
               {props.onOpenSession ? (
                 <Button className="ml-auto" onClick={() => props.onOpenSession?.(member.tabId)} size="xs" variant="ghost">
-                  <SquareTerminal /> 去终端处理
-                </Button>
+                  <SquareTerminal />{t("rooms.RoomView.text_a1494151d3")}</Button>
               ) : null}
             </header>
             {choice ? (
@@ -580,15 +595,13 @@ function AttentionPanel(props: {
                       variant={option.index === choice.selected ? "secondary" : "outline"}>
                       <Kbd>{option.index}</Kbd>
                       <span className="flex-1">{option.label}</span>
-                      {option.index === choice.selected ? <span className="text-xs text-muted-foreground">光标在这里</span> : null}
+                      {option.index === choice.selected ? <span className="text-xs text-muted-foreground">{t("rooms.RoomView.text_826d72acd2")}</span> : null}
                     </Button>
                   ))}
                 </div>
               </div>
             ) : (
-              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-                没读出选项（可能要你打字回答，或界面是我们不认得的样子），去终端里处理。
-              </p>
+              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{t("rooms.RoomView.text_dd1688d84f")}</p>
             )}
             {notes.get(member.tabId) ? (
               <p className="mt-2 flex items-center gap-1.5 text-xs"><Info className="size-3.5 text-muted-foreground" />{notes.get(member.tabId)}</p>
@@ -600,20 +613,18 @@ function AttentionPanel(props: {
         <article className="flex items-center gap-2.5 rounded-lg border border-border bg-card px-3 py-2 shadow-sm" key={`stuck-${member.id}`}>
           <AlertTriangle className="size-4 shrink-0 text-warning" />
           <span className="min-w-0 flex-1 truncate">
-            <span className="font-medium">发给「{member.title}」的消息暂停了</span>
+            <span className="font-medium">{t("rooms.RoomView.text_77cacdd84c", { title: member.title })}</span>
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className="ml-2 cursor-help text-xs text-muted-foreground underline decoration-dotted underline-offset-2">为什么？</span>
+                <span className="ml-2 cursor-help text-xs text-muted-foreground underline decoration-dotted underline-offset-2">{t("rooms.RoomView.text_ee2173408f")}</span>
               </TooltipTrigger>
-              <TooltipContent className="max-w-72">
-                没能确认上一条消息被提交，后面的消息先不送，免得重复粘贴。已经提交了就点「继续投递」；还卡在输入区就去终端按一下回车。
-              </TooltipContent>
+              <TooltipContent className="max-w-72">{t("rooms.RoomView.text_15bfc949bb")}</TooltipContent>
             </Tooltip>
           </span>
           {props.onOpenSession ? (
-            <Button onClick={() => props.onOpenSession?.(member.tabId)} size="xs" variant="ghost"><SquareTerminal /> 去终端</Button>
+            <Button onClick={() => props.onOpenSession?.(member.tabId)} size="xs" variant="ghost"><SquareTerminal />{t("rooms.RoomView.text_21d32099c5")}</Button>
           ) : null}
-          <Button onClick={() => props.onResume?.(member.tabId)} size="xs"><Play /> 继续投递</Button>
+          <Button onClick={() => props.onResume?.(member.tabId)} size="xs"><Play />{t("rooms.RoomView.text_1825931945")}</Button>
         </article>
       ))}
     </section>
@@ -623,6 +634,7 @@ function AttentionPanel(props: {
 // ---- 中栏：需求简报 ----
 
 function BriefPanel({ room, rooms }: { room: Room; rooms: RoomsState }) {
+  useTranslation();
   const id = useId();
   const [editing, setEditing] = useState(false);
   const [objective, setObjective] = useState("");
@@ -643,21 +655,21 @@ function BriefPanel({ room, rooms }: { room: Room; rooms: RoomsState }) {
   };
   const brief = room.brief;
   return (
-    <section aria-label="需求简报" className="shrink-0 border-b border-border px-4 py-2.5">
+    <section aria-label={t("rooms.RoomView.text_3718c91aa2")} className="shrink-0 border-b border-border px-4 py-2.5">
       {editing ? (
         <div className="flex flex-col gap-3">
-          <Field id={`${id}-objective`} label="需求目标">
+          <Field id={`${id}-objective`} label={t("rooms.RoomView.text_7011272724")}>
             <Textarea autoFocus className="min-h-16" id={`${id}-objective`} onChange={(event) => setObjective(event.target.value)} rows={3} value={objective} />
           </Field>
-          <Field id={`${id}-focus`} label="当前重点">
+          <Field id={`${id}-focus`} label={t("rooms.RoomView.text_ed208ce975")}>
             <Input id={`${id}-focus`} onChange={(event) => setFocus(event.target.value)} value={focus} />
           </Field>
-          <Field hint="一行一条" id={`${id}-constraints`} label="约束">
+          <Field hint={t("rooms.RoomView.text_3961feeee5")} id={`${id}-constraints`} label={t("rooms.RoomView.text_ba0934c977")}>
             <Textarea className="min-h-12" id={`${id}-constraints`} onChange={(event) => setConstraints(event.target.value)} rows={2} value={constraints} />
           </Field>
           <div className="flex justify-end gap-2">
-            <Button onClick={() => setEditing(false)} size="sm" variant="ghost">取消</Button>
-            <Button disabled={rooms.busy} onClick={() => void save()} size="sm">保存并通知成员</Button>
+            <Button onClick={() => setEditing(false)} size="sm" variant="ghost">{t("rooms.RoomView.text_2cd0f3be87")}</Button>
+            <Button disabled={rooms.busy} onClick={() => void save()} size="sm">{t("rooms.RoomView.text_05d1e23aea")}</Button>
           </div>
         </div>
       ) : (
@@ -665,19 +677,18 @@ function BriefPanel({ room, rooms }: { room: Room; rooms: RoomsState }) {
           <div className="min-w-0 flex-1">
             <p className={cn("line-clamp-2 leading-relaxed whitespace-pre-wrap", !brief.objective && "text-muted-foreground")}
               title={brief.objective || undefined}>
-              <span className="mr-2 text-xs font-semibold tracking-wide text-muted-foreground">需求</span>
-              {brief.objective || "还没写需求目标。写清楚要做成什么，统筹才好拆活。"}
+              <span className="mr-2 text-xs font-semibold tracking-wide text-muted-foreground">{t("rooms.RoomView.text_128a7a0366")}</span>
+              {brief.objective || t("rooms.RoomView.text_48a319e483")}
             </p>
             {brief.currentFocus || brief.constraints.length ? (
               <div className="mt-2 flex flex-wrap gap-1.5">
-                {brief.currentFocus ? <Badge variant="secondary">当前重点：{brief.currentFocus}</Badge> : null}
+                {brief.currentFocus ? <Badge variant="secondary">{t("rooms.RoomView.text_b3d7d517ef", { currentFocus: brief.currentFocus })}</Badge> : null}
                 {brief.constraints.map((item) => <Badge key={item} variant="outline">{item}</Badge>)}
               </div>
             ) : null}
           </div>
           <Button className="shrink-0 text-muted-foreground opacity-60 group-hover:opacity-100" onClick={start} size="xs" variant="ghost">
-            <Pencil /> 编辑
-          </Button>
+            <Pencil />{t("rooms.RoomView.text_0518365699")}</Button>
         </div>
       )}
     </section>
@@ -686,10 +697,11 @@ function BriefPanel({ room, rooms }: { room: Room; rooms: RoomsState }) {
 
 /** 表单项：标签关联到 `id` 对应的输入（调用方把同一个 id 传给 Input / Textarea / SelectTrigger）。 */
 function Field({ id, label, hint, children }: { id?: string; label: string; hint?: string; children: ReactNode }) {
+  useTranslation();
   return (
     <div className="flex flex-col gap-1.5">
       <Label className="text-xs text-muted-foreground" htmlFor={id}>
-        {label}{hint ? <span className="font-normal text-muted-foreground/70">（{hint}）</span> : null}
+        {label}{hint ? <span className="font-normal text-muted-foreground/70"> ({hint})</span> : null}
       </Label>
       {children}
     </div>
@@ -705,22 +717,24 @@ function Field({ id, label, hint, children }: { id?: string; label: string; hint
 function CenterTabs({ room, rooms, tabs, onOpenSession }: {
   room: Room; rooms: RoomsState; tabs: WorkspaceTab[]; onOpenSession?: (tabId: string) => void;
 }) {
+  useTranslation();
   const [view, setView] = useState<"chat" | "flow">("chat");
+  const { store } = useRoomDraft(room.id);
   const active = room.tasks.filter((task) => task.status === "active").length;
   return (
     <Tabs className="flex min-h-0 flex-1 flex-col gap-0" onValueChange={(value) => setView(value as "chat" | "flow")} value={view}>
       <div className="flex h-10 shrink-0 items-center border-b border-border px-3">
         <TabsList className="h-8" variant="line">
-          <TabsTrigger className="gap-1.5 px-2.5 text-xs" value="chat"><MessagesSquare /> 对话</TabsTrigger>
+          <TabsTrigger className="gap-1.5 px-2.5 text-xs" value="chat"><MessagesSquare />{t("rooms.RoomView.text_6bf6d3f3d6")}</TabsTrigger>
           <TabsTrigger className="gap-1.5 px-2.5 text-xs" value="flow">
-            <Network /> 流程
-            {active ? <span className="rounded-full bg-primary/15 px-1.5 text-[10px] font-semibold text-primary tabular-nums">{active}</span> : null}
+            <Network />{t("rooms.RoomView.text_bdd207e8c6")}{active ? <span className="rounded-full bg-primary/15 px-1.5 text-[10px] font-semibold text-primary tabular-nums">{active}</span> : null}
           </TabsTrigger>
         </TabsList>
+        <RoomReplyInbox room={room} onReply={(replyTo) => { store.update({ replyTo }); setView("chat"); }} />
       </div>
       <TabsContent className="flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden" forceMount value="chat">
         {/* 每间房一份：未读分隔线、回到底部浮标都按进房那一刻算。 */}
-        <Timeline key={room.id} room={room} rooms={rooms} />
+        <Timeline active={view === "chat"} key={room.id} room={room} rooms={rooms} />
       </TabsContent>
       <TabsContent className="flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden" value="flow">
         <RoomFlow onOpenSession={onOpenSession} room={room} tabs={tabs} />
@@ -731,31 +745,78 @@ function CenterTabs({ room, rooms, tabs, onOpenSession }: {
 
 // ---- 中栏：时间线 ----
 
-function Timeline({ room, rooms }: { room: Room; rooms: RoomsState }) {
+function Timeline({ room, rooms, active }: { room: Room; rooms: RoomsState; active: boolean }) {
+  const { t } = useTranslation();
+  const history = useRoomHistory(room.id);
+  const observed = useRef(new Map<string, RoomMessage>());
+  if (!history.started) observed.current.clear();
+  for (const message of room.messages) observed.current.set(message.id, message);
+  const items = historyTimeline(history.entries, [...observed.current.values()], room);
   const list = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
   // 代码滚到底之后，浏览器下一帧才派发 scroll 事件；那时上面可能刚冒出选择卡片、时间线变矮了，
   // 按那一刻量出来会误判成「用户翻上去了」。记下代码滚到的位置，落在这个位置上的事件不算用户滚动。
   const programmatic = useRef<number | null>(null);
-  const [replyTo, setReplyTo] = useState<RoomMessage | null>(null);
+  const { draft, store } = useRoomDraft(room.id);
+  const replyTo = draft.replyTo;
+  const setReplyTo = useMemo(() => (replyTo: RoomMessage | null) => store.update({ replyTo }), [store]);
   // 进房那一刻的已读位：分隔线画在它之后第一条发给你的消息前，在房间里一直留着，换房间才重算。
   const [seenAtOpen] = useState(() => readSeen(room.id));
   const divider = firstUnread(room.messages, seenAtOpen);
+  const dividerId = room.messages[divider]?.id;
   // 翻上去看历史时新到的消息数：攒成「回到底部」浮标上的数字。
   const [away, setAway] = useState(false);
   const [awayFrom, setAwayFrom] = useState(0);
   const newer = away ? Math.max(0, room.messages.length - awayFrom) : 0;
   const last = room.messages.at(-1)?.id;
+  const loadEarlier = () => {
+    pinned.current = false;
+    setAway(true);
+    setAwayFrom(room.messages.length);
+    const first = items.find(item => item.kind === "message");
+    void history.pager.loadEarlier(new Set(items.filter(item => item.kind === "message").map(item => item.message.id)), first?.at ?? Infinity);
+  };
   // 看到底了，发给你的消息就算读过。
   const latest = latestToUser(room.messages);
-  useEffect(() => { if (!away && latest) markSeen(room.id, latest); }, [away, latest, room.id]);
   const stick = () => {
     const node = list.current;
-    if (!node || !pinned.current) return;
+    if (!node || !node.clientHeight || !pinned.current) return;
     node.scrollTop = node.scrollHeight;
     programmatic.current = node.scrollTop;
   };
-  useEffect(stick, [last, room.id]);
+  useEffect(stick, [last, room.id, active]);
+  useEffect(() => {
+    if (!active || away) return;
+    return watchRoom(room.id);
+  }, [active, away, room.id]);
+  useEffect(() => {
+    const node = list.current;
+    if (!active || away || !latest || !node) return;
+    let frame = 0;
+    const target = node.querySelector<HTMLElement>(`[data-room-message-at="${latest}"]`);
+    const check = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        if (document.visibilityState !== "visible" || !document.hasFocus() || !target || !node.clientHeight) return;
+        if (node.scrollHeight - node.scrollTop - node.clientHeight >= 40) return;
+        const bounds = node.getBoundingClientRect(), message = target.getBoundingClientRect();
+        if (message.height > 0 && message.bottom > bounds.top && message.top < bounds.bottom) markSeen(room.id, latest);
+      });
+    };
+    check();
+    const observer = new IntersectionObserver(check, { root: node });
+    if (target) observer.observe(target);
+    node.addEventListener("scroll", check);
+    window.addEventListener("focus", check);
+    document.addEventListener("visibilitychange", check);
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+      node.removeEventListener("scroll", check);
+      window.removeEventListener("focus", check);
+      document.removeEventListener("visibilitychange", check);
+    };
+  }, [active, away, latest, room.id]);
   // 贴底的话跟着贴，不让最新消息被挤出视野：上面冒出选择卡片时时间线变矮（盯容器本身），
   // 图片附件晚一步读出来时内容变高（盯里面那层内容）。
   const content = useRef<HTMLDivElement>(null);
@@ -767,10 +828,9 @@ function Timeline({ room, rooms }: { room: Room; rooms: RoomsState }) {
     if (content.current) observer.observe(content.current);
     return () => observer.disconnect();
   }, []);
-  useEffect(() => setReplyTo(null), [room.id]);
   return (
     <>
-      <div aria-label="房间对话" aria-live="polite" className="min-h-0 flex-1 overflow-y-auto px-2 py-3" ref={list}
+      <div aria-label={t("rooms.RoomView.text_343516673e")} aria-live="polite" className="min-h-0 flex-1 overflow-y-auto px-2 py-3" ref={list} style={{ overflowAnchor: "none" }}
         onScroll={(event) => {
           const node = event.currentTarget;
           if (programmatic.current !== null && Math.abs(node.scrollTop - programmatic.current) < 2) {
@@ -786,21 +846,32 @@ function Timeline({ room, rooms }: { room: Room; rooms: RoomsState }) {
             setAwayFrom(room.messages.length);
           }
         }}>
-        <div ref={content} className={cn(room.messages.length === 0 && "h-full")}>
-        {room.messages.length === 0 ? (
+        <TimelineAnchor container={list} pinned={pinned} onRestore={top => { programmatic.current = top; }}>
+        <div ref={content} className={cn(items.length === 0 && "min-h-full")}>
+        <div className="room-history-controls">
+          {history.exhausted ? <span data-room-history-end>{t("rooms.history.end")}</span> :
+            <Button data-room-history-load disabled={history.loading} onClick={loadEarlier} size="sm" variant="ghost">
+              {history.loading ? <Spinner /> : null}{t(history.loading ? "rooms.history.loading" : history.error ? "rooms.history.retry" : "rooms.history.load")}
+            </Button>}
+          {history.error ? <p role="alert">{history.error}</p> : null}
+        </div>
+        {items.length === 0 ? (
           <Empty className="h-full">
             <EmptyHeader>
               <EmptyMedia variant="icon"><Inbox /></EmptyMedia>
-              <EmptyTitle>还没有消息</EmptyTitle>
-              <EmptyDescription>在下面跟统筹说需求；统筹会拆成任务派给成员，进展都会出现在这里。</EmptyDescription>
+              <EmptyTitle>{t("rooms.RoomView.text_e29432d115")}</EmptyTitle>
+              <EmptyDescription>{t("rooms.RoomView.text_d366f5b857")}</EmptyDescription>
             </EmptyHeader>
           </Empty>
         ) : null}
-        {room.messages.map((message, index) => {
-          const previous = room.messages[index - 1];
+        {items.map((item, index) => {
+          const previousItem = items[index - 1];
+          const previous = previousItem?.kind === "message" ? previousItem.message : undefined;
+          if (item.kind === "event") return <div key={item.key} data-timeline-key={item.key}><RoomHistoryEntry item={item} room={room} /></div>;
+          const message = item.message;
           const newDay = !previous || dayKey(previous.at) !== dayKey(message.at);
           return (
-            <Fragment key={message.id}>
+            <div key={item.key} data-timeline-key={item.key} data-room-message-at={message.at}>
               {newDay ? (
                 <div className="my-3 flex items-center gap-3 px-3" role="separator">
                   <Separator className="flex-1" />
@@ -808,29 +879,31 @@ function Timeline({ room, rooms }: { room: Room; rooms: RoomsState }) {
                   <Separator className="flex-1" />
                 </div>
               ) : null}
-              {index === divider ? (
+              {message.id === dividerId ? (
                 <div className="my-2 flex items-center gap-3 px-3" role="separator">
                   <Separator className="flex-1 bg-primary/50" />
-                  <span className="text-xs font-semibold text-primary">新消息</span>
+                  <span className="text-xs font-semibold text-primary">{t("rooms.RoomView.text_3fc957bf0f")}</span>
                   <Separator className="flex-1 bg-primary/50" />
                 </div>
               ) : null}
-              <MessageItem continued={!newDay && index !== divider && continues(previous, message)} message={message}
-                onReply={setReplyTo} room={room} rooms={rooms} />
-            </Fragment>
+              {item.historical ? <RoomHistoryEntry item={item} room={room} /> :
+                <MessageItem continued={!newDay && message.id !== dividerId && previousItem?.kind === "message" && !previousItem.historical && continues(previous, message)} message={message}
+                  onReply={setReplyTo} room={room} rooms={rooms} />}
+            </div>
           );
         })}
         </div>
+        </TimelineAnchor>
       </div>
       {away ? (
         <div className="pointer-events-none relative h-0">
           <Button className="pointer-events-auto absolute right-5 bottom-3 z-10 rounded-full shadow-md"
             onClick={() => { pinned.current = true; setAway(false); stick(); }} size="sm" variant="secondary">
-            <ArrowDown /> {newer ? `${newer} 条新消息` : "回到底部"}
+            <ArrowDown /> {newer ? t("rooms.RoomView.text_04073c67de", { count: newer }) : t("rooms.RoomView.text_2fdb6c4681")}
           </Button>
         </div>
       ) : null}
-      <Composer key={room.id} onSent={() => { pinned.current = true; setReplyTo(null); }} replyTo={replyTo}
+      <Composer key={room.id} onSent={() => { pinned.current = true; }} replyTo={replyTo}
         onCancelReply={() => setReplyTo(null)} room={room} rooms={rooms} />
     </>
   );
@@ -844,22 +917,25 @@ interface MessageItemProps {
 const MessageItem = memo(MessageItemView, (a: MessageItemProps, b: MessageItemProps) =>
   a.message === b.message && a.continued === b.continued && a.onReply === b.onReply
   && a.room.id === b.room.id && a.room.members === b.room.members && a.room.projectRoot === b.room.projectRoot
+  && a.room.deliveryOutbox === b.room.deliveryOutbox
   && a.rooms.run === b.rooms.run
   && quotedOf(a.room, a.message) === quotedOf(b.room, b.message));
 
 function quotedOf(room: Room, message: RoomMessage) {
-  return message.replyTo ? room.messages.find((candidate) => candidate.id === message.replyTo) : undefined;
+  return message.replyTo ? findRoomMessage(room, message.replyTo) : undefined;
 }
 
 function MessageItemView({ room, rooms, message, continued, onReply }: MessageItemProps) {
+  useTranslation();
+  const [showQuoted, setShowQuoted] = useState(false);
   const time = (
     <time className="text-xs text-muted-foreground tabular-nums" dateTime={new Date(message.at).toISOString()}
-      title={new Date(message.at).toLocaleString()}>
+      title={formatDateTime(message.at, { dateStyle: "full", timeStyle: "medium" })}>
       {formatTime(message.at)}
     </time>
   );
   if (message.kind === "notice") {
-    const target = message.to.length ? message.to.map((id) => labelOf(room, id)).join("、") : null;
+    const target = message.to.length ? formatList(message.to.map((id) => labelOf(room, id))) : null;
     return (
       <div className="group flex items-start gap-3 px-3 py-1 text-xs text-muted-foreground">
         <span className="flex w-8 shrink-0 justify-center pt-px"><Info className="size-3.5 opacity-60" /></span>
@@ -875,15 +951,15 @@ function MessageItemView({ room, rooms, message, continued, onReply }: MessageIt
   const { onOpenFile } = useContext(RoomActions);
   const openFile = useMemo(
     () => (onOpenFile ? (path: string, line: number | null) => onOpenFile(room.projectRoot, path, line) : undefined),
-    [onOpenFile, room.projectRoot],
+    [onOpenFile, room.projectRoot, getLocale()],
   );
-  const quoted = message.replyTo ? room.messages.find((candidate) => candidate.id === message.replyTo) : undefined;
+  const quoted = quotedOf(room, message);
   const awaiting = awaitingReply(message);
   const delivery = deliveryState(room, message);
   const author = room.members.find((member) => member.id === message.by);
-  const recipients = message.to.map((id) => labelOf(room, id)).join("、");
+  const recipients = formatList(message.to.map((id) => labelOf(room, id)));
   return (
-    <article className={cn("group relative flex gap-3 rounded-md px-3 pb-0.5 hover:bg-accent/40", continued ? "pt-0" : "mt-2.5 pt-1")}
+    <article className={cn("room-message group relative flex gap-3 rounded-md px-3 pb-0.5 hover:bg-accent/40", continued ? "pt-0" : "mt-2.5 pt-1")}
       id={`room-message-${message.id}`}>
       <div className="w-8 shrink-0">
         {continued ? (
@@ -897,17 +973,19 @@ function MessageItemView({ room, rooms, message, continued, onReply }: MessageIt
           <header className="flex flex-wrap items-baseline gap-x-2">
             <span className="flex items-center gap-1 font-semibold">
               {labelOf(room, message.by)}
-              {author?.role === "foreman" ? <Crown aria-label="统筹" className="size-3.5 text-warning" /> : null}
+              {author?.role === "foreman" ? <Crown aria-label={t("rooms.RoomView.text_8153348240")} className="size-3.5 text-warning" /> : null}
             </span>
             {recipients ? <span className="text-xs text-muted-foreground">→ {recipients}</span> : null}
             {time}
             <span className="font-mono text-[11px] text-muted-foreground/60 opacity-0 transition-opacity group-hover:opacity-100"
-              title="成员在终端里用这个编号回复">#{shortId(message.id)}</span>
+              title={t("rooms.RoomView.text_1025763c19")}>#{shortId(message.id)}</span>
           </header>
         ) : null}
         {message.replyTo ? (
           <blockquote className="mt-1 border-l-2 border-border pl-2.5 text-xs text-muted-foreground">
-            {quoted ? <><span className="font-medium">{labelOf(room, quoted.by)}</span>：{excerpt(messageSummary(quoted), 80)}</> : "引用的消息已经不在了"}
+            {quoted ? <button className="text-left hover:underline" aria-label={t("rooms.RoomView.text_fbdab9a2d3")} onClick={() => setShowQuoted(true)} type="button">
+              <span className="font-medium">{labelOf(room, quoted.by)}</span>{": "}{excerpt(messageSummary(quoted), 80)}
+            </button> : t("rooms.RoomView.text_a81e37ce50")}
           </blockquote>
         ) : null}
         {message.text ? (
@@ -919,39 +997,42 @@ function MessageItemView({ room, rooms, message, continued, onReply }: MessageIt
             {message.mode === "request_reply" ? (
               awaiting.length ? (
                 <Badge className="border-warning/50 bg-warning/10 text-warning" variant="outline">
-                  <BellRing /> 等 {awaiting.map((id) => labelOf(room, id)).join("、")} 回复
-                </Badge>
+                  <BellRing />{t("rooms.reply.awaiting", { names: formatList(awaiting.map((id) => labelOf(room, id))) })}</Badge>
               ) : message.replyCancelled ? (
-                <Badge variant="outline">已不再等回复</Badge>
+                <Badge variant="outline">{t("rooms.RoomView.text_a372c46d20")}</Badge>
               ) : (
-                <Badge className="border-success/50 text-success" variant="outline"><CheckCheck /> 都回复了</Badge>
+                <Badge className="border-success/50 text-success" variant="outline"><CheckCheck />{t("rooms.RoomView.text_96db2cbbde")}</Badge>
               )
             ) : null}
             {delivery ? (
-              <span className="flex items-center gap-1 text-xs text-muted-foreground" title={delivery.title}>
-                {delivery.pending ? <Clock className="size-3.5" /> : <CheckCheck className="size-3.5 text-success" />}
+              <span className="flex items-center gap-1 text-xs text-muted-foreground" data-room-delivery={message.id} title={delivery.title}>
+                {delivery.uncertain ? <AlertTriangle className="size-3.5 text-warning" /> : delivery.pending ? <Clock className="size-3.5" /> : delivery.submitted ? <CheckCheck className="size-3.5 text-success" /> : <X className="size-3.5" />}
                 {delivery.label}
               </span>
             ) : null}
           </footer>
         ) : null}
       </div>
-      <div className="absolute top-0 right-3 flex -translate-y-1/2 gap-0.5 rounded-md border border-border bg-popover p-0.5 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 focus-within:opacity-100">
-        <Button onClick={() => onReply(message)} size="xs" variant="ghost"><MessageSquareReply /> 回复</Button>
+      <div className="room-message-actions absolute top-0 right-3 flex -translate-y-1/2 gap-0.5 rounded-md border border-border bg-popover p-0.5 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+        <Button onClick={() => onReply(message)} size="xs" variant="ghost"><MessageSquareReply />{t("rooms.RoomView.text_cf945e21dd")}</Button>
         {mine && awaiting.length ? (
-          <Button onClick={() => void rooms.run(() => api.roomCancelReply(room.id, message.id))} size="xs" variant="ghost">不用回了</Button>
+          <Button onClick={() => void rooms.run(() => api.roomCancelReply(room.id, message.id))} size="xs" variant="ghost">{t("rooms.RoomView.text_a67420beaa")}</Button>
         ) : null}
       </div>
+      <RoomMessagePreview message={showQuoted ? quoted ?? null : null} room={room} onClose={() => setShowQuoted(false)} onReply={onReply} />
     </article>
   );
 }
 
 function Composer(props: { room: Room; rooms: RoomsState; replyTo: RoomMessage | null; onSent: () => void; onCancelReply: () => void }) {
+  useTranslation();
   const { room, rooms, replyTo } = props;
-  const [text, setText] = useState("");
-  const [to, setTo] = useState(AUTO_RECIPIENT);
-  // 默认要求回复：用户发的消息大多在等成员给个答复；只是通知一声时手动关掉。
-  const [ask, setAsk] = useState(true);
+  const { draft, store } = useRoomDraft(room.id);
+  const { text, ask } = draft;
+  const to = draft.to || AUTO_RECIPIENT;
+  const setText = (text: string) => store.update({ text });
+  const setTo = (to: string) => store.update({ to: to === AUTO_RECIPIENT ? "" : to });
+  const setAsk = (ask: boolean) => store.update({ ask });
   const [dragging, setDragging] = useState(false);
   const [checkingPaste, setCheckingPaste] = useState(false);
   // 正在输入的 @名字：弹出成员名单。index 是方向键选中的那一项。
@@ -972,7 +1053,6 @@ function Composer(props: { room: Room; rooms: RoomsState; replyTo: RoomMessage |
   const input = useRef<HTMLTextAreaElement>(null);
   const host = useRef<HTMLDivElement>(null);
   const mounted = useRef(true);
-  const sending = useRef(false);
   const pasteCount = useRef(0);
   const attachments = useRoomAttachments(room.id);
   const add = useRef(attachments.add);
@@ -982,7 +1062,7 @@ function Composer(props: { room: Room; rooms: RoomsState; replyTo: RoomMessage |
   const blocked = useRef(noMembers);
   blocked.current = noMembers;
   const full = attachments.items.length >= MAX_ATTACHMENTS;
-  const busy = rooms.busy || attachments.pending || checkingPaste;
+  const busy = rooms.busy || draft.sending || attachments.pending || checkingPaste;
   const canSend = !noMembers && !busy && (text.trim() !== "" || attachments.items.length > 0);
   useEffect(() => { if (replyTo) input.current?.focus(); }, [replyTo]);
 
@@ -991,7 +1071,7 @@ function Composer(props: { room: Room; rooms: RoomsState; replyTo: RoomMessage |
   useEffect(() => {
     mounted.current = true;
     const zone = host.current?.closest("main") ?? host.current;
-    const accepting = () => !sending.current && !blocked.current && !document.querySelector(OPEN_LAYER);
+    const accepting = () => !blocked.current && !document.querySelector(OPEN_LAYER);
     let stop: Promise<() => void> = Promise.resolve(() => {});
     try {
       stop = getCurrentWebview().onDragDropEvent(({ payload }) => {
@@ -1036,7 +1116,6 @@ function Composer(props: { room: Room; rooms: RoomsState; replyTo: RoomMessage |
     const files = transferFiles(event.clipboardData);
     const plain = event.clipboardData.getData("text/plain");
     event.preventDefault();
-    if (sending.current) return;
     const field = event.currentTarget;
     const snapshot = { value: field.value, start: field.selectionStart, end: field.selectionEnd };
     const insertText = () => {
@@ -1073,19 +1152,18 @@ function Composer(props: { room: Room; rooms: RoomsState; replyTo: RoomMessage |
   };
 
   const send = async () => {
-    if (!canSend || sending.current || pasteCount.current > 0) return;
-    const ids = attachments.beginSend();
-    if (ids === null) return;
-    sending.current = true;
-    const recipients = to === AUTO_RECIPIENT ? [] : [to];
-    const sent = await rooms.run(() => api.roomSay(room.id, text, recipients, replyTo?.id ?? null, ask && !replyTo, ids));
-    sending.current = false;
-    attachments.finishSend(sent !== null);
-    if (sent) { setText(""); setAsk(true); props.onSent(); }
+    if (!canSend || pasteCount.current > 0) return;
+    const submission = attachments.beginSend();
+    if (!submission) return;
+    const recipients = submission.to ? [submission.to] : [];
+    const sent = await rooms.run(() => api.roomSay(room.id, submission.text, recipients,
+      submission.replyTo?.id ?? null, submission.ask && !submission.replyTo, submission.attachmentIds));
+    attachments.finishSend(submission, sent !== null);
+    if (sent && mounted.current) props.onSent();
   };
 
   return (
-    <div className="shrink-0 px-4 pt-1 pb-4">
+    <div className="room-composer shrink-0 px-4 pt-1 pb-4">
       <div ref={host} className={cn(
         "group/composer relative rounded-lg border border-input bg-card shadow-xs transition-[border-color,box-shadow]",
         "focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/30",
@@ -1094,21 +1172,20 @@ function Composer(props: { room: Room; rooms: RoomsState; replyTo: RoomMessage |
         {replyTo ? (
           <div className="flex items-center gap-2 border-b border-border px-3 py-1.5 text-xs text-muted-foreground">
             <MessageSquareReply className="size-3.5 shrink-0" />
-            <span className="min-w-0 flex-1 truncate">
-              回复 <span className="font-medium text-foreground">{labelOf(room, replyTo.by)}</span>：{excerpt(messageSummary(replyTo), 60)}
+            <span className="min-w-0 flex-1 truncate">{t("rooms.composer.replyPreview", { name: labelOf(room, replyTo.by), message: excerpt(messageSummary(replyTo), 60) })}
             </span>
-            <Button aria-label="取消回复" onClick={props.onCancelReply} size="icon-xs" variant="ghost"><X /></Button>
+            <Button aria-label={t("rooms.RoomView.text_d346633d3a")} onClick={props.onCancelReply} size="icon-xs" variant="ghost"><X /></Button>
           </div>
         ) : null}
-        <Textarea aria-label="消息" disabled={noMembers} ref={input} rows={2} value={text}
+        <Textarea aria-label={t("rooms.RoomView.text_4da199fae9")} disabled={noMembers} ref={input} rows={2} value={text}
           className="min-h-14 resize-none border-0 bg-transparent px-3 py-2.5 shadow-none focus-visible:ring-0 dark:bg-transparent"
           onChange={(event) => { setText(event.target.value); trackMention(event.target.value, event.target.selectionStart); }}
           onClick={(event) => trackMention(event.currentTarget.value, event.currentTarget.selectionStart)}
           onBlur={() => window.setTimeout(() => setMention(null), 120)}
           onPaste={(event) => void paste(event)}
-          placeholder={noMembers ? "先添加成员"
-            : replyTo ? "写回复…（默认回给原发件人）"
-              : "跟统筹说需求、问进度…  @角色 只发给那个人；文件可以拖进来或直接粘贴"}
+          placeholder={noMembers ? t("rooms.RoomView.text_2b927253a2")
+            : replyTo ? t("rooms.RoomView.text_7852e73a27")
+              : t("rooms.RoomView.text_402377e6b0")}
           onKeyDown={(event) => {
             if (composingKey(event)) return;
             if (mention && mentionList.length) {
@@ -1128,8 +1205,8 @@ function Composer(props: { room: Room; rooms: RoomsState; replyTo: RoomMessage |
             if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void send(); }
           }} />
         {mention && mentionList.length ? (
-          <div aria-label="点名" className="absolute bottom-full left-2 z-30 mb-1.5 w-80 overflow-hidden rounded-lg border border-border bg-popover p-1 shadow-lg" role="listbox">
-            <div className="px-2 pt-1 pb-1.5 text-[11px] text-muted-foreground">点名只发给这个人 · ↑↓ 选择，Enter 确定</div>
+          <div aria-label={t("rooms.RoomView.text_855f3f1677")} className="absolute bottom-full left-2 z-30 mb-1.5 w-80 overflow-hidden rounded-lg border border-border bg-popover p-1 shadow-lg" role="listbox">
+            <div className="px-2 pt-1 pb-1.5 text-[11px] text-muted-foreground">{t("rooms.RoomView.text_5a36033acb")}</div>
             {mentionList.map((option, index) => (
               <button aria-selected={index === mention.index} key={`${option.kind}-${option.title}`} role="option" type="button"
                 className={cn("flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm", index === mention.index ? "bg-accent" : "hover:bg-accent/60")}
@@ -1145,31 +1222,31 @@ function Composer(props: { room: Room; rooms: RoomsState; replyTo: RoomMessage |
           </div>
         ) : null}
         {attachments.items.length ? (
-          <div aria-label="待发送的附件" aria-live="polite" className="flex flex-wrap gap-2 px-3 pt-1 pb-2.5">
+          <div aria-label={t("rooms.RoomView.text_d630b6745f")} aria-live="polite" className="flex max-h-32 flex-wrap gap-2 overflow-y-auto px-3 pt-1 pb-2.5">
             {attachments.items.map((item) => (
               <AttachmentCard attachment={item.attachment} disabled={rooms.busy} key={item.key} name={item.name}
                 onRemove={() => attachments.remove(item.key)} roomId={room.id} size={item.size} />
             ))}
           </div>
         ) : null}
-        <div className="flex items-center gap-1.5 px-2 pb-2">
+        <div className="flex flex-wrap items-center gap-1.5 px-2 pb-2">
           <Tooltip>
             <TooltipTrigger asChild>
               <span className="inline-flex">
-                <Button aria-label="添加文件" className="size-7 text-muted-foreground hover:text-foreground"
+                <Button aria-label={t("rooms.RoomView.text_ad9daebe00")} className="size-7 text-muted-foreground hover:text-foreground"
                   disabled={noMembers || full || rooms.busy} onClick={() => void attachments.pick()} size="icon-sm" variant="ghost">
                   <Paperclip />
                 </Button>
               </span>
             </TooltipTrigger>
             <TooltipContent className="max-w-64">
-              {full ? `每条消息最多 ${MAX_ATTACHMENTS} 个附件` : "添加文件。也可以拖进来或直接粘贴；每条最多 10 个，单个不超过 20 MB。"}
+              {full ? t("rooms.RoomView.text_033657b0da", { limit: MAX_ATTACHMENTS }) : t("rooms.RoomView.text_ee873c568a")}
             </TooltipContent>
           </Tooltip>
           <Separator className="mx-0.5 h-4" orientation="vertical" />
           <Select disabled={noMembers || replyTo !== null} onValueChange={setTo} value={to}>
-            <SelectTrigger aria-label="收件人" className="h-7 max-w-52 gap-1.5 border-0 bg-transparent px-2 text-xs shadow-none hover:bg-accent dark:bg-transparent" size="sm">
-              <span className="text-muted-foreground">发给</span>
+            <SelectTrigger aria-label={t("rooms.RoomView.text_c237b665a6")} className="h-7 max-w-52 gap-1.5 border-0 bg-transparent px-2 text-xs shadow-none hover:bg-accent dark:bg-transparent" size="sm">
+              <span className="text-muted-foreground">{t("rooms.RoomView.text_c7378a8741")}</span>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -1184,29 +1261,26 @@ function Composer(props: { room: Room; rooms: RoomsState; replyTo: RoomMessage |
             <TooltipTrigger asChild>
               {/* 包一层 span：按钮禁用时收不到悬停事件，提示就出不来。 */}
               <span className="inline-flex">
-                <Toggle aria-label="要求回复" disabled={noMembers || replyTo !== null} onPressedChange={setAsk}
+                <Toggle aria-label={t("rooms.RoomView.text_4c4ca82910")} disabled={noMembers || replyTo !== null} onPressedChange={setAsk}
                   pressed={ask && !replyTo} size="sm" variant="outline"
                   className={cn(
                     "h-7 gap-1.5 rounded-full px-2.5 text-xs font-medium text-muted-foreground shadow-none",
                     "data-[state=on]:border-primary/50 data-[state=on]:bg-primary/15 data-[state=on]:text-primary",
                     "hover:data-[state=on]:bg-primary/20 hover:data-[state=on]:text-primary",
                   )}>
-                  <BellRing className="size-3.5" />
-                  要求回复
-                </Toggle>
+                  <BellRing className="size-3.5" />{t("rooms.RoomView.text_4c4ca82910")}</Toggle>
               </span>
             </TooltipTrigger>
             <TooltipContent className="max-w-64">
               {replyTo
-                ? "回复不能再要求回复"
-                : ask ? "开着：收件人回复之前，这条消息一直挂着「等回复」。只是通知一声时关掉。" : "关着：发出去就算，不要求对方回复。"}
+                ? t("rooms.RoomView.text_aeddd7c649")
+                : ask ? t("rooms.RoomView.text_5c81fb6c44") : t("rooms.RoomView.text_6555bb6b5c")}
             </TooltipContent>
           </Tooltip>
           <span className="ml-auto hidden items-center gap-1 text-[11px] text-muted-foreground/70 min-[1200px]:group-focus-within/composer:flex">
-            {attachments.items.length ? `${attachments.items.length}/${MAX_ATTACHMENTS} 个附件 · ` : null}
-            <Kbd>Enter</Kbd> 发送 · <Kbd>Shift</Kbd>+<Kbd>Enter</Kbd> 换行
-          </span>
-          <Button aria-label="发送" className="ml-auto min-[1200px]:group-focus-within/composer:ml-0" disabled={!canSend} onClick={() => void send()} size="icon-sm">
+            {attachments.items.length ? t("rooms.composer.attachmentCount", { count: attachments.items.length, limit: MAX_ATTACHMENTS }) : null}
+            <Kbd>Enter</Kbd>{t("rooms.RoomView.text_edecf0ae6e")} · <Kbd>Shift</Kbd>+<Kbd>Enter</Kbd>{t("rooms.RoomView.text_bd609a8e2d")}</span>
+          <Button aria-label={t("rooms.RoomView.text_edecf0ae6e")} className="ml-auto min-[1200px]:group-focus-within/composer:ml-0" disabled={!canSend} onClick={() => void send()} size="icon-sm">
             {busy ? <Spinner /> : <SendHorizontal />}
           </Button>
         </div>
@@ -1215,15 +1289,15 @@ function Composer(props: { room: Room; rooms: RoomsState; replyTo: RoomMessage |
         <p className="mt-1.5 flex items-center gap-1.5 px-1 text-xs text-destructive" role="alert">
           <AlertTriangle className="size-3.5 shrink-0" />
           <span className="flex-1">{attachments.error}</span>
-          <Button aria-label="关闭附件提示" onClick={attachments.clearError} size="icon-xs" variant="ghost"><X /></Button>
+          <Button aria-label={t("rooms.RoomView.text_e852b4678c")} onClick={attachments.clearError} size="icon-xs" variant="ghost"><X /></Button>
         </p>
       ) : null}
       {dragging ? (
         <div aria-hidden="true"
           className="pointer-events-none absolute inset-2 z-20 flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-primary/60 bg-background/85 backdrop-blur-sm">
           <span className="flex size-12 items-center justify-center rounded-full bg-primary/15 text-primary"><Paperclip className="size-6" /></span>
-          <span className="font-medium">松开即可添加文件</span>
-          <span className="text-xs text-muted-foreground">每条最多 {MAX_ATTACHMENTS} 个 · 单个不超过 20 MB</span>
+          <span className="font-medium">{t("rooms.RoomView.text_95e74308ee")}</span>
+          <span className="text-xs text-muted-foreground">{t("rooms.RoomView.text_37fe9c7318", { limit: MAX_ATTACHMENTS })}</span>
         </div>
       ) : null}
     </div>
@@ -1233,6 +1307,7 @@ function Composer(props: { room: Room; rooms: RoomsState; replyTo: RoomMessage |
 // ---- 右栏：任务板 ----
 
 function TaskBoard({ room, rooms, tabs, onOpenSession }: { room: Room; rooms: RoomsState; tabs: WorkspaceTab[]; onOpenSession?: (tabId: string) => void }) {
+  useTranslation();
   const [adding, setAdding] = useState(false);
   const columns = taskColumns(room);
   const archived = room.tasks.filter((task) => task.status === "archived").length;
@@ -1241,14 +1316,13 @@ function TaskBoard({ room, rooms, tabs, onOpenSession }: { room: Room; rooms: Ro
   const busyMembers = activeMembers(room).filter((member) => memberStatus(tabs.find((tab) => tab.id === member.tabId)) === "busy").length;
   useEffect(() => setAdding(false), [room.id]);
   return (
-    <aside aria-label="任务板" className="flex min-h-0 flex-col border-l border-border bg-(--panel)">
+    <aside aria-label={t("rooms.RoomView.text_0f45344baf")} className="room-taskboard flex min-h-0 flex-col border-l border-border bg-(--panel)">
       <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-3">
         <ListTodo className="size-4 text-muted-foreground" />
-        <span className="font-semibold">任务板</span>
+        <span className="font-semibold">{t("rooms.RoomView.text_0f45344baf")}</span>
         <span className="text-xs text-muted-foreground">{live}</span>
         <Button className="ml-auto" onClick={() => setAdding((value) => !value)} size="xs" variant={adding ? "secondary" : "outline"}>
-          <Plus /> 新建任务
-        </Button>
+          <Plus />{t("rooms.RoomView.text_6bee237280")}</Button>
       </header>
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-3">
         {adding ? <TaskForm onDone={() => setAdding(false)} room={room} rooms={rooms} /> : null}
@@ -1256,14 +1330,14 @@ function TaskBoard({ room, rooms, tabs, onOpenSession }: { room: Room; rooms: Ro
           <Empty className="flex-none border border-dashed border-border py-8">
             <EmptyHeader>
               <EmptyMedia variant="icon"><ListTodo /></EmptyMedia>
-              <EmptyTitle className="text-sm">{busyMembers ? "尚未登记任务" : "任务板是空的"}</EmptyTitle>
+              <EmptyTitle className="text-sm">{busyMembers ? t("rooms.RoomView.text_4c29d76aef") : t("rooms.RoomView.text_c77ac2e81d")}</EmptyTitle>
               <EmptyDescription className="text-xs">
-                {busyMembers ? `已有 ${busyMembers} 位成员在处理，但任务板仍为空。查看统筹的拆解进度或执行错误，确认任务是否创建成功。`
-                  : "通常由统筹拆需求、建任务；你也可以直接在这里建。"}
+                {busyMembers ? t("rooms.RoomView.text_369acd5b1b", { count: busyMembers })
+                  : t("rooms.RoomView.text_4718f8baf0")}
               </EmptyDescription>
             </EmptyHeader>
             {foreman && onOpenSession ? (
-              <EmptyContent><Button onClick={() => onOpenSession(foreman.tabId)} size="xs" variant="outline"><SquareTerminal /> 查看统筹终端</Button></EmptyContent>
+              <EmptyContent><Button onClick={() => onOpenSession(foreman.tabId)} size="xs" variant="outline"><SquareTerminal />{t("rooms.RoomView.text_32160c3d9a")}</Button></EmptyContent>
             ) : null}
           </Empty>
         ) : null}
@@ -1277,13 +1351,14 @@ function TaskBoard({ room, rooms, tabs, onOpenSession }: { room: Room; rooms: Ro
             {columns[status].map((task) => <TaskCard key={task.id} room={room} rooms={rooms} task={task} />)}
           </section>
         ) : null)}
-        {archived ? <p className="px-0.5 text-xs text-muted-foreground"><Archive className="mr-1 inline size-3" />已归档 {archived} 条</p> : null}
+        {archived ? <p className="px-0.5 text-xs text-muted-foreground"><Archive className="mr-1 inline size-3" />{t("rooms.RoomView.text_8670481957", { count: archived })}</p> : null}
       </div>
     </aside>
   );
 }
 
 function TaskCard({ room, rooms, task }: { room: Room; rooms: RoomsState; task: RoomTask }) {
+  useTranslation();
   const [open, setOpen] = useState(false);
   const blockers = openBlockers(room, task);
   const run = (op: Parameters<typeof api.roomTask>[1]) => void rooms.run(() => api.roomTask(room.id, op));
@@ -1305,44 +1380,43 @@ function TaskCard({ room, rooms, task }: { room: Room; rooms: RoomsState; task: 
         </span>
         <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
           {assignee ? <><MemberAvatar id={assignee.id} room={room} size="sm" /><span className="truncate">{assignee.title}</span></>
-            : <span className="italic">没人负责</span>}
-          {blockers.length ? <Badge className="ml-auto h-5 border-warning/50 px-1.5 text-[11px] text-warning" variant="outline">等 {blockers.join("、")}</Badge> : null}
+            : <span className="italic">{t("rooms.RoomView.text_59b6aaf112")}</span>}
+          {blockers.length ? <Badge className="ml-auto h-5 border-warning/50 px-1.5 text-[11px] text-warning" variant="outline">{t("rooms.RoomView.text_c61526db52", { names: formatList(blockers) })}</Badge> : null}
         </span>
       </button>
       {open ? (
         <div className="flex flex-col gap-2.5 border-t border-border bg-background/40 px-3 py-2.5 text-xs">
-          {task.outcome ? <Detail label="完成标准">{task.outcome}</Detail> : null}
-          {task.result ? <Detail label="结果">{task.result}</Detail> : null}
+          {task.outcome ? <Detail label={t("rooms.RoomView.text_fa4aa984fe")}>{task.outcome}</Detail> : null}
+          {task.result ? <Detail label={t("rooms.RoomView.text_bb7ef73495")}>{task.result}</Detail> : null}
           {task.notes ? (
-            <Detail label="进展">
+            <Detail label={t("rooms.RoomView.text_92d5adc36c")}>
               <pre className="max-h-32 overflow-auto rounded-md bg-muted px-2 py-1.5 font-sans whitespace-pre-wrap">{task.notes}</pre>
             </Detail>
           ) : null}
           {task.status !== "done" && task.status !== "archived" ? (
             <div className="flex items-center gap-2">
-              <span className="w-14 shrink-0 text-muted-foreground">负责人</span>
+              <span className="w-14 shrink-0 text-muted-foreground">{t("rooms.RoomView.text_a525346277")}</span>
               <Select onValueChange={(value) => run({ op: "assign", task: task.id, assignee: value })} value={assignee?.title ?? ""}>
-                <SelectTrigger aria-label="负责人" className="h-7 flex-1 text-xs" size="sm"><SelectValue placeholder="没人负责" /></SelectTrigger>
+                <SelectTrigger aria-label={t("rooms.RoomView.text_a525346277")} className="h-7 flex-1 text-xs" size="sm"><SelectValue placeholder={t("rooms.RoomView.text_59b6aaf112")} /></SelectTrigger>
                 <SelectContent>
                   {activeMembers(room).map((member) => <SelectItem key={member.id} value={member.title}>{member.title}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
           ) : null}
-          <p className="text-muted-foreground/80">由 {labelOf(room, task.createdBy)} 创建 · {formatTime(task.createdAt)}</p>
+          <p className="text-muted-foreground/80">{t("rooms.RoomView.text_48588d6ca1", { name: labelOf(room, task.createdBy), time: formatTime(task.createdAt) })}</p>
           <div className="flex flex-wrap gap-1.5">
             {task.status === "planned" ? (
-              <Button disabled={blockers.length > 0} onClick={() => run({ op: "start", task: task.id })} size="xs" variant="outline"><Play /> 开工</Button>
+              <Button disabled={blockers.length > 0} onClick={() => run({ op: "start", task: task.id })} size="xs" variant="outline"><Play />{t("rooms.RoomView.text_2849891504")}</Button>
             ) : null}
             {task.status === "planned" || task.status === "active" ? (
-              <Button onClick={() => run({ op: "done", task: task.id })} size="xs"><Check /> 完成</Button>
+              <Button onClick={() => run({ op: "done", task: task.id })} size="xs"><Check />{t("rooms.RoomView.text_c0b3fbff51")}</Button>
             ) : null}
             {task.status === "active" || task.status === "done" ? (
-              <Button onClick={() => run({ op: "reopen", task: task.id })} size="xs" variant="outline"><RotateCcw /> 退回</Button>
+              <Button onClick={() => run({ op: "reopen", task: task.id })} size="xs" variant="outline"><RotateCcw />{t("rooms.RoomView.text_e608dd8385")}</Button>
             ) : null}
             <Button className="ml-auto text-muted-foreground" onClick={() => run({ op: "archive", task: task.id })} size="xs" variant="ghost">
-              <Archive /> 归档
-            </Button>
+              <Archive />{t("rooms.RoomView.text_5292ab1a36")}</Button>
           </div>
         </div>
       ) : null}
@@ -1351,6 +1425,7 @@ function TaskCard({ room, rooms, task }: { room: Room; rooms: RoomsState; task: 
 }
 
 function TaskStatusIcon({ status }: { status: TaskStatus }) {
+  useTranslation();
   const icon = {
     planned: <CircleDashed className="size-4 text-muted-foreground" />,
     active: <CircleDot className="size-4 text-primary" />,
@@ -1361,6 +1436,7 @@ function TaskStatusIcon({ status }: { status: TaskStatus }) {
 }
 
 function Detail({ label, children }: { label: string; children: ReactNode }) {
+  useTranslation();
   return (
     <div className="flex gap-2">
       <span className="w-14 shrink-0 text-muted-foreground">{label}</span>
@@ -1370,6 +1446,7 @@ function Detail({ label, children }: { label: string; children: ReactNode }) {
 }
 
 function TaskForm({ room, rooms, onDone }: { room: Room; rooms: RoomsState; onDone: () => void }) {
+  useTranslation();
   const [title, setTitle] = useState("");
   const [outcome, setOutcome] = useState("");
   const [assignee, setAssignee] = useState("");
@@ -1383,18 +1460,18 @@ function TaskForm({ room, rooms, onDone }: { room: Room; rooms: RoomsState; onDo
   return (
     <form className="flex flex-col gap-2.5 rounded-lg border border-border bg-card p-3 shadow-sm"
       onSubmit={(event) => { event.preventDefault(); void submit(); }}>
-      <Input aria-label="任务标题" autoFocus maxLength={80} onChange={(event) => setTitle(event.target.value)} placeholder="任务标题" value={title} />
-      <Textarea aria-label="完成标准" className="min-h-14 text-sm" onChange={(event) => setOutcome(event.target.value)}
-        placeholder="完成标准（选填）" rows={2} value={outcome} />
+      <Input aria-label={t("rooms.RoomView.text_f118de64d6")} autoFocus maxLength={80} onChange={(event) => setTitle(event.target.value)} placeholder={t("rooms.RoomView.text_f118de64d6")} value={title} />
+      <Textarea aria-label={t("rooms.RoomView.text_fa4aa984fe")} className="min-h-14 text-sm" onChange={(event) => setOutcome(event.target.value)}
+        placeholder={t("rooms.RoomView.text_df3d1cf7e4")} rows={2} value={outcome} />
       <Select onValueChange={setAssignee} value={assignee}>
-        <SelectTrigger aria-label="负责人" className="w-full" size="sm"><SelectValue placeholder="负责人：暂不指定" /></SelectTrigger>
+        <SelectTrigger aria-label={t("rooms.RoomView.text_a525346277")} className="w-full" size="sm"><SelectValue placeholder={t("rooms.RoomView.text_205cf96a14")} /></SelectTrigger>
         <SelectContent>
           {activeMembers(room).map((member) => <SelectItem key={member.id} value={member.title}>{member.title}</SelectItem>)}
         </SelectContent>
       </Select>
       {open.length ? (
         <div className="flex flex-col gap-1.5">
-          <span className="text-xs text-muted-foreground">要等这些完成（选填）</span>
+          <span className="text-xs text-muted-foreground">{t("rooms.RoomView.text_abc76e272d")}</span>
           {open.map((task) => (
             <Label className="flex cursor-pointer items-center gap-2 text-xs font-normal" key={task.id}>
               <Checkbox checked={after.includes(task.id)}
@@ -1405,8 +1482,8 @@ function TaskForm({ room, rooms, onDone }: { room: Room; rooms: RoomsState; onDo
         </div>
       ) : null}
       <div className="flex justify-end gap-2">
-        <Button onClick={onDone} size="sm" type="button" variant="ghost">取消</Button>
-        <Button disabled={!title.trim() || rooms.busy} size="sm" type="submit">建任务</Button>
+        <Button onClick={onDone} size="sm" type="button" variant="ghost">{t("rooms.RoomView.text_2cd0f3be87")}</Button>
+        <Button disabled={!title.trim() || rooms.busy} size="sm" type="submit">{t("rooms.RoomView.text_5a4058d383")}</Button>
       </div>
     </form>
   );
@@ -1426,7 +1503,7 @@ async function launchInto(
   launch: NonNullable<RoomViewProps["onLaunchMember"]>, rename: RoomViewProps["onRenameAgent"],
 ): Promise<string | null> {
   const tabId = await launch(row.kind, room.projectRoot);
-  if (!tabId) return `「${row.title}」的会话没起来`;
+  if (!tabId) return t("rooms.RoomView.text_2a2cb6b3f9", { title: row.title });
   try {
     await api.roomAddMember(room.id, tabId, row.kind, row.title, row.duty, foreman);
   } catch (cause) {
@@ -1449,6 +1526,7 @@ function NewRoomDialog(props: {
   agents: AgentAvailability[]; project: ProjectWorkspace; rooms: RoomsState; onClose: () => void;
   onLaunchMember?: RoomViewProps["onLaunchMember"]; onRenameAgent?: RoomViewProps["onRenameAgent"];
 }) {
+  useTranslation();
   const id = useId();
   const kinds = agentOptions(props.agents);
   const [name, setName] = useState("");
@@ -1457,7 +1535,7 @@ function NewRoomDialog(props: {
     () => DEFAULT_ROSTER.map((row) => ({ ...row, kind: (kinds[0]?.value ?? "claude") as AgentKind })),
   );
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useFeedback<string | null>(null);
   const canLaunch = Boolean(props.onLaunchMember) && kinds.length > 0;
   const rowErrors = roster.map((row, index) => titleError(row.title, roster.filter((_, other) => other !== index).map((r) => r.title)));
   const update = (index: number, patch: Partial<RosterRow & { kind: AgentKind }>) =>
@@ -1471,7 +1549,7 @@ function NewRoomDialog(props: {
       // 逐个拉起；任何一步失败就停，已经建好的房间和成员都保留——半路回滚会丢掉已经起好的会话。
       for (const [index, row] of roster.entries()) {
         const reason = await launchInto(room, row, index === 0, props.onLaunchMember, props.onRenameAgent);
-        if (reason) { setError(`${reason}；房间已建好，缺的成员可以在左栏「添加成员」补上。`); setBusy(false); void props.rooms.refresh(); return; }
+        if (reason) { setError(() => t("rooms.RoomView.text_90d75dd820", { reason: reason })); setBusy(false); void props.rooms.refresh(); return; }
       }
       void props.rooms.refresh();
     }
@@ -1483,37 +1561,37 @@ function NewRoomDialog(props: {
     <Dialog onOpenChange={onOpenChange} open>
       <DialogContent className="gap-5 sm:max-w-2xl" {...guards}>
         <DialogHeader>
-          <DialogTitle>新建房间</DialogTitle>
-          <DialogDescription>一间房对应一个需求。第一行的角色当统筹：负责拆需求、派活、跟进度；其他人各管自己的职责。</DialogDescription>
+          <DialogTitle>{t("rooms.RoomView.text_b88f06080b")}</DialogTitle>
+          <DialogDescription>{t("rooms.RoomView.text_7e8a9fdb2f")}</DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-4">
-          <Field id={`${id}-name`} label="房间名">
-            <Input autoFocus id={`${id}-name`} maxLength={40} onChange={(event) => setName(event.target.value)} placeholder="比如：登录页改版" value={name} />
+          <Field id={`${id}-name`} label={t("rooms.RoomView.text_9d9f6a08cf")}>
+            <Input autoFocus id={`${id}-name`} maxLength={40} onChange={(event) => setName(event.target.value)} placeholder={t("rooms.RoomView.text_db93bd3ad1")} value={name} />
           </Field>
-          <Field id={`${id}-objective`} label="需求目标">
-            <Textarea className="min-h-20" id={`${id}-objective`} onChange={(event) => setObjective(event.target.value)} placeholder="要做成什么样？统筹会据此拆任务" rows={3} value={objective} />
+          <Field id={`${id}-objective`} label={t("rooms.RoomView.text_7011272724")}>
+            <Textarea className="min-h-20" id={`${id}-objective`} onChange={(event) => setObjective(event.target.value)} placeholder={t("rooms.RoomView.text_bce659ddb4")} rows={3} value={objective} />
           </Field>
           {canLaunch ? (
-            <Field label={`班子（在项目「${props.project.name}」里各开一条会话）`}>
+            <Field label={t("rooms.RoomView.text_fd3e5af2bf", { name: props.project.name })}>
               <div className="overflow-hidden rounded-lg border border-border">
                 <div className="grid grid-cols-[64px_120px_minmax(0,1fr)_128px_32px] gap-2 border-b border-border bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground">
-                  <span>身份</span><span>角色名</span><span>职责</span><span>Agent</span><span />
+                  <span>{t("rooms.RoomView.text_2a9c9e9976")}</span><span>{t("rooms.RoomView.text_c0362bdb59")}</span><span>{t("rooms.RoomView.text_6d513de90d")}</span><span>Agent</span><span />
                 </div>
                 {roster.map((row, index) => (
                   <div className="grid grid-cols-[64px_120px_minmax(0,1fr)_128px_32px] items-center gap-2 border-b border-border px-3 py-2 last:border-b-0" key={index}>
                     {index === 0 ? (
-                      <Badge className="border-warning/50 text-warning" variant="outline"><Crown /> 统筹</Badge>
-                    ) : <Badge variant="secondary">成员</Badge>}
-                    <Input aria-invalid={Boolean(rowErrors[index])} aria-label="角色名" className="h-8"
+                      <Badge className="border-warning/50 text-warning" variant="outline"><Crown />{t("rooms.RoomView.text_8153348240")}</Badge>
+                    ) : <Badge variant="secondary">{t("rooms.RoomView.text_6e6d6ddbb7")}</Badge>}
+                    <Input aria-invalid={Boolean(rowErrors[index])} aria-label={t("rooms.RoomView.text_c0362bdb59")} className="h-8"
                       onChange={(event) => update(index, { title: event.target.value })} title={rowErrors[index] ?? undefined} value={row.title} />
-                    <Input aria-label="职责" className="h-8" onChange={(event) => update(index, { duty: event.target.value })} placeholder="职责" value={row.duty} />
+                    <Input aria-label={t("rooms.RoomView.text_6d513de90d")} className="h-8" onChange={(event) => update(index, { duty: event.target.value })} placeholder={t("rooms.RoomView.text_6d513de90d")} value={row.duty} />
                     <Select onValueChange={(kind) => update(index, { kind: kind as AgentKind })} value={row.kind}>
                       <SelectTrigger aria-label="Agent" className="w-full" size="sm"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {kinds.map((kind) => <SelectItem key={kind.value} value={kind.value}>{kind.label}</SelectItem>)}
                       </SelectContent>
                     </Select>
-                    <Button aria-label="删掉这一行" disabled={roster.length === 1} size="icon-sm" variant="ghost"
+                    <Button aria-label={t("rooms.RoomView.text_a3a6479e4e")} disabled={roster.length === 1} size="icon-sm" variant="ghost"
                       onClick={() => setRoster((rows) => rows.filter((_, at) => at !== index))}>
                       <X />
                     </Button>
@@ -1522,21 +1600,18 @@ function NewRoomDialog(props: {
               </div>
               <Button className="self-start" onClick={() => setRoster((rows) => [...rows, { title: "", duty: "", kind: rows[0]?.kind ?? "claude" }])}
                 size="xs" variant="ghost">
-                <Plus /> 加一位成员
-              </Button>
+                <Plus />{t("rooms.RoomView.text_5877032e03")}</Button>
               {rowErrors.find(Boolean) ? <p className="text-xs text-destructive">{rowErrors.find(Boolean)}</p> : null}
             </Field>
           ) : (
-            <p className="rounded-md border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
-              没有检测到可用的 Claude / Codex：先只建房间，成员之后在左栏添加。
-            </p>
+            <p className="rounded-md border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">{t("rooms.RoomView.text_e945c2de3b")}</p>
           )}
           {error ? <p className="text-xs text-destructive" role="alert">{error}</p> : null}
         </div>
         <DialogFooter>
-          <Button disabled={busy} onClick={props.onClose} variant="outline">取消</Button>
+          <Button disabled={busy} onClick={props.onClose} variant="outline">{t("rooms.RoomView.text_2cd0f3be87")}</Button>
           <Button disabled={busy || !name.trim() || (canLaunch && rowErrors.some(Boolean))} onClick={() => void submit()}>
-            {busy ? <><Spinner /> 正在拉起成员…</> : "创建"}
+            {busy ? <><Spinner />{t("rooms.RoomView.text_c83943535e")}</> : t("rooms.RoomView.text_cde2cd071d")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1548,21 +1623,22 @@ function AddMemberDialog(props: {
   agents: AgentAvailability[]; room: Room; rooms: RoomsState; tabs: WorkspaceTab[]; onClose: () => void;
   onLaunchMember?: RoomViewProps["onLaunchMember"]; onRenameAgent?: RoomViewProps["onRenameAgent"];
 }) {
+  useTranslation();
   const { room } = props;
   const id = useId();
   const kinds = agentOptions(props.agents);
   const taken = new Set(props.rooms.rooms.flatMap((summary) => summary.memberTabIds));
   const existing = props.tabs.filter((tab) => isAgentKind(tab.kind) && tab.phase === "running" && !taken.has(tab.id));
   const sources = [
-    ...(props.onLaunchMember ? kinds.map((kind) => ({ value: `new:${kind.value}`, label: `新开一条 ${kind.label} 会话` })) : []),
-    ...existing.map((tab) => ({ value: `tab:${tab.id}`, label: `已有会话：${tab.agentName ?? tab.title}` })),
+    ...(props.onLaunchMember ? kinds.map((kind) => ({ value: `new:${kind.value}`, label: t("rooms.RoomView.text_229e837eff", { label: kind.label }) })) : []),
+    ...existing.map((tab) => ({ value: `tab:${tab.id}`, label: t("rooms.RoomView.text_e2b9d40302", { name: tab.agentName ?? tab.title }) })),
   ];
   const [source, setSource] = useState(sources[0]?.value ?? "");
   const [title, setTitle] = useState("");
   const [duty, setDuty] = useState("");
   const [foreman, setForeman] = useState(foremanOf(room) === null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useFeedback<string | null>(null);
   const invalid = titleError(title, activeMembers(room).map((member) => member.title));
   const current = foremanOf(room);
   const submit = async () => {
@@ -1576,7 +1652,7 @@ function AddMemberDialog(props: {
       const tab = existing.find((candidate) => `tab:${candidate.id}` === source);
       const added = tab ? await props.rooms.run(() => api.roomAddMember(room.id, tab.id, tab.kind, title, duty, foreman)) : null;
       if (added && tab) props.onRenameAgent?.(tab.id, title);
-      if (!added) reason = "没加进去，看右下角的提示";
+      if (!added) reason = t("rooms.RoomView.text_3853761b1d");
     }
     setBusy(false);
     void props.rooms.refresh();
@@ -1588,41 +1664,41 @@ function AddMemberDialog(props: {
     <Dialog onOpenChange={onOpenChange} open>
       <DialogContent className="gap-5" {...guards}>
         <DialogHeader>
-          <DialogTitle>添加成员</DialogTitle>
-          <DialogDescription>新开一条 Agent 会话，或把一条已有的会话拉进房间。加入后会收到上手说明。</DialogDescription>
+          <DialogTitle>{t("rooms.RoomView.text_ad9737dafd")}</DialogTitle>
+          <DialogDescription>{t("rooms.RoomView.text_c803011fb4")}</DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-4">
-          <Field id={`${id}-source`} label="会话">
+          <Field id={`${id}-source`} label={t("rooms.RoomView.text_a63280253f")}>
             <Select disabled={!sources.length} onValueChange={setSource} value={source}>
-              <SelectTrigger className="w-full" id={`${id}-source`}><SelectValue placeholder="没有可用的会话" /></SelectTrigger>
+              <SelectTrigger className="w-full" id={`${id}-source`}><SelectValue placeholder={t("rooms.RoomView.text_2a5155a67f")} /></SelectTrigger>
               <SelectContent>
                 {sources.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
               </SelectContent>
             </Select>
           </Field>
-          <Field id={`${id}-title`} label="角色名">
+          <Field id={`${id}-title`} label={t("rooms.RoomView.text_c0362bdb59")}>
             <Input aria-invalid={Boolean(title) && Boolean(invalid)} autoFocus id={`${id}-title`} maxLength={24}
-              onChange={(event) => setTitle(event.target.value)} placeholder="比如：测试" value={title} />
+              onChange={(event) => setTitle(event.target.value)} placeholder={t("rooms.RoomView.text_aaaea128a6")} value={title} />
             {title && invalid ? <p className="text-xs text-destructive">{invalid}</p> : null}
           </Field>
-          <Field id={`${id}-duty`} label="职责">
-            <Input id={`${id}-duty`} onChange={(event) => setDuty(event.target.value)} placeholder="他负责什么" value={duty} />
+          <Field id={`${id}-duty`} label={t("rooms.RoomView.text_6d513de90d")}>
+            <Input id={`${id}-duty`} onChange={(event) => setDuty(event.target.value)} placeholder={t("rooms.RoomView.text_8995d480c7")} value={duty} />
           </Field>
           <Label className="flex cursor-pointer items-start gap-2.5 rounded-md border border-border p-3 font-normal">
             <Checkbox checked={foreman} className="mt-0.5" onCheckedChange={(checked) => setForeman(checked === true)} />
             <span className="flex flex-col gap-0.5">
-              <span className="font-medium">当统筹</span>
+              <span className="font-medium">{t("rooms.RoomView.text_2bff5da681")}</span>
               <span className="text-xs text-muted-foreground">
-                {current ? `会替换现在的「${current.title}」，他改为成员。` : "房间里还没有统筹。"}
+                {current ? t("rooms.RoomView.text_52f3ea95df", { title: current.title }) : t("rooms.RoomView.text_b841e821cc")}
               </span>
             </span>
           </Label>
           {error ? <p className="text-xs text-destructive" role="alert">{error}</p> : null}
         </div>
         <DialogFooter>
-          <Button disabled={busy} onClick={props.onClose} variant="outline">取消</Button>
+          <Button disabled={busy} onClick={props.onClose} variant="outline">{t("rooms.RoomView.text_2cd0f3be87")}</Button>
           <Button disabled={busy || Boolean(invalid) || !source} onClick={() => void submit()}>
-            {busy ? <><Spinner /> 正在添加…</> : "添加"}
+            {busy ? <><Spinner />{t("rooms.RoomView.text_cc708a7a29")}</> : t("rooms.RoomView.text_7a8a11ead5")}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -29,30 +29,30 @@ pub fn handle(mut stream: TcpStream, relay: &Relay) {
 /// 命令归应用解释，后台只做身份换票；响应同样只核对信封，保留所有类型和字段。
 fn forward(line: &str, relay: &Relay) -> Result<String, String> {
     let mut request: serde_json::Value =
-        serde_json::from_str(line).map_err(|_| "协作请求格式无效".to_string())?;
-    let envelope = request.as_object_mut().ok_or("协作请求格式无效")?;
+        serde_json::from_str(line).map_err(|_| belfry_i18n::text("协作请求格式无效").to_string())?;
+    let envelope = request.as_object_mut().ok_or(belfry_i18n::text("协作请求格式无效"))?;
     if envelope.get("version").and_then(serde_json::Value::as_u64) != Some(u64::from(PROTOCOL_VERSION)) {
-        return Err("协作协议版本不匹配".into());
+        return Err(belfry_i18n::text("协作协议版本不匹配").into());
     }
     let field = |name: &str| envelope.get(name).and_then(serde_json::Value::as_str).map(str::to_string);
-    let (tab_id, agent_token) = field("tabId").zip(field("token")).ok_or("协作请求格式无效")?;
+    let (tab_id, agent_token) = field("tabId").zip(field("token")).ok_or(belfry_i18n::text("协作请求格式无效"))?;
     let route = relay
         .collab(&tab_id, &agent_token)
-        .ok_or("后台协作身份校验失败")?;
+        .ok_or(belfry_i18n::text("后台协作身份校验失败"))?;
     let (endpoint, token) = route
         .collab_target
-        .ok_or("应用未连接，重新打开 Belfry 后可继续协作")?;
+        .ok_or(belfry_i18n::text("应用未连接，重新打开 Belfry 后可继续协作"))?;
     envelope.insert("token".into(), serde_json::Value::String(token));
     let mut upstream = connect(&endpoint)?;
-    let mut bytes = serde_json::to_vec(&request).map_err(|_| "协作请求编码失败")?;
+    let mut bytes = serde_json::to_vec(&request).map_err(|_| belfry_i18n::text("协作请求编码失败"))?;
     bytes.push(b'\n');
     upstream.write_all(&bytes).map_err(|_| offline())?;
     let response = read_line(&mut upstream)?;
     // ResponseData 是 CLI 和应用之间的约定。常驻后台按自己的枚举解析会拒绝新类型，
     // 也会静默丢掉已有类型新增的字段（例如 room say 的 message），令成功写入看似失败。
-    let envelope: serde_json::Value = serde_json::from_str(&response).map_err(|_| "应用协作响应无效")?;
+    let envelope: serde_json::Value = serde_json::from_str(&response).map_err(|_| belfry_i18n::text("应用协作响应无效"))?;
     if !matches!(envelope.get("status").and_then(serde_json::Value::as_str), Some("ok" | "error")) {
-        return Err("应用协作响应无效".into());
+        return Err(belfry_i18n::text("应用协作响应无效").into());
     }
     Ok(response)
 }
@@ -84,7 +84,7 @@ fn connect(endpoint: &str) -> Result<Box<dyn Connection>, String> {
             return Ok(Box::new(stream));
         }
     }
-    Err("仅支持本机协作端点".into())
+    Err(belfry_i18n::text("仅支持本机协作端点").into())
 }
 
 fn read_line(stream: &mut impl Read) -> Result<String, String> {
@@ -94,10 +94,10 @@ fn read_line(stream: &mut impl Read) -> Result<String, String> {
         .read_line(&mut line)
         .map_err(|_| offline())?;
     if line.len() as u64 > MAX_LINE || !line.ends_with('\n') {
-        return Err("协作消息超过上限或不完整".into());
+        return Err(belfry_i18n::text("协作消息超过上限或不完整").into());
     }
     Ok(line)
 }
 fn offline() -> String {
-    "应用暂未连接；任务仍在后台运行，重新打开 Belfry 后重试".into()
+    belfry_i18n::text("应用暂未连接；任务仍在后台运行，重新打开 Belfry 后重试").into()
 }

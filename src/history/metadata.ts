@@ -1,3 +1,4 @@
+import { TranslationError } from "../i18n";
 import { isAgentSessionRef, type AgentSessionRef } from "../agent/contracts";
 
 export const HISTORY_METADATA_KEY = "belfry.history-metadata.v1";
@@ -21,20 +22,20 @@ export function loadMetadata(storage: Pick<Storage, "getItem">): HistoryMetadata
   const raw = storage.getItem(HISTORY_METADATA_KEY);
   if (!raw) return {};
   let value: unknown;
-  try { value = JSON.parse(raw); } catch { throw new Error("收藏数据损坏，已停止写入以保留原数据。"); }
+  try { value = JSON.parse(raw); } catch { throw new TranslationError("history.metadata.text_170a9a9c68"); }
   if (!isRecord(value) || value.version !== 1 || !isRecord(value.entries)) {
-    throw new Error("收藏数据版本或格式不受支持，已保留原数据。");
+    throw new TranslationError("history.metadata.text_9d348b6f0e");
   }
   const entries: HistoryMetadata = {};
   for (const [key, item] of Object.entries(value.entries)) {
-    if (!validSessionKey(key) || !validMetadata(item)) throw new Error("收藏条目格式异常，已保留原数据。");
+    if (!validSessionKey(key) || !validMetadata(item)) throw new TranslationError("history.metadata.text_1e7c68c257");
     entries[key] = { favorite: item.favorite, tags: [...item.tags] };
   }
   return entries;
 }
 
 export function saveSessionMetadata({ storage, session, patch }: MetadataChange): HistoryMetadata {
-  if (!isAgentSessionRef(session)) throw new Error("历史会话身份无效。");
+  if (!isAgentSessionRef(session)) throw new TranslationError("history.metadata.text_3b194b3be2");
   const entries = loadMetadata(storage);
   const key = sessionKey(session);
   const current = entries[key] ?? { favorite: false, tags: [] };
@@ -53,11 +54,11 @@ export function normalizeTags(value: string): string[] {
   for (const raw of value.split(/[,，;；\n]/u)) {
     const tag = raw.trim();
     if (!tag || seen.has(tag.toLocaleLowerCase())) continue;
-    if ([...tag].length > MAX_TAG_LENGTH) throw new Error(`单个标签最多 ${MAX_TAG_LENGTH} 字。`);
+    if ([...tag].length > MAX_TAG_LENGTH) throw new TranslationError("history.metadata.text_4e347008ce", { limit: MAX_TAG_LENGTH });
     tags.push(tag);
     seen.add(tag.toLocaleLowerCase());
   }
-  if (tags.length > MAX_TAGS) throw new Error(`每条会话最多 ${MAX_TAGS} 个标签。`);
+  if (tags.length > MAX_TAGS) throw new TranslationError("history.metadata.text_81ec6789d0", { limit: MAX_TAGS });
   return tags;
 }
 

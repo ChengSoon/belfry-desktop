@@ -149,7 +149,7 @@ mod recovery_tests {
         );
         let network =
             decode_reply::<serde_json::Value>(Reply::error("后台连接失败：timeout")).unwrap_err();
-        assert_eq!(AppErrorCode::IoError, network.code);
+        assert_eq!("TERMINAL_BACKGROUND_SERVICE_CONNECTION_FAILED", network.code.0);
         assert!(network.retryable);
     }
 }

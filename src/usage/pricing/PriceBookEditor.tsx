@@ -1,3 +1,4 @@
+import { formatDateTime, t, useTranslation } from "../../i18n";
 import { Disclosure } from "../../components/controls/Disclosure";
 import { useState } from "react";
 import type { ProjectWorkspace } from "../../workspace/contracts";
@@ -15,32 +16,33 @@ interface Editing { draft: PriceDraft; book: PriceBook; raw: string | null; exis
 export function PriceBookEditor({ prices, rows, project }: {
   prices: PriceBookModel; rows: UsageBucket[]; project: ProjectWorkspace | null;
 }) {
+  useTranslation();
   const [editing, setEditing] = useState<Editing | null>(null);
   const start = (rule: PriceRule | null) => setEditing({ draft: createPriceDraft(rule, rows[0]),
     book: prices.book, raw: prices.raw, existing: rule !== null });
   const save = (rules: PriceRule[]) => {
-    if (!editing) return "请重新打开价格编辑";
+    if (!editing) return t("usage.PriceBookEditor.text_adbc58769f");
     const error = prices.save({ version: 1, rules }, editing.raw);
     if (!error) setEditing(null);
     return error;
   };
   const projects = groupProjects(rows).filter((item) => item.root !== null).map((item) => ({ root: item.root!, name: item.name }));
   if (project && !projects.some((item) => sameProject(item.root, project.rootPath))) projects.unshift({ root: project.rootPath, name: project.name });
-  return <Disclosure className="usage-disclosure usage-pricing" title={<>模型定价 <small>{prices.error ? "需要处理" : prices.book.rules.length + " 条"}</small></>}>
+  return <Disclosure className="usage-disclosure usage-pricing" title={<>{t("usage.PriceBookEditor.text_83c6fec6df")}<small>{prices.error ? t("usage.PriceBookEditor.text_b7e3e715f1") : t("usage.PriceBookEditor.text_b9828bc6d8", { count: prices.book.rules.length })}</small></>}>
     {prices.error ? <><p className="usage-price-error" role="alert">{prices.error}</p>
-      <button type="button" onClick={prices.reload}>重新读取</button></> : editing ?
+      <button type="button" onClick={prices.reload}>{t("usage.PriceBookEditor.text_df7392cc96")}</button></> : editing ?
       <PriceRuleForm key={editing.draft.id} initial={editing.draft} rows={rows} projects={projects}
         onCancel={() => setEditing(null)}
         onSave={(rule) => save([...editing.book.rules.filter((item) => item.id !== rule.id), rule])}
         onRemove={editing.existing ? () => save(editing.book.rules.filter((item) => item.id !== editing.draft.id)) : undefined} /> :
       <>
-        <p className="usage-note">填写实际使用的官方或中转费率。项目价格优先，模型别名需明确指定。</p>
+        <p className="usage-note">{t("usage.PriceBookEditor.text_c4d6cc2c2e")}</p>
         <ul className="usage-price-list">{prices.book.rules.map((rule) => <li key={rule.id}>
-          <button type="button" onClick={() => start(rule)} aria-label={"编辑 " + rule.model + " " + rule.effectiveFrom + " 价格"}>
-            <strong>{rule.model}</strong><span>{agentLabel(rule.agent)} · {rule.currency} · {rule.effectiveFrom}</span>
-            <small title={rule.projectRoot ?? undefined}>{rule.projectRoot ?? "全部项目"}</small>
+          <button type="button" onClick={() => start(rule)} aria-label={t("usage.PriceBookEditor.text_ce4855525a", { model: rule.model, effectiveFrom: formatDateTime(`${rule.effectiveFrom}T00:00:00Z`, { dateStyle: "medium", timeZone: "UTC" }) })}>
+            <strong>{rule.model}</strong><span>{agentLabel(rule.agent)} · {rule.currency} · {formatDateTime(`${rule.effectiveFrom}T00:00:00Z`, { dateStyle: "medium", timeZone: "UTC" })}</span>
+            <small title={rule.projectRoot ?? undefined}>{rule.projectRoot ?? t("usage.PriceBookEditor.text_e3040dfd6b")}</small>
           </button></li>)}</ul>
-        <button type="button" disabled={prices.book.rules.length >= MAX_PRICE_RULES} onClick={() => start(null)}>添加价格</button>
+        <button type="button" disabled={prices.book.rules.length >= MAX_PRICE_RULES} onClick={() => start(null)}>{t("usage.PriceBookEditor.text_db66761103")}</button>
       </>}
   </Disclosure>;
 }

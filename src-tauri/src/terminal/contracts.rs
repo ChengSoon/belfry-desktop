@@ -47,21 +47,24 @@ pub enum TerminalExitReason {
     IoFailed,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-#[allow(dead_code)] // Shared error contract is intentionally wider than the vertical slice.
-pub enum AppErrorCode {
-    InvalidArgument,
-    NotFound,
-    Conflict,
-    Unsupported,
-    PermissionDenied,
-    ProcessExited,
-    Timeout,
-    IoError,
-    AdapterError,
-    ConfirmationRequired,
-    SessionMissing,
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(transparent)]
+pub struct AppErrorCode(pub std::borrow::Cow<'static, str>);
+
+#[allow(non_upper_case_globals, dead_code)]
+impl AppErrorCode {
+    pub const InvalidArgument: Self = Self(std::borrow::Cow::Borrowed("INVALID_ARGUMENT"));
+    pub const NotFound: Self = Self(std::borrow::Cow::Borrowed("NOT_FOUND"));
+    pub const Conflict: Self = Self(std::borrow::Cow::Borrowed("CONFLICT"));
+    pub const Unsupported: Self = Self(std::borrow::Cow::Borrowed("UNSUPPORTED"));
+    pub const PermissionDenied: Self = Self(std::borrow::Cow::Borrowed("PERMISSION_DENIED"));
+    pub const ProcessExited: Self = Self(std::borrow::Cow::Borrowed("PROCESS_EXITED"));
+    pub const Timeout: Self = Self(std::borrow::Cow::Borrowed("TIMEOUT"));
+    pub const IoError: Self = Self(std::borrow::Cow::Borrowed("IO_ERROR"));
+    pub const AdapterError: Self = Self(std::borrow::Cow::Borrowed("ADAPTER_ERROR"));
+    pub const ConfirmationRequired: Self = Self(std::borrow::Cow::Borrowed("CONFIRMATION_REQUIRED"));
+    pub const SessionMissing: Self = Self(std::borrow::Cow::Borrowed("SESSION_MISSING"));
+    pub fn named(code: String) -> Self { Self(std::borrow::Cow::Owned(code)) }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -71,6 +74,8 @@ pub struct AppError {
     pub message: String,
     pub retryable: bool,
     pub details: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub params: std::collections::BTreeMap<String, serde_json::Value>,
 }
 
 impl AppError {
@@ -86,10 +91,14 @@ impl AppError {
         Self::new(AppErrorCode::NotFound, message, false)
     }
 
+    pub fn conflict(message: impl Into<String>) -> Self {
+        Self::new(AppErrorCode::Conflict, message, false)
+    }
+
     pub fn session_missing() -> Self {
         Self::new(
             AppErrorCode::SessionMissing,
-            "原后台任务已不存在。可继续历史对话或启动新会话；未自动重复执行任务。",
+            "The original background task no longer exists. Resume its history or start a new session; it has not been executed again automatically.",
             false,
         )
     }
@@ -113,12 +122,50 @@ impl AppError {
     }
 
     fn new(code: AppErrorCode, message: impl Into<String>, retryable: bool) -> Self {
-        Self {
-            code,
-            message: message.into(),
-            retryable,
-            details: None,
-        }
+        let original = message.into();
+        let mut params = std::collections::BTreeMap::new();
+        let (code, message) = if let Some(localized) = belfry_i18n::error_text(&original) {
+            params = localized.params.into_iter().map(|(key, value)| {
+                let rendered = value.as_str().map(str::to_owned).unwrap_or_else(|| value.to_string());
+                let sanitized = crate::logging::sanitize_error_parameter(&key, &rendered);
+                let value = if value.is_string() || sanitized != rendered { serde_json::Value::String(sanitized) } else { value };
+                (key, value)
+            }).collect();
+            let message = belfry_i18n::error_message(&localized.code, &params).unwrap_or(localized.message);
+            let code = if [AppErrorCode::SessionMissing, AppErrorCode::ProcessExited, AppErrorCode::Conflict].contains(&code) {
+                code
+            } else { AppErrorCode::named(localized.code) };
+            (code, crate::logging::sanitize_error(&message))
+        } else if original.chars().any(|ch| ('\u{4e00}'..='\u{9fff}').contains(&ch)) {
+            log::warn!("Unmapped error text ({}): {}", code.0, crate::logging::sanitize_error(&original));
+            let fallback = match code.0.as_ref() {
+                "INVALID_ARGUMENT" => "Invalid argument. See the diagnostic log for details.",
+                "NOT_FOUND" => "The requested resource was not found. See the diagnostic log for details.",
+                "UNSUPPORTED" => "This operation is not supported. See the diagnostic log for details.",
+                "CONFLICT" => "The state has changed. Refresh and try again.",
+                "TIMEOUT" => "The operation timed out. Please try again.",
+                _ => "The operation failed. See the diagnostic log for details.",
+            };
+            (code, fallback.into())
+        } else { (code, crate::logging::sanitize_error(&original)) };
+        Self { code, message, retryable, details: None, params }
+    }
+}
+
+#[cfg(test)]
+mod localized_error_tests {
+    use super::*;
+    #[test]
+    fn regression_user_errors_expose_stable_codes_and_parameters_with_an_english_fallback() {
+        let required = serde_json::to_value(AppError::invalid_argument("房间名是必填的")).unwrap();
+        assert_eq!(required["code"], "ROOM_NAME_REQUIRED");
+        assert_eq!(required["message"], "A room name is required.");
+        let limited = serde_json::to_value(AppError::invalid_argument("角色名最多 40 个字")).unwrap();
+        assert_eq!(limited["code"], "ROOM_ROLE_NAME_LIMIT");
+        assert_eq!(limited["params"]["max"], 40);
+        let secret = serde_json::to_value(AppError::not_found("找不到 provider：token=opaque-secret")).unwrap();
+        assert!(!secret.to_string().contains("opaque-secret"));
+        assert_eq!(crate::logging::sanitize_error_parameter("accessToken", "123456"), "[REDACTED]");
     }
 }
 

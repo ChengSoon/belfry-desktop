@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 import type { WorkspaceTab } from "../workspace/contracts";
 
 /**
@@ -31,12 +32,12 @@ export function agentNameError(
   selfTabId: string,
 ): string | null {
   if (!AGENT_NAME_PATTERN.test(name)) {
-    return "名字要以字母开头（中文也算），之后可用字母、数字、下划线、连字符，不能带空格，最长 32 个字";
+    return t("collab.naming.text_fd7befacb2");
   }
   const taken = tabs.find(
     (tab) => tab.id !== selfTabId && tab.agentName === name && isLiveSession(tab),
   );
-  return taken ? `「${name}」已经是另一条会话的名字了` : null;
+  return taken ? t("collab.naming.text_c094930dc4", { name: name }) : null;
 }
 
 /**

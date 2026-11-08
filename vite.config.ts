@@ -5,8 +5,8 @@ import tailwindcss from "@tailwindcss/vite";
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   test: {
-    // 仓库里的 node:test 用例（docs/ 下带 .test.mjs 的浏览器夹具）不走 vitest，别把它们收集进来。
-    exclude: [...configDefaults.exclude, "docs/**"],
+    // node:test suites are executed by their own CI steps, not by Vitest.
+    exclude: [...configDefaults.exclude, "docs/**", "scripts/backend-i18n.test.mjs"],
   },
   clearScreen: false,
   server: {

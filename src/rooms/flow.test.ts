@@ -33,6 +33,12 @@ const edge = (graph: ReturnType<typeof flowGraph>, source: string, target: strin
   graph.edges.find((item) => (item.source === source && item.target === target) || (item.source === target && item.target === source));
 
 describe("room flow graph", () => {
+  it("keeps old unresolved replies visible after the recent timeline drops their messages", () => {
+    const current = room();
+    Object.assign(current, { retainedMessages: [message("user", ["boss"], now - FLOW_RECENT_MS - 1, { mode: "request_reply" })] });
+    expect(edge(flowGraph(current, allIdle, now), "user", "boss")).toMatchObject({ tone: "reply", label: "等统筹员回复" });
+  });
+
   it("puts you on the left, the foreman in the middle and members around", () => {
     const graph = flowGraph(room(), allIdle, now);
     expect(graph.nodes.map((node) => node.kind)).toEqual(["user", "foreman", "peer", "peer"]);

@@ -1,3 +1,5 @@
+use crate::terminal::AppError;
+
 #[cfg(target_os = "windows")]
 use std::ffi::c_void;
 
@@ -16,7 +18,7 @@ unsafe extern "system" {
 }
 
 #[cfg(target_os = "windows")]
-pub(super) fn open(url: &str) -> Result<(), String> {
+pub(super) fn open(url: &str) -> Result<(), AppError> {
     const SW_SHOWNORMAL: i32 = 1;
     let target = encode_url(url)?;
     let operation = [b'o' as u16, b'p' as u16, b'e' as u16, b'n' as u16, 0];
@@ -35,28 +37,36 @@ pub(super) fn open(url: &str) -> Result<(), String> {
     check_status(status as isize)
 }
 
-fn encode_url(url: &str) -> Result<Vec<u16>, String> {
+fn encode_url(url: &str) -> Result<Vec<u16>, AppError> {
     if url.contains('\0') {
-        return Err("URL 不能包含 NUL 字符".into());
+        return Err(AppError::invalid_argument("URL 不能包含 NUL 字符"));
     }
     Ok(url.encode_utf16().chain(std::iter::once(0)).collect())
 }
 
-fn check_status(status: isize) -> Result<(), String> {
+fn check_status(status: isize) -> Result<(), AppError> {
     // ShellExecuteW 返回大于 32 的值表示成功，其余为 Shell 错误码。
     const SHELL_ERROR_MAX: isize = 32;
     if status > SHELL_ERROR_MAX {
         Ok(())
     } else {
-        Err(format!(
+        Err(AppError::io(format!(
             "打开默认浏览器失败（ShellExecuteW 错误码 {status}）"
-        ))
+        )))
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn regression_external_failures_have_stable_codes_and_english_fallbacks() {
+        let error = serde_json::to_value(check_status(31).unwrap_err()).unwrap();
+        assert_eq!(error["code"], "EXTERNAL_FAILED_TO_OPEN_THE_DEFAULT_BROWSER_SHELLEXECUTEW");
+        assert_eq!(error["params"]["status"], 31);
+        assert_eq!(error["message"], "Failed to open the default browser (ShellExecuteW error 31).");
+    }
 
     #[test]
     fn manual_url_has_no_command_line_quotes_or_backslashes() {
@@ -91,10 +101,11 @@ mod tests {
             assert!(
                 check_status(status)
                     .unwrap_err()
+                    .message
                     .contains(&status.to_string())
             );
         }
-        assert_eq!(Ok(()), check_status(33));
-        assert_eq!(Ok(()), check_status(isize::MAX));
+        assert!(check_status(33).is_ok());
+        assert!(check_status(isize::MAX).is_ok());
     }
 }

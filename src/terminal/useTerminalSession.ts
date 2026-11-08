@@ -1,3 +1,4 @@
+import { useFeedback } from "../i18n";
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useBackground } from "../background/BackgroundProvider";
 import { useTheme } from "../theme/ThemeProvider";
@@ -61,7 +62,7 @@ export function useTerminalSession(
   const transparent = url !== null;
   const [generation, setGeneration] = useState(0);
   const [phase, setPhase] = useState<TerminalPhase>("idle");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useFeedback<string | null>(null);
   const [session, setSession] = useState<TerminalSession | null>(null);
   const [lastInput, setLastInput] = useState<string | null>(null);
   const [activity, setActivity] = useState<SessionActivity>("idle");
@@ -208,7 +209,7 @@ export function useTerminalSession(
         }).catch((failure) => {
           if (!active) return;
           stopping = false;
-          setError(errorMessage(failure));
+          setError(() => errorMessage(failure));
         });
       },
       reconnect: () => { reconnectAttempts.current = 0; reconnectNow(); },
@@ -216,7 +217,7 @@ export function useTerminalSession(
         cancelTimers();
         allowRetry = false;
         const current = sessionId.current;
-        if (current) void closeTerminal(current).catch(guard((failure: unknown) => setError(errorMessage(failure))));
+        if (current) void closeTerminal(current).catch(guard((failure: unknown) => setError(() => errorMessage(failure))));
       },
     };
     return () => {

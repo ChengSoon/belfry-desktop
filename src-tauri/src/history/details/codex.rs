@@ -58,7 +58,7 @@ fn event(payload: &Value, source: &str) -> Option<HistoryEntry> {
 }
 
 fn call(payload: &Value, source: &str) -> HistoryTool {
-    let name = payload["name"].as_str().unwrap_or("未知工具").to_owned();
+    let name = payload["name"].as_str().unwrap_or(belfry_i18n::text("未知工具")).to_owned();
     let input = if payload["input"].is_null() {
         &payload["arguments"]
     } else {
@@ -94,7 +94,7 @@ fn result(payload: &Value, source: &str) -> HistoryTool {
         .and_then(|value| serde_json::from_str::<Value>(value).ok());
     HistoryTool {
         id: text::identity(payload["call_id"].as_str(), source),
-        name: "工具结果".into(),
+        name: belfry_i18n::text("工具结果").into(),
         kind: "result".into(),
         text: text::display(raw),
         success: status(decoded.as_ref().unwrap_or(raw)),

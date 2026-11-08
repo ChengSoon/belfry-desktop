@@ -1,0 +1,14 @@
+{
+  "EnvironmentSection.text_821f9ff1ad": "Collaboration setup",
+  "EnvironmentSection.text_c8958814a5": "Environment ready",
+  "EnvironmentSection.text_425d80b663": "Some items need attention",
+  "EnvironmentSection.text_dfa8130320": "Blocking issues found",
+  "EnvironmentSection.text_bfc960b0ec": "Sync all skills",
+  "EnvironmentSection.text_69611f40d2": "Recheck collaboration environment",
+  "EnvironmentSection.text_6b72c3d685": "Checking…",
+  "EnvironmentSection.text_e41906d038": "OK: {{ok}} · Warnings: {{warning}} · Errors: {{error}}",
+  "contracts.text_69dc809232": {
+    "one": "Synced {{count}} client (installed or updated: {{changed}}; already current: {{unchanged}})",
+    "other": "Synced {{count}} clients (installed or updated: {{changed}}; already current: {{unchanged}})"
+  }
+}

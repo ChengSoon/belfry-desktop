@@ -4,6 +4,7 @@ import { useLauncherShortcut } from "../../plugins/workspace/useLauncherShortcut
 
 const ports = vi.hoisted(() => ({ effects: [] as (() => (() => void) | void)[], setState: vi.fn(), listen: vi.fn(), runtime: vi.fn() }));
 vi.mock("react", () => ({
+  useSyncExternalStore: (_subscribe: unknown, getSnapshot: () => unknown) => getSnapshot(),
   useEffect: (effect: () => (() => void) | void) => ports.effects.push(effect),
   useState: (initial: unknown) => [typeof initial === "function" ? initial() : initial, ports.setState],
   useRef: (current: unknown) => ({ current }), useCallback: (callback: unknown) => callback,

@@ -1,9 +1,10 @@
+import { t } from "../../i18n";
 import { layoutTabIds, pruneLayout } from "../../layout/tree";
 import type { NamedWorkspace, WorkspaceCollection, WorkspaceSeed } from "./contracts";
 
 export function initialCollection(seed: WorkspaceSeed): WorkspaceCollection {
   const workspace: NamedWorkspace = {
-    id: "default", name: "默认工作区", tabIds: seed.tabIds,
+    id: "default", name: t("workspace.model.text_9775da628c"), tabIds: seed.tabIds,
     activeTabId: seed.tabIds.includes(seed.activeTabId ?? "") ? seed.activeTabId : seed.tabIds[0] ?? null,
     layout: null,
   };
@@ -23,15 +24,15 @@ export function reconcileCollection(collection: WorkspaceCollection, tabIds: str
   const workspaces = collection.workspaces.map((item) => {
     const retained = item.tabIds.filter((id) => alive.has(id));
     const missing = item.tabIds.length - retained.length;
-    if (missing) notices.push(`${item.name}：${missing} 条会话已不存在，已整理布局。`);
+    if (missing) notices.push(t("workspace.model.text_f3f13ec2f0", { name: item.name, count: missing }));
     const nextIds = item.id === activeId ? [...retained, ...unclaimed] : retained;
     const normalized = normalizeWorkspace(item, nextIds);
     if (item.activeTabId && normalized.activeTabId !== item.activeTabId) {
-      notices.push(`${item.name}：活动会话不可用，已恢复到可用窗格。`);
+      notices.push(t("workspace.model.text_82150b5fd9", { name: item.name }));
     }
     return normalized;
   });
-  if (unclaimed.length) notices.push(`${unclaimed.length} 条未分组会话已放入「${currentWorkspace(collection).name}」。`);
+  if (unclaimed.length) notices.push(t("workspace.model.text_28b843cfe4", { count: unclaimed.length, name: currentWorkspace(collection).name }));
   const changed = workspaces.some((item, index) => item !== collection.workspaces[index]);
   return { collection: changed ? { ...collection, workspaces } : collection, notices };
 }

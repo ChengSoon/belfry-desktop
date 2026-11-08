@@ -1,3 +1,4 @@
+import { localized, t, useTranslation } from "../i18n";
 // Adapted from PI-Desktop ThemeRow.tsx, LGPL-3.0; see third_party/pi-desktop/NOTICE.md.
 import { useEffect, useRef, useState } from "react";
 import { Check, ChevronDown, Search } from "lucide-react";
@@ -9,15 +10,16 @@ import { composingKey } from "../utils/keyboard";
 import "./theme-picker.css";
 
 interface Option { id: string; title: string; hint: string; plugin?: boolean }
-const BUILTINS: Option[] = [
-  { id: "system", title: "跟随系统", hint: "随系统外观自动切换" },
-  { id: "light", title: "浅色", hint: "明亮的浅色界面" },
-  { id: "dark", title: "深色", hint: "柔和的深色界面" },
-];
+const BUILTINS: Option[] = localized(() => ([
+  { id: "system", title: t("plugins.ThemePicker.text_217cfe7db1"), hint: t("plugins.ThemePicker.text_7547141efe") },
+  { id: "light", title: t("plugins.ThemePicker.text_aa0819dfc4"), hint: t("plugins.ThemePicker.text_3e3d46c528") },
+  { id: "dark", title: t("plugins.ThemePicker.text_a6b75d0680"), hint: t("plugins.ThemePicker.text_e082b3d947") },
+]));
 function useThemePicker() {
+  useTranslation();
   const theme = useTheme(), selectedPlugin = usePluginTheme(), { themes } = usePluginRuntime();
   const menu = usePopover(340), [query, setQuery] = useState(""), [active, setActive] = useState("");
-  const options = [...BUILTINS, ...themes.map((item) => ({ id: `${item.pluginId}:${item.id}`, title: item.label, hint: `来自插件 ${item.pluginId}`, plugin: true }))];
+  const options = [...BUILTINS, ...themes.map((item) => ({ id: `${item.pluginId}:${item.id}`, title: item.label, hint: t("plugins.ThemePicker.text_bba9eb1dea", { pluginId: item.pluginId }), plugin: true }))];
   const selected = options.some((item) => item.id === selectedPlugin) ? selectedPlugin : theme.pinned ? theme.mode : "system";
   const visible = options.filter((item) => `${item.title} ${item.hint} ${item.id}`.toLowerCase().includes(query.trim().toLowerCase()));
   const activeId = visible.some((item) => item.id === active) ? active : visible[0]?.id;
@@ -37,21 +39,22 @@ function useThemePicker() {
 type Picker = ReturnType<typeof useThemePicker>;
 
 export function ThemePicker() {
+  useTranslation();
   const picker = useThemePicker(), trigger = useRef<HTMLButtonElement>(null);
   const input = useRef<HTMLInputElement>(null);
   useEffect(() => { if (picker.open) input.current?.focus(); }, [picker.open]);
   return <div className="pi-plugins plugin-theme-row">
-    <div><h3>主题</h3><p>选择应用外观，也可以使用插件提供的主题。</p></div>
+    <div><h3>{t("plugins.ThemePicker.text_788db1cfec")}</h3><p>{t("plugins.ThemePicker.text_051eaf59d0")}</p></div>
     <div className="settings-theme-anchor" ref={picker.ref} onKeyDown={(event) => {
       if (event.key === "Escape" && !composingKey(event.nativeEvent) && picker.open) { event.stopPropagation(); picker.close(); trigger.current?.focus(); }
     }}>
-      <button ref={trigger} type="button" className="settings-theme-trigger" aria-label="主题" aria-haspopup="listbox" aria-expanded={picker.open}
+      <button ref={trigger} type="button" className="settings-theme-trigger" aria-label={t("plugins.ThemePicker.text_788db1cfec")} aria-haspopup="listbox" aria-expanded={picker.open}
         onClick={() => { picker.setQuery(""); picker.setActive(picker.selected); picker.setOpen(!picker.open); }}>
         <span className="settings-theme-trigger-label">{picker.options.find((item) => item.id === picker.selected)?.title}</span><ChevronDown size={14} />
       </button>
       {picker.open ? <div className={`settings-theme-menu is-open${picker.up ? " is-up" : ""}`}>
-        <div className="settings-theme-search"><Search size={13} /><input ref={input} type="text" role="combobox" aria-label="搜索主题" aria-controls="plugin-theme-options"
-          aria-expanded aria-activedescendant={picker.activeId ? `theme-${picker.activeId}` : undefined} placeholder="搜索主题…" value={picker.query}
+        <div className="settings-theme-search"><Search size={13} /><input ref={input} type="text" role="combobox" aria-label={t("plugins.ThemePicker.text_7be6f5e53f")} aria-controls="plugin-theme-options"
+          aria-expanded aria-activedescendant={picker.activeId ? `theme-${picker.activeId}` : undefined} placeholder={t("plugins.ThemePicker.text_465492abb5")} value={picker.query}
           onChange={(event) => picker.setQuery(event.target.value)} onKeyDown={(event) => {
             if (composingKey(event.nativeEvent)) return;
             if (event.key === "ArrowDown" || event.key === "ArrowUp") { event.preventDefault(); picker.move(event.key === "ArrowDown" ? 1 : -1); }
@@ -64,10 +67,11 @@ export function ThemePicker() {
 }
 
 function ThemeOptions({ picker }: { picker: Picker }) {
+  useTranslation();
   const ref = useRef<HTMLUListElement>(null);
   useEffect(() => { ref.current?.querySelector(".is-active")?.scrollIntoView({ block: "nearest" }); }, [picker.activeId]);
-  return <div className="settings-theme-results"><ul ref={ref} id="plugin-theme-options" className="settings-theme-list" role="listbox" aria-label="主题选项">
-    {!picker.visible.length ? <li className="settings-theme-empty">没有匹配的主题</li> : null}
+  return <div className="settings-theme-results"><ul ref={ref} id="plugin-theme-options" className="settings-theme-list" role="listbox" aria-label={t("plugins.ThemePicker.text_b979760c82")}>
+    {!picker.visible.length ? <li className="settings-theme-empty">{t("plugins.ThemePicker.text_21e4394a7a")}</li> : null}
     {picker.visible.map((option, index) => <li key={option.id}>
       <button type="button" id={`theme-${option.id}`} role="option" tabIndex={-1} aria-selected={option.id === picker.selected}
         className={`settings-theme-option${option.id === picker.activeId ? " is-active" : ""}${option.id === picker.selected ? " is-current" : ""}`}

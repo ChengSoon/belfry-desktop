@@ -60,7 +60,8 @@ fn invalid_git_branch_names_have_actionable_errors_without_creating_worktrees() 
             root_path: f.repo.path().into(), name: "invalid branch".into(),
             branch: branch.into(), base_branch: "main".into(),
         }).unwrap_err();
-        assert_eq!("分支名称无效，请修改后重试", error.message);
+        assert_eq!("GIT_THE_BRANCH_NAME_IS_INVALID_CHANGE_IT", error.code.0);
+        assert_eq!("The branch name is invalid. Change it and try again.", error.message);
         assert!(f.service.list(f.repo.path()).unwrap().managed.is_empty());
         assert_eq!(1, f.service.list(f.repo.path()).unwrap().worktrees.len());
     }

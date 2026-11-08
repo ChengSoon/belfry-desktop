@@ -1,7 +1,8 @@
+import { getLocale, t, useTranslation } from "../i18n";
 import { useEffect, useMemo, useRef } from "react";
 import { notify } from "../notify/api";
 import type { RoomSummary } from "./contracts";
-import { isUnread, readSeen, useSeenVersion } from "./inbox";
+import { isUnread, isWatchingRoom, readSeen, useSeenVersion } from "./inbox";
 
 /**
  * 发给你的房间消息：系统通知 + 未读计数。
@@ -12,6 +13,7 @@ import { isUnread, readSeen, useSeenVersion } from "./inbox";
  * 返回有未读的房间数，给侧栏「协作房间」按钮计数用。
  */
 export function useRoomInbox(summaries: readonly RoomSummary[], watching: boolean): number {
+  useTranslation();
   const version = useSeenVersion();
   const notified = useRef<Set<string> | null>(null);
   const watchingRef = useRef(watching);
@@ -29,10 +31,10 @@ export function useRoomInbox(summaries: readonly RoomSummary[], watching: boolea
       if (!note || notified.current.has(note.id)) continue;
       notified.current.add(note.id);
       if (note.at <= readSeen(room.id)) continue;
-      if (watchingRef.current && document.hasFocus()) continue;
-      void notify({ title: `${note.from} 发来消息`, body: `${room.name} · ${note.text}` });
+      if (watchingRef.current && isWatchingRoom(room.id) && document.visibilityState === "visible" && document.hasFocus()) continue;
+      void notify({ title: t("rooms.useRoomInbox.text_d0f2f1dc92", { from: note.from }), body: `${room.name} · ${note.text}` });
     }
   }, [summaries]);
 
-  return useMemo(() => summaries.filter((room) => isUnread(room)).length, [summaries, version]);
+  return useMemo(() => summaries.filter((room) => isUnread(room)).length, [summaries, version, getLocale()]);
 }

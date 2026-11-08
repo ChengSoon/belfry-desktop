@@ -1,3 +1,4 @@
+import { TranslationError } from "../i18n";
 import type { QuickOpenItem } from "../quickopen/model";
 import type { PluginStep } from "./contracts";
 
@@ -53,7 +54,7 @@ export function buildPluginCatalog(sources: readonly SourceProjection[]) {
 }
 
 function assertUnique(ids: readonly string[]) {
-  if (new Set(ids).size !== ids.length) throw new Error("目录投影中有重复 ID");
+  if (new Set(ids).size !== ids.length) throw new TranslationError("plugins.catalog.text_677f0b4fb0");
 }
 
 function assertReferences(source: SourceProjection) {
@@ -61,6 +62,6 @@ function assertReferences(source: SourceProjection) {
   assertUnique(ids);
   assertUnique(source.actions.map((action) => action.id));
   if (source.actions.some((action) => !ids.includes(action.templateId))) {
-    throw new Error("目录投影中的动作缺少目标模板");
+    throw new TranslationError("plugins.catalog.text_796d6922aa");
   }
 }

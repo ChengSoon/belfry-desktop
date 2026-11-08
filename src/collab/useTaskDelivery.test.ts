@@ -1,94 +1,163 @@
 import { describe, expect, it, vi } from "vitest";
-import type { PromptSubmitResult } from "../prompt/contracts";
-import type { PendingTask } from "./api";
-import { deliverPending, shouldMarkDispatched } from "./useTaskDelivery";
+import type { PromptSubmitOptions, PromptSubmitResult } from "../prompt/contracts";
+import type { DeliveryUpdate, PendingTask } from "./api";
+import { DeliveryCoordinator, type DeliveryPorts } from "./delivery";
+import { shouldMarkDispatched } from "./useTaskDelivery";
 
-function task(id: string, to = "tab-b"): PendingTask {
-  return {
-    id,
-    to,
-    text: `[belfry] 来自「planner」的任务 ${id}\n审一下 auth.ts\n完成后执行：belfry done ${id}`,
-    from: "tab-a",
-    fromLabel: "planner",
-    instruction: "审一下 auth.ts",
-  };
+function task(id = "task-1"): PendingTask {
+  return { id, to: "tab-b", text: "belfry done task-1", from: "tab-a", fromLabel: "planner", instruction: "work" };
 }
-
-function ports(tasks: PendingTask[], result: PromptSubmitResult = "sent") {
-  const submit = vi.fn<(tabId: string, text: string) => PromptSubmitResult>(() => result);
-  const ack = vi.fn(async () => {});
-  return { submit, ack, all: { fetch: async () => tasks, submit, ack } };
+function ports(result: PromptSubmitResult = "queued") {
+  let options: PromptSubmitOptions | undefined;
+  const all = {
+    fetch: vi.fn(async () => [task()]),
+    claim: vi.fn(async () => true), release: vi.fn(async () => {}),
+    receipt: vi.fn(async (_update: DeliveryUpdate) => true),
+    submit: vi.fn((_tab: string, _text: string, incoming: PromptSubmitOptions) => {
+      options = incoming;
+      if (result !== "unavailable") incoming.onUpdate?.({ state: "queued" });
+      return result;
+    }),
+  } satisfies DeliveryPorts;
+  return { all, options: () => options! };
 }
 
 describe("shouldMarkDispatched", () => {
-  it("送出去了要回执", () => {
-    expect(shouldMarkDispatched("sent")).toBe(true);
-  });
-
-  it("排进队列也要回执", () => {
-    // 目标在忙或卡在权限框时会进队列。不回执的话下一轮又拉到同一条，
-    // 同一句指令会被贴好几遍——比晚一点送到糟得多。
-    expect(shouldMarkDispatched("queued")).toBe(true);
-  });
-
-  it("目标投不出去时不回执，留给下一轮", () => {
+  it("regression: a queue acknowledgement is never a PTY submission receipt", () => {
+    expect(shouldMarkDispatched("queued")).toBe(false);
+    expect(shouldMarkDispatched("sent")).toBe(false);
+    expect(shouldMarkDispatched("submitted")).toBe(true);
     expect(shouldMarkDispatched("unavailable")).toBe(false);
   });
 });
 
-describe("deliverPending", () => {
-  it("把注入文本原样交给目标会话，并回执", async () => {
-    const { submit, ack, all } = ports([task("01aa")]);
-
-    const acked = await deliverPending(all);
-
-    expect(submit).toHaveBeenCalledWith("tab-b", expect.stringContaining("belfry done 01aa"));
-    expect(ack).toHaveBeenCalledWith("01aa");
-    expect(acked).toBe(1);
+describe("durable delivery", () => {
+  it.each(["queued", "sent"] as const)("%s records queue ownership without claiming PTY submission", async (result) => {
+    const { all, options } = ports(result);
+    await new DeliveryCoordinator().tick(all);
+    expect(all.claim).toHaveBeenCalledWith("task-1", expect.any(String));
+    expect(options().id).toBe("task-1");
+    expect(all.receipt.mock.calls.map(([update]) => update.phase)).toEqual(["queued"]);
   });
 
-  it("一轮里把多条都投出去", async () => {
-    const { submit, ack, all } = ports([task("01aa"), task("01bb", "tab-c")]);
-
-    expect(await deliverPending(all)).toBe(2);
-    expect(submit).toHaveBeenCalledTimes(2);
-    expect(ack).toHaveBeenCalledTimes(2);
+  it("records submitted only after the durable gate and actual observer receipt", async () => {
+    const { all, options } = ports();
+    const delivery = new DeliveryCoordinator();
+    await delivery.tick(all);
+    expect(await options().beforeSend!()).toBe(true);
+    options().onUpdate!({ state: "submitted" });
+    all.fetch.mockResolvedValue([]);
+    await delivery.tick(all);
+    expect(all.receipt.mock.calls.map(([update]) => update.phase)).toEqual(["queued", "submitting", "submitted"]);
+    expect(all.receipt.mock.calls.map(([update]) => update.sequence)).toEqual([1, 2, 3]);
+    expect(all.submit).toHaveBeenCalledTimes(1);
   });
 
-  it("目标不可用时不回执，好让下一轮重试", async () => {
-    const { ack, all } = ports([task("01aa")], "unavailable");
-
-    expect(await deliverPending(all)).toBe(0);
-    expect(ack).not.toHaveBeenCalled();
+  it("failed queue and submitted receipts retry the same sequence without re-enqueuing", async () => {
+    const { all, options } = ports();
+    const delivery = new DeliveryCoordinator();
+    all.receipt.mockRejectedValueOnce(new Error("IPC failed"));
+    await expect(delivery.tick(all)).rejects.toThrow("IPC failed");
+    await delivery.tick(all);
+    await options().beforeSend!();
+    options().onUpdate!({ state: "submitted" });
+    all.receipt.mockRejectedValueOnce(new Error("receipt lost"));
+    all.fetch.mockResolvedValue([]);
+    await expect(delivery.tick(all)).rejects.toThrow("receipt lost");
+    await delivery.tick(all);
+    expect(all.submit).toHaveBeenCalledTimes(1);
+    const submitted = all.receipt.mock.calls.map(([update]) => update).filter((update) => update.phase === "submitted");
+    expect(submitted).toHaveLength(2);
+    expect(submitted[0]).toEqual(submitted[1]);
   });
 
-  it("没有待投递任务时什么都不做", async () => {
-    const { submit, all } = ports([]);
-
-    expect(await deliverPending(all)).toBe(0);
-    expect(submit).not.toHaveBeenCalled();
+  it("a lost claim receipt retries the same attempt before enqueueing", async () => {
+    const { all } = ports();
+    const delivery = new DeliveryCoordinator();
+    all.claim.mockRejectedValueOnce(new Error("claim lost"));
+    await expect(delivery.tick(all)).rejects.toThrow("claim lost");
+    expect(all.submit).not.toHaveBeenCalled();
+    await delivery.tick(all);
+    expect(all.claim.mock.calls[0]).toEqual(all.claim.mock.calls[1]);
+    expect(all.submit).toHaveBeenCalledTimes(1);
   });
 
-  it("回执失败会往上抛，由外层那一拍兜住", async () => {
-    // 保留失败信号交给 hook 重试；跨轮去重由 accepted 集合负责。
-    const failing = {
-      fetch: async () => [task("01aa")],
-      submit: () => "sent" as PromptSubmitResult,
-      ack: async () => {
-        throw new Error("IPC 断了");
-      },
-    };
+  it("unavailable targets release a claim and can be retried without a submitted receipt", async () => {
+    const { all } = ports("unavailable");
+    const delivery = new DeliveryCoordinator();
+    await delivery.tick(all);
+    await delivery.tick(all);
+    expect(all.release).toHaveBeenCalledTimes(2);
+    expect(all.receipt).not.toHaveBeenCalled();
+  });
 
-    await expect(deliverPending(failing)).rejects.toThrow("IPC 断了");
+  it("an attempt owned by another renderer is not submitted", async () => {
+    const { all } = ports();
+    all.claim.mockResolvedValue(false);
+    await new DeliveryCoordinator().tick(all);
+    expect(all.submit).not.toHaveBeenCalled();
+  });
+
+  it("uncertainty stays observable and later manual confirmation uses the same attempt", async () => {
+    const { all, options } = ports();
+    const delivery = new DeliveryCoordinator();
+    await delivery.tick(all);
+    await options().beforeSend!();
+    options().onUpdate!({ state: "attention", message: "disconnected" });
+    all.fetch.mockResolvedValue([]);
+    await delivery.tick(all);
+    options().onUpdate!({ state: "submitted" });
+    await delivery.tick(all);
+    expect(all.receipt.mock.calls.map(([update]) => update.phase)).toEqual(["queued", "submitting", "uncertain", "submitted"]);
+  });
+
+  it("queue cancellation persists an explicit cancellation receipt", async () => {
+    const { all, options } = ports();
+    const delivery = new DeliveryCoordinator();
+    await delivery.tick(all);
+    options().onUpdate!({ state: "cancelled", message: "target closed" });
+    all.fetch.mockResolvedValue([]);
+    await delivery.tick(all);
+    expect(all.receipt).toHaveBeenLastCalledWith(expect.objectContaining({ phase: "cancelled", message: "target closed" }));
+    expect(all.submit).toHaveBeenCalledTimes(1);
+  });
+
+  it("a failed release is retried before the same task can be enqueued again", async () => {
+    const { all } = ports("unavailable");
+    const delivery = new DeliveryCoordinator();
+    all.release.mockRejectedValueOnce(new Error("release response lost"));
+    await expect(delivery.tick(all)).rejects.toThrow("release response lost");
+    all.fetch.mockResolvedValue([]);
+    await delivery.tick(all);
+    expect(all.release.mock.calls[0]).toEqual(all.release.mock.calls[1]);
+    expect(all.claim).toHaveBeenCalledTimes(1);
+    expect(all.submit).toHaveBeenCalledTimes(1);
+  });
+
+  it("a synchronous submit failure invalidates its gate and releases ownership", async () => {
+    const { all } = ports();
+    let captured: PromptSubmitOptions | undefined;
+    all.submit.mockImplementationOnce((_tab, _text, options) => {
+      captured = options;
+      throw new Error("submit threw");
+    });
+    const delivery = new DeliveryCoordinator();
+    await expect(delivery.tick(all)).rejects.toThrow("submit threw");
+    expect(all.release).toHaveBeenCalledTimes(1);
+    expect(await captured?.beforeSend?.()).toBe(false);
+    expect(all.receipt).not.toHaveBeenCalled();
+    await delivery.tick(all);
+    expect(all.submit).toHaveBeenCalledTimes(2);
+  });
+
+  it("a pending-list error does not delay an actual submission receipt", async () => {
+    const { all, options } = ports();
+    const delivery = new DeliveryCoordinator();
+    await delivery.tick(all);
+    await options().beforeSend!();
+    options().onUpdate!({ state: "submitted" });
+    all.fetch.mockRejectedValueOnce(new Error("pending unavailable"));
+    await expect(delivery.tick(all)).rejects.toThrow("pending unavailable");
+    expect(all.receipt).toHaveBeenLastCalledWith(expect.objectContaining({ phase: "submitted" }));
   });
 });
-
- it.each(["sent", "queued"] as const)("%s 回执失败重试只回执，不再次提交已接管的任务", async (result) => {
-   const { submit, ack, all } = ports([task("retry")], result);
-   const accepted = new Set<string>();
-   ack.mockRejectedValueOnce(new Error("IPC 断了"));
-   await expect(deliverPending(all, accepted)).rejects.toThrow("IPC 断了");
-   expect(await deliverPending(all, accepted)).toBe(1);
-   expect(submit).toHaveBeenCalledTimes(1);
-   expect(ack).toHaveBeenCalledTimes(2);
- });

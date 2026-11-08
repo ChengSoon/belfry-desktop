@@ -1,3 +1,4 @@
+import { t, useTranslation } from "../i18n";
 import { useCallback, useRef, useState, type RefObject } from "react";
 import { AGENT_KINDS, agentDescriptor } from "../agent/contracts";
 import { listShellProfiles } from "../terminal/api";
@@ -7,6 +8,7 @@ import type { AgentAvailability } from "./contracts";
 import { toAppFailure } from "./errors";
 
 export function useWorkspaceEnvironment(requestVersion: RefObject<number>) {
+  useTranslation();
   const [agents, setAgents] = useState<AgentAvailability[]>(pendingAgents);
   const [shellProfiles, setShellProfiles] = useState<ShellProfile[]>(pendingShellProfiles);
   const detection = useRef<Promise<AgentAvailability[]> | null>(null);
@@ -38,7 +40,7 @@ export function useWorkspaceEnvironment(requestVersion: RefObject<number>) {
 function pendingAgents(): AgentAvailability[] {
   return AGENT_KINDS.map((kind) => ({
     descriptor: agentDescriptor(kind), kind, available: false, executable: null, version: null,
-    reason: "正在检测用户命令环境…",
+    reason: t("workspace.useWorkspaceEnvironment.text_8c77faf9d7"),
   }));
 }
 
@@ -46,7 +48,7 @@ function pendingShellProfiles(): ShellProfile[] {
   const ids: ShellProfileId[] = ["system-default", "shell:zsh", "shell:bash", "shell:fish",
     "shell:pwsh", "shell:powershell", "shell:cmd", "shell:wsl", "shell:git-bash"];
   return ids.map((id) => ({
-    id, available: false, executable: null, isDefault: id === "system-default", reason: "正在检测可用 Shell…",
+    id, available: false, executable: null, isDefault: id === "system-default", reason: t("workspace.useWorkspaceEnvironment.text_d64b6383ae"),
   }));
 }
 

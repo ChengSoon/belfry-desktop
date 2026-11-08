@@ -1,3 +1,4 @@
+import { t, useTranslation } from "../i18n";
 import { useEffect, useId, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useDialog } from "./controls/useDialog";
@@ -16,6 +17,7 @@ interface ConfirmDialogProps {
  * 顺手一个回车不该正好是那一下。
  */
 export function ConfirmDialog({ title, body, confirmLabel, onConfirm, onCancel }: ConfirmDialogProps) {
+  useTranslation();
   const panelRef = useDialog(onCancel);
   const id = useId();
   const active = useMotionActive();
@@ -40,7 +42,7 @@ export function ConfirmDialog({ title, body, confirmLabel, onConfirm, onCancel }
         <strong className="modal__title" id={`${id}-title`}>{title}</strong>
         <p className="modal__body" id={`${id}-body`}>{body}</p>
         <div className="modal__actions">
-          <button onClick={() => decide(onCancel)} type="button">取消</button>
+          <button onClick={() => decide(onCancel)} type="button">{t("components.ConfirmDialog.text_2cd0f3be87")}</button>
           <button className="modal__danger" onClick={() => decide(onConfirm)} type="button">{confirmLabel}</button>
         </div>
       </div>

@@ -1,3 +1,4 @@
+import { getLocale, t, useTranslation } from "../i18n";
 import { useCallback, useMemo, useState } from "react";
 import { buildQuickOpenItems } from "./items";
 import type { QuickOpenItem } from "./model";
@@ -18,11 +19,12 @@ interface QuickOpenActions {
 
 /** Quick Open 的状态、条目快照和动作分发，避免把浮层细节塞进 App 总入口。 */
 export function useQuickOpen(actions: QuickOpenActions) {
+  useTranslation();
   const [open, setOpen] = useState(false);
   const plugins = usePluginRuntime();
   const items = useMemo(
     () => [...buildQuickOpenItems(actions.tabs, actions.recentProjects, actions.activeTabId), ...pluginCommandItems(plugins)],
-    [actions.activeTabId, actions.recentProjects, actions.tabs, plugins],
+    [actions.activeTabId, actions.recentProjects, actions.tabs, plugins, getLocale()],
   );
   const toggle = useCallback(() => setOpen((value) => !value), []);
   const close = useCallback(() => setOpen(false), []);
@@ -31,7 +33,7 @@ export function useQuickOpen(actions: QuickOpenActions) {
     if (item.id.startsWith("plugin:")) {
       const command = plugins.commands.find((entry) => item.id === `plugin:${entry.pluginId}:${entry.id}`);
       if (command) void pluginHost.runCommand(command.pluginId, command.id).catch((error) => pluginNotice(pluginError(error)));
-      else pluginNotice("插件命令已撤销，请重新打开命令面板");
+      else pluginNotice(t("quickopen.useQuickOpen.text_f176f2dda6"));
       return;
     }
     if (item.kind === "session" && item.value) {

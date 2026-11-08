@@ -12,7 +12,7 @@ pub(super) fn create(app: &AppHandle, params: Value) -> Result<Value, AppError> 
     let folder = app
         .dialog()
         .file()
-        .set_title("为新插件选择一个空文件夹")
+        .set_title(belfry_i18n::text("为新插件选择一个空文件夹"))
         .blocking_pick_folder();
     let Some(folder) = folder else {
         return Ok(json!({"canceled":true}));

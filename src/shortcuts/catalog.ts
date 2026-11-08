@@ -1,3 +1,4 @@
+import { localized, t } from "../i18n";
 import {
   systemShortcutChord,
   type ShortcutPlatform,
@@ -28,41 +29,41 @@ export function guideSections(tab: GuideTab, platform: ShortcutPlatform): GuideS
 }
 
 const commands = (items: [string, string][]): GuideSection => ({
-  label: "常用斜杠指令", items: items.map(([command, label]) => ({ command, label })),
+  label: t("shortcuts.catalog.text_c6cff16bea"), items: items.map(([command, label]) => ({ command, label })),
 });
 
-const NATIVE_SECTIONS: Record<Exclude<AgentKind, "codex" | "claude">, GuideSection[]> = {
-  pi: [commands([["/model", "切换模型"], ["/settings", "查看设置"], ["/resume", "恢复历史会话"], ["/compact", "压缩上下文"]])],
+const NATIVE_SECTIONS: Record<Exclude<AgentKind, "codex" | "claude">, GuideSection[]> = localized(() => ({
+  pi: [commands([["/model", t("shortcuts.catalog.text_7122a29a75")], ["/settings", t("shortcuts.catalog.text_b72fbb9d77")], ["/resume", t("shortcuts.catalog.text_a088a104fb")], ["/compact", t("shortcuts.catalog.text_d36946e07f")]])],
   antigravity: [commands([
-    ["/model", "切换模型"], ["/config", "打开配置"], ["/permissions", "调整权限规则"],
-    ["/mcp", "管理 MCP 工具"], ["/new", "开始新对话"], ["/resume", "恢复历史会话"],
-    ["/help", "查看完整指令与帮助"], ["/keybindings", "编辑原生快捷键"],
+    ["/model", t("shortcuts.catalog.text_7122a29a75")], ["/config", t("shortcuts.catalog.text_514d8331f1")], ["/permissions", t("shortcuts.catalog.text_e97ac9e3f3")],
+    ["/mcp", t("shortcuts.catalog.text_baed59cc37")], ["/new", t("shortcuts.catalog.text_81e3bb8bca")], ["/resume", t("shortcuts.catalog.text_a088a104fb")],
+    ["/help", t("shortcuts.catalog.text_2ceed56d6b")], ["/keybindings", t("shortcuts.catalog.text_e1a74c0ceb")],
   ])],
   opencode: [commands([
-    ["/models", "切换模型"], ["/agents", "切换原生 Agent"], ["/new", "开始新对话"],
-    ["/sessions", "恢复历史会话"], ["/undo", "撤回上一轮及其修改"], ["/redo", "恢复已撤回的一轮"], ["/editor", "在外部编辑器编辑提示"],
-  ]), { label: "交互快捷键", items: [
-    { keys: ["Ctrl", "P"], label: "打开命令面板" },
-    { keys: ["Shift", "Tab"], label: "切换原生 Agent" },
-    { keys: ["Esc"], label: "中断运行" },
-    { keys: ["@"], label: "引用工作区文件" },
+    ["/models", t("shortcuts.catalog.text_7122a29a75")], ["/agents", t("shortcuts.catalog.text_1b5fe9eda0")], ["/new", t("shortcuts.catalog.text_81e3bb8bca")],
+    ["/sessions", t("shortcuts.catalog.text_a088a104fb")], ["/undo", t("shortcuts.catalog.text_34ea799a1b")], ["/redo", t("shortcuts.catalog.text_4697777a07")], ["/editor", t("shortcuts.catalog.text_5e6c49526d")],
+  ]), { label: t("shortcuts.catalog.text_83992288e9"), items: [
+    { keys: ["Ctrl", "P"], label: t("shortcuts.catalog.text_36dd5fe70f") },
+    { keys: ["Shift", "Tab"], label: t("shortcuts.catalog.text_1b5fe9eda0") },
+    { keys: ["Esc"], label: t("shortcuts.catalog.text_40969b9f8c") },
+    { keys: ["@"], label: t("shortcuts.catalog.text_0dec82f188") },
   ] }],
   kimi: [commands([
-    ["/model", "切换模型"], ["/provider", "管理服务商"], ["/permission", "切换权限模式"], ["/plan", "切换计划模式"],
-    ["/new", "开始新对话"], ["/sessions", "恢复历史会话"], ["/compact", "压缩上下文"], ["/undo", "撤回提示与上下文"],
-    ["/tasks", "查看后台任务"], ["/reload", "重新加载配置与会话"],
-  ]), { label: "交互快捷键", items: [
-    { keys: ["Esc"], label: "中断运行" }, { keys: ["Ctrl", "S"], label: "向运行中的任务补充指令" },
-    { keys: ["Ctrl", "O"], label: "展开或折叠工具输出" }, { keys: ["↑", "↓"], label: "在审批选项间移动" },
+    ["/model", t("shortcuts.catalog.text_7122a29a75")], ["/provider", t("shortcuts.catalog.text_2238a3e6c6")], ["/permission", t("shortcuts.catalog.text_ce4aec0615")], ["/plan", t("shortcuts.catalog.text_290149f021")],
+    ["/new", t("shortcuts.catalog.text_81e3bb8bca")], ["/sessions", t("shortcuts.catalog.text_a088a104fb")], ["/compact", t("shortcuts.catalog.text_d36946e07f")], ["/undo", t("shortcuts.catalog.text_4d5a72dc62")],
+    ["/tasks", t("shortcuts.catalog.text_ee637cbee0")], ["/reload", t("shortcuts.catalog.text_e2e186b9a2")],
+  ]), { label: t("shortcuts.catalog.text_83992288e9"), items: [
+    { keys: ["Esc"], label: t("shortcuts.catalog.text_40969b9f8c") }, { keys: ["Ctrl", "S"], label: t("shortcuts.catalog.text_c5b1fc2ea4") },
+    { keys: ["Ctrl", "O"], label: t("shortcuts.catalog.text_de9085e68e") }, { keys: ["↑", "↓"], label: t("shortcuts.catalog.text_11aa5d1efa") },
   ] }],
-};
+}));
 
 export function guideFootnote(tab: GuideTab, platform: ShortcutPlatform) {
   if (tab === "belfry" && platform === "control") {
-    return "Windows / Linux 使用 Ctrl+Shift，给 Agent TUI 保留原生 Ctrl 快捷键。";
+    return t("shortcuts.catalog.text_65d1218259");
   }
-  if (tab === "belfry") return "在设置 → 快捷键中修改；这些组合键在终端聚焦时也能使用。";
-  return "指令会随 CLI 版本变化；在输入框键入 / 可查看当前完整列表。";
+  if (tab === "belfry") return t("shortcuts.catalog.text_d6777e6d40");
+  return t("shortcuts.catalog.text_541a52e9cc");
 }
 
 function belfrySections(platform: ShortcutPlatform): GuideSection[] {
@@ -71,85 +72,85 @@ function belfrySections(platform: ShortcutPlatform): GuideSection[] {
   }));
   return [
     {
-      label: "工作区",
+      label: t("shortcuts.catalog.text_3797982942"),
       items: entries.filter((entry) => !entry.id.startsWith("activate-session-")),
     },
     {
-      label: "会话",
+      label: t("shortcuts.catalog.text_a63280253f"),
       items: entries.filter((entry) => entry.id.startsWith("activate-session-")),
     },
     {
-      label: "终端",
+      label: t("shortcuts.catalog.text_e2a76ef1f1"),
       items: [
-        { label: "复制选中内容", keys: systemShortcutChord(platform, "C") },
-        { label: "粘贴剪贴板", keys: systemShortcutChord(platform, "V") },
-        { label: "关闭当前浮层", keys: ["Esc"] },
+        { label: t("shortcuts.catalog.text_60e4320264"), keys: systemShortcutChord(platform, "C") },
+        { label: t("shortcuts.catalog.text_cfe420a865"), keys: systemShortcutChord(platform, "V") },
+        { label: t("shortcuts.catalog.text_214f1894dc"), keys: ["Esc"] },
       ],
     },
   ];
 }
 
-const CODEX_SECTIONS: GuideSection[] = [
+const CODEX_SECTIONS: GuideSection[] = localized(() => ([
   {
-    label: "常用斜杠指令",
+    label: t("shortcuts.catalog.text_c6cff16bea"),
     items: [
-      { command: "/model", label: "切换模型" },
-      { command: "/permissions", label: "调整审批与沙箱权限" },
-      { command: "/plan", label: "进入 Plan 模式" },
-      { command: "/status", label: "查看模型、权限与上下文" },
-      { command: "/usage", label: "查看账户用量" },
-      { command: "/compact", label: "压缩长会话上下文" },
-      { command: "/diff", label: "查看工作区 Git diff" },
-      { command: "/review", label: "请求工作区代码审查" },
-      { command: "/new", label: "开始新对话" },
-      { command: "/resume", label: "恢复已保存对话" },
+      { command: "/model", label: t("shortcuts.catalog.text_7122a29a75") },
+      { command: "/permissions", label: t("shortcuts.catalog.text_b85ec69a78") },
+      { command: "/plan", label: t("shortcuts.catalog.text_eb93045599") },
+      { command: "/status", label: t("shortcuts.catalog.text_4b5a6b9608") },
+      { command: "/usage", label: t("shortcuts.catalog.text_745199d87c") },
+      { command: "/compact", label: t("shortcuts.catalog.text_c752021cc5") },
+      { command: "/diff", label: t("shortcuts.catalog.text_dcd658c6d9") },
+      { command: "/review", label: t("shortcuts.catalog.text_53dbd68fcf") },
+      { command: "/new", label: t("shortcuts.catalog.text_81e3bb8bca") },
+      { command: "/resume", label: t("shortcuts.catalog.text_8233daa279") },
     ],
   },
   {
-    label: "交互快捷键",
+    label: t("shortcuts.catalog.text_83992288e9"),
     items: [
-      { keys: ["@"], label: "搜索并引用工作区文件" },
-      { keys: ["!"], label: "直接运行本地 Shell" },
-      { keys: ["Ctrl", "R"], label: "搜索提示历史" },
-      { keys: ["Ctrl", "O"], label: "复制最近完整回复" },
-      { keys: ["Tab"], label: "运行中排队下一条指令" },
-      { keys: ["Enter"], label: "运行中补充当前指令" },
-      { keys: ["Esc", "Esc"], label: "编辑上一条并分叉" },
-      { keys: ["Ctrl", "C"], label: "退出当前会话" },
+      { keys: ["@"], label: t("shortcuts.catalog.text_e99f2a26c7") },
+      { keys: ["!"], label: t("shortcuts.catalog.text_1083c6697c") },
+      { keys: ["Ctrl", "R"], label: t("shortcuts.catalog.text_f2ac30f3b0") },
+      { keys: ["Ctrl", "O"], label: t("shortcuts.catalog.text_97f510d09c") },
+      { keys: ["Tab"], label: t("shortcuts.catalog.text_2be4a47c14") },
+      { keys: ["Enter"], label: t("shortcuts.catalog.text_aa02fb3576") },
+      { keys: ["Esc", "Esc"], label: t("shortcuts.catalog.text_1ced56c08c") },
+      { keys: ["Ctrl", "C"], label: t("shortcuts.catalog.text_e08063dfbe") },
     ],
   },
-];
+]));
 
 function claudeSections(platform: ShortcutPlatform): GuideSection[] {
   return [
     {
-      label: "常用斜杠指令",
+      label: t("shortcuts.catalog.text_c6cff16bea"),
       items: [
-        { command: "/model", label: "切换模型" },
-        { command: "/permissions", label: "调整权限规则" },
-        { command: "/plan", label: "切换 Plan 模式" },
-        { command: "/context", label: "查看上下文占用" },
-        { command: "/compact", label: "压缩会话上下文" },
-        { command: "/diff", label: "查看代码改动" },
-        { command: "/review", label: "审查当前代码改动" },
-        { command: "/tasks", label: "查看后台任务" },
-        { command: "/clear", label: "开始全新会话" },
-        { command: "/resume", label: "恢复历史会话" },
+        { command: "/model", label: t("shortcuts.catalog.text_7122a29a75") },
+        { command: "/permissions", label: t("shortcuts.catalog.text_e97ac9e3f3") },
+        { command: "/plan", label: t("shortcuts.catalog.text_1829364406") },
+        { command: "/context", label: t("shortcuts.catalog.text_77e39889a8") },
+        { command: "/compact", label: t("shortcuts.catalog.text_b19c2da2f8") },
+        { command: "/diff", label: t("shortcuts.catalog.text_875e8e58ba") },
+        { command: "/review", label: t("shortcuts.catalog.text_ebc2d9fe20") },
+        { command: "/tasks", label: t("shortcuts.catalog.text_ee637cbee0") },
+        { command: "/clear", label: t("shortcuts.catalog.text_cd0afe9aad") },
+        { command: "/resume", label: t("shortcuts.catalog.text_a088a104fb") },
       ],
     },
     {
-      label: "交互快捷键",
+      label: t("shortcuts.catalog.text_83992288e9"),
       items: [
-        { keys: ["@"], label: "引用文件或目录" },
-        { keys: ["!"], label: "进入 Shell 模式" },
-        { keys: ["?"], label: "空输入时打开帮助" },
-        { keys: ["Ctrl", "C"], label: "中断运行 / 清空输入" },
-        { keys: ["Ctrl", "O"], label: "打开详细记录视图" },
-        { keys: ["Ctrl", "R"], label: "反向搜索提示历史" },
-        { keys: ["Ctrl", "B"], label: "将任务转到后台" },
-        { keys: ["Shift", "Tab"], label: "循环切换权限模式" },
-        { keys: [platform === "macos" ? "⌥" : "Alt", "P"], label: "快速切换模型" },
-        { keys: ["Esc", "Esc"], label: "清空草稿 / 打开回退" },
+        { keys: ["@"], label: t("shortcuts.catalog.text_6f12338e05") },
+        { keys: ["!"], label: t("shortcuts.catalog.text_4e435e537d") },
+        { keys: ["?"], label: t("shortcuts.catalog.text_5fb734409f") },
+        { keys: ["Ctrl", "C"], label: t("shortcuts.catalog.text_5f1e026bea") },
+        { keys: ["Ctrl", "O"], label: t("shortcuts.catalog.text_fba88e604c") },
+        { keys: ["Ctrl", "R"], label: t("shortcuts.catalog.text_c015601988") },
+        { keys: ["Ctrl", "B"], label: t("shortcuts.catalog.text_20d19f066d") },
+        { keys: ["Shift", "Tab"], label: t("shortcuts.catalog.text_6c0edbf394") },
+        { keys: [platform === "macos" ? "⌥" : "Alt", "P"], label: t("shortcuts.catalog.text_731bae8893") },
+        { keys: ["Esc", "Esc"], label: t("shortcuts.catalog.text_21f8a0c272") },
       ],
     },
   ];

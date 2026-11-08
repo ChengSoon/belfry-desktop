@@ -67,7 +67,7 @@ pub(super) fn command(kind: AgentKind) -> Result<Option<Command>, AppError> {
 pub(super) async fn latest(kind: AgentKind) -> Result<Option<String>, String> {
     if kind != AgentKind::Antigravity {
         return super::registry::latest(
-            super::package::default_package(kind).ok_or("没有官方安装来源")?,
+            super::package::default_package(kind).ok_or(belfry_i18n::text("没有官方安装来源"))?,
         )
         .await;
     }
@@ -83,7 +83,7 @@ pub(super) async fn latest(kind: AgentKind) -> Result<Option<String>, String> {
     } else if cfg!(target_arch = "x86_64") {
         "amd64"
     } else {
-        return Err("此平台尚无 Antigravity 官方发行版".into());
+        return Err(belfry_i18n::text("此平台尚无 Antigravity 官方发行版").into());
     };
     let url = format!(
         "https://antigravity-cli-auto-updater-974169037036.us-central1.run.app/manifests/{os}_{arch}.json"

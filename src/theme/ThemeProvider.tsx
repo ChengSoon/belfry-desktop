@@ -1,3 +1,4 @@
+import { TranslationError, getLocale, useTranslation } from "../i18n";
 import {
   createContext,
   useCallback,
@@ -18,6 +19,7 @@ const LIGHT_QUERY = "(prefers-color-scheme: light)";
 const ThemeContext = createContext<ThemeController | null>(null);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
+  useTranslation();
   const [mode, setMode] = useState(initialMode);
   const [pinned, setPinned] = useState(() => loadThemeMode() !== null);
 
@@ -54,14 +56,15 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     select,
     followSystem,
     toggle: () => select(mode === "light" ? "dark" : "light"),
-  }), [mode, pinned, select, followSystem]);
+  }), [mode, pinned, select, followSystem, getLocale()]);
 
   return <ThemeContext value={controller}>{children}</ThemeContext>;
 }
 
 export function useTheme() {
+  useTranslation();
   const controller = useContext(ThemeContext);
-  if (!controller) throw new Error("useTheme 必须在 ThemeProvider 内使用");
+  if (!controller) throw new TranslationError("theme.ThemeProvider.text_80efc93d10");
   return controller;
 }
 

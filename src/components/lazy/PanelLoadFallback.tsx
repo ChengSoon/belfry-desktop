@@ -1,3 +1,4 @@
+import { t, useTranslation } from "../../i18n";
 import { AlertTriangle, LoaderCircle, X } from "lucide-react";
 import { useEffect, useRef, type CSSProperties } from "react";
 import type { PanelWidthSpec } from "../../panel/panelWidth";
@@ -17,6 +18,7 @@ interface Props extends PanelPresentation {
 }
 
 export function PanelLoadFallback(props: Props) {
+  useTranslation();
   // 加载完成后，尚未自行接管焦点的侧栏把输入交回原终端。
   useEffect(() => props.onUnmount, [props.onUnmount]);
   if (props.layout === "modal") return <ModalFallback {...props} />;
@@ -25,11 +27,13 @@ export function PanelLoadFallback(props: Props) {
 }
 
 function SidePanelFallback(props: Props & { width: PanelWidthSpec }) {
+  useTranslation();
   const { width } = usePanelWidth(props.width);
   return <PanelFallback {...props} style={{ width }} />;
 }
 
 function PanelFallback(props: Props & { style?: CSSProperties }) {
+  useTranslation();
   const close = useRef<HTMLButtonElement>(null);
   const latest = useRef(props.onClose);
   latest.current = props.onClose;
@@ -46,7 +50,7 @@ function PanelFallback(props: Props & { style?: CSSProperties }) {
   return <section aria-label={props.title} aria-busy={!props.failed} style={props.style}
     className={`${props.layout === "settings" ? "settings-view" : `${props.layout}-panel`} optional-panel-fallback optional-panel-fallback--${props.layout}`}>
     <header className="optional-panel-fallback__head"><h2>{props.title}</h2>
-      <button aria-label={`关闭${props.title}`} className="icon-button icon-button--sm" ref={close}
+      <button aria-label={t("components.PanelLoadFallback.text_bda3b56ecf", { title: props.title })} className="icon-button icon-button--sm" ref={close}
         onClick={props.onClose} type="button"><X aria-hidden="true" size={ICON.md} /></button>
     </header>
     <FallbackMessage {...props} />
@@ -54,6 +58,7 @@ function PanelFallback(props: Props & { style?: CSSProperties }) {
 }
 
 function ModalFallback(props: Props) {
+  useTranslation();
   const ref = useDialog(props.onClose);
   return <div className="modal-scrim" onPointerDown={(event) => {
     if (event.target === event.currentTarget) props.onClose();
@@ -61,23 +66,24 @@ function ModalFallback(props: Props) {
     <div className="modal" role="dialog" aria-modal="true" aria-label={props.title} ref={ref}>
       <strong className="modal__title">{props.title}</strong>
       <FallbackMessage {...props} />
-      <div className="modal__actions"><button onClick={props.onClose} type="button">关闭</button></div>
+      <div className="modal__actions"><button onClick={props.onClose} type="button">{t("components.PanelLoadFallback.text_3fd47edce4")}</button></div>
     </div>
   </div>;
 }
 
 function FallbackMessage({ title, failed, recoveryRequired, onRetry, onClose }: Props) {
+  useTranslation();
   const message = recoveryRequired
-    ? `${title}重试后仍未能加载。请先保存终端工作，确认连接正常后手动重新打开 Belfry。当前终端可继续使用。`
-    : `${title}未能加载，请重试。`;
+    ? t("components.PanelLoadFallback.text_23643797fc", { title: title })
+    : t("components.PanelLoadFallback.text_0f1f225256", { title: title });
   return <div className="optional-panel-fallback__body">
     <p role={failed ? "alert" : "status"}>
       {failed ? <AlertTriangle aria-hidden="true" size={ICON.md} />
         : <LoaderCircle aria-hidden="true" className="optional-panel-fallback__spinner" size={ICON.md} />}
-      {failed ? message : `正在加载${title}…`}
+      {failed ? message : t("components.PanelLoadFallback.text_4f1cc61349", { title: title })}
     </p>
     {failed ? recoveryRequired
-      ? <button className="optional-panel-fallback__return" onClick={onClose} type="button">返回终端</button>
-      : <button className="optional-panel-fallback__retry" onClick={onRetry} type="button">重新加载</button> : null}
+      ? <button className="optional-panel-fallback__return" onClick={onClose} type="button">{t("components.PanelLoadFallback.text_576bad3620")}</button>
+      : <button className="optional-panel-fallback__retry" onClick={onRetry} type="button">{t("components.PanelLoadFallback.text_7bdd5ce1e2")}</button> : null}
   </div>;
 }

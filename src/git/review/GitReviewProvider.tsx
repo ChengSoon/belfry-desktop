@@ -1,3 +1,4 @@
+import { t, useTranslation } from "../../i18n";
 import { createContext, useContext, useRef, useState, type ReactNode } from "react";
 import type { PromptQueueUpdate, PromptSubmitOptions, PromptSubmitResult } from "../../prompt/contracts";
 import type { WorkspaceTab } from "../../workspace/contracts";
@@ -26,10 +27,11 @@ interface ReviewController {
   openSession: (id: string) => void;
 }
 const ReviewContextValue = createContext<ReviewController | null>(null);
-export const useGitReview = () => useContext(ReviewContextValue);
+export const useGitReview = () => { useTranslation(); return (useContext(ReviewContextValue)); };
 
 /** 保留关闭面板、切换文件后的草稿和回执；输入不会引起整个 App 重渲染。 */
 export function GitReviewProvider(props: Props) {
+  useTranslation();
   const [drafts, setDrafts] = useState<Record<string, ReviewDraft>>({});
   const current = useRef(drafts);
   const inputs = useRef(props);
@@ -58,9 +60,9 @@ export function GitReviewProvider(props: Props) {
     if (reviewLocked(draft)) return;
     const fail = (error: string) => change(key, (value) => ({ ...value, error, receipt: null }));
     const anchor = draft.anchor;
-    if (!anchor || !isReviewAnchorCurrent(diff, anchor)) return fail("所选代码已变化，请重新选择要反馈的行。草稿已保留。");
+    if (!anchor || !isReviewAnchorCurrent(diff, anchor)) return fail(t("git.GitReviewProvider.text_e8dd15262e"));
     const target = reviewTargets(inputs.current.tabs, context.projectRoot).find((tab) => tab.id === draft.targetId);
-    if (!target) return fail("请选择当前项目中可用的 Agent 会话。");
+    if (!target) return fail(t("git.GitReviewProvider.text_925a8fb630"));
     let text: string;
     try { text = buildReviewPrompt(context, anchor, draft.comment); }
     catch (error) { return fail(toAppFailure(error).message); }
@@ -71,13 +73,13 @@ export function GitReviewProvider(props: Props) {
       : { ...value, receipt: { ...value.receipt, ...event } });
     try {
       const latest = await readGitDiff(context.request);
-      if (!isReviewAnchorCurrent(latest, anchor)) return fail("所选代码已在磁盘上变化，请刷新 Diff 后重新选行。草稿已保留。");
+      if (!isReviewAnchorCurrent(latest, anchor)) return fail(t("git.GitReviewProvider.text_8024ae66fb"));
       if (!reviewTargets(inputs.current.tabs, context.projectRoot).some((tab) => tab.id === target.id)) {
-        return fail("接收会话已不可用，反馈未发送。请选择其他会话。");
+        return fail(t("git.GitReviewProvider.text_e90bf781c2"));
       }
       const result = inputs.current.submit(target.id, text, { id, projectRoot: context.projectRoot, onUpdate: update });
-      if (result === "unavailable") return fail("接收会话暂不可用，反馈未发送，草稿已保留。");
-    } catch (error) { fail(`未能发送反馈：${toAppFailure(error).message}`); }
+      if (result === "unavailable") return fail(t("git.GitReviewProvider.text_9b8deae4d5"));
+    } catch (error) { fail(t("git.GitReviewProvider.text_970042c7fb", { message: toAppFailure(error).message })); }
   };
 
   const cancel = (context: ReviewContext) => {
@@ -85,7 +87,7 @@ export function GitReviewProvider(props: Props) {
     const receipt = current.current[key]?.receipt;
     if (receipt?.state !== "queued") return;
     if (!inputs.current.cancel(receipt.id)) change(key, (value) => ({ ...value,
-      error: "反馈已经开始发送，请到接收会话中查看。" }));
+      error: t("git.GitReviewProvider.text_db1634e30e") }));
   };
   const resume = (context: ReviewContext, clearComment: boolean) => change(reviewKey(context), (draft) => {
     if (draft.receipt && ["checking", "queued", "sending"].includes(draft.receipt.state)) return draft;

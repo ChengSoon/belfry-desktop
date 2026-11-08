@@ -60,7 +60,7 @@ fn choose_directory(app: &AppHandle) -> Result<Value, String> {
     let folder = app
         .dialog()
         .file()
-        .set_title("选择插件可访问的目录")
+        .set_title(belfry_i18n::text("选择插件可访问的目录"))
         .blocking_pick_folder();
     let path = folder
         .map(|value| value.into_path().map_err(|e| e.to_string()))

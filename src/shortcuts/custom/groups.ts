@@ -1,3 +1,4 @@
+import { t } from "../../i18n";
 import type { ShortcutAction } from "./actions";
 import type { ActionId } from "./contracts";
 
@@ -36,17 +37,17 @@ export function groupShortcutActions(actions: ShortcutAction[]): ShortcutGroup[]
   // 分成两组：前者照常一行一条，后者折起来。
   const sessionSwitches = actions.filter((action) => isSessionSwitch(action.id));
   const groups: ShortcutGroup[] = [
-    { id: "workspace", label: "工作区", actions: pick(["new-shell"]) },
-    { id: "panels", label: "面板", actions: pick(PANEL_ACTIONS) },
-    { id: "navigation", label: "导航", actions: pick(NAV_ACTIONS) },
-    { id: "sessions", label: "切换会话", actions: sessionSwitches, collapsed: true },
+    { id: "workspace", label: t("shortcuts.groups.text_3797982942"), actions: pick(["new-shell"]) },
+    { id: "panels", label: t("shortcuts.groups.text_3c8c5939d6"), actions: pick(PANEL_ACTIONS) },
+    { id: "navigation", label: t("shortcuts.groups.text_e72622fe47"), actions: pick(NAV_ACTIONS) },
+    { id: "sessions", label: t("shortcuts.groups.text_1115a951ea"), actions: sessionSwitches, collapsed: true },
   ];
 
   // 目录里新增了动作却忘了归组时，兜到「其它」——宁可多一组，也不要让一条设置
   // 从界面上凭空消失。
   const grouped = new Set(groups.flatMap((group) => group.actions.map((action) => action.id)));
   const rest = actions.filter((action) => !grouped.has(action.id));
-  if (rest.length) groups.push({ id: "other", label: "其它", actions: rest });
+  if (rest.length) groups.push({ id: "other", label: t("shortcuts.groups.text_5e756f7184"), actions: rest });
 
   return groups.filter((group) => group.actions.length > 0);
 }

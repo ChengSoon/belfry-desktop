@@ -1,10 +1,12 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { setLocalePreference } from "../../i18n";
 import { CodexThemeSync } from "../codexThemeSync";
 import type { TerminalStreamEvent } from "../contracts";
 import { TerminalOutput } from "./output";
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
+afterEach(() => setLocalePreference("zh-CN"));
 function output(sequence: number, bytes: number[]): TerminalStreamEvent {
   return { kind: "output", sessionId: "pty", sequence, bytes, eof: false };
 }
@@ -58,7 +60,7 @@ describe("terminal output rendering", () => {
     test.writes[0].parsed();
     await vi.waitFor(() => expect(test.writes).toHaveLength(2));
     expect(test.terminal.reset).toHaveBeenCalledOnce();
-    expect(decoder.decode(test.writes[1].bytes)).toContain("较早输出已超出后台缓存");
+    expect(decoder.decode(test.writes[1].bytes)).toBe("\r\n[较早输出已超出后台缓存，以下从仍保留的位置继续]\r\n");
     test.writes[1].parsed();
     await vi.waitFor(() => expect(test.writes).toHaveLength(3));
     expect(decoder.decode(test.writes[2].bytes)).toBe("after");
@@ -67,14 +69,17 @@ describe("terminal output rendering", () => {
     expect(test.onGap).toHaveBeenCalledOnce();
   });
 
-  it("keeps the final output before exit and reports diagnostics after the exit notice is parsed", async () => {
+  it.each([
+    ["zh-CN", "进程退出 1"], ["en", "Process exited with code 1"],
+  ] as const)("keeps final output, localized exit framing and diagnostic ordering in %s", async (locale, notice) => {
+    setLocalePreference(locale);
     const test = fixture();
     const rendered = test.renderer.render([output(0, [...encoder.encode("Error: failed")]),
       { kind: "exit", sessionId: "pty", exitCode: 1, reason: "normal" }]);
     expect(test.onExit).not.toHaveBeenCalled();
     test.writes[0].parsed();
     await vi.waitFor(() => expect(test.writes).toHaveLength(2));
-    expect(decoder.decode(test.writes[1].bytes)).toContain("process exited 1");
+    expect(decoder.decode(test.writes[1].bytes)).toBe(`\r\n\x1b[90m[${notice}]\x1b[0m\r\n`);
     test.writes[1].parsed();
     await rendered;
     expect(test.onExit).toHaveBeenCalledWith(1, "Error: failed");

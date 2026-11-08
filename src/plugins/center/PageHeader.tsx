@@ -1,3 +1,4 @@
+import { useTranslation } from "../../i18n";
 // Adapted from PI-Desktop PluginsPage.tsx, LGPL-3.0; see third_party/pi-desktop/NOTICE.md.
 import { usePluginsPage } from "./context";
 import { Button } from "./ui";
@@ -11,10 +12,11 @@ import { pluginNotice } from "../PluginRuntimeBridge";
 import { choosePublication, exportOwnMarket } from "./PersonalMarketControls";
 
 export function PageHeader() {
+  useTranslation();
   const { tab, setTab, market, actions, data } = usePluginsPage();
   const updates = data.plugins.filter((plugin) => plugin.updateAvailable).length;
   return <>
-    <SettingsHeader title="插件" description="管理本机扩展、来源与权限。安装前请核对权限和来源；插件不等同于 OS 沙箱。" actions={<div className="plugins-header-actions">
+    <SettingsHeader title={t("plugins.PageHeader.text_e806fbbe8e")} description={t("plugins.PageHeader.text_3b4a0d889a")} actions={<div className="plugins-header-actions">
         {tab === "market" ? <Button variant="primary" size="sm" disabled={market.loading} onClick={() => void market.refresh(true)}>
           <IconCloudDown size={14} />{t("plugins.refreshMarket")}</Button> :
           <Button variant="primary" size="sm" onClick={() => setTab("market")}><IconDownload size={14} />{t("plugins.browseMarket")}</Button>}
@@ -29,9 +31,10 @@ export function PageHeader() {
 }
 export async function applyUpdates() {
   const result = await centerApi.applyUpdates();
-  pluginNotice(t("plugins.autoUpdatesApplied", { count: result.results.length }) + (result.skipped.length ? `；${result.skipped.length} 个更新需要手动确认权限` : ""));
+  pluginNotice(result.skipped.length ? t("plugins.PageHeader.updatesWithReview", { applied: result.results.length, skipped: result.skipped.length }) : t("plugins.autoUpdatesApplied", { count: result.results.length }));
 }
 function HeaderMenu() {
+  useTranslation();
   const { actions, setTemplate, setPublishDirectory } = usePluginsPage();
   const menu = usePopover();
   const entries = [
@@ -40,8 +43,8 @@ function HeaderMenu() {
     { key: "installPackage", run: () => inspectLocal(actions, false) },
     { key: "loadDev", run: () => inspectLocal(actions, true) },
     { key: "newFromTemplate", run: () => setTemplate("panel-basic") },
-    { key: "publishOwnPlugin", label: "发布到我的市场", run: () => choosePublication(actions, setPublishDirectory) },
-    { key: "exportOwnMarket", label: "导出我的市场网站", run: () => exportOwnMarket(actions) },
+    { key: "publishOwnPlugin", label: t("plugins.PageHeader.text_b6f61fa3f1"), run: () => choosePublication(actions, setPublishDirectory) },
+    { key: "exportOwnMarket", label: t("plugins.PageHeader.text_64f63add3b"), run: () => exportOwnMarket(actions) },
   ];
   return <div className="plugins-menu-wrap" ref={menu.ref}>
     <button type="button" className="plugins-icon-btn plugins-header-menu" aria-label={t("plugins.moreActions")}

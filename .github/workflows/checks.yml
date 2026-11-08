@@ -37,6 +37,14 @@ jobs:
         with:
           workspaces: src-tauri
       - run: pnpm install --frozen-lockfile
+      - name: Translation catalogs and hardcoded text
+        run: |
+          node scripts/sync-backend-i18n.mjs --check
+          pnpm check:i18n
+      - name: Backend error directory and installer languages
+        run: |
+          node scripts/export-backend-i18n.mjs --check
+          node --test scripts/backend-i18n.test.mjs
       - name: Frontend regression
         run: pnpm test
       - name: Type check and production chunks

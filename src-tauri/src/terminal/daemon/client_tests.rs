@@ -296,6 +296,7 @@ fn io_and_target_errors_do_not_close_or_create_another_session() {
             message: "permission denied".into(),
             retryable: false,
             details: None,
+            params: Default::default(),
         })),
     ] {
         let peer = Peer::new(vec![("create", failure)]);

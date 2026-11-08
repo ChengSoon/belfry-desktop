@@ -1,0 +1,23 @@
+{
+  "scope": {
+    "title": "生效范围",
+    "sheetHint": "选择生效范围。",
+    "ariaLabel": "{{name}} 的生效范围",
+    "off": "关闭",
+    "projects": "指定项目",
+    "global": "全局",
+    "offHint": "已关闭，不会被加载。",
+    "projectsHint": "仅在你选中的项目里生效。",
+    "globalHint": "在所有项目以及未打开项目的对话中生效。",
+    "pickProjects": "选择项目",
+    "projectCount": "{{count}} 个项目",
+    "projectCount_one": "1 个项目",
+    "projectCount_other": "{{count}} 个项目",
+    "pickerTitle": "{{name}} 生效的项目",
+    "searchProjects": "搜索项目",
+    "noProjects": "还没有项目",
+    "noProjectsWarning": "至少选择一个项目，否则不会生效。",
+    "currentProject": "当前打开",
+    "subdirectoryNote": "选中项目的子目录同样生效。"
+  }
+}

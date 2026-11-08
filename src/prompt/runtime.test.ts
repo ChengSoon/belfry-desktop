@@ -34,6 +34,78 @@ function targets(entry?: TerminalCommandTarget) {
 }
 
 describe("PromptQueueRuntime", () => {
+  it("a persisted manual decision never repastes that task and waits for residual input to clear", () => {
+    vi.useFakeTimers();
+    try {
+      const runtime = new PromptQueueRuntime(), updates = vi.fn();
+      let empty = false;
+      let lateResult: ((value: "not-written") => void) | undefined;
+      const command: TerminalCommandTarget = { focus: vi.fn(), composerEmpty: () => empty,
+        sendText: vi.fn((_text, options) => { lateResult = options?.onResult; return true; }) };
+      runtime.submit([tab()], targets(command), "agent-1", "first", { id: "first-id", onUpdate: updates });
+      runtime.submit([tab()], targets(command), "agent-1", "second", { id: "second-id" });
+      vi.advanceTimersByTime(PROMPT_CONFIRM_TIMEOUT_MS); runtime.sync([tab()], targets(command));
+      expect(runtime.resolvePersisted("other-id")).toBe(false);
+      const count = updates.mock.calls.length;
+      expect(runtime.resolvePersisted("first-id")).toBe(true);
+      lateResult?.("not-written"); runtime.sync([tab()], targets(command));
+      expect(command.sendText).toHaveBeenCalledTimes(1);
+      expect(runtime.items.map(item => item.id)).toEqual(["second-id"]);
+      empty = true; runtime.sync([tab()], targets(command));
+      expect(command.sendText).toHaveBeenCalledTimes(2);
+      expect(command.sendText).toHaveBeenLastCalledWith("second", expect.anything());
+      expect(updates).toHaveBeenCalledTimes(count);
+    } finally { vi.useRealTimers(); }
+  });
+  it("waits for durable submission intent before touching the PTY", async () => {
+    const runtime = new PromptQueueRuntime();
+    const command = target();
+    let allow!: (allowed: boolean) => void;
+    const beforeSend = vi.fn(() => new Promise<boolean>((resolve) => { allow = resolve; }));
+    runtime.submit([tab()], targets(command), "agent-1", "durable", { beforeSend });
+    expect(command.sendText).not.toHaveBeenCalled();
+    allow(true);
+    await Promise.resolve();
+    expect(command.sendText).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries a throwing gate safely without writing before persistence", async () => {
+    const runtime = new PromptQueueRuntime();
+    const command = target();
+    const beforeSend = vi.fn<() => Promise<boolean>>().mockImplementationOnce(() => { throw new Error("disk error"); }).mockResolvedValue(true);
+    runtime.submit([tab()], targets(command), "agent-1", "durable", { beforeSend });
+    expect(command.sendText).not.toHaveBeenCalled();
+    expect(runtime.items).toHaveLength(1);
+    runtime.sync([tab()], targets(command));
+    await Promise.resolve();
+    expect(command.sendText).toHaveBeenCalledTimes(1);
+  });
+
+  it("a cancelled durable gate never writes to the terminal", async () => {
+    const runtime = new PromptQueueRuntime();
+    const command = target();
+    const onUpdate = vi.fn();
+    runtime.submit([tab()], targets(command), "agent-1", "cancelled", { beforeSend: async () => false, onUpdate });
+    await Promise.resolve();
+    runtime.sync([tab()], targets(command));
+    expect(command.sendText).not.toHaveBeenCalled();
+    expect(runtime.items).toHaveLength(0);
+    expect(onUpdate).toHaveBeenLastCalledWith(expect.objectContaining({ state: "cancelled" }));
+  });
+
+  it("regression: a throwing terminal write stays uncertain without automatic repasting", () => {
+    const runtime = new PromptQueueRuntime();
+    const command = target(vi.fn(() => { throw new Error("write status unknown"); }));
+    const onUpdate = vi.fn();
+    runtime.submit([tab()], targets(command), "agent-1", "once", { onUpdate });
+    runtime.sync([tab()], targets(command));
+    runtime.sync([tab()], targets(command));
+    expect(command.sendText).toHaveBeenCalledTimes(1);
+    expect(onUpdate).toHaveBeenLastCalledWith(expect.objectContaining({ state: "attention" }));
+    expect(runtime.pausedDeliveries()).toHaveLength(1);
+    runtime.resume("agent-1");
+    expect(onUpdate).toHaveBeenLastCalledWith({ state: "submitted" });
+  });
   it("sends the first prompt immediately and queues later prompts until the Agent is idle again", () => {
     const runtime = new PromptQueueRuntime();
     const command = target();

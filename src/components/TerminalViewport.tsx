@@ -1,3 +1,4 @@
+import { t, useTranslation } from "../i18n";
 import { ArrowDown, ArrowUp, Search, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import "@xterm/xterm/css/xterm.css";
@@ -48,6 +49,7 @@ export function TerminalViewport({
   onOpenFile,
   onOutput,
 }: TerminalViewportProps) {
+  useTranslation();
   const terminalHost = useRef<HTMLDivElement>(null);
   const searchInput = useRef<HTMLInputElement>(null);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -132,7 +134,7 @@ export function TerminalViewport({
         <div className="terminal-search" role="search" onPointerDown={(event) => event.stopPropagation()}>
           <Search aria-hidden="true" className="terminal-search__icon" size={ICON.sm} />
           <input
-            aria-label="搜索终端"
+            aria-label={t("components.TerminalViewport.text_0bd6dd7811")}
             autoFocus
             onChange={(event) => updateSearch(event.target.value)}
             onKeyDown={(event) => {
@@ -147,7 +149,7 @@ export function TerminalViewport({
                 closeSearch();
               }
             }}
-            placeholder="搜索"
+            placeholder={t("components.TerminalViewport.text_44ce7ae909")}
             ref={searchInput}
             value={query}
           />
@@ -155,38 +157,38 @@ export function TerminalViewport({
             {query && searchState.matches.length > 0
               ? `${searchState.activeIndex + 1}/${searchState.matches.length}`
               : query
-                ? "无结果"
+                ? t("components.TerminalViewport.text_f1c9cc430f")
                 : ""}
           </span>
           <button
-            aria-label="上一个匹配"
+            aria-label={t("components.TerminalViewport.text_64d57ad378")}
             disabled={searchState.matches.length === 0}
             onClick={() => moveSearch("previous")}
-            title="上一个匹配"
+            title={t("components.TerminalViewport.text_64d57ad378")}
             type="button"
           >
             <ArrowUp aria-hidden="true" size={ICON.sm} />
           </button>
           <button
-            aria-label="下一个匹配"
+            aria-label={t("components.TerminalViewport.text_84cb6a31b9")}
             disabled={searchState.matches.length === 0}
             onClick={() => moveSearch("next")}
-            title="下一个匹配"
+            title={t("components.TerminalViewport.text_84cb6a31b9")}
             type="button"
           >
             <ArrowDown aria-hidden="true" size={ICON.sm} />
           </button>
-          <button aria-label="关闭搜索" onClick={closeSearch} title="关闭搜索" type="button">
+          <button aria-label={t("components.TerminalViewport.text_ab008ef18d")} onClick={closeSearch} title={t("components.TerminalViewport.text_ab008ef18d")} type="button">
             <X aria-hidden="true" size={ICON.sm} />
           </button>
         </div>
       ) : null}
       {dormant || session.error ? (
         <div className="terminal-alert" role="status">
-          <span>{session.error ?? "进程已退出"}</span>
-          {session.canReconnect ? <button onClick={session.reconnect} type="button">重新连接</button> : null}
-          {dormant ? <button onClick={session.restart} type="button">重启</button>
-            : <button onClick={session.dismissError} type="button">关闭提示</button>}
+          <span>{session.error ?? t("components.TerminalViewport.text_8f6969d1d9")}</span>
+          {session.canReconnect ? <button onClick={session.reconnect} type="button">{t("components.TerminalViewport.text_68891ab35c")}</button> : null}
+          {dormant ? <button onClick={session.restart} type="button">{t("components.TerminalViewport.text_5628228928")}</button>
+            : <button onClick={session.dismissError} type="button">{t("components.TerminalViewport.text_d301bc1258")}</button>}
         </div>
       ) : null}
     </section>

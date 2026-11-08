@@ -1,5 +1,6 @@
+import { t } from "../i18n";
 import type { Room, RoomMember, RoomTask } from "./contracts";
-import { activeMembers, awaitingReply, foremanOf, type MemberStatus } from "./model";
+import { activeMembers, allRoomMessages, awaitingReply, foremanOf, type MemberStatus } from "./model";
 
 /**
  * 房间的协作流程图：你 → 统筹 → 各位成员。连线表示谁把活派给了谁、谁正在做、最近谁给谁发了消息。
@@ -80,7 +81,7 @@ export function flowGraph(room: Room, statusOf: (member: RoomMember) => MemberSt
   const ROW = 104;
   const center = { x: COLUMN, y: 0 };
   nodes.push({
-    id: USER_ID, kind: "user", x: 0, y: 0, title: "你", subtitle: "提需求、拍板",
+    id: USER_ID, kind: "user", x: 0, y: 0, title: t("rooms.flow.text_a0c7716669"), subtitle: t("rooms.flow.text_7c32ac922b"),
     status: "user", current: null, load: 0,
   });
   const describe = (member: RoomMember, x: number, y: number, kind: "foreman" | "peer"): FlowNode => {
@@ -88,8 +89,8 @@ export function flowGraph(room: Room, statusOf: (member: RoomMember) => MemberSt
     const current = active[0] ?? null;
     const subtitle = current
       ? `${current.id} ${current.title}`
-      : kind === "foreman" ? (busyPeers ? `${busyPeers} 位成员忙碌` : activeTasks ? `${activeTasks} 件任务进行中` : "协调与分工")
-        : member.duty || (planned.length ? `${planned.length} 件待开工` : "暂时没活");
+      : kind === "foreman" ? (busyPeers ? t("rooms.flow.text_876f064076", { count: busyPeers }) : activeTasks ? t("rooms.flow.text_257f1161cc", { count: activeTasks }) : t("rooms.flow.text_607880677c"))
+        : member.duty || (planned.length ? t("rooms.flow.text_a377acad2e", { count: planned.length }) : t("rooms.flow.text_b11525ced5"));
     return {
       id: member.id, kind, x, y, title: member.title, subtitle, status: statuses.get(member.id)!,
       memberId: member.id, tabId: member.tabId, current, load: active.length + planned.length,
@@ -121,10 +122,10 @@ export function flowGraph(room: Room, statusOf: (member: RoomMember) => MemberSt
     const { active, planned } = tasksOf(room, member.id);
     const status = statuses.get(member.id);
     const parts: string[] = [];
-    if (active.length) parts.push(active.length === 1 ? `${active[0].id} 进行中` : `${active.length} 件进行中`);
-    if (planned.length) parts.push(`${planned.length} 件待开工`);
-    if (status === "waiting") connect(source, member.id, "waiting", "等你选择", false);
-    else if (status === "busy") connect(source, member.id, "active", parts.join(" · ") || (member.role === "foreman" ? "协调中" : "处理中"), true);
+    if (active.length) parts.push(active.length === 1 ? t("rooms.flow.text_5e8f114d57", { id: active[0].id }) : t("rooms.flow.text_55ce5ba83c", { count: active.length }));
+    if (planned.length) parts.push(t("rooms.flow.text_a377acad2e", { count: planned.length }));
+    if (status === "waiting") connect(source, member.id, "waiting", t("rooms.flow.text_1247f5c788"), false);
+    else if (status === "busy") connect(source, member.id, "active", parts.join(" · ") || (member.role === "foreman" ? t("rooms.flow.text_10cb284fe6") : t("rooms.flow.text_694b71bc80")), true);
     else connect(source, member.id, "idle", parts.join(" · ") || null, false);
   };
 
@@ -135,7 +136,7 @@ export function flowGraph(room: Room, statusOf: (member: RoomMember) => MemberSt
   }
 
   // 最近的消息：连线亮起来；骨架之外的（成员之间、你直接找成员）临时补一条。
-  for (const message of room.messages) {
+  for (const message of allRoomMessages(room)) {
     if (message.kind !== "chat" || now - message.at > FLOW_RECENT_MS) continue;
     for (const target of message.to) {
       const existing = edges.get(key(message.by, target));
@@ -143,18 +144,18 @@ export function flowGraph(room: Room, statusOf: (member: RoomMember) => MemberSt
       const source = existing && existing.source !== message.by ? existing.target : message.by;
       const to = existing && existing.source !== message.by ? existing.source : target;
       const canAnimate = [message.by, target].every((id) => !["offline", "waiting"].includes(statuses.get(id) ?? "user"));
-      connect(existing ? existing.source : source, existing ? existing.target : to, "message", existing?.label ?? "刚有消息", canAnimate);
+      connect(existing ? existing.source : source, existing ? existing.target : to, "message", existing?.label ?? t("rooms.flow.text_2012a8942f"), canAnimate);
     }
   }
 
   // 有人欠你一句回复，或者你还在等某人回复：标在对应连线上。
-  for (const message of room.messages) {
+  for (const message of allRoomMessages(room)) {
     for (const waiter of awaitingReply(message)) {
       const existing = edges.get(key(message.by, waiter));
       if (!existing || existing.tone === "waiting") continue;
       // 正在处理回复时保留工作动效；欠回复本身不代表会话还在运行。
       const working = existing.tone === "active";
-      edges.set(key(message.by, waiter), { ...existing, tone: working ? "active" : "reply", label: `等${position.get(waiter)?.title ?? ""}回复`, animated: working });
+      edges.set(key(message.by, waiter), { ...existing, tone: working ? "active" : "reply", label: t("rooms.flow.text_00c5b19b2d", { name: position.get(waiter)?.title ?? "" }), animated: working });
     }
   }
 

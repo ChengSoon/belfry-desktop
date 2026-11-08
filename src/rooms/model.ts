@@ -1,13 +1,16 @@
+import { localized, t } from "../i18n";
 import type { Room, RoomMember, RoomMessage, RoomTask, TaskStatus } from "./contracts";
 import type { WorkspaceTab } from "../workspace/contracts";
+import recipientProtocol from "./recipientProtocol.json";
+import { formatDateTime, getLocale, formatList } from "../i18n";
 
 /** 状态中文名，与 Rust `TaskStatus::label` 同一口径。 */
-export const STATUS_LABEL: Record<TaskStatus, string> = {
-  planned: "待开工",
-  active: "进行中",
-  done: "已完成",
-  archived: "已归档",
-};
+export const STATUS_LABEL: Record<TaskStatus, string> = localized(() => ({
+  planned: t("rooms.model.text_21f6d811a5"),
+  active: t("rooms.model.text_dc9591e56d"),
+  done: t("rooms.model.text_f28461bb49"),
+  archived: t("rooms.model.text_82395d4230"),
+}));
 
 export function activeMembers(room: Room): RoomMember[] {
   return room.members.filter((member) => member.leftAt === null);
@@ -19,14 +22,26 @@ export function foremanOf(room: Room): RoomMember | null {
 
 /** 显示名：成员用角色名（离开的也认得出），用户与系统固定称呼。与 Rust `Room::label` 一致。 */
 export function labelOf(room: Room, id: string): string {
-  if (id === "user") return "你";
-  if (id === "system") return "系统";
-  return room.members.find((member) => member.id === id)?.title ?? "（已离开的成员）";
+  if (id === "user") return t("rooms.model.text_a0c7716669");
+  if (id === "system") return t("rooms.model.text_5b50d7c4b5");
+  return room.members.find((member) => member.id === id)?.title ?? t("rooms.model.text_969d51de6d");
 }
 
 /** 消息短 id（尾 8 位），成员在终端里引用时写的就是它。 */
 export function shortId(id: string): string {
   return id.slice(-8);
+}
+
+/** Prefer the recent projection if an older retained entry has the same id. */
+export function allRoomMessages(room: Room): RoomMessage[] {
+  return [...new Map([...(room.retainedMessages ?? []), ...room.messages].map((message) => [message.id, message])).values()];
+}
+
+export function findRoomMessage(room: Room, id: string): RoomMessage | undefined {
+  const exact = room.messages.find((message) => message.id === id) ?? room.retainedMessages?.find((message) => message.id === id);
+  if (exact) return exact;
+  const matches = allRoomMessages(room).filter((message) => id.length === 8 && shortId(message.id) === id);
+  return matches.length === 1 ? matches[0] : undefined;
 }
 
 /** 还欠一句回复的收件人。与 Rust `Message::awaiting` 一致。 */
@@ -75,8 +90,8 @@ export interface RecipientOption {
 export function recipientOptions(room: Room): RecipientOption[] {
   const foreman = foremanOf(room);
   const options: RecipientOption[] = [
-    { value: "", label: foreman ? `统筹（${foreman.title}）` : "全体成员", description: "正文里写 @角色 会改成发给那个人" },
-    { value: "@全体", label: "全体成员" },
+    { value: "", label: foreman ? t("rooms.model.text_9123e3d908", { title: foreman.title }) : t("rooms.model.text_00f17bcaa7"), description: t("rooms.model.text_52b40d24b2") },
+    { value: recipientProtocol.all, label: t("rooms.model.text_00f17bcaa7") },
   ];
   for (const member of activeMembers(room)) {
     options.push({ value: member.title, label: member.title, description: member.duty || undefined });
@@ -91,17 +106,15 @@ export function deliveryNote(room: Room, message: RoomMessage): string | null {
   const delivered = members.filter((id) => message.deliveredTo.includes(id));
   const pending = members.filter((id) => !message.deliveredTo.includes(id));
   const parts: string[] = [];
-  if (delivered.length) parts.push(`已送达 ${delivered.map((id) => labelOf(room, id)).join("、")}`);
-  if (pending.length) parts.push(`排队中 ${pending.map((id) => labelOf(room, id)).join("、")}`);
+  if (delivered.length) parts.push(t("rooms.model.text_3f3fcf852b", { names: formatList(delivered.map((id) => labelOf(room, id))) }));
+  if (pending.length) parts.push(t("rooms.model.text_0061201e2c", { names: formatList(pending.map((id) => labelOf(room, id))) }));
   return parts.join(" · ");
 }
 
 export function formatTime(at: number, now = Date.now()): string {
   const date = new Date(at);
   const today = new Date(now);
-  const time = `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
-  if (date.toDateString() === today.toDateString()) return time;
-  return `${date.getMonth() + 1}月${date.getDate()}日 ${time}`;
+  return formatDateTime(date, { hour: "2-digit", minute: "2-digit", ...(date.toDateString() === today.toDateString() ? {} : { month: "short", day: "numeric" }) });
 }
 
 export function excerpt(text: string, limit: number): string {
@@ -115,21 +128,21 @@ export interface RosterRow {
   duty: string;
 }
 
-export const DEFAULT_ROSTER: RosterRow[] = [
-  { title: "统筹员", duty: "拆解需求、分派任务、跟进进度、汇总结果" },
-  { title: "前端", duty: "界面与交互" },
-  { title: "后端", duty: "接口与数据" },
-];
+export const DEFAULT_ROSTER: RosterRow[] = localized(() => ([
+  { title: t("rooms.model.text_50ae5b34eb"), duty: t("rooms.model.text_38545de184") },
+  { title: t("rooms.model.text_866a4fa82c"), duty: t("rooms.model.text_6c04c43968") },
+  { title: t("rooms.model.text_9b82634623"), duty: t("rooms.model.text_eda84b0713") },
+]));
 
 /** 角色名校验，与 Rust `ops::validate_title` 同一套规则；返回理由或 null。 */
-const RESERVED = ["统筹", "全体", "成员", "用户", "系统", "all", "peers", "foreman", "user", "system"];
+const RESERVED = recipientProtocol.reserved;
 export function titleError(raw: string, taken: readonly string[]): string | null {
   const title = raw.trim().replace(/^@/, "").trim();
-  if (!title) return "角色名是必填的";
-  if ([...title].length > 24) return "角色名最多 24 个字";
-  if (/\s/.test(title)) return "角色名不能带空格";
-  if (RESERVED.some((word) => word.toLowerCase() === title.toLowerCase())) return `「${title}」是收件人记号，换个角色名`;
-  if (taken.some((other) => other.toLowerCase() === title.toLowerCase())) return `已经有「${title}」了`;
+  if (!title) return t("rooms.model.text_9d8472ded9");
+  if ([...title].length > 24) return t("rooms.model.text_9549432111");
+  if (/\s/.test(title)) return t("rooms.model.text_4726ac3085");
+  if (RESERVED.some((word) => word.toLowerCase() === title.toLowerCase())) return t("rooms.model.text_25fa52d9c3", { title: title });
+  if (taken.some((other) => other.toLowerCase() === title.toLowerCase())) return t("rooms.model.text_7d79c2fa77", { title: title });
   return null;
 }
 
@@ -147,10 +160,9 @@ export function dayLabel(at: number, now = Date.now()): string {
   const today = new Date(now);
   const yesterday = new Date(now);
   yesterday.setDate(today.getDate() - 1);
-  if (date.toDateString() === today.toDateString()) return "今天";
-  if (date.toDateString() === yesterday.toDateString()) return "昨天";
-  const day = `${date.getMonth() + 1}月${date.getDate()}日`;
-  return date.getFullYear() === today.getFullYear() ? day : `${date.getFullYear()}年${day}`;
+  if (date.toDateString() === today.toDateString()) return t("rooms.model.text_d5f5a7a010");
+  if (date.toDateString() === yesterday.toDateString()) return t("rooms.model.text_0c184871f6");
+  return formatDateTime(date, { month: "long", day: "numeric", ...(date.getFullYear() === today.getFullYear() ? {} : { year: "numeric" }) });
 }
 
 /** 这条消息能不能接在上一条下面（同一作者、同一批收件人、不是回复、间隔够短）。 */
@@ -179,7 +191,7 @@ export function initialOf(title: string): string {
 /** 成员此刻的状态，由他会话的活动推出来。 */
 export type MemberStatus = "idle" | "busy" | "waiting" | "offline";
 
-export const MEMBER_STATUS_TEXT: Record<MemberStatus, string> = { idle: "空闲", busy: "忙", waiting: "等你选择", offline: "离线" };
+export const MEMBER_STATUS_TEXT: Record<MemberStatus, string> = localized(() => ({ idle: t("rooms.model.text_dae661d17c"), busy: t("rooms.model.text_963e4f4abf"), waiting: t("rooms.model.text_1247f5c788"), offline: t("rooms.model.text_be1b4f3c6c") }));
 
 export function memberStatus(tab: Pick<WorkspaceTab, "phase" | "activity"> | undefined): MemberStatus {
   if (!tab || tab.phase !== "running") return "offline";
@@ -191,11 +203,11 @@ export function memberStatus(tab: Pick<WorkspaceTab, "phase" | "activity"> | und
 // ---- @ 点名补全 ----
 
 /** 收件人记号，与 Rust `model::expand_token` 认的中文写法一致。 */
-export const MENTION_SELECTORS = [
-  { title: "统筹", description: "发给统筹" },
-  { title: "全体", description: "发给所有在场成员" },
-  { title: "成员", description: "发给统筹以外的成员" },
-] as const;
+export const MENTION_SELECTORS = localized(() => ([
+  { title: getLocale() === "zh-CN" ? recipientProtocol.selectors.foreman : "foreman", description: t("rooms.model.text_0c7da839bd") },
+  { title: getLocale() === "zh-CN" ? recipientProtocol.selectors.all : "all", description: t("rooms.model.text_154a8051d9") },
+  { title: getLocale() === "zh-CN" ? recipientProtocol.selectors.peers : "peers", description: t("rooms.model.text_9d2a0fbc52") },
+] as const));
 
 /** 光标前正在输入的 `@名字`：返回 `@` 的位置和已经打的字；不在点名里返回 null。 */
 export function mentionQuery(text: string, caret: number): { start: number; query: string } | null {
@@ -223,7 +235,7 @@ export function mentionOptions(room: Room, query: string): MentionOption[] {
     return lower.startsWith(q) ? 0 : lower.includes(q) ? 1 : -1;
   };
   const members = activeMembers(room)
-    .map((member) => ({ title: member.title, description: member.duty || (member.role === "foreman" ? "统筹" : "成员"), kind: "member" as const }))
+    .map((member) => ({ title: member.title, description: member.duty || (member.role === "foreman" ? t("rooms.model.text_8153348240") : t("rooms.model.text_6e6d6ddbb7")), kind: "member" as const }))
     .filter((option) => score(option.title) >= 0)
     .sort((a, b) => score(a.title) - score(b.title));
   const selectors = MENTION_SELECTORS

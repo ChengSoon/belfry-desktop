@@ -26,7 +26,7 @@ fn missing_cli_check(agent: AgentKind) -> EnvironmentCheck {
     EnvironmentCheck::new(
         CheckKind::Cli(agent),
         CheckState::Warning,
-        format!("未找到 {} CLI（可选）", agent.display_name()),
+        belfry_i18n::lformat!("未找到 {} CLI（可选）", agent.display_name()),
     )
 }
 
@@ -35,17 +35,17 @@ fn version_check(agent: AgentKind, executable: &Path) -> EnvironmentCheck {
         Ok(output) if output.status.success() => EnvironmentCheck::new(
             CheckKind::Cli(agent),
             CheckState::Ok,
-            process::first_output_line(&output).unwrap_or_else(|| "已安装".to_string()),
+            process::first_output_line(&output).unwrap_or_else(|| belfry_i18n::text("已安装").to_string()),
         ),
         Ok(_) => EnvironmentCheck::new(
             CheckKind::Cli(agent),
             CheckState::Error,
-            format!("{} 无法正常启动", agent.display_name()),
+            belfry_i18n::lformat!("{} 无法正常启动", agent.display_name()),
         ),
         Err(error) => EnvironmentCheck::new(
             CheckKind::Cli(agent),
             CheckState::Error,
-            format!("启动失败：{error}"),
+            belfry_i18n::lformat!("启动失败：{error}"),
         ),
     }
 }

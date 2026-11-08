@@ -1,3 +1,4 @@
+import { formatNumber, t } from "../../i18n";
 import type { DetailPage, HistoryChange, HistoryEntry } from "./contracts";
 
 export interface ChangeRecord {
@@ -16,9 +17,9 @@ export function pageChanges(entries: HistoryEntry[]): ChangeRecord[] {
 }
 
 export function resultLabel(record: Pick<ChangeRecord, "success" | "resultPresent">) {
-  if (record.success === false) return "工具返回失败";
-  if (record.success === true) return "工具返回成功";
-  return record.resultPresent ? "执行状态未标明" : "本页未见执行结果";
+  if (record.success === false) return t("history.model.text_f9583ca5ee");
+  if (record.success === true) return t("history.model.text_7263ac57a0");
+  return record.resultPresent ? t("history.model.text_20fdb0b2a0") : t("history.model.text_34059d1f7c");
 }
 
 export function cachePage(pages: DetailPage[], page: DetailPage) {
@@ -30,8 +31,9 @@ export function cachePage(pages: DetailPage[], page: DetailPage) {
 
 function pageSize(page: DetailPage) { return JSON.stringify(page).length * 2; }
 export function byteLabel(bytes: number) {
-  return bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  const options = { minimumFractionDigits: 1, maximumFractionDigits: 1 };
+  return bytes < 1024 * 1024 ? `${formatNumber(bytes / 1024, options)} KB` : `${formatNumber(bytes / (1024 * 1024), options)} MB`;
 }
 export function changeLabel(kind: string) {
-  return ({ add: "新增", modify: "修改", edit: "替换", write: "写入", delete: "删除", rename: "重命名" } as Record<string, string>)[kind] ?? "修改";
+  return ({ add: t("history.model.text_0006d696d8"), modify: t("history.model.text_37090f4565"), edit: t("history.model.text_131b13aa26"), write: t("history.model.text_5c783c4679"), delete: t("history.model.text_2f9daa8289"), rename: t("history.model.text_0d0cbac2ee") } as Record<string, string>)[kind] ?? t("history.model.text_37090f4565");
 }

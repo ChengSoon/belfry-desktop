@@ -21,6 +21,8 @@ export interface PromptSubmitOptions {
   /** 宿主发起的反馈只能投递给仍属于这个项目的会话。 */
   projectRoot?: string;
   onUpdate?: (update: PromptQueueUpdate) => void;
+  /** 写入 PTY 前必须成功持久化提交意图；false 表示已取消，拒绝表示可以安全重试。 */
+  beforeSend?: () => Promise<boolean>;
 }
 
 export function isPromptBusy(tab: Pick<WorkspaceTab, "activity">) {

@@ -1,3 +1,4 @@
+import { TranslationError } from "../i18n";
 import type { PiSetting } from "./runtimeContracts";
 import { numberFromDraft } from "../components/controls/controlModel";
 
@@ -10,16 +11,16 @@ export function parseSettingDraft(setting: PiSetting, text: string): unknown {
   const label = setting.title ?? setting.key;
   if (setting.type === "number") {
     const value = numberFromDraft(text);
-    if (value === null) throw new Error(`${label} 需要有效数字`);
+    if (value === null) throw new TranslationError("plugins.settingDraft.text_d22447d004", { label: label });
     return value;
   }
   if (setting.type === "boolean") return text === "true";
   if (setting.type === "json") {
-    try { return JSON.parse(text); } catch { throw new Error(`${label} 的 JSON 格式无效`); }
+    try { return JSON.parse(text); } catch { throw new TranslationError("plugins.settingDraft.text_7665349bc0", { label: label }); }
   }
   if (setting.type === "select") {
     const option = setting.enum?.[Number(text)];
-    if (!option) throw new Error(`请选择 ${label}`);
+    if (!option) throw new TranslationError("plugins.settingDraft.text_27a7658d4c", { label: label });
     return option.value;
   }
   return text;

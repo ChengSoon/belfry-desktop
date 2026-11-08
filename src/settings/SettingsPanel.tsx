@@ -1,3 +1,4 @@
+import { localized, t, useTranslation } from "../i18n";
 import { Activity, Archive, Boxes, FolderGit2, HeartPulse, Image, Info, Keyboard, Search, Waypoints, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { AppearanceSection } from "../background/components/AppearanceSection";
@@ -16,19 +17,19 @@ import { BackgroundSessions } from "../terminal/daemon/BackgroundSessions";
 import { composingKey } from "../utils/keyboard";
 import "./settings.css";
 
-const SECTIONS = [
-  { icon: Image, key: "appearance", label: "外观", group: "工作环境", keywords: "主题 字体 字号 壁纸 背景 theme font wallpaper" },
-  { icon: Keyboard, key: "shortcuts", label: "快捷键", group: "工作环境", keywords: "键盘 按键 keyboard" },
-  { icon: Waypoints, key: "provider", label: "全局 Provider", group: "Agent 与连接", keywords: "claude codex pi antigravity agy opencode kimi 模型 服务 API 密钥" },
-  { icon: FolderGit2, key: "project-provider", label: "项目 Provider", group: "Agent 与连接", keywords: "claude codex pi antigravity agy opencode kimi 项目覆盖 模型 服务 API" },
-  { icon: Activity, key: "agent-hooks", label: "会话状态", group: "Agent 与连接", keywords: "hooks 后台会话 background session" },
-  { icon: Boxes, key: "plugins", label: "插件", group: "扩展", keywords: "安装 市场 plugin" },
-  { icon: Archive, key: "backup", label: "本地备份", group: "数据与安全", keywords: "恢复 导入 导出 数据 backup" },
-  { icon: HeartPulse, key: "environment", label: "协作环境", group: "帮助与诊断", keywords: "检查 安装 诊断 环境 environment" },
-  { icon: Info, key: "about", label: "关于", group: "帮助与诊断", keywords: "版本 更新 CLI 帮助 update" },
-] as const;
+const SECTIONS = localized(() => ([
+  { icon: Image, key: "appearance", label: t("settings.SettingsPanel.text_86a63f23a0"), group: t("settings.SettingsPanel.text_7958d84e9a"), keywords: t("settings.SettingsPanel.text_d27d4b755c") },
+  { icon: Keyboard, key: "shortcuts", label: t("settings.SettingsPanel.text_ee2638183d"), group: t("settings.SettingsPanel.text_7958d84e9a"), keywords: t("settings.SettingsPanel.text_3556d0b987") },
+  { icon: Waypoints, key: "provider", label: t("settings.SettingsPanel.text_c5ecb59fd4"), group: t("settings.SettingsPanel.text_db94a5b8e2"), keywords: t("settings.SettingsPanel.text_f008673667") },
+  { icon: FolderGit2, key: "project-provider", label: t("settings.SettingsPanel.text_784caf2b25"), group: t("settings.SettingsPanel.text_db94a5b8e2"), keywords: t("settings.SettingsPanel.text_16e5b1c831") },
+  { icon: Activity, key: "agent-hooks", label: t("settings.SettingsPanel.text_ea5e729632"), group: t("settings.SettingsPanel.text_db94a5b8e2"), keywords: t("settings.SettingsPanel.text_fead0c3b1d") },
+  { icon: Boxes, key: "plugins", label: t("settings.SettingsPanel.text_e806fbbe8e"), group: t("settings.SettingsPanel.text_99a4e1e597"), keywords: t("settings.SettingsPanel.text_70fc2aa517") },
+  { icon: Archive, key: "backup", label: t("settings.SettingsPanel.text_daa0a5cd5b"), group: t("settings.SettingsPanel.text_14b627f5a0"), keywords: t("settings.SettingsPanel.text_090bc38028") },
+  { icon: HeartPulse, key: "environment", label: t("settings.SettingsPanel.text_821f9ff1ad"), group: t("settings.SettingsPanel.text_bcb3eed213"), keywords: t("settings.SettingsPanel.text_74c727449a") },
+  { icon: Info, key: "about", label: t("settings.SettingsPanel.text_52d25a9e30"), group: t("settings.SettingsPanel.text_bcb3eed213"), keywords: t("settings.SettingsPanel.text_254b2d7fcb") },
+] as const));
 
-export const settingsGroups = ["工作环境", "Agent 与连接", "扩展", "数据与安全", "帮助与诊断"] as const;
+export const settingsGroups = localized(() => ([t("settings.SettingsPanel.text_7958d84e9a"), t("settings.SettingsPanel.text_db94a5b8e2"), t("settings.SettingsPanel.text_99a4e1e597"), t("settings.SettingsPanel.text_14b627f5a0"), t("settings.SettingsPanel.text_bcb3eed213")] as const));
 export function filterSettingsNavigation(query: string) {
   const words = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
   return settingsGroups.map((label) => ({ label, sections: SECTIONS.filter((section) =>
@@ -53,6 +54,7 @@ export function SettingsPanel({ onClose, initialSection, project = null, updater
   updaterOpen: boolean;
   onOpenUpdater: () => void;
 }) {
+  useTranslation();
   const [active, setActive] = useState<SectionKey>(() => normalizeSettingsSection(initialSection));
   const [guarded, setGuarded] = useState(false);
   const [query, setQuery] = useState("");
@@ -72,16 +74,16 @@ export function SettingsPanel({ onClose, initialSection, project = null, updater
   }, []);
 
   return (
-    <section aria-label="设置" className="settings-view">
-      <nav aria-label="设置分类" className="settings-nav">
+    <section aria-label={t("settings.SettingsPanel.text_df3d58c7d8")} className="settings-view">
+      <nav aria-label={t("settings.SettingsPanel.text_dfb699c543")} className="settings-nav">
         <div className="settings-nav__head">
-          <strong id="settings-title">设置</strong>
+          <strong id="settings-title">{t("settings.SettingsPanel.text_df3d58c7d8")}</strong>
           <button
             className="icon-button icon-button--sm"
             disabled={guarded}
             onClick={onClose}
             ref={closeRef}
-            title="关闭设置"
+            title={t("settings.SettingsPanel.text_77b17fc4a5")}
             type="button"
           >
             <X aria-hidden="true" size={ICON.md} />
@@ -118,11 +120,12 @@ export function SettingsNavigation({ active, guarded, query, onQuery, onSelect }
   active: SectionKey; guarded: boolean; query: string;
   onQuery: (query: string) => void; onSelect: (key: SectionKey) => void;
 }) {
+  useTranslation();
   const groups = filterSettingsNavigation(query);
   return <>
     <label className="settings-search">
       <Search aria-hidden="true" size={ICON.sm} />
-      <input aria-label="搜索设置分类" type="search" value={query} placeholder="搜索设置…"
+      <input aria-label={t("settings.SettingsPanel.text_100530944b")} type="search" value={query} placeholder={t("settings.SettingsPanel.text_f4b3b1bead")}
         onChange={(event) => onQuery(event.target.value)} />
     </label>
     {groups.map(({ label, sections }) => <div className="settings-nav__group" role="group" aria-label={label} key={label}>
@@ -135,7 +138,7 @@ export function SettingsNavigation({ active, guarded, query, onQuery, onSelect }
         <Icon aria-hidden="true" size={ICON.sm} /><span>{sectionLabel}</span>
       </button>)}
     </div>)}
-    {groups.length === 0 ? <p className="settings-nav__empty" role="status">没有匹配的设置分类。当前内容保持打开。</p> : null}
-    {guarded ? <p className="settings-nav__guard" role="status">当前操作尚未完成，请在内容区保存或取消后离开。</p> : null}
+    {groups.length === 0 ? <p className="settings-nav__empty" role="status">{t("settings.SettingsPanel.text_f189f8b260")}</p> : null}
+    {guarded ? <p className="settings-nav__guard" role="status">{t("settings.SettingsPanel.text_0f17ab1ea2")}</p> : null}
   </>;
 }

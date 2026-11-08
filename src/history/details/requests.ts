@@ -1,3 +1,4 @@
+import { TranslationError } from "../../i18n";
 import type { AgentSessionRef } from "../../agent/contracts";
 import { closeHistoryDetail, nextHistoryDetail, openHistoryDetail } from "./api";
 import type { DetailPage } from "./contracts";
@@ -21,7 +22,7 @@ export function createDetailRequests(handlers: Handlers) {
     try {
       const result = request.session ? await openHistoryDetail(request.id, request.session) : await nextHistoryDetail(request.id, request.page);
       if (current !== version) return;
-      if (result.readerId !== request.id || result.page !== request.page) throw new Error("返回的历史详情与当前请求不一致，请刷新重试");
+      if (result.readerId !== request.id || result.page !== request.page) throw new TranslationError("history.requests.text_45bd8eb89b");
       last = result; handlers.result(result);
     } catch (error) { if (current === version) handlers.failure(error); }
     finally {

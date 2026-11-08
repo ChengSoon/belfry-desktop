@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { setLocalePreference } from "../i18n";
 import type { TokenTotals } from "./contracts";
 import {
   formatMoment,
@@ -18,6 +19,8 @@ const tokens = (partial: Partial<TokenTotals>): TokenTotals => ({
   ...partial,
 });
 
+afterEach(() => setLocalePreference("zh-CN"));
+
 describe("totalTokens", () => {
   it("四类相加，与后端 total() 口径一致", () => {
     expect(
@@ -31,11 +34,12 @@ describe("totalTokens", () => {
 });
 
 describe("formatTokens", () => {
+  beforeEach(() => setLocalePreference("en"));
   it("按量级选单位并保留一位小数", () => {
     expect(formatTokens(0)).toBe("0");
     expect(formatTokens(999)).toBe("999");
-    expect(formatTokens(1000)).toBe("1k");
-    expect(formatTokens(12_340)).toBe("12.3k");
+    expect(formatTokens(1000)).toBe("1K");
+    expect(formatTokens(12_340)).toBe("12.3K");
     expect(formatTokens(1_250_000)).toBe("1.3M");
     expect(formatTokens(780_562_854)).toBe("781M");
     expect(formatTokens(2_500_000_000)).toBe("2.5B");
@@ -44,12 +48,22 @@ describe("formatTokens", () => {
   it("三位数以上省略小数，保持列宽一致", () => {
     expect(formatTokens(131_606_642)).toBe("132M");
     expect(formatTokens(556_045_161)).toBe("556M");
-    expect(formatTokens(872_600)).toBe("873k");
+    expect(formatTokens(872_600)).toBe("873K");
   });
 
   it("整数量级不显示多余的 .0", () => {
     expect(formatTokens(2_000_000)).toBe("2M");
-    expect(formatTokens(5000)).toBe("5k");
+    expect(formatTokens(5000)).toBe("5K");
+  });
+
+  it("切换到中文后使用万和亿，保留紧凑列宽", () => {
+    setLocalePreference("zh-CN");
+    expect(formatTokens(1000)).toBe("1000");
+    expect(formatTokens(12_340)).toBe("1.2万");
+    expect(formatTokens(2_000_000)).toBe("200万");
+    expect(formatTokens(131_606_642)).toBe("1.3亿");
+    setLocalePreference("en");
+    expect(formatTokens(131_606_642)).toBe("132M");
   });
 
   it("非法输入退化为 0 而不是 NaN", () => {

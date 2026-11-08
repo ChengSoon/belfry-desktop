@@ -32,7 +32,7 @@ pub fn open(app: &AppHandle, request: &Value) -> Result<Value, String> {
         return Ok(Value::Null);
     }
     let window = WebviewWindowBuilder::new(app, label, WebviewUrl::External(url))
-        .title(request["title"].as_str().unwrap_or("插件"))
+        .title(request["title"].as_str().unwrap_or(belfry_i18n::text("插件")))
         .decorations(false)
         .inner_size(
             request["width"]

@@ -5,10 +5,24 @@
 //! `--dangerously-skip-permissions` 启动 Claude，能互相派活 + 跳过确认，
 //! 一次误判就会变成一串会话连锁执行。这种东西必须能单测到每一条边界。
 
-use std::collections::HashMap;
-use std::sync::Mutex;
-
 use serde::{Deserialize, Serialize};
+#[path = "task_persistence.rs"]
+mod persistence;
+pub use persistence::TaskBoard;
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum DeliveryPhase { #[default] Accepted, Queued, Submitting, Submitted, Uncertain, Cancelled }
+
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeliveryReceipt {
+    pub phase: DeliveryPhase,
+    pub attempt_id: Option<String>,
+    #[serde(default)]
+    pub sequence: u64,
+    pub message: Option<String>,
+}
 
 /// 一手能转几道。A→B→C→D 就停。
 ///
@@ -52,7 +66,7 @@ pub enum ApprovalMode {
     Off,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum TaskState {
     /// 等用户点头。没批准之前绝不投递——否则 Ask 模式形同虚设。
@@ -72,7 +86,7 @@ pub enum TaskState {
 ///
 /// 只在 app 内部流转，不进 CLI 协议：房间派发的任务在协作面板和注入文本里
 /// 都要显示成「来自房间名」，而不是一串 `room:<id>` 的伪 tabId。
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", tag = "kind")]
 pub enum TaskOrigin {
     Room { id: String, name: String },
@@ -80,7 +94,7 @@ pub enum TaskOrigin {
 
 /// 房间消息投递的语境。带它的「任务」只负责把消息送进目标终端：不进任务状态机
 /// （没人需要 `belfry done`），也不进协作面板与 inbox——房间的活在房间任务板上。
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatDelivery {
     /// 其中有消息要求对方回复。
@@ -89,7 +103,7 @@ pub struct ChatDelivery {
     pub message_ids: Vec<String>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CollabTask {
     pub id: String,
@@ -113,6 +127,8 @@ pub struct CollabTask {
     /// 让连发并成一段再送出。
     #[serde(default)]
     pub due_at: i64,
+    #[serde(default)]
+    pub delivery: DeliveryReceipt,
 }
 
 /// 派活请求在通过闸门之前的样子。
@@ -143,36 +159,36 @@ pub fn judge(
     messages_this_run: usize,
 ) -> Verdict {
     if request.instruction.trim().is_empty() {
-        return Verdict::Rejected("指令是空的".into());
+        return Verdict::Rejected(belfry_i18n::text("指令是空的").into());
     }
     if request.from == request.to {
         // 自己派给自己会变成一个自己等自己的死结。
-        return Verdict::Rejected("不能给自己派活".into());
+        return Verdict::Rejected(belfry_i18n::text("不能给自己派活").into());
     }
     if !target.exists {
-        return Verdict::Rejected("目标会话不在了".into());
+        return Verdict::Rejected(belfry_i18n::text("目标会话不在了").into());
     }
     if !target.can_receive {
-        return Verdict::Rejected("目标会话现在收不了指令（不是 Agent，或已退出）".into());
+        return Verdict::Rejected(belfry_i18n::text("目标会话现在收不了指令（不是 Agent，或已退出）").into());
     }
     if !target.same_project {
         // 跨项目一律拒，连 Off 模式也不放行：这不是「危险但用户认了」，
         // 而是共享上下文和工作目录都对不上，派过去也做不对。
-        return Verdict::Rejected("不能跨项目派活".into());
+        return Verdict::Rejected(belfry_i18n::text("不能跨项目派活").into());
     }
 
     let hop = next_hop(request.parent);
     if hop > MAX_HOPS {
-        return Verdict::Rejected(format!("转包层数超过上限（{MAX_HOPS} 手）"));
+        return Verdict::Rejected(belfry_i18n::lformat!("转包层数超过上限（{MAX_HOPS} 手）"));
     }
     if let Some(parent) = request.parent
         && parent.path.iter().any(|node| node == request.to)
     {
         // A→B→A 这种环会让两条会话互相等待，谁也不会先动。
-        return Verdict::Rejected("这条调用链里已经有目标会话了，会绕成环".into());
+        return Verdict::Rejected(belfry_i18n::text("这条调用链里已经有目标会话了，会绕成环").into());
     }
     if messages_this_run >= MAX_MESSAGES_PER_RUN {
-        return Verdict::Rejected(format!(
+        return Verdict::Rejected(belfry_i18n::lformat!(
             "这一轮的消息数已达上限（{MAX_MESSAGES_PER_RUN} 条）"
         ));
     }
@@ -219,6 +235,7 @@ pub fn build_task(
         origin: None,
         chat: None,
         due_at: 0,
+        delivery: DeliveryReceipt::default(),
     }
 }
 
@@ -226,13 +243,17 @@ pub fn build_task(
 ///
 /// 同房间、同接收者、还在排队、窗口内的投递并成一段（要求回复只升级不降级），
 /// 成员读到一段对话摘录，而不是被反复打断。
-pub fn enqueue_room_post(board: &TaskBoard, from: &str, post: &super::RoomPost, now: i64) {
-    let Ok(mut tasks) = board.tasks.lock() else { return };
+pub fn enqueue_room_post(board: &TaskBoard, from: &str, post: &super::RoomPost, now: i64) -> Result<(), String> {
+    board.edit(|tasks| {
+    if tasks.values().any(|task| task.to == post.tab_id && matches!(&task.origin, Some(TaskOrigin::Room { id, .. }) if id == &post.room_id)
+        && task.chat.as_ref().is_some_and(|chat| chat.message_ids.contains(&post.message_id))) { return Ok(()); }
     let pending = tasks
         .values_mut()
         .filter(|task| {
             task.chat.is_some()
                 && task.state == TaskState::Queued
+                && task.delivery.phase == DeliveryPhase::Accepted && task.delivery.attempt_id.is_none()
+                && task.instruction.len() + post.line.len() < 512 * 1024
                 && task.to == post.tab_id
                 && now - task.created_at <= CHAT_MERGE_WINDOW_MS
                 && matches!(&task.origin, Some(TaskOrigin::Room { id, .. }) if id == &post.room_id)
@@ -248,7 +269,7 @@ pub fn enqueue_room_post(board: &TaskBoard, from: &str, post: &super::RoomPost, 
             task.instruction.push_str(post.line.trim());
         }
         task.due_at = now + CHAT_DEBOUNCE_MS;
-        return;
+        return Ok(());
     }
     let id = ulid::Ulid::generate().to_string().to_lowercase();
     tasks.insert(
@@ -266,8 +287,16 @@ pub fn enqueue_room_post(board: &TaskBoard, from: &str, post: &super::RoomPost, 
             origin: Some(TaskOrigin::Room { id: post.room_id.clone(), name: post.room_name.clone() }),
             chat: Some(ChatDelivery { ask: post.ask, message_ids: vec![post.message_id.clone()] }),
             due_at: now + CHAT_DEBOUNCE_MS,
+            delivery: DeliveryReceipt::default(),
         },
     );
+    Ok(())
+    })
+}
+
+pub fn display_state(task: &CollabTask) -> String {
+    if task.state != TaskState::Queued { return format!("{:?}", task.state).to_lowercase(); }
+    format!("{:?}", task.delivery.phase).to_lowercase()
 }
 
 /// 注入目标终端的文本。
@@ -278,16 +307,16 @@ pub fn injection_text(task: &CollabTask, from_label: &str) -> String {
     // 房间消息：没有任务号、没有 done 行——房间的活记在任务板上，不在这里交差。
     if let Some(chat) = &task.chat {
         let footer = if chat.ask {
-            "有消息要求你回复：belfry room say --reply <短id> <你的话>"
+            belfry_i18n::text("有消息要求你回复：belfry room say --reply <短id> <你的话>")
         } else {
-            "要接话用 belfry room say <你的话>（回复某条加 --reply <短id>）；没有要补充的不必回复。"
+            belfry_i18n::text("要接话用 belfry room say <你的话>（回复某条加 --reply <短id>）；没有要补充的不必回复。")
         };
-        return format!("[belfry] 房间「{from_label}」：\n{}\n{footer}", task.instruction);
+        return belfry_i18n::lformat!("[belfry] 房间「{from_label}」：\n{}\n{footer}", task.instruction);
     }
     // 这行命令必须和 CLI 的实参语法逐字对上：`done` 收的是位置参数。写成
     // `--task <id>` 的话，Agent 照着敲会把 `--task` 当成任务号——真任务永远结不掉，
     // 而它自己以为已经交差了。e2e 测试会把这行原样跑一遍来钉住。
-    format!(
+    belfry_i18n::lformat!(
         "[belfry] 来自「{from_label}」的任务 {}\n{}\n完成后执行：belfry done {}",
         short_id(&task.id),
         task.instruction,
@@ -316,200 +345,10 @@ pub fn short_id(id: &str) -> &str {
     &id[start..]
 }
 
-/// 在跑的任务。
-///
-/// 只活在内存：会话进程跨不过应用重启，存下来的任务只是一份没人认领的空壳。
-/// 这条和 Recipe 的 RecipeRun 是同一个判断。
-#[derive(Default)]
-pub struct TaskBoard {
-    tasks: Mutex<HashMap<String, CollabTask>>,
-}
-
-impl TaskBoard {
-    pub fn insert(&self, task: CollabTask) {
-        if let Ok(mut tasks) = self.tasks.lock() {
-            tasks.insert(task.id.clone(), task);
-        }
-    }
-
-    /// 取一条。目前只有测试在用——生产路径要么整份 snapshot，要么按状态过滤。
-    #[cfg(test)]
-    pub fn get(&self, id: &str) -> Option<CollabTask> {
-        self.tasks.lock().ok()?.get(id).cloned()
-    }
-
-    /// 目标声明干完了。
-    ///
-    /// 只有任务的**接收方**能改自己的状态：派活方说「你干完了」没有意义，
-    /// 而让任意会话都能标记完成，等于把这个信号的可信度降为零。
-    pub fn settle(
-        &self,
-        id: &str,
-        claimant: &str,
-        state: TaskState,
-        result: Option<String>,
-    ) -> Result<CollabTask, String> {
-        let Ok(mut tasks) = self.tasks.lock() else {
-            return Err("任务表锁不上".into());
-        };
-        let Some(task) = tasks.get_mut(id) else {
-            return Err(format!("没有编号 {id} 的任务"));
-        };
-        if task.to != claimant {
-            return Err("这条任务不是派给你的".into());
-        }
-        if matches!(task.state, TaskState::Done | TaskState::Failed) {
-            return Err("这条任务已经结了".into());
-        }
-        task.state = state;
-        task.result = result;
-        Ok(task.clone())
-    }
-
-    /// 还没投递给目标终端的任务。
-    ///
-    /// 前端定期来取，投进 Prompt 队列后回头调 `mark_dispatched`。用拉而不是推，
-    /// 是因为只有前端知道终端目标注册好了没——它手上有 targets 表。
-    pub fn pending(&self) -> Vec<CollabTask> {
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|value| value.as_millis() as i64)
-            .unwrap_or_default();
-        self.tasks
-            .lock()
-            .map(|tasks| {
-                let mut queued: Vec<CollabTask> = tasks
-                    .values()
-                    .filter(|task| task.state == TaskState::Queued)
-                    // 防抖期没到就先攒着：等安静下来整段送出。
-                    .filter(|task| task.due_at <= now)
-                    .cloned()
-                    .collect();
-                // 按创建时间投递：同一目标收到多条时，顺序应该和派活顺序一致。
-                queued.sort_by_key(|task| task.created_at);
-                queued
-            })
-            .unwrap_or_default()
-    }
-
-    /// 标记已交给终端。
-    ///
-    /// 只从 Queued 迁移：已经结掉的任务不该被一次迟到的投递回执改回进行中。
-    pub fn mark_dispatched(&self, id: &str) {
-        if let Ok(mut tasks) = self.tasks.lock()
-            && let Some(task) = tasks.get_mut(id)
-            && task.state == TaskState::Queued
-        {
-            task.state = TaskState::Dispatched;
-        }
-    }
-
-    /// 收掉一条任务。房间消息的投递在送达记进账本后由对账立即回收，避免只增不减。
-    pub fn remove(&self, id: &str) {
-        if let Ok(mut tasks) = self.tasks.lock() {
-            tasks.remove(id);
-        }
-    }
-
-    /// 用户点头，放行投递。
-    ///
-    /// 只放行还在等的：已经拒掉或结掉的不该被一次误点改回去。
-    pub fn approve(&self, id: &str) -> Result<CollabTask, String> {
-        let Ok(mut tasks) = self.tasks.lock() else {
-            return Err("任务表锁不上".into());
-        };
-        let Some(task) = tasks.get_mut(id) else {
-            return Err(format!("没有编号 {id} 的任务"));
-        };
-        if task.state != TaskState::PendingApproval {
-            return Err("这条任务不在等确认".into());
-        }
-        task.state = TaskState::Queued;
-        Ok(task.clone())
-    }
-
-    /// 用户否掉一条待确认的任务。
-    pub fn reject(&self, id: &str) -> Result<CollabTask, String> {
-        let Ok(mut tasks) = self.tasks.lock() else {
-            return Err("任务表锁不上".into());
-        };
-        let Some(task) = tasks.get_mut(id) else {
-            return Err(format!("没有编号 {id} 的任务"));
-        };
-        if task.state != TaskState::PendingApproval {
-            return Err("这条任务不在等确认".into());
-        }
-        task.state = TaskState::Abandoned;
-        task.result = Some("用户拒绝了这条派活".into());
-        Ok(task.clone())
-    }
-
-    /// 一键全停。
-    ///
-    /// 比任何单条操作都重要：协作跑飞时用户需要一个不用想、不用挑的出口。
-    /// 已经交给终端的拦不回来，但至少不再有新的进去。
-    pub fn stop_all(&self) -> usize {
-        let Ok(mut tasks) = self.tasks.lock() else {
-            return 0;
-        };
-        // 房间消息不是可「停」的工作：直接清掉，不占用「已停止」的账。
-        tasks.retain(|_, task| task.chat.is_none());
-        let mut stopped = 0;
-        for task in tasks.values_mut() {
-            if matches!(
-                task.state,
-                TaskState::PendingApproval | TaskState::Queued | TaskState::Dispatched
-            ) {
-                task.state = TaskState::Abandoned;
-                task.result = Some("用户中止了协作".into());
-                stopped += 1;
-            }
-        }
-        stopped
-    }
-
-    /// 某条会话作为接收方还没结的任务。用来在会话关闭时收尾。
-    pub fn abandon_for(&self, tab_id: &str) {
-        if let Ok(mut tasks) = self.tasks.lock() {
-            // 房间消息的投递没有终态：目标没了就直接移除，别留成永远挂着的空壳。
-            tasks.retain(|_, task| !(task.to == tab_id && task.chat.is_some()));
-            for task in tasks.values_mut() {
-                if task.to == tab_id
-                    && matches!(
-                        task.state,
-                        TaskState::PendingApproval | TaskState::Queued | TaskState::Dispatched
-                    )
-                {
-                    task.state = TaskState::Abandoned;
-                }
-            }
-        }
-    }
-
-    /// 这一轮已经发生过多少条。预算闸门读它。
-    pub fn count_in_path(&self, root: &str) -> usize {
-        self.tasks
-            .lock()
-            .map(|tasks| {
-                tasks
-                    .values()
-                    // 房间消息不占派活预算：讨论不该把「这一轮还能派几条」吃掉。
-                    .filter(|task| {
-                        task.chat.is_none() && task.path.first().is_some_and(|first| first == root)
-                    })
-                    .count()
-            })
-            .unwrap_or(0)
-    }
-
-    pub fn snapshot(&self) -> Vec<CollabTask> {
-        self.tasks
-            .lock()
-            .map(|tasks| tasks.values().cloned().collect())
-            .unwrap_or_default()
-    }
-}
-
 #[cfg(test)]
 #[path = "task_test.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "task_persistence_test.rs"]
+mod persistence_tests;

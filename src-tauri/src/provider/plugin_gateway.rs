@@ -148,7 +148,7 @@ fn live(kind: AgentKind) -> (String, Option<ProviderConfig>) {
             (
                 model,
                 claude::detect_live(&settings)
-                    .map(|(url, key, model)| ("当前 Claude Provider".into(), url, model, key)),
+                    .map(|(url, key, model)| (belfry_i18n::text("当前 Claude Provider").into(), url, model, key)),
             )
         }
         AgentKind::Antigravity | AgentKind::Opencode | AgentKind::Kimi => {
@@ -198,7 +198,7 @@ fn routes(store: &store::StoreFile) -> Result<Vec<ModelRoute>, String> {
 }
 pub(crate) fn dispatch(app: &AppHandle, api: &str, args: &Value) -> Result<Value, String> {
     if !matches!(api, "models.list" | "models.resolve") {
-        return Err("不支持的模型操作".into());
+        return Err(belfry_i18n::text("不支持的模型操作").into());
     }
     let _guard = store::lock().map_err(|error| error.message)?;
     let store = store::load(app).map_err(|error| error.message)?;
@@ -207,11 +207,11 @@ pub(crate) fn dispatch(app: &AppHandle, api: &str, args: &Value) -> Result<Value
         return serde_json::to_value(models.iter().map(|route| &route.info).collect::<Vec<_>>())
             .map_err(|error| error.to_string());
     }
-    let key = args[0].as_str().ok_or("模型标识无效")?;
+    let key = args[0].as_str().ok_or(belfry_i18n::text("模型标识无效"))?;
     let model = models
         .into_iter()
         .find(|route| route.info.key == key)
-        .ok_or("模型未配置或已移除，请在 Provider 中设置模型")?;
+        .ok_or(belfry_i18n::text("模型未配置或已移除，请在 Provider 中设置模型"))?;
     // 只向宿主的实际模型调用返回所选凭据；列表不携带秘密。
     // store::load 仍会在存储层认证解密载荷，以便损坏时失败关闭。
     let api_key = if model.stored {

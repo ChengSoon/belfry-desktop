@@ -3,7 +3,7 @@ import { toAppFailure } from "../workspace/errors";
 import { readGitDiff } from "./api";
 import type { DiffRequest, GitDiff } from "./contracts";
 
-interface State { key: string; diff: GitDiff | null; loading: boolean; failure: string | null }
+interface State { key: string; diff: GitDiff | null; loading: boolean; failure: ReturnType<typeof toAppFailure> | null }
 
 export function useGitDiff(request: DiffRequest | null) {
   const [revision, setRevision] = useState(0);
@@ -16,10 +16,10 @@ export function useGitDiff(request: DiffRequest | null) {
     void readGitDiff(request).then((diff) => {
       if (active) setState({ key, diff, loading: false, failure: null });
     }).catch((error) => {
-      if (active) setState({ key, diff: null, loading: false, failure: toAppFailure(error).message });
+      if (active) setState({ key, diff: null, loading: false, failure: toAppFailure(error) });
     });
     return () => { active = false; };
   }, [key]);
   const current = state.key === key ? state : { key, diff: null, loading: Boolean(request), failure: null };
-  return { ...current, reload: () => setRevision((current) => current + 1) };
+  return { ...current, failure: current.failure?.message ?? null, reload: () => setRevision((current) => current + 1) };
 }

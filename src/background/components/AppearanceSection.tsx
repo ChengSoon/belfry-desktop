@@ -1,3 +1,4 @@
+import { localized, t, useTranslation } from "../../i18n";
 import { RotateCcw } from "lucide-react";
 import { ICON } from "../../theme/sizing";
 import { SettingsHeader } from "../../settings/SettingsHeader";
@@ -15,26 +16,30 @@ import { FontImportCard } from "./FontImportCard";
 import { ThemePicker } from "../../plugins/ThemePicker";
 import "./appearance.css";
 import { Slider as CustomSlider } from "../../components/controls/Slider";
+import { LanguageSettings } from "../../i18n/LanguageSettings";
 
-const FIT_LABEL: Record<BackgroundFit, string> = {
-  cover: "覆盖",
-  contain: "适应",
-  tile: "平铺",
-  center: "居中",
-};
+const FIT_LABEL: Record<BackgroundFit, string> = localized(() => ({
+  cover: t("background.AppearanceSection.text_4ce4c98eb2"),
+  contain: t("background.AppearanceSection.text_53c9aca4b6"),
+  tile: t("background.AppearanceSection.text_01d70f8715"),
+  center: t("background.AppearanceSection.text_4cc3885c18"),
+}));
 
 /**
  * 外观分区。全局排版与背景图都在这里即时预览并持久化。
  */
 export function AppearanceSection() {
+  useTranslation();
   const { config } = useBackground();
 
   return (
-    <section aria-label="外观" className="appearance">
+    <section aria-label={t("background.AppearanceSection.text_86a63f23a0")} className="appearance">
       {/* 这一页原先直接甩控件、没有页面标题，在八页里是唯一一个「进去不知道
           自己在哪」的。标题走统一页头；不凑说明文案——外观一进去就看得懂，
           硬加一句是 filler 不是说明。 */}
-      <SettingsHeader title="外观" />
+      <SettingsHeader title={t("background.AppearanceSection.text_86a63f23a0")} />
+      <LanguageSettings />
+      <div className="appearance__divider" />
       <ThemePicker />
       <div className="appearance__divider" />
       <TypographyControls />
@@ -46,6 +51,7 @@ export function AppearanceSection() {
 }
 
 function TypographyControls() {
+  useTranslation();
   const { config, busy, error, update, pick, clearImported, reset } = useTypography();
   const font = useFontChoice(config, update);
   const isDefault = config.fontFamily === DEFAULT_TYPOGRAPHY.fontFamily
@@ -53,7 +59,7 @@ function TypographyControls() {
     && config.activeImportedFont === null;
 
   return (
-    <div aria-label="字体与字号" className="appearance__group" role="group">
+    <div aria-label={t("background.AppearanceSection.text_01cf42c6b1")} className="appearance__group" role="group">
       <TypographyHeading
         disabled={busy || isDefault}
         onReset={() => {
@@ -61,8 +67,8 @@ function TypographyControls() {
           void reset();
         }}
       />
-      <div aria-label="字体预览" className="appearance__type-preview">
-        <strong>Aa 中文 0123</strong>
+      <div aria-label={t("background.AppearanceSection.text_c977f732b2")} className="appearance__type-preview">
+        <strong>{t("background.AppearanceSection.text_cbd8a4ff69")}</strong>
         <span>~/project $ codex</span>
       </div>
       <FontFamilyField
@@ -85,7 +91,7 @@ function TypographyControls() {
       />
       <Slider
         format={(value) => `${value}px`}
-        label="字号"
+        label={t("background.AppearanceSection.text_f71561b5af")}
         max={MAX_FONT_SIZE}
         min={MIN_FONT_SIZE}
         onChange={(fontSize) => update({ fontSize })}
@@ -97,17 +103,18 @@ function TypographyControls() {
 }
 
 function TypographyHeading({ disabled, onReset }: { disabled: boolean; onReset: () => void }) {
+  useTranslation();
   return (
     <div className="appearance__heading">
       {/* 页面标题已经是 h2（统一页头），这条是页内小节的标题，降一档到 h3，
           免得和页面标题平级、读起来像两个并列的页面名。 */}
-      <h3>字体与字号</h3>
+      <h3>{t("background.AppearanceSection.text_01cf42c6b1")}</h3>
       <button
-        aria-label="恢复默认排版"
+        aria-label={t("background.AppearanceSection.text_8ffe2ff1fe")}
         className="icon-button icon-button--sm"
         disabled={disabled}
         onClick={onReset}
-        title="恢复默认排版"
+        title={t("background.AppearanceSection.text_8ffe2ff1fe")}
         type="button"
       >
         <RotateCcw aria-hidden="true" size={ICON.sm} />
@@ -117,11 +124,12 @@ function TypographyHeading({ disabled, onReset }: { disabled: boolean; onReset: 
 }
 
 function BackgroundPreview() {
+  useTranslation();
   const { config, url, busy, error, pick, clear, update } = useBackground();
   const isVideo = Boolean(url && config.mime?.startsWith("video/"));
   return (
     <div className="appearance__field">
-      <span className="appearance__label">壁纸</span>
+      <span className="appearance__label">{t("background.AppearanceSection.text_bbaa9f0637")}</span>
       <div className="appearance__preview">
         {url ? (
           <>
@@ -136,15 +144,15 @@ function BackgroundPreview() {
                 src={url ?? undefined}
               />
             ) : <div className="appearance__preview-image" />}
-            <span className="appearance__preview-text">Aa 示例文字 the quick brown fox</span>
+            <span className="appearance__preview-text">{t("background.AppearanceSection.text_066c476487")}</span>
           </>
         ) : (
-          <span className="appearance__preview-empty">还没有设置壁纸</span>
+          <span className="appearance__preview-empty">{t("background.AppearanceSection.text_847fba2b66")}</span>
         )}
       </div>
       <div className="appearance__actions">
         <button disabled={busy} onClick={() => void pick()} type="button">
-          {config.fileName ? "更换…" : "选择图片或视频…"}
+          {config.fileName ? t("background.AppearanceSection.text_a21a41e49d") : t("background.AppearanceSection.text_fdc86813c9")}
         </button>
         {isVideo ? (
           <button
@@ -152,11 +160,11 @@ function BackgroundPreview() {
             onClick={() => update({ videoPaused: !config.videoPaused })}
             type="button"
           >
-            {config.videoPaused ? "播放" : "暂停"}
+            {config.videoPaused ? t("background.AppearanceSection.text_c3396195e9") : t("background.AppearanceSection.text_8d12fc0d4e")}
           </button>
         ) : null}
         {config.fileName ? (
-          <button disabled={busy} onClick={() => void clear()} type="button">移除</button>
+          <button disabled={busy} onClick={() => void clear()} type="button">{t("background.AppearanceSection.text_6135d4159e")}</button>
         ) : null}
       </div>
       {error ? <p className="appearance__error" role="alert">{error}</p> : null}
@@ -165,6 +173,7 @@ function BackgroundPreview() {
 }
 
 function BackgroundControls() {
+  useTranslation();
   const { config, update } = useBackground();
   const { mode } = useTheme();
   const fits = config.mime?.startsWith("video/")
@@ -174,7 +183,7 @@ function BackgroundControls() {
     <>
       <Slider
         format={(value) => `${Math.round(value * 100)}%`}
-        label="图片可见度"
+        label={t("background.AppearanceSection.text_abccbb979b")}
         max={1}
         min={0}
         onChange={(opacity) => update({ opacity })}
@@ -185,7 +194,7 @@ function BackgroundControls() {
           所以标签不必标注亮/暗（.appearance__label 那一列是写死的 60px，标了会压到滑轨上）。 */}
       <Slider
         format={(value) => `${Math.round(value * 100)}%`}
-        label="文字衬底"
+        label={t("background.AppearanceSection.text_55ed590170")}
         max={1}
         min={0}
         onChange={(value) => update({ veil: { ...config.veil, [mode]: value } })}
@@ -194,7 +203,7 @@ function BackgroundControls() {
       />
       <Slider
         format={(value) => `${value}px`}
-        label="模糊"
+        label={t("background.AppearanceSection.text_36bab7a3de")}
         max={MAX_BLUR}
         min={0}
         onChange={(blur) => update({ blur })}
@@ -202,8 +211,8 @@ function BackgroundControls() {
         value={config.blur}
       />
       <div className="appearance__row">
-        <span className="appearance__label">填充</span>
-        <div aria-label="填充方式" className="appearance__segments" role="group">
+        <span className="appearance__label">{t("background.AppearanceSection.text_05fb7cba47")}</span>
+        <div aria-label={t("background.AppearanceSection.text_db47d34f0f")} className="appearance__segments" role="group">
           {fits.map((fit) => (
             <button
               aria-pressed={fit === config.fit}
@@ -232,6 +241,7 @@ interface SliderProps {
 }
 
 function Slider({ label, value, min, max, step, format, onChange }: SliderProps) {
+  useTranslation();
   return (
     <div className="appearance__row">
       <span className="appearance__label">{label}</span>

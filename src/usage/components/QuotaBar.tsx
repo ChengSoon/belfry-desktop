@@ -1,3 +1,4 @@
+import { t, useTranslation } from "../../i18n";
 import type { AgentQuota, QuotaWindow } from "../contracts";
 import { agentLabel, formatMoment, formatPercent, formatWindow, percentWidth } from "../format";
 
@@ -9,10 +10,11 @@ function toneOf(usedPercent: number) {
 }
 
 export function QuotaBar({ quota }: { quota: AgentQuota }) {
+  useTranslation();
   // 两个窗口都可能缺失（实测 secondary 恒为 null），逐个收集非空项。
   const windows: { label: string; value: QuotaWindow }[] = [];
-  if (quota.primary) windows.push({ label: "主窗口", value: quota.primary });
-  if (quota.secondary) windows.push({ label: "次窗口", value: quota.secondary });
+  if (quota.primary) windows.push({ label: t("usage.QuotaBar.text_b93c528c47"), value: quota.primary });
+  if (quota.secondary) windows.push({ label: t("usage.QuotaBar.text_19913e6caa"), value: quota.secondary });
 
   if (windows.length === 0) return null;
 
@@ -28,9 +30,9 @@ export function QuotaBar({ quota }: { quota: AgentQuota }) {
             <i style={{ width: `${percentWidth(value.usedPercent)}%` }} />
           </div>
           <div className="usage-quota__meta">
-            <span>已用 {formatPercent(value.usedPercent)}</span>
+            <span>{t("usage.QuotaBar.text_a5b656c1ee", { percentage: formatPercent(value.usedPercent) })}</span>
             {formatWindow(value.windowMinutes) ? <span>{formatWindow(value.windowMinutes)}</span> : null}
-            {formatMoment(value.resetsAt) ? <span>{formatMoment(value.resetsAt)} 重置</span> : null}
+            {formatMoment(value.resetsAt) ? <span>{t("usage.QuotaBar.text_e6082c8062", { time: formatMoment(value.resetsAt) })}</span> : null}
           </div>
         </div>
       ))}

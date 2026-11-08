@@ -82,7 +82,11 @@ fn cancellation_and_timeout_terminate_only_the_managed_process_group() {
         let started = Instant::now();
         let result = process::run(command, &flag, timeout);
         assert!(started.elapsed() < Duration::from_secs(9));
-        assert!(result.unwrap_err().message.contains(if cancelled { "取消" } else { "超时" }));
+        assert_eq!(result.unwrap_err().code.0, if cancelled {
+            "SSH_THE_SSH_REQUEST_WAS_CANCELLED"
+        } else {
+            "SSH_THE_SSH_REQUEST_TIMED_OUT_CHECK_THE"
+        });
     }
 }
 
@@ -98,5 +102,5 @@ fn cancellation_marks_exact_request_and_rejects_duplicate_ids() {
     requests.finish("first");
     assert!(requests.begin("first").is_ok());
     requests.cancel("early");
-    assert!(requests.begin("early").unwrap_err().message.contains("取消"));
+    assert_eq!(requests.begin("early").unwrap_err().code.0, "SSH_THE_SSH_REQUEST_WAS_CANCELLED");
 }

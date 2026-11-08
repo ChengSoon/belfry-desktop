@@ -41,7 +41,7 @@ fn local(kind: AgentKind) -> LocalRelease {
             executable: None,
             current_version: None,
             package: package::default_package(kind).map(str::to_owned),
-            notice: Some(format!("未在用户命令环境中找到 {}", kind.command_name())),
+            notice: Some(belfry_i18n::lformat!("未在用户命令环境中找到 {}", kind.command_name())),
         };
     };
     let path = executable.to_string_lossy().to_string();
@@ -63,7 +63,7 @@ fn local(kind: AgentKind) -> LocalRelease {
             executable: Some(path),
             current_version: fallback_version(&executable),
             package: None,
-            notice: (!native::supported(kind)).then(|| "已安装，请通过原安装渠道更新".to_string()),
+            notice: (!native::supported(kind)).then(|| belfry_i18n::text("已安装，请通过原安装渠道更新").to_string()),
         },
     }
 }
@@ -116,12 +116,12 @@ pub(crate) fn package_for(kind: AgentKind) -> Result<String, crate::terminal::Ap
         Some(executable) => match package::detect(&executable) {
             Some(resolved) => Ok(resolved.package),
             None => Err(crate::terminal::AppError::unsupported(
-                "该 CLI 不是 npm 全局包，无法一键升级，请在终端中手动更新",
+                belfry_i18n::text("该 CLI 不是 npm 全局包，无法一键升级，请在终端中手动更新"),
             )),
         },
         None => package::default_package(kind)
             .map(str::to_owned)
-            .ok_or_else(|| crate::terminal::AppError::unsupported("此 CLI 使用官方原生安装器")),
+            .ok_or_else(|| crate::terminal::AppError::unsupported(belfry_i18n::text("此 CLI 使用官方原生安装器"))),
     }
 }
 
@@ -176,7 +176,7 @@ async fn latest(item: LocalRelease) -> AgentRelease {
                 Some(false) => (ReleaseState::Ready, None),
                 None => (
                     ReleaseState::Unknown,
-                    Some("无法确定当前版本与最新版本的关系".to_string()),
+                    Some(belfry_i18n::text("无法确定当前版本与最新版本的关系").to_string()),
                 ),
             };
             // 装的是第三方镜像时，官方包可能已经跑到前面：镜像不跟进，卡片上就
@@ -200,7 +200,7 @@ async fn latest(item: LocalRelease) -> AgentRelease {
                 install_command,
             }
         }
-        Ok(None) => unknown(item, "npm registry 上找不到该包"),
+        Ok(None) => unknown(item, belfry_i18n::text("npm registry 上找不到该包")),
         Err(message) => unknown(item, &message),
     }
 }
@@ -234,7 +234,7 @@ fn lag_notice_text(
     if version::is_upgradable(mirror_latest, official_latest) != Some(true) {
         return None;
     }
-    Some(format!(
+    Some(belfry_i18n::lformat!(
         "官方包 {official} 已发布 {official_latest}；本机装的是第三方镜像 {package}（最新 {mirror_latest}），一键升级只能拿到镜像的版本。要换用官方包：npm install -g {official}@latest"
     ))
 }
@@ -257,7 +257,7 @@ fn unknown(item: LocalRelease, message: &str) -> AgentRelease {
 async fn latest_native(item: LocalRelease) -> AgentRelease {
     let latest = match native::latest(item.kind).await {
         Ok(Some(version)) => version,
-        Ok(None) => return unknown(item, "官方发布服务器未返回版本号"),
+        Ok(None) => return unknown(item, belfry_i18n::text("官方发布服务器未返回版本号")),
         Err(message) => return unknown(item, &message),
     };
     let state = match item

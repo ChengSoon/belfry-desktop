@@ -1,3 +1,4 @@
+import { t, useTranslation } from "../i18n";
 import { AlertTriangle, X } from "lucide-react";
 import type { AgentAvailability, AgentKind } from "../agent/contracts";
 import type { HistorySession } from "../history/contracts";
@@ -22,19 +23,19 @@ import type { PausedDelivery } from "../prompt/runtime";
 import type { TerminalCommandTarget } from "../terminal/contracts";
 import { Presence } from "./motion/Presence";
 
-const SettingsPanel = createOptionalPanel({ title: "设置", layout: "settings", exportName: "SettingsPanel",
+const SettingsPanel = createOptionalPanel({ get title() { return t("components.AppOverlays.text_df3d58c7d8"); }, layout: "settings", exportName: "SettingsPanel",
   load: () => import("../settings/SettingsPanel").then((module) => ({ default: module.SettingsPanel })) });
-const RoomPanel = createOptionalPanel({ title: "协作房间", layout: "room", exportName: "RoomView",
+const RoomPanel = createOptionalPanel({ get title() { return t("components.AppOverlays.text_63235691ff"); }, layout: "room", exportName: "RoomView",
   load: () => import("../rooms/view/RoomView").then((module) => ({ default: module.RoomView })) });
-const HistoryPanel = createOptionalPanel({ title: "历史会话", layout: "history", width: HISTORY_WIDTH, exportName: "HistoryPanel",
+const HistoryPanel = createOptionalPanel({ get title() { return t("components.AppOverlays.text_0eccd0db7b"); }, layout: "history", width: HISTORY_WIDTH, exportName: "HistoryPanel",
   load: () => import("../history/components/HistoryPanel").then((module) => ({ default: module.HistoryPanel })) });
-const UsagePanel = createOptionalPanel({ title: "用量", layout: "usage", width: USAGE_WIDTH, exportName: "UsagePanel",
+const UsagePanel = createOptionalPanel({ get title() { return t("components.AppOverlays.text_42723e8b49"); }, layout: "usage", width: USAGE_WIDTH, exportName: "UsagePanel",
   load: () => import("../usage/components/UsagePanel").then((module) => ({ default: module.UsagePanel })) });
 const QuickOpen = createOptionalPanel({ title: "Quick Open", layout: "modal", exportName: "QuickOpen",
   load: () => import("../quickopen/QuickOpen").then((module) => ({ default: module.QuickOpen })) });
-const ShortcutGuide = createOptionalPanel({ title: "快捷指令", layout: "modal", exportName: "ShortcutGuide",
+const ShortcutGuide = createOptionalPanel({ get title() { return t("components.AppOverlays.text_c813e695f2"); }, layout: "modal", exportName: "ShortcutGuide",
   load: () => import("../shortcuts/ShortcutGuide").then((module) => ({ default: module.ShortcutGuide })) });
-const UpdateDialog = createOptionalPanel({ title: "应用更新", layout: "modal", exportName: "UpdateDialog",
+const UpdateDialog = createOptionalPanel({ get title() { return t("components.AppOverlays.text_64c230d225"); }, layout: "modal", exportName: "UpdateDialog",
   load: () => import("../updater/UpdateDialog").then((module) => ({ default: module.UpdateDialog })) });
 
 interface AppOverlaysProps {
@@ -85,6 +86,7 @@ interface AppOverlaysProps {
 }
 
 export function AppOverlays(props: AppOverlaysProps) {
+  useTranslation();
   return <>
     <PrimaryPanels {...props} />
     {props.failure ? <FailureToast failure={props.failure} onClose={props.onDismissFailure} /> : null}
@@ -94,6 +96,7 @@ export function AppOverlays(props: AppOverlaysProps) {
 }
 
 function PrimaryPanels(props: AppOverlaysProps) {
+  useTranslation();
   return (
     <>
       {props.settingsOpen ? (
@@ -146,16 +149,17 @@ function PrimaryPanels(props: AppOverlaysProps) {
 }
 
 function WorkspaceConfirmations(props: AppOverlaysProps) {
+  useTranslation();
   return (
     <>
       <Presence open={!!props.pendingClose}>
       {props.pendingClose ? (
         <ConfirmDialog
           body={closeConfirmBody(props.pendingClose)}
-          confirmLabel="关闭"
+          confirmLabel={t("components.AppOverlays.text_3fd47edce4")}
           onCancel={props.onCancelClose}
           onConfirm={props.onConfirmClose}
-          title={`关闭 ${props.pendingClose.title}？`}
+          title={t("components.AppOverlays.text_5cd3713fdd", { title: props.pendingClose.title })}
         />
       ) : null}
       </Presence>
@@ -164,10 +168,10 @@ function WorkspaceConfirmations(props: AppOverlaysProps) {
       {props.pendingRemove ? (
         <ConfirmDialog
           body={removeRecentConfirmBody(props.pendingRemove, props.pendingRemoveTabCount)}
-          confirmLabel="删除"
+          confirmLabel={t("components.AppOverlays.text_2f9daa8289")}
           onCancel={props.onCancelRemove}
           onConfirm={props.onConfirmRemove}
-          title={`删除 ${props.pendingRemove.name}？`}
+          title={t("components.AppOverlays.text_5caa73305f", { name: props.pendingRemove.name })}
         />
       ) : null}
       </Presence>
@@ -177,6 +181,7 @@ function WorkspaceConfirmations(props: AppOverlaysProps) {
 }
 
 function UtilityPanels(props: AppOverlaysProps) {
+  useTranslation();
   return (
     <>
       {props.updaterOpen ? (
@@ -196,11 +201,12 @@ function UtilityPanels(props: AppOverlaysProps) {
 }
 
 function FailureToast({ failure, onClose }: { failure: AppFailure; onClose: () => void }) {
+  useTranslation();
   return (
     <div className="failure-toast" role="alert">
       <AlertTriangle aria-hidden="true" size={ICON.lg} />
       <p>{failureLabel(failure)}</p>
-      <button onClick={onClose} title="关闭错误提示" type="button">
+      <button onClick={onClose} title={t("components.AppOverlays.text_ee618f2d79")} type="button">
         <X aria-hidden="true" size={ICON.sm} />
       </button>
     </div>

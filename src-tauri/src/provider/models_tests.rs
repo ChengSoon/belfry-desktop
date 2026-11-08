@@ -72,7 +72,7 @@ fn claude_pagination_sends_anthropic_headers() {
 fn authentication_error_does_not_expose_response_or_retry() {
     let (url, server) = mock_server(vec![(401, "private-error-body")]);
     let error = tauri::async_runtime::block_on(fetch(AgentKind::Claude, &url, "demo-key")).unwrap_err();
-    assert!(error.message.contains("认证失败"));
+    assert_eq!(error.code.0, "PROVIDER_AUTHENTICATION_FAILED_CHECK_THE_API_KEY_AND");
     assert!(!error.message.contains("private-error-body"));
     assert!(!error.message.contains("demo-key"));
     assert_eq!(1, server.join().unwrap().len());

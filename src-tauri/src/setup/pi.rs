@@ -20,16 +20,16 @@ fn auth_check(executable: &Path) -> EnvironmentCheck {
     match auth_credentials() {
         Ok(0) | Err(_) => {}
         Ok(count) => {
-            return check(CheckState::Ok, format!("Pi 已配置凭据（{count} 项）"));
+            return check(CheckState::Ok, belfry_i18n::lformat!("Pi 已配置凭据（{count} 项）"));
         }
     }
     match process::run(executable, &["--version"]) {
         Ok(output) if output.status.success() => check(
             CheckState::Warning,
-            "Pi 尚未登录：在会话内执行 /login，或设置 API Key 环境变量",
+            belfry_i18n::text("Pi 尚未登录：在会话内执行 /login，或设置 API Key 环境变量"),
         ),
-        Ok(_) => check(CheckState::Warning, "Pi 无法正常启动，无法确认登录状态"),
-        Err(error) => check(CheckState::Warning, format!("登录检查失败：{error}")),
+        Ok(_) => check(CheckState::Warning, belfry_i18n::text("Pi 无法正常启动，无法确认登录状态")),
+        Err(error) => check(CheckState::Warning, belfry_i18n::lformat!("登录检查失败：{error}")),
     }
 }
 

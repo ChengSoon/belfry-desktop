@@ -79,6 +79,7 @@ fn run(args: &[&str], replies: &[&str]) -> (Output, Vec<Value>) {
     });
     let mut child = Command::new(env!("CARGO_BIN_EXE_belfry"))
         .args(args)
+        .env("BELFRY_LANG", "zh-CN")
         .env(ENV_ENDPOINT, format!("tcp:{address}"))
         .env(ENV_TAB_ID, "compatibility-test-tab")
         .env(ENV_TOKEN, "compatibility-test-token")

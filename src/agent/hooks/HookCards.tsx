@@ -1,3 +1,4 @@
+import { t, useTranslation } from "../../i18n";
 import { Disclosure } from "../../components/controls/Disclosure";
 import { AGENT_METADATA, type AgentKind } from "../contracts";
 import type { AgentHookReport, HookInstallPreview } from "./contracts";
@@ -11,38 +12,40 @@ interface PreviewProps { preview: HookInstallPreview; busy: boolean; onConfirm: 
 const label = (kind: AgentKind) => AGENT_METADATA[kind].name;
 
 export function HookAgentCard({ report, busy, onPreview }: AgentProps) {
+  useTranslation();
   const name = label(report.kind);
   return (
-    <article className="hook-agent-card" aria-label={`${name} Hook 设置`}>
-      <header><strong>{name}</strong><span>{report.version ?? "未检测到 CLI"}</span></header>
+    <article className="hook-agent-card" aria-label={t("agent.HookCards.text_03343237f2", { name: name })}>
+      <header><strong>{name}</strong><span>{report.version ?? t("agent.HookCards.text_29e9fb477a")}</span></header>
       <div className="hook-agent-card__summary">
-        <span>{report.supported ? "可启用 Hook" : "使用屏幕推断"}</span>
-        <span>已安装 {report.installed}/{report.expected} 个事件</span>
+        <span>{report.supported ? t("agent.HookCards.text_142b2f5cfa") : t("agent.HookCards.text_ef38a253dc")}</span>
+        <span>{t("agent.HookCards.text_512aa19391", { installed: report.installed, expected: report.expected })}</span>
       </div>
       <p>{report.note}</p>
-      {report.configPath ? <Disclosure className="hook-config-details" title={<>配置位置</>}><code className="hook-config-path">{report.configPath}</code></Disclosure> : null}
+      {report.configPath ? <Disclosure className="hook-config-details" title={<>{t("agent.HookCards.text_cec9ecbbac")}</>}><code className="hook-config-path">{report.configPath}</code></Disclosure> : null}
       {report.error ? <p className="hook-error" role="alert">{report.error}</p> : null}
       <footer>
-        <button disabled={busy || !report.supported || Boolean(report.error)} onClick={() => onPreview(report.kind, true)} type="button">预览启用 {name} Hook</button>
-        {report.installed > 0 ? <button disabled={busy} onClick={() => onPreview(report.kind, false)} type="button">预览移除 {name} Hook</button> : null}
+        <button disabled={busy || !report.supported || Boolean(report.error)} onClick={() => onPreview(report.kind, true)} type="button">{t("agent.HookCards.text_5c7e011e40", { name: name })}</button>
+        {report.installed > 0 ? <button disabled={busy} onClick={() => onPreview(report.kind, false)} type="button">{t("agent.HookCards.text_c493b52c8b", { name: name })}</button> : null}
       </footer>
     </article>
   );
 }
 
 export function HookPreviewCard({ preview, busy, onConfirm, onCancel }: PreviewProps) {
+  useTranslation();
   return (
-    <section className="hook-preview" aria-label="Hook 变更预览">
-      <strong>{preview.enabling ? "启用" : "移除"} {label(preview.kind)} Hook</strong>
+    <section className="hook-preview" aria-label={t("agent.HookCards.text_b914b0c6b7")}>
+      <strong>{t(preview.enabling ? "agent.HookCards.enableTitle" : "agent.HookCards.removeTitle", { agent: label(preview.kind) })}</strong>
       <code className="hook-config-path">{preview.configPath}</code>
-      <p>{preview.enabling ? "添加或更新下列事件；其他 Hook 和配置保持原有内容。" : `仅移除 ${preview.managedBefore} 个 Belfry 托管 Hook，保留其他命令。`}</p>
+      <p>{preview.enabling ? t("agent.HookCards.text_9be6b0e2c7") : t("agent.HookCards.text_cd6b3e906e", { count: preview.managedBefore })}</p>
       <div className="hook-event-list">{preview.events.map((event) => <code key={event}>{event}</code>)}</div>
       {preview.command ? <pre>{preview.command}</pre> : null}
-      {preview.enabling && preview.kind === "codex" ? <p>启用后请重开会话，在 Codex 的 <code>/hooks</code> 中审阅并信任。Belfry 不改写信任记录。</p> : null}
-      <p>只接收会话状态，不代替你批准工具调用。移除后请重开会话。</p>
+      {preview.enabling && preview.kind === "codex" ? <p>{t("agent.HookCards.codexTrust", { command: "/hooks" })}</p> : null}
+      <p>{t("agent.HookCards.text_3b6466d441")}</p>
       <footer>
-        <button disabled={busy} onClick={onCancel} type="button">取消</button>
-        <button className="hook-primary" disabled={busy} onClick={onConfirm} type="button">{busy ? "正在保存…" : preview.enabling ? "确认启用" : "确认移除"}</button>
+        <button disabled={busy} onClick={onCancel} type="button">{t("agent.HookCards.text_2cd0f3be87")}</button>
+        <button className="hook-primary" disabled={busy} onClick={onConfirm} type="button">{busy ? t("agent.HookCards.text_6bdb443509") : preview.enabling ? t("agent.HookCards.text_e08a9527e8") : t("agent.HookCards.text_ee7dea070d")}</button>
       </footer>
     </section>
   );

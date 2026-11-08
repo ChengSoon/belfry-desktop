@@ -1,0 +1,4 @@
+{
+  "width": { "one": "{{count}} pixel", "other": "{{count}} pixels" },
+  "resizeHint": "Drag to resize the panel; double-click to reset"
+}

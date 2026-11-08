@@ -69,7 +69,7 @@ impl SessionStatisticsState {
         let slot = self.slot(key, query.session.clone())?;
         let mut cached = slot
             .lock()
-            .map_err(|_| AppError::io("会话统计缓存不可用"))?;
+            .map_err(|_| AppError::io(belfry_i18n::text("会话统计缓存不可用")))?;
         cached.refresh(&root, &query)
     }
 
@@ -81,7 +81,7 @@ impl SessionStatisticsState {
         let mut slots = self
             .slots
             .lock()
-            .map_err(|_| AppError::io("会话统计缓存不可用"))?;
+            .map_err(|_| AppError::io(belfry_i18n::text("会话统计缓存不可用")))?;
         if let Some(slot) = slots.get_mut(&key) {
             slot.used_at = Instant::now();
             return Ok(slot.cache.clone());
@@ -142,7 +142,7 @@ impl CachedSession {
             report.note = Some(
                 [
                     report.note.unwrap_or_default(),
-                    "日志发现达到数量上限，显示已识别部分".into(),
+                    belfry_i18n::text("日志发现达到数量上限，显示已识别部分").into(),
                 ]
                 .into_iter()
                 .filter(|note| !note.is_empty())

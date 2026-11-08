@@ -1,3 +1,4 @@
+import { TranslationError } from "../i18n";
 import { BACKGROUND_KEY, parseBackground } from "../background/storage";
 import { THEME_MODE_KEY } from "../theme/storage";
 import { TYPOGRAPHY_KEY, parseTypography } from "../typography/storage";
@@ -18,7 +19,7 @@ export function capture(keys: string[], storage: Pick<Storage, "getItem">): RawS
 
 export function validateSnapshot(value: unknown): RawSnapshot {
   if (!record(value) || Object.entries(value).some(([key, raw]) =>
-    !ALLOWED_KEYS.includes(key) || (raw !== null && typeof raw !== "string"))) throw new Error("恢复快照包含无效数据域");
+    !ALLOWED_KEYS.includes(key) || (raw !== null && typeof raw !== "string"))) throw new TranslationError("backup.snapshots.text_1869ad2f10");
   assertSize(JSON.stringify(value));
   return value as RawSnapshot;
 }
@@ -44,7 +45,7 @@ export function restoreTargets(backup: BackupPackage, domains: BackupDomain[], s
 
 export function writeValue(storage: BackupStorage, key: string, value: string | null) {
   if (value === null) storage.removeItem(key); else storage.setItem(key, value);
-  if (storage.getItem(key) !== value) throw new Error("恢复写入后回读不一致");
+  if (storage.getItem(key) !== value) throw new TranslationError("backup.snapshots.text_50c2e050b7");
 }
 
 export function writeSnapshot(storage: BackupStorage, values: RawSnapshot) {

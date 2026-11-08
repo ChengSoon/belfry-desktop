@@ -1,3 +1,4 @@
+import { TranslationError } from "../i18n";
 // D1 私有差异算法：输入必须已通过未来的有界 JSON/manifest 校验。
 // 这里只计算展示差异，不决定版本替换、落盘或回退。
 type JsonValue = string | number | boolean | null | readonly JsonValue[] | JsonObject;
@@ -19,7 +20,7 @@ export function diffContributions(input: { before: readonly Entry[]; after: read
 
 function indexEntries(entries: readonly Entry[]) {
   const index = new Map(entries.map((entry) => [entry.id, entry]));
-  if (index.size !== entries.length) throw new Error("差异快照中有重复 ID");
+  if (index.size !== entries.length) throw new TranslationError("plugins.differences.text_314a80840c");
   return index;
 }
 

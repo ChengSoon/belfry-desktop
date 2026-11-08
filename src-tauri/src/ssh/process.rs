@@ -15,10 +15,10 @@ pub(super) struct Output { pub status: ExitStatus, pub bytes: Vec<u8>, pub error
 type Captured = Receiver<std::io::Result<(Vec<u8>, bool)>>;
 
 pub(super) fn run(mut command: Command, cancelled: &AtomicBool, timeout: Duration) -> Result<Output, AppError> {
-    if cancelled.load(Ordering::Acquire) { return Err(AppError::io("SSH 请求已取消")); }
+    if cancelled.load(Ordering::Acquire) { return Err(AppError::io(belfry_i18n::text("SSH 请求已取消"))); }
     configure(&mut command);
     command.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
-    let mut child = command.spawn().map_err(|error| AppError::io(format!("无法启动 OpenSSH：{error}")))?;
+    let mut child = command.spawn().map_err(|error| AppError::io(belfry_i18n::lformat!("无法启动 OpenSSH：{error}")))?;
     let stdout = capture(child.stdout.take().expect("piped stdout"), OUTPUT_LIMIT);
     let stderr = capture(child.stderr.take().expect("piped stderr"), ERROR_LIMIT);
     let result = wait(&mut child, cancelled, timeout);
@@ -32,8 +32,8 @@ pub(super) fn run(mut command: Command, cancelled: &AtomicBool, timeout: Duratio
 fn wait(child: &mut Child, cancelled: &AtomicBool, timeout: Duration) -> Result<ExitStatus, AppError> {
     let started = Instant::now();
     loop {
-        if cancelled.load(Ordering::Acquire) { return Err(AppError::io("SSH 请求已取消")); }
-        if started.elapsed() >= timeout { return Err(AppError::io("SSH 请求超时，请检查网络、跳板机或主机地址")); }
+        if cancelled.load(Ordering::Acquire) { return Err(AppError::io(belfry_i18n::text("SSH 请求已取消"))); }
+        if started.elapsed() >= timeout { return Err(AppError::io(belfry_i18n::text("SSH 请求超时，请检查网络、跳板机或主机地址"))); }
         if let Some(status) = child.try_wait().map_err(|error| AppError::io(error.to_string()))? { return Ok(status); }
         std::thread::sleep(POLL);
     }
@@ -62,15 +62,15 @@ fn capture(mut reader: impl Read + Send + 'static, limit: usize) -> Captured {
 fn collect(stdout: Captured, stderr: Captured, status: ExitStatus) -> Result<Output, AppError> {
     let (bytes, truncated) = receive(stdout)?;
     let (error, error_truncated) = receive(stderr)?;
-    if truncated { return Err(AppError::io("远端响应超过大小上限，请选择更具体的目录")); }
+    if truncated { return Err(AppError::io(belfry_i18n::text("远端响应超过大小上限，请选择更具体的目录"))); }
     let mut error = String::from_utf8_lossy(&error).into_owned();
-    if error_truncated { error.push_str("\n（错误输出已截断）"); }
+    if error_truncated { error.push_str(belfry_i18n::text("\n（错误输出已截断）")); }
     Ok(Output { status, bytes, error })
 }
 
 fn receive(reader: Captured) -> Result<(Vec<u8>, bool), AppError> {
-    reader.recv_timeout(DRAIN).map_err(|_| AppError::io("SSH 输出读取未结束，已停止本次请求"))?
-        .map_err(|error| AppError::io(format!("SSH 输出读取失败：{error}")))
+    reader.recv_timeout(DRAIN).map_err(|_| AppError::io(belfry_i18n::text("SSH 输出读取未结束，已停止本次请求")))?
+        .map_err(|error| AppError::io(belfry_i18n::lformat!("SSH 输出读取失败：{error}")))
 }
 
 #[cfg(unix)]

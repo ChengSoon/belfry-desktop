@@ -1,3 +1,4 @@
+import { formatList, formatNumber, t, useTranslation } from "../../i18n";
 import { useCallback, useLayoutEffect, useRef, type CSSProperties } from "react";
 import { AGENT_KINDS, type AgentKind } from "../../agent/contracts";
 import { AlertTriangle, ArrowLeft } from "lucide-react";
@@ -18,6 +19,7 @@ import "../provider.css";
 const PROVIDER_AGENTS: AgentKind[] = ["claude", ...AGENT_KINDS.filter((kind) => kind !== "claude")];
 
 function useProviderSegments(kind: AgentKind) {
+  useTranslation();
   const ref = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     const element = ref.current;
@@ -44,6 +46,7 @@ function useProviderSegments(kind: AgentKind) {
  * 改的是 CLI 自己的配置文件，所以在 Belfry 之外直接敲 `claude` / `codex` 一样生效。
  */
 function useProviderCardNodes() {
+  useTranslation();
   const nodes = useRef(new Map<string, HTMLElement>());
   const callbacks = useRef(new Map<string, (node: HTMLElement | null) => void>());
   const register = useCallback((id: string) => {
@@ -60,6 +63,7 @@ function useProviderCardNodes() {
 }
 
 export function ProviderSection({ onGuardChange }: { onGuardChange: (guarded: boolean) => void }) {
+  useTranslation();
   const {
     providers, kind, setKind, draft, issue, setIssue, pendingRemove, setPendingRemove,
     configFiles, configLoading, configFailure, copiedPath, formNotice, edits, setEdits,
@@ -72,7 +76,7 @@ export function ProviderSection({ onGuardChange }: { onGuardChange: (guarded: bo
   const { nodes: nodeById, register: registerCardNode } = useProviderCardNodes();
   const segmentsRef = useProviderSegments(kind);
   return (
-    <section aria-label="全局 Provider 设置" className="provider-section">
+    <section aria-label={t("provider.ProviderSection.text_8b472fc10b")} className="provider-section">
       <ProviderSettingsHeader busy={providers.loading} editing={draft !== null}
         onAdd={() => openDraft({ ...EMPTY_DRAFT })} onReload={() => void providers.reload()} />
       <div className="provider-segments" ref={segmentsRef} data-active={kind} role="tablist" aria-label="Agent CLI">
@@ -97,11 +101,7 @@ export function ProviderSection({ onGuardChange }: { onGuardChange: (guarded: bo
       {conflicts.length > 0 ? (
         <p className="provider-warning" role="alert">
           <AlertTriangle aria-hidden="true" size={ICON.sm} />
-          <span>
-            环境变量 {conflicts.map((item) => item.name).join("、")} 会盖过这里的设置。
-            {conflicts.some((item) => item.source === "shell")
-              ? "去 shell 配置文件里删掉它才会生效。"
-              : "它来自启动 Belfry 的进程环境。"}
+          <span>{t(conflicts.some((item) => item.source === "shell") ? "provider.ProviderSection.shellOverride" : "provider.ProviderSection.processOverride", { names: formatList(conflicts.map((item) => item.name)) })}
           </span>
         </p>
       ) : null}
@@ -111,21 +111,21 @@ export function ProviderSection({ onGuardChange }: { onGuardChange: (guarded: bo
           <div className="provider-editor__toolbar">
             <button className="provider-editor__back" disabled={providers.loading || savingPath !== null} onClick={closeDraft} type="button">
               <ArrowLeft aria-hidden="true" size={ICON.sm} />
-              <span>返回 provider 列表</span>
+              <span>{t("provider.ProviderSection.text_56daae0b6b")}</span>
             </button>
-            <span className="provider-editor__mode">{draft.id ? "编辑 provider" : "新增 provider"}</span>
+            <span className="provider-editor__mode">{draft.id ? t("provider.ProviderSection.text_ee8417e33b") : t("provider.ProviderSection.text_9f923bbc94")}</span>
           </div>
           <div className="provider-editor__heading">
             <div>
               <p className="provider-editor__eyebrow">{AGENT_LABEL[kind]}</p>
-              <h3>{draft.name.trim() || "未命名 provider"}</h3>
+              <h3>{draft.name.trim() || t("provider.ProviderSection.text_0d6aa21685")}</h3>
             </div>
             <span
               className={`provider-editor__status${
                 draft.id !== null && group?.currentId === draft.id ? " is-current" : ""
               }`}
             >
-              {draft.id !== null && group?.currentId === draft.id ? "已选用" : "未启用"}
+              {draft.id !== null && group?.currentId === draft.id ? t("provider.ProviderSection.text_52eb49cfbe") : t("provider.ProviderSection.text_f95ea7f4c0")}
             </span>
           </div>
           <div className="provider-editor__body">
@@ -147,7 +147,7 @@ export function ProviderSection({ onGuardChange }: { onGuardChange: (guarded: bo
               {formNotice ? <p className="provider-notice">{formNotice}</p> : null}
             </div>
             <details className="provider-advanced">
-              <summary>高级配置 <span>查看与编辑 CLI 原始文件</span></summary>
+              <summary>{t("provider.ProviderSection.text_36a045ebcc")}<span>{t("provider.ProviderSection.text_68f4c7b0f6")}</span></summary>
             <ProviderConfigEditor
               copiedPath={copiedPath}
               dirtyPaths={dirtyPaths}
@@ -177,17 +177,17 @@ export function ProviderSection({ onGuardChange }: { onGuardChange: (guarded: bo
       ) : (
         <>
           {providers.loading && providers.catalog === null ? (
-            <p className="provider-hint">正在读取 provider…</p>
+            <p className="provider-hint">{t("provider.ProviderSection.text_3b0002eb6a")}</p>
           ) : (
             <>
               <div className="provider-routing-summary">
-                <span>当前选择</span>
-                <strong>{group ? (group.currentId === null ? "官方登录" : list.find((item) => item.id === group.currentId)?.name || "配置不可用") : "尚未读取"}</strong>
-                <p>已选用表示 CLI 路由配置，不代表连接已通过验证。</p>
+                <span>{t("provider.ProviderSection.text_8d30e0eb42")}</span>
+                <strong>{group ? (group.currentId === null ? t("provider.ProviderSection.text_726c9ae341") : list.find((item) => item.id === group.currentId)?.name || t("provider.ProviderSection.text_6534bf83b0")) : t("provider.ProviderSection.text_c4cf69f358")}</strong>
+                <p>{t("provider.ProviderSection.text_cc40fd24b5")}</p>
               </div>
               <ProviderOfficial active={group !== undefined && group.currentId === null}
                 busy={providers.loading || group === undefined} onSelect={() => void providers.select(kind, null)} />
-              <div className="provider-library-heading"><h3>自定义服务 <span>{list.length}</span></h3><span>保存配置后，手动启用</span></div>
+              <div className="provider-library-heading"><h3>{t("provider.ProviderSection.text_a438204251")}<span>{formatNumber(list.length)}</span></h3><span>{t("provider.ProviderSection.text_43612817e9")}</span></div>
               <div
                 className="provider-list"
                 // 列数上限交给 CSS：按实际服务商数等分，宽屏下不会 auto-fill 出空列。
@@ -195,11 +195,9 @@ export function ProviderSection({ onGuardChange }: { onGuardChange: (guarded: bo
                 style={{ "--provider-columns": Math.max(1, list.length) } as CSSProperties}
               >
                 {providers.catalog !== null && group === undefined ? (
-                  <p className="provider-hint">
-                    没有读到 {AGENT_LABEL[kind]} 的 provider 数据，点上方刷新重试。
-                  </p>
+                  <p className="provider-hint">{t("provider.ProviderSection.text_bcf23bbbc9", { agent: AGENT_LABEL[kind] })}</p>
                 ) : null}
-                {group && list.length === 0 ? <p className="provider-empty">还没有自定义服务。点击右上角「新增 Provider」添加 API 端点。</p> : null}
+                {group && list.length === 0 ? <p className="provider-empty">{t("provider.ProviderSection.text_574267009a")}</p> : null}
                 {list.map((config) => (
                   <ProviderCard
                     active={group?.currentId === config.id}
@@ -210,13 +208,13 @@ export function ProviderSection({ onGuardChange }: { onGuardChange: (guarded: bo
                     onRemove={() => setPendingRemove(config)}
                     onSelect={() => void providers.select(kind, config.id)}
                     endpoint={config.baseUrl}
-                    model={config.model || "沿用 CLI 模型"}
+                    model={config.model || t("provider.ProviderSection.text_8a46967532")}
                     hasApiKey={config.hasApiKey}
                     nodeRef={registerCardNode(config.id)}
                   />
                 ))}
               </div>
-              <p className="provider-hint">{kind === "claude" ? "切换后，Claude Code 的后续请求使用所选服务。" : `切换后，新开的 ${AGENT_LABEL[kind]} 会话使用所选服务。`} 保存新配置后，点击「启用」应用。</p>
+              <p className="provider-hint">{t(kind === "claude" ? "provider.ProviderSection.claudeActivation" : "provider.ProviderSection.sessionActivation", { agent: AGENT_LABEL[kind] })}</p>
             </>
           )}
         </>

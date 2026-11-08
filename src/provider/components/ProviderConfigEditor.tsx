@@ -1,3 +1,4 @@
+import { t, useTranslation } from "../../i18n";
 import "../configEditor.css";
 import { RefreshCcw } from "lucide-react";
 import type { AgentKind } from "../../workspace/contracts";
@@ -51,57 +52,54 @@ export function ProviderConfigEditor({
   onSave,
   onRevert,
 }: ProviderConfigEditorProps) {
+  useTranslation();
   return (
     <section aria-labelledby="provider-config-title" className="provider-config">
       <header className="provider-config__head">
         <div>
-          <p className="provider-config__eyebrow">配置预览</p>
-          <h3 id="provider-config-title">{AGENT_LABEL[kind]} 配置</h3>
+          <p className="provider-config__eyebrow">{t("provider.ProviderConfigEditor.text_6c425af86e")}</p>
+          <h3 id="provider-config-title">{t("provider.ProviderConfigEditor.text_e5b4f26727", { agent: AGENT_LABEL[kind] })}</h3>
         </div>
         <button
-          aria-label="重新读取配置文件"
+          aria-label={t("provider.ProviderConfigEditor.text_31f996efae")}
           className="provider-config__reload"
           disabled={!revealSecrets || loading || dirtyPaths.size > 0}
           onClick={onReload}
-          title={dirtyPaths.size > 0 ? "有未保存的修改，先保存或还原" : "重新读取"}
+          title={dirtyPaths.size > 0 ? t("provider.ProviderConfigEditor.text_86e80d0720") : t("provider.ProviderConfigEditor.text_df7392cc96")}
           type="button"
         >
           <RefreshCcw aria-hidden="true" size={ICON.xs} />
         </button>
       </header>
 
-      <div className="provider-config__identity" aria-label="当前编辑的 provider 信息">
+      <div className="provider-config__identity" aria-label={t("provider.ProviderConfigEditor.text_b80de03ab2")}>
         <div>
-          <span>名称</span>
-          <strong>{draft.name.trim() || "未命名 provider"}</strong>
+          <span>{t("provider.ProviderConfigEditor.text_d44e9b3d3b")}</span>
+          <strong>{draft.name.trim() || t("provider.ProviderConfigEditor.text_0d6aa21685")}</strong>
         </div>
         <div>
-          <span>端点</span>
-          <code>{draft.baseUrl.trim() || "待填写"}</code>
+          <span>{t("provider.ProviderConfigEditor.text_52fff1680d")}</span>
+          <code>{draft.baseUrl.trim() || t("provider.ProviderConfigEditor.text_4f28ec4839")}</code>
         </div>
         <div>
           <span>API Key</span>
-          <code>{draft.apiKeyAction === "keep" ? (hasApiKey ? "已配置密钥（保留）" : "未配置密钥（保留）") : draft.apiKeyAction === "clear" ? "将清除密钥" : "将替换密钥"}</code>
+          <code>{draft.apiKeyAction === "keep" ? (hasApiKey ? t("provider.ProviderConfigEditor.text_8650374f07") : t("provider.ProviderConfigEditor.text_9bfed3e678")) : draft.apiKeyAction === "clear" ? t("provider.ProviderConfigEditor.text_314f996082") : t("provider.ProviderConfigEditor.text_16a8f87aa7")}</code>
         </div>
         <div>
-          <span>模型</span>
-          <code>{draft.model.trim() || "CLI 默认模型"}</code>
+          <span>{t("provider.ProviderConfigEditor.text_c98e118e0a")}</span>
+          <code>{draft.model.trim() || t("provider.ProviderConfigEditor.text_078d4f7d72")}</code>
         </div>
       </div>
 
-      <p className="provider-config__hint">
-        原始配置包含外部 CLI 的完整密钥及其他敏感字段，外部 CLI 配置仍可能为明文。
-        查看后表单字段会实时同步到预览；复制会将全部原文（含密钥）放入剪贴板，请勿分享或粘贴到不可信位置。
-        直接保存原始文件会写入当前 CLI 配置并同步服务列表。仅保存上方表单时，未启用的条目仍需在列表点击「启用」。
-      </p>
+      <p className="provider-config__hint">{t("provider.ProviderConfigEditor.text_4e099bae7c")}</p>
 
       {!revealSecrets ? (
-        <button className="provider-config__copy" type="button" onClick={onRevealSecrets}>查看含密钥的原始配置</button>
+        <button className="provider-config__copy" type="button" onClick={onRevealSecrets}>{t("provider.ProviderConfigEditor.text_df893a06ba")}</button>
       ) : <>
       {failure ? <p className="provider-error" role="alert">{failure}</p> : null}
       {saveFailure ? <p className="provider-error" role="alert">{saveFailure}</p> : null}
-      {loading && files === null ? <p className="provider-config__hint">正在读取…</p> : null}
-      {files && files.length === 0 ? <p className="provider-config__hint">还没有配置文件。</p> : null}
+      {loading && files === null ? <p className="provider-config__hint">{t("provider.ProviderConfigEditor.text_86b6d0d630")}</p> : null}
+      {files && files.length === 0 ? <p className="provider-config__hint">{t("provider.ProviderConfigEditor.text_16b0c4444d")}</p> : null}
 
       {files?.map((file) => (
         <div className="provider-config__file" key={file.path}>
@@ -118,29 +116,27 @@ export function ProviderConfigEditor({
                   onClick={() => onSave(file)}
                   type="button"
                 >
-                  {savingPath === file.path ? "保存中…" : "保存"}
+                  {savingPath === file.path ? t("provider.ProviderConfigEditor.text_ff509c9ba0") : t("provider.ProviderConfigEditor.text_a3030bf8f1")}
                 </button>
                 <button
                   className="provider-config__copy"
                   disabled={savingPath === file.path}
                   onClick={() => onRevert(file.path)}
                   type="button"
-                >
-                  还原
-                </button>
+                >{t("provider.ProviderConfigEditor.text_ddde089462")}</button>
               </>
             ) : null}
             <button className="provider-config__copy" onClick={() => onCopy(file)} type="button">
-              {copiedPath === file.path ? "已复制" : "复制"}
+              {copiedPath === file.path ? t("provider.ProviderConfigEditor.text_8f6f8d979c") : t("provider.ProviderConfigEditor.text_63d90d9773")}
             </button>
-            {savedPath === file.path ? <span className="provider-config__saved">已保存</span> : null}
+            {savedPath === file.path ? <span className="provider-config__saved">{t("provider.ProviderConfigEditor.text_1bd91a7d0c")}</span> : null}
           </div>
           <textarea
-            aria-label={`编辑 ${file.path}`}
+            aria-label={t("provider.ProviderConfigEditor.text_fae49cc380", { path: file.path })}
             className="provider-config__editor"
             disabled={savingPath === file.path}
             onChange={(event) => onChange(file.path, event.target.value)}
-            placeholder="文件还不存在，可在这里输入完整配置"
+            placeholder={t("provider.ProviderConfigEditor.text_92b9eaea92")}
             spellCheck={false}
             value={edits[file.path] ?? file.content}
           />

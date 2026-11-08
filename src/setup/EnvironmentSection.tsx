@@ -1,3 +1,4 @@
+import { useFeedback, localized, t, useTranslation } from "../i18n";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -21,13 +22,14 @@ import "./environment.css";
 
 type BusyAction = "diagnose" | "install" | null;
 
-const OVERALL_LABEL: Record<CheckState, string> = {
-  ok: "环境就绪",
-  warning: "需要处理部分项目",
-  error: "存在阻塞项",
-};
+const OVERALL_LABEL: Record<CheckState, string> = localized(() => ({
+  ok: t("setup.EnvironmentSection.text_c8958814a5"),
+  warning: t("setup.EnvironmentSection.text_425d80b663"),
+  error: t("setup.EnvironmentSection.text_dfa8130320"),
+}));
 
 export function EnvironmentSection() {
+  useTranslation();
   const setup = useEnvironmentSetup();
   return (
     <section className="environment-section">
@@ -43,10 +45,11 @@ export function EnvironmentSection() {
 }
 
 function useEnvironmentSetup() {
+  useTranslation();
   const [report, setReport] = useState<EnvironmentReport | null>(null);
   const [busy, setBusy] = useState<BusyAction>(null);
-  const [failure, setFailure] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [failure, setFailure] = useFeedback<string | null>(null);
+  const [notice, setNotice] = useFeedback<string | null>(null);
 
   const diagnose = useCallback(async () => {
     setBusy("diagnose");
@@ -54,7 +57,7 @@ function useEnvironmentSetup() {
     try {
       setReport(await diagnoseEnvironment());
     } catch (error) {
-      setFailure(failureLabel(toAppFailure(error)));
+      setFailure(() => failureLabel(toAppFailure(error)));
     } finally {
       setBusy(null);
     }
@@ -70,12 +73,11 @@ function useEnvironmentSetup() {
     setNotice(null);
     try {
       const outcome = await installBelfrySkill();
-      const feedback = summarizeSkillInstall(outcome);
-      setFailure(feedback.failure);
-      setNotice(feedback.notice);
+      setFailure(() => summarizeSkillInstall(outcome).failure);
+      setNotice(() => summarizeSkillInstall(outcome).notice);
       setReport(await diagnoseEnvironment());
     } catch (error) {
-      setFailure(failureLabel(toAppFailure(error)));
+      setFailure(() => failureLabel(toAppFailure(error)));
     } finally {
       setBusy(null);
     }
@@ -91,6 +93,7 @@ interface HeaderProps {
 }
 
 function EnvironmentHeader({ busy, onDiagnose, onInstall }: HeaderProps) {
+  useTranslation();
   return (
     <SettingsHeader
       actions={<>
@@ -103,13 +106,13 @@ function EnvironmentHeader({ busy, onDiagnose, onInstall }: HeaderProps) {
           {busy === "install" ? (
             <LoaderCircle aria-hidden="true" className="environment-spin" size={ICON.sm} />
           ) : <Download aria-hidden="true" size={ICON.sm} />}
-          <span>同步全部 skill</span>
+          <span>{t("setup.EnvironmentSection.text_bfc960b0ec")}</span>
         </button>
         <button
           className="environment-action environment-action--icon"
           disabled={busy !== null}
           onClick={() => void onDiagnose()}
-          title="重新检查协作环境"
+          title={t("setup.EnvironmentSection.text_69611f40d2")}
           type="button"
         >
           <RefreshCcw
@@ -119,12 +122,13 @@ function EnvironmentHeader({ busy, onDiagnose, onInstall }: HeaderProps) {
           />
         </button>
       </>}
-      title="协作环境"
+      title={t("setup.EnvironmentSection.text_821f9ff1ad")}
     />
   );
 }
 
 function EnvironmentFeedback({ failure, notice }: { failure: string | null; notice: string | null }) {
+  useTranslation();
   return (
     <>
       {notice ? <p className="environment-notice" role="status">{notice}</p> : null}
@@ -134,23 +138,25 @@ function EnvironmentFeedback({ failure, notice }: { failure: string | null; noti
 }
 
 function EnvironmentBody({ report }: { report: EnvironmentReport | null }) {
+  useTranslation();
   if (report) return <EnvironmentResults report={report} />;
   return (
     <div className="environment-loading" role="status">
       <LoaderCircle aria-hidden="true" className="environment-spin" size={ICON.md} />
-      <span>正在检查…</span>
+      <span>{t("setup.EnvironmentSection.text_6b72c3d685")}</span>
     </div>
   );
 }
 
 function EnvironmentResults({ report }: { report: EnvironmentReport }) {
+  useTranslation();
   const counts = countChecks(report);
   return (
     <>
       <div className="environment-summary" data-state={report.overall}>
         <StatusIcon state={report.overall} />
         <strong>{OVERALL_LABEL[report.overall]}</strong>
-        <span>{counts.ok} 正常 · {counts.warning} 警告 · {counts.error} 异常</span>
+        <span>{t("setup.EnvironmentSection.text_e41906d038", { ok: counts.ok, warning: counts.warning, error: counts.error })}</span>
       </div>
       <ul className="environment-checks">
         {report.checks.map((check) => (
@@ -168,6 +174,7 @@ function EnvironmentResults({ report }: { report: EnvironmentReport }) {
 }
 
 function StatusIcon({ state }: { state: CheckState }) {
+  useTranslation();
   if (state === "ok") return <CheckCircle2 aria-hidden="true" size={ICON.md} />;
   if (state === "warning") return <AlertTriangle aria-hidden="true" size={ICON.md} />;
   return <XCircle aria-hidden="true" size={ICON.md} />;

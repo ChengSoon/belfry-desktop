@@ -1,3 +1,5 @@
+import { formatNumber } from "../../i18n";
+import { getLocale, t, useTranslation } from "../../i18n";
 import appIconUrl from "../../../src-tauri/icons/32x32.png";
 import { ChevronRight, DoorOpen, Download, Gauge, History, PanelLeftClose, Pencil, Server, Settings, Settings2, SquareTerminal, X } from "lucide-react";
 import { useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode, type Ref } from "react";
@@ -105,7 +107,8 @@ export function Sidebar({
   roomsOpen,
   roomAttention = 0,
 }: SidebarProps) {
-  const groups = useMemo(() => groupTabsByProject(tabs), [tabs]);
+  useTranslation();
+  const groups = useMemo(() => groupTabsByProject(tabs), [tabs, getLocale()]);
   const { commitWidth, resetWidth, setWidth, width } = usePanelWidth(SIDEBAR_WIDTH);
   const sidebarStyle = { "--sidebar-width": `${width}px` } as CSSProperties;
   const platform = shortcutPlatform(document.documentElement.dataset.platform);
@@ -113,24 +116,24 @@ export function Sidebar({
   return (
     <aside
       className={`sidebar${ejecting ? " is-eject-target" : ""}`}
-      aria-label="会话"
+      aria-label={t("workspace.Sidebar.text_a63280253f")}
       ref={ref}
       style={sidebarStyle}
     >
       <div className="sidebar-sessions">
         <div>
           <div className="sidebar-brand"><img src={appIconUrl} alt="" aria-hidden="true" />
-            <div><strong>Belfry</strong><span>本地优先的工作台</span></div>
+            <div><strong>Belfry</strong><span>{t("workspace.Sidebar.text_45f2d72cba")}</span></div>
           </div>
           <div className="sidebar-context">
             {workspaceControls}
             <button className="icon-button icon-button--sm sidebar-context__collapse" onClick={onCollapse}
-              aria-label="收起侧栏" title={`收起侧栏 ${formatShortcutChord(appShortcutChord(platform, "B"))}`} type="button">
+              aria-label={t("workspace.Sidebar.text_bb0b6e36b3")} title={t("workspace.Sidebar.text_78a77f7d72", { shortcut: formatShortcutChord(appShortcutChord(platform, "B")) })} type="button">
               <PanelLeftClose aria-hidden="true" size={ICON.sm} />
             </button>
           </div>
           <div className="sessions-head">
-            <span>会话 <small>{tabs.length}</small></span>
+            <span>{t("workspace.Sidebar.sessionCount", { count: tabs.length })}</span>
             <NewSessionMenu
               agents={agents}
               shellProfiles={shellProfiles}
@@ -141,7 +144,7 @@ export function Sidebar({
             />
           </div>
         </div>
-        <nav className="session-list" aria-label="会话列表">
+        <nav className="session-list" aria-label={t("workspace.Sidebar.text_c980de330f")}>
           {groups.map((group) => (
             <SessionGroup
               activeId={activeId}
@@ -164,7 +167,7 @@ export function Sidebar({
       </div>
 
       <div className="sidebar-foot">
-        <span className="sidebar-foot__label">工具</span>
+        <span className="sidebar-foot__label">{t("workspace.Sidebar.text_5ca6730d44")}</span>
         <div className="sidebar-foot__actions">
           {showUpdaterTrigger(updaterState, updaterOpen) ? (
             <button
@@ -180,51 +183,51 @@ export function Sidebar({
             </button>
           ) : null}
           <button
-            aria-label={roomAttention ? `协作房间，${roomAttention} 件事等你处理` : "协作房间"}
+            aria-label={roomAttention ? t("workspace.Sidebar.text_af7524d31d", { roomAttention: roomAttention }) : t("workspace.Sidebar.text_63235691ff")}
             aria-pressed={roomsOpen}
             className={`icon-button icon-button--sm room-trigger${roomAttention ? " room-trigger--attention" : ""}`}
             onClick={onToggleRooms}
-            title={roomAttention ? `协作房间：${roomAttention} 件事等你处理` : "协作房间"}
+            title={roomAttention ? t("workspace.Sidebar.text_f9bb3d275b", { roomAttention: roomAttention }) : t("workspace.Sidebar.text_63235691ff")}
             type="button"
           >
             <DoorOpen aria-hidden="true" size={ICON.md} />
-            <span>协作房间</span>
+            <span>{t("workspace.Sidebar.text_63235691ff")}</span>
             {roomAttention ? <b className="room-trigger__count">{roomAttention}</b> : null}
           </button>
           <button
             aria-pressed={settingsOpen}
             className="icon-button icon-button--sm"
             onClick={onOpenSettings}
-            title={`设置 ${formatShortcutChord(appShortcutChord(platform, ","))}`}
+            title={t("workspace.Sidebar.text_cb216cffd3", { shortcut: formatShortcutChord(appShortcutChord(platform, ",")) })}
             type="button"
           >
             <Settings aria-hidden="true" size={ICON.md} />
-            <span>设置</span>
+            <span>{t("workspace.Sidebar.text_df3d58c7d8")}</span>
           </button>
           <button
             aria-pressed={usageOpen}
             className="icon-button icon-button--sm"
             onClick={onToggleUsage}
-            title={`额度用量 ${formatShortcutChord(appShortcutChord(platform, "U"))}`}
+            title={t("workspace.Sidebar.text_09d2dbc1d3", { shortcut: formatShortcutChord(appShortcutChord(platform, "U")) })}
             type="button"
           >
             <Gauge aria-hidden="true" size={ICON.md} />
-            <span>用量</span>
+            <span>{t("workspace.Sidebar.text_42723e8b49")}</span>
           </button>
           <button
             aria-pressed={historyOpen}
             className="icon-button icon-button--sm"
             onClick={onToggleHistory}
-            title={`历史会话 ${formatShortcutChord(appShortcutChord(platform, "H", true))}`}
+            title={t("workspace.Sidebar.text_f6fe0f8c08", { shortcut: formatShortcutChord(appShortcutChord(platform, "H", true)) })}
             type="button"
           >
             <History aria-hidden="true" size={ICON.md} />
-            <span>历史会话</span>
+            <span>{t("workspace.Sidebar.text_0eccd0db7b")}</span>
           </button>
         </div>
       </div>
       <PanelResizeHandle
-        label="调整侧栏宽度"
+        label={t("workspace.Sidebar.text_8d69ed54cd")}
         onCommit={commitWidth}
         onReset={resetWidth}
         onResize={setWidth}
@@ -246,11 +249,11 @@ function showUpdaterTrigger(state: UpdaterState, open: boolean) {
 }
 
 function updateButtonLabel(state: UpdaterState) {
-  if (state.status === "available") return `发现 Belfry v${state.availableVersion}`;
-  if (state.status === "downloading" || state.status === "installing") return "正在更新 Belfry";
-  if (state.status === "checking") return "正在检查更新";
-  if (state.status === "error") return "检查更新失败，点击重试";
-  return "检查更新";
+  if (state.status === "available") return t("workspace.Sidebar.text_ff9876fc72", { availableVersion: state.availableVersion });
+  if (state.status === "downloading" || state.status === "installing") return t("workspace.Sidebar.text_0527331ad6");
+  if (state.status === "checking") return t("workspace.Sidebar.text_0d47abe618");
+  if (state.status === "error") return t("workspace.Sidebar.text_7cc3341927");
+  return t("workspace.Sidebar.text_7f68ebad19");
 }
 
 function SessionGroup({
@@ -283,6 +286,7 @@ function SessionGroup({
   onDragStart: (id: string, event: PointerEvent) => void;
   onToggleFold: (projectId: string) => void;
 }) {
+  useTranslation();
   const rowsId = useId();
   // 折叠时组里的会话全藏起来了，标题上留个点，不然看不出这组里有正在跑的东西。
   const dot = folded ? foldedDot(group.tabs, activeId) : null;
@@ -292,16 +296,16 @@ function SessionGroup({
       {showHeading ? <button
         aria-expanded={!folded}
         aria-controls={rowsId}
-        aria-label={`${group.project.name}，${group.tabs.length} 个会话${dot === "awaiting" ? "，有会话等待选择" : ""}`}
+        aria-label={t(dot === "awaiting" ? "workspace.Sidebar.sessionGroupWaiting" : "workspace.Sidebar.sessionGroup", { name: group.project.name, count: group.tabs.length })}
         className="session-group__head"
         onClick={() => onToggleFold(group.project.id)}
-        title={group.project.rootPath ? shortPath(group.project.rootPath) : "SSH 会话"}
+        title={group.project.rootPath ? shortPath(group.project.rootPath) : t("workspace.Sidebar.text_b07b857f21")}
         type="button"
       >
         <ChevronRight aria-hidden="true" className="session-group__chevron" size={ICON.xs} />
         {group.project.id === "ssh" ? <Server aria-hidden="true" size={ICON.xs} /> : null}
         <span>{group.project.name}</span>
-        {folded ? <i className="session-group__count" aria-hidden="true">{group.tabs.length}</i> : null}
+        {folded ? <i className="session-group__count" aria-hidden="true">{formatNumber(group.tabs.length)}</i> : null}
         {dot ? <i className={`session-group__dot session-group__dot--${dot}`} aria-hidden="true" /> : null}
       </button> : null}
       <div className="session-group__collapse" inert={folded} aria-hidden={folded} id={rowsId}>
@@ -351,6 +355,7 @@ function SessionRow({
   onConsumeClick: () => boolean;
   onDragStart: (id: string, event: PointerEvent) => void;
 }) {
+  useTranslation();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const [nameError, setNameError] = useState<string | null>(null);
@@ -419,7 +424,7 @@ function SessionRow({
           <input
             aria-invalid={nameError !== null}
             aria-describedby={nameError ? nameErrorId : undefined}
-            aria-label={renamesAgent ? "协作名字" : "会话显示名"}
+            aria-label={renamesAgent ? t("workspace.Sidebar.text_6afb61059b") : t("workspace.Sidebar.text_dc5692f72f")}
             autoFocus
             maxLength={renamesAgent ? 32 : 64}
             onChange={(event) => {
@@ -445,7 +450,7 @@ function SessionRow({
               }
             }}
             onPointerDown={(event) => event.stopPropagation()}
-            placeholder={renamesAgent ? "如 审查 或 reviewer" : undefined}
+            placeholder={renamesAgent ? t("workspace.Sidebar.text_eb0fc9038d") : undefined}
             title={nameError ?? undefined}
             value={draft}
           />
@@ -453,7 +458,7 @@ function SessionRow({
       ) : (
         <button
           aria-current={active}
-          aria-label={`${sessionLabel(tab)}，${statusText(tab)}`}
+          aria-label={t("workspace.Sidebar.sessionStatus", { name: sessionLabel(tab), status: statusText(tab) })}
           className="session-row__main"
           // 拖到终端上分屏；没拖动就是普通的切换点击。
           onClick={() => {
@@ -475,11 +480,11 @@ function SessionRow({
       <div className={`session-row__tail${tab.kind === "ssh" ? " session-row__tail--wide" : renamesAgent ? " session-row__tail--rename" : ""}`}>
         {tab.kind === "ssh" ? (
           <button
-            aria-label="编辑 SSH 连接"
+            aria-label={t("workspace.Sidebar.text_c49d0350ec")}
             className="session-row__edit"
             onClick={openSshEditor}
             ref={sshEditRef}
-            title="编辑 SSH 连接"
+            title={t("workspace.Sidebar.text_c49d0350ec")}
             type="button"
           >
             <Settings2 aria-hidden="true" size={ICON.xs} />
@@ -487,12 +492,12 @@ function SessionRow({
         ) : null}
         {renamable ? (
           <button
-            aria-label={renamesAgent ? "设置协作名字" : "重命名会话"}
+            aria-label={renamesAgent ? t("workspace.Sidebar.text_474a5fb084") : t("workspace.Sidebar.text_5f64610f9f")}
             className="session-row__rename"
             onClick={startEditing}
             title={renamesAgent
-              ? `协作名字${tab.agentName ? `：${tab.agentName}` : "（还没起，别的 Agent 派活找不到它）"}`
-              : "重命名会话"}
+              ? tab.agentName ? t("workspace.Sidebar.renameNamedAgent", { name: tab.agentName }) : t("workspace.Sidebar.renameAgent")
+              : t("workspace.Sidebar.text_5f64610f9f")}
             type="button"
           >
             <Pencil aria-hidden="true" size={ICON.xs} />
@@ -502,7 +507,7 @@ function SessionRow({
         <button
           className="session-row__close"
           onClick={() => onClose(tab.id)}
-          title={`关闭 ${sessionLabel(tab)}`}
+          title={t("workspace.Sidebar.text_24974f5c14", { name: sessionLabel(tab) })}
           type="button"
         >
           <X aria-hidden="true" size={ICON.xs} />
@@ -540,10 +545,10 @@ function sessionLabel(tab: WorkspaceTab) {
 function rowTitle(tab: WorkspaceTab) {
   if (tab.error) return tab.error;
   if (tab.kind === "shell") return shellProfileLabel(tab.profileId as ShellProfileId);
-  if (tab.kind === "ssh") return `双击重命名 · 点击设置编辑连接 · ${tab.title}`;
+  if (tab.kind === "ssh") return t("workspace.Sidebar.text_179d788534", { title: tab.title });
   const detail = tab.titleHint ?? tab.title;
   // 起过名字的行显示的是名字，正在干什么就只剩 tooltip 能交代了。
-  return tab.agentName ? `${tab.agentName} · ${detail}` : `双击起个协作名字 · ${detail}`;
+  return tab.agentName ? `${tab.agentName} · ${detail}` : t("workspace.Sidebar.text_8fd4074e0b", { detail: detail });
 }
 
 /**
@@ -552,6 +557,7 @@ function rowTitle(tab: WorkspaceTab) {
  * exited 同样不显示：整行已经褪成灰的了（.is-dim），再点一个灰点是同一件事说两遍。
  */
 function SessionDot({ tab }: { tab: WorkspaceTab }) {
+  useTranslation();
   if (tab.phase === "exited") return null;
   if (tab.phase !== "running") {
     return <i className={`status-dot status-dot--${tab.phase}`} aria-hidden="true" />;
@@ -575,14 +581,14 @@ function foldedDot(tabs: WorkspaceTab[], activeId: string | null) {
 
 function phaseText(phase: WorkspaceTab["phase"]) {
   return {
-    idle: "空闲",
-    creating: "启动中",
-    running: "运行中",
-    exited: "已退出",
-    error: "错误",
+    idle: t("workspace.Sidebar.text_dae661d17c"),
+    creating: t("workspace.Sidebar.text_33439d2631"),
+    running: t("workspace.Sidebar.text_1f0eb99b7e"),
+    exited: t("workspace.Sidebar.text_899df7e244"),
+    error: t("workspace.Sidebar.text_0bc1fb72ae"),
   }[phase];
 }
 
 function activityText(activity: Exclude<WorkspaceTab["activity"], "idle">) {
-  return { talking: "正在对话", "awaiting-choice": "等待选择" }[activity];
+  return { talking: t("workspace.Sidebar.text_df25f3c3f0"), "awaiting-choice": t("workspace.Sidebar.text_c634a6dafd") }[activity];
 }

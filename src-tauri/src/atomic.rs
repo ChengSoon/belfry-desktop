@@ -8,6 +8,7 @@
 //! home 在 macOS 上经常就不是一个卷。
 
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use crate::terminal::AppError;
@@ -34,20 +35,86 @@ pub(crate) fn write_atomic(path: &Path, contents: &str, private: bool) -> Result
     let existing_mode = current_mode(path);
 
     let temp = temp_path(path);
-    fs::write(&temp, contents)
+    let mut options = fs::OpenOptions::new();
+    options.create_new(true).write(true);
+    #[cfg(unix)] { use std::os::unix::fs::OpenOptionsExt; options.mode(if private { 0o600 } else { 0o644 }); }
+    let mut file = options.open(&temp)
         .map_err(|err| AppError::io(format!("写不了临时文件 {}：{err}", temp.display())))?;
+    if let Err(error) = file.write_all(contents.as_bytes()) {
+        drop(file);
+        let _ = fs::remove_file(&temp);
+        return Err(AppError::io(format!("写不了临时文件：{error}")));
+    }
 
     if let Err(error) = apply_mode(&temp, existing_mode, private) {
+        drop(file);
         let _ = fs::remove_file(&temp);
         return Err(error);
     }
+    if let Err(error) = file.sync_all() {
+        drop(file);
+        let _ = fs::remove_file(&temp);
+        return Err(AppError::io(format!("同步不了临时文件：{error}")));
+    }
+    drop(file);
 
     // Windows 上 std 的 rename 走 MoveFileExW + MOVEFILE_REPLACE_EXISTING，
     // 和 Unix 一样能覆盖已存在的目标，不需要先删。
     fs::rename(&temp, path).map_err(|err| {
         let _ = fs::remove_file(&temp);
         AppError::io(format!("替换不了 {}：{err}", path.display()))
-    })
+    })?;
+    // rename 是可见性提交点。目录同步失败不能再谎报“未提交”并诱导重试。
+    #[cfg(unix)]
+    if let Err(error) = fs::File::open(parent).and_then(|directory| directory.sync_all()) {
+        log::warn!("File replacement committed but directory sync failed: {error}");
+    }
+    Ok(())
+}
+
+/// 短事务的跨进程写锁；由内核回收，不留下崩溃后永远打不开的 PID 锁。
+pub(crate) struct FileLock { _file: fs::File }
+impl FileLock {
+    pub fn acquire(path: &Path) -> Result<Self, AppError> {
+        if let Some(parent) = path.parent() { fs::create_dir_all(parent).map_err(|error| AppError::io(error.to_string()))?; }
+        let mut options = fs::OpenOptions::new();
+        options.create(true).read(true).write(true).truncate(false);
+        #[cfg(unix)] { use std::os::unix::fs::OpenOptionsExt; options.mode(0o600); }
+        #[cfg(windows)] { use std::os::windows::fs::OpenOptionsExt; options.share_mode(0); }
+        let file = options.open(path).map_err(|error| AppError::io(format!("存储正在被使用或不可写：{error}")))?;
+        #[cfg(unix)] {
+            flock_retry(&file, 2 | 4).map_err(|error| {
+                if error.kind() == std::io::ErrorKind::WouldBlock {
+                    AppError::io("另一实例正在保存，请稍后重试")
+                } else {
+                    AppError::io(format!("存储正在被使用或不可写：{error}"))
+                }
+            })?;
+        }
+        Ok(Self { _file: file })
+    }
+}
+
+#[cfg(unix)]
+impl Drop for FileLock {
+    fn drop(&mut self) {
+        // fork inherits the open file description. Closing only our descriptor
+        // lets a child awaiting exec keep the completed transaction locked.
+        if let Err(error) = flock_retry(&self._file, 8) {
+            log::warn!("Cannot release the storage lock: {error}");
+        }
+    }
+}
+
+#[cfg(unix)]
+fn flock_retry(file: &fs::File, operation: i32) -> std::io::Result<()> {
+    use std::os::fd::AsRawFd;
+    unsafe extern "C" { fn flock(fd: i32, operation: i32) -> i32; }
+    loop {
+        if unsafe { flock(file.as_raw_fd(), operation) } == 0 { return Ok(()); }
+        let error = std::io::Error::last_os_error();
+        if error.kind() != std::io::ErrorKind::Interrupted { return Err(error); }
+    }
 }
 
 fn temp_path(path: &Path) -> PathBuf {
@@ -102,6 +169,23 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         dir
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn regression_dropping_a_lock_releases_it_while_an_inherited_descriptor_is_open() {
+        let dir = temp_dir("inherited-lock");
+        let path = dir.join("store.lock");
+        let lock = FileLock::acquire(&path).unwrap();
+        // dup/try_clone shares the open file description just as fork does. A child
+        // awaiting exec must not prolong a transaction after the parent drops it.
+        let inherited = lock._file.try_clone().unwrap();
+        assert!(FileLock::acquire(&path).is_err(), "a live guard must exclude other writers");
+        drop(lock);
+        let next = FileLock::acquire(&path);
+        drop(inherited);
+        let _ = fs::remove_dir_all(dir);
+        assert!(next.is_ok(), "the completed transaction still holds its lock: {:?}", next.err());
     }
 
     #[test]

@@ -1,3 +1,4 @@
+import { t, useTranslation } from "../i18n";
 import type { PointerEvent, RefObject } from "react";
 import { TerminalStage } from "../layout/components/TerminalStage";
 import type { DividerFrame, Rect } from "../layout/contracts";
@@ -47,8 +48,9 @@ export interface WorkbenchProps {
 }
 
 export function Workbench(props: WorkbenchProps) {
+  useTranslation();
   return (
-    <section className="workbench" aria-label="工作台">
+    <section className="workbench" aria-label={t("components.Workbench.text_f9e02d3c13")}>
       <WorkbenchToolbar {...props} />
       <TerminalStage
         activeTabId={props.activeTabId}
@@ -72,13 +74,14 @@ export function Workbench(props: WorkbenchProps) {
 }
 
 function EmptyStage({ onLaunch }: { onLaunch: () => void }) {
+  useTranslation();
   return (
     <div className="empty-stage">
-      <span className="empty-stage__eyebrow">你的工作台</span>
-      <h1>从一个会话开始</h1>
-      <p>打开 Shell，或从侧栏新建 Agent 会话。<br />已有会话会保留在工作区中。</p>
-      <button onClick={onLaunch} type="button">打开 Shell</button>
-      <small>拖动会话标题可分屏，在同一项目里并行工作。</small>
+      <span className="empty-stage__eyebrow">{t("components.Workbench.text_da6facaf34")}</span>
+      <h1>{t("components.Workbench.text_ee5aa07993")}</h1>
+      <p>{t("components.Workbench.text_0c0f9b6b9f")}<br />{t("components.Workbench.text_060e29f925")}</p>
+      <button onClick={onLaunch} type="button">{t("components.Workbench.text_3060812742")}</button>
+      <small>{t("components.Workbench.text_54af0713cc")}</small>
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { TranslationError } from "../../i18n";
 import type { PanelModule } from "./panelImport";
 
 interface RetryOptions { exportName?: string; attempt: number; baseUrl: string; resource?: "module" | "style" }
@@ -32,7 +33,7 @@ export function retryPanelImport<Props>(error: unknown, options: Omit<RetryOptio
   if (!url) return null;
   return import(/* @vite-ignore */ url).then((module): PanelModule<Props> => {
     const component = module[options.exportName ?? "default"];
-    if (!component) throw new Error("面板模块没有提供预期的入口");
+    if (!component) throw new TranslationError("components.retryImport.text_60e23a21d4");
     return { default: component };
   });
 }

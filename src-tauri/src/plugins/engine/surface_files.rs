@@ -21,7 +21,7 @@ pub(super) fn watch(window: &WebviewWindow, plugin_id: &str) {
 }
 
 pub(super) fn pick(app: &AppHandle, options: &Value) -> Result<Value, String> {
-    let mut dialog = app.dialog().file().set_title("选择文件");
+    let mut dialog = app.dialog().file().set_title(belfry_i18n::text("选择文件"));
     let extensions: Vec<_> = options["accept"]
         .as_str()
         .unwrap_or("")

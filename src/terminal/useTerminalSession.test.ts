@@ -17,9 +17,10 @@ vi.mock("react", async (original) => {
     return (hooks.slots[index] as { value: T }).value;
   };
   return { ...await original<typeof import("react")>(),
+    useSyncExternalStore: (_subscribe: unknown, getSnapshot: () => unknown) => getSnapshot(),
     useState: <T,>(initial: T) => {
       const index = hooks.cursor++;
-      if (!(index in hooks.slots)) hooks.slots[index] = initial;
+      if (!(index in hooks.slots)) hooks.slots[index] = typeof initial === "function" ? initial() : initial;
       return [hooks.slots[index], (next: T | ((value: T) => T)) => {
         const value = typeof next === "function" ? (next as (value: T) => T)(hooks.slots[index] as T) : next;
         if (!Object.is(value, hooks.slots[index])) hooks.dirty = true;

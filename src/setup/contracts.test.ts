@@ -32,7 +32,7 @@ describe("summarizeSkillInstall", () => {
 
     expect(feedback).toEqual({
       notice: "已同步 1 个客户端（安装/更新 0，已是最新 1）",
-      failure: "Claude Code：目录不可写",
+      failure: "Claude Code: 目录不可写",
     });
   });
 });

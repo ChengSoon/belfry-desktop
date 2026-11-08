@@ -1,3 +1,4 @@
+import { useFeedback, TranslationError, useTranslation } from "../../i18n";
 import { useRef, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { pluginHost } from "../useDirectoryRegistry";
@@ -14,8 +15,9 @@ export interface InstallProposal {
   preview?: InstallPreview; market?: boolean;
 }
 export function useCenterActions(refresh: () => Promise<void>) {
+  useTranslation();
   const [busy, setBusy] = useState(false), busyRef = useRef(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useFeedback("");
   const [pending, setPending] = useState<InstallProposal | null>(null);
   const [autoUpdate, setAutoUpdate] = useState(true);
   // 市场是一屏卡片，光靠页面级的 busy 无法区分点的是哪一张。记下正在预览的
@@ -25,7 +27,7 @@ export function useCenterActions(refresh: () => Promise<void>) {
     if (busyRef.current) return false;
     busyRef.current = true; setBusy(true); setError("");
     try { await operation(); await refresh(); return true; }
-    catch (reason) { setError(pluginError(reason)); return false; }
+    catch (reason) { setError(() => pluginError(reason)); return false; }
     finally { busyRef.current = false; setBusy(false); }
   };
   const mutate = async (id: string, action: PluginOperation) => {
@@ -59,7 +61,7 @@ export type CenterActions = ReturnType<typeof useCenterActions>;
 export async function inspectLocal(actions: CenterActions, development: boolean) {
   await actions.run(async () => {
     const path = await open({ directory: development, multiple: false, title: t(development ? "plugins.loadDev" : "plugins.installPackage"),
-      ...(development ? {} : { filters: [{ name: "PI 插件包", extensions: ["piplug", "zip"] }] }) });
+      ...(development ? {} : { filters: [{ name: t("plugins.useCenterActions.text_381d5d4ab4"), extensions: ["piplug", "zip"] }] }) });
     if (typeof path !== "string") return;
     const preview = await pluginHost.inspect(path, development);
     const manifest = preview.manifest;
@@ -78,7 +80,7 @@ export async function confirmInstall(actions: CenterActions) {
       const registry = await pluginHost.list();
       const installed = await pluginHost.install(pending.preview.previewId, registry.revision);
       await pluginHost.mutate(pending.id, "enable", installed.revision);
-    } else throw new Error("请重新预览插件");
+    } else throw new TranslationError("plugins.useCenterActions.text_c19ef20f42");
     actions.setPending(null);
     pluginNotice(t("plugins.installed", { name: pending.name }));
   });

@@ -3,6 +3,7 @@ const callbacks = new Map(), channels = new Map();
 let nextCallback = 0;
 const project = { id: "production-qa", name: "panel-qa", rootPath: "/qa/panel-project", rootUri: "file:///qa/panel-project" };
 const qa = window.__productionQA = { calls: [], creates: 0, writes: [], preloadErrors: [], errors: [], token: crypto.randomUUID() };
+if (!localStorage.getItem("belfry.locale.v1")) localStorage.setItem("belfry.locale.v1", "zh-CN");
 window.addEventListener("vite:preloadError", (event) => qa.preloadErrors.push(String(event.payload?.message ?? event.payload)));
 window.addEventListener("error", (event) => { if (event.error) qa.errors.push(String(event.error)); });
 window.addEventListener("unhandledrejection", (event) => qa.errors.push(String(event.reason)));
@@ -54,7 +55,7 @@ const handlers = {
   project_open: () => project, git_status: () => ({ branch: "qa", files: [] }),
 };
 const voidCommands = new Set(["terminal_resize", "terminal_close", "terminal_close_tab", "terminal_detach",
-  "terminal_set_palette", "terminal_exit", "collab_sync_sessions", "history_cancel_search", "usage_cancel_analytics"]);
+  "terminal_set_palette", "terminal_exit", "collab_sync_sessions", "history_cancel_search", "usage_cancel_analytics", "app_set_locale"]);
 
 window.__TAURI_INTERNALS__ = {
   metadata: { currentWindow: { label: "qa" }, currentWebview: { label: "qa", windowLabel: "qa" } },

@@ -4,7 +4,7 @@ import { readGitStatus } from "./api";
 import type { GitStatus } from "./contracts";
 
 const REFRESH_INTERVAL_MS = 3_000;
-interface State { rootPath: string | null; report: GitStatus | null; loading: boolean; failure: string | null }
+interface State { rootPath: string | null; report: GitStatus | null; loading: boolean; failure: ReturnType<typeof toAppFailure> | null }
 
 export function useGitStatus(rootPath: string | null) {
   const [state, setState] = useState<State>({ rootPath, report: null, loading: false, failure: null });
@@ -16,7 +16,7 @@ export function useGitStatus(rootPath: string | null) {
   }, [rootPath]);
   const reload = useCallback(() => loader.current(), []);
   const current = state.rootPath === rootPath ? state : { rootPath, report: null, loading: Boolean(rootPath), failure: null };
-  return { ...current, reload };
+  return { ...current, failure: current.failure?.message ?? null, reload };
 }
 
 function pollStatus({ rootPath, loader, setState }: {
@@ -34,7 +34,7 @@ function pollStatus({ rootPath, loader, setState }: {
       const report = await readGitStatus(rootPath);
       if (active) setState({ rootPath, report, loading: false, failure: null });
     } catch (error) {
-      if (active) setState((current) => ({ ...current, loading: false, failure: toAppFailure(error).message }));
+      if (active) setState((current) => ({ ...current, loading: false, failure: toAppFailure(error) }));
     } finally { reading = false; }
   };
   loader.current = () => void load();

@@ -1,3 +1,4 @@
+import { useFeedback, t, useTranslation } from "../../i18n";
 import { FileText, FolderOpen, Image as ImageIcon, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "../../components/ui/button";
@@ -11,9 +12,10 @@ import type { RoomAttachment } from "../contracts";
 
 /** 消息里的附件：图片排成缩略图，文档排成文件卡片。 */
 export function MessageAttachments({ roomId, attachments }: { roomId: string; attachments?: RoomAttachment[] }) {
+  useTranslation();
   if (!attachments?.length) return null;
   return (
-    <div aria-label="消息附件" className="mt-1.5 flex flex-wrap gap-2">
+    <div aria-label={t("rooms.RoomAttachments.text_ca0bce2050")} className="mt-1.5 flex flex-wrap gap-2">
       {attachments.map((attachment) => <AttachmentCard attachment={attachment} key={attachment.id} roomId={roomId} />)}
     </div>
   );
@@ -32,12 +34,13 @@ export function AttachmentCard({ roomId, attachment, name, size, onRemove, disab
   onRemove?: () => void;
   disabled?: boolean;
 }) {
+  useTranslation();
   const [url, setUrl] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useFeedback<string | null>(null);
   const [preview, setPreview] = useState(false);
   const host = useRef<HTMLDivElement>(null);
   const image = attachment ? isPreviewImage(attachment.mimeType) : false;
-  const label = attachment?.name ?? name ?? "附件";
+  const label = attachment?.name ?? name ?? t("rooms.RoomAttachments.text_c7225dbf10");
   const bytes = attachment?.size ?? size;
   const extension = attachmentExtension(label);
 
@@ -53,7 +56,7 @@ export function AttachmentCard({ roomId, attachment, name, size, onRemove, disab
         if (!active) return;
         objectUrl = URL.createObjectURL(new Blob([data], { type: attachment.mimeType }));
         setUrl(objectUrl);
-      } catch { if (active) setError("预览不可用"); }
+      } catch { if (active) setError(() => t("rooms.RoomAttachments.text_a1c3ce8944")); }
     };
     const observer = new IntersectionObserver((entries) => {
       if (entries.some((entry) => entry.isIntersecting)) { void read(); observer.disconnect(); }
@@ -65,23 +68,23 @@ export function AttachmentCard({ roomId, attachment, name, size, onRemove, disab
   const reveal = async () => {
     if (!attachment) return;
     try { await revealRoomAttachment(roomId, attachment.id); }
-    catch (cause) { setError(toAppFailure(cause).message); }
+    catch (cause) { setError(() => toAppFailure(cause).message); }
   };
   const open = () => { if (image && url) setPreview(true); else void reveal(); };
-  const detail = error ?? (!attachment ? "正在添加…" : bytes === undefined ? "文件" : attachmentSize(bytes));
+  const detail = error ?? (!attachment ? t("rooms.RoomAttachments.text_cc708a7a29") : bytes === undefined ? t("rooms.RoomAttachments.text_39932f24fe") : attachmentSize(bytes));
 
   return (
     <div className="group/attachment relative" ref={host}>
       {image && url ? (
-        <button aria-label={`预览 ${label}`} className="block overflow-hidden rounded-lg border border-border bg-muted outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+        <button aria-label={t("rooms.RoomAttachments.text_7e541b310b", { label: label })} className="block overflow-hidden rounded-lg border border-border bg-muted outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
           onClick={open} title={label} type="button">
-          <img alt={label} className="h-28 max-w-56 object-cover" onError={() => { setUrl(null); setError("预览不可用"); }} src={url} />
+          <img alt={label} className="h-28 max-w-56 object-cover" onError={() => { setUrl(null); setError(() => t("rooms.RoomAttachments.text_a1c3ce8944")); }} src={url} />
         </button>
       ) : (
         <button className={cn(
           "flex h-12 w-56 items-center gap-2.5 rounded-lg border border-border bg-card px-2.5 text-left transition-colors outline-none",
           "hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-default disabled:hover:bg-card",
-        )} disabled={!attachment} onClick={open} title={image ? `预览 ${label}` : `在文件夹中显示 ${label}`} type="button">
+        )} disabled={!attachment} onClick={open} title={image ? t("rooms.RoomAttachments.text_7e541b310b", { label: label }) : t("rooms.RoomAttachments.text_440613ad17", { label: label })} type="button">
           <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
             {!attachment ? <Spinner /> : image ? <ImageIcon className="size-4" /> : <FileText className="size-4" />}
           </span>
@@ -94,12 +97,12 @@ export function AttachmentCard({ roomId, attachment, name, size, onRemove, disab
         </button>
       )}
       {onRemove ? (
-        <Button aria-label={`移除附件 ${label}`} disabled={disabled} onClick={onRemove} size="icon-xs" variant="secondary"
+        <Button aria-label={t("rooms.RoomAttachments.text_19d8c68c24", { label: label })} disabled={disabled} onClick={onRemove} size="icon-xs" variant="secondary"
           className="absolute -top-1.5 -right-1.5 size-5 rounded-full border border-border opacity-0 shadow-sm group-hover/attachment:opacity-100 focus-visible:opacity-100">
           <X className="size-3" />
         </Button>
       ) : attachment && !image ? null : attachment ? (
-        <Button aria-label={`在文件夹中显示 ${label}`} onClick={() => void reveal()} size="icon-xs" variant="secondary"
+        <Button aria-label={t("rooms.RoomAttachments.text_440613ad17", { label: label })} onClick={() => void reveal()} size="icon-xs" variant="secondary"
           className="absolute top-1 right-1 opacity-0 shadow-sm group-hover/attachment:opacity-100 focus-visible:opacity-100">
           <FolderOpen />
         </Button>
@@ -113,7 +116,7 @@ export function AttachmentCard({ roomId, attachment, name, size, onRemove, disab
             </DialogHeader>
             <img alt={label} className="max-h-[70vh] w-full rounded-md object-contain" src={url} />
             <div className="flex justify-end">
-              <Button onClick={() => void reveal()} size="sm" variant="outline"><FolderOpen /> 在文件夹中显示</Button>
+              <Button onClick={() => void reveal()} size="sm" variant="outline"><FolderOpen />{t("rooms.RoomAttachments.text_037c31ec9e")}</Button>
             </div>
           </DialogContent>
         </Dialog>

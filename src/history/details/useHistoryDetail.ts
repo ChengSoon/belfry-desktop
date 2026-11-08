@@ -5,7 +5,7 @@ import type { DetailPage } from "./contracts";
 import { cachePage } from "./model";
 import { createDetailRequests } from "./requests";
 
-interface State { owner: string; pages: DetailPage[]; active: number; busy: boolean; error: string | null }
+interface State { owner: string; pages: DetailPage[]; active: number; busy: boolean; error: ReturnType<typeof toAppFailure> | null }
 const initial = (): State => ({ owner: "", pages: [], active: 0, busy: false, error: null });
 
 export function useHistoryDetail(session: AgentSessionRef) {
@@ -14,7 +14,7 @@ export function useHistoryDetail(session: AgentSessionRef) {
   const requests = useMemo(() => createDetailRequests({
     start: (reset) => setState((current) => ({ ...(reset ? initial() : current), owner, busy: true, error: null })),
     result: (page) => setState((current) => ({ ...current, pages: cachePage(current.pages, page), active: page.page })),
-    failure: (error) => setState((current) => ({ ...current, error: toAppFailure(error).message })),
+    failure: (error) => setState((current) => ({ ...current, error: toAppFailure(error) })),
     finish: () => setState((current) => ({ ...current, busy: false })),
   }), [session.agent, session.id]);
   useEffect(() => {
@@ -28,6 +28,6 @@ export function useHistoryDetail(session: AgentSessionRef) {
     if (state.pages.some((page) => page.page === state.active + 1)) setState((current) => ({ ...current, active: current.active + 1 }));
     else void requests.next();
   };
-  return { page, busy: state.owner !== owner || state.busy, error: state.owner === owner ? state.error : null, hasPrevious: state.active > (state.pages[0]?.page ?? 0),
+  return { page, busy: state.owner !== owner || state.busy, error: state.owner === owner ? state.error?.message ?? null : null, hasPrevious: state.active > (state.pages[0]?.page ?? 0),
     earlierEvicted: (state.pages[0]?.page ?? 0) > 0, previous, next, reload: () => void requests.open(session) };
 }

@@ -1,3 +1,4 @@
+import { t, useTranslation } from "../../i18n";
 import { open } from "@tauri-apps/plugin-dialog";
 import { usePluginsPage } from "./context";
 import { Button, Input } from "./ui";
@@ -8,39 +9,40 @@ import { usePersonalMarketName } from "./usePersonalMarketName";
 import { composingKey } from "../../utils/keyboard";
 
 export function PersonalMarketControls() {
+  useTranslation();
   const { actions, setPublishDirectory } = usePluginsPage();
   const marketName = usePersonalMarketName();
   const afterNameSaved = async (operation: () => Promise<void>) => {
     if (await marketName.save()) await operation();
   };
   return <div className="plugins-personal-market">
-    <label className="plugins-market-name"><span className="settings-row-title">市场名称</span>
-      <Input aria-label="市场名称" value={marketName.name} maxLength={100} disabled={actions.busy || marketName.loading || marketName.saving}
+    <label className="plugins-market-name"><span className="settings-row-title">{t("plugins.PersonalMarketControls.text_d36319004d")}</span>
+      <Input aria-label={t("plugins.PersonalMarketControls.text_d36319004d")} value={marketName.name} maxLength={100} disabled={actions.busy || marketName.loading || marketName.saving}
         onChange={(event) => marketName.setName(event.target.value)} onBlur={() => void marketName.save()}
         onKeyDown={(event) => { if (!composingKey(event.nativeEvent) && event.key === "Enter") void marketName.save(); }} /></label>
     {marketName.error ? <p className="plugins-inline-error" role="alert">{marketName.error}</p> : null}
-    <p className="settings-row-desc">导出的市场包含独立网页和插件包，可直接部署到自己的网址。</p>
+    <p className="settings-row-desc">{t("plugins.PersonalMarketControls.text_1d37712e54")}</p>
     <div className="plugins-personal-actions">
       <Button variant="primary" disabled={actions.busy || marketName.loading}
-        onClick={() => void afterNameSaved(() => choosePublication(actions, setPublishDirectory))}>发布已有插件</Button>
+        onClick={() => void afterNameSaved(() => choosePublication(actions, setPublishDirectory))}>{t("plugins.PersonalMarketControls.text_5f1e474dd7")}</Button>
       <Button disabled={actions.busy || marketName.loading}
-        onClick={() => void afterNameSaved(() => exportOwnMarket(actions))}>导出市场网站</Button>
+        onClick={() => void afterNameSaved(() => exportOwnMarket(actions))}>{t("plugins.PersonalMarketControls.text_a8420f92c9")}</Button>
     </div>
   </div>;
 }
 
 export async function choosePublication(actions: CenterActions, choose: (directory: string) => void) {
   await actions.run(async () => {
-    const directory = await open({ directory: true, multiple: false, title: "选择要发布的插件源码目录" });
+    const directory = await open({ directory: true, multiple: false, title: t("plugins.PersonalMarketControls.text_b9ceb49ec8") });
     if (typeof directory === "string") choose(directory);
   });
 }
 export async function exportOwnMarket(actions: CenterActions) {
   await actions.run(async () => {
-    const directory = await open({ directory: true, multiple: false, title: "选择空目录以导出市场网站" });
+    const directory = await open({ directory: true, multiple: false, title: t("plugins.PersonalMarketControls.text_b2c5818762") });
     if (typeof directory !== "string") return;
     const result = await centerApi.exportMarket(directory);
-    pluginNotice(`已导出市场网站，包含 ${result.pluginCount} 个插件`);
+    pluginNotice(t("plugins.PersonalMarketControls.text_4c48d414e9", { count: result.pluginCount }));
     await centerApi.reveal(result.directory);
   });
 }

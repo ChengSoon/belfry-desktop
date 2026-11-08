@@ -1,3 +1,5 @@
+import { errorMessage as localizedErrorMessage } from "../i18n";
+import { TranslationError, useFeedback, getLocale, t, useTranslation } from "../i18n";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import {
   createContext,
@@ -32,6 +34,7 @@ import {
 const TypographyContext = createContext<TypographyController | null>(null);
 
 export function TypographyProvider({ children }: { children: ReactNode }) {
+  useTranslation();
   const [config, setConfig] = useState(loadTypography);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -39,7 +42,7 @@ export function TypographyProvider({ children }: { children: ReactNode }) {
   const runtime = useMemo<TypographyRuntime>(() => ({
     fontFamily: resolveTypographyFontFamily(config, imported.ready),
     fontSize: config.fontSize,
-  }), [config, imported.ready, imported.revision]);
+  }), [config, imported.ready, imported.revision, getLocale()]);
 
   useEffect(() => applyTypographyCss(runtime), [runtime]);
   useEffect(() => saveTypography(config), [config]);
@@ -76,7 +79,7 @@ export function TypographyProvider({ children }: { children: ReactNode }) {
     pick,
     clearImported,
     reset,
-  }), [config, runtime, busy, actionError, imported.error, update, pick, clearImported, reset]);
+  }), [config, runtime, busy, actionError, imported.error, update, pick, clearImported, reset, getLocale()]);
 
   return <TypographyContext value={controller}>{children}</TypographyContext>;
 }
@@ -138,14 +141,16 @@ async function clearImportedFont(fileName: string, setters: TypographyActionSett
 }
 
 export function useTypography() {
+  useTranslation();
   const controller = useContext(TypographyContext);
-  if (!controller) throw new Error("useTypography 必须在 TypographyProvider 内使用");
+  if (!controller) throw new TranslationError("typography.TypographyProvider.text_dcb40c24b1");
   return controller;
 }
 
 function useImportedFont(asset: ImportedFontAsset | null) {
+  useTranslation();
   const [ready, setReady] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useFeedback<string | null>(null);
   const [revision, setRevision] = useState(0);
   const faceRef = useRef<FontFace | null>(null);
 
@@ -169,7 +174,7 @@ function useImportedFont(asset: ImportedFontAsset | null) {
       if (cancelled) return;
       releaseFontFace(faceRef);
       setReady(false);
-      setError(`字体文件无法加载：${errorMessage(cause)}`);
+      setError(() => t("typography.TypographyProvider.text_8a96643e3c", { error: errorMessage(cause) }));
     });
     return () => {
       cancelled = true;
@@ -209,15 +214,9 @@ function pickFontPath() {
   return openDialog({
     directory: false,
     multiple: false,
-    title: "导入字体",
-    filters: [{ name: "字体", extensions: ["ttf", "otf", "woff", "woff2"] }],
+    title: t("typography.TypographyProvider.text_50751aa958"),
+    filters: [{ name: t("typography.TypographyProvider.text_078838da42"), extensions: ["ttf", "otf", "woff", "woff2"] }],
   }).then((selected) => typeof selected === "string" ? selected : null);
 }
 
-function errorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  if (typeof error === "object" && error && "message" in error) {
-    return String((error as { message: unknown }).message);
-  }
-  return String(error);
-}
+function errorMessage(error: unknown): string { return localizedErrorMessage(error); }

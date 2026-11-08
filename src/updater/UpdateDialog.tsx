@@ -1,3 +1,4 @@
+import { t, useTranslation } from "../i18n";
 import { AlertTriangle, Check, Download, LoaderCircle } from "lucide-react";
 import { useEffect, useRef, type RefObject } from "react";
 import { ICON } from "../theme/sizing";
@@ -14,6 +15,7 @@ interface UpdateDialogProps {
 }
 
 export function UpdateDialog({ state, onCheck, onInstall, onClose }: UpdateDialogProps) {
+  useTranslation();
   const busy = state.status === "downloading" || state.status === "installing";
   const panelRef = useDismiss<HTMLDivElement>(!busy, onClose);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -36,7 +38,7 @@ export function UpdateDialog({ state, onCheck, onInstall, onClose }: UpdateDialo
             <StatusIcon status={state.status} />
           </span>
           <div>
-            <strong className="modal__title" id="updater-title">Belfry 更新</strong>
+            <strong className="modal__title" id="updater-title">{t("updater.UpdateDialog.text_943cc79488")}</strong>
             <p>{versionLine(state)}</p>
           </div>
         </header>
@@ -55,6 +57,7 @@ export function UpdateDialog({ state, onCheck, onInstall, onClose }: UpdateDialo
 }
 
 function StatusIcon({ status }: { status: UpdaterState["status"] }) {
+  useTranslation();
   if (status === "checking" || status === "downloading" || status === "installing") {
     return <LoaderCircle aria-hidden="true" className="updater-spin" size={ICON.lg} />;
   }
@@ -64,10 +67,11 @@ function StatusIcon({ status }: { status: UpdaterState["status"] }) {
 }
 
 function UpdateContent({ state }: { state: UpdaterState }) {
-  if (state.status === "checking") return <p className="updater-dialog__message">正在连接更新服务器…</p>;
-  if (state.status === "current") return <p className="updater-dialog__message">当前已是最新版本。</p>;
+  useTranslation();
+  if (state.status === "checking") return <p className="updater-dialog__message">{t("updater.UpdateDialog.text_ecc48ab0e2")}</p>;
+  if (state.status === "current") return <p className="updater-dialog__message">{t("updater.UpdateDialog.text_ca9955f4ec")}</p>;
   if (state.status === "error") {
-    return <p className="updater-dialog__message updater-dialog__message--error" role="alert">{state.error}<small>可再次检查，或关闭后稍后重试。</small></p>;
+    return <p className="updater-dialog__message updater-dialog__message--error" role="alert">{state.error}<small>{t("updater.UpdateDialog.text_b9e759ac81")}</small></p>;
   }
   if (state.status === "downloading" || state.status === "installing") {
     return <DownloadProgress state={state} />;
@@ -75,17 +79,18 @@ function UpdateContent({ state }: { state: UpdaterState }) {
   if (state.status === "available") {
     return (
       <div className="updater-dialog__release">
-        <span>版本说明</span>
-        <p>{state.notes ?? "该版本未提供版本说明。"}</p>
+        <span>{t("updater.UpdateDialog.text_a596c619e4")}</span>
+        <p>{state.notes ?? t("updater.UpdateDialog.text_56440966fd")}</p>
       </div>
     );
   }
-  return <p className="updater-dialog__message">准备检查更新。</p>;
+  return <p className="updater-dialog__message">{t("updater.UpdateDialog.text_7c1118df14")}</p>;
 }
 
 function DownloadProgress({ state }: { state: UpdaterState }) {
+  useTranslation();
   const installing = state.status === "installing";
-  const label = installing ? "正在安装，完成后将自动重启" : downloadLabel(state);
+  const label = installing ? t("updater.UpdateDialog.text_5e069b0d8c") : downloadLabel(state);
   return (
     <div className="updater-dialog__download">
       <div className="updater-dialog__progress-label">
@@ -113,21 +118,22 @@ function DialogActions({
   onClose,
   closeRef,
 }: UpdateDialogProps & { closeRef: RefObject<HTMLButtonElement | null> }) {
+  useTranslation();
   const busy = state.status === "downloading" || state.status === "installing";
   return (
     <div className="modal__actions">
       {busy ? null : (
         <button onClick={onClose} ref={closeRef} type="button">
-          {state.status === "available" ? "稍后" : "关闭"}
+          {state.status === "available" ? t("updater.UpdateDialog.text_9d2ca26128") : t("updater.UpdateDialog.text_3fd47edce4")}
         </button>
       )}
       {state.status === "available" ? (
-        <button className="modal__primary" onClick={onInstall} type="button">下载并安装</button>
+        <button className="modal__primary" onClick={onInstall} type="button">{t("updater.UpdateDialog.text_ac69f68b70")}</button>
       ) : busy ? (
-        <button className="modal__primary" disabled type="button">正在更新</button>
+        <button className="modal__primary" disabled type="button">{t("updater.UpdateDialog.text_2336147a7f")}</button>
       ) : (
         <button className="modal__primary" disabled={state.status === "checking"} onClick={onCheck} type="button">
-          {state.status === "checking" ? "正在检查" : "再次检查"}
+          {state.status === "checking" ? t("updater.UpdateDialog.text_d85ff08f91") : t("updater.UpdateDialog.text_fe0503e4a3")}
         </button>
       )}
     </div>
@@ -136,12 +142,12 @@ function DialogActions({
 
 function versionLine(state: UpdaterState) {
   if (state.availableVersion) return `v${state.currentVersion} → v${state.availableVersion}`;
-  return `当前版本 v${state.currentVersion}`;
+  return t("updater.UpdateDialog.text_937ee9309c", { currentVersion: state.currentVersion });
 }
 
 function downloadLabel(state: UpdaterState) {
   if (state.totalBytes) {
     return `${formatBytes(state.downloadedBytes)} / ${formatBytes(state.totalBytes)}`;
   }
-  return state.downloadedBytes ? `已下载 ${formatBytes(state.downloadedBytes)}` : "正在准备下载";
+  return state.downloadedBytes ? t("updater.UpdateDialog.text_5d42786bd4", { bytes: formatBytes(state.downloadedBytes) }) : t("updater.UpdateDialog.text_b7bc6d20fa");
 }

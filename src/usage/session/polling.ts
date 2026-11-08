@@ -1,3 +1,4 @@
+import { TranslationError } from "../../i18n";
 import type { SessionStatistics, SessionStatisticsQuery, StatisticsView } from "./contracts";
 import { toAppFailure } from "../../workspace/errors";
 
@@ -18,12 +19,12 @@ export function watchStatistics(query: SessionStatisticsQuery, dependencies: Dep
       const next = await dependencies.read(query);
       if (stopped) return;
       if (next.session.agent !== query.session.agent || next.session.id !== query.session.id) {
-        throw new Error("统计结果的会话身份不匹配，已忽略");
+        throw new TranslationError("usage.polling.text_8f67bbe01c");
       }
       report = next;
       dependencies.publish({ report, loading: false, error: null });
     } catch (error) {
-      if (!stopped) dependencies.publish({ report, loading: false, error: toAppFailure(error).message });
+      if (!stopped) dependencies.publish({ report, loading: false, get error() { return toAppFailure(error).message; } });
     } finally {
       if (!stopped) timer = setTimeout(() => void poll(), REFRESH_INTERVAL_MS);
     }

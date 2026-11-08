@@ -23,7 +23,7 @@ pub fn resolve_password(target: &SshTarget) -> Option<String> {
         if let Some(password) = typed {
             if let Err(error) = save(target, password) {
                 // 保存失败不拦会话：这次连接照常（用刚输入的密码），只是没记住。
-                eprintln!("[belfry] failed to save ssh password: {error}");
+                log::warn!("[belfry] failed to save ssh password: {error}");
             }
         }
     }

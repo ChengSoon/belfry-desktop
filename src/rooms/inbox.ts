@@ -10,6 +10,12 @@ import type { RoomMessage, RoomSummary } from "./contracts";
 
 const PREFIX = "belfry.rooms.v2.seen.";
 const EVENT = "belfry-room-seen";
+let watchingRoom: string | null = null;
+export const isWatchingRoom = (roomId: string) => watchingRoom === roomId;
+export function watchRoom(roomId: string) {
+  watchingRoom = roomId;
+  return () => { if (watchingRoom === roomId) watchingRoom = null; };
+}
 
 type Storage = Pick<globalThis.Storage, "getItem" | "setItem">;
 

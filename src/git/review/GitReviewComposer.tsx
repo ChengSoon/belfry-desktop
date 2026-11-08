@@ -1,3 +1,4 @@
+import { t, useTranslation } from "../../i18n";
 import { useEffect, useId, useRef } from "react";
 import { MessageSquare, Send } from "lucide-react";
 import { Select } from "../../components/controls/Select";
@@ -12,6 +13,7 @@ import "./review.css";
 export function GitReviewComposer({ context, diff, onRefresh }: {
   context: ReviewContext; diff: GitDiff | null; onRefresh: () => void;
 }) {
+  useTranslation();
   const review = useGitReview();
   const fieldId = useId();
   const input = useRef<HTMLTextAreaElement>(null);
@@ -24,58 +26,57 @@ export function GitReviewComposer({ context, diff, onRefresh }: {
   const targets = reviewTargets(review.tabs, context.projectRoot);
   const target = targets.find((tab) => tab.id === draft.targetId);
   const options = targets.map((tab) => ({ value: tab.id, label: reviewTargetLabel(tab),
-    description: tab.phase !== "running" ? "会话就绪后发送" : tab.activity === "idle" ? "空闲，可接收反馈"
-      : tab.activity === "awaiting-choice" ? "等待确认，反馈将排队" : "正在处理任务，反馈将排队" }));
+    description: tab.phase !== "running" ? t("git.GitReviewComposer.text_9d22ec829e") : tab.activity === "idle" ? t("git.GitReviewComposer.text_c6faf8deb8")
+      : tab.activity === "awaiting-choice" ? t("git.GitReviewComposer.text_2695597fe9") : t("git.GitReviewComposer.text_5433e54611") }));
   const send = () => { if (diff && current && !locked) void review.send(context, diff); };
   const stale = diff !== null && !current;
   const receipt = draft.receipt;
-  return <form className="git-review" aria-label="代码审查反馈" onSubmit={(event) => { event.preventDefault(); send(); }}>
+  return <form className="git-review" aria-label={t("git.GitReviewComposer.text_75c06d160f")} onSubmit={(event) => { event.preventDefault(); send(); }}>
     <div className="git-review__head"><MessageSquare size={ICON.sm} aria-hidden="true" />
-      <strong>反馈给 Agent</strong><span>{reviewLineLabel(anchor.line)}</span></div>
-    <label htmlFor={fieldId} className="sr-only">修改意见</label>
+      <strong>{t("git.GitReviewComposer.text_8d8c5c2ade")}</strong><span>{reviewLineLabel(anchor.line)}</span></div>
+    <label htmlFor={fieldId} className="sr-only">{t("git.GitReviewComposer.text_e6cd0477dd")}</label>
     <textarea ref={input} id={fieldId} value={draft.comment} maxLength={MAX_REVIEW_COMMENT} rows={3} disabled={locked}
-      placeholder="说明希望如何修改，例如：这里需要处理空列表，并补一个测试。"
+      placeholder={t("git.GitReviewComposer.text_f7c7fe01af")}
       onChange={(event) => review.edit(context, { comment: event.target.value })}
       onKeyDown={(event) => { if (!composingKey(event.nativeEvent) && (event.metaKey || event.ctrlKey) && event.key === "Enter") {
         event.preventDefault(); event.stopPropagation(); send();
       } }} />
-    {stale && !locked ? <p className="git-review__warning" role="status">所选代码已变化，请重新选行。你的反馈已保留。</p> : null}
+    {stale && !locked ? <p className="git-review__warning" role="status">{t("git.GitReviewComposer.text_5e5992b38c")}</p> : null}
     {draft.error ? <div className="git-review__error" role="alert">{draft.error}
-      <button type="button" onClick={onRefresh}>刷新 Diff</button></div> : null}
+      <button type="button" onClick={onRefresh}>{t("git.GitReviewComposer.text_e01d757f2b")}</button></div> : null}
     {!receipt || receipt.state === "cancelled" ? <>
-      <div className="git-review__actions"><Select ariaLabel="接收反馈的 Agent" value={target?.id ?? ""} options={options}
-        placeholder={targets.length ? "选择 Agent 会话" : "当前项目没有 Agent 会话"}
+      <div className="git-review__actions"><Select ariaLabel={t("git.GitReviewComposer.text_fb7c6dff32")} value={target?.id ?? ""} options={options}
+        placeholder={targets.length ? t("git.GitReviewComposer.text_1fc363c800") : t("git.GitReviewComposer.text_a200f3f17e")}
         onChange={(targetId) => review.edit(context, { targetId })} />
         <button type="submit" className="git-review__send" disabled={!current || !target || !draft.comment.trim()}>
-          <Send size={ICON.sm} aria-hidden="true" />发送反馈</button></div>
-      <p className="git-review__note">{!targets.length ? "先在当前项目新建 Agent 会话。"
-        : draft.targetId && !target ? "原接收会话已不可用，请重新选择。"
-          : target && target.activity !== "idle" ? "接收会话忙碌或等待确认，反馈会排队到空闲后发送。"
-            : "附带所选行附近的差异和文件位置。⌘ / Ctrl + Enter 发送。"}</p>
+          <Send size={ICON.sm} aria-hidden="true" />{t("git.GitReviewComposer.text_5146ae493c")}</button></div>
+      <p className="git-review__note">{!targets.length ? t("git.GitReviewComposer.text_3286dd6124")
+        : draft.targetId && !target ? t("git.GitReviewComposer.text_6fa6c2485b")
+          : target && target.activity !== "idle" ? t("git.GitReviewComposer.text_724c337a0f")
+            : t("git.GitReviewComposer.text_b7aff9da22")}</p>
     </> : null}
     {receipt ? <div className={`git-review__receipt is-${receipt.state}`} role="status" aria-live="polite">
       <strong>{receiptLabel(receipt)} · {receipt.targetLabel}</strong>
       <p>{receipt.message ?? receiptDetail(receipt)}</p>
       <div className="git-review__receipt-actions">
         {review.tabs.some((tab) => tab.id === receipt.targetId) ? <button type="button"
-          onClick={() => review.openSession(receipt.targetId)}>查看会话</button> : null}
-        {receipt.state === "queued" ? <button type="button" onClick={() => review.cancel(context)}>取消排队</button> : null}
-        {receipt.state === "submitted" ? <button type="button" onClick={() => review.resume(context, true)}>继续反馈</button> : null}
+          onClick={() => review.openSession(receipt.targetId)}>{t("git.GitReviewComposer.text_f2b4237b35")}</button> : null}
+        {receipt.state === "queued" ? <button type="button" onClick={() => review.cancel(context)}>{t("git.GitReviewComposer.text_16c1f9b337")}</button> : null}
+        {receipt.state === "submitted" ? <button type="button" onClick={() => review.resume(context, true)}>{t("git.GitReviewComposer.text_d16629bb08")}</button> : null}
       </div>
     </div> : null}
-    {receipt?.state === "attention" ? <p className="git-review__note">请先在会话中核对这条反馈，确认后再
-      <button type="button" onClick={() => review.resume(context, true)}>继续反馈</button>。</p> : null}
+    {receipt?.state === "attention" ? <div className="git-review__note"><p>{t("git.GitReviewComposer.verifyBeforeContinuing")}</p><button type="button" onClick={() => review.resume(context, true)}>{t("git.GitReviewComposer.text_d16629bb08")}</button></div> : null}
   </form>;
 }
 
 function receiptLabel(receipt: ReviewReceipt) {
-  return { checking: "正在核对代码", queued: "已排队", sending: "正在发送", submitted: "已发送",
-    attention: "需要核对", cancelled: "未发送" }[receipt.state];
+  return { checking: t("git.GitReviewComposer.text_7c02f76473"), queued: t("git.GitReviewComposer.text_3cc8745436"), sending: t("git.GitReviewComposer.text_2d88d503d0"), submitted: t("git.GitReviewComposer.text_60823aaec7"),
+    attention: t("git.GitReviewComposer.text_884ca53f18"), cancelled: t("git.GitReviewComposer.text_a8f011b329") }[receipt.state];
 }
 function receiptDetail(receipt: ReviewReceipt) {
-  if (receipt.state === "queued") return "会话空闲后自动发送。关闭应用会清空尚未发送的队列。";
-  if (receipt.state === "sending") return "正在将反馈写入会话，等待提交结果。";
-  if (receipt.state === "submitted") return "反馈已提交到会话。Agent 修改后，刷新 Diff 继续审查。";
-  if (receipt.state === "checking") return "正在核对磁盘上的最新差异。";
+  if (receipt.state === "queued") return t("git.GitReviewComposer.text_76adea7bfa");
+  if (receipt.state === "sending") return t("git.GitReviewComposer.text_445dee9569");
+  if (receipt.state === "submitted") return t("git.GitReviewComposer.text_b40d025c20");
+  if (receipt.state === "checking") return t("git.GitReviewComposer.text_6d50f1456e");
   return "";
 }

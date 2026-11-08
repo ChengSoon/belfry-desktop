@@ -35,10 +35,10 @@ pub(super) fn select(
             .iter()
             .find(|group| group.kind == selection.kind)
             .and_then(|group| group.providers.iter().find(|provider| provider.id == *id))
-            .ok_or_else(|| AppError::not_found("Provider 已不存在，请刷新列表后重新选择"))?;
+            .ok_or_else(|| AppError::not_found(belfry_i18n::text("Provider 已不存在，请刷新列表后重新选择")))?;
         if !provider.has_api_key {
             return Err(AppError::invalid_argument(
-                "请先为此 Provider 配置独立 API Key",
+                belfry_i18n::text("请先为此 Provider 配置独立 API Key"),
             ));
         }
     }
@@ -84,7 +84,7 @@ pub(crate) fn prepare(
     };
     if store.agent(kind).find(id).is_none() {
         return Err(AppError::not_found(
-            "当前项目的 Provider 已被删除。请在项目 Provider 设置中重新选择或改为跟随全局",
+            belfry_i18n::text("当前项目的 Provider 已被删除。请在项目 Provider 设置中重新选择或改为跟随全局"),
         ));
     }
     let provider = store.resolve_provider(app, kind, id)?;
@@ -140,7 +140,7 @@ fn build_agent(group: &AgentProviderGroup, selected: Option<&str>) -> ProjectAge
         },
         effective_name: provider
             .map(|provider| provider.name.clone())
-            .unwrap_or_else(|| "全局 CLI 配置".into()),
+            .unwrap_or_else(|| belfry_i18n::text("全局 CLI 配置").into()),
         missing: selected.is_some() && provider.is_none(),
         choices: group
             .providers
@@ -159,14 +159,14 @@ fn build_agent(group: &AgentProviderGroup, selected: Option<&str>) -> ProjectAge
 fn base(app: &AppHandle) -> Result<PathBuf, AppError> {
     app.path()
         .app_data_dir()
-        .map_err(|error| AppError::io(format!("找不到应用数据目录：{error}")))
+        .map_err(|error| AppError::io(belfry_i18n::lformat!("找不到应用数据目录：{error}")))
 }
 
 fn project_path(path: &Path) -> Result<String, AppError> {
     let root =
-        canonicalize(path).map_err(|error| AppError::io(format!("项目目录无法读取：{error}")))?;
+        canonicalize(path).map_err(|error| AppError::io(belfry_i18n::lformat!("项目目录无法读取：{error}")))?;
     if !root.is_dir() {
-        return Err(AppError::invalid_argument("项目路径必须是本地目录"));
+        return Err(AppError::invalid_argument(belfry_i18n::text("项目路径必须是本地目录")));
     }
     Ok(root.to_string_lossy().into_owned())
 }

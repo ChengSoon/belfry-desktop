@@ -1,3 +1,4 @@
+import { formatDateTime, t } from "../i18n";
 /**
  * 任务时间的显示规则。
  *
@@ -25,19 +26,19 @@ const CLOCK_AFTER = 6 * HOUR;
 export function formatTaskTime(createdAt: number, now: number): string {
   const elapsed = now - createdAt;
   // 负数（两端时钟对不齐）也落这一档，比显示「-3 分钟前」体面。
-  if (elapsed < MINUTE) return "刚刚";
-  if (elapsed < HOUR) return `${Math.floor(elapsed / MINUTE)} 分钟前`;
-  if (elapsed < CLOCK_AFTER) return `${Math.floor(elapsed / HOUR)} 小时前`;
+  if (elapsed < MINUTE) return t("collab.relativeTime.text_de6785d99e");
+  if (elapsed < HOUR) return t("collab.relativeTime.text_42ccefec3a", { count: Math.floor(elapsed / MINUTE) });
+  if (elapsed < CLOCK_AFTER) return t("collab.relativeTime.text_f28443d2da", { count: Math.floor(elapsed / HOUR) });
 
   const at = new Date(createdAt);
-  const clock = `${pad(at.getHours())}:${pad(at.getMinutes())}`;
+  const clock = formatDateTime(at, { hour: "2-digit", minute: "2-digit", hour12: false });
   const today = dayStart(now);
   const day = dayStart(createdAt);
   if (day === today) return clock;
   // today - 1 是昨天的 23:59:59.999，再取一次日初；这么绕是为了跨夏令时也对，
   // 直接减 86400000 在切换日会差一小时。
-  if (day === dayStart(today - 1)) return `昨天 ${clock}`;
-  return `${at.getMonth() + 1}-${at.getDate()}`;
+  if (day === dayStart(today - 1)) return t("collab.relativeTime.text_df77e9bfce", { clock: clock });
+  return formatDateTime(at, { month: "short", day: "numeric", ...(at.getFullYear() === new Date(now).getFullYear() ? {} : { year: "numeric" }) });
 }
 
 /**
@@ -47,13 +48,7 @@ export function formatTaskTime(createdAt: number, now: number): string {
  * 它是什么时候被派出去的，别在文案里写成「完成于」。
  */
 export function formatTaskTimestamp(createdAt: number): string {
-  const at = new Date(createdAt);
-  const date = `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}`;
-  return `${date} ${pad(at.getHours())}:${pad(at.getMinutes())}:${pad(at.getSeconds())}`;
-}
-
-function pad(value: number): string {
-  return String(value).padStart(2, "0");
+  return formatDateTime(createdAt, { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
 }
 
 function dayStart(time: number): number {

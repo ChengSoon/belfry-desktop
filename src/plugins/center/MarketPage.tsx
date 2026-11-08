@@ -1,3 +1,4 @@
+import { useTranslation } from "../../i18n";
 // Adapted from PI-Desktop PluginsPage.tsx, LGPL-3.0; see third_party/pi-desktop/NOTICE.md.
 import { usePluginsPage } from "./context";
 import { Button, cx } from "./ui";
@@ -10,6 +11,7 @@ import { MarketplaceSourceSettings } from "./MarketplaceSourceSettings";
 import { centerApi } from "./api";
 
 export function MarketPage() {
+  useTranslation();
   const { market } = usePluginsPage();
   return <div id="plugins-panel-market" role="tabpanel" aria-labelledby="plugins-tab-market" className="plugins-panel">
     <MarketplaceSourceSettings />
@@ -22,10 +24,11 @@ export function MarketPage() {
     {market.loading && !market.items.length ? <div className="plugins-card-grid" aria-hidden>{[0, 1, 2, 3].map((index) =>
       <div key={index} className="plugins-card is-skeleton"><span className="plugins-skeleton-line is-short" /><span className="plugins-skeleton-line" /><span className="plugins-skeleton-line is-long" /></div>)}</div>
       : !market.visible.length ? <MarketEmpty /> : <div className="plugins-card-grid" role="list">{market.visible.map((item) => <MarketCard key={item.id} item={item} />)}</div>}
-    {market.source && !market.source.startsWith("belfry-market:") ? <p className="plugins-source-foot">市场地址：{market.source}</p> : null}
+    {market.source && !market.source.startsWith("belfry-market:") ? <p className="plugins-source-foot">{t("plugins.MarketPage.text_b42063e2e9", { source: market.source })}</p> : null}
   </div>;
 }
 function MarketFailure() {
+  useTranslation();
   const { market, data, actions } = usePluginsPage();
   const recover = () => actions.run(async () => {
     const settings = { ...data.management.settings, pluginMarketSource: "personal" as const };
@@ -34,22 +37,24 @@ function MarketFailure() {
     await market.refresh();
   });
   return <div><p className="plugins-inline-error" role="alert">{market.error}</p>
-    {data.management.settings.pluginMarketSource !== "personal" ? <Button disabled={actions.busy} onClick={() => void recover()}>使用我的插件市场</Button> : null}
+    {data.management.settings.pluginMarketSource !== "personal" ? <Button disabled={actions.busy} onClick={() => void recover()}>{t("plugins.MarketPage.text_ea44084522")}</Button> : null}
   </div>;
 }
 function MarketEmpty() {
+  useTranslation();
   const { market, data, setTemplate } = usePluginsPage();
   const personal = data.management.settings.pluginMarketSource === "personal";
   return <div className="plugins-empty"><span className="plugins-empty-icon" aria-hidden><IconSearch size={18} /></span>
-    <p className="plugins-empty-title">{market.error ? "市场暂不可用" : personal && !market.query ? "发布你的第一个插件" : t("plugins.marketEmpty")}</p>
-    {personal && !market.query ? <p className="plugins-author-hint">从模板开始制作，调试后发布到这里，也可以导出市场供别人安装。</p> : null}
+    <p className="plugins-empty-title">{market.error ? t("plugins.MarketPage.text_fc377394d2") : personal && !market.query ? t("plugins.MarketPage.text_87b0d1db78") : t("plugins.marketEmpty")}</p>
+    {personal && !market.query ? <p className="plugins-author-hint">{t("plugins.MarketPage.text_bece898739")}</p> : null}
     <div className="plugins-empty-actions">
-      {personal && !market.query ? <Button variant="primary" onClick={() => setTemplate("panel-basic")}>从模板创建插件</Button> : null}
+      {personal && !market.query ? <Button variant="primary" onClick={() => setTemplate("panel-basic")}>{t("plugins.MarketPage.text_37ab39eb2f")}</Button> : null}
       {market.query || market.category ? <Button onClick={() => { market.setQuery(""); market.setCategory(""); }}>{t("plugins.clearSearch")}</Button> : null}
       <Button disabled={market.loading} onClick={() => void market.refresh(true)}>{t("plugins.refreshMarket")}</Button></div>
   </div>;
 }
 function MarketCard({ item }: { item: MarketPluginSummary }) {
+  useTranslation();
   const { data, detail } = usePluginsPage();
   const installed = data.plugins.find((plugin) => plugin.id === item.id);
   return <article role="listitem" className={cx("plugins-card", detail.selectedId === item.id && "active")}>
@@ -65,6 +70,7 @@ function MarketCard({ item }: { item: MarketPluginSummary }) {
   </article>;
 }
 function MarketCardAction({ item }: { item: MarketPluginSummary }) {
+  useTranslation();
   const { data, actions } = usePluginsPage();
   const installed = data.plugins.find((plugin) => plugin.id === item.id);
   const update = !!installed && !!item.updateAvailable, pending = item.installable === false;

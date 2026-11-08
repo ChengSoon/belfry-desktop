@@ -1,3 +1,4 @@
+import { getLocale, t, useTranslation } from "../../i18n";
 import {
   Background, BackgroundVariant, BaseEdge, Controls, EdgeLabelRenderer, getBezierPath, Handle, Position, ReactFlow,
   ReactFlowProvider, useNodesInitialized, useReactFlow, useStore, type Edge, type EdgeProps, type Node, type NodeProps,
@@ -43,8 +44,9 @@ const STATUS_DOT = {
 } as const;
 
 const MemberNode = memo(function MemberNode({ data }: NodeProps<Node<MemberNodeData>>) {
+  useTranslation();
   const node = data;
-  const statusText = node.status === "user" ? null : node.status === "busy" ? "处理中" : MEMBER_STATUS_TEXT[node.status];
+  const statusText = node.status === "user" ? null : node.status === "busy" ? t("rooms.RoomFlow.text_694b71bc80") : MEMBER_STATUS_TEXT[node.status];
   return (
     <div
       className={cn(
@@ -76,9 +78,9 @@ const MemberNode = memo(function MemberNode({ data }: NodeProps<Node<MemberNodeD
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-1">
           <span className={cn("truncate font-semibold", node.status === "waiting" && "text-warning")}>{node.title}</span>
-          {node.kind === "foreman" ? <Crown aria-label="统筹" className="size-3.5 shrink-0 text-warning" /> : null}
+          {node.kind === "foreman" ? <Crown aria-label={t("rooms.RoomFlow.text_8153348240")} className="size-3.5 shrink-0 text-warning" /> : null}
           {node.load ? (
-            <span className="ml-auto rounded-full bg-primary/15 px-1.5 text-[11px] font-semibold text-primary tabular-nums" title={`手上 ${node.load} 件`}>
+            <span className="ml-auto rounded-full bg-primary/15 px-1.5 text-[11px] font-semibold text-primary tabular-nums" title={t("rooms.RoomFlow.text_292487f119", { count: node.load })}>
               {node.load}
             </span>
           ) : null}
@@ -92,8 +94,8 @@ const MemberNode = memo(function MemberNode({ data }: NodeProps<Node<MemberNodeD
         </span>
       </span>
       {node.tabId && data.onOpenSession ? (
-        <Button aria-label={`打开 ${node.title} 的终端`} className="nodrag nopan absolute -top-2.5 -right-2.5 size-6 rounded-full border border-border opacity-0 shadow-sm group-hover:opacity-100"
-          onClick={() => data.onOpenSession?.(node.tabId!)} size="icon-xs" title="打开终端" variant="secondary">
+        <Button aria-label={t("rooms.RoomFlow.text_291b70f0ca", { title: node.title })} className="nodrag nopan absolute -top-2.5 -right-2.5 size-6 rounded-full border border-border opacity-0 shadow-sm group-hover:opacity-100"
+          onClick={() => data.onOpenSession?.(node.tabId!)} size="icon-xs" title={t("rooms.RoomFlow.text_b89a0e4584")} variant="secondary">
           <SquareTerminal className="size-3" />
         </Button>
       ) : null}
@@ -110,6 +112,7 @@ const TONE_STROKE: Record<FlowTone, string> = {
 };
 
 const FlowLine = memo(function FlowLine(props: EdgeProps<Edge<FlowEdgeData>>) {
+  useTranslation();
   const { sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data } = props;
   const [path, labelX, labelY] = getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition, curvature: 0.35 });
   const tone = data?.tone ?? "idle";
@@ -144,6 +147,7 @@ const nodeTypes = { member: MemberNode };
 const edgeTypes = { flow: FlowLine };
 
 function FlowCanvas({ room, tabs, onOpenSession }: { room: Room; tabs: WorkspaceTab[]; onOpenSession?: (tabId: string) => void }) {
+  useTranslation();
   const [now, setNow] = useState(() => Date.now());
   const flow = useReactFlow();
   const { mode } = useTheme();
@@ -156,7 +160,7 @@ function FlowCanvas({ room, tabs, onOpenSession }: { room: Room; tabs: Workspace
 
   const graph = useMemo(
     () => flowGraph(room, (member) => memberStatus(tabs.find((tab) => tab.id === member.tabId)), now),
-    [room, tabs, now],
+    [room, tabs, now, getLocale()],
   );
   const nodes = useMemo<Node<MemberNodeData>[]>(() => graph.nodes.map((node) => ({
     id: node.id,
@@ -165,7 +169,7 @@ function FlowCanvas({ room, tabs, onOpenSession }: { room: Room; tabs: Workspace
     data: { ...node, onOpenSession },
     draggable: false,
     selectable: false,
-  })), [graph.nodes, onOpenSession]);
+  })), [graph.nodes, onOpenSession, getLocale()]);
   const edges = useMemo<Edge<FlowEdgeData>[]>(() => graph.edges.map((edge) => ({
     id: edge.id,
     type: "flow",
@@ -175,7 +179,7 @@ function FlowCanvas({ room, tabs, onOpenSession }: { room: Room; tabs: Workspace
     targetHandle: `t-${edge.targetSide}`,
     data: { tone: edge.tone, label: edge.label, animated: edge.animated },
     selectable: false,
-  })), [graph.edges]);
+  })), [graph.edges, getLocale()]);
 
   // 节点量好尺寸、成员进出、画布变大变小（上面冒出选择卡片）时重新框住全图。
   // 只在这几种时候框：平时成员状态变化不动用户缩放好的视野。
@@ -201,11 +205,12 @@ function FlowCanvas({ room, tabs, onOpenSession }: { room: Room; tabs: Workspace
 }
 
 function FlowLegend() {
+  useTranslation();
   const items: { tone: FlowTone; label: string }[] = [
-    { tone: "active", label: "处理中" },
-    { tone: "message", label: "刚有消息" },
-    { tone: "waiting", label: "等你 / 等回复" },
-    { tone: "idle", label: "空闲 / 离线" },
+    { tone: "active", label: t("rooms.RoomFlow.text_694b71bc80") },
+    { tone: "message", label: t("rooms.RoomFlow.text_2012a8942f") },
+    { tone: "waiting", label: t("rooms.RoomFlow.text_e1692279b4") },
+    { tone: "idle", label: t("rooms.RoomFlow.text_f2da43f5e0") },
   ];
   return (
     <div className="absolute right-3 bottom-3 z-10 flex items-center gap-3 rounded-lg border border-border bg-card/90 px-3 py-1.5 text-[11px] text-muted-foreground shadow-sm backdrop-blur">
@@ -220,8 +225,9 @@ function FlowLegend() {
 }
 
 export function RoomFlow(props: { room: Room; tabs: WorkspaceTab[]; onOpenSession?: (tabId: string) => void }) {
+  useTranslation();
   return (
-    <div aria-label="协作流程" className="relative min-h-0 flex-1" role="figure">
+    <div aria-label={t("rooms.RoomFlow.text_12f093445a")} className="relative min-h-0 flex-1" role="figure">
       <ReactFlowProvider>
         <FlowCanvas {...props} />
       </ReactFlowProvider>

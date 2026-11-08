@@ -7,7 +7,9 @@
 //! 输出面向的是 Agent，不是人：它读到的是终端文本，所以失败要说人话、
 //! 说清下一步做什么，而不是抛一个错误码让它自己猜。
 
-use std::io::{BufRead, BufReader, Write};
+mod transport;
+use transport::{Transport, IPC_TIMEOUT, MAX_RESPONSE_BYTES};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::process::ExitCode;
 use std::time::{Duration, Instant};
 
@@ -17,17 +19,19 @@ use belfry_protocol::{
 };
 
 fn main() -> ExitCode {
+    let invoked_at = Instant::now();
+    belfry_i18n::initialize_cli();
     if belfry_protocol::hooks::run_if_requested() {
         return ExitCode::SUCCESS;
     }
     let args: Vec<String> = std::env::args().skip(1).collect();
-    match run(&args) {
+    match run(&args, invoked_at) {
         Ok(output) => {
             println!("{output}");
             ExitCode::SUCCESS
         }
         Err(message) => {
-            eprintln!("{message}");
+            eprintln!("{}", belfry_i18n::localize(&message));
             ExitCode::FAILURE
         }
     }
@@ -54,7 +58,10 @@ fn poll_interval(waited: Duration) -> Duration {
     }
 }
 
-fn run(args: &[String]) -> Result<String, String> {
+fn run(args: &[String], invoked_at: Instant) -> Result<String, String> {
+    if args.is_empty() || args.first().is_some_and(|arg| matches!(arg.as_str(), "help" | "--help" | "-h")) {
+        return Ok(usage().to_string());
+    }
     let action = parse(args)?;
     let session = Session::from_env()?;
     match action {
@@ -65,21 +72,23 @@ fn run(args: &[String]) -> Result<String, String> {
                 Response::Error { message } => Err(explain_room_error(room_command, message)),
             }
         }
-        Action::Wait { task, timeout } => wait_for(&session, &task, timeout),
+        Action::Wait { task, timeout } => wait_for(&session, &task, timeout, invoked_at),
     }
 }
 
 fn explain_room_error(room_command: bool, message: String) -> String {
-    if room_command && message.contains("协作房间协议不兼容") {
-        return format!("{message}\n不要改用 belfry send 派房间任务，它不会写入房间任务板。恢复后先运行 belfry room status 核对，再拆解并创建任务。");
+    if room_command && (message.contains("协作房间协议不兼容") || message.contains("Incompatible room protocol")) {
+        let message = belfry_i18n::localize(&message);
+        return belfry_i18n::lformat!("{message}\n不要改用 belfry send 派房间任务，它不会写入房间任务板。恢复后先运行 belfry room status 核对，再拆解并创建任务。");
     }
-    if room_command && ["协作请求格式无效", "应用协作响应无效", "协作协议版本不匹配", "回应看不懂"]
+    if room_command && ["协作请求格式无效", "应用协作响应无效", "协作协议版本不匹配", "回应看不懂", "Invalid collaboration request", "Invalid application collaboration response", "Collaboration protocol version mismatch", "Invalid response"]
         .iter().any(|hint| message.contains(hint))
     {
-        format!("{message}\n房间命令与当前应用或常驻后台的协议不兼容。请向用户报告原始错误；更新并重新打开 Belfry 应用后先用 belfry room status 核对，终端后台无需重启。\n\
+        let message = belfry_i18n::localize(&message);
+        belfry_i18n::lformat!("{message}\n房间命令与当前应用或常驻后台的协议不兼容。请向用户报告原始错误；更新并重新打开 Belfry 应用后先用 belfry room status 核对，终端后台无需重启。\n\
 不要改用 belfry send 派房间任务，它不会写入房间任务板。响应失败时写入结果可能未知，先核对任务板，不要自动重复创建任务。")
     } else {
-        message
+        belfry_i18n::localize(&message)
     }
 }
 
@@ -91,29 +100,35 @@ fn explain_room_error(room_command: bool, message: String) -> String {
 /// 不给 `--timeout` 就一直等。给个默认上限反而制造一类难查的失败：半小时后报一句
 /// 「还没结」，而 Agent 很容易把它读成「可以往下走了」。一直等也不会真挂死——对方
 /// 会话关掉、用户在面板按「全部停下」、或者 Esc 掉这条会话，三条路都会让它返回。
-fn wait_for(session: &Session, task: &str, timeout: Option<Duration>) -> Result<String, String> {
-    let started = Instant::now();
-    let deadline = timeout.map(|value| started + value);
+fn wait_for(session: &Session, task: &str, timeout: Option<Duration>, started: Instant) -> Result<String, String> {
+    let deadline = timeout.and_then(|value| started.checked_add(value));
+    let mut latest = belfry_i18n::text("尚未收到任务状态，任务未完成确认。").to_string();
     loop {
-        let data = match session.send(Command::TaskState {
+        if deadline.is_some_and(|deadline| Instant::now() >= deadline) {
+            return Err(belfry_i18n::lformat!("等了 {} 秒它还没结。{latest}\n要接着等就再敲一次 belfry wait。", started.elapsed().as_secs()));
+        }
+        let request_deadline = deadline.unwrap_or_else(|| Instant::now() + IPC_TIMEOUT).min(Instant::now() + IPC_TIMEOUT);
+        let data = match session.send_until(Command::TaskState {
             task: task.to_string(),
-        })? {
+        }, request_deadline).map_err(|error| belfry_i18n::lformat!("任务未完成确认。{latest}\n{error}"))? {
             Response::Ok { data } => data,
             Response::Error { message } => return Err(message),
         };
         if matches!(&data, ResponseData::TaskState { settled: true, .. }) {
             return Ok(render(data));
         }
+        latest = render(data.clone());
         if deadline.is_some_and(|deadline| Instant::now() >= deadline) {
             // 超时不等于完成：如实说还没结，并把当前状态一起给出去，
             // 让 Agent 自己决定是接着等、还是去问用户。
-            return Err(format!(
+            return Err(belfry_i18n::lformat!(
                 "等了 {} 秒它还没结。{}\n要接着等就再敲一次 belfry wait（不加 --timeout 就一直等）。",
                 started.elapsed().as_secs(),
                 render(data)
             ));
         }
-        std::thread::sleep(poll_interval(started.elapsed()));
+        let interval = poll_interval(started.elapsed());
+        std::thread::sleep(deadline.map(|deadline| interval.min(deadline.saturating_duration_since(Instant::now()))).unwrap_or(interval));
     }
 }
 
@@ -146,6 +161,41 @@ belfry —— Belfry 会话之间的协作命令
 
 只在 Belfry 托管的 Agent 会话里可用。";
 
+const USAGE_EN: &str = "\
+belfry -- Collaboration commands for Belfry sessions
+
+  belfry peers                     List sessions and their availability
+  belfry rooms                     List your rooms, role, coordinator, and open work
+  belfry room status               Show the brief, members, task board, and pending replies
+  belfry room say <text> [--to <role>] [--ask] [--reply <message-id>]
+                                   Without --to, use @mentions or send to the coordinator;
+                                   coordinator messages default to all members.
+                                   Selectors: @all, @members, @coordinator, @user.
+                                   --ask keeps a reply request open; --reply replies to a message.
+  belfry room log [--count <n>]     Read recent room messages
+  belfry room task add <title> [--to <role>] [--outcome <criteria>] [--after T1,T2]
+  belfry room task start|done|reopen|archive <task-id> [result]
+  belfry room task assign <task-id> <role>   Coordinator assigns; members may claim unassigned work
+  belfry room task note <task-id> <progress>
+  belfry room brief [--objective <goal>] [--focus <focus>] [--constraint <constraint>]...
+                                   Coordinator updates the room brief
+  Every room command accepts --room <name>; required when you belong to multiple rooms.
+  belfry send <target> <instruction>  Ask another session to do work
+  belfry inbox                     List work assigned to you
+  belfry done <task-id> [result]    Report completion (the authoritative completion signal)
+  belfry fail <task-id> <reason>    Report that you cannot complete the task
+  belfry wait <task-id>             Wait for completion; --timeout <seconds> sets an optional limit
+
+Address a session by its sidebar name (for example reviewer) or tabId.
+Titles and agent types are not addresses. When delegating assigned work, include --parent <task-id>.
+An accepted or queued task has not necessarily reached the terminal or started running.
+BELFRY_LANG=en|zh-CN overrides the app language; otherwise the app setting or system language is used.
+Commands other than help require an Agent session hosted by Belfry.";
+
+fn usage() -> &'static str {
+    if belfry_i18n::current() == belfry_i18n::Locale::En { USAGE_EN } else { USAGE }
+}
+
 fn parse(args: &[String]) -> Result<Action, String> {
     let head = args.first().map(String::as_str);
     let once = |command| Ok(Action::Once(command));
@@ -158,8 +208,10 @@ fn parse(args: &[String]) -> Result<Action, String> {
         (Some("done"), _) => parse_done(&args[1..]).and_then(once),
         (Some("fail"), _) => parse_fail(&args[1..]).and_then(once),
         (Some("wait"), _) => parse_wait(&args[1..]),
-        (Some("help") | Some("--help") | Some("-h"), _) | (None, _) => Err(USAGE.to_string()),
-        (Some(other), _) => Err(format!("不认识的命令 `{other}`。\n\n{USAGE}")),
+        (Some("help") | Some("--help") | Some("-h"), _) | (None, _) => Err(usage().to_string()),
+        (Some(other), _) => Err(if belfry_i18n::current() == belfry_i18n::Locale::En {
+            format!("Unknown command `{other}`.\n\n{}", usage())
+        } else { format!("不认识的命令 `{other}`。\n\n{USAGE}") }),
     }
 }
 
@@ -178,12 +230,12 @@ impl Flags {
         while let Some(arg) = rest.next() {
             if valued.contains(&arg.as_str()) {
                 let value = rest.next().filter(|value| !value.trim().is_empty());
-                let value = value.ok_or_else(|| format!("{arg} 后面要跟一个值"))?;
+                let value = value.ok_or_else(|| belfry_i18n::lformat!("{arg} 后面要跟一个值"))?;
                 flags.values.push((arg.clone(), value.clone()));
             } else if switches.contains(&arg.as_str()) {
                 flags.switches.push(arg.clone());
             } else if arg.starts_with("--") {
-                return Err(format!("不认识的参数 `{arg}`，用 belfry help 看看"));
+                return Err(belfry_i18n::lformat!("不认识的参数 `{arg}`，用 belfry help 看看"));
             } else {
                 flags.positional.push(arg.clone());
             }
@@ -222,7 +274,7 @@ fn parse_room(args: &[String]) -> Result<Command, String> {
             let flags = Flags::parse(rest, &["--room", "--count"], &[])?;
             let count = match flags.one("--count") {
                 None => None,
-                Some(raw) => Some(raw.parse::<u32>().map_err(|_| format!("--count 要是条数，收到的是 `{raw}`"))?),
+                Some(raw) => Some(raw.parse::<u32>().map_err(|_| belfry_i18n::lformat!("--count 要是条数，收到的是 `{raw}`"))?),
             };
             Ok(Command::RoomLog { room: flags.one("--room"), count })
         }
@@ -242,7 +294,7 @@ fn parse_room(args: &[String]) -> Result<Command, String> {
                 constraints,
             })
         }
-        _ => Err(format!("belfry room 后面要写 status、say、log、task 或 brief。\n\n{USAGE}")),
+        _ => Err(belfry_i18n::lformat!("belfry room 后面要写 status、say、log、task 或 brief。\n\n{}", usage())),
     }
 }
 
@@ -251,7 +303,7 @@ fn parse_room_say(args: &[String]) -> Result<Command, String> {
     let flags = Flags::parse(args, &["--room", "--to", "--reply"], &["--ask"])?;
     let text = flags.text(0);
     if text.trim().is_empty() {
-        return Err("belfry room say 要说点什么，比如：belfry room say @后端 接口定了吗".to_string());
+        return Err(belfry_i18n::text("belfry room say 要说点什么，比如：belfry room say @后端 接口定了吗").to_string());
     }
     Ok(Command::RoomSay {
         room: flags.one("--room"),
@@ -271,13 +323,13 @@ fn parse_room_task(args: &[String]) -> Result<Command, String> {
             .positional
             .first()
             .cloned()
-            .ok_or_else(|| "要写任务号（比如 T1），用 belfry room status 看任务板".to_string())
+            .ok_or_else(|| belfry_i18n::text("要写任务号（比如 T1），用 belfry room status 看任务板").to_string())
     };
     let op = match action {
         Some("add") => {
             let title = flags.text(0);
             if title.trim().is_empty() {
-                return Err("belfry room task add 要写任务标题".to_string());
+                return Err(belfry_i18n::text("belfry room task add 要写任务标题").to_string());
             }
             let after = flags
                 .all("--after")
@@ -294,7 +346,7 @@ fn parse_room_task(args: &[String]) -> Result<Command, String> {
                 .get(1)
                 .cloned()
                 .or_else(|| flags.one("--to"))
-                .ok_or("belfry room task assign 要写交给谁：belfry room task assign T1 前端")?;
+                .ok_or(belfry_i18n::text("belfry room task assign 要写交给谁：belfry room task assign T1 前端"))?;
             RoomTaskOp::Assign { task: task()?, assignee }
         }
         Some("start") => RoomTaskOp::Start { task: task()? },
@@ -307,11 +359,11 @@ fn parse_room_task(args: &[String]) -> Result<Command, String> {
         Some("note") => {
             let text = flags.text(1);
             if text.trim().is_empty() {
-                return Err("belfry room task note 要写进展：belfry room task note T1 接口已联调".to_string());
+                return Err(belfry_i18n::text("belfry room task note 要写进展：belfry room task note T1 接口已联调").to_string());
             }
             RoomTaskOp::Note { task: task()?, text }
         }
-        _ => return Err("belfry room task 后面要写 add、start、done、assign、note、reopen 或 archive".to_string()),
+        _ => return Err(belfry_i18n::text("belfry room task 后面要写 add、start、done、assign、note、reopen 或 archive").to_string()),
     };
     Ok(Command::RoomTask { room: flags.one("--room"), op })
 }
@@ -326,22 +378,22 @@ fn parse_wait(args: &[String]) -> Result<Action, String> {
         if arg == "--timeout" {
             let raw = rest
                 .next()
-                .ok_or_else(|| "--timeout 后面要跟秒数".to_string())?;
+                .ok_or_else(|| belfry_i18n::text("--timeout 后面要跟秒数").to_string())?;
             let secs: u64 = raw
                 .parse()
-                .map_err(|_| format!("--timeout 要是秒数，收到的是 `{raw}`"))?;
+                .map_err(|_| belfry_i18n::lformat!("--timeout 要是秒数，收到的是 `{raw}`"))?;
             if secs == 0 {
-                return Err("--timeout 至少 1 秒".to_string());
+                return Err(belfry_i18n::text("--timeout 至少 1 秒").to_string());
             }
             timeout = Some(Duration::from_secs(secs));
         } else if task.is_none() {
             task = Some(arg.clone());
         } else {
-            return Err(format!("belfry wait 只等一条任务，多出来的是 `{arg}`"));
+            return Err(belfry_i18n::lformat!("belfry wait 只等一条任务，多出来的是 `{arg}`"));
         }
     }
     Ok(Action::Wait {
-        task: task.ok_or_else(|| "belfry wait 需要任务号，用 belfry inbox 查".to_string())?,
+        task: task.ok_or_else(|| belfry_i18n::text("belfry wait 需要任务号，用 belfry inbox 查").to_string())?,
         timeout,
     })
 }
@@ -358,7 +410,7 @@ fn parse_send(args: &[String]) -> Result<Command, String> {
         if arg == "--parent" {
             parent_task = Some(
                 rest.next()
-                    .ok_or_else(|| "--parent 后面要跟任务号".to_string())?
+                    .ok_or_else(|| belfry_i18n::text("--parent 后面要跟任务号").to_string())?
                     .clone(),
             );
         } else {
@@ -367,9 +419,9 @@ fn parse_send(args: &[String]) -> Result<Command, String> {
     }
     let to = positional
         .first()
-        .ok_or_else(|| "belfry send 需要一个目标，用 belfry peers 看看有谁".to_string())?;
+        .ok_or_else(|| belfry_i18n::text("belfry send 需要一个目标，用 belfry peers 看看有谁").to_string())?;
     if positional.len() < 2 {
-        return Err("belfry send 需要一条指令".to_string());
+        return Err(belfry_i18n::text("belfry send 需要一条指令").to_string());
     }
     Ok(Command::Send {
         to: to.clone(),
@@ -382,7 +434,7 @@ fn parse_send(args: &[String]) -> Result<Command, String> {
 fn parse_done(args: &[String]) -> Result<Command, String> {
     let task = args
         .first()
-        .ok_or_else(|| "belfry done 需要任务号，用 belfry inbox 查".to_string())?;
+        .ok_or_else(|| belfry_i18n::text("belfry done 需要任务号，用 belfry inbox 查").to_string())?;
     Ok(Command::Done {
         task: task.clone(),
         result: (args.len() > 1).then(|| args[1..].join(" ")),
@@ -392,9 +444,9 @@ fn parse_done(args: &[String]) -> Result<Command, String> {
 fn parse_fail(args: &[String]) -> Result<Command, String> {
     let task = args
         .first()
-        .ok_or_else(|| "belfry fail 需要任务号，用 belfry inbox 查".to_string())?;
+        .ok_or_else(|| belfry_i18n::text("belfry fail 需要任务号，用 belfry inbox 查").to_string())?;
     if args.len() < 2 {
-        return Err("belfry fail 要说明原因：派活那边只能看到你写的这句".to_string());
+        return Err(belfry_i18n::text("belfry fail 要说明原因：派活那边只能看到你写的这句").to_string());
     }
     Ok(Command::Fail {
         task: task.clone(),
@@ -412,142 +464,97 @@ impl Session {
     fn from_env() -> Result<Self, String> {
         // 三个变量是一起注入的，缺任何一个都说明这不是 Belfry 开的 Agent 会话。
         let missing = || {
-            "这里不是 Belfry 的 Agent 会话（缺少身份信息），belfry 命令只在那里面能用".to_string()
+            belfry_i18n::text("这里不是 Belfry 的 Agent 会话（缺少身份信息），belfry 命令只在那里面能用").to_string()
         };
         Ok(Self {
             endpoint: std::env::var(ENV_ENDPOINT)
-                .map_err(|_| "Belfry 的协作服务没有启动，这个会话没法和别的会话通信".to_string())?,
+                .map_err(|_| belfry_i18n::text("Belfry 的协作服务没有启动，这个会话没法和别的会话通信").to_string())?,
             tab_id: std::env::var(ENV_TAB_ID).map_err(|_| missing())?,
             token: std::env::var(ENV_TOKEN).map_err(|_| missing())?,
         })
     }
 
     fn send(&self, command: Command) -> Result<Response, String> {
+        self.send_until(command, Instant::now() + IPC_TIMEOUT)
+    }
+
+    fn send_until(&self, command: Command, deadline: Instant) -> Result<Response, String> {
         // wait 只能查询真实任务号；内部传输外壳由本进程通过 exchange 发送。
         if room_compat::unwrap_command(&command).is_some() {
-            return Err("任务编号无效：房间操作请使用 belfry room 命令".into());
+            return Err(belfry_i18n::text("任务编号无效：房间操作请使用 belfry room 命令").into());
         }
         if command.is_room() {
             // 必须在写操作之前检查。旧后台可能已经转发 room say，却丢掉回执字段；
             // 收到解析错误后重试会重复发消息。peers 是旧后台也能处理的只读探针。
-            match self.exchange(Command::Peers)? {
+            match self.exchange(Command::Peers, deadline)? {
                 Response::Ok {
                     data: ResponseData::Peers { capabilities, .. },
                 } if capabilities.iter().any(|value| value == CAPABILITY_ROOMS_V1) => {}
                 Response::Error { message } => return Err(message),
-                _ => return self.send_compatible_room(command),
+                _ => return self.send_compatible_room(command, deadline),
             }
         }
-        self.exchange(command)
+        self.exchange(command, deadline)
     }
 
-    fn send_compatible_room(&self, command: Command) -> Result<Response, String> {
+    fn send_compatible_room(&self, command: Command, deadline: Instant) -> Result<Response, String> {
         // 缺少能力标记也可能只是旧后台把字段丢了。先走 v1 字符串外壳做只读
         // 探测；旧应用只会报「找不到任务」，不会执行任何房间写操作。
-        let incompatible = |message: String| format!(
+        let incompatible = |message: String| belfry_i18n::lformat!(
             "协作房间协议不兼容：当前应用未能确认房间兼容通道，本次房间操作未发送。\n\
              {message}\n请更新并重新打开 Belfry 应用后重试，现有终端后台无需重启。"
         );
         let probe = room_compat::wrap_command(&Command::Peers)?;
-        let response = self.exchange(probe)
+        let response = self.exchange(probe, deadline)
             .and_then(room_compat::unwrap_response)
             .map_err(incompatible)?;
         match response {
             Response::Ok { data: ResponseData::Peers { capabilities, .. } }
                 if capabilities.iter().any(|value| value == CAPABILITY_ROOMS_V1) => {}
             Response::Error { message } => return Err(incompatible(message)),
-            _ => return Err(incompatible("应用未声明房间协议能力".into())),
+            _ => return Err(incompatible(belfry_i18n::text("应用未声明房间协议能力").into())),
         }
         // 探测成功后只发送一次。写入后的回执异常不再换通道或重试。
         let wrapped = room_compat::wrap_command(&command)?;
-        room_compat::unwrap_response(self.exchange(wrapped)?)
+        room_compat::unwrap_response(self.exchange(wrapped, deadline)?)
     }
 
-    fn exchange(&self, command: Command) -> Result<Response, String> {
+    fn exchange(&self, command: Command, deadline: Instant) -> Result<Response, String> {
         let request = Request::new(self.tab_id.clone(), self.token.clone(), command);
         let mut line =
-            serde_json::to_string(&request).map_err(|err| format!("请求序列化失败：{err}"))?;
+            serde_json::to_string(&request).map_err(|err| belfry_i18n::lformat!("请求序列化失败：{err}"))?;
         line.push('\n');
 
-        let stream = self.connect()?;
-        let mut writer = stream.write_half()?;
-        writer
+        if line.len() as u64 > MAX_RESPONSE_BYTES { return Err(belfry_i18n::text("请求超过 1 MiB 上限").into()); }
+        let mut stream = Transport::connect(&self.endpoint, deadline).map_err(|error| belfry_i18n::lformat!("连不上 Belfry：{error}"))?;
+        stream
             .write_all(line.as_bytes())
-            .and_then(|()| writer.flush())
-            .map_err(|err| format!("发不出去：{err}"))?;
+            .and_then(|()| stream.flush())
+            .map_err(|err| belfry_i18n::lformat!("发不出去：{err}"))?;
 
         let mut reply = String::new();
-        BufReader::new(stream)
+        BufReader::new(stream.take(MAX_RESPONSE_BYTES + 1))
             .read_line(&mut reply)
-            .map_err(|err| format!("没收到回应：{err}"))?;
-        serde_json::from_str(&reply).map_err(|err| format!("回应看不懂：{err}"))
-    }
-
-    fn connect(&self) -> Result<Transport, String> {
-        let cannot = |err| format!("连不上 Belfry（{}）：{err}", self.endpoint);
-        if let Some(path) = self.endpoint.strip_prefix("unix:") {
-            #[cfg(unix)]
-            {
-                return std::os::unix::net::UnixStream::connect(path)
-                    .map(Transport::Unix)
-                    .map_err(cannot);
-            }
-            #[cfg(not(unix))]
-            {
-                let _ = path;
-                return Err("这个平台上不支持 unix socket 端点".to_string());
-            }
-        }
-        if let Some(addr) = self.endpoint.strip_prefix("tcp:") {
-            return std::net::TcpStream::connect(addr)
-                .map(Transport::Tcp)
-                .map_err(cannot);
-        }
-        Err(format!("端点格式不认识：{}", self.endpoint))
-    }
-}
-
-enum Transport {
-    #[cfg(unix)]
-    Unix(std::os::unix::net::UnixStream),
-    Tcp(std::net::TcpStream),
-}
-
-impl Transport {
-    /// 读写分开持有：BufReader 会把 stream 吃掉。
-    fn write_half(&self) -> Result<Box<dyn Write>, String> {
-        let cloned = match self {
-            #[cfg(unix)]
-            Self::Unix(stream) => stream
-                .try_clone()
-                .map(|value| Box::new(value) as Box<dyn Write>),
-            Self::Tcp(stream) => stream
-                .try_clone()
-                .map(|value| Box::new(value) as Box<dyn Write>),
-        };
-        cloned.map_err(|err| format!("连接不可用：{err}"))
-    }
-}
-
-impl std::io::Read for Transport {
-    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        match self {
-            #[cfg(unix)]
-            Self::Unix(stream) => stream.read(buf),
-            Self::Tcp(stream) => stream.read(buf),
-        }
+            .map_err(|err| belfry_i18n::lformat!("没收到回应：{err}"))?;
+        if reply.len() as u64 > MAX_RESPONSE_BYTES { return Err(belfry_i18n::text("回应超过 1 MiB 上限").into()); }
+        if !reply.ends_with('\n') { return Err(belfry_i18n::text("回应不完整，结果未知；请先查询状态，勿自动重复写入").into()); }
+        serde_json::from_str(&reply).map_err(|err| belfry_i18n::lformat!("回应看不懂：{err}"))
     }
 }
 
 /// 任务状态说成人话。认不出的原样给出去——不猜，也不假装它已经完成了。
 fn describe_state(state: &str) -> &str {
     match state {
-        "pendingapproval" => "还等用户点头，没送出去",
-        "queued" => "已排队，等对方空闲",
-        "dispatched" => "已送到对方终端，它还没交差",
-        "done" => "已完成",
-        "failed" => "对方说做不了",
-        "abandoned" => "已作废（对方会话没了或被中止）",
+        "pendingapproval" => belfry_i18n::text("还等用户点头，没送出去"),
+        "accepted" => belfry_i18n::text("已受理，尚未进入终端投递队列"),
+        "queued" => belfry_i18n::text("已排队，等对方空闲"),
+        "submitting" => belfry_i18n::text("正在提交到终端，尚未收到提交回执"),
+        "uncertain" => belfry_i18n::text("提交结果不确定，请核对目标终端；未自动重复投递"),
+        "cancelled" => belfry_i18n::text("投递已取消"),
+        "dispatched" => belfry_i18n::text("已送到对方终端，它还没交差"),
+        "done" => belfry_i18n::text("已完成"),
+        "failed" => belfry_i18n::text("对方说做不了"),
+        "abandoned" => belfry_i18n::text("已作废（对方会话没了或被中止）"),
         other => other,
     }
 }
@@ -559,64 +566,64 @@ fn render_line(entry: &belfry_protocol::RoomLine) -> String {
         line.push_str(&format!("（{preview}）"));
     }
     if entry.needs_my_reply {
-        line.push_str("  ← 等你回复");
+        line.push_str(belfry_i18n::text("  ← 等你回复"));
     }
     line
 }
 
 fn render_task(task: &belfry_protocol::RoomTaskLine) -> String {
-    let owner = task.assignee.as_deref().unwrap_or("没人负责");
-    let mut line = format!("{} [{}] {}（{owner}）", task.id, task.status, task.title);
+    let owner = task.assignee.as_deref().unwrap_or(belfry_i18n::text("没人负责"));
+    let mut line = format!("{} [{}] {}（{owner}）", task.id, belfry_i18n::text(&task.status), task.title);
     if !task.waiting_for.is_empty() {
-        line.push_str(&format!(" 等 {} 完成", task.waiting_for.join("、")));
+        line.push_str(&belfry_i18n::lformat!(" 等 {} 完成", task.waiting_for.join("、")));
     }
     if !task.outcome.is_empty() {
-        line.push_str(&format!("\n    完成标准：{}", task.outcome));
+        line.push_str(&belfry_i18n::lformat!("\n    完成标准：{}", task.outcome));
     }
     if let Some(result) = &task.result {
-        line.push_str(&format!("\n    结果：{result}"));
+        line.push_str(&belfry_i18n::lformat!("\n    结果：{result}"));
     }
     if let Some(last) = task.notes.lines().last() {
-        line.push_str(&format!("\n    最近进展：{last}"));
+        line.push_str(&belfry_i18n::lformat!("\n    最近进展：{last}"));
     }
     line
 }
 
 fn render_brief(brief: &belfry_protocol::RoomBriefView) -> String {
-    let or_blank = |value: &str| if value.is_empty() { "（未写）".to_string() } else { value.to_string() };
-    let mut lines = vec![format!("目标：{}", or_blank(&brief.objective)), format!("当前重点：{}", or_blank(&brief.focus))];
+    let or_blank = |value: &str| if value.is_empty() { belfry_i18n::text("（未写）").to_string() } else { value.to_string() };
+    let mut lines = vec![belfry_i18n::lformat!("目标：{}", or_blank(&brief.objective)), belfry_i18n::lformat!("当前重点：{}", or_blank(&brief.focus))];
     if !brief.constraints.is_empty() {
-        lines.push(format!("约束：{}", brief.constraints.join("；")));
+        lines.push(belfry_i18n::lformat!("约束：{}", brief.constraints.join("；")));
     }
     lines.join("\n")
 }
 
 fn render_status(status: &belfry_protocol::RoomStatusView) -> String {
-    let role = if status.i_am_foreman { "统筹" } else { "成员" };
-    let mut lines = vec![format!("房间「{}」，我是{}「{}」", status.room, role, status.my_title), String::new()];
-    lines.push("需求简报".to_string());
+    let role = if status.i_am_foreman { belfry_i18n::text("统筹") } else { belfry_i18n::text("成员") };
+    let mut lines = vec![belfry_i18n::lformat!("房间「{}」，我是{}「{}」", status.room, role, status.my_title), String::new()];
+    lines.push(belfry_i18n::text("需求简报").to_string());
     lines.extend(render_brief(&status.brief).lines().map(|line| format!("  {line}")));
     lines.push(String::new());
-    lines.push("成员".to_string());
+    lines.push(belfry_i18n::text("成员").to_string());
     for member in &status.members {
-        let me = if member.is_me { "（我）" } else { "" };
+        let me = if member.is_me { belfry_i18n::text("（我）") } else { "" };
         let duty = if member.duty.is_empty() { String::new() } else { format!(" — {}", member.duty) };
-        lines.push(format!("  {}{me} [{}] {}{duty}", member.title, member.role, member.activity));
+        lines.push(format!("  {}{me} [{}] {}{duty}", member.title, belfry_i18n::text(&member.role), member.activity));
     }
     lines.push(String::new());
     if status.tasks.is_empty() {
         lines.push(if status.i_am_foreman {
-            "任务板是空的。拆活：belfry room task add <标题> --to <角色>".to_string()
+            belfry_i18n::text("任务板是空的。拆活：belfry room task add <标题> --to <角色>").to_string()
         } else {
-            "任务板是空的，等统筹派活。".to_string()
+            belfry_i18n::text("任务板是空的，等统筹派活。").to_string()
         });
     } else {
-        lines.push("任务板".to_string());
+        lines.push(belfry_i18n::text("任务板").to_string());
         lines.extend(status.tasks.iter().map(|task| format!("  {}", render_task(task).replace('\n', "\n  "))));
     }
     if !status.awaiting_me.is_empty() {
         lines.push(String::new());
-        lines.push("等你回复（belfry room say --reply <id> <话>）".to_string());
+        lines.push(belfry_i18n::text("等你回复（belfry room say --reply <id> <话>）").to_string());
         lines.extend(status.awaiting_me.iter().map(|entry| format!("  {}", render_line(entry))));
     }
     lines.join("\n")
@@ -629,7 +636,7 @@ fn render(data: ResponseData) -> String {
     match data {
         ResponseData::Peers { peers, .. } => {
             if peers.is_empty() {
-                return "现在没有别的会话".to_string();
+                return belfry_i18n::text("现在没有别的会话").to_string();
             }
             peers
                 .iter()
@@ -637,15 +644,15 @@ fn render(data: ResponseData) -> String {
                     let mark = if peer.is_self { "* " } else { "  " };
                     // 名字排在最前：那是派活时要写的东西。没名字的会话不能被寻址，
                     // 直说该怎么办，别让 Agent 拿标题去试——标题每敲一条 prompt 就变。
-                    let handle = peer.name.as_deref().unwrap_or("(未命名)");
+                    let handle = peer.name.as_deref().unwrap_or(belfry_i18n::text("(未命名)"));
                     let state = if peer.is_self {
-                        "（我自己）".to_string()
+                        belfry_i18n::text("（我自己）").to_string()
                     } else if peer.name.is_none() {
-                        "要派活得先在侧栏给它起个名字".to_string()
+                        belfry_i18n::text("要派活得先在侧栏给它起个名字").to_string()
                     } else if peer.can_receive {
-                        format!("{} · 可以派活", peer.activity)
+                        belfry_i18n::lformat!("{} · 可以派活", peer.activity)
                     } else {
-                        format!("{} · 现在收不了", peer.activity)
+                        belfry_i18n::lformat!("{} · 现在收不了", peer.activity)
                     };
                     format!("{mark}{handle}  {}  {state}  — {}", peer.agent, peer.title)
                 })
@@ -654,52 +661,52 @@ fn render(data: ResponseData) -> String {
         }
         ResponseData::Rooms { rooms } => {
             if rooms.is_empty() {
-                return "你不在任何协作房间里。房间由用户在界面上搭好，把你拉进去之后才用得上 belfry room。".to_string();
+                return belfry_i18n::text("你不在任何协作房间里。房间由用户在界面上搭好，把你拉进去之后才用得上 belfry room。").to_string();
             }
             rooms
                 .iter()
                 .map(|room| {
-                    let role = if room.i_am_foreman { "统筹" } else { "成员" };
-                    let mut lines = vec![format!("房间「{}」：我是{}「{}」", room.name, role, room.my_title)];
+                    let role = if room.i_am_foreman { belfry_i18n::text("统筹") } else { belfry_i18n::text("成员") };
+                    let mut lines = vec![belfry_i18n::lformat!("房间「{}」：我是{}「{}」", room.name, role, room.my_title)];
                     if !room.my_duty.is_empty() {
-                        lines.push(format!("  职责：{}", room.my_duty));
+                        lines.push(belfry_i18n::lformat!("  职责：{}", room.my_duty));
                     }
                     if !room.i_am_foreman {
-                        lines.push(format!("  统筹：{}", room.foreman.as_deref().unwrap_or("还没定")));
+                        lines.push(belfry_i18n::lformat!("  统筹：{}", room.foreman.as_deref().unwrap_or(belfry_i18n::text("还没定"))));
                     }
                     if !room.objective.is_empty() {
-                        lines.push(format!("  目标：{}", room.objective));
+                        lines.push(belfry_i18n::lformat!("  目标：{}", room.objective));
                     }
-                    lines.push(format!("  没完成的任务 {} 条；等我回复的消息 {} 条", room.open_tasks, room.awaiting_me));
+                    lines.push(belfry_i18n::lformat!("  没完成的任务 {} 条；等我回复的消息 {} 条", room.open_tasks, room.awaiting_me));
                     lines.join("\n")
                 })
                 .collect::<Vec<_>>()
                 .join("\n\n")
-                + "\n\n全貌用 belfry room status。"
+                + belfry_i18n::text("\n\n全貌用 belfry room status。")
         }
         ResponseData::RoomStatus { status } => render_status(&status),
         ResponseData::RoomSaid { room, message, recipients, skipped, ask } => {
-            let mut text = format!("已发到房间「{room}」[{message}]，收件人：{}。", recipients.join("、"));
+            let mut text = belfry_i18n::lformat!("已发到房间「{room}」[{message}]，收件人：{}。", recipients.join("、"));
             if ask {
-                text.push_str("对方回复之前会一直挂着「等你回复」。");
+                text.push_str(belfry_i18n::text("对方回复之前会一直挂着「等你回复」。"));
             }
             for reason in skipped {
                 text.push('\n');
-                text.push_str(&reason);
+                text.push_str(&belfry_i18n::localize(&reason));
             }
             text
         }
         ResponseData::RoomLog { room, entries } => {
             if entries.is_empty() {
-                return format!("房间「{room}」还没有消息。");
+                return belfry_i18n::lformat!("房间「{room}」还没有消息。");
             }
-            let mut lines = vec![format!("房间「{room}」最近的对话（回复某条：belfry room say --reply <id> <话>）：")];
+            let mut lines = vec![belfry_i18n::lformat!("房间「{room}」最近的对话（回复某条：belfry room say --reply <id> <话>）：")];
             lines.extend(entries.iter().map(render_line));
             lines.join("\n")
         }
-        ResponseData::RoomTaskChanged { room: _, task, note } => format!("{}\n{note}", render_task(&task)),
+        ResponseData::RoomTaskChanged { room: _, task, note } => format!("{}\n{}", render_task(&task), belfry_i18n::localize(&note)),
         ResponseData::RoomBriefUpdated { room, brief } => {
-            format!("房间「{room}」的需求简报已更新，成员都会收到通知。\n{}", render_brief(&brief))
+            belfry_i18n::lformat!("房间「{room}」的需求简报已更新，成员都会收到通知。\n{}", render_brief(&brief))
         }
         ResponseData::Sent {
             task,
@@ -708,19 +715,19 @@ fn render(data: ResponseData) -> String {
         } => {
             if pending_approval {
                 // 说清「还没送到」，否则 Agent 会当成对方已经开工，接着去等结果。
-                format!("任务 {task} 已提交给「{to}」，等用户确认后才会送达")
+                belfry_i18n::lformat!("任务 {task} 已提交给「{to}」，等用户确认后才会送达")
             } else {
-                format!("任务 {task} 已受理，等待投递给「{to}」（目标空闲时自动提交；受理不等于已开始处理）")
+                belfry_i18n::lformat!("任务 {task} 已受理，等待投递给「{to}」（目标空闲时自动提交；受理不等于已开始处理）")
             }
         }
-        ResponseData::Settled { task } => format!("任务 {task} 已结"),
+        ResponseData::Settled { task } => belfry_i18n::lformat!("任务 {task} 已结"),
         ResponseData::TaskState {
             task,
             state,
             result,
             ..
         } => {
-            let line = format!("任务 {task} {}", describe_state(&state));
+            let line = belfry_i18n::lformat!("任务 {task} {}", describe_state(&state));
             match result {
                 Some(text) => format!("{line}：{text}"),
                 None => line,
@@ -728,12 +735,12 @@ fn render(data: ResponseData) -> String {
         }
         ResponseData::Inbox { tasks } => {
             if tasks.is_empty() {
-                return "没有派给你的任务".to_string();
+                return belfry_i18n::text("没有派给你的任务").to_string();
             }
             tasks
                 .iter()
                 .map(|task| {
-                    format!(
+                    belfry_i18n::lformat!(
                         "{}  来自 {}  [{}]\n    {}",
                         task.task, task.from, task.state, task.instruction
                     )
@@ -747,6 +754,17 @@ fn render(data: ResponseData) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn regression_cli_translates_status_but_preserves_user_results() {
+        belfry_i18n::with_locale(belfry_i18n::Locale::En, || {
+            let output = render(ResponseData::TaskState { task: "T1".into(), state: "uncertain".into(), result: Some("用户的原文".into()), settled: false });
+            assert!(output.contains("uncertain"), "{output}");
+            assert!(output.contains("用户的原文"));
+            assert!(!output.contains("提交结果不确定"));
+            assert_eq!(render(ResponseData::Inbox { tasks: vec![] }), "No tasks have been assigned to you.");
+        });
+    }
 
     /// 大多数测试只关心解析出哪条命令；`wait` 那条单独验。
     fn parsed(args: &[String]) -> Result<Command, String> {

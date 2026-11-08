@@ -39,7 +39,7 @@ pub(super) fn list(
         out.push(Source {meta, files:vec![path.clone(),PathBuf::from(format!("{}-wal",path.display()))],
             extra:json!({"model":row.get::<_,Option<String>>(5).map_err(storage::error)?,"input":number(6)?,"output":number(7)?.saturating_add(number(8)?),"cache":number(9)?,"write":number(10)?})});
         if out.len() > 20_000 {
-            return Err(AppError::io("OpenCode 会话数超过扫描上限"));
+            return Err(AppError::io(belfry_i18n::text("OpenCode 会话数超过扫描上限")));
         }
     }
     Ok(out)
@@ -67,7 +67,7 @@ pub(super) fn read(
         check()?;
         count += 1;
         if count > storage::MAX_RECORDS {
-            return Err(AppError::io("OpenCode 会话超过读取上限"));
+            return Err(AppError::io(belfry_i18n::text("OpenCode 会话超过读取上限")));
         }
         let id: String = row.get(0).map_err(storage::error)?;
         let role: String = row.get(1).map_err(storage::error)?;
@@ -75,7 +75,7 @@ pub(super) fn read(
         let raw: String = row.get(3).map_err(storage::error)?;
         bytes += raw.len();
         if bytes as u64 > storage::MAX_BYTES || out.len() > storage::MAX_RECORDS {
-            return Err(AppError::io("OpenCode 会话超过读取上限"));
+            return Err(AppError::io(belfry_i18n::text("OpenCode 会话超过读取上限")));
         }
         let v: Value = serde_json::from_str(&raw).map_err(storage::error)?;
         if role == "user" {
@@ -101,7 +101,7 @@ pub(super) fn read(
                     let raw = raw.map_err(storage::error)?;
                     bytes += raw.len();
                     if bytes as u64 > storage::MAX_BYTES {
-                        return Err(AppError::io("OpenCode 会话超过读取上限"));
+                        return Err(AppError::io(belfry_i18n::text("OpenCode 会话超过读取上限")));
                     }
                     parts.push(serde_json::from_str(&raw).map_err(storage::error)?);
                 }
@@ -184,7 +184,7 @@ pub(super) fn read(
             ),
         );
         record["belfryNote"] =
-            json!("原生总量包含辅助调用；其模型和逐次时间未记录，按会话最后活跃时间归入未知模型");
+            json!(belfry_i18n::text("原生总量包含辅助调用；其模型和逐次时间未记录，按会话最后活跃时间归入未知模型"));
         record["belfryAuxiliary"] = json!(true);
         out.push(record);
     }
@@ -217,7 +217,7 @@ pub(super) fn delete(_data: &Path, source: &Source) -> Result<(), AppError> {
                 Ok(())
             } else {
                 Err(AppError::io(
-                    "OpenCode 未能删除原生会话，请关闭该会话后重试",
+                    belfry_i18n::text("OpenCode 未能删除原生会话，请关闭该会话后重试"),
                 ))
             };
         }
@@ -225,7 +225,7 @@ pub(super) fn delete(_data: &Path, source: &Source) -> Result<(), AppError> {
             let _ = child.kill();
             let _ = child.wait();
             return Err(AppError::io(
-                "OpenCode 删除超时，请在 CLI 中确认会话状态后刷新",
+                belfry_i18n::text("OpenCode 删除超时，请在 CLI 中确认会话状态后刷新"),
             ));
         }
         std::thread::sleep(std::time::Duration::from_millis(50));

@@ -1,3 +1,4 @@
+import { TranslationError } from "../../i18n";
 import type { OutputReceipt, TerminalEvent, TerminalSession, TerminalStreamEvent } from "../contracts";
 import { acceptSequence } from "../sequence";
 
@@ -51,7 +52,7 @@ export class OutputQueue {
       if (this.bytes + item.bytes > OUTPUT_WINDOW_BYTES
         || this.events + item.events.length > MAX_PENDING_EVENTS
         || (item.receipt && this.batches >= MAX_BATCHES)) {
-        throw new Error("终端待消费输出超出预算。可重新连接；原任务仍在后台运行。");
+        throw new TranslationError("terminal.outputQueue.text_264640433c");
       }
       this.pending.push(item);
       this.bytes += item.bytes;
@@ -77,11 +78,11 @@ export class OutputQueue {
     }
     this.checkIdentity(event.sessionId, event.connectionId);
     if (event.deliveryId !== this.nextDelivery || !Number.isSafeInteger(event.deliveryId)) {
-      throw new Error("终端输出批次顺序不匹配，请重新连接。");
+      throw new TranslationError("terminal.outputQueue.text_25fe85b4f9");
     }
     if (event.events.length > MAX_BATCH_EVENTS
       || event.events.some((item) => item.sessionId !== event.sessionId || !STREAM_KINDS.has(item.kind))) {
-      throw new Error("终端输出批次的会话或大小不匹配，请重新连接。");
+      throw new TranslationError("terminal.outputQueue.text_fface9a7cc");
     }
     this.nextDelivery += 1;
     this.validateSequences(event.events);
@@ -92,7 +93,7 @@ export class OutputQueue {
   private checkIdentity(session: string, connection?: string | null) {
     if ((this.sessionId && this.sessionId !== session)
       || (connection && this.connectionId && this.connectionId !== connection)) {
-      throw new Error("终端输出连接已变更，请重新连接。");
+      throw new TranslationError("terminal.outputQueue.text_f17503bf83");
     }
     this.sessionId = session;
     if (connection) this.connectionId = connection;
@@ -121,7 +122,7 @@ export class OutputQueue {
         if (!item.receipt) continue;
         this.batches -= 1;
         const accepted = await Promise.race([this.ports.acknowledge(item.receipt), this.stopped]);
-        if (!this.disposed && !accepted) throw new Error("终端输出消费确认失败，请重新连接。");
+        if (!this.disposed && !accepted) throw new TranslationError("terminal.outputQueue.text_37d39b2df4");
       }
     } catch (error) { this.fail(error); }
     finally { this.busy = false; }

@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 export type Platform = "macos" | "windows";
 import type { HookSnapshot } from "../agent/hooks/contracts";
 import type { AgentKind, AgentSessionRef } from "../agent/contracts";
@@ -47,13 +48,13 @@ export function isShellProfileId(value: string): value is ShellProfileId {
 
 export function shellProfileLabel(id: ShellProfileId): string {
   return {
-    "system-default": "系统默认",
+    "system-default": t("terminal.contracts.text_04b7708368"),
     "shell:zsh": "zsh",
     "shell:bash": "bash",
     "shell:fish": "fish",
     "shell:pwsh": "PowerShell 7",
     "shell:powershell": "Windows PowerShell",
-    "shell:cmd": "命令提示符",
+    "shell:cmd": t("terminal.contracts.text_c8a8b2dee3"),
     "shell:wsl": "WSL",
     "shell:git-bash": "Git Bash",
   }[id];

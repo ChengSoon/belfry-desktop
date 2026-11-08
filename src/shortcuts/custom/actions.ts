@@ -1,21 +1,22 @@
+import { localized, t } from "../../i18n";
 import type { AppShortcut, ShortcutPlatform } from "../resolveShortcut";
 import type { ActionId, SimpleActionId, ShortcutBinding } from "./contracts";
 
 export interface ShortcutAction { id: ActionId; label: string; code: string; shiftOnMac?: boolean }
 const SESSION_COUNT = 9;
 
-export const SHORTCUT_ACTIONS: ShortcutAction[] = [
-  { id: "new-shell", label: "新建 Shell 会话", code: "KeyT" },
-  { id: "toggle-sidebar", label: "显示 / 隐藏侧栏", code: "KeyB" },
-  { id: "toggle-usage", label: "打开 / 关闭用量", code: "KeyU" },
-  { id: "toggle-history", label: "打开 / 关闭历史", code: "KeyH", shiftOnMac: true },
-  { id: "open-settings", label: "打开设置", code: "Comma" },
-  { id: "toggle-quick-open", label: "打开 Quick Open", code: "KeyK" },
-  { id: "toggle-shortcuts", label: "打开快捷指令", code: "Slash" },
+export const SHORTCUT_ACTIONS: ShortcutAction[] = localized(() => ([
+  { id: "new-shell", label: t("shortcuts.actions.text_5f38508162"), code: "KeyT" },
+  { id: "toggle-sidebar", label: t("shortcuts.actions.text_ab942bb0e5"), code: "KeyB" },
+  { id: "toggle-usage", label: t("shortcuts.actions.text_cad4ebfe80"), code: "KeyU" },
+  { id: "toggle-history", label: t("shortcuts.actions.text_7388d51b1d"), code: "KeyH", shiftOnMac: true },
+  { id: "open-settings", label: t("shortcuts.actions.text_37aa6ad6a3"), code: "Comma" },
+  { id: "toggle-quick-open", label: t("shortcuts.actions.text_9bde3a4112"), code: "KeyK" },
+  { id: "toggle-shortcuts", label: t("shortcuts.actions.text_2b604575fb"), code: "Slash" },
   ...Array.from({ length: SESSION_COUNT }, (_, index): ShortcutAction => ({
-    id: `activate-session-${index + 1}` as ActionId, label: `切换第 ${index + 1} 个会话`, code: `Digit${index + 1}`,
+    id: `activate-session-${index + 1}` as ActionId, label: t("shortcuts.actions.text_5d5ecdbc68", { index: index + 1 }), code: `Digit${index + 1}`,
   })),
-];
+]));
 
 export function defaultBinding(action: ShortcutAction, platform: ShortcutPlatform): ShortcutBinding {
   return { code: action.code, shift: platform === "control" || Boolean(action.shiftOnMac) };

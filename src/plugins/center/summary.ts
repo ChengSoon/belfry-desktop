@@ -3,6 +3,7 @@ import type { RuntimeCatalog } from "../runtimeContracts";
 import type { PiManifest } from "../runtimeContracts";
 import type { PluginPreference } from "./api";
 import type { MarketPluginSummary, PluginCapability, PluginSummary } from "./types";
+import { localizedText } from "../runtimeCatalog";
 
 export function pluginSummary(entry: DirectoryEntry, runtime: RuntimeCatalog, preference?: PluginPreference): PluginSummary {
   const { manifest, enabled } = entry;
@@ -24,7 +25,7 @@ function stateFields(entry: DirectoryEntry, error: string | null | undefined, pr
 }
 function panelUi(pi?: PiManifest) {
   if (!pi?.ui) return undefined;
-  return { ...pi.ui, title: typeof pi.ui.title === "object" ? pi.ui.title["zh-CN"] ?? pi.ui.title.en : pi.ui.title };
+  return { ...pi.ui, title: pi.ui.title ? localizedText(pi.ui.title, "") : undefined };
 }
 function capabilities({ manifest }: DirectoryEntry) {
   const pi = manifest.runtime, contributes = pi?.contributes as Record<string, unknown[]> | undefined;

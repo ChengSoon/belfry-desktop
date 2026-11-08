@@ -1,3 +1,5 @@
+import { errorMessage as localizedErrorMessage } from "../i18n";
+import { TranslationError, localized, t } from "../i18n";
 import type { BackgroundConfig } from "../background/contracts";
 import type { ThemeMode } from "../theme/contracts";
 import type { WorkspaceCollection } from "../workspace/named/contracts";
@@ -27,14 +29,12 @@ export const BACKUP_PENDING_KEY = "belfry.backup.pending.v1";
 export const BACKUP_TRANSACTION_KEY = "belfry.backup.transaction.v1";
 export const BACKUP_UNDO_KEY = "belfry.backup.undo.v1";
 export const BACKUP_STATUS_KEY = "belfry.backup.status.v1";
-export const DOMAIN_LABELS: Record<BackupDomain, string> = { workspace: "工作区与布局", appearance: "外观参数" };
+export const DOMAIN_LABELS: Record<BackupDomain, string> = localized(() => ({ workspace: t("backup.contracts.text_237e1bf23b"), appearance: t("backup.contracts.text_637b915e54") }));
 
 export function record(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-export function message(error: unknown) {
-  return error instanceof Error || (record(error) && typeof error.message === "string") ? error.message as string : String(error);
-}
+export function message(error: unknown) { return localizedErrorMessage(error); }
 export function assertSize(raw: string, max = MAX_BACKUP_BYTES) {
-  if (raw.length > max || new TextEncoder().encode(raw).length > max) throw new Error("备份数据超过大小上限");
+  if (raw.length > max || new TextEncoder().encode(raw).length > max) throw new TranslationError("backup.contracts.text_118c95e4bf");
 }

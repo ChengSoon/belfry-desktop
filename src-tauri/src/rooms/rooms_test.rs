@@ -9,6 +9,229 @@ fn temp_root(tag: &str) -> PathBuf {
     std::env::temp_dir().join(format!("belfry-rooms-{tag}-{}", new_id()))
 }
 
+#[test]
+fn regression_room_notices_and_recipient_aliases_follow_the_app_language() {
+    belfry_i18n::with_locale(belfry_i18n::Locale::En, || {
+        let root = temp_root("locale");
+        let store = RoomStore::load(Some(root.clone()));
+        let mut room = store.create("用户的项目", "/proj", "用户的目标").unwrap();
+        super::test_support::add(&mut room, "lead", "Lead", "coordination").unwrap();
+        super::test_support::add(&mut room, "worker", "Worker", "implementation").unwrap();
+        let welcome = room.messages.iter().find(|message| message.text.contains("belfry room status")).unwrap();
+        assert!(welcome.text.contains("You joined room"), "{}", welcome.text);
+        assert!(welcome.text.contains("用户的项目") && welcome.text.contains("用户的目标"));
+        assert!(!welcome.text.contains("你是统筹"));
+        assert!(room.messages.iter().any(|message| message.text.contains("joined the room")));
+        let leader = room.foreman().unwrap().clone();
+        let worker = room.member_by_tab("worker").unwrap();
+        assert_eq!(resolve_recipients(&room, &Actor::Member(&leader), &["@members".into()], "").unwrap(), vec![worker.id.clone()]);
+        assert_eq!(resolve_recipients(&room, &Actor::Member(worker), &[], "@coordinator review").unwrap(), vec![leader.id.clone()]);
+        let body = "用户原文：已完成";
+        let posted = ops::say(&mut room, &Actor::User, &[], body, None, false, now_millis()).unwrap();
+        assert_eq!(room.message(&posted.message_id).unwrap().text, body);
+        let _ = fs::remove_dir_all(root);
+    });
+}
+
+fn delivery_registry() -> crate::collab::SessionRegistry {
+    let registry = crate::collab::SessionRegistry::default();
+    registry.replace(vec![serde_json::from_value(serde_json::json!({
+        "tabId": "t1", "name": "worker", "title": "Worker", "agent": "codex", "activity": "idle",
+        "canReceive": true, "projectRoot": "/proj"
+    })).unwrap()]);
+    registry
+}
+
+#[test]
+fn regression_room_outbox_recovers_a_commit_without_board_acceptance() {
+    use crate::collab::task::{TaskBoard, DeliveryPhase};
+    let root = temp_root("outbox-recovery");
+    let store = RoomStore::load(Some(root.join("rooms")));
+    let room = store.create("Room", "/proj", "").unwrap();
+    store.mutate(&room.id, |room| super::test_support::add(room, "t1", "Worker", "")).unwrap();
+    let (posted, _) = store.mutate(&room.id, |room| ops::say(room, &Actor::User, &[], "durable message", None, false, 1)).unwrap();
+    // 模拟房间已经成功落盘，但进程在调用 TaskBoard 之前退出。
+    drop(store);
+    let store = RoomStore::load(Some(root.join("rooms")));
+    let board = TaskBoard::load(Some(root.join("collab")));
+    let registry = delivery_registry();
+    store.pump_outbox(&board, &registry).unwrap();
+    let task = board.snapshot().into_iter().find(|task| task.chat.as_ref().unwrap().message_ids.contains(&posted.message_id))
+        .expect("accepted room messages must recover their pending delivery");
+    assert!(board.claim_delivery(&task.id, "attempt").unwrap());
+    assert!(board.delivery_update(&task.id, "attempt", 1, DeliveryPhase::Queued, None).unwrap());
+    store.reconcile(&board).unwrap();
+    assert!(store.get(&room.id).unwrap().message(&posted.message_id).unwrap().delivered_to.is_empty(), "排队不能记作送达");
+    assert!(board.delivery_update(&task.id, "attempt", 2, DeliveryPhase::Submitting, None).unwrap());
+    assert!(board.delivery_update(&task.id, "attempt", 3, DeliveryPhase::Submitted, None).unwrap());
+    // submitted 已经落盘，但对应房间回执的提交失败。
+    super::store::fail_next_commit("rename");
+    assert!(store.reconcile(&board).is_err());
+    drop(store);
+    drop(board);
+    let store = RoomStore::load(Some(root.join("rooms")));
+    let board = TaskBoard::load(Some(root.join("collab")));
+    assert!(board.pending().is_empty());
+    store.pump_outbox(&board, &registry).unwrap();
+    assert!(board.snapshot().is_empty());
+    let room = store.get(&room.id).unwrap();
+    assert!(!room.message(&posted.message_id).unwrap().delivered_to.is_empty());
+    assert!(room.delivery_outbox.is_empty());
+    store.pump_outbox(&board, &registry).unwrap();
+    assert!(board.snapshot().is_empty(), "重启后回执补交成功，不能再次投递");
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn a_stale_room_delivery_snapshot_cannot_reenqueue_after_receipt_cleanup() {
+    use crate::collab::task::{TaskBoard, DeliveryPhase};
+    let root = temp_root("stale-outbox");
+    let store = RoomStore::load(Some(root.clone()));
+    let room = store.create("Room", "/proj", "").unwrap();
+    store.mutate(&room.id, |room| super::test_support::add(room, "t1", "Worker", "")).unwrap();
+    let (posted, room) = store.mutate(&room.id, |room| ops::say(room, &Actor::User, &[], "only once", None, false, 1)).unwrap();
+    let posts = deliveries(&room, &[posted]);
+    let board = TaskBoard::default();
+    let registry = delivery_registry();
+    store.pump_outbox(&board, &registry).unwrap();
+    for task in board.snapshot() {
+        assert!(board.claim_delivery(&task.id, "attempt").unwrap());
+        assert!(board.delivery_update(&task.id, "attempt", 1, DeliveryPhase::Submitting, None).unwrap());
+        assert!(board.delivery_update(&task.id, "attempt", 2, DeliveryPhase::Submitted, None).unwrap());
+    }
+    store.reconcile(&board).unwrap();
+    assert!(board.snapshot().is_empty());
+    store.enqueue_posts(&board, &registry, &posts).unwrap();
+    assert!(board.snapshot().is_empty(), "迟到的快照不得复活已清理的投递");
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn regression_snapshot_rename_failure_does_not_publish_ledger_messages() {
+    let root = temp_root("rename-failure");
+    let store = RoomStore::load(Some(root.clone()));
+    let room = store.create("一致性", "/proj", "original").unwrap();
+    store.mutate(&room.id, |room| super::test_support::add(room, "t1", "统筹员", "")).unwrap();
+    let file = root.join("rooms.json");
+    let before = fs::read(&file).unwrap();
+    fs::remove_file(&file).unwrap();
+    fs::create_dir(&file).unwrap();
+    assert!(store.mutate(&room.id, |room| {
+        room.brief.objective = "uncommitted objective".into();
+        ops::say(room, &Actor::User, &[], "ghost notification", None, true, now_millis())
+    }).is_err());
+    fs::remove_dir(&file).unwrap();
+    fs::write(&file, before).unwrap();
+    let reloaded = RoomStore::load(Some(root.clone())).get(&room.id).unwrap();
+    assert_eq!(reloaded.brief.objective, "original");
+    assert!(!reloaded.messages.iter().any(|message| message.text == "ghost notification"), "rename 失败的消息不能在重启后冒出来");
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn regression_active_reply_survives_more_than_three_thousand_events_and_restart() {
+    let root = temp_root("retained-reply");
+    let store = RoomStore::load(Some(root.clone()));
+    let room = store.create("长对话", "/proj", "").unwrap();
+    store.mutate(&room.id, |room| super::test_support::add(room, "t1", "统筹员", "")).unwrap();
+    let (asked, _) = store.mutate(&room.id, |room| ops::say(room, &Actor::User, &[], "earliest open question", None, true, now_millis())).unwrap();
+    store.mutate(&room.id, |room| {
+        for index in 0..3100 {
+            let message = Message { id: new_id(), at: now_millis() + index, kind: MessageKind::Notice, by: "system".into(), text: format!("history {index}"), to: Vec::new(), mode: MessageMode::Send, reply_to: None, attachments: Vec::new(), delivered_to: Vec::new(), replied_by: Vec::new(), reply_cancelled: false };
+            let event = super::ledger::message_event(&room.id, &message);
+            super::ledger::apply(room, &event);
+            room.pending.push(event);
+        }
+        Ok(())
+    }).unwrap();
+    let reloaded = RoomStore::load(Some(root.clone()));
+    let room = reloaded.get(&room.id).unwrap();
+    assert!(room.message(&asked.message_id).is_some(), "最近消息截断不能抹掉活跃回复义务");
+    assert_eq!(room.messages.len(), MAX_MESSAGES);
+    let (reply, room) = reloaded.mutate(&room.id, |room| {
+        let member = room.foreman().unwrap().clone();
+        ops::say(room, &Actor::Member(&member), &[], "reply after restart", Some(&short_id(&asked.message_id)), false, now_millis())
+    }).unwrap();
+    assert!(room.message(&asked.message_id).unwrap().awaiting().is_empty());
+    assert_eq!(room.message(&reply.message_id).unwrap().reply_to.as_deref(), Some(asked.message_id.as_str()));
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn regression_unknown_ledger_records_are_never_removed_by_startup_compaction() {
+    let root = temp_root("unknown-events");
+    let store = RoomStore::load(Some(root.clone()));
+    let room = store.create("兼容历史", "/proj", "").unwrap();
+    let path = super::ledger::path(&root, &room.id).unwrap();
+    let events: Vec<_> = (0..3100).map(|index| super::ledger::LedgerEvent {
+        v: 1, id: new_id(), ts: index, kind: "future.unknown".into(), room_id: room.id.clone(), by: "system".into(), data: serde_json::json!({"preserve": index})
+    }).collect();
+    super::ledger::append(&path, &events).unwrap();
+    // 模拟升级前无提交游标的原始 v1 账本。
+    let file = root.join("rooms.json");
+    let mut snapshot: serde_json::Value = serde_json::from_slice(&fs::read(&file).unwrap()).unwrap();
+    snapshot["version"] = serde_json::json!(1);
+    fs::write(file, serde_json::to_vec(&snapshot).unwrap()).unwrap();
+    let original = fs::read(&path).unwrap();
+    RoomStore::load(Some(root.clone())).get(&room.id).unwrap();
+    assert!(fs::read(&path).unwrap() == original, "未知事件必须逐字保留");
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn regression_a_stale_store_cannot_overwrite_another_instances_commit() {
+    let root = temp_root("stale-writer");
+    let first = RoomStore::load(Some(root.clone()));
+    let room = first.create("original", "/proj", "").unwrap();
+    let stale = RoomStore::load(Some(root.clone()));
+    first.mutate(&room.id, |room| { room.name = "new name".into(); Ok(()) }).unwrap();
+    assert!(stale.mutate(&room.id, |room| { room.brief.objective = "stale".into(); Ok(()) }).is_err());
+    assert_eq!(RoomStore::load(Some(root.clone())).get(&room.id).unwrap().name, "new name");
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn append_sync_and_commit_faults_restart_at_the_previous_commit_and_retry_once() {
+    for stage in ["append", "sync", "rename"] {
+        let root = temp_root(stage);
+        let store = RoomStore::load(Some(root.clone()));
+        let room = store.create("transaction", "/proj", "old").unwrap();
+        store.mutate(&room.id, |room| super::test_support::add(room, "t1", "统筹员", "")).unwrap();
+        super::store::fail_next_commit(stage);
+        assert!(store.mutate(&room.id, |room| {
+            room.brief.objective = "failed".into();
+            ops::say(room, &Actor::User, &[], "failed message", None, false, now_millis())
+        }).is_err());
+        let recovered = RoomStore::load(Some(root.clone())).get(&room.id).unwrap();
+        assert_eq!(recovered.brief.objective, "old", "{stage}");
+        assert!(recovered.all_messages().all(|message| message.text != "failed message"), "{stage}: ghost event");
+        store.mutate(&room.id, |room| {
+            room.brief.objective = "committed".into();
+            ops::say(room, &Actor::User, &[], "successful retry", None, false, now_millis())
+        }).unwrap();
+        let recovered = RoomStore::load(Some(root.clone())).get(&room.id).unwrap();
+        assert_eq!(recovered.brief.objective, "committed");
+        assert_eq!(recovered.all_messages().filter(|message| message.text == "successful retry").count(), 1);
+        assert!(recovered.all_messages().all(|message| message.text != "failed message"));
+        let _ = fs::remove_dir_all(root);
+    }
+}
+
+#[test]
+fn truncated_committed_ledgers_are_readonly_instead_of_silently_losing_messages() {
+    let root = temp_root("short-ledger");
+    let store = RoomStore::load(Some(root.clone()));
+    let room = store.create("truncated", "/proj", "").unwrap();
+    store.mutate(&room.id, |room| super::test_support::add(room, "t1", "统筹员", "")).unwrap();
+    let path = super::ledger::path(&root, &room.id).unwrap();
+    fs::write(&path, "{broken").unwrap();
+    let recovered = RoomStore::load(Some(root.clone()));
+    assert!(recovered.list().unwrap().load_error.is_some());
+    assert!(recovered.create("new", "/proj", "").is_err());
+    assert_eq!(fs::read_to_string(path).unwrap(), "{broken");
+    let _ = fs::remove_dir_all(root);
+}
+
 /// 一间房：统筹 + 前端 + 后端，第一位自动当统筹。
 fn team() -> Room {
     let mut room = Room {
@@ -23,6 +246,9 @@ fn team() -> Room {
         idle_nudged_after: None,
         paused: false,
         messages: Vec::new(),
+        retained_messages: Vec::new(),
+        delivery_outbox: Vec::new(),
+        ledger_bytes: 0,
         pending: Vec::new(),
     };
     for (tab, title, duty) in [("t1", "统筹员", "拆活验收"), ("t2", "前端", "页面"), ("t3", "后端", "接口")] {
@@ -244,7 +470,7 @@ fn deliveries_carry_the_short_id_author_and_quote() {
 }
 
 #[test]
-fn the_store_persists_rooms_and_replays_messages_from_the_ledger() {
+fn the_store_persists_rooms_and_the_committed_message_projection() {
     let root = temp_root("persist");
     let store = RoomStore::load(Some(root.clone()));
     let room = store.create("登录改版", "/proj", "做完登录页").unwrap();
@@ -263,7 +489,7 @@ fn the_store_persists_rooms_and_replays_messages_from_the_ledger() {
     store.mutate(&room.id, |room| Ok(ops::record_delivery(room, &posted.message_id, &room.members[1].id.clone(), 9))).unwrap();
 
     let json = fs::read_to_string(root.join("rooms.json")).unwrap();
-    assert!(!json.contains("要求回复"), "消息不写进 rooms.json");
+    assert!(json.contains("要求回复"), "当前投影随提交游标一起保存，启动无需重放完整账本");
     let reloaded = RoomStore::load(Some(root.clone())).get(&room.id).unwrap();
     let before = store.get(&room.id).unwrap();
     assert_eq!(reloaded.messages.len(), before.messages.len());
@@ -442,7 +668,7 @@ fn room_summaries_carry_the_latest_message_addressed_to_you() {
 }
 
 #[test]
-fn a_long_ledger_is_compacted_on_load_without_changing_the_room() {
+fn a_long_legacy_ledger_keeps_its_history_while_bounding_the_recent_projection() {
     let root = temp_root("compact");
     let store = RoomStore::load(Some(root.clone()));
     let room = store.create("登录改版", "/proj", "").unwrap();
@@ -465,9 +691,13 @@ fn a_long_ledger_is_compacted_on_load_without_changing_the_room() {
         })
         .collect();
     super::ledger::append(&path, &extra).unwrap();
+    let file = root.join("rooms.json");
+    let mut legacy: serde_json::Value = serde_json::from_slice(&fs::read(&file).unwrap()).unwrap();
+    legacy["version"] = serde_json::json!(1);
+    fs::write(file, serde_json::to_vec(&legacy).unwrap()).unwrap();
     let before = RoomStore::load(Some(root.clone())).get(&room.id).unwrap();
     let lines = fs::read_to_string(&path).unwrap().lines().count();
-    assert!(lines <= MAX_MESSAGES + 10, "压缩后只剩投影需要的事件：{lines}");
+    assert!(lines > super::ledger::COMPACT_AFTER, "原始历史不再被最近投影覆写：{lines}");
     let after = RoomStore::load(Some(root.clone())).get(&room.id).unwrap();
     let ids = |room: &Room| room.messages.iter().map(|m| (m.id.clone(), m.delivered_to.clone(), m.replied_by.clone())).collect::<Vec<_>>();
     assert_eq!(ids(&after), ids(&before), "压缩前后投影一致");

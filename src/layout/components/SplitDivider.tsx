@@ -1,3 +1,4 @@
+import { t, useTranslation } from "../../i18n";
 import { useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type RefObject } from "react";
 import type { DividerFrame } from "../contracts";
 import { clampRatio, MIN_RATIO } from "../tree";
@@ -15,6 +16,7 @@ interface SplitDividerProps {
  * 像素位移要先除以该 split 在这个方向上占的实际长度——嵌套分屏里它只占舞台的一部分。
  */
 export function SplitDivider({ divider, stageRef, onResize }: SplitDividerProps) {
+  useTranslation();
   const origin = useRef<{ pointer: number; ratio: number; span: number } | null>(null);
   const [dragging, setDragging] = useState(false);
   const horizontal = divider.direction === "row";
@@ -74,7 +76,7 @@ export function SplitDivider({ divider, stageRef, onResize }: SplitDividerProps)
 
   return (
     <div
-      aria-label={horizontal ? "调整左右窗格比例" : "调整上下窗格比例"}
+      aria-label={horizontal ? t("layout.SplitDivider.text_eb89d945a1") : t("layout.SplitDivider.text_62a8101b48")}
       aria-orientation={horizontal ? "vertical" : "horizontal"}
       aria-valuemax={100}
       aria-valuemin={0}
@@ -90,7 +92,7 @@ export function SplitDivider({ divider, stageRef, onResize }: SplitDividerProps)
       role="separator"
       style={style}
       tabIndex={0}
-      title="拖动调整窗格比例；双击对半分"
+      title={t("layout.SplitDivider.text_f7ab3b3e5e")}
     />
   );
 }

@@ -1,3 +1,4 @@
+import { useFeedback } from "../../i18n";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AgentKind } from "../contracts";
 import type { AgentHookReport, HookInstallPreview } from "./contracts";
@@ -47,13 +48,13 @@ export function useHookSettings() {
 
 function useHookOperation() {
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useFeedback<string | null>(null);
   const generation = useRef(0);
   const perform = useCallback(async (action: (current: number) => Promise<void>) => {
     const current = ++generation.current;
     setBusy(true); setError(null);
     try { await action(current); }
-    catch (error) { if (current === generation.current) setError(toAppFailure(error).message); }
+    catch (error) { if (current === generation.current) setError(() => toAppFailure(error).message); }
     finally { if (current === generation.current) setBusy(false); }
   }, []);
   return { busy, error, setError, generation, perform };

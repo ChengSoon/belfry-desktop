@@ -101,27 +101,21 @@ jobs:
   publish:
     needs: [prepare, build]
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v7
-      - name: Publish only after every platform and updater asset is ready
+      - name: Generate and verify SHA256SUMS before publishing all platform assets
         uses: actions/github-script@v8
         env:
           RELEASE_ID: ${{ needs.prepare.outputs.release-id }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           script: |
             const { pathToFileURL } = require('node:url');
             const { resolve } = require('node:path');
-            const { parseUpdaterManifest, validateReleaseAssets } = await import(pathToFileURL(resolve('.github/workflows/release-assets.mjs')).href);
-            const repo = context.repo;
-            const release_id = Number(process.env.RELEASE_ID);
-            const release = (await github.rest.repos.getRelease({ ...repo, release_id })).data;
-            const assets = await github.paginate(github.rest.repos.listReleaseAssets, { ...repo, release_id, per_page: 100 });
-            const latest = assets.find(asset => asset.name === 'latest.json' && asset.size > 0);
-            if (!latest) throw new Error('缺少 latest.json，保留草稿');
-            const response = await github.rest.repos.getReleaseAsset({ ...repo, asset_id: latest.id,
-              headers: { accept: 'application/octet-stream' } });
-            const manifest = parseUpdaterManifest(response.data);
-            validateReleaseAssets({ release, assets, manifest });
-            await github.rest.repos.updateRelease({ ...repo, release_id, draft: false, make_latest: 'true' });
+            const { publishRelease } = await import(pathToFileURL(resolve('.github/workflows/publish-release.mjs')).href);
+            const { downloadReleaseAsset } = await import(pathToFileURL(resolve('.github/workflows/release-checksums.mjs')).href);
+            await publishRelease({ github, repo: context.repo, releaseId: Number(process.env.RELEASE_ID),
+              readAsset: asset => downloadReleaseAsset(asset, process.env.GITHUB_TOKEN) });

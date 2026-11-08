@@ -55,7 +55,7 @@ pub(super) fn save_provider(
                 .providers
                 .iter_mut()
                 .find(|item| item.id == *id)
-                .ok_or_else(|| AppError::not_found(format!("找不到 provider：{id}")))?;
+                .ok_or_else(|| AppError::not_found(belfry_i18n::lformat!("找不到 provider：{id}")))?;
             existing.name = draft.name.trim().to_string();
             existing.base_url = draft.base_url.trim().to_string();
             if draft.api_key_action != ApiKeyAction::Keep {
@@ -101,7 +101,7 @@ pub(super) fn remove_provider(
     store::ensure_available(app, &store)?;
 
     if store.agent(kind).find(&id).is_none() {
-        return Err(AppError::not_found(format!("找不到 provider：{id}")));
+        return Err(AppError::not_found(belfry_i18n::lformat!("找不到 provider：{id}")));
     }
 
     // 删的是当前生效的，先把 CLI 配置退回官方，不然会留下一份指向已删条目的路由。
@@ -236,7 +236,7 @@ pub(super) fn config_files_for_draft(
 
 fn require_sensitive_preview(confirmed: bool) -> Result<(), AppError> {
     if !confirmed {
-        return Err(AppError::invalid_argument("请先确认查看含密钥的原始配置"));
+        return Err(AppError::invalid_argument(belfry_i18n::text("请先确认查看含密钥的原始配置")));
     }
     Ok(())
 }
@@ -251,12 +251,12 @@ fn validate_kept_endpoint(
         let agent = store.agent(kind);
         let existing = agent
             .find(draft.id.as_deref().unwrap_or_default())
-            .ok_or_else(|| AppError::not_found("Provider 已不存在，请重新读取"))?;
+            .ok_or_else(|| AppError::not_found(belfry_i18n::text("Provider 已不存在，请重新读取")))?;
         if existing.base_url.trim() != draft.base_url.trim()
             && store.has_api_key(kind, &existing.id)
         {
             return Err(AppError::invalid_argument(
-                "端点已修改，请明确替换或清除密钥，避免把已有密钥发送到新地址",
+                belfry_i18n::text("端点已修改，请明确替换或清除密钥，避免把已有密钥发送到新地址"),
             ));
         }
     }
@@ -289,7 +289,7 @@ fn preview_claude(provider: &ProviderConfig) -> Result<Vec<ConfigFilePreview>, A
     let mut settings = claude::read_settings()?;
     claude::apply(&mut settings, Some(provider))?;
     let mut content = serde_json::to_string_pretty(&settings)
-        .map_err(|err| AppError::io(format!("序列化 settings.json 预览失败：{err}")))?;
+        .map_err(|err| AppError::io(belfry_i18n::lformat!("序列化 settings.json 预览失败：{err}")))?;
     content.push('\n');
     Ok(vec![ConfigFilePreview {
         path: path.display().to_string(),
@@ -403,7 +403,7 @@ fn adopt_live(store: &mut StoreFile) -> Result<bool, AppError> {
         let detected = match detect_live(kind) {
             Ok(detected) => detected,
             Err(_) => {
-                eprintln!("adopt_live: 跳过 {kind:?}，配置不可读取（详情已脱敏）");
+                log::warn!("adopt_live: 跳过 {kind:?}，配置不可读取（详情已脱敏）");
                 continue;
             }
         };

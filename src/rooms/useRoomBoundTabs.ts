@@ -1,3 +1,4 @@
+import { t, useTranslation } from "../i18n";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { roomList } from "./api";
 import type { RoomSummary } from "./contracts";
@@ -21,6 +22,7 @@ export interface RoomBoundTabs {
  * 它们自然回到普通会话列表。
  */
 export function useRoomBoundTabs(): RoomBoundTabs {
+  useTranslation();
   const [state, setState] = useState<{ boundIds: ReadonlySet<string>; labels: ReadonlyMap<string, string> }>(
     () => ({ boundIds: new Set(), labels: new Map() }),
   );
@@ -30,7 +32,7 @@ export function useRoomBoundTabs(): RoomBoundTabs {
       const view = await roomList();
       const labels = new Map<string, string>();
       for (const room of view.rooms) {
-        room.memberTabIds.forEach((tabId, at) => labels.set(tabId, `${room.name} · ${room.memberTitles[at] ?? "成员"}`));
+        room.memberTabIds.forEach((tabId, at) => labels.set(tabId, `${room.name} · ${room.memberTitles[at] ?? t("rooms.useRoomBoundTabs.text_6e6d6ddbb7")}`));
       }
       setState((current) => sameLabels(current.labels, labels) ? current : { boundIds: new Set(labels.keys()), labels });
       setSummaries((current) => sameSummaries(current, view.rooms) ? current : view.rooms);

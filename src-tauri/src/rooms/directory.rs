@@ -30,11 +30,11 @@ fn say_rate_guard(room_id: &str, member_id: &str, now: i64) -> Result<(), String
     let mut guard = RECENT
         .get_or_init(|| Mutex::new(HashMap::new()))
         .lock()
-        .map_err(|_| "发言记录锁不上，请重启应用后重试".to_string())?;
+        .map_err(|_| belfry_i18n::text("发言记录锁不上，请重启应用后重试").to_string())?;
     let stamps = guard.entry((room_id.to_string(), member_id.to_string())).or_default();
     stamps.retain(|at| now - *at < 60_000);
     if stamps.len() >= SAY_PER_MINUTE {
-        return Err(format!("说太快了：一分钟最多 {SAY_PER_MINUTE} 条，先把手上的活推进一下"));
+        return Err(belfry_i18n::lformat!("说太快了：一分钟最多 {SAY_PER_MINUTE} 条，先把手上的活推进一下"));
     }
     stamps.push(now);
     Ok(())
@@ -70,7 +70,7 @@ fn line(room: &Room, message: &Message, viewer: &str) -> RoomLine {
         text: attachments::instruction(&message.text, &message.attachments),
         at: message.at,
         reply_preview: message.reply_to.as_ref().and_then(|id| room.message(id)).map(|original| {
-            format!(
+            belfry_i18n::lformat!(
                 "回复 [{}] {}：「{}」",
                 short_id(&original.id),
                 room.label(&original.by),
@@ -106,8 +106,8 @@ impl MemberDirectory {
                 .map(|member| RoomMemberLine {
                     title: member.title.clone(),
                     role: match member.role {
-                        MemberRole::Foreman => "统筹",
-                        MemberRole::Peer => "成员",
+                        MemberRole::Foreman => belfry_i18n::text("统筹"),
+                        MemberRole::Peer => belfry_i18n::text("成员"),
                     }
                     .to_string(),
                     duty: member.duty.clone(),
@@ -122,8 +122,7 @@ impl MemberDirectory {
                 .map(|task| task_line(room, task))
                 .collect(),
             awaiting_me: room
-                .messages
-                .iter()
+                .all_messages()
                 .filter(|message| message.awaiting().contains(&me.id))
                 .map(|message| line(room, message, &me.id))
                 .collect(),
@@ -135,7 +134,7 @@ impl MemberDirectory {
         let ((task_id, posted), room) = self
             .store
             .mutate_as_member(tab_id, hint, |room, me| super::commands::apply_task_op(room, &Actor::Member(me), op, now))?;
-        let index = room.task_index(&task_id).ok_or("任务刚改完就找不到了")?;
+        let index = room.task_index(&task_id).ok_or(belfry_i18n::text("任务刚改完就找不到了"))?;
         let notified: Vec<String> = posted
             .iter()
             .flat_map(|item| item.to.iter())
@@ -144,9 +143,9 @@ impl MemberDirectory {
             .into_iter()
             .collect();
         let note = if notified.is_empty() {
-            "已记在任务板上。".to_string()
+            belfry_i18n::text("已记在任务板上。").to_string()
         } else {
-            format!("已通知：{}。", notified.join("、"))
+            belfry_i18n::lformat!("已通知：{}。", notified.join("、"))
         };
         Ok((
             ResponseData::RoomTaskChanged { room: room.name.clone(), task: task_line(&room, &room.tasks[index]), note },
@@ -156,6 +155,10 @@ impl MemberDirectory {
 }
 
 impl RoomDirectory for MemberDirectory {
+    fn enqueue_posts(&self, board: &crate::collab::TaskBoard, registry: &SessionRegistry, posts: &[RoomPost]) -> Result<(), String> {
+        self.store.enqueue_posts(board, registry, posts).map_err(|error| error.message)
+    }
+
     fn handle(&self, tab_id: &str, command: &Command) -> Result<(ResponseData, Vec<RoomPost>), String> {
         match command {
             Command::Rooms => {
@@ -201,10 +204,10 @@ impl RoomDirectory for MemberDirectory {
                 let mut skipped: Vec<String> = posts
                     .iter()
                     .filter(|post| self.registry.find(&post.tab_id).is_none())
-                    .map(|post| format!("「{}」的会话已经不在了，消息只记在房间里", post.member_title))
+                    .map(|post| belfry_i18n::lformat!("「{}」的会话已经不在了，消息只记在房间里", post.member_title))
                     .collect();
                 if room.paused {
-                    skipped.push("房间暂停中：消息只记在房间里，暂不送进成员终端".to_string());
+                    skipped.push(belfry_i18n::text("房间暂停中：消息只记在房间里，暂不送进成员终端").to_string());
                 }
                 Ok((
                     ResponseData::RoomSaid {
@@ -228,7 +231,7 @@ impl RoomDirectory for MemberDirectory {
                     deliveries(&room, std::slice::from_ref(&posted)),
                 ))
             }
-            _ => Err("这不是房间命令".to_string()),
+            _ => Err(belfry_i18n::text("这不是房间命令").to_string()),
         }
     }
 }

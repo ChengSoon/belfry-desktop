@@ -1,4 +1,9 @@
 import { createRoot } from "react-dom/client";
+import { useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { initializeLocale, synchronizeLocale } from "./i18n/store";
+import { AppErrorBoundary } from "./diagnostics/AppErrorBoundary";
+import { installGlobalErrorCapture } from "./diagnostics/capture";
 import App from "./App";
 import { BackgroundProvider } from "./background/BackgroundProvider";
 import "./styles.css";
@@ -12,13 +17,19 @@ import { applyPendingBackup } from "./backup/transaction";
 import { BackupRecovery } from "./backup/BackupRecovery";
 import { TerminalExitDialog } from "./terminal/daemon/ExitDialog";
 
-const backupStartup = applyPendingBackup();
-createRoot(document.getElementById("root")!).render(
-  <><TerminalExitDialog />{backupStartup.error ? <BackupRecovery error={backupStartup.error} /> : <ThemeProvider>
+installGlobalErrorCapture();
+initializeLocale();
+synchronizeLocale(locale => invoke("app_set_locale", { locale }));
+function Startup() {
+  const [backupStartup] = useState(applyPendingBackup);
+  return <><TerminalExitDialog />{backupStartup.error ? <BackupRecovery error={backupStartup.error} /> : <ThemeProvider>
     <TypographyProvider>
       <BackgroundProvider>
         <App />
       </BackgroundProvider>
     </TypographyProvider>
-  </ThemeProvider>}</>,
+  </ThemeProvider>}</>;
+}
+createRoot(document.getElementById("root")!).render(
+  <AppErrorBoundary><Startup /></AppErrorBoundary>,
 );

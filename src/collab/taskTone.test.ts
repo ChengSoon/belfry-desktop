@@ -17,11 +17,10 @@ function task(state: string, id = state): TaskView {
 }
 
 describe("taskTone", () => {
-  it("已送出不等于已完成", () => {
-    // 完成信号只有对方敲 belfry done 才算数：activity 是扫屏幕猜的，
-    // 拿猜测当完成依据就是把幻觉当锁。所以这里必须如实写「未知」。
+  it("submitted describes only terminal submission, never completion", () => {
     const dispatched = taskTone("dispatched");
-    expect(dispatched.label).toContain("完成情况未知");
+    expect(dispatched.label).toBe("已提交到终端");
+    expect(dispatched.label).not.toContain("已完成");
     expect(dispatched.tone).toBe("running");
   });
 

@@ -4,6 +4,20 @@ use serde_json::{Value, json};
 use std::path::Path;
 
 #[test]
+fn regression_hook_language_switch_keeps_one_owned_copy_and_removes_both_locales() {
+    let kind = AgentKind::Codex;
+    let command = "'/belfry' --belfry-hook codex";
+    let chinese = belfry_i18n::with_locale(belfry_i18n::Locale::ZhCn, || config::merge("{}", kind, Some(command)).unwrap());
+    let english = belfry_i18n::with_locale(belfry_i18n::Locale::En, || config::merge(&chinese, kind, Some(command)).unwrap());
+    assert!(english.contains("Belfry session status"));
+    assert!(!english.contains("Belfry 会话状态"));
+    let value = serde_json::from_str(&english).unwrap();
+    assert_eq!(config::owned_count(&value, kind), config::events(kind).len());
+    let removed = belfry_i18n::with_locale(belfry_i18n::Locale::ZhCn, || config::merge(&english, kind, None).unwrap());
+    assert_eq!(serde_json::from_str::<Value>(&removed).unwrap(), json!({}));
+}
+
+#[test]
 fn installation_adds_hooks_without_replacing_user_settings_or_hooks() {
     let original = json!({"env":{"ANTHROPIC_AUTH_TOKEN":"private"},"hooks":{
         "Stop":[{"matcher":"","hooks":[{"type":"command","command":"user-stop"}]}],

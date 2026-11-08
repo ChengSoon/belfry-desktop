@@ -1,3 +1,4 @@
+import { t, useTranslation } from "../../i18n";
 import { useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { pluginHost } from "../useDirectoryRegistry";
@@ -6,6 +7,7 @@ import { isShortcutRecording } from "../../shortcuts/custom/recording";
 import { composingKey } from "../../utils/keyboard";
 
 export function useLauncherShortcut() {
+  useTranslation();
   const [open, setOpen] = useState(false), [note, setNote] = useState("");
   useEffect(() => {
     let live = true, global = false, last = 0;
@@ -23,7 +25,7 @@ export function useLauncherShortcut() {
     void pluginHost.requestRuntime<{ registered: boolean; error?: string }>("launcher.status").then((status) => {
       if (!live) return;
       global = status.registered;
-      setNote(status.registered ? "可在其他应用中使用 Alt + Space 唤起" : "全局快捷键暂不可用，Alt + Space 可在 Belfry 内使用");
+      setNote(status.registered ? t("plugins.useLauncherShortcut.text_c6af35df78") : t("plugins.useLauncherShortcut.text_a3684d6ead"));
     }).catch(() => {});
     window.addEventListener(LAUNCHER_EVENT, toggle); window.addEventListener("keydown", press, true);
     return () => {

@@ -1,3 +1,4 @@
+import { t, useTranslation } from "../i18n";
 import { FileSearch, GitBranch, RefreshCcw, X } from "lucide-react";
 import { useState, type CSSProperties } from "react";
 import { FILE_PREVIEW_WIDTH } from "../filepreview/filePreviewWidth";
@@ -23,24 +24,25 @@ interface Props {
 }
 
 export function GitPanel(props: Props) {
+  useTranslation();
   const model = useGitPanel(props.project?.rootPath ?? null);
   const width = usePanelWidth(FILE_PREVIEW_WIDTH);
   const [worktreesOpen, setWorktreesOpen] = useState(false);
   const report = model.status.report;
   const open = (path: string) => { if (report) props.onOpenFile({ rootPath: report.rootPath, path }); };
-  return <section className="file-preview-panel git-panel" aria-label="Git 变更" style={{ "--file-preview-width": `${width.width}px` } as CSSProperties}>
+  return <section className="file-preview-panel git-panel" aria-label={t("git.GitPanel.text_dc74d0bd7a")} style={{ "--file-preview-width": `${width.width}px` } as CSSProperties}>
     <GitHeader loading={model.status.loading || model.diff.loading} onRefresh={model.refresh} onClose={props.onClose} onFiles={props.onFiles} />
     {props.failure || model.status.failure ? <div className="git-error" role="alert">
       <span>{props.failure ?? model.status.failure}</span>
-      {model.status.failure ? <button type="button" disabled={model.status.loading} onClick={model.refresh}>重试读取</button> : null}
+      {model.status.failure ? <button type="button" disabled={model.status.loading} onClick={model.refresh}>{t("git.GitPanel.text_1133d6759e")}</button> : null}
     </div> : null}
-    {model.status.loading && !report ? <p className="git-hint" role="status">正在读取 Git 状态…</p> : null}
-    {!props.project ? <p className="git-empty">先打开一个本地项目</p> : null}
-    {report && !report.repository ? <p className="git-empty">当前目录不是 Git 工作树。可切换到文件视图继续浏览。</p> : null}
+    {model.status.loading && !report ? <p className="git-hint" role="status">{t("git.GitPanel.text_26339409bb")}</p> : null}
+    {!props.project ? <p className="git-empty">{t("git.GitPanel.text_6768388508")}</p> : null}
+    {report && !report.repository ? <p className="git-empty">{t("git.GitPanel.text_6ed91929e1")}</p> : null}
     {report?.repository ? <>
       <BranchSummary report={report} />
-      {props.onOpenProject ? <button className="worktree-entry" type="button" onClick={(event) => { event.currentTarget.focus(); setWorktreesOpen(true); }}>管理独立任务 · Worktree</button> : null}
-      {report.truncated ? <p className="git-warning" role="status">改动文件较多，列表未完整加载。</p> : null}
+      {props.onOpenProject ? <button className="worktree-entry" type="button" onClick={(event) => { event.currentTarget.focus(); setWorktreesOpen(true); }}>{t("git.GitPanel.text_a6e17bd57f")}</button> : null}
+      {report.truncated ? <p className="git-warning" role="status">{t("git.GitPanel.text_c801235b78")}</p> : null}
       <div className="git-body">
         <GitFileList groups={model.groups} query={model.query} selected={model.request} onQuery={model.setQuery}
           onSelect={model.select} onOpen={(file) => open(file.path)} />
@@ -49,7 +51,7 @@ export function GitPanel(props: Props) {
           onRefresh={model.diff.reload} onOpen={() => { if (model.request) open(model.request.path); }} />
       </div>
     </> : null}
-    <PanelResizeHandle label="调整 Git 面板宽度" onCommit={width.commitWidth} onReset={width.resetWidth}
+    <PanelResizeHandle label={t("git.GitPanel.text_92a0cb3cae")} onCommit={width.commitWidth} onReset={width.resetWidth}
       onResize={width.setWidth} spec={FILE_PREVIEW_WIDTH} width={width.width} />
     {worktreesOpen && report?.repository && props.onOpenProject ? <WorktreeDialog key={report.rootPath} rootPath={report.rootPath}
       onClose={() => { setWorktreesOpen(false); model.refresh(); }} onOpen={props.onOpenProject} /> : null}
@@ -59,21 +61,23 @@ export function GitPanel(props: Props) {
 function GitHeader({ loading, onRefresh, onFiles, onClose }: {
   loading: boolean; onRefresh: () => void; onFiles: () => void; onClose: () => void;
 }) {
+  useTranslation();
   return <header className="file-preview__head">
-    <GitBranch size={ICON.md} aria-hidden="true" /><h2>Git 变更</h2><span className="git-readonly">只读</span>
-    <button className="icon-button icon-button--sm" type="button" title="查看文件" aria-label="查看文件" onClick={onFiles}><FileSearch size={ICON.sm} aria-hidden="true" /></button>
-    <button className="icon-button icon-button--sm" type="button" title="刷新 Git 状态和 Diff" aria-label="刷新 Git 状态和 Diff"
+    <GitBranch size={ICON.md} aria-hidden="true" /><h2>{t("git.GitPanel.text_dc74d0bd7a")}</h2><span className="git-readonly">{t("git.GitPanel.text_3b5ec3533b")}</span>
+    <button className="icon-button icon-button--sm" type="button" title={t("git.GitPanel.text_97873847b7")} aria-label={t("git.GitPanel.text_97873847b7")} onClick={onFiles}><FileSearch size={ICON.sm} aria-hidden="true" /></button>
+    <button className="icon-button icon-button--sm" type="button" title={t("git.GitPanel.text_ac9ba31284")} aria-label={t("git.GitPanel.text_ac9ba31284")}
       disabled={loading} onClick={onRefresh}><RefreshCcw size={ICON.sm} aria-hidden="true" /></button>
-    <button className="icon-button icon-button--sm" type="button" title="关闭 Git 面板" aria-label="关闭 Git 面板" onClick={onClose}><X size={ICON.md} aria-hidden="true" /></button>
+    <button className="icon-button icon-button--sm" type="button" title={t("git.GitPanel.text_d431f859dd")} aria-label={t("git.GitPanel.text_d431f859dd")} onClick={onClose}><X size={ICON.md} aria-hidden="true" /></button>
   </header>;
 }
 
 function BranchSummary({ report }: { report: GitStatus }) {
-  const branch = report.branch === "(detached)" ? `游离 HEAD · ${report.head?.slice(0, 8) ?? "未知提交"}` : report.branch ?? "未知分支";
+  useTranslation();
+  const branch = report.branch === "(detached)" ? t("git.GitPanel.text_572519d3bd", { commit: report.head?.slice(0, 8) ?? t("git.GitPanel.text_9d4c6ae8a4") }) : report.branch ?? t("git.GitPanel.text_a6bc62f01b");
   return <div className="git-branch">
     <div><GitBranch size={ICON.sm} aria-hidden="true" /><strong>{branch}</strong>
-      {!report.head ? <small>尚无提交</small> : null}
+      {!report.head ? <small>{t("git.GitPanel.text_233a788301")}</small> : null}
       {report.upstream ? <small title={report.upstream}>↑{report.ahead} ↓{report.behind}</small> : null}
-    </div><span title={report.rootPath}>{report.rootPath}</span><small>本地工作树 · 暂存区与工作区差异</small>
+    </div><span title={report.rootPath}>{report.rootPath}</span><small>{t("git.GitPanel.text_3b2d053db3")}</small>
   </div>;
 }

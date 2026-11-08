@@ -108,12 +108,13 @@ fn enforces_size_count_duplicate_and_regular_file_limits() {
     File::create(&source).unwrap().set_len(MAX_ATTACHMENT_BYTES + 1).unwrap();
     assert!(import_path(&fixture.store, &fixture.room.id, source.to_str().unwrap()).unwrap_err().message.contains("20 MB"));
     assert!(import_bytes(&fixture.store, &fixture.room.id, "large.png", &vec![0; MAX_ATTACHMENT_BYTES as usize + 1]).is_err());
-    assert!(import_path(&fixture.store, &fixture.room.id, fixture.root.to_str().unwrap()).unwrap_err().message.contains("文件夹"));
+    assert_eq!(import_path(&fixture.store, &fixture.room.id, fixture.root.to_str().unwrap()).unwrap_err().code.0,
+        "ROOM_FOLDERS_ARE_NOT_SUPPORTED_SELECT_AN_IMAGE");
     let attachment = import_bytes(&fixture.store, &fixture.room.id, "small.md", b"hello").unwrap();
     assert!(resolve(&fixture.store, &fixture.room.id, &vec![attachment.id.clone(); MAX_ATTACHMENTS + 1])
         .unwrap_err().message.contains("10"));
-    assert!(resolve(&fixture.store, &fixture.room.id, &[attachment.id.clone(), attachment.id])
-        .unwrap_err().message.contains("两次"));
+    assert_eq!(resolve(&fixture.store, &fixture.room.id, &[attachment.id.clone(), attachment.id])
+        .unwrap_err().code.0, "ROOM_THE_SAME_ATTACHMENT_WAS_ADDED_TWICE");
 }
 
 #[test]

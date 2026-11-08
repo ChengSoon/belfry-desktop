@@ -4,6 +4,7 @@ import settingsShell from "../../settings/settingsShell.css?inline";
 import { createPanelImport, type PanelModule } from "./panelImport";
 import { PanelLoadFallback, type PanelPresentation } from "./PanelLoadFallback";
 import { PanelRecoveryRequired } from "./panelFailure";
+import { useTranslation } from "../../i18n";
 
 interface PanelOptions<Props> extends PanelPresentation {
   load: () => Promise<PanelModule<Props>>;
@@ -25,6 +26,7 @@ export function createOptionalPanel<Props extends { onClose: () => void }>(optio
   });
   let CachedPanel = freshPanel();
   return function OptionalPanel(props: Props) {
+    useTranslation();
     const [attempt, setAttempt] = useState(0);
     const [Panel, setPanel] = useState(() => CachedPanel);
     const retry = () => {

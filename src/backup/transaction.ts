@@ -1,3 +1,4 @@
+import { TranslationError, t } from "../i18n";
 import { BACKUP_PENDING_KEY, BACKUP_STATUS_KEY, BACKUP_TRANSACTION_KEY, BACKUP_UNDO_KEY, MAX_BACKUP_BYTES,
   assertSize, message, record, type BackupDomain, type BackupPackage, type BackupStorage } from "./contracts";
 import { parseBackup } from "./package";
@@ -8,7 +9,7 @@ export function scheduleRestore(input: { backup: BackupPackage; domains: BackupD
   assertQueueAvailable(storage);
   const backup = parseBackup(JSON.stringify(input.backup));
   const domains = validateDomains(input.domains);
-  if (domains.some((domain) => !backup.domains[domain])) throw new Error("备份没有所选数据域");
+  if (domains.some((domain) => !backup.domains[domain])) throw new TranslationError("backup.transaction.text_6151f24f57");
   const selected = Object.fromEntries(domains.map((domain) => [domain, backup.domains[domain]]));
   writeValue(storage, BACKUP_PENDING_KEY, JSON.stringify({ version: 1, mode: "restore", domains,
     backup: { ...backup, domains: selected } }));
@@ -21,7 +22,7 @@ export function scheduleUndo(storage: BackupStorage = localStorage) {
 }
 
 export function cancelPendingBackup(storage: BackupStorage = localStorage) {
-  if (storage.getItem(BACKUP_TRANSACTION_KEY) !== null) throw new Error("恢复事务尚未回滚，请重新启动后重试");
+  if (storage.getItem(BACKUP_TRANSACTION_KEY) !== null) throw new TranslationError("backup.transaction.text_6c3cc38fae");
   writeValue(storage, BACKUP_PENDING_KEY, null);
 }
 
@@ -38,7 +39,7 @@ export function backupStatus(storage: Pick<Storage, "getItem"> = localStorage) {
 export function applyPendingBackup(storage: BackupStorage = localStorage): { error: string | null } {
   try {
     const interrupted = storage.getItem(BACKUP_TRANSACTION_KEY);
-    if (interrupted) { rollback(storage, parseTransaction(interrupted), "上次启动意外中断"); return { error: null }; }
+    if (interrupted) { rollback(storage, parseTransaction(interrupted), t("backup.transaction.text_d1ddc4c77b")); return { error: null }; }
     const pending = storage.getItem(BACKUP_PENDING_KEY);
     if (!pending) return { error: null };
     const transaction = prepareTransaction(pending, storage);
@@ -53,7 +54,7 @@ function executeTransaction(transaction: BackupTransaction, storage: BackupStora
     writeSnapshot(storage, transaction.after);
     const undo = transaction.mode === "restore" ? JSON.stringify({ ...transaction, previousUndo: null }) : null;
     writeValue(storage, BACKUP_UNDO_KEY, undo);
-    recordStatus(storage, transaction.mode === "restore" ? "已恢复所选数据域，可撤回最近一次恢复。" : "已撤回最近一次恢复。");
+    recordStatus(storage, transaction.mode === "restore" ? t("backup.transaction.text_47a9e7d112") : t("backup.transaction.text_4795396f24"));
     writeValue(storage, BACKUP_PENDING_KEY, null);
     writeValue(storage, BACKUP_TRANSACTION_KEY, null);
   } catch (error) {
@@ -64,24 +65,24 @@ function executeTransaction(transaction: BackupTransaction, storage: BackupStora
 function prepareTransaction(raw: string, storage: BackupStorage): BackupTransaction {
   assertSize(raw, MAX_BACKUP_BYTES * 3);
   const request: unknown = JSON.parse(raw);
-  if (!record(request) || request.version !== 1) throw new Error("待恢复记录的版本无效");
+  if (!record(request) || request.version !== 1) throw new TranslationError("backup.transaction.text_90be27e7b7");
   let after;
   if (request.mode === "restore") {
     const backup = parseBackup(JSON.stringify(request.backup));
     const domains = validateDomains(request.domains);
-    if (domains.some((domain) => !backup.domains[domain])) throw new Error("待恢复记录缺少所选域");
+    if (domains.some((domain) => !backup.domains[domain])) throw new TranslationError("backup.transaction.text_b5bf7000f9");
     after = restoreTargets(backup, domains, storage);
   } else if (request.mode === "undo") {
     const undo = readUndo(storage);
-    if (request.expectedUndo !== undo.raw) throw new Error("撤回记录已变化，请取消并重新预览");
+    if (request.expectedUndo !== undo.raw) throw new TranslationError("backup.transaction.text_c3b7a67ba0");
     after = undo.transaction.before;
-  } else throw new Error("待恢复操作无效");
+  } else throw new TranslationError("backup.transaction.text_d8843f1032");
   return { version: 1, id: crypto.randomUUID(), mode: request.mode,
     before: capture(Object.keys(after), storage), after, previousUndo: storage.getItem(BACKUP_UNDO_KEY) };
 }
 
 function assertQueueAvailable(storage: Pick<Storage, "getItem">) {
   if (storage.getItem(BACKUP_PENDING_KEY) !== null || storage.getItem(BACKUP_TRANSACTION_KEY) !== null) {
-    throw new Error("已有待恢复操作，请先取消或完成");
+    throw new TranslationError("backup.transaction.text_bcedbe0c6a");
   }
 }

@@ -1,3 +1,4 @@
+import { t, useTranslation } from "../../i18n";
 import { Plus, RefreshCcw } from "lucide-react";
 import { SettingsHeader } from "../../settings/SettingsHeader";
 import { ICON } from "../../theme/sizing";
@@ -8,15 +9,15 @@ export function ProviderSettingsHeader({ busy, editing, onAdd, onReload }: {
   onAdd: () => void;
   onReload: () => void;
 }) {
+  useTranslation();
   return <SettingsHeader
-    title="全局 Provider"
-    description="管理各个 Agent CLI 的默认模型服务。"
+    title={t("provider.ProviderSettingsHeader.text_c5ecb59fd4")}
+    description={t("provider.ProviderSettingsHeader.text_d1f1ff14e5")}
     actions={<>
       <button className="provider-add" disabled={busy || editing} onClick={onAdd} type="button">
-        <Plus aria-hidden="true" size={ICON.sm} />新增 Provider
-      </button>
+        <Plus aria-hidden="true" size={ICON.sm} />{t("provider.ProviderSettingsHeader.text_7add78b882")}</button>
       <button className="icon-button" disabled={busy || editing} onClick={onReload}
-        aria-label="重新读取 Provider 列表" title="重新读取 Provider 列表" type="button">
+        aria-label={t("provider.ProviderSettingsHeader.text_3c8dbe73a1")} title={t("provider.ProviderSettingsHeader.text_3c8dbe73a1")} type="button">
         <RefreshCcw aria-hidden="true" size={ICON.sm} />
       </button>
     </>}

@@ -3,7 +3,7 @@ import { useState } from "react";
 import { usePluginsPage } from "./context";
 import { Button } from "./ui";
 import { IconKeyboard, IconSettings, IconX } from "./icons";
-import { t } from "./i18n";
+import { useFeedback, TranslationError, t } from "../../i18n";
 import { pluginHost } from "../useDirectoryRegistry";
 import { pluginError } from "../hostClient";
 import { initialValue, settingsDraft, settingsPayload } from "./settingsValues";
@@ -15,7 +15,7 @@ export function PluginSettingsSheet() {
   const { settingsPlugin: plugin, setSettingsPlugin, data } = usePluginsPage();
   const fields = plugin!.settings ?? [];
   const [draft, setDraft] = useState(() => settingsDraft(fields));
-  const [saving, setSaving] = useState(false), [error, setError] = useState("");
+  const [saving, setSaving] = useState(false), [error, setError] = useFeedback("");
   const ref = useModal(() => setSettingsPlugin(null), saving);
   const change = (key: string, value: unknown) => { setDraft((current) => ({ ...current, [key]: value })); setError(""); };
   const save = async () => {
@@ -23,10 +23,10 @@ export function PluginSettingsSheet() {
     setSaving(true); setError("");
     try {
       const bindings = fields.filter((field) => field.type === "shortcut").map((field) => String(draft[field.key] ?? ""));
-      if (shortcutConflict(bindings, isMac())) throw new Error(t("plugins.settingsShortcutConflict"));
+      if (shortcutConflict(bindings, isMac())) throw new TranslationError("plugins.settingsShortcutConflict");
       await pluginHost.setSettings(plugin!.id, settingsPayload(fields, draft));
       await data.refresh(); setSettingsPlugin(null);
-    } catch (reason) { setError(pluginError(reason)); }
+    } catch (reason) { setError(() => pluginError(reason)); }
     finally { setSaving(false); }
   };
   return <div className="plugins-modal-backdrop" role="presentation" ref={ref}><div className="plugins-modal plugins-settings-modal" role="dialog" aria-modal="true" aria-label={t("plugins.settingsTitle", { name: plugin!.name })}>

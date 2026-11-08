@@ -3,12 +3,14 @@ import type { DiffRequest, GitEntry } from "./contracts";
 import { groupChanges, type ChangeGroup } from "./model";
 import { useGitStatus } from "./useGitStatus";
 import { useGitDiff } from "./useGitDiff";
+import { useLocale } from "../i18n";
 
 export function useGitPanel(rootPath: string | null) {
+  const locale = useLocale();
   const status = useGitStatus(rootPath);
   const [query, setQuery] = useState("");
   const [choice, setChoice] = useState<DiffRequest | null>(null);
-  const groups = useMemo(() => groupChanges(status.report?.entries ?? []), [status.report]);
+  const groups = useMemo(() => groupChanges(status.report?.entries ?? []), [status.report, locale]);
   const selected = groups.filter((group) => group.stage === choice?.stage)
     .flatMap((group) => group.files).find((file) => file.path === choice?.path);
   const request = choice?.rootPath === status.report?.rootPath && selected ? choice : null;

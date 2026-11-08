@@ -147,7 +147,7 @@ export default function App() {
   }, [unfold, workspace.activeProject, workspace.launch]);
   const promptQueue = usePromptQueue({ tabs: workspace.tabs, targets: terminalTargets.targets });
   // `belfry send` 的任务经后台队列投进目标终端，等待目标 Agent 空闲。
-  useTaskDelivery(promptQueue.submit);
+  const resolveTaskDelivery = useTaskDelivery(promptQueue.submit);
   // 统筹、成员发给你的消息：房间关着时发系统通知；未读的房间也算进侧栏计数。
   const roomUnread = useRoomInbox(roomBound.summaries, roomsOpen);
   // 房间成员在等你选择、或者发给他的消息卡住了：侧栏「协作房间」按钮亮起，房间藏着也看得见。
@@ -158,7 +158,7 @@ export default function App() {
     return waiting + stuck + roomUnread;
   }, [workspace.tabs, roomBound.boundIds, promptQueue.paused, roomUnread]);
 
-  const collab = useCollabTasks();
+  const collab = useCollabTasks(id => { promptQueue.resolvePersisted(id); resolveTaskDelivery(id); });
   // 历史会话与用量面板互斥：两者都占右侧一列，栅格只留了一条轨道。
   const toggleUsage = useCallback(() => {
     setPluginDockOpen(false);
@@ -416,7 +416,8 @@ export default function App() {
         tabs={workspace.tabs}
       />
 
-      <Presence open={collabOpen} drawer><CollabPanel collab={collab} onClose={() => setCollabOpen(false)} /></Presence>
+      <Presence open={collabOpen} drawer><CollabPanel collab={collab} onClose={() => setCollabOpen(false)}
+        availableTabIds={workspace.tabs.map(tab => tab.id)} onOpenTerminal={tabId => { setCollabOpen(false); openRoomSession(tabId); }} /></Presence>
       <PluginDock visible={pluginDockOpen && !settingsOpen} onClose={() => setPluginDockOpen(false)} />
 
       <GitReviewProvider tabs={workspace.visibleTabs} activeTabId={workspace.activeTabId}

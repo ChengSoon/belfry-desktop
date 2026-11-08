@@ -91,6 +91,7 @@ function receive(message) {
 }
 process.on("message", receive);
 process.on("disconnect", () => {
-  if (process.platform !== "win32") { try { process.kill(-process.pid, "SIGTERM"); } catch { /* 已退出。 */ } }
+  // 宿主已经消失，没有人再负责 TERM 宽限后的回收；避免遗留忽略 TERM 的子进程。
+  if (process.platform !== "win32") { try { process.kill(-process.pid, "SIGKILL"); } catch { /* 已退出。 */ } }
   process.exit(0);
 });

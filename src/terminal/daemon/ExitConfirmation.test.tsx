@@ -3,6 +3,11 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { expect, it, vi } from "vitest";
 import { ExitConfirmation } from "./ExitConfirmation";
 
+vi.mock("react", async (importOriginal) => ({
+  ...await importOriginal<typeof import("react")>(),
+  useSyncExternalStore: (_subscribe: unknown, getSnapshot: () => unknown) => getSnapshot(),
+}));
+
 function fixture(busy = false, error: string | null = null) {
   const onConfirm = vi.fn();
   const onCancel = vi.fn();

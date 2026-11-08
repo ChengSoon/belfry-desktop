@@ -1,5 +1,6 @@
 // Adapted from PI-Desktop 4fb58d3, LGPL-3.0; see third_party/pi-desktop/NOTICE.md.
 import type { PluginCapability, PluginSummary } from "./types";
+import { formatDateTime, formatNumber } from "../../i18n";
 export type TabId = "installed" | "market";
 export type GroupId = "attention" | "updates" | "active" | "disabled";
 export const GROUP_ORDER: GroupId[] = ["attention", "updates", "active", "disabled"];
@@ -36,6 +37,6 @@ export function installedGroups(plugins: PluginSummary[], query: string) {
 export function monogram(name: string) { return [...name.trim()][0]?.toLocaleUpperCase() ?? "?"; }
 export function showsVerifiedBadge(entry?: { trust?: string; verified?: boolean } | null) { return entry?.trust ? entry.trust === "verified" : !!entry?.verified; }
 export function versionInstallable(version?: { url?: string; shasum?: string; yanked?: boolean } | null) { return !!version?.url?.trim() && !!version.shasum?.trim() && !version.yanked; }
-export function formatDate(value?: string) { const date = new Date(value ?? ""); return Number.isNaN(+date) ? "—" : date.toLocaleDateString("zh-CN", { year: "numeric", month: "short", day: "numeric" }); }
-export function formatBytes(size?: number) { return !size ? "—" : size < 1024 ? `${size} B` : size < 1024 ** 2 ? `${(size / 1024).toFixed(1)} KB` : `${(size / 1024 ** 2).toFixed(2)} MB`; }
+export function formatDate(value?: string) { return formatDateTime(value ?? "", { year: "numeric", month: "short", day: "numeric" }); }
+export function formatBytes(size?: number) { return !size ? "—" : size < 1024 ? `${formatNumber(size)} B` : size < 1024 ** 2 ? `${formatNumber(size / 1024, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} KB` : `${formatNumber(size / 1024 ** 2, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MB`; }
 export function shortSha(value?: string) { return !value ? "—" : value.length > 12 ? `${value.slice(0, 12)}…` : value; }

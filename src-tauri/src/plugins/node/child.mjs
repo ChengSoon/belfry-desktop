@@ -4,6 +4,8 @@ import { fileURLToPath } from "node:url";
 import { apiError, errorValue } from "./errors.mjs";
 import { detachedGroup, terminate } from "./process-tree.mjs";
 import { encodeMessage } from "./wire.mjs";
+const TERMINATE_GRACE_MS = 400;
+const CANCEL_GRACE_MS = 400;
 
 function cleanEnvironment() {
   return Object.fromEntries(["PATH", "SystemRoot", "windir", "TEMP", "TMP", "TMPDIR", "LANG"]
@@ -43,7 +45,7 @@ export class PluginChild {
     return this.panelContextId;
   }
   receive(message) {
-    if (!message || Buffer.byteLength(JSON.stringify(message)) > 1024 * 1024) { terminate(this.process); return; }
+    if (!message || Buffer.byteLength(JSON.stringify(message)) > 1024 * 1024) { void this.terminateWithGrace(apiError("LIMIT_EXCEEDED", "插件响应大小超额")); return; }
     if (message.type === "result") {
       const entry = this.pending.get(message.id);
       if (!entry) return;
@@ -59,21 +61,27 @@ export class PluginChild {
   }
   send(message) { encodeMessage(message); if (this.process.connected) this.process.send(message, () => {}); }
   invoke(method, params = {}, options = {}) {
-    if (!this.process.connected) return Promise.reject(apiError("PLUGIN_EXITED", "插件进程不可用"));
+    if (this.terminating || !this.process.connected) return Promise.reject(apiError("PLUGIN_EXITED", "插件进程不可用"));
     if (this.pending.size >= 128) return Promise.reject(apiError("LIMIT_EXCEEDED", "请求过多"));
     const signal = options.context?.abort?.signal;
-    if (signal?.aborted) return Promise.reject(signal.reason);
+    const cancelled = () => typeof signal?.reason?.code === "string" ? signal.reason : apiError("CANCELLED", "插件调用已取消");
+    if (signal?.aborted) return Promise.reject(cancelled());
     return new Promise((resolve, reject) => {
       const id = randomUUID();
       const timer = setTimeout(() => {
         this.pending.delete(id); this.contexts.delete(id); cleanup();
         reject(apiError("TIMEOUT", `插件 ${method} 超时`));
-        terminate(this.process);
+        void this.terminateWithGrace(apiError("PLUGIN_EXITED", "插件超时后已停止"));
       }, options.timeout ?? 15_000);
       const abort = () => {
-        const error = signal.reason?.code ? signal.reason : apiError("CANCELLED", "插件调用已取消");
+        const error = cancelled();
         this.contexts.delete(id); cleanup();
         this.send({ type: "abort", id, error: errorValue(error) }); reject(error);
+        clearTimeout(timer);
+        const entry = this.pending.get(id);
+        if (entry) entry.timer = setTimeout(() => {
+          void this.terminateWithGrace(apiError("CANCELLED", "插件未响应取消，已停止"));
+        }, CANCEL_GRACE_MS);
       };
       const cleanup = () => signal?.removeEventListener("abort", abort);
       this.pending.set(id, { resolve, reject, timer, cleanup });
@@ -84,11 +92,18 @@ export class PluginChild {
       catch (error) { this.pending.delete(id); this.contexts.delete(id); clearTimeout(timer); cleanup(); reject(error); }
     });
   }
+  terminateWithGrace(error) {
+    if (this.termination) return this.termination;
+    this.terminating = true;
+    this.fail(error);
+    terminate(this.process);
+    const timer = setTimeout(() => terminate(this.process, "SIGKILL"), TERMINATE_GRACE_MS);
+    this.termination = this.exited.finally(() => clearTimeout(timer));
+    return this.termination;
+  }
   async stop() {
     this.closing = true;
-    if (this.process.connected) await this.invoke("unload", {}, { timeout: 2000 }).catch(() => {});
-    terminate(this.process);
-    const timer = setTimeout(() => terminate(this.process, "SIGKILL"), 1000);
-    await this.exited; clearTimeout(timer);
+    if (!this.terminating && this.process.connected) await this.invoke("unload", {}, { timeout: 2000 }).catch(() => {});
+    await this.terminateWithGrace(apiError("PLUGIN_UNLOADED", "插件已停止"));
   }
 }

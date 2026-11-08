@@ -10,7 +10,7 @@ use std::{
         mpsc,
     },
     thread,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 pub const MAX_MESSAGE: usize = 1024 * 1024;
@@ -20,12 +20,15 @@ pub type HostHandler = Arc<dyn Fn(Value) -> Reply + Send + Sync>;
 pub type EventHandler = Arc<dyn Fn(Value) + Send + Sync>;
 
 pub struct Connection {
-    input: Mutex<ChildStdin>,
-    process: Mutex<Child>,
+    input: mpsc::SyncSender<WriteRequest>,
+    process: Arc<Mutex<Child>>,
     pending: Mutex<Pending>,
     next_id: AtomicU64,
     pub alive: AtomicBool,
+    stopping: AtomicBool,
+    reaper: Mutex<Option<thread::JoinHandle<()>>>,
 }
+struct WriteRequest { bytes: Vec<u8>, deadline: Instant, done: mpsc::SyncSender<Result<(), String>> }
 impl Connection {
     pub fn launch(
         paths: (&Path, &Path, &Path),
@@ -35,13 +38,17 @@ impl Connection {
         let input = process.stdin.take().ok_or("插件宿主 stdin 不可用")?;
         let output = process.stdout.take().ok_or("插件宿主 stdout 不可用")?;
         let errors = process.stderr.take().ok_or("插件宿主 stderr 不可用")?;
+        let (outbound, writes) = mpsc::sync_channel(128);
         let connection = Arc::new(Self {
-            input: Mutex::new(input),
-            process: Mutex::new(process),
+            input: outbound,
+            process: Arc::new(Mutex::new(process)),
             pending: Mutex::default(),
             next_id: AtomicU64::new(1),
             alive: AtomicBool::new(true),
+            stopping: AtomicBool::new(false),
+            reaper: Mutex::new(None),
         });
+        Self::write_input(&connection, input, writes);
         Self::read_output(&connection, output, handlers.clone());
         thread::spawn(move || {
             let mut reader = BufReader::new(errors);
@@ -55,6 +62,24 @@ impl Connection {
             }
         });
         Ok(connection)
+    }
+    fn write_input(connection: &Arc<Self>, mut input: ChildStdin, writes: mpsc::Receiver<WriteRequest>) {
+        let weak = Arc::downgrade(connection);
+        thread::spawn(move || {
+            while let Ok(request) = writes.recv() {
+                if Instant::now() >= request.deadline {
+                    let _ = request.done.send(Err("插件请求在写入前已超时".into()));
+                    continue;
+                }
+                let result = input.write_all(&request.bytes).map_err(|error| error.to_string());
+                let failed = result.is_err();
+                let _ = request.done.send(result);
+                if failed {
+                    if let Some(connection) = weak.upgrade() { connection.terminate("插件宿主输入不可用"); }
+                    break;
+                }
+            }
+        });
     }
     fn read_output(
         connection: &Arc<Self>,
@@ -74,7 +99,7 @@ impl Connection {
                 connection.receive(message, &handlers);
             }
             if let Some(connection) = weak.upgrade() {
-                connection.fail("插件宿主已退出或消息格式无效");
+                connection.terminate("插件宿主已退出或消息格式无效");
                 handlers.1(
                     json!({"name":"hostExited", "message":"插件宿主已退出，请重新读取以恢复"}),
                 );
@@ -122,21 +147,25 @@ impl Connection {
         }
     }
     fn send(&self, message: &Value) -> Result<(), String> {
+        self.send_until(message, Instant::now() + Duration::from_secs(5))
+    }
+    fn send_until(&self, message: &Value, deadline: Instant) -> Result<(), String> {
         let mut bytes = serde_json::to_vec(message).map_err(|e| e.to_string())?;
         if bytes.len() > MAX_MESSAGE {
             return Err("插件请求大小超额".into());
         }
         bytes.push(b'\n');
-        self.input
-            .lock()
-            .map_err(|_| "插件输入锁不可用")?
-            .write_all(&bytes)
-            .map_err(|e| e.to_string())
+        let (done, written) = mpsc::sync_channel(1);
+        self.input.try_send(WriteRequest { bytes, deadline, done })
+            .map_err(|_| "插件写入队列已满或宿主已退出".to_string())?;
+        written.recv_timeout(deadline.saturating_duration_since(Instant::now()))
+            .map_err(|_| { self.terminate("插件宿主写入超时"); "插件宿主写入超时".to_string() })?
     }
     pub fn call(&self, method: &str, params: Value) -> Reply {
         self.call_timeout(method, params, Duration::from_secs(120))
     }
     pub fn call_timeout(&self, method: &str, params: Value, timeout: Duration) -> Reply {
+        let deadline = Instant::now().checked_add(timeout).ok_or("插件截止时间无效")?;
         if !self.alive.load(Ordering::Acquire) {
             return Err("插件宿主未运行".into());
         }
@@ -150,11 +179,11 @@ impl Connection {
             pending.insert(id, sender);
         }
         let result = self
-            .send(&json!({"id":id, "method":method, "params":params}))
+            .send_until(&json!({"id":id, "method":method, "params":params}), deadline)
             .and_then(|_| {
                 receiver
-                    .recv_timeout(timeout)
-                    .map_err(|_| format!("插件请求超时：{method}"))
+                    .recv_timeout(deadline.saturating_duration_since(Instant::now()))
+                    .map_err(|_| { self.terminate("插件宿主响应超时"); format!("插件请求超时：{method}") })
             })
             .and_then(|value| value);
         if let Ok(mut pending) = self.pending.lock() {
@@ -172,11 +201,27 @@ impl Connection {
     }
     pub fn stop(&self) {
         let _ = self.call_timeout("shutdown", json!({}), Duration::from_secs(6));
-        self.fail("插件宿主已停止");
-        if let Ok(mut process) = self.process.lock() {
-            let _ = process.kill();
-            let _ = process.wait();
-        }
+        self.terminate("插件宿主已停止");
+        self.join_reaper();
+    }
+    fn terminate(&self, reason: &str) {
+        self.fail(reason);
+        let Ok(mut reaper) = self.reaper.lock() else { return; };
+        if self.stopping.swap(true, Ordering::AcqRel) { return; }
+        let process = self.process.clone();
+        // 回收不占用调用方的 deadline；唯一 writer 会随管道关闭被唤醒。
+        *reaper = Some(thread::spawn(move || {
+            if let Ok(mut process) = process.lock() {
+                signal_tree(&mut process, false);
+                thread::sleep(Duration::from_millis(300));
+                signal_tree(&mut process, true);
+                let _ = process.wait();
+            }
+        }));
+    }
+    fn join_reaper(&self) {
+        let worker = self.reaper.lock().ok().and_then(|mut reaper| reaper.take());
+        if let Some(worker) = worker { let _ = worker.join(); }
     }
 }
 fn spawn((node, root, base): (&Path, &Path, &Path)) -> Result<Child, String> {
@@ -214,6 +259,10 @@ fn spawn((node, root, base): (&Path, &Path, &Path)) -> Result<Child, String> {
     if let Some(path) = crate::agent::user_command_path() {
         command.env("PATH", path);
     }
+    #[cfg(unix)] {
+        use std::os::unix::process::CommandExt;
+        command.process_group(0);
+    }
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
@@ -225,11 +274,24 @@ fn spawn((node, root, base): (&Path, &Path, &Path)) -> Result<Child, String> {
 }
 impl Drop for Connection {
     fn drop(&mut self) {
-        if let Ok(process) = self.process.get_mut() {
-            let _ = process.kill();
-            let _ = process.wait();
-        }
+        self.terminate("插件宿主已释放");
+        self.join_reaper();
     }
+}
+
+fn signal_tree(process: &mut Child, force: bool) {
+    #[cfg(unix)] {
+        unsafe extern "C" { fn kill(pid: i32, signal: i32) -> i32; }
+        unsafe { kill(-(process.id() as i32), if force { 9 } else { 15 }); }
+    }
+    #[cfg(windows)] {
+        use std::os::windows::process::CommandExt;
+        let mut command = Command::new("taskkill.exe");
+        command.args(["/PID", &process.id().to_string(), "/T"]);
+        if force { command.arg("/F"); }
+        let _ = command.creation_flags(0x08000000).stdout(Stdio::null()).stderr(Stdio::null()).status();
+    }
+    if force { let _ = process.kill(); }
 }
 fn read_message(reader: &mut impl BufRead) -> Result<Option<Vec<u8>>, String> {
     let mut bytes = Vec::new();
@@ -245,6 +307,43 @@ fn read_message(reader: &mut impl BufRead) -> Result<Option<Vec<u8>>, String> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
+    #[test]
+    fn deadline_includes_a_full_stdin_pipe_and_queued_writers() {
+        let root = std::env::temp_dir().join(format!("belfry-pipe-deadline-{}", ulid::Ulid::generate()));
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(root.join("host.mjs"), "process.stdin.pause(); process.on('SIGTERM', () => {}); setInterval(() => {}, 1000);").unwrap();
+        let node = crate::agent::find_in_path("node").expect("Node.js required");
+        let connection = Connection::launch((&node, &root, &root), (Arc::new(|_| Ok(Value::Null)), Arc::new(|_| {}))).unwrap();
+        let (sender, receiver) = mpsc::channel();
+        let mut workers = Vec::new();
+        for _ in 0..2 {
+            let (connection, sender) = (connection.clone(), sender.clone());
+            workers.push(thread::spawn(move || {
+                let started = std::time::Instant::now();
+                let reply = connection.call_timeout("blocked", json!({"text":"x".repeat(700 * 1024)}), Duration::from_millis(100));
+                sender.send((started.elapsed(), reply)).unwrap();
+            }));
+        }
+        let first = receiver.recv_timeout(Duration::from_millis(400));
+        let second = receiver.recv_timeout(Duration::from_millis(400));
+        // 回归在旧实现也必须收尾，不能把 CI 挂死在被锁住的 stdin。
+        {
+            let mut process = connection.process.lock().unwrap();
+            let _ = process.kill();
+            let _ = process.wait();
+        }
+        for worker in workers { worker.join().unwrap(); }
+        drop(connection);
+        let _ = std::fs::remove_dir_all(root);
+        for result in [first, second] {
+            let (elapsed, reply) = result.expect("插件 deadline 必须包含队列及阻塞 stdin 写入");
+            assert!(elapsed < Duration::from_millis(350), "{elapsed:?}");
+            assert!(reply.is_err());
+        }
+    }
+
     #[test]
     fn refuses_unterminated_oversized_messages() {
         let bytes = vec![b'x'; super::MAX_MESSAGE + 1];

@@ -26,10 +26,11 @@ export function createInsightRequests(
       const report = await fetch(query, requestId);
       if (version === current) receive({ report, loading: false, error: null });
     } catch (error) {
-      if (version === current) receive({ report: null, loading: false, error: error instanceof Error ? error.message : String(error) });
+      if (version === current) receive({ report: null, loading: false, get error() { return errorMessage(error); } });
     } finally {
       if (version === current) active = null;
     }
   };
   return { load, cancel };
 }
+import { errorMessage } from "../../i18n";

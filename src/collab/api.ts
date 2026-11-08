@@ -30,29 +30,38 @@ export function pendingTasks() {
   return invoke<PendingTask[]>("collab_pending_tasks");
 }
 
-/** 回执：这条已经交给投递队列了，别再发给我。 */
-export function markDispatched(id: string) {
-  return invoke<void>("collab_mark_dispatched", { id });
+export type DeliveryPhase = "accepted" | "queued" | "submitting" | "submitted" | "uncertain" | "cancelled";
+export interface DeliveryUpdate { id: string; attemptId: string; sequence: number; phase: DeliveryPhase; message?: string }
+export function claimDelivery(id: string, attemptId: string) { return invoke<boolean>("collab_claim_delivery", { id, attemptId }); }
+export function releaseDelivery(id: string, attemptId: string) { return invoke<void>("collab_release_delivery", { id, attemptId }); }
+export function updateDelivery(update: DeliveryUpdate) { return invoke<boolean>("collab_delivery_update", { ...update, message: update.message ?? null }); }
+export function resolveDelivery(update: { id: string; attemptId: string; sequence: number; decision: "submitted" | "cancelled" }) {
+  return invoke<void>("collab_resolve_delivery", update);
 }
 
 /**
  * 一条任务在面板里的样子。两端都换成用户起的名字，`state` 是 Rust 侧
- * `TaskState` 的小写名（pendingapproval / queued / dispatched / done / failed / abandoned）。
+ * 待投递时的阶段（accepted / queued / submitting / uncertain），或工作状态
+ * pendingapproval / dispatched / done / failed / abandoned。详见 docs/delivery-api.md。
  */
 export interface TaskView {
   id: string;
   shortId: string;
   fromLabel: string;
   toLabel: string;
+  toTabId?: string;
   instruction: string;
   state: string;
   hop: number;
   createdAt: number;
   result: string | null;
+  delivery?: { phase: DeliveryPhase; attemptId: string | null; sequence: number; message: string | null };
 }
 
-export function collabTasks() {
-  return invoke<{ tasks: TaskView[] }>("collab_tasks");
+export async function collabTasks() {
+  const result = await invoke<{ tasks: TaskView[]; loadError?: string | null }>("collab_tasks");
+  if (result.loadError) throw new Error(result.loadError);
+  return result;
 }
 
 /** 放行一条等确认的派活。批准之后它才会进投递队列。 */

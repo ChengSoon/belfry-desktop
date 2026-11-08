@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 import type { DiffStage, GitEntry } from "./contracts";
 
 export const DIFF_PAGE_LINES = 500;
@@ -12,10 +13,10 @@ export interface DiffLine {
 export function groupChanges(entries: GitEntry[]): ChangeGroup[] {
   const tracked = entries.filter((entry) => !entry.untracked && !entry.conflicted);
   return [
-    { id: "conflicts", title: "合并冲突", stage: "unstaged", files: entries.filter((entry) => entry.conflicted) },
-    { id: "staged", title: "已暂存", stage: "staged", files: tracked.filter((entry) => entry.indexStatus !== ".") },
-    { id: "unstaged", title: "未暂存", stage: "unstaged", files: tracked.filter((entry) => entry.worktreeStatus !== ".") },
-    { id: "untracked", title: "未跟踪", stage: "untracked", files: entries.filter((entry) => entry.untracked) },
+    { id: "conflicts", title: t("git.model.text_9f14a6c7b5"), stage: "unstaged", files: entries.filter((entry) => entry.conflicted) },
+    { id: "staged", title: t("git.model.text_847d376afd"), stage: "staged", files: tracked.filter((entry) => entry.indexStatus !== ".") },
+    { id: "unstaged", title: t("git.model.text_944994f59a"), stage: "unstaged", files: tracked.filter((entry) => entry.worktreeStatus !== ".") },
+    { id: "untracked", title: t("git.model.text_c2f9d2d89a"), stage: "untracked", files: entries.filter((entry) => entry.untracked) },
   ];
 }
 
@@ -48,8 +49,8 @@ export function canPreview(entry: GitEntry) {
 }
 
 export function statusLabel(entry: GitEntry, stage: DiffStage) {
-  if (entry.conflicted) return "冲突";
-  if (entry.untracked) return "新增";
+  if (entry.conflicted) return t("git.model.text_45fb956103");
+  if (entry.untracked) return t("git.model.text_0006d696d8");
   const code = stage === "staged" ? entry.indexStatus : entry.worktreeStatus;
-  return ({ M: "修改", A: "新增", D: "删除", R: "重命名", C: "复制", T: "类型变更", U: "冲突" } as Record<string, string>)[code] ?? code;
+  return ({ M: t("git.model.text_37090f4565"), A: t("git.model.text_0006d696d8"), D: t("git.model.text_2f9daa8289"), R: t("git.model.text_0d0cbac2ee"), C: t("git.model.text_63d90d9773"), T: t("git.model.text_056d28adad"), U: t("git.model.text_45fb956103") } as Record<string, string>)[code] ?? code;
 }

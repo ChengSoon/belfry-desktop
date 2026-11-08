@@ -1,10 +1,11 @@
 //! 房间的持久化：`rooms/rooms.json`（房间、成员、简报、任务板）+ 每间房一份消息账本。
 //!
 //! 每个动作都在房间的副本上做：动作报错时副本直接丢掉，存储里的房间一个字没动；
-//! 动作成功才落盘——先追加账本、再原子替换 rooms.json，最后换上新副本。
+//! rooms.json 中的账本字节游标是唯一提交点；失败追加的尾部不会被恢复或投递。
 //! 文件读不出来或版本不认识时只读运行，不覆盖现场。
 
 use std::path::{Path, PathBuf};
+use std::collections::BTreeMap;
 use std::sync::{Mutex, MutexGuard};
 
 use serde::{Deserialize, Serialize};
@@ -13,18 +14,22 @@ use super::attachments;
 use super::ledger;
 use super::model::*;
 use super::ops::Posted;
-use crate::atomic::{read_text_optional, write_atomic};
+use crate::atomic::{read_text_optional, write_atomic, FileLock};
 use crate::collab::RoomPost;
-use crate::collab::task::{TaskBoard, TaskOrigin, TaskState};
+use crate::collab::task::{TaskBoard, TaskOrigin, DeliveryPhase};
 use crate::terminal::AppError;
 
-pub const STORE_VERSION: u32 = 1;
+pub const STORE_VERSION: u32 = 3;
 
 #[derive(Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct StoreFile {
     version: u32,
     rooms: Vec<Room>,
+    #[serde(default)]
+    revision: u64,
+    #[serde(default)]
+    ledger_lengths: BTreeMap<String, u64>,
 }
 
 struct Inner {
@@ -33,6 +38,8 @@ struct Inner {
     root: Option<PathBuf>,
     writable: bool,
     load_error: Option<String>,
+    revision: u64,
+    ledger_lengths: BTreeMap<String, u64>,
 }
 
 pub struct RoomStore {
@@ -57,6 +64,7 @@ pub struct RoomSummary {
     pub done_tasks: usize,
     pub last_message_at: Option<i64>,
     pub paused: bool,
+    pub ledger_bytes: u64,
     /// 最近一条发给你的消息（统筹汇报、成员找你）。界面拿它画未读、发系统通知。
     pub last_to_user: Option<InboxNote>,
 }
@@ -98,6 +106,7 @@ fn summarize(room: &Room) -> RoomSummary {
         done_tasks: room.tasks.iter().filter(|task| task.status == TaskStatus::Done).count(),
         last_message_at: room.messages.last().map(|message| message.at),
         paused: room.paused,
+        ledger_bytes: room.ledger_bytes,
         last_to_user: room
             .messages
             .iter()
@@ -120,13 +129,13 @@ pub fn deliveries(room: &Room, posted: &[Posted]) -> Vec<RoomPost> {
     }
     let mut out = Vec::new();
     for item in posted {
-        let Some(message) = room.messages.iter().find(|message| message.id == item.message_id) else {
+        let Some(message) = room.message(&item.message_id) else {
             continue;
         };
         let body = attachments::instruction(&message.text, &message.attachments);
         let mut line = format!("[{}] {}：{body}", short_id(&message.id), room.label(&message.by));
         if let Some(original) = message.reply_to.as_ref().and_then(|id| room.message(id)) {
-            line.push_str(&format!(
+            line.push_str(&belfry_i18n::lformat!(
                 "（回复 [{}] {}：「{}」）",
                 short_id(&original.id),
                 room.label(&original.by),
@@ -163,14 +172,14 @@ fn roster_hint(room: &Room, message: &Message, recipient: &Member) -> Option<Str
         .active_members()
         .filter(|member| member.role == MemberRole::Peer)
         .map(|member| {
-            let duty = if member.duty.is_empty() { "未写职责" } else { member.duty.as_str() };
-            format!("{}（{duty}，手上 {} 件）", member.title, workload(room, &member.id))
+            let duty = if member.duty.is_empty() { belfry_i18n::text("未写职责") } else { member.duty.as_str() };
+            belfry_i18n::lformat!("{}（{duty}，手上 {} 件）", member.title, workload(room, &member.id))
         })
         .collect();
     if peers.is_empty() {
         return None;
     }
-    Some(format!(
+    Some(belfry_i18n::lformat!(
         "可以派活的成员：{}。先拆成任务派出去：belfry room task add <标题> --to <角色>",
         peers.join("、")
     ))
@@ -178,11 +187,11 @@ fn roster_hint(room: &Room, message: &Message, recipient: &Member) -> Option<Str
 
 impl RoomStore {
     pub fn load(root: Option<PathBuf>) -> Self {
-        let readonly = |message: String| Inner { rooms: Vec::new(), root: None, writable: false, load_error: Some(message) };
+        let readonly = |message: String| Inner { rooms: Vec::new(), root: None, writable: false, load_error: Some(message), revision: 0, ledger_lengths: BTreeMap::new() };
         let inner = match root {
-            None => readonly("找不到应用数据目录，房间无法保存。".to_string()),
+            None => readonly(belfry_i18n::text("找不到应用数据目录，房间无法保存。").to_string()),
             Some(root) => match load_rooms(&root) {
-                Ok(rooms) => Inner { rooms, root: Some(root), writable: true, load_error: None },
+                Ok(file) => Inner { rooms: file.rooms, root: Some(root), writable: true, load_error: None, revision: file.revision, ledger_lengths: file.ledger_lengths },
                 Err(message) => readonly(message),
             },
         };
@@ -190,7 +199,7 @@ impl RoomStore {
     }
 
     fn lock(&self) -> Result<MutexGuard<'_, Inner>, AppError> {
-        self.inner.lock().map_err(|_| AppError::io("房间存储锁不上，请重启应用后重试。"))
+        self.inner.lock().map_err(|_| AppError::io(belfry_i18n::text("房间存储锁不上，请重启应用后重试。")))
     }
 
     pub fn list(&self) -> Result<RoomsView, AppError> {
@@ -200,19 +209,26 @@ impl RoomStore {
 
     pub fn get(&self, id: &str) -> Result<Room, AppError> {
         let inner = self.lock()?;
-        inner.rooms.iter().find(|room| room.id == id).cloned().ok_or_else(|| AppError::not_found("找不到这个房间"))
+        inner.rooms.iter().find(|room| room.id == id).cloned().ok_or_else(|| AppError::not_found(belfry_i18n::text("找不到这个房间")))
+    }
+
+    pub fn history(&self, id: &str, cursor: Option<&str>, limit: Option<usize>) -> Result<super::history::HistoryPage, AppError> {
+        let inner = self.lock()?;
+        let room = inner.rooms.iter().find(|room| room.id == id).ok_or_else(|| AppError::not_found(belfry_i18n::text("找不到这个房间")))?;
+        let root = inner.root.as_ref().ok_or_else(|| AppError::io(belfry_i18n::text("房间存储当前不可读")))?;
+        super::history::read_page(&ledger::path(root, &room.id)?, room.ledger_bytes, cursor, limit)
     }
 
     pub fn create(&self, name: &str, project_root: &str, objective: &str) -> Result<Room, AppError> {
         let name = name.trim();
         if name.is_empty() {
-            return Err(AppError::invalid_argument("房间名是必填的"));
+            return Err(AppError::invalid_argument(belfry_i18n::text("房间名是必填的")));
         }
         if name.chars().count() > super::ops::MAX_ROOM_NAME_CHARS {
             return Err(AppError::invalid_argument("房间名最多 40 个字"));
         }
         if project_root.trim().is_empty() {
-            return Err(AppError::invalid_argument("房间要挂在一个项目上"));
+            return Err(AppError::invalid_argument(belfry_i18n::text("房间要挂在一个项目上")));
         }
         let now = now_millis();
         let room = Room {
@@ -232,6 +248,9 @@ impl RoomStore {
             idle_nudged_after: None,
             paused: false,
             messages: Vec::new(),
+            retained_messages: Vec::new(),
+            delivery_outbox: Vec::new(),
+            ledger_bytes: 0,
             pending: Vec::new(),
         };
         let mut inner = self.lock()?;
@@ -245,7 +264,7 @@ impl RoomStore {
         let mut inner = self.lock()?;
         let rooms: Vec<Room> = inner.rooms.iter().filter(|room| room.id != id).cloned().collect();
         if rooms.len() == inner.rooms.len() {
-            return Err(AppError::not_found("找不到这个房间"));
+            return Err(AppError::not_found(belfry_i18n::text("找不到这个房间")));
         }
         persist(&mut inner, rooms)?;
         // rooms.json 已经落盘；账本和附件删不掉只是残留文件，不回滚删除。
@@ -254,13 +273,13 @@ impl RoomStore {
                 && let Err(err) = std::fs::remove_file(&path)
                 && err.kind() != std::io::ErrorKind::NotFound
             {
-                eprintln!("[belfry] 删不掉已删除房间的消息账本 {}：{err}", path.display());
+                log::warn!("[belfry] 删不掉已删除房间的消息账本 {}：{err}", path.display());
             }
             if let Ok(dir) = attachments::room_directory(root, id)
                 && let Err(err) = std::fs::remove_dir_all(&dir)
                 && err.kind() != std::io::ErrorKind::NotFound
             {
-                eprintln!("[belfry] 删不掉已删除房间的附件 {}：{err}", dir.display());
+                log::warn!("[belfry] 删不掉已删除房间的附件 {}：{err}", dir.display());
             }
         }
         Ok(())
@@ -270,9 +289,9 @@ impl RoomStore {
     pub(super) fn attachment_directory(&self, room_id: &str) -> Result<PathBuf, AppError> {
         let inner = self.lock()?;
         if !inner.rooms.iter().any(|room| room.id == room_id) {
-            return Err(AppError::not_found("找不到这个房间"));
+            return Err(AppError::not_found(belfry_i18n::text("找不到这个房间")));
         }
-        let root = inner.root.as_ref().ok_or_else(|| AppError::io("找不到附件存储目录"))?;
+        let root = inner.root.as_ref().ok_or_else(|| AppError::io(belfry_i18n::text("找不到附件存储目录")))?;
         attachments::room_directory(root, room_id)
     }
 
@@ -280,11 +299,11 @@ impl RoomStore {
     pub(super) fn discard_attachment(&self, room_id: &str, attachment_id: &str) -> Result<(), AppError> {
         let inner = self.lock()?;
         let room = inner.rooms.iter().find(|room| room.id == room_id)
-            .ok_or_else(|| AppError::not_found("找不到这个房间"))?;
-        if room.messages.iter().flat_map(|message| &message.attachments).any(|attachment| attachment.id == attachment_id) {
+            .ok_or_else(|| AppError::not_found(belfry_i18n::text("找不到这个房间")))?;
+        if room.all_messages().flat_map(|message| &message.attachments).any(|attachment| attachment.id == attachment_id) {
             return Ok(());
         }
-        let root = inner.root.as_ref().ok_or_else(|| AppError::io("找不到附件存储目录"))?;
+        let root = inner.root.as_ref().ok_or_else(|| AppError::io(belfry_i18n::text("找不到附件存储目录")))?;
         attachments::discard(&attachments::room_directory(root, room_id)?, attachment_id)
     }
 
@@ -299,7 +318,7 @@ impl RoomStore {
             .rooms
             .iter()
             .position(|room| room.id == room_id)
-            .ok_or_else(|| AppError::not_found("找不到这个房间"))?;
+            .ok_or_else(|| AppError::not_found(belfry_i18n::text("找不到这个房间")))?;
         let mut room = inner.rooms[index].clone();
         let value = f(&mut room).map_err(AppError::invalid_argument)?;
         let snapshot = commit(&mut inner, index, room)?;
@@ -316,7 +335,7 @@ impl RoomStore {
         let mut inner = self.lock().map_err(|err| err.message)?;
         let index = resolve_my_room(&inner.rooms, tab_id, hint)?;
         let mut room = inner.rooms[index].clone();
-        let member = room.member_by_tab(tab_id).cloned().ok_or("你不在这间房里")?;
+        let member = room.member_by_tab(tab_id).cloned().ok_or(belfry_i18n::text("你不在这间房里"))?;
         let value = f(&mut room, &member)?;
         let snapshot = commit(&mut inner, index, room).map_err(|err| err.message)?;
         Ok((value, snapshot))
@@ -332,7 +351,7 @@ impl RoomStore {
         let inner = self.lock().map_err(|err| err.message)?;
         let index = resolve_my_room(&inner.rooms, tab_id, hint)?;
         let room = &inner.rooms[index];
-        let member = room.member_by_tab(tab_id).ok_or("你不在这间房里")?;
+        let member = room.member_by_tab(tab_id).ok_or(belfry_i18n::text("你不在这间房里"))?;
         Ok(f(room, member))
     }
 
@@ -366,7 +385,7 @@ impl RoomStore {
         let delivered: Vec<_> = board
             .snapshot()
             .into_iter()
-            .filter(|task| task.chat.is_some() && task.state == TaskState::Dispatched)
+            .filter(|task| task.chat.is_some())
             .filter(|task| matches!(task.origin, Some(TaskOrigin::Room { .. })))
             .collect();
         if delivered.is_empty() {
@@ -384,14 +403,55 @@ impl RoomStore {
                 continue;
             };
             for message_id in task.chat.iter().flat_map(|chat| chat.message_ids.iter()) {
-                touched |= super::ops::record_delivery(room, message_id, &member_id, now);
+                if task.delivery.phase == DeliveryPhase::Submitted {
+                    touched |= super::ops::record_delivery(room, message_id, &member_id, now);
+                    let count = room.delivery_outbox.len();
+                    room.delivery_outbox.retain(|entry| entry.message_id != *message_id || entry.member_id != member_id);
+                    touched |= count != room.delivery_outbox.len();
+                } else if let Some(entry) = room.delivery_outbox.iter_mut().find(|entry| entry.message_id == *message_id && entry.member_id == member_id) {
+                    if entry.phase != task.delivery.phase || entry.message != task.delivery.message {
+                        entry.phase = task.delivery.phase;
+                        entry.message = task.delivery.message.clone();
+                        touched = true;
+                    }
+                }
             }
         }
         if touched {
             persist(&mut inner, rooms)?;
         }
-        for task in delivered {
-            board.remove(&task.id);
+        for task in delivered.into_iter().filter(|task| matches!(task.delivery.phase, DeliveryPhase::Submitted | DeliveryPhase::Cancelled)) {
+            board.remove(&task.id).map_err(AppError::io)?;
+        }
+        Ok(())
+    }
+
+    /// 房间状态提交后、总线受理前崩溃，仍能从同一次房间提交的 outbox 恢复。
+    pub fn pump_outbox(&self, board: &TaskBoard, registry: &crate::collab::SessionRegistry) -> Result<(), AppError> {
+        self.reconcile(board)?;
+        let posts = {
+            let inner = self.lock()?;
+            inner.rooms.iter().flat_map(|room| {
+                let posted: Vec<_> = room.delivery_outbox.iter()
+                    .filter(|entry| matches!(entry.phase, DeliveryPhase::Accepted | DeliveryPhase::Queued))
+                    .map(|entry| Posted { message_id: entry.message_id.clone(), to: vec![entry.member_id.clone()] }).collect();
+                deliveries(room, &posted)
+            }).collect::<Vec<_>>()
+        };
+        self.enqueue_posts(board, registry, &posts)
+    }
+
+    /// 在房间锁内复查 outbox 后受理。另一线程提交回执并清理总线后，旧投递快照不能重新入队。
+    pub fn enqueue_posts(&self, board: &TaskBoard, registry: &crate::collab::SessionRegistry, posts: &[RoomPost]) -> Result<(), AppError> {
+        let inner = self.lock()?;
+        for post in posts {
+            let Some(room) = inner.rooms.iter().find(|room| room.id == post.room_id && !room.paused) else { continue };
+            let Some(member) = room.member_by_tab(&post.tab_id) else { continue };
+            if room.delivery_outbox.iter().any(|entry| entry.message_id == post.message_id && entry.member_id == member.id
+                && matches!(entry.phase, DeliveryPhase::Accepted | DeliveryPhase::Queued))
+                && registry.find(&post.tab_id).is_some() {
+                crate::collab::task::enqueue_room_post(board, &format!("room:{}", post.room_id), post, now_millis()).map_err(AppError::io)?;
+            }
         }
         Ok(())
     }
@@ -405,59 +465,112 @@ fn commit(inner: &mut Inner, index: usize, room: Room) -> Result<Room, AppError>
     Ok(inner.rooms[index].clone())
 }
 
-/// 先追加各间房排队的账本事件，再写 rooms.json，最后才换进内存。任一步失败，
-/// 内存保持原样；已经追加的事件在重放时按 id 幂等，不会重复出现。
+/// 追加内容先同步到磁盘，最后用 rooms.json 一次性提交所有账本游标和任务状态。
+/// 失败尾部仍在文件里，但恢复只读旧游标；下一次写入先裁掉该未提交尾部。
 fn persist(inner: &mut Inner, mut rooms: Vec<Room>) -> Result<(), AppError> {
     if !inner.writable {
-        return Err(AppError::io(inner.load_error.clone().unwrap_or_else(|| "房间存储当前不可写".to_string())));
+        return Err(AppError::io(inner.load_error.clone().unwrap_or_else(|| belfry_i18n::text("房间存储当前不可写").to_string())));
     }
-    let root = inner.root.clone().ok_or_else(|| AppError::io("找不到应用数据目录，房间无法保存。"))?;
+    let root = inner.root.clone().ok_or_else(|| AppError::io(belfry_i18n::text("找不到应用数据目录，房间无法保存。")))?;
+    let _writer = FileLock::acquire(&root.join("store.lock"))?;
+    let disk = read_store(&root).map_err(AppError::io)?;
+    if disk.revision != inner.revision || disk.version != STORE_VERSION {
+        return Err(AppError::io(belfry_i18n::text("房间已被另一应用实例更新，请重新加载后再操作；本次修改未提交。")));
+    }
+    let mut lengths = inner.ledger_lengths.clone();
     for room in &mut rooms {
+        let path = ledger::path(&root, &room.id)?;
+        let previous = lengths.get(&room.id).copied().unwrap_or(0);
         if !room.pending.is_empty() {
-            ledger::append(&ledger::path(&root, &room.id)?, &room.pending)?;
+            ledger::discard_uncommitted(&path, previous)?;
+            injected_failure("append")?;
+            ledger::append(&path, &room.pending)?;
+            injected_failure("sync")?;
             room.pending.clear();
+            lengths.insert(room.id.clone(), ledger::length(&path)?);
+        } else {
+            lengths.entry(room.id.clone()).or_insert(previous);
         }
+        room.ledger_bytes = lengths[&room.id];
     }
-    let file = StoreFile {
-        version: STORE_VERSION,
-        rooms: rooms.iter().map(|room| Room { messages: Vec::new(), ..room.clone() }).collect(),
-    };
-    let text = serde_json::to_string_pretty(&file)
-        .map_err(|error| AppError::io(format!("房间存储序列化失败：{error}")))?;
-    write_atomic(&root.join("rooms.json"), &text, false)?;
+    lengths.retain(|id, _| rooms.iter().any(|room| &room.id == id));
+    let revision = inner.revision.checked_add(1).ok_or_else(|| AppError::io(belfry_i18n::text("房间提交版本溢出")))?;
+    injected_failure("rename")?;
+    write_store(&root, &rooms, revision, &lengths)?;
     inner.rooms = rooms;
+    inner.revision = revision;
+    inner.ledger_lengths = lengths;
     Ok(())
 }
 
-fn load_rooms(root: &Path) -> Result<Vec<Room>, String> {
-    let text = read_text_optional(&root.join("rooms.json")).map_err(|err| format!("房间存储读取失败：{}", err.message))?;
+fn write_store(root: &Path, rooms: &[Room], revision: u64, lengths: &BTreeMap<String, u64>) -> Result<(), AppError> {
+    let file = StoreFile {
+        version: STORE_VERSION,
+        revision,
+        ledger_lengths: lengths.clone(),
+        rooms: rooms.to_vec(),
+    };
+    let text = serde_json::to_string_pretty(&file)
+        .map_err(|error| AppError::io(belfry_i18n::lformat!("房间存储序列化失败：{error}")))?;
+    write_atomic(&root.join("rooms.json"), &text, true)
+}
+
+fn read_store(root: &Path) -> Result<StoreFile, String> {
+    let text = read_text_optional(&root.join("rooms.json")).map_err(|err| belfry_i18n::lformat!("房间存储读取失败：{}", err.message))?;
     if text.trim().is_empty() {
-        return Ok(Vec::new());
+        return Ok(StoreFile { version: STORE_VERSION, ..StoreFile::default() });
     }
-    let file: StoreFile = serde_json::from_str(&text).map_err(|error| format!("房间存储解析失败：{error}；已按只读处理。"))?;
-    if file.version != STORE_VERSION {
-        return Err(format!(
+    let file: StoreFile = serde_json::from_str(&text).map_err(|error| belfry_i18n::lformat!("房间存储解析失败：{error}；已按只读处理。"))?;
+    if !matches!(file.version, 1 | 2 | STORE_VERSION) {
+        return Err(belfry_i18n::lformat!(
             "房间存储版本是 {}，当前版本只认识 {STORE_VERSION}；已按只读处理，请在更新前保留原文件。",
             file.version
         ));
     }
-    let mut rooms = file.rooms;
-    for room in &mut rooms {
+    Ok(file)
+}
+
+fn load_rooms(root: &Path) -> Result<StoreFile, String> {
+    let _writer = FileLock::acquire(&root.join("store.lock")).map_err(|error| error.message)?;
+    let mut file = read_store(root)?;
+    let migrating = file.version != STORE_VERSION;
+    let has_cursors = file.version >= 2;
+    for room in &mut file.rooms {
         let path = ledger::path(root, &room.id).map_err(|err| err.message)?;
-        let events = ledger::read(&path).map_err(|err| format!("房间消息账本读取失败：{}", err.message))?;
-        let count = events.len();
-        for event in &events {
-            ledger::apply(room, event);
+        let length = if !has_cursors {
+            ledger::length(&path).map_err(|error| error.message)?
+        } else {
+            file.ledger_lengths.get(&room.id).copied().ok_or(belfry_i18n::text("房间缺少账本提交游标，已按只读处理"))?
+        };
+        file.ledger_lengths.insert(room.id.clone(), length);
+        if ledger::length(&path).map_err(|error| error.message)? < length {
+            return Err(belfry_i18n::text("消息账本短于已提交游标，已保留现场").into());
         }
-        // 账本只增不减，界面只留最近 MAX_MESSAGES 条：事件多到一定程度就按投影重写一份，
-        // 启动不必每次重放整段历史。重写失败不影响使用，下次启动再试。
-        if count > ledger::COMPACT_AFTER
-            && let Err(error) = ledger::rewrite(&path, &ledger::snapshot(room))
-        {
-            eprintln!("[belfry] 压缩房间消息账本 {} 失败：{}", path.display(), error.message);
+        if migrating {
+            ledger::visit_committed(&path, length, |event| {
+                if event.room_id == room.id { ledger::apply(room, &event); }
+            }).map_err(|err| belfry_i18n::lformat!("房间消息账本读取失败：{}", err.message))?;
+            room.ledger_bytes = length;
+        } else if room.ledger_bytes != length {
+            return Err(belfry_i18n::text("房间投影与账本提交游标不一致，已按只读处理").into());
         }
     }
-    Ok(rooms)
+    if migrating {
+        // 升级先发布旧状态的提交游标；否则第一次新操作失败后仍会被旧“读全文件”恢复。
+        write_store(root, &file.rooms, file.revision, &file.ledger_lengths).map_err(|error| error.message)?;
+        file.version = STORE_VERSION;
+    }
+    Ok(file)
+}
+
+#[cfg(test)]
+thread_local! { static COMMIT_FAILURE: std::cell::Cell<Option<&'static str>> = const { std::cell::Cell::new(None) }; }
+#[cfg(test)]
+pub(super) fn fail_next_commit(stage: &'static str) { COMMIT_FAILURE.set(Some(stage)); }
+fn injected_failure(_stage: &str) -> Result<(), AppError> {
+    #[cfg(test)]
+    if COMMIT_FAILURE.get() == Some(_stage) { COMMIT_FAILURE.set(None); return Err(AppError::io(format!("injected {_stage} failure"))); }
+    Ok(())
 }
 
 fn resolve_my_room(rooms: &[Room], tab_id: &str, hint: Option<&str>) -> Result<usize, String> {
@@ -468,14 +581,14 @@ fn resolve_my_room(rooms: &[Room], tab_id: &str, hint: Option<&str>) -> Result<u
         .map(|(index, _)| index)
         .collect();
     if mine.is_empty() {
-        return Err("你不在任何协作房间里——被用户拉进房间之后才能用 belfry room".to_string());
+        return Err(belfry_i18n::text("你不在任何协作房间里——被用户拉进房间之后才能用 belfry room").to_string());
     }
     let Some(hint) = hint.map(str::trim).filter(|hint| !hint.is_empty()) else {
         if mine.len() == 1 {
             return Ok(mine[0]);
         }
         let names = mine.iter().map(|index| rooms[*index].name.as_str()).collect::<Vec<_>>().join("、");
-        return Err(format!("你在 {} 间房里，用 --room 写明哪一间：{names}", mine.len()));
+        return Err(belfry_i18n::lformat!("你在 {} 间房里，用 --room 写明哪一间：{names}", mine.len()));
     };
     if let Some(index) = mine.iter().copied().find(|index| rooms[*index].name == hint) {
         return Ok(index);
@@ -483,7 +596,7 @@ fn resolve_my_room(rooms: &[Room], tab_id: &str, hint: Option<&str>) -> Result<u
     let prefixed: Vec<usize> = mine.iter().copied().filter(|index| rooms[*index].name.starts_with(hint)).collect();
     match prefixed.as_slice() {
         [index] => Ok(*index),
-        [] => Err(format!("你的房间里没有「{hint}」；用 belfry rooms 看看你在哪几间")),
-        _ => Err(format!("有多间房匹配「{hint}」，把名字写全一点")),
+        [] => Err(belfry_i18n::lformat!("你的房间里没有「{hint}」；用 belfry rooms 看看你在哪几间")),
+        _ => Err(belfry_i18n::lformat!("有多间房匹配「{hint}」，把名字写全一点")),
     }
 }

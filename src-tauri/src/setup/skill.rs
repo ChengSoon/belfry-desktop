@@ -10,6 +10,13 @@ const BELFRY_SKILL: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../skills/belfry/SKILL.md"
 ));
+const BELFRY_SKILL_EN: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../skills/belfry/SKILL.en.md"));
+
+fn selected_skill() -> &'static str {
+    if belfry_i18n::current() == belfry_i18n::Locale::En { BELFRY_SKILL_EN } else { BELFRY_SKILL }
+}
+
+fn is_bundled_skill(value: &str) -> bool { value == BELFRY_SKILL || value == BELFRY_SKILL_EN }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum SkillState {
@@ -61,7 +68,7 @@ fn failed_outcome(
 
 fn config_dir(agent: AgentKind) -> Result<PathBuf, AppError> {
     let home = crate::usage::home_dir()
-        .ok_or_else(|| AppError::not_found("找不到当前用户的 home 目录"))?;
+        .ok_or_else(|| AppError::not_found(belfry_i18n::text("找不到当前用户的 home 目录")))?;
     Ok(match agent {
         AgentKind::Codex => env_root("CODEX_HOME").unwrap_or_else(|| home.join(".codex")),
         AgentKind::Claude => env_root("CLAUDE_CONFIG_DIR").unwrap_or_else(|| home.join(".claude")),
@@ -71,7 +78,7 @@ fn config_dir(agent: AgentKind) -> Result<PathBuf, AppError> {
         }
         AgentKind::Antigravity | AgentKind::Opencode | AgentKind::Kimi => {
             crate::agent::paths::config_dir(agent)
-                .ok_or_else(|| AppError::not_found("找不到 CLI 配置目录"))?
+                .ok_or_else(|| AppError::not_found(belfry_i18n::text("找不到 CLI 配置目录")))?
         }
     })
 }
@@ -103,7 +110,7 @@ fn shared_provides_current(agent: AgentKind, shared: Option<&Path>) -> bool {
         return false;
     }
     shared.is_some_and(|path| {
-        std::fs::read_to_string(path).is_ok_and(|current| current == BELFRY_SKILL)
+        std::fs::read_to_string(path).is_ok_and(|current| current == selected_skill())
     })
 }
 
@@ -124,11 +131,11 @@ fn inspect_in(
     }
     let path = skill_path(config_dir);
     let state = match std::fs::read_to_string(&path) {
-        Ok(current) if current == BELFRY_SKILL => SkillState::Current,
+        Ok(current) if current == selected_skill() => SkillState::Current,
         Ok(_) => SkillState::Outdated,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => SkillState::Missing,
         Err(error) => {
-            return Err(AppError::io(format!("读不了 {}：{error}", path.display())));
+            return Err(AppError::io(belfry_i18n::lformat!("读不了 {}：{error}", path.display())));
         }
     };
     Ok(SkillInspection { agent, state, path })
@@ -148,9 +155,9 @@ fn install_in(
             action: SkillInstallAction::Unchanged,
             path: Some(inspection.path.to_string_lossy().into_owned()),
             summary: if removed {
-                "已由共享目录提供，移除了重复的一份".to_string()
+                belfry_i18n::text("已由共享目录提供，移除了重复的一份").to_string()
             } else {
-                "已由共享目录提供".to_string()
+                belfry_i18n::text("已由共享目录提供").to_string()
             },
         });
     }
@@ -160,7 +167,7 @@ fn install_in(
         SkillState::Outdated => SkillInstallAction::Updated,
     };
     if action != SkillInstallAction::Unchanged {
-        write_atomic(&inspection.path, BELFRY_SKILL, false)?;
+        write_atomic(&inspection.path, selected_skill(), false)?;
     }
     Ok(SkillInstallTargetOutcome {
         agent,
@@ -174,9 +181,9 @@ fn install_in(
 /// 只认逐字相同的内容：被用户改过就留着，不替他做决定。
 fn remove_own_copy(path: &Path) -> Result<bool, AppError> {
     match std::fs::read_to_string(path) {
-        Ok(current) if current == BELFRY_SKILL => {
+        Ok(current) if is_bundled_skill(&current) => {
             std::fs::remove_file(path)
-                .map_err(|error| AppError::io(format!("删不掉 {}：{error}", path.display())))?;
+                .map_err(|error| AppError::io(belfry_i18n::lformat!("删不掉 {}：{error}", path.display())))?;
             // `skills/belfry/` 空了就一并收掉，非空时 remove_dir 自己会失败，忽略即可。
             if let Some(parent) = path.parent() {
                 let _ = std::fs::remove_dir(parent);
@@ -189,10 +196,10 @@ fn remove_own_copy(path: &Path) -> Result<bool, AppError> {
 
 fn action_summary(action: SkillInstallAction) -> &'static str {
     match action {
-        SkillInstallAction::Installed => "已安装",
-        SkillInstallAction::Updated => "已更新",
-        SkillInstallAction::Unchanged => "已是最新",
-        SkillInstallAction::Failed => "安装失败",
+        SkillInstallAction::Installed => belfry_i18n::text("已安装"),
+        SkillInstallAction::Updated => belfry_i18n::text("已更新"),
+        SkillInstallAction::Unchanged => belfry_i18n::text("已是最新"),
+        SkillInstallAction::Failed => belfry_i18n::text("安装失败"),
     }
 }
 
@@ -203,6 +210,23 @@ fn skill_path(config_dir: &Path) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn regression_installed_collaboration_skill_switches_language() {
+        let root = temp_dir("locale");
+        belfry_i18n::with_locale(belfry_i18n::Locale::En, || {
+            install_in(AgentKind::Codex, &root, None).unwrap();
+            let contents = std::fs::read_to_string(skill_path(&root)).unwrap();
+            assert!(contents.contains("Belfry session collaboration"), "English skill must be installed");
+            assert!(contents.contains("belfry room task done"));
+            assert!(!contents.contains("你是统筹"));
+        });
+        belfry_i18n::with_locale(belfry_i18n::Locale::ZhCn, || {
+            assert_eq!(install_in(AgentKind::Codex, &root, None).unwrap().action, SkillInstallAction::Updated);
+            assert_eq!(std::fs::read_to_string(skill_path(&root)).unwrap(), BELFRY_SKILL);
+        });
+        let _ = std::fs::remove_dir_all(root);
+    }
 
     fn temp_dir(tag: &str) -> PathBuf {
         let path = std::env::temp_dir().join(format!(

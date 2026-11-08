@@ -153,7 +153,7 @@ const HOOK_TIMEOUT_SECS: u32 = if cfg!(windows) { 8 } else { 1 };
 
 fn handler(kind: AgentKind, event: &str, command: &str) -> Value {
     let mut value = json!({"hooks":[{"type":"command", "command":command, "timeout":HOOK_TIMEOUT_SECS,
-        "statusMessage":format!("{MARKER} · {}", kind.id())}]});
+        "statusMessage":belfry_i18n::lformat!("Belfry 会话状态 · {}", kind.id())}]});
     if event == "Notification" {
         value["matcher"] = json!("permission_prompt|elicitation_dialog");
     }
@@ -162,7 +162,8 @@ fn handler(kind: AgentKind, event: &str, command: &str) -> Value {
 
 fn owned(handler: &Value, kind: AgentKind) -> bool {
     handler["type"] == "command"
-        && handler["statusMessage"] == format!("{MARKER} · {}", kind.id())
+        && (handler["statusMessage"] == format!("{MARKER} · {}", kind.id())
+            || handler["statusMessage"] == format!("Belfry session status - {}", kind.id()))
         && handler["command"]
             .as_str()
             .is_some_and(|command| command.ends_with(&format!(" --belfry-hook {}", kind.id())))

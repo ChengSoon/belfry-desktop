@@ -20,17 +20,17 @@ fn login_check(executable: &Path) -> EnvironmentCheck {
         Ok(output) if output.status.success() => check(
             CheckKind::Auth(AgentKind::Codex),
             CheckState::Ok,
-            "Codex 已登录",
+            belfry_i18n::text("Codex 已登录"),
         ),
         Ok(_) => check(
             CheckKind::Auth(AgentKind::Codex),
             CheckState::Warning,
-            "Codex 尚未登录",
+            belfry_i18n::text("Codex 尚未登录"),
         ),
         Err(error) => check(
             CheckKind::Auth(AgentKind::Codex),
             CheckState::Warning,
-            format!("无法检查登录状态：{error}"),
+            belfry_i18n::lformat!("无法检查登录状态：{error}"),
         ),
     }
 }
@@ -41,12 +41,12 @@ fn multi_agent_check(executable: &Path) -> EnvironmentCheck {
         Ok(_) => check(
             CheckKind::MultiAgent(AgentKind::Codex),
             CheckState::Warning,
-            "无法读取 Codex 功能列表",
+            belfry_i18n::text("无法读取 Codex 功能列表"),
         ),
         Err(error) => check(
             CheckKind::MultiAgent(AgentKind::Codex),
             CheckState::Warning,
-            format!("功能检查失败：{error}"),
+            belfry_i18n::lformat!("功能检查失败：{error}"),
         ),
     }
 }
@@ -56,17 +56,17 @@ fn multi_agent_result(output: &[u8]) -> EnvironmentCheck {
         Some(true) => check(
             CheckKind::MultiAgent(AgentKind::Codex),
             CheckState::Ok,
-            "Codex multi_agent 已启用",
+            belfry_i18n::text("Codex multi_agent 已启用"),
         ),
         Some(false) => check(
             CheckKind::MultiAgent(AgentKind::Codex),
             CheckState::Warning,
-            "Codex multi_agent 未启用",
+            belfry_i18n::text("Codex multi_agent 未启用"),
         ),
         None => check(
             CheckKind::MultiAgent(AgentKind::Codex),
             CheckState::Warning,
-            "当前 Codex 未报告 multi_agent 功能",
+            belfry_i18n::text("当前 Codex 未报告 multi_agent 功能"),
         ),
     }
 }
@@ -78,7 +78,7 @@ fn doctor_check(executable: &Path) -> EnvironmentCheck {
             return check(
                 CheckKind::Doctor(AgentKind::Codex),
                 CheckState::Warning,
-                format!("无法运行 doctor：{error}"),
+                belfry_i18n::lformat!("无法运行 doctor：{error}"),
             );
         }
     };
@@ -93,7 +93,7 @@ fn doctor_check(executable: &Path) -> EnvironmentCheck {
                 } else {
                     CheckState::Error
                 },
-                "无法解析 codex doctor 输出",
+                belfry_i18n::text("无法解析 codex doctor 输出"),
             )
         })
 }
@@ -127,7 +127,7 @@ fn doctor_summary(value: &Value) -> Option<EnvironmentCheck> {
     Some(check(
         CheckKind::Doctor(AgentKind::Codex),
         state,
-        format!("通过 {ok}，警告 {warnings}，失败 {failed}"),
+        belfry_i18n::lformat!("通过 {ok}，警告 {warnings}，失败 {failed}"),
     ))
 }
 

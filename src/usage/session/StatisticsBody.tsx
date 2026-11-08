@@ -1,43 +1,47 @@
+import { formatList, t, useTranslation } from "../../i18n";
 import type { SessionStatistics, SessionTokens, StatisticsView } from "./contracts";
 import { formatExact, formatMoment, formatTokens } from "../format";
 
 export function StatisticsBody({ state, bound, note }: { state: StatisticsView; bound: boolean; note?: string | null }) {
-  if (!bound) return <p className="session-stats-note">{note ?? "尚未绑定原生会话。可在设置 → 会话状态中启用 Hook，或从历史记录继续会话。"}</p>;
+  useTranslation();
+  if (!bound) return <p className="session-stats-note">{note ?? t("usage.StatisticsBody.text_df28ee0521")}</p>;
   return <div className="session-stats-body">
     {state.error ? <p className="session-stats-error" role="alert">{state.error}</p> : null}
-    {!state.report && state.loading ? <p className="session-stats-note" role="status">正在读取会话日志…</p> : null}
+    {!state.report && state.loading ? <p className="session-stats-note" role="status">{t("usage.StatisticsBody.text_a94e58077a")}</p> : null}
     {state.report ? <StatisticsContent report={state.report} /> : null}
   </div>;
 }
 
 function StatisticsContent({ report }: { report: SessionStatistics }) {
+  useTranslation();
   const updated = formatMoment(report.updatedAt);
   return <>
-    <div className="session-stats-model"><span>当前模型</span><strong>{report.currentModel ?? "不可用"}</strong></div>
-    {report.models.length > 1 ? <p className="session-stats-note">本会话使用过：{report.models.join("、")}</p> : null}
+    <div className="session-stats-model"><span>{t("usage.StatisticsBody.text_52f79fed15")}</span><strong>{report.currentModel ?? t("usage.StatisticsBody.text_460b3574e4")}</strong></div>
+    {report.models.length > 1 ? <p className="session-stats-note">{t("usage.StatisticsBody.text_93e6939972", { names: formatList(report.models) })}</p> : null}
     <TokenGrid tokens={report.tokens} />
-    <section className="session-stats-tools" aria-label="工具调用统计">
-      <h4>工具调用 <span>{report.toolCount === null ? "不可用" : `${formatExact(report.toolCount)} 次`}</span></h4>
-      {report.tools.length ? <ul>{report.tools.map((tool) => <li key={tool.name}><code>{tool.name}</code><span>{formatExact(tool.calls)} 次</span></li>)}</ul>
-        : <p className="session-stats-note">{report.toolCount === 0 ? "尚无工具调用记录" : "日志尚未提供工具调用数据"}</p>}
+    <section className="session-stats-tools" aria-label={t("usage.StatisticsBody.text_aa25451084")}>
+      <h4>{t("usage.StatisticsBody.text_a8ca3c13eb")}<span>{report.toolCount === null ? t("usage.StatisticsBody.text_460b3574e4") : t("usage.StatisticsBody.text_073afa92c0", { count: report.toolCount })}</span></h4>
+      {report.tools.length ? <ul>{report.tools.map((tool) => <li key={tool.name}><code>{tool.name}</code><span>{t("usage.StatisticsBody.text_073afa92c0", { count: tool.calls })}</span></li>)}</ul>
+        : <p className="session-stats-note">{report.toolCount === 0 ? t("usage.StatisticsBody.text_1916a92d2c") : t("usage.StatisticsBody.text_5dc43ad44e")}</p>}
     </section>
-    {report.pending ? <p className="session-stats-note" role="status">继续读取日志，已读取 {formatTokens(report.scannedBytes)} 字节…</p> : null}
+    {report.pending ? <p className="session-stats-note" role="status">{t("usage.StatisticsBody.text_b98ae55a23", { bytes: formatTokens(report.scannedBytes) })}</p> : null}
     {report.note ? <p className="session-stats-note">{report.note}</p> : null}
-    <footer className="session-stats-meta"><span>{report.sourceFiles} 个会话日志</span><span>{updated ? `更新于 ${updated}` : "日志未记录时间"}</span></footer>
+    <footer className="session-stats-meta"><span>{t("usage.StatisticsBody.text_745f42ae9b", { count: report.sourceFiles })}</span><span>{updated ? t("usage.StatisticsBody.text_26df230afe", { updated: updated }) : t("usage.StatisticsBody.text_75d6ca9a3a")}</span></footer>
   </>;
 }
 
 function TokenGrid({ tokens }: { tokens: SessionTokens }) {
+  useTranslation();
   const fields = [
-    { label: "新增输入", value: tokens.input, note: "不含缓存读取" },
-    { label: "缓存读取", value: tokens.cachedInput, note: "命中已有缓存" },
-    { label: "缓存写入", value: tokens.cacheWrite, note: "新建缓存输入" },
-    { label: "输出", value: tokens.output, note: "包含推理输出，不重复累计" },
+    { label: t("usage.StatisticsBody.text_8936889d9d"), value: tokens.input, note: t("usage.StatisticsBody.text_ed0bc16a5a") },
+    { label: t("usage.StatisticsBody.text_1ded6559f6"), value: tokens.cachedInput, note: t("usage.StatisticsBody.text_3afec41e60") },
+    { label: t("usage.StatisticsBody.text_6078a681a3"), value: tokens.cacheWrite, note: t("usage.StatisticsBody.text_bea340b8da") },
+    { label: t("usage.StatisticsBody.text_fb04addb4c"), value: tokens.output, note: t("usage.StatisticsBody.text_40ffa2ee52") },
   ];
-  return <dl className="session-stats-tokens" aria-label="Token 统计">
+  return <dl className="session-stats-tokens" aria-label={t("usage.StatisticsBody.text_3989fb69a5")}>
     {fields.map((field) => <div key={field.label} title={field.note}>
-      <dt>{field.label}</dt><dd title={field.value === null ? "日志缺少此字段" : `${formatExact(field.value)} tokens`}>
-        {field.value === null ? <span className="session-stats-unavailable">不可用</span> : formatTokens(field.value)}
+      <dt>{field.label}</dt><dd title={field.value === null ? t("usage.StatisticsBody.text_b9e09ad371") : `${formatExact(field.value)} tokens`}>
+        {field.value === null ? <span className="session-stats-unavailable">{t("usage.StatisticsBody.text_460b3574e4")}</span> : formatTokens(field.value)}
       </dd>
     </div>)}
   </dl>;

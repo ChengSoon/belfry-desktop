@@ -1,3 +1,4 @@
+import { getLocale, t, useTranslation } from "../i18n";
 import { useCallback, useMemo, useState } from "react";
 import type { HistorySession } from "./contracts";
 import { sessionKey } from "./metadata";
@@ -8,15 +9,16 @@ import { useHistoryMetadata } from "./useHistoryMetadata";
 export const HISTORY_PAGE_SIZE = 80;
 
 export function useHistoryPanel() {
+  useTranslation();
   const [filters, setFilters] = useState(EMPTY_HISTORY_FILTERS);
   const [limit, setLimit] = useState(HISTORY_PAGE_SIZE);
   const [pendingDelete, setPendingDelete] = useState<HistorySession[] | null>(null);
-  const query = useMemo(() => resolveQuery(filters), [filters]);
+  const query = useMemo(() => resolveQuery(filters), [filters, getLocale()]);
   const history = useHistory(query.value);
   const metadata = useHistoryMetadata();
   const hits = useMemo(() => query.error ? [] : filterHistoryMetadata({
     hits: history.report.hits, metadata: metadata.entries, filters,
-  }), [history.report.hits, metadata.entries, filters, query.error]);
+  }), [history.report.hits, metadata.entries, filters, query.error, getLocale()]);
   const selection = useHistorySelection(hits.map((hit) => hit.session));
   const change = useCallback((patch: Partial<HistoryFilters>) => {
     setFilters((current) => ({ ...current, ...patch }));
@@ -40,6 +42,7 @@ export function useHistoryPanel() {
 }
 
 function useHistorySelection(sessions: HistorySession[]) {
+  useTranslation();
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const clear = useCallback(() => setSelected(new Set()), []);
@@ -61,5 +64,5 @@ function useHistorySelection(sessions: HistorySession[]) {
 
 function resolveQuery(filters: HistoryFilters) {
   try { return { value: toHistoryQuery(filters), error: null }; }
-  catch (error) { return { value: null, error: error instanceof Error ? error.message : "筛选条件无效。" }; }
+  catch (error) { return { value: null, get error() { return error instanceof Error ? error.message : t("history.useHistoryPanel.text_3e1989ad0c"); } }; }
 }

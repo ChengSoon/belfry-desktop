@@ -1,3 +1,4 @@
+import { TranslationError } from "../../i18n";
 import type { LayoutNode } from "../../layout/contracts";
 import { hasTab, layoutTabIds, replaceLeaf } from "../../layout/tree";
 import { MAX_WORKSPACES, type WorkspaceCollection } from "./contracts";
@@ -5,13 +6,13 @@ import { currentWorkspace, normalizeWorkspace, updateWorkspace } from "./model";
 import { isId, parseLayout, workspaceName } from "./validation";
 
 export function switchNamedWorkspace(collection: WorkspaceCollection, id: string) {
-  if (!collection.workspaces.some((item) => item.id === id)) throw new Error("工作区已不存在");
+  if (!collection.workspaces.some((item) => item.id === id)) throw new TranslationError("workspace.actions.text_b149e06055");
   return collection.activeWorkspaceId === id ? collection : { ...collection, activeWorkspaceId: id };
 }
 
 export function activateWorkspaceTab(collection: WorkspaceCollection, id: string | null): WorkspaceCollection {
   if (id === null) return collection;
-  if (!isId(id)) throw new Error("会话 ID 无效");
+  if (!isId(id)) throw new TranslationError("workspace.actions.text_8e0f120ca9");
   const owner = collection.workspaces.find((item) => item.tabIds.includes(id));
   if (!owner) return collection;
   let layout = owner.layout;
@@ -28,7 +29,7 @@ export function activateWorkspaceTab(collection: WorkspaceCollection, id: string
 export function registerWorkspaceTab(collection: WorkspaceCollection, request: {
   workspaceId: string; tabId: string; activate: boolean;
 }) {
-  if (!isId(request.tabId)) throw new Error("会话 ID 无效");
+  if (!isId(request.tabId)) throw new TranslationError("workspace.actions.text_8e0f120ca9");
   if (collection.workspaces.some((item) => item.tabIds.includes(request.tabId))) return collection;
   const original = collection.workspaces.find((item) => item.id === request.workspaceId);
   // 启动期间来源工作区可能已删除；接住迟到的会话，避免丢失归属或抢焦点。
@@ -38,11 +39,11 @@ export function registerWorkspaceTab(collection: WorkspaceCollection, request: {
 }
 
 export function deleteNamedWorkspace(collection: WorkspaceCollection, request: { id: string; destinationId: string }) {
-  if (collection.workspaces.length <= 1) throw new Error("至少保留一个工作区");
+  if (collection.workspaces.length <= 1) throw new TranslationError("workspace.actions.text_319240731d");
   const source = collection.workspaces.find((item) => item.id === request.id);
-  if (!source) throw new Error("工作区已不存在");
+  if (!source) throw new TranslationError("workspace.actions.text_b149e06055");
   const destination = collection.workspaces.find((item) => item.id === request.destinationId);
-  if (!destination || destination.id === source.id) throw new Error("请选择其他有效的目标工作区");
+  if (!destination || destination.id === source.id) throw new TranslationError("workspace.actions.text_feef208d51");
   const merged = normalizeWorkspace(destination, [...destination.tabIds, ...source.tabIds]);
   return { ...collection,
     activeWorkspaceId: collection.activeWorkspaceId === source.id ? destination.id : collection.activeWorkspaceId,
@@ -52,8 +53,8 @@ export function deleteNamedWorkspace(collection: WorkspaceCollection, request: {
 }
 
 export function createNamedWorkspace(collection: WorkspaceCollection, request: { id: string; name: string }) {
-  if (collection.workspaces.length >= MAX_WORKSPACES) throw new Error(`最多保存 ${MAX_WORKSPACES} 个工作区`);
-  if (!isId(request.id) || collection.workspaces.some((item) => item.id === request.id)) throw new Error("工作区 ID 无效或重复");
+  if (collection.workspaces.length >= MAX_WORKSPACES) throw new TranslationError("workspace.actions.text_4686d88238", { max: MAX_WORKSPACES });
+  if (!isId(request.id) || collection.workspaces.some((item) => item.id === request.id)) throw new TranslationError("workspace.actions.text_a82b325d21");
   const name = uniqueName(collection, request);
   return { ...collection, activeWorkspaceId: request.id,
     workspaces: [...collection.workspaces, { id: request.id, name, tabIds: [], activeTabId: null, layout: null }] };
@@ -61,7 +62,7 @@ export function createNamedWorkspace(collection: WorkspaceCollection, request: {
 
 export function renameNamedWorkspace(collection: WorkspaceCollection, request: { id: string; name: string }) {
   const workspace = collection.workspaces.find((item) => item.id === request.id);
-  if (!workspace) throw new Error("工作区已不存在");
+  if (!workspace) throw new TranslationError("workspace.actions.text_b149e06055");
   const name = uniqueName(collection, request);
   return name === workspace.name ? collection : updateWorkspace(collection, { ...workspace, name });
 }
@@ -69,7 +70,7 @@ export function renameNamedWorkspace(collection: WorkspaceCollection, request: {
 export function moveWorkspaceTab(collection: WorkspaceCollection, request: { tabId: string; workspaceId: string }) {
   const source = collection.workspaces.find((item) => item.tabIds.includes(request.tabId));
   const destination = collection.workspaces.find((item) => item.id === request.workspaceId);
-  if (!source || !destination) throw new Error("会话或目标工作区已不存在");
+  if (!source || !destination) throw new TranslationError("workspace.actions.text_798798bcb8");
   if (source.id === destination.id) return collection;
   const removed = updateWorkspace(collection, normalizeWorkspace(source, source.tabIds.filter((id) => id !== request.tabId)));
   const added = updateWorkspace(removed, { ...destination, tabIds: [...destination.tabIds, request.tabId] });
@@ -90,7 +91,7 @@ export function changeWorkspaceLayout(collection: WorkspaceCollection, request: 
 function uniqueName(collection: WorkspaceCollection, request: { id: string; name: string }) {
   const name = workspaceName(request.name);
   if (collection.workspaces.some((item) => item.id !== request.id && item.name.toLowerCase() === name.toLowerCase())) {
-    throw new Error("已有同名工作区，请换一个名称");
+    throw new TranslationError("workspace.actions.text_72c01ed98c");
   }
   return name;
 }

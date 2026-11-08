@@ -18,9 +18,9 @@ pub(super) fn checks(kind: AgentKind, version: &str) -> Vec<EnvironmentCheck> {
             CheckState::Warning
         },
         if supported {
-            "支持 Belfry 状态、历史和插件集成".into()
+            belfry_i18n::text("支持 Belfry 状态、历史和插件集成").into()
         } else {
-            format!(
+            belfry_i18n::lformat!(
                 "完整集成需要 {} {minimum} 或更新版本，请在关于页更新",
                 kind.display_name()
             )
@@ -75,9 +75,9 @@ pub(super) fn checks(kind: AgentKind, version: &str) -> Vec<EnvironmentCheck> {
         _ => false,
     };
     let help = match kind {
-        AgentKind::Opencode => "在会话中执行 /connect，或在 Provider 设置中配置接口",
-        AgentKind::Kimi => "执行 kimi login，或在 Provider 设置中配置接口",
-        _ => "启动 agy 完成 Google 登录，或在 Provider 设置中配置 Gemini API",
+        AgentKind::Opencode => belfry_i18n::text("在会话中执行 /connect，或在 Provider 设置中配置接口"),
+        AgentKind::Kimi => belfry_i18n::text("执行 kimi login，或在 Provider 设置中配置接口"),
+        _ => belfry_i18n::text("启动 agy 完成 Google 登录，或在 Provider 设置中配置 Gemini API"),
     };
     checks.push(EnvironmentCheck::new(
         CheckKind::Auth(kind),
@@ -87,7 +87,7 @@ pub(super) fn checks(kind: AgentKind, version: &str) -> Vec<EnvironmentCheck> {
             CheckState::Warning
         },
         if configured {
-            "已检测到 Provider 或凭据配置；联网鉴权由 CLI 完成"
+            belfry_i18n::text("已检测到 Provider 或凭据配置；联网鉴权由 CLI 完成")
         } else {
             help
         },

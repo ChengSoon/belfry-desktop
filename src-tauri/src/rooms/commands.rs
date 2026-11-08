@@ -17,16 +17,13 @@ use crate::collab::SessionRegistry;
 use crate::terminal::AppError;
 
 /// 把动作产出的消息排进成员终端。会话已经不在的跳过：消息照样留在时间线上。
-fn deliver(board: &TaskBoard, registry: &SessionRegistry, room: &Room, posted: &[Posted]) {
-    enqueue(board, registry, deliveries(room, posted));
+fn deliver(store: &RoomStore, board: &TaskBoard, registry: &SessionRegistry, room: &Room, posted: &[Posted]) {
+    enqueue(store, board, registry, deliveries(room, posted));
 }
 
-fn enqueue(board: &TaskBoard, registry: &SessionRegistry, posts: Vec<crate::collab::RoomPost>) {
-    let now = now_millis();
-    for post in posts {
-        if registry.find(&post.tab_id).is_some() {
-            task::enqueue_room_post(board, &format!("room:{}", post.room_id), &post, now);
-        }
+fn enqueue(store: &RoomStore, board: &TaskBoard, registry: &SessionRegistry, posts: Vec<crate::collab::RoomPost>) {
+    if let Err(error) = store.enqueue_posts(board, registry, &posts) {
+        log::warn!("Room post retained in durable outbox: {}", error.message);
     }
 }
 
@@ -61,7 +58,7 @@ pub fn room_list(
     store.reconcile(&board)?;
     let idle = |tab_id: &str| registry.find(tab_id).is_some_and(|session| session.activity == "idle");
     let posts = store.nudge_idle(&idle, now_millis())?;
-    enqueue(&board, &registry, posts);
+    enqueue(&store, &board, &registry, posts);
     store.list()
 }
 
@@ -69,6 +66,11 @@ pub fn room_list(
 pub fn room_get(store: State<'_, Arc<RoomStore>>, board: State<'_, Arc<TaskBoard>>, id: String) -> Result<Room, AppError> {
     store.reconcile(&board)?;
     store.get(&id)
+}
+
+#[tauri::command]
+pub fn room_history(store: State<'_, Arc<RoomStore>>, id: String, cursor: Option<String>, limit: Option<usize>) -> Result<super::history::HistoryPage, AppError> {
+    store.history(&id, cursor.as_deref(), limit)
 }
 
 #[tauri::command]
@@ -103,7 +105,7 @@ pub fn room_delete(store: State<'_, Arc<RoomStore>>, board: State<'_, Arc<TaskBo
     // 房间没了，还排着队的消息也不该再送出去。
     for queued in board.snapshot() {
         if matches!(&queued.origin, Some(task::TaskOrigin::Room { id: room_id, .. }) if *room_id == id) {
-            board.remove(&queued.id);
+            board.remove(&queued.id).map_err(AppError::io)?;
         }
     }
     Ok(())
@@ -125,7 +127,7 @@ pub fn room_add_member(
     let ((_, posted), room) = store.mutate(&id, |room| {
         ops::add_member(room, &tab_id, &agent, &title, &duty, foreman.unwrap_or(false), now_millis())
     })?;
-    deliver(&board, &registry, &room, &posted);
+    deliver(&store, &board, &registry, &room, &posted);
     Ok(room)
 }
 
@@ -144,7 +146,7 @@ pub fn room_update_member(
     let (posted, room) = store.mutate(&id, |room| {
         ops::update_member(room, &member_id, title.as_deref(), duty.as_deref(), tab_id.as_deref(), now_millis())
     })?;
-    deliver(&board, &registry, &room, &posted);
+    deliver(&store, &board, &registry, &room, &posted);
     Ok(room)
 }
 
@@ -157,7 +159,7 @@ pub fn room_set_foreman(
     member_id: String,
 ) -> Result<Room, AppError> {
     let (posted, room) = store.mutate(&id, |room| ops::set_foreman(room, &member_id, now_millis()))?;
-    deliver(&board, &registry, &room, &posted);
+    deliver(&store, &board, &registry, &room, &posted);
     Ok(room)
 }
 
@@ -170,7 +172,7 @@ pub fn room_remove_member(
     member_id: String,
 ) -> Result<Room, AppError> {
     let (posted, room) = store.mutate(&id, |room| ops::remove_member(room, &member_id, now_millis()))?;
-    deliver(&board, &registry, &room, &posted);
+    deliver(&store, &board, &registry, &room, &posted);
     Ok(room)
 }
 
@@ -187,7 +189,7 @@ pub fn room_update_brief(
     let (posted, room) = store.mutate(&id, |room| {
         ops::update_brief(room, &Actor::User, objective.as_deref(), focus.as_deref(), constraints, now_millis())
     })?;
-    deliver(&board, &registry, &room, std::slice::from_ref(&posted));
+    deliver(&store, &board, &registry, &room, std::slice::from_ref(&posted));
     Ok(room)
 }
 
@@ -211,7 +213,7 @@ pub fn room_say(
         attachments::validate_existing(&files).map_err(|err| err.message)?;
         ops::say_with(room, &Actor::User, &to.unwrap_or_default(), &text, reply_to.as_deref(), ask.unwrap_or(false), files, now_millis())
     })?;
-    deliver(&board, &registry, &room, std::slice::from_ref(&posted));
+    deliver(&store, &board, &registry, &room, std::slice::from_ref(&posted));
     Ok(room)
 }
 
@@ -236,6 +238,6 @@ pub fn room_task(
     op: RoomTaskOp,
 ) -> Result<Room, AppError> {
     let ((_, posted), room) = store.mutate(&id, |room| apply_task_op(room, &Actor::User, &op, now_millis()))?;
-    deliver(&board, &registry, &room, &posted);
+    deliver(&store, &board, &registry, &room, &posted);
     Ok(room)
 }

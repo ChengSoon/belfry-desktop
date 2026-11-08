@@ -21,6 +21,7 @@ vi.mock("react", async (original) => {
     return (hooks.slots[index] as { value: T }).value;
   };
   return { ...react,
+    useSyncExternalStore: (_subscribe: unknown, getSnapshot: () => unknown) => getSnapshot(),
     useState: <T,>(initial: T) => {
       const index = hooks.cursor++;
       if (!(index in hooks.slots)) hooks.slots[index] = initial;

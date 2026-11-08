@@ -1,0 +1,22 @@
+{
+  "UpdateDialog.text_943cc79488": "Belfry update",
+  "UpdateDialog.text_ecc48ab0e2": "Connecting to the update server…",
+  "UpdateDialog.text_ca9955f4ec": "You are using the latest version.",
+  "UpdateDialog.text_b9e759ac81": "Check again, or close this dialog and try later.",
+  "UpdateDialog.text_a596c619e4": "Release notes",
+  "UpdateDialog.text_56440966fd": "No release notes were provided.",
+  "UpdateDialog.text_7c1118df14": "Ready to check for updates.",
+  "UpdateDialog.text_5e069b0d8c": "Installing. Belfry will restart when finished.",
+  "UpdateDialog.text_9d2ca26128": "Later",
+  "UpdateDialog.text_3fd47edce4": "Close",
+  "UpdateDialog.text_ac69f68b70": "Download and install",
+  "UpdateDialog.text_2336147a7f": "Updating",
+  "UpdateDialog.text_d85ff08f91": "Checking",
+  "UpdateDialog.text_fe0503e4a3": "Check again",
+  "UpdateDialog.text_937ee9309c": "Current version v{{currentVersion}}",
+  "UpdateDialog.text_5d42786bd4": "Downloaded {{bytes}}",
+  "UpdateDialog.text_b7bc6d20fa": "Preparing download",
+  "useAppUpdater.text_b55df634f6": "The release source has no update information available. Try again later.",
+  "useAppUpdater.text_6a8d90e3c0": "Unable to connect to the update server. Check your connection and try again.",
+  "useAppUpdater.text_e0464a24f1": "Unable to check for updates. Try again later."
+}

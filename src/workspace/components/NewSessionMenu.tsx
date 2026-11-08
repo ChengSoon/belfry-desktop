@@ -1,3 +1,4 @@
+import { useFeedback, t, useTranslation } from "../../i18n";
 import { Check, ChevronRight, Plus, RefreshCcw, Server, SquareTerminal } from "lucide-react";
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { ICON } from "../../theme/sizing";
@@ -30,11 +31,12 @@ export function NewSessionMenu({
   onRefresh,
   shellShortcut,
 }: NewSessionMenuProps) {
+  useTranslation();
   const [menuOpen, setMenuOpen] = useState(false);
   const [shellMenuOpen, setShellMenuOpen] = useState(false);
   const [sshDialogOpen, setSshDialogOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [refreshError, setRefreshError] = useState<string | null>(null);
+  const [refreshError, setRefreshError] = useFeedback<string | null>(null);
   const refreshingRef = useRef(false);
   const mounted = useRef(true);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -70,7 +72,7 @@ export function NewSessionMenu({
     setRefreshError(null);
     try { await onRefresh(); }
     catch (error) {
-      if (mounted.current) setRefreshError(error instanceof Error ? error.message : "检测失败，请重试");
+      if (mounted.current) setRefreshError(() => error instanceof Error ? error.message : t("workspace.NewSessionMenu.text_e5e84e8dc7"));
     } finally {
       refreshingRef.current = false;
       if (mounted.current) setRefreshing(false);
@@ -132,14 +134,14 @@ export function NewSessionMenu({
             }
           }}
           ref={triggerRef}
-          title={`新建会话（Shell ${shellShortcut}）`}
+          title={t("workspace.NewSessionMenu.text_56abaaac4c", { shellShortcut: shellShortcut })}
           type="button"
         >
           <Plus aria-hidden="true" size={ICON.md} />
         </button>
 
         {menuOpen ? (
-          <div className="popover popover--menu new-session-menu" id={menuId} role="menu" aria-label="新建会话" onKeyDown={menuKey}>
+          <div className="popover popover--menu new-session-menu" id={menuId} role="menu" aria-label={t("workspace.NewSessionMenu.text_58e21b8737")} onKeyDown={menuKey}>
             <button
               aria-expanded={shellMenuOpen}
               aria-controls={shellMenuOpen ? `${menuId}-shell` : undefined}
@@ -163,12 +165,12 @@ export function NewSessionMenu({
                     role="menuitem"
                     title={profile.available || profile.isDefault
                       ? profile.executable ?? shellProfileLabel(profile.id)
-                      : profile.reason ?? `${shellProfileLabel(profile.id)} 不可用`}
+                      : profile.reason ?? t("workspace.NewSessionMenu.text_218e1645fb", { shell: shellProfileLabel(profile.id) })}
                     type="button"
                   >
                     <span>{shellProfileLabel(profile.id)}</span>
-                    {profile.isDefault && profile.available ? <Check aria-label="默认" size={ICON.xs} /> : null}
-                    {!profile.available && !profile.isDefault ? <i>不可用</i> : null}
+                    {profile.isDefault && profile.available ? <Check aria-label={t("workspace.NewSessionMenu.text_844b8cc8df")} size={ICON.xs} /> : null}
+                    {!profile.available && !profile.isDefault ? <i>{t("workspace.NewSessionMenu.text_460b3574e4")}</i> : null}
                   </button>
                 ))}
               </div>
@@ -193,12 +195,12 @@ export function NewSessionMenu({
                   key={agent.kind}
                   onClick={() => start(agent.kind)}
                   role="menuitem"
-                  title={agent.available ? agent.version ?? label : agent.reason ?? `${label} 不可用`}
+                  title={agent.available ? agent.version ?? label : agent.reason ?? t("workspace.NewSessionMenu.text_4bc4e0f3ae", { label: label })}
                   type="button"
                 >
                   <Icon aria-hidden="true" size={ICON.md} />
                   <span>{label}</span>
-                  {agent.available ? null : <i>未就绪</i>}
+                  {agent.available ? null : <i>{t("workspace.NewSessionMenu.text_e5c84c9aa7")}</i>}
                 </button>
               );
             })}
@@ -211,7 +213,7 @@ export function NewSessionMenu({
               type="button"
             >
               <RefreshCcw aria-hidden="true" size={ICON.sm} />
-              <span>{refreshing ? "检测中…" : "重新检测"}</span>
+              <span>{refreshing ? t("workspace.NewSessionMenu.text_3a1abf3422") : t("workspace.NewSessionMenu.text_a13550662f")}</span>
             </button>
             {refreshError ? <p className="new-session-menu__error" role="alert">{refreshError}</p> : null}
           </div>

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Room, RoomMember, RoomMessage, RoomTask } from "./contracts";
 import {
-  applyMention, FILE_PATH, mentionOptions, mentionQuery, projectFile,
+  allRoomMessages, applyMention, findRoomMessage, FILE_PATH, mentionOptions, mentionQuery, projectFile,
   awaitingReply, continues, CONTINUED_MS, dayLabel, deliveryNote, hueOf, initialOf, foremanOf, labelOf, openBlockers, progress, recipientOptions, shortId, taskColumns,
   titleError, workload,
 } from "./model";
@@ -34,6 +34,20 @@ function room(patch: Partial<Room> = {}): Room {
 }
 
 describe("rooms model", () => {
+  it("keeps retained requests replyable by full or short id and deduplicates newer projections", () => {
+    const older = message({ id: "old-message-abcdefgh", mode: "request_reply", by: "m1", to: ["m2"], text: "older request" });
+    const recent = { ...older, repliedBy: ["m2"] };
+    const current = room({ retainedMessages: [older] });
+    expect(allRoomMessages(current).filter((item) => awaitingReply(item).length > 0)).toEqual([older]);
+    expect(findRoomMessage(current, older.id)).toBe(older);
+    expect(findRoomMessage(current, "abcdefgh")).toBe(older);
+    current.messages = [recent];
+    expect(allRoomMessages(current)).toEqual([recent]);
+    expect(findRoomMessage(current, "abcdefgh")).toBe(recent);
+    current.retainedMessages!.push({ ...older, id: "another-message-abcdefgh" });
+    expect(findRoomMessage(current, "abcdefgh")).toBeUndefined();
+  });
+
   it("finds the foreman among active members and labels everyone", () => {
     const r = room();
     expect(foremanOf(r)?.title).toBe("统筹员");

@@ -23,7 +23,7 @@ pub async fn room_pick_attachments(window: tauri::WebviewWindow) -> Result<Vec<S
             .dialog()
             .file()
             .set_parent(&window)
-            .set_title("添加图片或文档")
+            .set_title(belfry_i18n::text("添加图片或文档"))
             .blocking_pick_files()
             .unwrap_or_default()
             .into_iter()

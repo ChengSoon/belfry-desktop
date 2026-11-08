@@ -36,13 +36,13 @@ impl CheckKind {
 
     fn label(self) -> String {
         match self {
-            Self::Diagnostics => "环境检查".to_string(),
+            Self::Diagnostics => belfry_i18n::text("环境检查").to_string(),
             Self::Skill(agent) => format!("{} Belfry skill", agent.display_name()),
             Self::Cli(agent) => format!("{} CLI", agent.display_name()),
-            Self::Auth(agent) => format!("{} 登录状态", agent.display_name()),
-            Self::MultiAgent(agent) => format!("{} 多 Agent", agent.display_name()),
-            Self::Doctor(agent) => format!("{} 自检", agent.display_name()),
-            Self::Collaboration => "协作通道".to_string(),
+            Self::Auth(agent) => belfry_i18n::lformat!("{} 登录状态", agent.display_name()),
+            Self::MultiAgent(agent) => belfry_i18n::lformat!("{} 多 Agent", agent.display_name()),
+            Self::Doctor(agent) => belfry_i18n::lformat!("{} 自检", agent.display_name()),
+            Self::Collaboration => belfry_i18n::text("协作通道").to_string(),
         }
     }
 }

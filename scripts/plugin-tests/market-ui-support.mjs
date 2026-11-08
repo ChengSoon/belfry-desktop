@@ -43,6 +43,7 @@ export async function marketUiFixture(t, settings) {
   const engine = await new BrowserProcess(join(root, "chromium")).start(); lifetime.after(() => engine.close());
   const view = await new BrowserTarget(engine, { workspace: root, frame: () => {}, state: () => {} }).start();
   lifetime.after(() => view.close());
+  await view.send("Page.addScriptToEvaluateOnNewDocument", { source: "if (!localStorage.getItem('belfry.locale.v1')) localStorage.setItem('belfry.locale.v1', 'zh-CN')" });
   const open = async () => {
     await view.navigate({ url: `${origin}/scripts/plugin-tests/fixtures/market-page.html` });
     await waitFor(view, '!!document.querySelector("#plugins-tab-market")');

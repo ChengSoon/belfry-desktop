@@ -4,6 +4,7 @@
  * 模型照 CCCC：一位统筹（foreman）拆需求、派活、跟进度，成员（peer）各管一块职责。
  */
 
+import type { DeliveryPhase } from "../collab/api";
 export type MemberRole = "foreman" | "peer";
 export type TaskStatus = "planned" | "active" | "done" | "archived";
 export type MessageKind = "chat" | "notice";
@@ -75,12 +76,17 @@ export interface Room {
   projectRoot: string;
   createdAt: number;
   brief: RoomBrief;
+  /** Committed ledger size; older cached projections may omit it. */
+  ledgerBytes?: number;
   members: RoomMember[];
   tasks: RoomTask[];
   nextTask: number;
   /** 暂停：消息只记在房间里，不送进成员终端。 */
   paused?: boolean;
   messages: RoomMessage[];
+  /** Older unresolved/undelivered messages and quoted messages retained outside the recent timeline. */
+  retainedMessages?: RoomMessage[];
+  deliveryOutbox?: { messageId: string; memberId: string; phase: DeliveryPhase; message: string | null }[];
 }
 
 /** 最近一条发给你的消息（统筹汇报、成员找你）。 */
@@ -96,6 +102,7 @@ export interface RoomSummary {
   name: string;
   projectRoot: string;
   createdAt: number;
+  ledgerBytes?: number;
   objective: string;
   memberCount: number;
   memberTabIds: string[];

@@ -1,3 +1,4 @@
+import { formatNumber } from "../../i18n";
 // Adapted from PI-Desktop PluginsPage.tsx, LGPL-3.0; see third_party/pi-desktop/NOTICE.md.
 import { usePluginsPage } from "./context";
 import { IconShield, IconTriangleAlert } from "./icons";
@@ -33,7 +34,7 @@ function InstallPermissions() {
       const scoped = pending.permissions.filter((permission) => permissionRisk(permission) === tier);
       if (!scoped.length) return null;
       return <div key={tier} className={cx("plugins-risk-group", `risk-${tier}`)}><div className="plugins-risk-head">
-        {tier === "high" ? <IconTriangleAlert size={13} /> : <IconShield size={13} />}{t(RISK_LABEL_KEYS[tier])}<span className="plugins-risk-count">{scoped.length}</span></div>
+        {tier === "high" ? <IconTriangleAlert size={13} /> : <IconShield size={13} />}{t(RISK_LABEL_KEYS[tier])}<span className="plugins-risk-count">{formatNumber(scoped.length)}</span></div>
         <PermissionList permissions={scoped} added={pending.newPermissions} plain /></div>;
     })}
     {pending.preview?.manifest.runtime?.fs ? <FsScopeChips policy={pending.preview.manifest.runtime.fs as PluginFsPolicy} /> : null}

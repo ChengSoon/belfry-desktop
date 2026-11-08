@@ -1,3 +1,5 @@
+import { errorMessage as localizedErrorMessage } from "../i18n";
+import { useFeedback, TranslationError, getLocale, t, useTranslation } from "../i18n";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import {
   createContext,
@@ -35,10 +37,11 @@ const FIT_STYLE: Record<BackgroundFit, { size: string; repeat: string }> = {
  * 两者也不需要在 JS 层耦合——遮罩色读的是 var(--canvas)，切主题时 CSS 自己会跟上。
  */
 export function BackgroundProvider({ children }: { children: ReactNode }) {
+  useTranslation();
   const [config, setConfig] = useState(loadBackground);
   const [url, setUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useFeedback<string | null>(null);
   // 落盘文件名是固定的（background.png 之类），换一张图 fileName 往往不变。
   // 靠这个计数把加载 effect 顶一次，否则界面会一直停在上一张。
   const [assetVersion, setAssetVersion] = useState(0);
@@ -116,14 +119,14 @@ export function BackgroundProvider({ children }: { children: ReactNode }) {
       selected = await openDialog({
         directory: false,
         multiple: false,
-        title: "选择壁纸",
+        title: t("background.BackgroundProvider.text_2fb1c2ac0a"),
         filters: [{
-          name: "图片或视频",
+          name: t("background.BackgroundProvider.text_cc43e3c8aa"),
           extensions: ["png", "jpg", "jpeg", "webp", "mp4", "webm"],
         }],
       });
     } catch (err) {
-      setError(errorMessage(err));
+      setError(() => errorMessage(err));
       return;
     }
     if (typeof selected !== "string") return; // 用户取消了
@@ -143,7 +146,7 @@ export function BackgroundProvider({ children }: { children: ReactNode }) {
       }));
       setAssetVersion((value) => value + 1);
     } catch (err) {
-      setError(errorMessage(err));
+      setError(() => errorMessage(err));
     } finally {
       setBusy(false);
     }
@@ -156,7 +159,7 @@ export function BackgroundProvider({ children }: { children: ReactNode }) {
       await removeBackground();
       setConfig((prev) => ({ ...prev, fileName: null, mime: null }));
     } catch (err) {
-      setError(errorMessage(err));
+      setError(() => errorMessage(err));
     } finally {
       setBusy(false);
     }
@@ -164,23 +167,18 @@ export function BackgroundProvider({ children }: { children: ReactNode }) {
 
   const controller = useMemo<BackgroundController>(
     () => ({ config, url, busy, error, update, pick, clear }),
-    [config, url, busy, error, update, pick, clear],
+    [config, url, busy, error, update, pick, clear, getLocale()],
   );
 
   return <BackgroundContext value={controller}>{children}</BackgroundContext>;
 }
 
 export function useBackground() {
+  useTranslation();
   const controller = useContext(BackgroundContext);
-  if (!controller) throw new Error("useBackground 必须在 BackgroundProvider 内使用");
+  if (!controller) throw new TranslationError("background.BackgroundProvider.text_023f209ed5");
   return controller;
 }
 
 /** 后端的 AppError 过 IPC 后是个带 message 的普通对象，不是 Error 实例。 */
-function errorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  if (typeof error === "object" && error && "message" in error) {
-    return String((error as { message: unknown }).message);
-  }
-  return String(error);
-}
+function errorMessage(error: unknown): string { return localizedErrorMessage(error); }

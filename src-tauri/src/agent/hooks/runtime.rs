@@ -61,7 +61,7 @@ impl HookRuntime {
         let report = settings::report(agent);
         let port = self.server.as_ref().map(Server::port);
         let fallback = if port.is_none() {
-            "Hook 本机端点不可用，当前使用屏幕推断".into()
+            belfry_i18n::text("Hook 本机端点不可用，当前使用屏幕推断").into()
         } else {
             report.note.clone()
         };

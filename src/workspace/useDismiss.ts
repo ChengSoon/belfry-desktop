@@ -18,6 +18,9 @@ export function useDismiss<T extends HTMLElement>(open: boolean, close: () => vo
     const opener = document.activeElement;
     const onOutside = (event: MouseEvent) => {
       const target = event.target as Node;
+      // A handler may remove its own confirmation button before this event bubbles.
+      // The original event path still identifies that click as belonging to the panel.
+      if (ref.current && event.composedPath().includes(ref.current)) return;
       if (opener instanceof HTMLElement && opener !== document.body && opener.contains(target)) return;
       if (!ownsTarget(ref.current, target)) latest.current();
     };

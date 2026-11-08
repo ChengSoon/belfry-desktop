@@ -181,8 +181,8 @@ fn recovery_keeps_live_pty_and_validates_every_target_before_retiring_exited() {
             _ => request.collaboration_mode = true,
         }
         assert_eq!(
-            AppErrorCode::InvalidArgument,
-            fixture.recover(&old, request).unwrap_err().code
+            "TERMINAL_THE_BACKGROUND_TASK_PROJECT_OR_TYPE_CHANGED",
+            fixture.recover(&old, request).unwrap_err().code.0
         );
         assert!(!fixture.service.slot(&old.id).unwrap().is_closed());
         assert_eq!(1, fixture.spawn_count());
@@ -244,7 +244,7 @@ fn identity_binding_rejects_the_wrong_agent_and_replays_the_valid_identity() {
             id: "wrong-kind".into(),
         },
     });
-    assert_eq!(AppErrorCode::InvalidArgument, invalid.failure.unwrap().code);
+    assert_eq!("TERMINAL_THE_NATIVE_SESSION_IDENTITY_DOES_NOT_MATCH", invalid.failure.unwrap().code.0);
     assert!(
         fixture
             .service

@@ -1,11 +1,14 @@
+import { formatNumber } from "../i18n";
 import { AlertTriangle, Check, Copy, Users, X } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ICON } from "../theme/sizing";
 import { useDismiss } from "../workspace/useDismiss";
 import type { TaskView } from "./api";
 import { formatTaskTime, formatTaskTimestamp } from "./relativeTime";
-import { activeTasks, awaitingApproval, taskTone } from "./taskTone";
+import { activeTasks, awaitingApproval, deliveryLabel, taskTone } from "./taskTone";
 import type { CollabTasksView } from "./useCollabTasks";
+import { DeliveryActions, type DeliveryDecision } from "./DeliveryActions";
+import { t, useTranslation } from "../i18n";
 import "./collab.css";
 
 /** 节点里的图标要比常规图标小一档才压得进 10px 的节点位，比 ICON.xs(16) 还小。 */
@@ -14,9 +17,12 @@ const NODE_ICON = 12;
 interface CollabPanelProps {
   collab: CollabTasksView;
   onClose: () => void;
+  onOpenTerminal?: (tabId: string) => void;
+  availableTabIds?: readonly string[];
 }
 
-export function CollabPanel({ collab, onClose }: CollabPanelProps) {
+export function CollabPanel({ collab, onClose, onOpenTerminal, availableTabIds }: CollabPanelProps) {
+  useTranslation();
   // Other panel triggers switch on click. Closing on mousedown creates an empty
   // rail between press/release and resizes every terminal twice unnecessarily.
   const ref = useDismiss<HTMLElement>(true, onClose, "click");
@@ -27,10 +33,10 @@ export function CollabPanel({ collab, onClose }: CollabPanelProps) {
   );
   const [filter, setFilter] = useState<"all" | "waiting" | "active" | "settled">("all");
   const filters = [
-    { id: "all", label: "全部", count: collab.tasks.length },
-    { id: "waiting", label: "待确认", count: waiting.length },
-    { id: "active", label: "进行中", count: active.length },
-    { id: "settled", label: "已结束", count: settled.length },
+    { id: "all", label: t("collab.CollabPanel.text_5c55a67935"), count: collab.tasks.length },
+    { id: "waiting", label: t("collab.CollabPanel.text_a8b0bd9c65"), count: waiting.length },
+    { id: "active", label: t("collab.work.open"), count: active.length },
+    { id: "settled", label: t("collab.CollabPanel.text_d79b1d0e5c"), count: settled.length },
   ] as const;
 
   // 每次渲染取一次「现在」，同一批事件共用，相对时长不会互相错开一秒。
@@ -42,52 +48,65 @@ export function CollabPanel({ collab, onClose }: CollabPanelProps) {
     <aside aria-labelledby="collab-panel-title" className="collab-panel" ref={ref}>
       <header className="collab-panel__head">
         <Users aria-hidden="true" size={ICON.md} />
-        <h2 id="collab-panel-title">会话协作</h2>
+        <h2 id="collab-panel-title">{t("collab.CollabPanel.text_18a62218d6")}</h2>
         {/* 等确认的条数原先是标题下面的第二行说明文字，那行把头部撑到 56px，
             右侧四个面板的标题行因此对不齐。改成与历史面板同款的计数徽标：
             同一件事（这一列现在有多少条要紧的）用同一种表达。
             没有等确认的活时不显示——"Agent 之间互相派活"那句是功能介绍，
             空态里已经讲得更清楚，头部不必再说一遍。 */}
         {waiting.length > 0 ? (
-          <span className="panel-count panel-count--alert">{waiting.length}</span>
+          <span className="panel-count panel-count--alert">{formatNumber(waiting.length)}</span>
         ) : null}
-        <button aria-label="关闭协作面板" className="icon-button icon-button--sm" onClick={onClose} title="关闭" type="button">
+        <button aria-label={t("collab.CollabPanel.text_29f1d60549")} className="icon-button icon-button--sm" onClick={onClose} title={t("collab.CollabPanel.text_3fd47edce4")} type="button">
           <X aria-hidden="true" size={ICON.md} />
         </button>
       </header>
       <div className="collab-panel__context">
-        <p>本机 Agent 派活记录</p>
-        <div className="collab-filters" role="group" aria-label="筛选协作状态">
+        <p>{t("collab.CollabPanel.text_63ac23a22d")}</p>
+        <div className="collab-filters" role="group" aria-label={t("collab.CollabPanel.text_c310faf317")}>
           {filters.map(({ id, label, count }) => <button key={id} type="button" aria-pressed={filter === id}
-            onClick={() => setFilter(id)}>{label}<span>{count}</span></button>)}
+            onClick={() => setFilter(id)}>{label}<span>{formatNumber(count)}</span></button>)}
         </div>
       </div>
 
-      {collab.error ? (
+      {collab.queryError ? (
         <div className="collab-panel__error" role="alert">
           <AlertTriangle aria-hidden="true" size={ICON.sm} />
-          <div><span>{collab.error}</span><small>正在自动重试；下方保留上次读取的记录。</small></div>
+          <div><span>{collab.queryError}</span><small>{t("collab.CollabPanel.text_c9bcc7ce48")}</small></div>
         </div>
       ) : null}
+      {collab.actionErrors.map(({ action, message }) => (
+        <div className="collab-panel__error" role="alert" key={action.kind === "stopAll" ? action.kind : action.id}>
+          <AlertTriangle aria-hidden="true" size={ICON.sm} />
+          <div><span>{message}</span><small>{action.kind === "resolve" ? t("collab.delivery.changed") : t("collab.actionFailed")}</small>
+            {action.kind !== "resolve" ? <button className="collab-button" disabled={collab.pending.size > 0} onClick={() => void collab.retry(action)} type="button">
+              {action.kind === "approve" ? t("collab.CollabPanel.text_de30201f78") : action.kind === "reject" ? t("collab.CollabPanel.text_2d11b66a96") : t("collab.CollabPanel.text_f5e08d424e")}
+            </button> : null}
+          </div>
+        </div>
+      ))}
 
       <div className="collab-panel__body">
         {collab.tasks.length === 0 ? <EmptyHint /> : null}
         {collab.tasks.length > 0 && filters.find((item) => item.id === filter)?.count === 0 ?
-          <p className="collab-panel__empty-filter" role="status">此状态下没有任务。可切换到「全部」查看记录。</p> : null}
+          <p className="collab-panel__empty-filter" role="status">{t("collab.CollabPanel.text_cede695309")}</p> : null}
         {(filter === "all" || filter === "waiting") && waiting.length > 0 ? (
-          <TaskGroup title="等你确认" tasks={waiting}>
+          <TaskGroup title={t("collab.CollabPanel.text_99e5109f91")} tasks={waiting}>
             {waiting.map((task) => (
-              <TaskEvent key={task.id} now={now} onApprove={collab.approve} onReject={collab.reject} task={task} />
+              <TaskEvent key={task.id} now={now} onApprove={collab.approve} onReject={collab.reject} task={task}
+                pending={collab.pending.has(task.id) || collab.pending.has("stopAll")} />
             ))}
           </TaskGroup>
         ) : null}
         {(filter === "all" || filter === "active") && active.length > 0 ? (
-          <TaskGroup title="进行中" tasks={active}>
-            {active.map((task) => <TaskEvent key={task.id} now={now} task={task} />)}
+          <TaskGroup title={t("collab.work.open")} tasks={active}>
+            {active.map((task) => <TaskEvent key={task.id} now={now} task={task} onResolve={collab.resolve}
+              pending={collab.pending.has(task.id) || collab.pending.has("stopAll")}
+              onLocate={task.toTabId && (!availableTabIds || availableTabIds.includes(task.toTabId)) ? onOpenTerminal : undefined} />)}
           </TaskGroup>
         ) : null}
         {(filter === "all" || filter === "settled") && settled.length > 0 ? (
-          <TaskGroup quiet title="已结束" tasks={settled}>
+          <TaskGroup quiet title={t("collab.CollabPanel.text_d79b1d0e5c")} tasks={settled}>
             {settled.map((task) => <TaskEvent key={task.id} now={now} task={task} />)}
           </TaskGroup>
         ) : null}
@@ -95,12 +114,10 @@ export function CollabPanel({ collab, onClose }: CollabPanelProps) {
 
       <footer className="collab-panel__foot">
         <span className="collab-panel__count">
-          {active.length > 0 ? `${active.length} 条在跑` : "没有在跑的任务"}
+          {active.length > 0 ? t("collab.work.openCount", { count: active.length }) : t("collab.work.noneOpen")}
         </span>
         {waiting.length + active.length > 0 ? (
-          <button className="collab-button collab-button--danger" onClick={() => void collab.stopAll()} type="button">
-            全部停下
-          </button>
+          <button className="collab-button collab-button--danger" disabled={collab.pending.size > 0} onClick={() => void collab.stopAll()} type="button">{t("collab.CollabPanel.text_784aaf3360")}</button>
         ) : null}
       </footer>
     </aside>
@@ -118,22 +135,23 @@ export function CollabPanel({ collab, onClose }: CollabPanelProps) {
  * 节点位置也不跳（左列栅格与 .collab-event 一致）。
  */
 function EmptyHint() {
+  useTranslation();
   return (
     <div className="collab-empty">
-      <p className="collab-empty__lead">还没有派活记录</p>
+      <p className="collab-empty__lead">{t("collab.CollabPanel.text_7d88c6d2bc")}</p>
 
       <div className="collab-empty__preview">
-        <PreviewRow>派出去的活会一条条长在这里</PreviewRow>
-        <PreviewRow>谁派给谁、跑到哪一步</PreviewRow>
+        <PreviewRow>{t("collab.CollabPanel.text_496a439f66")}</PreviewRow>
+        <PreviewRow>{t("collab.CollabPanel.text_61d5a81566")}</PreviewRow>
       </div>
 
       <div className="collab-empty__howto">
-        <p>在任一 Agent 会话的终端里敲</p>
-        <CopyableCommand hint="看现在有谁、各自忙不忙" command="belfry peers" />
-        <CopyableCommand hint="把活派给叫 ui 的那条会话" command="belfry send ui 审一下 auth.ts" />
+        <p>{t("collab.CollabPanel.text_cd9e7aec5b")}</p>
+        <CopyableCommand hint={t("collab.CollabPanel.text_2bebdeab7c")} command="belfry peers" />
+        <CopyableCommand hint={t("collab.CollabPanel.text_d3f94a74a0")} command={t("collab.CollabPanel.text_ca0e9340c8")} />
       </div>
 
-      <p className="collab-empty__note">名字要先在侧栏双击会话起</p>
+      <p className="collab-empty__note">{t("collab.CollabPanel.text_ddb63e3a24")}</p>
     </div>
   );
 }
@@ -145,6 +163,7 @@ function EmptyHint() {
  * 读屏用户靠它们知道这个面板将来会显示什么。
  */
 function PreviewRow({ children }: { children: ReactNode }) {
+  useTranslation();
   return (
     <div className="collab-empty__row">
       <span aria-hidden="true" className="collab-empty__rail">
@@ -162,6 +181,7 @@ function PreviewRow({ children }: { children: ReactNode }) {
  * 点第二条会把第一条的勾撤掉。
  */
 function CopyableCommand({ command, hint }: { command: string; hint: string }) {
+  useTranslation();
   const [copied, setCopied] = useState(false);
   const timerRef = useRef<number | undefined>(undefined);
 
@@ -183,7 +203,7 @@ function CopyableCommand({ command, hint }: { command: string; hint: string }) {
   return (
     <div className="collab-empty__command">
       <button
-        aria-label={copied ? "已复制" : `复制命令 ${command}`}
+        aria-label={copied ? t("collab.CollabPanel.text_8f6f8d979c") : t("collab.CollabPanel.text_8f19384b76", { command: command })}
         className="collab-empty__copy"
         onClick={() => void copy()}
         type="button"
@@ -211,12 +231,13 @@ function TaskGroup({
   quiet?: boolean;
   children: ReactNode;
 }) {
+  useTranslation();
   return (
     <section className={`collab-group${quiet ? " collab-group--quiet" : ""}`}>
       <h3>
         {title}
         {/* 计数让人不用一条条数就知道这组有多少。 */}
-        <span className="collab-group__count">{tasks.length}</span>
+        <span className="collab-group__count">{formatNumber(tasks.length)}</span>
       </h3>
       {/* 轨道的收口靠 :first-child / :last-child，所以事件必须自己独占一个容器，
           不能和 h3 混在同一个父级里——那样第一个事件就永远不是 first-child。 */}
@@ -236,13 +257,20 @@ function TaskEvent({
   now,
   onApprove,
   onReject,
+  onResolve,
+  onLocate,
+  pending = false,
 }: {
   task: TaskView;
   now: number;
   onApprove?: (id: string) => Promise<void>;
   onReject?: (id: string) => Promise<void>;
+  onResolve?: (task: TaskView, decision: DeliveryDecision) => Promise<void>;
+  onLocate?: (tabId: string) => void;
+  pending?: boolean;
 }) {
-  const { label, tone } = taskTone(task.state);
+  useTranslation();
+  const { label, tone } = taskTone(task.state, task.delivery?.phase);
   const stamp = formatTaskTimestamp(task.createdAt);
 
   return (
@@ -264,33 +292,35 @@ function TaskEvent({
               就得是合法时间戳，而这里正文是「3 分钟前」。真去拼 datetime 就得
               toISOString()，它在 createdAt 越界时会抛 RangeError，一条脏时间戳能把
               整个面板炸掉——完整时刻挂在 title 上就够了。 */}
-          <span className="collab-event__time" title={`派活时间 ${stamp}`}>
+          <span className="collab-event__time" title={t("collab.CollabPanel.text_e6e586c9f4", { stamp: stamp })}>
             {formatTaskTime(task.createdAt, now)}
           </span>
         </div>
 
         <div className="collab-event__status">
           <span className="collab-event__state">{label}</span>
+          {task.delivery && ["done", "failed", "abandoned"].includes(task.state)
+            ? <span className="collab-event__receipt">{deliveryLabel(task.delivery.phase)}</span> : null}
           {/* 降权但不删：去 CLI 对表时还得靠它，user-select: all 让双击能整段复制。 */}
           <code className="collab-event__id">{task.shortId}</code>
         </div>
 
         <p className="collab-event__instruction" title={task.instruction}>{task.instruction}</p>
+        {task.delivery?.message ? <p className="collab-event__delivery-message">{task.delivery.message}</p> : null}
+        <DeliveryActions task={task} pending={pending} onResolve={onResolve} onLocate={onLocate} />
 
         {task.result ? (
-          <details className="collab-event__result-detail"><summary>查看任务结果</summary>
+          <details className="collab-event__result-detail"><summary>{t("collab.CollabPanel.text_bb89790139")}</summary>
             <p className="collab-event__result">{task.result}</p>
           </details>
         ) : null}
 
         {onApprove && onReject ? (
           <div className="collab-event__actions">
-            <button className="collab-button collab-button--quiet" onClick={() => void onReject(task.id)} type="button">
-              拒绝
-            </button>
-            <button className="collab-button collab-button--primary" onClick={() => void onApprove(task.id)} type="button">
+            <button className="collab-button collab-button--quiet" disabled={pending} onClick={() => void onReject(task.id)} type="button">{t("collab.CollabPanel.text_136de7a8c4")}</button>
+            <button className="collab-button collab-button--primary" disabled={pending} onClick={() => void onApprove(task.id)} type="button">
               <Check aria-hidden="true" size={ICON.xs} />
-              <span>批准</span>
+              <span>{t("collab.CollabPanel.text_8cbe697b15")}</span>
             </button>
           </div>
         ) : null}

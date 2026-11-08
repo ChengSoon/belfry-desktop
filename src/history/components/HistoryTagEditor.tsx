@@ -1,3 +1,4 @@
+import { useFeedback, t, useTranslation } from "../../i18n";
 import { useState, type FormEvent } from "react";
 import { normalizeTags } from "../metadata";
 import { composingKey, guardComposingEnter } from "../../utils/keyboard";
@@ -9,14 +10,15 @@ interface Props {
 }
 
 export function HistoryTagEditor({ tags, onSave, onClose }: Props) {
-  const [draft, setDraft] = useState(tags.join("，"));
-  const [error, setError] = useState<string | null>(null);
+  useTranslation();
+  const [draft, setDraft] = useState(tags.join(", "));
+  const [error, setError] = useFeedback<string | null>(null);
   const submit = (event: FormEvent) => {
     event.preventDefault();
     try {
       if (onSave(normalizeTags(draft)) !== false) onClose();
-      else setError("标签保存失败，请查看上方错误提示。");
-    } catch (error) { setError(error instanceof Error ? error.message : "无法保存标签。"); }
+      else setError(() => t("history.HistoryTagEditor.text_d9db4a949b"));
+    } catch (error) { setError(() => error instanceof Error ? error.message : t("history.HistoryTagEditor.text_b4a05d85c6")); }
   };
   return <form className="history-tag-editor" onSubmit={submit} onKeyDown={(event) => {
     // 选词回车的默认动作先挡住（表单隐式提交）；组字中的 Escape 是「取消候选」，不关编辑器。
@@ -24,9 +26,9 @@ export function HistoryTagEditor({ tags, onSave, onClose }: Props) {
     if (composingKey(event.nativeEvent)) return;
     if (event.key === "Escape") { event.stopPropagation(); onClose(); }
   }}>
-    <label><span>标签，用逗号分隔</span><input autoFocus aria-label="会话标签" value={draft}
-      placeholder="例如：回归，待复查" onChange={(event) => setDraft(event.target.value)} /></label>
-    <div><button type="button" onClick={onClose}>取消</button><button type="submit">保存标签</button></div>
+    <label><span>{t("history.HistoryTagEditor.text_1fd96725a9")}</span><input autoFocus aria-label={t("history.HistoryTagEditor.text_2c70d3e409")} value={draft}
+      placeholder={t("history.HistoryTagEditor.text_798e599684")} onChange={(event) => setDraft(event.target.value)} /></label>
+    <div><button type="button" onClick={onClose}>{t("history.HistoryTagEditor.text_2cd0f3be87")}</button><button type="submit">{t("history.HistoryTagEditor.text_277c532bb9")}</button></div>
     {error ? <p role="alert">{error}</p> : null}
   </form>;
 }

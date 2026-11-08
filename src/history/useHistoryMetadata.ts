@@ -1,13 +1,15 @@
+import { t, useTranslation } from "../i18n";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AgentSessionRef } from "../agent/contracts";
 import { HISTORY_METADATA_KEY, loadMetadata, saveSessionMetadata, type SessionMetadata } from "./metadata";
 
-function readState() {
+function readState(): { entries: ReturnType<typeof loadMetadata>; error: string | null } {
   try { return { entries: loadMetadata(localStorage), error: null as string | null }; }
-  catch (error) { return { entries: {}, error: error instanceof Error ? error.message : "无法读取收藏。" }; }
+  catch (error) { return { entries: {}, get error() { return error instanceof Error ? error.message : t("history.useHistoryMetadata.text_a43d2b0c29"); } }; }
 }
 
 export function useHistoryMetadata() {
+  useTranslation();
   const [state, setState] = useState(readState);
   const save = useCallback((session: AgentSessionRef, patch: Partial<SessionMetadata>) => {
     try {
@@ -15,7 +17,7 @@ export function useHistoryMetadata() {
       setState({ entries, error: null });
       return true;
     } catch (error) {
-      setState((current) => ({ ...current, error: error instanceof Error ? error.message : "收藏保存失败。" }));
+      setState((current) => ({ ...current, get error() { return error instanceof Error ? error.message : t("history.useHistoryMetadata.text_6c9d7addda"); } }));
       return false;
     }
   }, []);

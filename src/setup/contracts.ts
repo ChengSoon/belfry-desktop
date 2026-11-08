@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 import { AGENT_METADATA, agentRecord, type AgentKind } from "../agent/contracts";
 export type { AgentKind } from "../agent/contracts";
 export type CheckState = "ok" | "warning" | "error";
@@ -55,9 +56,9 @@ export function summarizeSkillInstall(outcome: SkillInstallOutcome): SkillInstal
   const unchanged = succeeded.length - changed;
   const notice = succeeded.length === 0
     ? null
-    : `已同步 ${succeeded.length} 个客户端（安装/更新 ${changed}，已是最新 ${unchanged}）`;
+    : t("setup.contracts.text_69dc809232", { count: succeeded.length, changed: changed, unchanged: unchanged });
   const failure = failed.length === 0
     ? null
-    : failed.map((result) => `${AGENT_LABEL[result.agent]}：${result.summary}`).join("；");
+    : failed.map((result) => `${AGENT_LABEL[result.agent]}: ${result.summary}`).join("; ");
   return { failure, notice };
 }

@@ -1,0 +1,22 @@
+{
+  "UpdateDialog.text_943cc79488": "Belfry 更新",
+  "UpdateDialog.text_ecc48ab0e2": "正在连接更新服务器…",
+  "UpdateDialog.text_ca9955f4ec": "当前已是最新版本。",
+  "UpdateDialog.text_b9e759ac81": "可再次检查，或关闭后稍后重试。",
+  "UpdateDialog.text_a596c619e4": "版本说明",
+  "UpdateDialog.text_56440966fd": "该版本未提供版本说明。",
+  "UpdateDialog.text_7c1118df14": "准备检查更新。",
+  "UpdateDialog.text_5e069b0d8c": "正在安装，完成后将自动重启",
+  "UpdateDialog.text_9d2ca26128": "稍后",
+  "UpdateDialog.text_3fd47edce4": "关闭",
+  "UpdateDialog.text_ac69f68b70": "下载并安装",
+  "UpdateDialog.text_2336147a7f": "正在更新",
+  "UpdateDialog.text_d85ff08f91": "正在检查",
+  "UpdateDialog.text_fe0503e4a3": "再次检查",
+  "UpdateDialog.text_937ee9309c": "当前版本 v{{currentVersion}}",
+  "UpdateDialog.text_5d42786bd4": "已下载 {{bytes}}",
+  "UpdateDialog.text_b7bc6d20fa": "正在准备下载",
+  "useAppUpdater.text_b55df634f6": "发布源暂时没有可用的更新描述，请稍后再试。",
+  "useAppUpdater.text_6a8d90e3c0": "无法连接更新服务器，请检查网络后重试。",
+  "useAppUpdater.text_e0464a24f1": "检查更新失败，请稍后重试。"
+}

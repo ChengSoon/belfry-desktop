@@ -1,3 +1,4 @@
+import { t, useTranslation } from "../../i18n";
 import type { ProviderConfig } from "../contracts";
 import { useDismiss } from "../../workspace/useDismiss";
 
@@ -12,19 +13,20 @@ export function RemoveConfirm({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
+  useTranslation();
   const ref = useDismiss<HTMLDivElement>(true, onCancel);
   return (
     <div className="modal-scrim provider-confirm">
       <div aria-modal="true" className="modal" ref={ref} role="dialog">
-        <strong className="modal__title">删除 {config.name}？</strong>
+        <strong className="modal__title">{t("provider.RemoveConfirm.text_5caa73305f", { name: config.name })}</strong>
         <p className="modal__body">
           {isCurrent
-            ? "它正在生效，删除后会先切回官方端点。API Key 一并删掉，撤不回来。"
-            : "API Key 会一并删掉，撤不回来。"}
+            ? t("provider.RemoveConfirm.text_1fe56f30b9")
+            : t("provider.RemoveConfirm.text_43726f8de5")}
         </p>
         <div className="modal__actions">
-          <button onClick={onCancel} type="button">取消</button>
-          <button className="modal__danger" onClick={onConfirm} type="button">删除</button>
+          <button onClick={onCancel} type="button">{t("provider.RemoveConfirm.text_2cd0f3be87")}</button>
+          <button className="modal__danger" onClick={onConfirm} type="button">{t("provider.RemoveConfirm.text_2f9daa8289")}</button>
         </div>
       </div>
     </div>

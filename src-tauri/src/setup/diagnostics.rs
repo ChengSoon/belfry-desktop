@@ -34,27 +34,27 @@ fn from_skill_inspection(inspection: skill::SkillInspection) -> EnvironmentCheck
     let kind = CheckKind::Skill(inspection.agent);
     match inspection.state {
         SkillState::Current => {
-            EnvironmentCheck::new(kind, CheckState::Ok, format!("已同步到 {path}"))
+            EnvironmentCheck::new(kind, CheckState::Ok, belfry_i18n::lformat!("已同步到 {path}"))
         }
         // pi 会扫 `~/.agents/skills/`，那份已是当前版本时不必再装一遍。
         SkillState::Shared => {
-            EnvironmentCheck::new(kind, CheckState::Ok, format!("已由共享目录提供：{path}"))
+            EnvironmentCheck::new(kind, CheckState::Ok, belfry_i18n::lformat!("已由共享目录提供：{path}"))
         }
         SkillState::Missing => {
-            EnvironmentCheck::new(kind, CheckState::Warning, format!("尚未安装到 {path}"))
+            EnvironmentCheck::new(kind, CheckState::Warning, belfry_i18n::lformat!("尚未安装到 {path}"))
         }
         SkillState::Outdated => {
-            EnvironmentCheck::new(kind, CheckState::Warning, format!("需要更新：{path}"))
+            EnvironmentCheck::new(kind, CheckState::Warning, belfry_i18n::lformat!("需要更新：{path}"))
         }
     }
 }
 
 fn collaboration_check(endpoint: Option<&str>, identities: &SessionIdentities) -> EnvironmentCheck {
     let Some(endpoint) = endpoint else {
-        return collab_error("Belfry 协作服务未启动");
+        return collab_error(belfry_i18n::text("Belfry 协作服务未启动"));
     };
     let Some(cli) = belfry_cli_path() else {
-        return collab_error("安装包中缺少 belfry 控制 CLI");
+        return collab_error(belfry_i18n::text("安装包中缺少 belfry 控制 CLI"));
     };
     run_peers_check(&cli, endpoint, identities)
 }
@@ -72,10 +72,10 @@ fn run_peers_check(cli: &Path, endpoint: &str, identities: &SessionIdentities) -
         Ok(output) if output.status.success() => EnvironmentCheck::new(
             CheckKind::Collaboration,
             CheckState::Ok,
-            "控制 CLI、协议与协作服务已连通",
+            belfry_i18n::text("控制 CLI、协议与协作服务已连通"),
         ),
-        Ok(_) => collab_error("belfry peers 自检失败"),
-        Err(error) => collab_error(format!("控制 CLI 无法启动：{error}")),
+        Ok(_) => collab_error(belfry_i18n::text("belfry peers 自检失败")),
+        Err(error) => collab_error(belfry_i18n::lformat!("控制 CLI 无法启动：{error}")),
     }
 }
 

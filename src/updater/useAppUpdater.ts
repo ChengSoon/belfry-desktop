@@ -1,3 +1,4 @@
+import { t, useTranslation } from "../i18n";
 import { getVersion } from "@tauri-apps/api/app";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type DownloadEvent, type Update } from "@tauri-apps/plugin-updater";
@@ -17,6 +18,7 @@ const PERIODIC_CHECK_MS = 6 * 60 * 60_000;
 const RETRY_BACKOFF_MS = [15_000, 60_000, 5 * 60_000];
 
 export function useAppUpdater() {
+  useTranslation();
   const [state, setState] = useState<UpdaterState>(INITIAL_UPDATER_STATE);
   const [open, setOpen] = useState(false);
   const updateRef = useRef<Update | null>(null);
@@ -167,7 +169,7 @@ function errorState(state: UpdaterState, error: unknown): UpdaterState {
 }
 
 function friendlyError(detail: string) {
-  if (/404|not found/i.test(detail)) return "发布源暂时没有可用的更新描述，请稍后再试。";
-  if (/network|fetch|connect|dns|timed? out/i.test(detail)) return "无法连接更新服务器，请检查网络后重试。";
-  return detail || "检查更新失败，请稍后重试。";
+  if (/404|not found/i.test(detail)) return t("updater.useAppUpdater.text_b55df634f6");
+  if (/network|fetch|connect|dns|timed? out/i.test(detail)) return t("updater.useAppUpdater.text_6a8d90e3c0");
+  return detail || t("updater.useAppUpdater.text_e0464a24f1");
 }

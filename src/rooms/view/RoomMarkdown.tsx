@@ -1,3 +1,4 @@
+import { t, useTranslation } from "../../i18n";
 import { FileCode } from "lucide-react";
 import { memo, type ReactNode } from "react";
 import ReactMarkdown, { defaultUrlTransform, type Components } from "react-markdown";
@@ -47,11 +48,12 @@ function parseFileHref(href: string): { raw: string; line: number | null } | nul
 function FileLink({ projectRoot, raw, line, onOpenFile, children }: {
   projectRoot: string; raw: string; line: number | null; onOpenFile?: (path: string, line: number | null) => void; children: ReactNode;
 }) {
+  useTranslation();
   const file = projectFile(projectRoot, raw, line);
   if (!file || !onOpenFile) return <>{children}</>;
   return (
     <button className="room-md-file inline-flex items-baseline gap-0.5 align-baseline font-mono text-[0.9em] text-primary underline decoration-primary/40 underline-offset-2 hover:decoration-primary"
-      onClick={() => onOpenFile(file.path, file.line)} title={`在预览里打开 ${file.path}${file.line ? `:${file.line}` : ""}`} type="button">
+      onClick={() => onOpenFile(file.path, file.line)} title={t("rooms.RoomMarkdown.text_cd3f87b471", { path: file.path, status: file.line ? `:${file.line}` : "" })} type="button">
       <FileCode className="size-3 shrink-0 translate-y-0.5" />
       {children}
     </button>
@@ -61,6 +63,7 @@ function FileLink({ projectRoot, raw, line, onOpenFile, children }: {
 export const RoomMarkdown = memo(function RoomMarkdown({ text, projectRoot, onOpenFile, className }: {
   text: string; projectRoot: string; onOpenFile?: (path: string, line: number | null) => void; className?: string;
 }) {
+  useTranslation();
   const components: Components = {
     a: ({ href, children }) => {
       const file = href ? parseFileHref(href) : null;
@@ -76,7 +79,7 @@ export const RoomMarkdown = memo(function RoomMarkdown({ text, projectRoot, onOp
       return <span>{children}</span>;
     },
     // 不加载远程图片：只留替代文字。附件里的图片走附件卡片。
-    img: ({ alt }) => <span className="text-muted-foreground">[图片{alt ? `：${alt}` : ""}]</span>,
+    img: ({ alt }) => <span className="text-muted-foreground">{alt ? t("rooms.markdown.imageAlt", { alt }) : t("rooms.markdown.image")}</span>,
     code: ({ className: language, children }) => {
       const value = String(children ?? "");
       const block = Boolean(language) || value.includes("\n");

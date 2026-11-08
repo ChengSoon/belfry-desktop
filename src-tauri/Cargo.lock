@@ -273,8 +273,10 @@ checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 name = "belfry-cli"
 version = "0.1.0"
 dependencies = [
+ "belfry-i18n",
  "belfry-protocol",
  "serde_json",
+ "socket2",
 ]
 
 [[package]]
@@ -282,11 +284,15 @@ name = "belfry-desktop"
 version = "0.24.0"
 dependencies = [
  "aes-gcm",
+ "belfry-i18n",
  "belfry-protocol",
+ "dirs",
  "dunce",
+ "log",
  "objc2-app-kit",
  "objc2-foundation",
  "portable-pty",
+ "regex",
  "reqwest",
  "rusqlite",
  "rustls",
@@ -301,10 +307,34 @@ dependencies = [
  "tauri-plugin-notification",
  "tauri-plugin-process",
  "tauri-plugin-updater",
+ "time",
  "toml_edit 0.25.13+spec-1.1.0",
  "ulid",
  "windows-sys 0.61.2",
  "zeroize",
+]
+
+[[package]]
+name = "belfry-i18n"
+version = "0.1.0"
+dependencies = [
+ "belfry-i18n-macros",
+ "dirs",
+ "libloading",
+ "regex",
+ "serde",
+ "serde_json",
+ "sys-locale",
+]
+
+[[package]]
+name = "belfry-i18n-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "serde_json",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -3870,6 +3900,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.119",
+]
+
+[[package]]
+name = "sys-locale"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8eab9a99a024a169fe8a903cf9d4a3b3601109bcc13bd9e3c6fff259138626c4"
+dependencies = [
+ "libc",
 ]
 
 [[package]]

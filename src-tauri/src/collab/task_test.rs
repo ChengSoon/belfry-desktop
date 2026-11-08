@@ -35,6 +35,7 @@ fn task_at(from: &str, to: &str, hop: u8, path: &[&str]) -> CollabTask {
         origin: None,
         chat: None,
         due_at: 0,
+        delivery: DeliveryReceipt::default(),
     }
 }
 
@@ -59,7 +60,7 @@ fn only(board: &TaskBoard) -> CollabTask {
 #[test]
 fn a_room_post_is_delivered_as_conversation_not_task_paperwork() {
     let board = TaskBoard::default();
-    enqueue_room_post(&board, "t1", &post("r1", "m1", "t2", "[aaaa0001] 统筹：接口定了吗", false), 0);
+    enqueue_room_post(&board, "t1", &post("r1", "m1", "t2", "[aaaa0001] 统筹：接口定了吗", false), 0).unwrap();
     let task = only(&board);
     assert_eq!(task.state, TaskState::Queued);
     assert_eq!(task.origin, Some(TaskOrigin::Room { id: "r1".into(), name: "登录改版".into() }));
@@ -69,7 +70,7 @@ fn a_room_post_is_delivered_as_conversation_not_task_paperwork() {
     assert!(!injected.contains("belfry done"), "房间消息不在这里交差：{injected}");
 
     let board = TaskBoard::default();
-    enqueue_room_post(&board, "t1", &post("r1", "m2", "t2", "[aaaa0002] 统筹：今天能好吗", true), 0);
+    enqueue_room_post(&board, "t1", &post("r1", "m2", "t2", "[aaaa0002] 统筹：今天能好吗", true), 0).unwrap();
     let injected = injection_text(&only(&board), "登录改版");
     assert!(injected.contains("要求你回复") && injected.contains("--reply"), "{injected}");
 }
@@ -77,8 +78,8 @@ fn a_room_post_is_delivered_as_conversation_not_task_paperwork() {
 #[test]
 fn a_burst_of_room_posts_merges_into_the_pending_delivery() {
     let board = TaskBoard::default();
-    enqueue_room_post(&board, "t1", &post("r1", "m1", "t2", "第一句", false), 1_000);
-    enqueue_room_post(&board, "t1", &post("r1", "m2", "t2", "第二句", true), 5_000);
+    enqueue_room_post(&board, "t1", &post("r1", "m1", "t2", "第一句", false), 1_000).unwrap();
+    enqueue_room_post(&board, "t1", &post("r1", "m2", "t2", "第二句", true), 5_000).unwrap();
     let task = only(&board);
     assert_eq!(task.instruction, "第一句\n第二句");
     let chat = task.chat.as_ref().unwrap();
@@ -88,11 +89,11 @@ fn a_burst_of_room_posts_merges_into_the_pending_delivery() {
 
     // 已送达的不再并：新消息另起一条，绝不往已经打进终端的文字里追加。
     board.mark_dispatched(&task.id);
-    enqueue_room_post(&board, "t1", &post("r1", "m3", "t2", "第三句", false), 6_000);
+    enqueue_room_post(&board, "t1", &post("r1", "m3", "t2", "第三句", false), 6_000).unwrap();
     assert_eq!(board.snapshot().len(), 2);
     // 别的房间、超出窗口同样不并。
-    enqueue_room_post(&board, "t1", &post("r2", "m4", "t2", "另一间房", false), 6_100);
-    enqueue_room_post(&board, "t1", &post("r1", "m5", "t2", "太久了", false), 6_000 + CHAT_MERGE_WINDOW_MS + 1);
+    enqueue_room_post(&board, "t1", &post("r2", "m4", "t2", "另一间房", false), 6_100).unwrap();
+    enqueue_room_post(&board, "t1", &post("r1", "m5", "t2", "太久了", false), 6_000 + CHAT_MERGE_WINDOW_MS + 1).unwrap();
     assert_eq!(board.snapshot().len(), 4);
 }
 
@@ -103,8 +104,8 @@ fn pending_room_posts_wait_for_the_debounce_and_do_not_eat_the_budget() {
         .unwrap()
         .as_millis() as i64;
     let board = TaskBoard::default();
-    board.insert(build_task("01TASK".into(), &request("t1", "t3", None), now, &Verdict::Allowed));
-    enqueue_room_post(&board, "t1", &post("r1", "m1", "t2", "讨论", false), now);
+    board.insert(build_task("01TASK".into(), &request("t1", "t3", None), now, &Verdict::Allowed)).unwrap();
+    enqueue_room_post(&board, "t1", &post("r1", "m1", "t2", "讨论", false), now).unwrap();
     let pending = board.pending();
     assert_eq!(pending.len(), 1, "防抖期内的房间消息不出投递");
     assert!(pending[0].chat.is_none());
@@ -300,7 +301,7 @@ fn only_the_recipient_can_settle_a_task() {
         &request("t1", "t2", None),
         0,
         &Verdict::Allowed,
-    ));
+    )).unwrap();
 
     // 派活方说「你干完了」没有意义；让任意会话都能标完成，
     // 等于把这个信号的可信度降为零。
@@ -317,7 +318,7 @@ fn settling_twice_is_rejected() {
         &request("t1", "t2", None),
         0,
         &Verdict::Allowed,
-    ));
+    )).unwrap();
     board
         .settle("id-1", "t2", TaskState::Done, Some("out.md".into()))
         .unwrap();
@@ -340,19 +341,19 @@ fn closing_a_session_abandons_its_open_tasks() {
         &request("t1", "t2", None),
         0,
         &Verdict::Allowed,
-    ));
+    )).unwrap();
     board.insert(build_task(
         "id-2".into(),
         &request("t1", "t3", None),
         0,
         &Verdict::Allowed,
-    ));
+    )).unwrap();
     board
         .settle("id-2", "t3", TaskState::Done, None)
         .expect("先结掉一条");
 
-    board.abandon_for("t2");
-    board.abandon_for("t3");
+    board.abandon_for("t2").unwrap();
+    board.abandon_for("t3").unwrap();
 
     assert_eq!(board.get("id-1").unwrap().state, TaskState::Abandoned);
     // 已经结了的不该被改回去。
@@ -374,14 +375,14 @@ fn the_run_counter_follows_the_chain_root() {
         0,
         &Verdict::Allowed,
     );
-    board.insert(first);
-    board.insert(second);
+    board.insert(first).unwrap();
+    board.insert(second).unwrap();
     board.insert(build_task(
         "id-3".into(),
         &request("t9", "t8", None),
         0,
         &Verdict::Allowed,
-    ));
+    )).unwrap();
 
     // 同一条链路上的都算一轮，别的链路不算。
     assert_eq!(board.count_in_path("t1"), 2);
@@ -405,14 +406,14 @@ fn pending_lists_only_undelivered_tasks_in_order() {
         &Verdict::Allowed,
     );
     earlier.created_at = 100;
-    board.insert(later);
-    board.insert(earlier);
+    board.insert(later).unwrap();
+    board.insert(earlier).unwrap();
     board.insert(build_task(
         "id-3".into(),
         &request("t1", "t4", None),
         300,
         &Verdict::Allowed,
-    ));
+    )).unwrap();
     board.mark_dispatched("id-3");
 
     let pending = board.pending();
@@ -432,7 +433,7 @@ fn marking_dispatched_does_not_revive_a_settled_task() {
         &request("t1", "t2", None),
         0,
         &Verdict::Allowed,
-    ));
+    )).unwrap();
     board.settle("id-1", "t2", TaskState::Done, None).unwrap();
 
     // 一次迟到的投递回执不该把已经结掉的任务改回进行中。
@@ -473,7 +474,7 @@ fn pending_approval_tasks_are_not_delivered() {
         &request("t1", "t2", None),
         0,
         &Verdict::NeedsApproval,
-    ));
+    )).unwrap();
 
     assert!(board.pending().is_empty(), "没批准之前不该投递");
 
@@ -489,7 +490,7 @@ fn approving_or_rejecting_twice_is_rejected() {
         &request("t1", "t2", None),
         0,
         &Verdict::NeedsApproval,
-    ));
+    )).unwrap();
     board.approve("id-1").unwrap();
 
     // 已经放行的不该被一次误点改回去，反之亦然。
@@ -505,7 +506,7 @@ fn rejecting_marks_it_abandoned_with_a_reason() {
         &request("t1", "t2", None),
         0,
         &Verdict::NeedsApproval,
-    ));
+    )).unwrap();
 
     board.reject("id-1").unwrap();
 
@@ -523,29 +524,29 @@ fn stop_all_clears_everything_still_in_flight() {
         &request("t1", "t2", None),
         0,
         &Verdict::NeedsApproval,
-    ));
+    )).unwrap();
     board.insert(build_task(
         "b".into(),
         &request("t1", "t3", None),
         0,
         &Verdict::Allowed,
-    ));
+    )).unwrap();
     board.insert(build_task(
         "c".into(),
         &request("t1", "t4", None),
         0,
         &Verdict::Allowed,
-    ));
+    )).unwrap();
     board.mark_dispatched("c");
     board.insert(build_task(
         "d".into(),
         &request("t1", "t5", None),
         0,
         &Verdict::Allowed,
-    ));
+    )).unwrap();
     board.settle("d", "t5", TaskState::Done, None).unwrap();
 
-    let stopped = board.stop_all();
+    let stopped = board.stop_all().unwrap();
 
     // 三种在途状态都要停：等确认、排队中、已投递。
     assert_eq!(stopped, 3);

@@ -1,3 +1,5 @@
+import { formatNumber } from "../../i18n";
+import { useTranslation } from "../../i18n";
 // Adapted from PI-Desktop PluginsPage.tsx, LGPL-3.0; see third_party/pi-desktop/NOTICE.md.
 import { Disclosure } from "../../components/controls/Disclosure";
 import { usePluginsPage } from "./context";
@@ -11,11 +13,12 @@ import { PluginRowControls } from "./PluginRowControls";
 import type { PluginServiceStatus, PluginSummary } from "./types";
 
 export function InstalledPage() {
+  useTranslation();
   const { data, query } = usePluginsPage();
   const groups = installedGroups(data.plugins, query);
   return <div id="plugins-panel-installed" role="tabpanel" aria-labelledby="plugins-tab-installed" className="plugins-panel">
     {!groups.length ? <InstalledEmpty /> : groups.map((group) => <section key={group.id} className="plugins-group">
-      <header className="plugins-group-head"><h3 className="plugins-group-label">{t(GROUP_LABEL_KEYS[group.id])}</h3><span className="plugins-group-count">{group.rows.length}</span></header>
+      <header className="plugins-group-head"><h3 className="plugins-group-label">{t(GROUP_LABEL_KEYS[group.id])}</h3><span className="plugins-group-count">{formatNumber(group.rows.length)}</span></header>
       <div className="plugins-list" role="list" aria-label={t(GROUP_LABEL_KEYS[group.id])}>
         {group.rows.map((plugin) => <InstalledRow key={plugin.id} plugin={plugin} broken={group.id === "attention"} />)}
       </div>
@@ -23,6 +26,7 @@ export function InstalledPage() {
   </div>;
 }
 function InstalledEmpty() {
+  useTranslation();
   const { data, setQuery, setTab, setTemplate, actions } = usePluginsPage();
   const hasPlugins = !!data.plugins.length;
   return <div className="plugins-empty"><span className="plugins-empty-icon" aria-hidden>{hasPlugins ? <IconSearch size={18} /> : <IconPlug size={18} />}</span>
@@ -35,17 +39,19 @@ function InstalledEmpty() {
   </div>;
 }
 function InstalledRow({ plugin, broken }: { plugin: PluginSummary; broken: boolean }) {
+  useTranslation();
   return <div role="listitem" className={cx("plugins-row", !plugin.enabled && "off", broken && "broken")}>
     <span className="plugins-glyph" aria-hidden>{broken ? <IconCircleAlert size={15} /> : <IconPlug size={15} />}</span>
     <div className="plugins-row-copy"><div className="plugins-row-title"><span className="plugins-row-name">{plugin.name}</span>
-      <span className={cx("plugins-tag", plugin.enabled && !broken && "is-enabled", broken && "is-error")}>{broken ? "需处理" : plugin.enabled ? "已启用" : "已停用"}</span>
-      <span className="plugins-tag">{plugin.source === "dev" ? t("plugins.tagLocal") : "已安装包"}</span></div>
+      <span className={cx("plugins-tag", plugin.enabled && !broken && "is-enabled", broken && "is-error")}>{broken ? t("plugins.InstalledPage.text_bc288c608f") : plugin.enabled ? t("plugins.InstalledPage.text_dfb802238b") : t("plugins.InstalledPage.text_a8c3698b5b")}</span>
+      <span className="plugins-tag">{plugin.source === "dev" ? t("plugins.tagLocal") : t("plugins.InstalledPage.text_3365d02772")}</span></div>
       <div className="plugins-row-meta"><span className="plugins-row-id">{plugin.id}</span><span className="plugins-dot" aria-hidden>·</span><span>v{plugin.version}</span></div>
       {plugin.errorMessage ? <p className="plugins-row-error">{plugin.errorMessage}</p> : null}<PluginRowDetails plugin={plugin} />
     </div><PluginRowControls plugin={plugin} />
   </div>;
 }
 function PluginRowDetails({ plugin }: { plugin: PluginSummary }) {
+  useTranslation();
   const { data } = usePluginsPage();
   const services: PluginServiceStatus[] = data.runtime.services.filter((s) => s.pluginId === plugin.id).map((s) => ({
     pluginId: s.pluginId, serviceId: s.id, label: s.label ?? s.id, state: s.status as PluginServiceStatus["state"], restarts: s.restarts ?? 0, updatedAt: 0, message: s.message,

@@ -16,7 +16,7 @@ export function useProjectProviders(root: string | null) {
       const report = await task();
       if (current === generation.current) setState({ root, report, busy: false, failure: null });
     } catch (error) {
-      if (current === generation.current) setState((state) => ({ ...state, busy: false, failure: toAppFailure(error).message }));
+      if (current === generation.current) setState((state) => ({ ...state, busy: false, get failure() { return toAppFailure(error).message; } }));
     }
   }, [root]);
   const reload = useCallback(() => { if (root) void run(() => readProjectProviders(root)); }, [root, run]);

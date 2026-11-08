@@ -52,9 +52,9 @@ fn header(line: &str) -> Option<HistoryChange> {
         kind: kind.into(),
         patch: Some(format!("{line}\n")),
         note: if kind == "delete" {
-            "删除请求；日志没有保留原文件全文"
+            belfry_i18n::text("删除请求；日志没有保留原文件全文")
         } else {
-            "日志中的 patch 请求"
+            belfry_i18n::text("日志中的 patch 请求")
         }
         .into(),
         ..Default::default()

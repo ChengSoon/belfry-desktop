@@ -1,0 +1,14 @@
+{
+  "runtime.text_170a45f4ad": "The receiving session closed, exited, or changed projects. Queued content was not sent.",
+  "runtime.text_149d4fff97": "The receiving session closed or exited during delivery. Delivery is uncertain. Check the session.",
+  "runtime.text_b169186a2e": "Removed from the queue. Feedback was not sent.",
+  "runtime.text_0e00f89a3c": "The session has started interacting, but feedback submission is still unconfirmed. Check the session.",
+  "runtime.text_7f5b31fc2f": "Processing of the collaboration task is unconfirmed, so further automatic delivery is paused. Check the input and press Enter manually if needed. Do not paste the task again.",
+  "runtime.text_1a3998ba0b": "The receiving session changed projects. Feedback was not sent.",
+  "runtime.text_1b2ea5dbb0": "Delivery was cancelled before writing to the terminal.",
+  "runtime.text_9fd30020f3": "Terminal delivery failed. The amount written is uncertain. Check the input; the task has not been pasted again automatically.",
+  "runtime.text_18d27d4e4d": "User input interrupted automatic submission of the collaboration task. Further delivery is paused. Check the current input and submit it manually. The queue will continue when the Agent starts processing.",
+  "runtime.text_7c2c6c7751": "The terminal disconnected after the collaboration task was written. The task has not been pasted again automatically. After reconnecting, check the input and confirm manually to avoid duplicate execution.",
+  "runtime.text_0c451864cd": "Writing the collaboration task failed. Further delivery is paused. Check the input and submit manually. Reconnecting to the same terminal preserves residual input; the task has not been pasted again automatically.",
+  "runtime.text_6d7cfaeab9": "The terminal reconnected, but the collaboration task's write status is still unconfirmed. Check the input and submit manually; the task has not been pasted again automatically."
+}

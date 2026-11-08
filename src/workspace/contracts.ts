@@ -72,4 +72,5 @@ export interface AppFailure {
   code: string;
   message: string;
   retryable: boolean;
+  params?: Record<string, string | number>;
 }

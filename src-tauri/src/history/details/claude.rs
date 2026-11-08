@@ -50,7 +50,7 @@ pub(super) fn parse(
 fn tool(block: &Value, source: &str) -> Option<HistoryTool> {
     match block["type"].as_str()? {
         "tool_use" => {
-            let name = block["name"].as_str().unwrap_or("未知工具");
+            let name = block["name"].as_str().unwrap_or(belfry_i18n::text("未知工具"));
             Some(HistoryTool {
                 id: text::identity(block["id"].as_str(), source),
                 name: name.into(),
@@ -62,7 +62,7 @@ fn tool(block: &Value, source: &str) -> Option<HistoryTool> {
         }
         "tool_result" => Some(HistoryTool {
             id: text::identity(block["tool_use_id"].as_str(), source),
-            name: "工具结果".into(),
+            name: belfry_i18n::text("工具结果").into(),
             kind: "result".into(),
             text: text::content(&block["content"]).0,
             success: Some(!block["is_error"].as_bool().unwrap_or(false)),
@@ -93,7 +93,7 @@ fn changes(name: &str, input: &Value) -> Vec<HistoryChange> {
             path: path.into(),
             kind: "write".into(),
             new_text: string_field(input, &["content", "CodeContent"]).map(str::to_owned),
-            note: "日志中的写入内容；原内容未记录，无法判定是新建还是覆盖".into(),
+            note: belfry_i18n::text("日志中的写入内容；原内容未记录，无法判定是新建还是覆盖").into(),
             ..Default::default()
         }],
         _ => Vec::new(),
@@ -104,14 +104,14 @@ fn edit(path: &str, input: &Value) -> HistoryChange {
     let old = string_field(input, &["old_string", "oldString", "TargetContent"]);
     let new = string_field(input, &["new_string", "newString", "ReplacementContent"]);
     let note = if old.is_none() || new.is_none() {
-        "日志内容不足，无法完整展示这次替换"
+        belfry_i18n::text("日志内容不足，无法完整展示这次替换")
     } else if ["replace_all", "replaceAll", "AllowMultiple"]
         .iter()
         .any(|key| input[*key] == true)
     {
-        "替换全部匹配位置；日志仅记录替换片段"
+        belfry_i18n::text("替换全部匹配位置；日志仅记录替换片段")
     } else {
-        "日志中的替换片段，不代表完整文件"
+        belfry_i18n::text("日志中的替换片段，不代表完整文件")
     };
     HistoryChange {
         path: path.into(),

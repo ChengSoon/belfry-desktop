@@ -1,3 +1,4 @@
+import { t, useTranslation } from "../../i18n";
 import { ChevronDown } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ControlPopover } from "./ControlPopover";
@@ -13,6 +14,7 @@ export interface SelectProps<T> {
 }
 
 export function Select<T extends string | number>(props: SelectProps<T>) {
+  useTranslation();
   const { options, value, onChange, disabled, ariaLabel, id, className = "", initialOpen } = props;
   const popup = useControlPopover(initialOpen);
   const [query, setQuery] = useState("");
@@ -33,7 +35,7 @@ export function Select<T extends string | number>(props: SelectProps<T>) {
       aria-controls={popup.open ? popup.id : undefined}
       aria-activedescendant={popup.open && nav.active >= 0 ? `${popup.id}-option-${nav.active}` : undefined}
       title={selected?.description ?? selected?.label} onClick={() => { nav.reset(); setQuery(""); popup.toggle(); }} onKeyDown={(event) => nav.keydown(event)}>
-      <span className={`ui-select__value${!selected ? " ui-select__placeholder" : ""}`}>{selected?.label ?? props.placeholder ?? "请选择"}</span>
+      <span className={`ui-select__value${!selected ? " ui-select__placeholder" : ""}`}>{selected?.label ?? props.placeholder ?? t("components.Select.text_da590a8fe3")}</span>
       <ChevronDown className="ui-select__caret" size={14} aria-hidden="true" />
     </button>
     <ControlPopover control={popup}>

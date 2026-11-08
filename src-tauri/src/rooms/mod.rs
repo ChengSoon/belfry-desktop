@@ -18,6 +18,7 @@ mod clipboard_files;
 pub mod commands;
 mod directory;
 mod ledger;
+mod history;
 mod model;
 mod ops;
 mod store;
@@ -43,3 +44,7 @@ pub mod test_support {
 #[cfg(test)]
 #[path = "rooms_test.rs"]
 mod rooms_test;
+
+#[cfg(test)]
+#[path = "history_test.rs"]
+mod history_test;

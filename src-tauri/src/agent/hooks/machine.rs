@@ -22,7 +22,7 @@ impl Machine {
                 state: State::Unknown,
                 source: AgentStateSource::ScreenHeuristic,
                 occurred_at: 0,
-                reason: "Hook 尚未连接，当前使用屏幕推断".into(),
+                reason: belfry_i18n::text("Hook 尚未连接，当前使用屏幕推断").into(),
                 transcript_path: None,
             },
             waiting: HashSet::new(),
@@ -45,9 +45,9 @@ impl Machine {
         };
         self.snapshot.source = AgentStateSource::Process;
         self.snapshot.reason = if terminated {
-            "会话已关闭".into()
+            belfry_i18n::text("会话已关闭").into()
         } else {
-            format!("进程已退出（{code}）")
+            belfry_i18n::lformat!("进程已退出（{code}）")
         };
         self.snapshot.sequence += 1;
         self.snapshot.occurred_at = now();
@@ -253,13 +253,13 @@ fn wait_key(input: &HookInput) -> String {
 
 fn reason(state: State) -> &'static str {
     match state {
-        State::Starting => "正在启动",
-        State::Processing => "正在处理",
-        State::AwaitingInput => "等待确认或输入",
-        State::Completed => "本轮响应结束",
-        State::Failed => "本轮响应失败",
-        State::Interrupted => "会话已中断或退出",
-        State::Unknown => "Hook 已连接，等待新指令",
+        State::Starting => belfry_i18n::text("正在启动"),
+        State::Processing => belfry_i18n::text("正在处理"),
+        State::AwaitingInput => belfry_i18n::text("等待确认或输入"),
+        State::Completed => belfry_i18n::text("本轮响应结束"),
+        State::Failed => belfry_i18n::text("本轮响应失败"),
+        State::Interrupted => belfry_i18n::text("会话已中断或退出"),
+        State::Unknown => belfry_i18n::text("Hook 已连接，等待新指令"),
     }
 }
 

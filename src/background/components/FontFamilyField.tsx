@@ -1,3 +1,4 @@
+import { t, useTranslation } from "../../i18n";
 import { useCallback, useEffect, useState } from "react";
 import { Combobox } from "../../components/controls/Combobox";
 import {
@@ -19,6 +20,7 @@ const FONT_SUGGESTIONS = [
 ] as const;
 
 export function useFontChoice(config: TypographyConfig, update: TypographyController["update"]) {
+  useTranslation();
   const active = findActiveImportedFont(config);
   const selected = active?.displayName ?? config.fontFamily;
   const [value, setValue] = useState(selected);
@@ -70,10 +72,11 @@ interface FontFamilyFieldProps {
 }
 
 export function FontFamilyField(props: FontFamilyFieldProps) {
+  useTranslation();
   const options = fontOptions(props.importedFonts);
   const selectedValue = props.activeImportedFileName ?? (props.value ? `system-${props.value}` : "default");
-  return <label className="appearance__row appearance__row--wide"><span className="appearance__label">字体</span>
-    <Combobox ariaLabel="字体" value={props.value} selectedValue={selectedValue} placeholder="系统默认"
+  return <label className="appearance__row appearance__row--wide"><span className="appearance__label">{t("background.FontFamilyField.text_078838da42")}</span>
+    <Combobox ariaLabel={t("background.FontFamilyField.text_078838da42")} value={props.value} selectedValue={selectedValue} placeholder={t("background.FontFamilyField.text_04b7708368")}
       maxLength={MAX_FONT_FAMILY_LENGTH} onChange={props.onChange} onCommit={props.onCommit}
       onSelect={(key) => selectFontOption(options.find((option) => option.key === key), props)}
       options={options.map((option) => ({ value: option.key, label: option.label, description: option.detail }))} />
@@ -99,8 +102,8 @@ function fontOptions(importedFonts: ImportedFontAsset[]): FontOption[] {
   const options: FontOption[] = [{
     key: "default",
     kind: "default",
-    label: "系统默认",
-    detail: "应用内置字体栈",
+    label: t("background.FontFamilyField.text_04b7708368"),
+    detail: t("background.FontFamilyField.text_5693b493d1"),
     fileName: "",
   }];
   for (const font of importedFonts) {
@@ -109,13 +112,13 @@ function fontOptions(importedFonts: ImportedFontAsset[]): FontOption[] {
       key: font.fileName,
       kind: "imported",
       label: font.displayName,
-      detail: `已导入 · ${format}`,
+      detail: t("background.FontFamilyField.text_5c2ca41fbf", { format: format }),
       fileName: font.fileName,
     });
   }
   for (const font of FONT_SUGGESTIONS) {
     if (importedFonts.some((item) => item.displayName === font)) continue;
-    options.push({ key: `system-${font}`, kind: "system", label: font, detail: "系统字体建议", fileName: "" });
+    options.push({ key: `system-${font}`, kind: "system", label: font, detail: t("background.FontFamilyField.text_6663f4edaf"), fileName: "" });
   }
   return options;
 }

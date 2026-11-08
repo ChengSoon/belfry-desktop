@@ -1,6 +1,6 @@
 use super::identity::SessionIdentities;
 use super::registry::{SessionRegistry, SessionSnapshot};
-use super::task::{self, TaskBoard};
+use super::task::{self, TaskBoard, DeliveryPhase, DeliveryReceipt};
 use crate::terminal::AppError;
 use tauri::State;
 
@@ -24,8 +24,11 @@ pub struct PendingTask {
 pub fn collab_pending_tasks(
     board: State<'_, std::sync::Arc<TaskBoard>>,
     registry: State<'_, std::sync::Arc<SessionRegistry>>,
-) -> Vec<PendingTask> {
-    board
+    rooms: State<'_, std::sync::Arc<crate::rooms::RoomStore>>,
+) -> Result<Vec<PendingTask>, AppError> {
+    if let Some(error) = board.load_error() { return Err(AppError::io(error)); }
+    rooms.pump_outbox(&board, &registry)?;
+    Ok(board
         .pending()
         .into_iter()
         .map(|entry| {
@@ -48,7 +51,7 @@ pub fn collab_pending_tasks(
                 instruction: entry.instruction,
             }
         })
-        .collect()
+        .collect())
 }
 
 /// 协作全貌，给面板用。
@@ -56,6 +59,7 @@ pub fn collab_pending_tasks(
 #[serde(rename_all = "camelCase")]
 pub struct CollabView {
     pub tasks: Vec<TaskView>,
+    pub load_error: Option<String>,
 }
 
 /// 一条任务在面板里的样子。
@@ -68,11 +72,13 @@ pub struct TaskView {
     pub short_id: String,
     pub from_label: String,
     pub to_label: String,
+    pub to_tab_id: String,
     pub instruction: String,
     pub state: String,
     pub hop: u8,
     pub created_at: i64,
     pub result: Option<String>,
+    pub delivery: DeliveryReceipt,
 }
 
 #[tauri::command]
@@ -98,20 +104,22 @@ pub fn collab_tasks(
         // 群聊消息不是任务：面板只列要交差的活。
         .filter(|entry| entry.chat.is_none())
         .map(|entry| TaskView {
+            state: task::display_state(&entry),
             short_id: task::short_id(&entry.id).to_string(),
             from_label: label(&entry, &entry.from),
             to_label: label(&entry, &entry.to),
+            to_tab_id: entry.to.clone(),
             id: entry.id,
             instruction: entry.instruction,
-            state: format!("{:?}", entry.state).to_lowercase(),
             hop: entry.hop,
             created_at: entry.created_at,
             result: entry.result,
+            delivery: entry.delivery,
         })
         .collect();
     // 新的排前面：要处理的（等确认）通常就是刚发生的那条。
     tasks.sort_by_key(|task| std::cmp::Reverse(task.created_at));
-    CollabView { tasks }
+    CollabView { tasks, load_error: board.load_error() }
 }
 
 #[tauri::command]
@@ -138,14 +146,48 @@ pub fn collab_reject(
 
 /// 一键全停。返回停掉几条，好在界面上给个确切的交代。
 #[tauri::command]
-pub fn collab_stop_all(board: State<'_, std::sync::Arc<TaskBoard>>) -> usize {
-    board.stop_all()
+pub fn collab_stop_all(board: State<'_, std::sync::Arc<TaskBoard>>) -> Result<usize, AppError> {
+    board.stop_all().map_err(AppError::io)
 }
 
 /// 前端投递完回执。
 #[tauri::command]
-pub fn collab_mark_dispatched(board: State<'_, std::sync::Arc<TaskBoard>>, id: String) {
-    board.mark_dispatched(&id);
+pub fn collab_mark_dispatched() -> Result<(), AppError> {
+    Err(AppError::unsupported("旧回执没有 PTY submitted 证据，请更新前端投递协议"))
+}
+
+#[tauri::command]
+pub fn collab_claim_delivery(board: State<'_, std::sync::Arc<TaskBoard>>, id: String, attempt_id: String) -> Result<bool, AppError> {
+    board.claim_delivery(&id, &attempt_id).map_err(AppError::io)
+}
+
+#[tauri::command]
+pub fn collab_release_delivery(board: State<'_, std::sync::Arc<TaskBoard>>, id: String, attempt_id: String) -> Result<(), AppError> {
+    board.release_delivery(&id, &attempt_id).map_err(AppError::io)
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum DeliveryDecision { Submitted, Cancelled }
+
+#[tauri::command]
+pub fn collab_resolve_delivery(board: State<'_, std::sync::Arc<TaskBoard>>, id: String, attempt_id: String,
+    sequence: u64, decision: DeliveryDecision) -> Result<(), AppError> {
+    board.resolve_delivery(&id, &attempt_id, sequence, matches!(decision, DeliveryDecision::Submitted)).map_err(|error| {
+        if error == "The delivery has changed. Refresh the task panel." { AppError::conflict(error) } else { AppError::io(error) }
+    })
+}
+
+#[tauri::command]
+pub fn collab_delivery_update(board: State<'_, std::sync::Arc<TaskBoard>>, rooms: State<'_, std::sync::Arc<crate::rooms::RoomStore>>,
+    id: String, attempt_id: String, sequence: u64, phase: DeliveryPhase, message: Option<String>) -> Result<bool, AppError> {
+    if phase == DeliveryPhase::Submitting
+        && let Some(task::TaskOrigin::Room { id: room_id, .. }) = board.snapshot().iter().find(|task| task.id == id).and_then(|task| task.origin.clone())
+        && !rooms.get(&room_id).is_ok_and(|room| !room.paused) {
+        board.delivery_update(&id, &attempt_id, sequence, DeliveryPhase::Cancelled, Some("房间已暂停或删除，未继续自动投递".into())).map_err(AppError::io)?;
+        return Ok(false);
+    }
+    board.delivery_update(&id, &attempt_id, sequence, phase, message).map_err(AppError::io)
 }
 
 /// 前端把会话名册同步过来。
@@ -161,21 +203,22 @@ pub fn collab_sync_sessions(
     identities: State<'_, std::sync::Arc<SessionIdentities>>,
     board: State<'_, std::sync::Arc<TaskBoard>>,
     sessions: Vec<SessionSnapshot>,
-) {
+) -> Result<(), AppError> {
     let live: Vec<String> = sessions.iter().map(|item| item.tab_id.clone()).collect();
     // 会话没了就把派给它、还没结的任务收掉：留着的话派活方会一直等一个
     // 永远不会来的 done。
-    let gone: Vec<String> = board
-        .snapshot()
+    let gone: Vec<String> = registry
+        .all()
         .into_iter()
-        .map(|entry| entry.to)
+        .map(|entry| entry.tab_id)
         .filter(|to| !live.iter().any(|alive| alive == to))
         .collect();
     for tab_id in gone {
-        board.abandon_for(&tab_id);
+        board.abandon_for(&tab_id).map_err(AppError::io)?;
     }
     registry.replace(sessions);
     identities.retain(&live);
+    Ok(())
 }
 
 /// 名册快照，给房间独立窗口还原在场状态用。

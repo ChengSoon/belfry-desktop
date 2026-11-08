@@ -1,3 +1,4 @@
+import { t, useTranslation } from "../../i18n";
 // Uses PI-Desktop's react-markdown / remark-gfm rendering stack.
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -6,7 +7,7 @@ import { pluginNotice } from "../PluginRuntimeBridge";
 import { Checkbox } from "../../components/controls/Checkbox";
 
 const components: Components = {
-  input: ({ checked }) => <Checkbox checked={!!checked} readOnly ariaLabel={checked ? "已完成" : "未完成"} />,
+  input: ({ checked }) => <Checkbox checked={!!checked} readOnly ariaLabel={checked ? t("plugins.Markdown.text_f28461bb49") : t("plugins.Markdown.text_6707de42c2")} />,
   a: ({ href, children }) => href && /^https?:\/\//i.test(href)
     ? <a href={href} rel="noopener noreferrer" onClick={(event) => {
       event.preventDefault(); void centerApi.openExternal(href).catch((error) => pluginNotice(String(error)));
@@ -16,5 +17,6 @@ const components: Components = {
   table: ({ children }) => <div className="plugins-readme-table"><table>{children}</table></div>,
 };
 export function Markdown({ source }: { source: string }) {
+  useTranslation();
   return <ReactMarkdown remarkPlugins={[remarkGfm]} components={components} skipHtml>{source}</ReactMarkdown>;
 }

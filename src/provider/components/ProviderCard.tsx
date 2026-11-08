@@ -1,3 +1,4 @@
+import { t, useTranslation } from "../../i18n";
 import { Check, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { shouldDismissOnBlur } from "../../components/controls/layerOwnership";
@@ -17,6 +18,7 @@ interface ProviderCardProps {
 }
 
 export function ProviderCard(props: ProviderCardProps) {
+  useTranslation();
   const { nodeRef, active, busy, label, endpoint, model, hasApiKey, onEdit, onRemove, onSelect } = props;
   const cardRef = useCardSwitchMotion(active);
   const setCardRef = (node: HTMLElement | null) => {
@@ -29,15 +31,15 @@ export function ProviderCard(props: ProviderCardProps) {
         <h4 title={label}>{label}</h4>
         <p className="provider-card__endpoint" title={endpoint}>{endpoint}</p>
       </div>
-      <div className="provider-card__model"><span>模型</span><code title={model}>{model}</code></div>
-      <div className="provider-card__auth"><span>认证</span><code>{hasApiKey ? "已配置密钥" : "未配置密钥"}</code></div>
+      <div className="provider-card__model"><span>{t("provider.ProviderCard.text_c98e118e0a")}</span><code title={model}>{model}</code></div>
+      <div className="provider-card__auth"><span>{t("provider.ProviderCard.text_d2d648bd1c")}</span><code>{hasApiKey ? t("provider.ProviderCard.text_8f1fb304f0") : t("provider.ProviderCard.text_23173fad38")}</code></div>
       <div className="provider-card__actions">
         <div className="provider-card__selection" data-active={active}>
           <button className="provider-card__activate" disabled={busy || active} onClick={onSelect}
-            type="button" aria-label={active ? undefined : `启用 ${label}`} aria-hidden={active} tabIndex={active ? -1 : 0}>启用</button>
-          <span className="provider-card__status" aria-hidden={!active}><Check size={14} aria-hidden="true" />已选用</span>
+            type="button" aria-label={active ? undefined : t("provider.ProviderCard.text_709607ac83", { label: label })} aria-hidden={active} tabIndex={active ? -1 : 0}>{t("provider.ProviderCard.text_f4f0ead111")}</button>
+          <span className="provider-card__status" aria-hidden={!active}><Check size={14} aria-hidden="true" />{t("provider.ProviderCard.text_52eb49cfbe")}</span>
         </div>
-        {onEdit && <button disabled={busy} onClick={onEdit} type="button" aria-label={`编辑 ${label}`}><Pencil size={13} aria-hidden="true" />编辑</button>}
+        {onEdit && <button disabled={busy} onClick={onEdit} type="button" aria-label={t("provider.ProviderCard.text_aea5e0c922", { label: label })}><Pencil size={13} aria-hidden="true" />{t("provider.ProviderCard.text_0518365699")}</button>}
         {onRemove && <details className="provider-card__more" onBlur={(event) => {
           if (shouldDismissOnBlur(event.currentTarget, event.relatedTarget as Node | null)) event.currentTarget.open = false;
         }} onKeyDown={(event) => {
@@ -47,14 +49,14 @@ export function ProviderCard(props: ProviderCardProps) {
             event.currentTarget.querySelector("summary")?.focus();
           }
         }}>
-          <summary aria-label={`${label} 的更多操作`}><MoreHorizontal size={16} aria-hidden="true" /></summary>
+          <summary aria-label={t("provider.ProviderCard.text_f53e386ea0", { label: label })}><MoreHorizontal size={16} aria-hidden="true" /></summary>
           <div className="provider-card__menu">
             <button className="provider-card__remove" disabled={busy} onClick={(event) => {
               const menu = event.currentTarget.closest("details");
               menu?.removeAttribute("open");
               menu?.querySelector("summary")?.focus({ preventScroll: true });
               onRemove();
-            }} aria-label={`删除 ${label}`} type="button"><Trash2 size={14} aria-hidden="true" />删除配置</button>
+            }} aria-label={t("provider.ProviderCard.text_a4f3bd0dfb", { label: label })} type="button"><Trash2 size={14} aria-hidden="true" />{t("provider.ProviderCard.text_49b82b04bd")}</button>
           </div>
         </details>}
       </div>
@@ -68,6 +70,7 @@ export function ProviderCard(props: ProviderCardProps) {
  * 原卡片只轻微回落。首次加载、编辑和更多操作都不触发。
  */
 function useCardSwitchMotion(active: boolean) {
+  useTranslation();
   const ref = useRef<HTMLElement>(null);
   const previous = useRef(active);
   useEffect(() => {

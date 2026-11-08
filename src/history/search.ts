@@ -1,3 +1,4 @@
+import { TranslationError } from "../i18n";
 import type { AgentKind } from "../agent/contracts";
 import type { HistorySession } from "./contracts";
 import { sessionKey, type HistoryMetadata } from "./metadata";
@@ -40,7 +41,7 @@ export const EMPTY_HISTORY_FILTERS: HistoryFilters = {
 export function toHistoryQuery(filters: HistoryFilters): HistoryQuery {
   const from = dateBoundary(filters.startDate, false);
   const until = dateBoundary(filters.endDate, true);
-  if (from !== null && until !== null && from >= until) throw new Error("开始日期不能晚于结束日期。");
+  if (from !== null && until !== null && from >= until) throw new TranslationError("history.search.text_90de26a62a");
   return {
     agent: filters.agent === "all" ? null : filters.agent,
     text: filters.text.trim(),
@@ -80,11 +81,11 @@ export function highlightedParts(text: string, query: string): { text: string; m
 
 function dateBoundary(value: string, nextDay: boolean): number | null {
   if (!value) return null;
-  if (!/^\d{4}-\d{2}-\d{2}$/u.test(value)) throw new Error("请输入有效日期。");
+  if (!/^\d{4}-\d{2}-\d{2}$/u.test(value)) throw new TranslationError("history.search.text_949463c2c4");
   const [year, month, day] = value.split("-").map(Number);
   const date = new Date(year, month - 1, day);
   if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
-    throw new Error("请输入有效日期。");
+    throw new TranslationError("history.search.text_949463c2c4");
   }
   if (nextDay) date.setDate(date.getDate() + 1);
   return date.getTime() / MILLISECONDS_PER_SECOND;

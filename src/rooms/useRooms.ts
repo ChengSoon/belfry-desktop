@@ -1,7 +1,9 @@
+import { useFeedback, TranslationError, useTranslation } from "../i18n";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toAppFailure } from "../workspace/errors";
 import * as api from "./api";
 import type { Room, RoomSummary } from "./contracts";
+import { forgetRoomDraft } from "./drafts";
 
 /** 轮询间隔：成员在 CLI 里动任务板、发消息，界面要跟得上；和协作面板同一档。 */
 const POLL_INTERVAL_MS = 1_500;
@@ -29,11 +31,14 @@ export function shareRoom(previous: Room | null, next: Room): Room {
   const members = same(previous.members, next.members) ? previous.members : next.members;
   const tasks = same(previous.tasks, next.tasks) ? previous.tasks : next.tasks;
   const brief = same(previous.brief, next.brief) ? previous.brief : next.brief;
-  const rest = (room: Room) => ({ ...room, messages: undefined, members: undefined, tasks: undefined, brief: undefined });
-  if (!changed && members === previous.members && tasks === previous.tasks && brief === previous.brief && same(rest(previous), rest(next))) {
+  const retainedMessages = same(previous.retainedMessages, next.retainedMessages) ? previous.retainedMessages : next.retainedMessages;
+  const deliveryOutbox = same(previous.deliveryOutbox, next.deliveryOutbox) ? previous.deliveryOutbox : next.deliveryOutbox;
+  const rest = (room: Room) => ({ ...room, messages: undefined, members: undefined, tasks: undefined, brief: undefined, retainedMessages: undefined, deliveryOutbox: undefined });
+  if (!changed && members === previous.members && tasks === previous.tasks && brief === previous.brief
+    && retainedMessages === previous.retainedMessages && deliveryOutbox === previous.deliveryOutbox && same(rest(previous), rest(next))) {
     return previous;
   }
-  return { ...next, messages: changed ? messages : previous.messages, members, tasks, brief };
+  return { ...next, messages: changed ? messages : previous.messages, members, tasks, brief, retainedMessages, deliveryOutbox };
 }
 
 export interface RoomsState {
@@ -53,42 +58,66 @@ export interface RoomsState {
 }
 
 export function useRooms(): RoomsState {
+  useTranslation();
   const [rooms, setRooms] = useState<RoomSummary[]>([]);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useFeedback<string | null>(null);
   const [room, setRoom] = useState<Room | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useFeedback<string | null>(null);
   const [busy, setBusy] = useState(false);
   const selectedRef = useRef(selectedId);
-  selectedRef.current = selectedId;
+  const mounted = useRef(false);
+  const generation = useRef(0);
+  const reads = useRef(0);
+  const mutations = useRef(0);
 
   const refresh = useCallback(async () => {
+    if (!mounted.current) return;
+    const request = ++generation.current;
+    let selection = selectedRef.current;
+    const currentRequest = () => mounted.current && request === generation.current && selection === selectedRef.current;
+    reads.current++;
     try {
       const view = await api.roomList();
+      if (!currentRequest()) return;
       setRooms((current) => (JSON.stringify(current) === JSON.stringify(view.rooms) ? current : view.rooms));
       setLoadError(view.loadError);
-      let current = selectedRef.current;
-      if (!current || !view.rooms.some((summary) => summary.id === current)) {
-        current = view.rooms[0]?.id ?? null;
-        setSelectedId(current);
-        selectedRef.current = current;
+      if (!selection || !view.rooms.some((summary) => summary.id === selection)) {
+        selection = view.rooms[0]?.id ?? null;
+        setSelectedId(selection);
+        selectedRef.current = selection;
+        setRoom(null);
       }
-      const next = current ? await api.roomGet(current) : null;
+      const next = selection ? await api.roomGet(selection) : null;
+      if (!currentRequest()) return;
+      if (next && next.id !== selection) throw new TranslationError("rooms.useRooms.text_8e2155449e");
       setRoom((previous) => (next ? shareRoom(previous, next) : null));
     } catch (cause) {
-      setError(toAppFailure(cause).message);
+      if (currentRequest()) setError(() => toAppFailure(cause).message);
+    } finally {
+      reads.current--;
     }
   }, []);
 
   const refreshRef = useRef(refresh);
   refreshRef.current = refresh;
   useEffect(() => {
+    mounted.current = true;
     void refreshRef.current();
-    const timer = window.setInterval(() => void refreshRef.current(), POLL_INTERVAL_MS);
-    return () => window.clearInterval(timer);
+    const timer = window.setInterval(() => {
+      // Explicit selection/operation refreshes may supersede a slow read; polls never overlap them.
+      if (reads.current === 0 && mutations.current === 0) void refreshRef.current();
+    }, POLL_INTERVAL_MS);
+    return () => {
+      mounted.current = false;
+      generation.current++;
+      window.clearInterval(timer);
+    };
   }, []);
 
   const select = useCallback((id: string | null) => {
+    if (!mounted.current) return;
+    generation.current++;
     setSelectedId(id);
     selectedRef.current = id;
     setRoom(null);
@@ -96,18 +125,26 @@ export function useRooms(): RoomsState {
   }, []);
 
   const run = useCallback(async (action: () => Promise<Room>) => {
+    if (!mounted.current) return null;
+    const selection = selectedRef.current;
+    mutations.current++;
+    generation.current++;
     setBusy(true);
     try {
       const next = await action();
+      if (!mounted.current) return next;
+      // Reads started both before and during the mutation contain an older snapshot.
+      generation.current++;
       if (next.id === selectedRef.current) setRoom((previous) => shareRoom(previous, next));
-      setError(null);
+      if (selection === selectedRef.current) setError(null);
       void refreshRef.current();
       return next;
     } catch (cause) {
-      setError(toAppFailure(cause).message);
+      if (mounted.current && selection === selectedRef.current) setError(() => toAppFailure(cause).message);
       return null;
     } finally {
-      setBusy(false);
+      mutations.current--;
+      if (mounted.current) setBusy(mutations.current > 0);
     }
   }, []);
 
@@ -118,17 +155,24 @@ export function useRooms(): RoomsState {
   }, [run, select]);
 
   const remove = useCallback(async (id: string) => {
+    if (!mounted.current) return false;
+    mutations.current++;
+    generation.current++;
     setBusy(true);
     try {
       await api.roomDelete(id);
+      forgetRoomDraft(id);
+      if (!mounted.current) return true;
+      generation.current++;
       if (selectedRef.current === id) select(null);
       else void refreshRef.current();
       return true;
     } catch (cause) {
-      setError(toAppFailure(cause).message);
+      if (mounted.current) setError(() => toAppFailure(cause).message);
       return false;
     } finally {
-      setBusy(false);
+      mutations.current--;
+      if (mounted.current) setBusy(mutations.current > 0);
     }
   }, [select]);
 

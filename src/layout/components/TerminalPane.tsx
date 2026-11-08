@@ -1,3 +1,4 @@
+import { t, useTranslation } from "../../i18n";
 import { Server, SquareTerminal, X } from "lucide-react";
 import type { CSSProperties, PointerEvent, ReactNode } from "react";
 import { ICON } from "../../theme/sizing";
@@ -40,6 +41,7 @@ export function TerminalPane({
   onDragStart,
   children,
 }: TerminalPaneProps) {
+  useTranslation();
   const Icon = tab.kind === "shell" ? SquareTerminal : isAgentKind(tab.kind) ? AGENT_ICONS[tab.kind] : Server;
   const style = {
     left: `${rect.left}%`,
@@ -65,7 +67,7 @@ export function TerminalPane({
               // 关闭按钮在拖拽把手里，不拦住就会先起一个手势。
               onPointerDown={(event) => event.stopPropagation()}
               onClick={() => onClose(tab.id)}
-              title={`从分屏移出 ${tab.title}`}
+              title={t("layout.TerminalPane.text_31889cf993", { title: tab.title })}
               type="button"
             >
               <X aria-hidden="true" size={ICON.xs} />

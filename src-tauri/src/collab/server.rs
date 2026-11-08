@@ -12,8 +12,9 @@
 use std::io::{BufRead, BufReader, Write};
 #[cfg(not(unix))]
 use std::net::{TcpListener, TcpStream};
-use std::sync::Arc;
+use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
 use std::thread;
+use std::time::{Duration, Instant};
 
 use belfry_protocol::{
     Command, InboxTask, PROTOCOL_VERSION, Request, Response, ResponseData,
@@ -25,6 +26,17 @@ use super::task::{self, ApprovalMode, TargetInfo, TaskBoard, TaskRequest, TaskSt
 
 /// 单行请求的上限。够放一条派活指令，又不至于让一个坏客户端把内存吃光。
 const MAX_REQUEST_BYTES: u64 = 1024 * 1024;
+const MAX_CONNECTIONS: usize = 64;
+const IO_TIMEOUT: Duration = Duration::from_secs(5);
+
+struct ConnectionPermit(Arc<AtomicUsize>);
+impl ConnectionPermit {
+    fn acquire(budget: &Arc<AtomicUsize>) -> Option<Self> {
+        budget.fetch_update(Ordering::AcqRel, Ordering::Acquire, |count| (count < MAX_CONNECTIONS).then_some(count + 1)).ok()?;
+        Some(Self(budget.clone()))
+    }
+}
+impl Drop for ConnectionPermit { fn drop(&mut self) { self.0.fetch_sub(1, Ordering::AcqRel); } }
 
 /// 一条要送进成员终端的房间消息。总线只负责排队、合并、送达；内容由房间层拼好。
 #[derive(Clone, Debug)]
@@ -47,6 +59,14 @@ pub struct RoomPost {
 /// 回答和要投递的消息。依赖方向是 rooms → collab，总线不回头认识 rooms。
 pub trait RoomDirectory: Send + Sync {
     fn handle(&self, tab_id: &str, command: &Command) -> Result<(ResponseData, Vec<RoomPost>), String>;
+    fn enqueue_posts(&self, board: &TaskBoard, registry: &SessionRegistry, posts: &[RoomPost]) -> Result<(), String> {
+        for post in posts {
+            if registry.find(&post.tab_id).is_some() {
+                task::enqueue_room_post(board, &format!("room:{}", post.room_id), post, now_millis())?;
+            }
+        }
+        Ok(())
+    }
 }
 
 /// 房间目录的挂载点。
@@ -65,8 +85,12 @@ impl RoomAccess {
         match self.0.get() {
             Some(directory) => directory.handle(tab_id, command),
             None if matches!(command, Command::Rooms) => Ok((ResponseData::Rooms { rooms: Vec::new() }, Vec::new())),
-            None => Err("房间目录还没就绪，稍后再试".to_string()),
+            None => Err(belfry_i18n::text("房间目录还没就绪，稍后再试").to_string()),
         }
+    }
+
+    fn enqueue_posts(&self, board: &TaskBoard, registry: &SessionRegistry, posts: &[RoomPost]) -> Result<(), String> {
+        self.0.get().map_or(Ok(()), |directory| directory.enqueue_posts(board, registry, posts))
     }
 }
 
@@ -149,10 +173,12 @@ impl Listener {
         board: Arc<TaskBoard>,
         rooms: Arc<RoomAccess>,
     ) {
+        let budget = Arc::new(AtomicUsize::new(0));
         match self {
             #[cfg(unix)]
             Self::Unix(listener, _) => {
                 for stream in listener.incoming().flatten() {
+                    let Some(permit) = ConnectionPermit::acquire(&budget) else { continue; };
                     let (identities, registry, board, rooms) = (
                         identities.clone(),
                         registry.clone(),
@@ -162,6 +188,7 @@ impl Listener {
                     // 每个连接一个短线程：一次请求处理里有文件 IO，
                     // 卡在一个客户端上会让其他 Agent 一起等。
                     thread::spawn(move || {
+                        let _permit = permit;
                         serve_connection(stream, &identities, &registry, &board, &rooms)
                     });
                 }
@@ -169,6 +196,7 @@ impl Listener {
             #[cfg(not(unix))]
             Self::Tcp(listener) => {
                 for stream in listener.incoming().flatten() {
+                    let Some(permit) = ConnectionPermit::acquire(&budget) else { continue; };
                     let (identities, registry, board, rooms) = (
                         identities.clone(),
                         registry.clone(),
@@ -176,6 +204,7 @@ impl Listener {
                         rooms.clone(),
                     );
                     thread::spawn(move || {
+                        let _permit = permit;
                         serve_connection(stream, &identities, &registry, &board, &rooms)
                     });
                 }
@@ -184,23 +213,40 @@ impl Listener {
     }
 }
 
-/// 读写要分别持有：BufReader 会把 stream 吃掉，所以每种传输自己给一份写端。
-trait Connection: std::io::Read + Send + 'static {
-    fn write_half(&self) -> Option<Box<dyn Write + Send>>;
+trait Connection: std::io::Read + Write + Send + 'static {
+    fn timeout(&self, duration: Duration) -> std::io::Result<()>;
 }
 
 #[cfg(not(unix))]
 impl Connection for TcpStream {
-    fn write_half(&self) -> Option<Box<dyn Write + Send>> {
-        self.try_clone().ok().map(|value| Box::new(value) as _)
+    fn timeout(&self, duration: Duration) -> std::io::Result<()> {
+        self.set_read_timeout(Some(duration))?;
+        self.set_write_timeout(Some(duration))
     }
 }
 
 #[cfg(unix)]
 impl Connection for std::os::unix::net::UnixStream {
-    fn write_half(&self) -> Option<Box<dyn Write + Send>> {
-        self.try_clone().ok().map(|value| Box::new(value) as _)
+    fn timeout(&self, duration: Duration) -> std::io::Result<()> {
+        self.set_read_timeout(Some(duration))?;
+        self.set_write_timeout(Some(duration))
     }
+}
+
+struct DeadlineConnection<S> { stream: S, deadline: Instant }
+impl<S: Connection> DeadlineConnection<S> {
+    fn prepare(&self) -> std::io::Result<()> {
+        let duration = self.deadline.checked_duration_since(Instant::now()).filter(|value| !value.is_zero())
+            .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::TimedOut, "IPC deadline exceeded"))?;
+        self.stream.timeout(duration)
+    }
+}
+impl<S: Connection> std::io::Read for DeadlineConnection<S> {
+    fn read(&mut self, bytes: &mut [u8]) -> std::io::Result<usize> { self.prepare()?; self.stream.read(bytes) }
+}
+impl<S: Connection> Write for DeadlineConnection<S> {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> { self.prepare()?; self.stream.write(bytes) }
+    fn flush(&mut self) -> std::io::Result<()> { self.prepare()?; self.stream.flush() }
 }
 
 fn serve_connection<S: Connection>(
@@ -210,20 +256,22 @@ fn serve_connection<S: Connection>(
     board: &TaskBoard,
     rooms: &RoomAccess,
 ) {
-    let Some(mut writer) = stream.write_half() else {
-        return;
-    };
+    let mut stream = DeadlineConnection { stream, deadline: Instant::now() + IO_TIMEOUT };
     let mut line = String::new();
-    let mut reader = BufReader::new(stream).take(MAX_REQUEST_BYTES);
-    if reader.read_line(&mut line).is_err() {
+    let mut reader = BufReader::new(&mut stream).take(MAX_REQUEST_BYTES + 1);
+    if reader.read_line(&mut line).is_err() || line.len() as u64 > MAX_REQUEST_BYTES || !line.ends_with('\n') {
         return;
     }
 
     let response = handle_line(&line, identities, registry, board, rooms);
     if let Ok(mut text) = serde_json::to_string(&response) {
         text.push('\n');
-        let _ = writer.write_all(text.as_bytes());
-        let _ = writer.flush();
+        if text.len() as u64 > MAX_REQUEST_BYTES {
+            text = serde_json::to_string(&Response::error(belfry_i18n::text("响应超过 1 MiB 上限，请减少查询范围"))).unwrap_or_default();
+            text.push('\n');
+        }
+        let _ = stream.write_all(text.as_bytes());
+        let _ = stream.flush();
     }
 }
 
@@ -236,18 +284,18 @@ fn handle_line(
 ) -> Response {
     let request: Request = match serde_json::from_str(line) {
         Ok(value) => value,
-        Err(err) => return Response::error(format!("请求格式不对：{err}")),
+        Err(err) => return Response::error(belfry_i18n::lformat!("请求格式不对：{err}")),
     };
     if request.version != PROTOCOL_VERSION {
         // 说清是版本问题，否则表现成「某个参数没生效」，最难查。
-        return Response::error(format!(
+        return Response::error(belfry_i18n::lformat!(
             "belfry 命令行版本与应用不匹配（协议 {} vs {}），请更新后重试",
             request.version, PROTOCOL_VERSION
         ));
     }
     if !identities.verify(&request.tab_id, &request.token) {
         // 不区分「会话不存在」和「token 不对」：区分本身就是一个可试探的信号。
-        return Response::error("身份校验失败：这条会话不能通过 belfry 说话");
+        return Response::error(belfry_i18n::text("身份校验失败：这条会话不能通过 belfry 说话"));
     }
     if let Some(command) = belfry_protocol::room_compat::unwrap_command(&request.command) {
         return match command {
@@ -282,12 +330,8 @@ fn dispatch(
         | Command::RoomTask { .. }
         | Command::RoomBrief { .. } => match rooms.handle(&request.tab_id, &request.command) {
             Ok((data, posts)) => {
-                let now = now_millis();
-                for post in &posts {
-                    // 会话已经不在的收件人：消息照样记在时间线上，只是送不进终端。
-                    if registry.find(&post.tab_id).is_some() {
-                        task::enqueue_room_post(board, &request.tab_id, post, now);
-                    }
+                if let Err(error) = rooms.enqueue_posts(board, registry, &posts) {
+                    log::warn!("Room post retained in durable outbox: {error}");
                 }
                 Response::Ok { data }
             }
@@ -333,14 +377,14 @@ fn dispatch(
                             && matches!(entry.state, TaskState::Queued | TaskState::Dispatched)
                     })
                     .map(|entry| InboxTask {
+                        state: task::display_state(&entry),
                         task: task::short_id(&entry.id).to_string(),
                         // 房间派发的任务对成员显示房间名；互派退回 tabId 兜底。
                         from: match &entry.origin {
-                            Some(task::TaskOrigin::Room { name, .. }) => format!("房间「{name}」"),
+                            Some(task::TaskOrigin::Room { name, .. }) => belfry_i18n::lformat!("房间「{name}」"),
                             None => entry.from.clone(),
                         },
                         instruction: entry.instruction,
-                        state: format!("{:?}", entry.state).to_lowercase(),
                     })
                     .collect(),
             },
@@ -414,7 +458,7 @@ fn dispatch_send(
             let id = ulid::Ulid::generate().to_string().to_lowercase();
             let created = task::build_task(id, &outgoing, now_millis(), &verdict);
             let short = task::short_id(&created.id).to_string();
-            board.insert(created);
+            if let Err(error) = board.insert(created) { return Response::error(error); }
             Response::Ok {
                 data: ResponseData::Sent {
                     task: short,
@@ -433,7 +477,7 @@ fn dispatch_send(
 /// 只让派活方查。别人派的活里写着什么不该被第三方看见，而「不存在」和「不是你的」
 /// 回同一句话——区分开本身就是一个可以拿来试探的信号。
 fn task_state(board: &TaskBoard, asker: &str, short: &str) -> Response {
-    let missing = || Response::error(format!("没有编号 {short} 的任务，用 belfry inbox 看看"));
+    let missing = || Response::error(belfry_i18n::lformat!("没有编号 {short} 的任务，用 belfry inbox 看看"));
     let Some(entry) = board
         .snapshot()
         .into_iter()
@@ -447,7 +491,7 @@ fn task_state(board: &TaskBoard, asker: &str, short: &str) -> Response {
     Response::Ok {
         data: ResponseData::TaskState {
             task: short.to_string(),
-            state: format!("{:?}", entry.state).to_lowercase(),
+            state: task::display_state(&entry),
             settled: task::is_settled(&entry.state),
             result: entry.result,
         },
@@ -468,7 +512,7 @@ fn settle(
         .find(|entry| task::short_id(&entry.id) == short)
         .map(|entry| entry.id)
     else {
-        return Response::error(format!("没有编号 {short} 的任务，用 belfry inbox 看看"));
+        return Response::error(belfry_i18n::lformat!("没有编号 {short} 的任务，用 belfry inbox 看看"));
     };
     match board.settle(&full, claimant, state, result) {
         Ok(entry) => Response::Ok {

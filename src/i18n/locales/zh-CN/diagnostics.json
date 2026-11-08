@@ -1,0 +1,9 @@
+{
+  "AppErrorBoundary.text_bc813d3e23": "诊断已复制，可以粘贴给开发者排查。",
+  "AppErrorBoundary.text_b2c0a5351d": "无法复制诊断，请重试。已有日志保存在应用数据目录中。",
+  "AppErrorBoundary.text_9ad73d82ce": "重启失败，请关闭并重新打开 Belfry。",
+  "AppErrorBoundary.text_59544b4a83": "Belfry 遇到错误",
+  "AppErrorBoundary.text_0614781255": "界面暂时无法继续。你可以复制诊断信息，然后重启应用。",
+  "AppErrorBoundary.text_045e09f57e": "复制诊断",
+  "AppErrorBoundary.text_d750ba6ab1": "重启 Belfry"
+}

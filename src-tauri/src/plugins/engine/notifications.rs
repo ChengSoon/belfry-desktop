@@ -43,7 +43,7 @@ pub fn dispatch(app: &AppHandle, api: &str, args: &Value) -> Result<Value, Strin
         return Ok(json!(STATE.permission()));
     }
     if api == "ui.requestNotificationPermission" {
-        let input = json!({"title":"Belfry 通知", "body":"应用原生通知已启用。"});
+        let input = json!({"title":belfry_i18n::text("Belfry 通知"), "body":belfry_i18n::text("应用原生通知已启用。")});
         return Ok(STATE.record(send(app, &input).is_ok())["permission"].clone());
     }
     let delivery = send(app, &args[0]);
@@ -66,7 +66,7 @@ fn text(value: &Value, limit: usize, fallback: &str) -> String {
 fn send(app: &AppHandle, input: &Value) -> Result<(), String> {
     app.notification()
         .builder()
-        .title(text(&input["title"], TITLE_LIMIT, "插件通知"))
+        .title(text(&input["title"], TITLE_LIMIT, belfry_i18n::text("插件通知")))
         .body(text(&input["body"], BODY_LIMIT, ""))
         .show()
         .map_err(|error| error.to_string())
@@ -97,9 +97,9 @@ mod tests {
         let original = json!("字".repeat(TITLE_LIMIT + 1));
         assert_eq!(
             "字".repeat(TITLE_LIMIT),
-            text(&original, TITLE_LIMIT, "插件通知")
+            text(&original, TITLE_LIMIT, belfry_i18n::text("插件通知"))
         );
-        assert_eq!("插件通知", text(&json!("   "), TITLE_LIMIT, "插件通知"));
+        assert_eq!(belfry_i18n::text("插件通知"), text(&json!("   "), TITLE_LIMIT, belfry_i18n::text("插件通知")));
         assert_eq!("内容", text(&json!("  内容  "), BODY_LIMIT, ""));
     }
 }
