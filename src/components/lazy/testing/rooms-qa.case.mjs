@@ -163,23 +163,58 @@ for (const theme of ["dark", "light"]) {
     assert.ok(await view.cdp.evaluate("document.querySelector('[data-id=foreman]').textContent.includes('2 位成员忙碌')"));
 
     // 比较真实渲染帧：仅存在动画元素并不能证明动效在运行。
-    const frames = await view.cdp.evaluate(`(async () => {
-      const sample = () => [...document.querySelectorAll('.react-flow__edge')].filter((edge) => edge.querySelector('.room-flow-edge--animated')).map((edge) => {
-        const pulse = edge.querySelector('.room-flow-pulse').getCTM();
-        return { id: edge.dataset.id, dash: getComputedStyle(edge.querySelector('.room-flow-edge--animated')).strokeDashoffset, x: pulse.e, y: pulse.f };
-      });
-      const before = sample();
-      const bar = document.querySelector('.room-flow-activity i');
-      const beforeBar = getComputedStyle(bar).transform;
-      await new Promise((resolve) => setTimeout(resolve, 350));
-      return { before, after: sample(), beforeBar, afterBar: getComputedStyle(bar).transform };
-    })()`);
-    assert.equal(frames.before.length, 3);
-    for (let i = 0; i < frames.before.length; i++) {
-      assert.notEqual(frames.before[i].dash, frames.after[i].dash, `${frames.before[i].id} 的虚线确实流动`);
-      assert.ok(Math.hypot(frames.after[i].x - frames.before[i].x, frames.after[i].y - frames.before[i].y) > 1, `${frames.before[i].id} 的光点确实移动`);
+    const frames = await view.cdp.evaluate(`new Promise(resolve => {
+      const clock = element => {
+        const animation = element?.getAnimations().find(animation => animation instanceof CSSAnimation);
+        if (!animation) return null;
+        const timing = animation.effect.getComputedTiming();
+        return { name: animation.animationName, currentTime: animation.currentTime, startTime: animation.startTime,
+          pending: animation.pending, playState: animation.playState, duration: timing.duration, progress: timing.progress };
+      };
+      const sample = () => {
+        const edges = [...document.querySelectorAll('.react-flow__edge')].filter(edge => edge.querySelector('.room-flow-edge--animated')).map(edge => {
+          const path = edge.querySelector('.room-flow-edge--animated'), base = path.getCTM();
+          const pulse = edge.querySelector('.room-flow-pulse')?.getCTM();
+          // Measure particle movement along the path, independently of fitView pan/zoom.
+          const point = base && pulse && base.a * base.d !== base.b * base.c ? base.inverse().multiply(pulse) : null;
+          return { id: edge.dataset.id, path: path.getAttribute('d'), dash: getComputedStyle(path).strokeDashoffset,
+            x: point?.e ?? null, y: point?.f ?? null, clock: clock(path) };
+        });
+        const bar = document.querySelector('.room-flow-activity i');
+        return { at: performance.now(), timeline: document.timeline.currentTime, visibility: document.visibilityState,
+          reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches, edges,
+          bar: bar && { transform: getComputedStyle(bar).transform, clock: clock(bar) } };
+      };
+      const active = clock => clock && clock.duration > 0 && clock.playState === 'running' && !clock.pending && clock.currentTime !== null;
+      const initial = sample();
+      let before = null, after = initial, count = 0, frame = 0;
+      const finish = () => { clearTimeout(timeout); cancelAnimationFrame(frame); resolve({ initial, before, after, count }); };
+      // A wall-clock sleep can expire while Chromium's animation clock is still at zero.
+      const timeout = setTimeout(finish, 10_000);
+      const tick = () => {
+        after = sample(); count++;
+        if (after.edges.length === 3 && active(after.bar?.clock) && after.edges.every(edge => active(edge.clock) && Number.isFinite(edge.x) && Number.isFinite(edge.y))) {
+          if (!before || after.edges.some((edge, i) => edge.id !== before.edges[i].id || edge.path !== before.edges[i].path)) before = after;
+          const moved = after.edges.every((edge, i) => edge.clock.currentTime - before.edges[i].clock.currentTime >= 350
+            && edge.dash !== before.edges[i].dash && Math.hypot(edge.x - before.edges[i].x, edge.y - before.edges[i].y) > 1);
+          if (moved && after.bar.clock.currentTime - before.bar.clock.currentTime >= 350 && after.bar.transform !== before.bar.transform) return finish();
+        }
+        frame = requestAnimationFrame(tick);
+      };
+      frame = requestAnimationFrame(tick);
+    })`);
+    t.diagnostic(JSON.stringify({ roomMotion: frames }));
+    assert.ok(frames.before, "工作动画已启动且连线可测量");
+    assert.equal(frames.before.edges.length, 3);
+    assert.equal(frames.after.edges.length, 3);
+    assert.ok(frames.after.bar, "采样结束时工作指示仍在");
+    for (let i = 0; i < frames.before.edges.length; i++) {
+      const before = frames.before.edges[i], after = frames.after.edges[i];
+      assert.ok(after.clock?.currentTime - before.clock.currentTime >= 350, `${before.id} 的动画时钟确实推进`);
+      assert.notEqual(before.dash, after.dash, `${before.id} 的虚线确实流动`);
+      assert.ok(Math.hypot(after.x - before.x, after.y - before.y) > 1, `${before.id} 的光点确实移动`);
     }
-    assert.notEqual(frames.beforeBar, frames.afterBar, "节点上的工作指示持续变化");
+    assert.notEqual(frames.before.bar.transform, frames.after.bar.transform, "节点上的工作指示持续变化");
     await capturePanel(view, `room-flow-untracked-${theme}`);
 
     assert.ok(await view.cdp.evaluate("document.querySelector('aside[aria-label=任务板]').textContent.includes('尚未登记任务')"));
@@ -188,6 +223,9 @@ for (const theme of ["dark", "light"]) {
 
     await view.cdp.evaluate("['t1', 't2', 't3'].forEach((id) => window.qaSetActivity(id, 'idle'))");
     await waitFor(view, "document.querySelectorAll('.room-flow-node--busy, .room-flow-edge--animated, .room-flow-pulse').length === 0");
+    const stopped = await view.cdp.evaluate("[...document.querySelectorAll('.react-flow__edge-path')].flatMap(path => path.getAnimations().map(animation => ({ name: animation.animationName, playState: animation.playState, currentTime: animation.currentTime })))");
+    t.diagnostic(JSON.stringify({ roomMotionStopped: stopped }));
+    assert.deepEqual(stopped, [], "成员空闲后连线没有遗留动画");
     await view.cdp.evaluate("window.qaSetActivity('t2', 'awaiting-choice')");
     await waitFor(view, "!!document.querySelector('.room-flow-node--waiting')");
     assert.equal(await view.cdp.evaluate("document.querySelectorAll('.room-flow-edge--animated').length"), 0, "等待确认不冒充工作中的流动");
