@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { productionFixture, assertTerminalInput, click, waitFor } from "../../components/lazy/testing/productionFixture.mjs";
+import { sessionRecoveryQa } from "./sessionRecoveryQa.mjs";
 
 // 生产 React、工作区存档与 xterm 全部照常运行；只替换原生 IPC，浏览器与后台数据均隔离。
 const nativeSource = `(() => {
@@ -50,7 +51,8 @@ const latestCreate = (view) => view.cdp.evaluate("__productionQA.calls.filter(ca
 const savedTab = "JSON.parse(localStorage.getItem('belfry.workspace.v1')).tabs[0]";
 
 test("production session recovery saves independent identity, reconnects and restarts the same conversation", { timeout: 30_000 }, async (t) => {
-  const { view, origin } = await productionFixture(t, { nativeSource });
+  const diagnostic = sessionRecoveryQa(t);
+  const { view, origin } = await productionFixture(t, { nativeSource: `${nativeSource}\n${diagnostic.source}`, beforeNavigate: diagnostic.beforeNavigate });
   const initial = await latestCreate(view);
   assert.equal(initial.attachment, "01arz3ndektsv4rrffq69g5faa");
   assert.equal(initial.recoverExited, true);
