@@ -114,6 +114,12 @@ const pending = new Map<string, Array<{ resolve: () => void; reject: (cause: Err
 Object.assign(window, {
   qaRoomIds: [room.id, secondRoom.id],
   qaSetBrief: (brief: Room["brief"]) => { room.brief = structuredClone(brief); },
+  qaSetMemberPresent: (memberId: string, present: boolean, roomId = room.id) => {
+    const current = roomData.get(roomId)!;
+    const member = current.members.find((member) => member.id === memberId);
+    if (!member) throw new Error(`Unknown QA member: ${memberId}`);
+    member.leftAt = present ? null : Date.now();
+  },
   qaRollMessage: () => {
     const removed = room.messages.shift()!;
     const message = msg("live-new", Date.now(), "foreman", "Live arrival while browsing history", ["user"]);
