@@ -6,6 +6,28 @@ export { click, press, capturePanel };
 const observations = new WeakMap();
 const remember = (list, value) => { list.push(value); if (list.length > 600) list.shift(); };
 
+function readFlowState() {
+  const inspect = element => {
+    if (!element) return null;
+    const style = getComputedStyle(element), rect = element.getBoundingClientRect();
+    return { x: rect.x, y: rect.y, width: rect.width, height: rect.height,
+      offsetWidth: element.offsetWidth, offsetHeight: element.offsetHeight,
+      display: style.display, visibility: style.visibility, opacity: style.opacity,
+      transform: style.transform, inlineStyle: element.getAttribute("style") };
+  };
+  const flow = document.querySelector(".react-flow");
+  return { at: performance.now(), main: inspect(document.querySelector(".room-main")),
+    attention: inspect(document.querySelector('.room-main > section[aria-label="需要你处理"], .room-main > section[aria-label="Needs your attention"]')), canvas: inspect(flow),
+    viewport: inspect(document.querySelector(".react-flow__viewport")),
+    members: document.querySelector(".room-sidebar section")?.textContent.slice(0, 4096) ?? null,
+    nodes: [...document.querySelectorAll(".react-flow__node")].map(node => ({ id: node.dataset.id,
+      text: node.textContent, geometry: inspect(node), handles: [...node.querySelectorAll(".react-flow__handle")].map(handle => ({
+        id: handle.dataset.handleid, geometry: inspect(handle) })) })),
+    edges: [...document.querySelectorAll(".react-flow__edge")].map(edge => ({ id: edge.dataset.id,
+      animated: !!edge.querySelector(".room-flow-edge--animated"), paths: [...edge.querySelectorAll("path")].map(path => ({
+        d: path.getAttribute("d"), visibility: getComputedStyle(path).visibility, display: getComputedStyle(path).display })) })) };
+}
+
 // Collect before the first navigation so a failed module import is observable even
 // when the React fixture never executes. Waiting and assertions remain unchanged.
 export async function browserFixture(t, page, options = {}) {
@@ -104,7 +126,8 @@ async function observe(t, page, view, { server, requests: serverRequests }) {
           locale: localStorage.getItem('belfry.locale.v1'), language: document.documentElement.lang,
           navigatorLanguage: navigator.language, theme: document.documentElement.dataset.theme,
           viewport: { width: innerWidth, height: innerHeight }, rootChildren: document.getElementById('root')?.childElementCount,
-          html: document.documentElement.outerHTML.slice(0, 24576), htmlTruncated: document.documentElement.outerHTML.length > 24576,
+          html: document.getElementById('root')?.outerHTML.slice(0, 24576), htmlTruncated: (document.getElementById('root')?.outerHTML.length ?? 0) > 24576,
+          flow: (${readFlowState.toString()})(),
           marks: performance.getEntriesByType('mark').filter(entry => entry.name.startsWith('rooms-qa:')).map(({name,startTime}) => ({name,startTime})),
           pageErrors: window.__roomsQaPageErrors, calls: window.qaCalls?.slice(-20) })`),
         view.cdp.snapshot(),

@@ -2,6 +2,8 @@
   "ROOM_NAME_REQUIRED": "A room name is required.",
   "ROOM_ROLE_NAME_LIMIT": "Role names may contain at most {{max}} characters.",
   "ROOM_NOT_FOUND": "Room not found.",
+  "ROOM_PROJECT_NOT_FOUND": "Room project directory was not found: {{path}}",
+  "ROOM_PROJECT_NOT_DIRECTORY": "Room project path must point to a directory: {{path}}",
   "PROVIDER_NOT_FOUND": "Provider not found: {{id}}",
   "PLUGIN_NOTIFICATION_TITLE": "Plugin notification",
   "PLUGIN_WINDOW_TITLE": "Plugin",

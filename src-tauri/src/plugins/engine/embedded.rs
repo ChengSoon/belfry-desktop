@@ -80,6 +80,7 @@ const SOURCES: &[(&str, &str)] = sources![
     "model-http.mjs",
     "browser.mjs",
     "browser-cdp.mjs",
+    "browser-diagnostics.mjs",
     "browser-process.mjs",
     "browser-target.mjs",
     "browser-preview.mjs",

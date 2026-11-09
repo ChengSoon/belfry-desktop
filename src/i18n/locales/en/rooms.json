@@ -312,5 +312,15 @@
   "RoomView.text_7a8a11ead5": "Add",
   "RoomView.expandBrief": "Expand brief",
   "RoomView.collapseBrief": "Collapse brief",
-  "RoomView.briefDetails": "Full brief"
+  "RoomView.briefDetails": "Full brief",
+  "new": {
+    "projectLabel": "Project directory",
+    "selectProject": "Choose a project directory for this room",
+    "choose": "Choose…",
+    "projectRequired": "Choose a project directory",
+    "projectChecking": "Choosing and checking the project directory…",
+    "projectHint": "Choose the project directory where room members will start their sessions.",
+    "projectError": "Could not open this project directory: {{reason}}",
+    "teamWithoutProject": "Team (sessions start in the selected project)"
+  }
 }

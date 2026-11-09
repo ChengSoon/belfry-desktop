@@ -17,6 +17,7 @@ use super::ops::Posted;
 use crate::atomic::{read_text_optional, write_atomic, FileLock};
 use crate::collab::RoomPost;
 use crate::collab::task::{TaskBoard, TaskOrigin, DeliveryPhase};
+use crate::resource::canonicalize;
 use crate::terminal::AppError;
 
 pub const STORE_VERSION: u32 = 3;
@@ -230,11 +231,22 @@ impl RoomStore {
         if project_root.trim().is_empty() {
             return Err(AppError::invalid_argument(belfry_i18n::text("房间要挂在一个项目上")));
         }
+        // 与 project::service::open_project 一致：解析相对路径和链接后检查目录。
+        // 只校验新房间，不在加载或保存已有房间时改写历史项目地址。
+        let requested = Path::new(project_root.trim());
+        let project_root = canonicalize(requested).map_err(|_| {
+            AppError::not_found(format!("Room project directory was not found: {}", requested.display()))
+        })?;
+        if !project_root.is_dir() {
+            return Err(AppError::invalid_argument(format!(
+                "Room project path must point to a directory: {}", requested.display()
+            )));
+        }
         let now = now_millis();
         let room = Room {
             id: new_id(),
             name: name.to_string(),
-            project_root: project_root.trim().to_string(),
+            project_root: project_root.to_string_lossy().into_owned(),
             created_at: now,
             brief: Brief {
                 objective: objective.trim().to_string(),

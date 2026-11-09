@@ -1,8 +1,8 @@
 // Node 枚举文件，避免 PowerShell 与 POSIX shell 对 glob 的不同处理。
-import { spawnSync } from "node:child_process";
-import { appendFileSync, existsSync, readdirSync, readFileSync } from "node:fs";
+import { appendFileSync, existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { browserExecutable } from "../../src-tauri/src/plugins/node/browser-process.mjs";
+import { runPluginSuite, suiteBudget } from "./plugin-suite.mjs";
 
 const upstreamCases = new Set(["upstream-runtime.case.mjs", "todo-interop.case.mjs"]);
 const upstream = process.env.BELFRY_PI_SOURCE;
@@ -23,32 +23,26 @@ for (const directory of ["src/components/lazy/testing", "src/workspace/testing",
   suites.push(...readdirSync(directory).filter((name) => name.endsWith(".case.mjs")).map((name) => join(directory, name)));
 }
 suites.push("scripts/test-command-library.mjs");
-const testTimeoutMs = 5 * 60 * 1000;
-// macOS 全量约 3.5 分钟，Windows 惯常慢 2~3 倍；留到 20 分钟既不误杀，也远早于 45 分钟的 job 上限。
-const suiteTimeoutMs = 20 * 60 * 1000;
+const budget = suiteBudget(), { testTimeoutMs, suiteTimeoutMs, concurrency } = budget;
 // macOS CI shares limited renderer resources: concurrent Chrome instances have
 // timed out during Runtime.enable/screenshot and missed pointer/animation frames.
 // Keep every test mandatory; serialize suites there instead of retrying assertions
 // or increasing the production browser request timeout. Other platforms retain 2.
-const concurrency = process.platform === "darwin" ? 1 : 2;
 console.log(`Plugin/browser suite concurrency: ${concurrency} (${process.platform})`);
+console.log(`Plugin/browser budget: ${suiteTimeoutMs / 60_000} minutes total, ${testTimeoutMs / 60_000} minutes per test; ${suites.length} discovered files.`);
 const outputPath = process.env.GITHUB_ACTIONS ? "plugin-tests.tap"
   : join(process.env.TMPDIR ?? process.env.TEMP ?? "/tmp", "belfry-developer3-plugin-tests.tap");
 // 实时打印进度，同时持续写入 TAP；测试卡住时也能保留最后完成的用例和超时结果。
 // --test-force-exit：用例判定完成后立即退出。否则残留句柄（Windows 上 kill 父进程留下的
 // 孙子进程会继承管道）会让运行器在全部通过后静默挂起，--test-timeout 也管不到，
 // 直到外层 spawnSync 超时才被杀掉，且此时结果按文件顺序积压、后续文件一条都打不出来。
-const result = spawnSync(process.execPath, ["--test", `--test-concurrency=${concurrency}`, `--test-timeout=${testTimeoutMs}`,
+const report = runPluginSuite({ args: ["--test", `--test-concurrency=${concurrency}`, `--test-timeout=${testTimeoutMs}`,
   "--test-force-exit",
   "--test-reporter=spec", "--test-reporter-destination=stdout",
-  "--test-reporter=tap", `--test-reporter-destination=${outputPath}`, ...suites.sort()], {
-  stdio: "inherit", timeout: suiteTimeoutMs,
+  "--test-reporter=tap", `--test-reporter-destination=${outputPath}`, ...suites.sort()], outputPath, files: suites, budget,
   env: { ...process.env, BELFRY_REQUIRE_BROWSER_TESTS: "1" },
 });
-if (result.error) throw result.error;
-if (result.status !== 0) process.exit(result.status ?? 1);
-const output = readFileSync(outputPath, "utf8");
-if (/^# (?:SKIP|skip\b)|# SKIP\b|^# skipped [1-9]/m.test(output)) throw new Error("必跑回归出现跳过项，请检查浏览器或测试环境");
+process.exitCode = report.exitCode;
 
 function checkUpstreamFixtures(root) {
   const plugins = ["apps/desktop/resources/plugins/pi.browser", "market-fixtures/pi.gitlens",

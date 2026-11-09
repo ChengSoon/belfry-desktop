@@ -2,6 +2,8 @@
   "ROOM_NAME_REQUIRED": "房间名是必填的",
   "ROOM_ROLE_NAME_LIMIT": "角色名最多 {{max}} 个字",
   "ROOM_NOT_FOUND": "找不到这个房间",
+  "ROOM_PROJECT_NOT_FOUND": "找不到房间项目目录：{{path}}",
+  "ROOM_PROJECT_NOT_DIRECTORY": "房间项目地址必须是目录：{{path}}",
   "PROVIDER_NOT_FOUND": "找不到 provider：{{id}}",
   "PLUGIN_NOTIFICATION_TITLE": "插件通知",
   "PLUGIN_WINDOW_TITLE": "插件",
