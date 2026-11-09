@@ -310,6 +310,9 @@
   "RoomView.text_b841e821cc": "This room has no coordinator yet.",
   "RoomView.text_cc708a7a29": "Adding…",
   "RoomView.text_7a8a11ead5": "Add",
+  "RoomView.expandBrief": "Expand brief",
+  "RoomView.collapseBrief": "Collapse brief",
+  "RoomView.briefDetails": "Full brief",
   "new": {
     "projectLabel": "Project directory",
     "selectProject": "Choose a project directory for this room",

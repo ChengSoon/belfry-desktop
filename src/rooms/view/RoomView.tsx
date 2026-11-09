@@ -13,7 +13,7 @@ import {
   SendHorizontal, SquareTerminal, Trash2, UserMinus, UserPlus, Users, X,
 } from "lucide-react";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
-import { createContext, memo, useContext, useEffect, useId, useMemo, useRef, useState, type ClipboardEvent, type ReactNode } from "react";
+import { createContext, memo, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent, type ReactNode } from "react";
 import { isAgentKind, type AgentAvailability, type AgentKind } from "../../agent/contracts";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -657,9 +657,10 @@ function BriefPanel({ room, rooms }: { room: Room; rooms: RoomsState }) {
   };
   const brief = room.brief;
   return (
-    <section aria-label={t("rooms.RoomView.text_3718c91aa2")} className="shrink-0 border-b border-border px-4 py-2.5">
+    <section aria-label={t("rooms.RoomView.text_3718c91aa2")} data-editing={editing}
+      className="room-brief flex min-h-0 min-w-0 shrink-0 flex-col border-b border-border px-4 py-2.5">
       {editing ? (
-        <div className="flex flex-col gap-3">
+        <div className="flex min-h-0 flex-col gap-3 overflow-y-auto">
           <Field id={`${id}-objective`} label={t("rooms.RoomView.text_7011272724")}>
             <Textarea autoFocus className="min-h-16" id={`${id}-objective`} onChange={(event) => setObjective(event.target.value)} rows={3} value={objective} />
           </Field>
@@ -675,25 +676,68 @@ function BriefPanel({ room, rooms }: { room: Room; rooms: RoomsState }) {
           </div>
         </div>
       ) : (
-        <div className="group flex items-start gap-3">
-          <div className="min-w-0 flex-1">
-            <p className={cn("line-clamp-2 leading-relaxed whitespace-pre-wrap", !brief.objective && "text-muted-foreground")}
-              title={brief.objective || undefined}>
-              <span className="mr-2 text-xs font-semibold tracking-wide text-muted-foreground">{t("rooms.RoomView.text_128a7a0366")}</span>
-              {brief.objective || t("rooms.RoomView.text_48a319e483")}
-            </p>
-            {brief.currentFocus || brief.constraints.length ? (
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {brief.currentFocus ? <Badge variant="secondary">{t("rooms.RoomView.text_b3d7d517ef", { currentFocus: brief.currentFocus })}</Badge> : null}
-                {brief.constraints.map((item) => <Badge key={item} variant="outline">{item}</Badge>)}
-              </div>
-            ) : null}
-          </div>
-          <Button className="shrink-0 text-muted-foreground opacity-60 group-hover:opacity-100" onClick={start} size="xs" variant="ghost">
-            <Pencil />{t("rooms.RoomView.text_0518365699")}</Button>
-        </div>
+        <BriefSummary brief={brief} key={room.id} onEdit={start} />
       )}
     </section>
+  );
+}
+
+function BriefSummary({ brief, onEdit }: { brief: Room["brief"]; onEdit: () => void }) {
+  useTranslation();
+  const id = useId();
+  const content = useRef<HTMLDivElement>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [overflowing, setOverflowing] = useState(false);
+  useLayoutEffect(() => {
+    const node = content.current;
+    if (!node) return;
+    if (!expanded) node.scrollTop = 0;
+    let frame = 0;
+    const measure = () => {
+      const longText = [...node.querySelectorAll<HTMLElement>("[data-brief-text]")].some(text =>
+        text.scrollHeight > 2 * parseFloat(getComputedStyle(text).lineHeight) + 1);
+      const overflow = longText || node.scrollHeight > node.clientHeight + 1;
+      setOverflowing(overflow);
+      if (!overflow) setExpanded(false);
+    };
+    const schedule = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(measure); };
+    const observer = new ResizeObserver(schedule);
+    observer.observe(node);
+    document.fonts.addEventListener("loadingdone", schedule);
+    measure();
+    return () => { cancelAnimationFrame(frame); observer.disconnect(); document.fonts.removeEventListener("loadingdone", schedule); };
+  }, [brief, expanded]);
+  const badge = "min-w-0 max-w-full shrink whitespace-normal text-left [overflow-wrap:anywhere]";
+  const text = cn("min-w-0 leading-snug whitespace-pre-wrap", !expanded && "line-clamp-2");
+  return (
+    <div className="group flex min-h-0 min-w-0 items-start gap-3">
+      <div aria-label={expanded ? t("rooms.RoomView.briefDetails") : undefined} id={id} ref={content}
+        role={expanded ? "region" : undefined} tabIndex={expanded ? 0 : undefined}
+        className={cn("min-h-0 min-w-0 flex-1 self-stretch overflow-x-hidden select-text", expanded ? "overflow-y-auto" : "overflow-y-hidden")}>
+        <p data-brief-text className={cn("leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere]", !expanded && "line-clamp-2", !brief.objective && "text-muted-foreground")}>
+          <span className="mr-2 text-xs font-semibold tracking-wide text-muted-foreground">{t("rooms.RoomView.text_128a7a0366")}</span>
+          {brief.objective || t("rooms.RoomView.text_48a319e483")}
+        </p>
+        {brief.currentFocus || brief.constraints.length ? (
+          <div className="mt-2 flex min-w-0 flex-wrap gap-1.5">
+            {brief.currentFocus ? <Badge className={badge} variant="secondary"><span className={text} data-brief-text>
+              {t("rooms.RoomView.text_b3d7d517ef", { currentFocus: brief.currentFocus })}</span></Badge> : null}
+            {brief.constraints.map(item => <Badge className={badge} key={item} variant="outline"><span className={text} data-brief-text>{item}</span></Badge>)}
+          </div>
+        ) : null}
+      </div>
+      <div className="flex shrink-0 items-center gap-1">
+        {overflowing || expanded ? (
+          <Button aria-controls={id} aria-expanded={expanded}
+            onClick={() => setExpanded(value => !value)} size="xs" variant="ghost">
+            <ArrowDown className={expanded ? "rotate-180" : undefined} />
+            {t(expanded ? "rooms.RoomView.collapseBrief" : "rooms.RoomView.expandBrief")}
+          </Button>
+        ) : null}
+        <Button className="text-muted-foreground opacity-60 group-hover:opacity-100" onClick={onEdit} size="xs" variant="ghost">
+          <Pencil />{t("rooms.RoomView.text_0518365699")}</Button>
+      </div>
+    </div>
   );
 }
 

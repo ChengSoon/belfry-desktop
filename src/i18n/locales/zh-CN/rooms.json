@@ -272,6 +272,9 @@
   "RoomView.text_b841e821cc": "房间里还没有统筹。",
   "RoomView.text_cc708a7a29": "正在添加…",
   "RoomView.text_7a8a11ead5": "添加",
+  "RoomView.expandBrief": "展开简报",
+  "RoomView.collapseBrief": "收起简报",
+  "RoomView.briefDetails": "简报全文",
   "reply.awaiting": "等 {{names}} 回复",
   "composer.replyPreview": "回复 {{name}}：{{message}}",
   "composer.attachmentCount": {
