@@ -43,7 +43,6 @@ import { Toggle } from "../../components/ui/toggle";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../components/ui/tooltip";
 import { cn } from "../../lib/utils";
 import type { PausedDelivery } from "../../prompt/runtime";
-import type { TerminalChoice } from "../../terminal/choice";
 import type { TerminalCommandTarget } from "../../terminal/contracts";
 import { pointInsideRect } from "../../terminal/fileDrop";
 import { composingKey } from "../../utils/keyboard";
@@ -63,8 +62,11 @@ import { useRoomAttachments } from "../useRoomAttachments";
 import { useRoomDraft } from "../drafts";
 import { useRoomProject } from "../useRoomProject";
 import { useRooms, type RoomsState } from "../useRooms";
+import { useRoomInteractions } from "../useRoomInteractions";
 import { AttachmentCard, MessageAttachments } from "./RoomAttachments";
 import { RoomFlow } from "./RoomFlow";
+import { RoomChoiceCard } from "./RoomChoiceCard";
+import { useAttentionLayout } from "./useAttentionLayout";
 import { RoomMarkdown } from "./RoomMarkdown";
 import { RoomMessagePreview, RoomReplyInbox } from "./RoomReplyInbox";
 import "../tailwind.css";
@@ -522,9 +524,6 @@ function RoomHeader({ room, rooms, onDelete }: { room: Room; rooms: RoomsState; 
 
 // ---- 中栏：需要你处理的事 ----
 
-/** 读选择框的节奏：选择框出现后用户要能很快看到，但没必要每帧都读屏。 */
-const CHOICE_POLL_MS = 700;
-
 /**
  * 成员在等你选择、或者发给他的消息卡住了：放在房间最上面，不用切去终端就能处理。
  *
@@ -538,83 +537,53 @@ function AttentionPanel(props: {
   useTranslation();
   const { room, tabs, targets } = props;
   const members = activeMembers(room);
-  const waiting = members.filter((member) => memberStatus(tabs.find((tab) => tab.id === member.tabId)) === "waiting");
   const stuck = members.filter((member) => props.paused.some((item) => item.tabId === member.tabId));
-  const [choices, setChoices] = useState<ReadonlyMap<string, TerminalChoice | null>>(new Map());
-  const [notes, setNotes] = useState<ReadonlyMap<string, string>>(new Map());
-  const waitingKey = waiting.map((member) => member.tabId).join(",");
-
-  useEffect(() => {
-    if (!waitingKey) { setChoices(new Map()); return; }
-    const read = () => setChoices((current) => {
-      const next = new Map<string, TerminalChoice | null>();
-      for (const tabId of waitingKey.split(",")) next.set(tabId, targets?.get(tabId)?.readChoice?.() ?? null);
-      const same = next.size === current.size
-        && [...next].every(([tabId, choice]) => current.get(tabId)?.signature === choice?.signature);
-      return same ? current : next;
-    });
-    read();
-    const timer = window.setInterval(read, CHOICE_POLL_MS);
-    return () => window.clearInterval(timer);
-  }, [waitingKey, targets]);
-
-  if (!waiting.length && !stuck.length) return null;
-  const note = (tabId: string, text: string) => setNotes((current) => new Map(current).set(tabId, text));
-  const answer = (member: RoomMember, choice: TerminalChoice, index: number) => {
-    const result = targets?.get(member.tabId)?.answerChoice?.(choice.signature, index) ?? "unavailable";
-    if (result === "sent") note(member.tabId, t("rooms.RoomView.text_8f5bdb120f", { choice: choice.options[index - 1]?.label ?? index }));
-    else if (result === "changed") note(member.tabId, t("rooms.RoomView.text_266ab0486a"));
-    else note(member.tabId, t("rooms.RoomView.text_c96d79dd47"));
-  };
+  const { requests, answer } = useRoomInteractions({ room, tabs, targets });
+  const id = useId();
+  const count = requests.length + stuck.length;
+  const layout = useAttentionLayout(room.id, count > 0);
+  const names = formatList([...new Set([...requests.map(request => request.member.title), ...stuck.map(member => member.title)])]);
+  if (!requests.length && !stuck.length) return null;
 
   return (
-    <section aria-label={t("rooms.RoomView.text_f50a99897d")} className="flex max-h-[40%] shrink-0 flex-col gap-2 overflow-y-auto border-b border-border bg-warning/5 px-4 py-3">
-      {waiting.map((member) => {
-        const choice = choices.get(member.tabId) ?? null;
-        return (
-          <article className="rounded-lg border border-warning/50 bg-card p-3 shadow-sm" key={member.id} role="alert">
-            <header className="flex items-center gap-2">
-              <MemberAvatar id={member.id} room={room} size="sm" />
-              <span className="font-medium">{member.title}</span>
-              <Badge className="border-warning/50 text-warning" variant="outline">{t("rooms.RoomView.text_fae18df542")}</Badge>
-              {props.onOpenSession ? (
-                <Button className="ml-auto" onClick={() => props.onOpenSession?.(member.tabId)} size="xs" variant="ghost">
-                  <SquareTerminal />{t("rooms.RoomView.text_a1494151d3")}</Button>
-              ) : null}
-            </header>
-            {choice ? (
-              <div className="mt-2.5 flex flex-col gap-2">
-                <p className="font-medium leading-relaxed">{choice.question}</p>
-                {choice.detail ? (
-                  <pre className="overflow-x-auto rounded-md border border-border bg-background px-3 py-2 font-mono text-xs leading-relaxed whitespace-pre-wrap">
-                    {choice.detail}
-                  </pre>
-                ) : null}
-                <div className="flex flex-col gap-1.5">
-                  {choice.options.map((option) => (
-                    <Button className="h-auto justify-start py-2 text-left whitespace-normal" key={option.index}
-                      onClick={() => answer(member, choice, option.index)}
-                      variant={option.index === choice.selected ? "secondary" : "outline"}>
-                      <Kbd>{option.index}</Kbd>
-                      <span className="flex-1">{option.label}</span>
-                      {option.index === choice.selected ? <span className="text-xs text-muted-foreground">{t("rooms.RoomView.text_826d72acd2")}</span> : null}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{t("rooms.RoomView.text_dd1688d84f")}</p>
-            )}
-            {notes.get(member.tabId) ? (
-              <p className="mt-2 flex items-center gap-1.5 text-xs"><Info className="size-3.5 text-muted-foreground" />{notes.get(member.tabId)}</p>
-            ) : null}
-          </article>
-        );
-      })}
+    <section aria-label={t("rooms.RoomView.text_f50a99897d")} className="room-attention" ref={layout.panel}
+      data-compact={layout.compact} data-expanded={layout.expanded}>
+      <header className="room-attention-heading">
+        <BellRing aria-hidden="true" className="size-3.5" />
+        <span className="room-attention-label">{t("rooms.RoomView.text_f50a99897d")}</span>
+        <span className="room-attention-members" title={names}>{names}</span>
+        <span className="room-attention-count" aria-live="polite">{t("rooms.choice.count", { count })}</span>
+        <Button className="room-attention-open" size="sm" variant="outline" ref={layout.trigger}
+          aria-controls={id} aria-expanded={layout.expanded} onClick={() => layout.expanded ? layout.close(true) : layout.open()}>
+          {t("rooms.choice.openRequests")}<ArrowDown aria-hidden="true" />
+        </Button>
+      </header>
+      <div className="room-attention-body" ref={layout.body} id={id} tabIndex={-1}
+        role="region" aria-label={t("rooms.choice.requests")}>
+      <header className="room-attention-expanded-heading">
+        <BellRing aria-hidden="true" className="size-3.5" />
+        <span>{t("rooms.choice.count", { count })}</span>
+        <Button className="room-attention-close" size="sm" variant="ghost" onClick={() => layout.close(true)}>
+          {t("rooms.choice.collapseRequests")}<X aria-hidden="true" />
+        </Button>
+      </header>
+      <div className="room-attention-scroll" tabIndex={0} role="region" aria-label={t("rooms.choice.requests")}
+        onFocus={event => {
+          const scroll = event.currentTarget, control = event.target;
+          if (control === scroll) return;
+          // Textareas may reveal only their caret on Tab. Reveal the control
+          // inside this scroll area without moving the conversation or focus.
+          const area = scroll.getBoundingClientRect(), field = control.getBoundingClientRect();
+          const top = area.top + 4, bottom = area.bottom - 4;
+          if (field.top < top || field.height > bottom - top) scroll.scrollTop += field.top - top;
+          else if (field.bottom > bottom) scroll.scrollTop += field.bottom - bottom;
+        }}>
+      {requests.map(request => <RoomChoiceCard key={request.key} request={request} onAnswer={answer} onOpenSession={props.onOpenSession}
+        avatar={<MemberAvatar id={request.member.id} room={room} size="sm" />} />)}
       {stuck.map((member) => (
-        <article className="flex items-center gap-2.5 rounded-lg border border-border bg-card px-3 py-2 shadow-sm" key={`stuck-${member.id}`}>
+        <article className="room-attention-paused" key={`stuck-${member.id}`}>
           <AlertTriangle className="size-4 shrink-0 text-warning" />
-          <span className="min-w-0 flex-1 truncate">
+          <span className="min-w-0 flex-1 wrap-anywhere">
             <span className="font-medium">{t("rooms.RoomView.text_77cacdd84c", { title: member.title })}</span>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -629,6 +598,8 @@ function AttentionPanel(props: {
           <Button onClick={() => props.onResume?.(member.tabId)} size="xs"><Play />{t("rooms.RoomView.text_1825931945")}</Button>
         </article>
       ))}
+      </div>
+      </div>
     </section>
   );
 }

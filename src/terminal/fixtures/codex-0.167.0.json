@@ -1,0 +1,62 @@
+{
+  "version": "0.167.0",
+  "commit": "086ccc833bc9cf01024ad2dd6af7dbd421b6bf9a",
+  "fixtures": {
+    "codex-async-wrapped": {
+      "screen": "  Second\n\n  › 1. A suggested answer that is\n       long enough to wrap across\n       multiple rows\n    2. Other\n\n  enter submit   ⌃] skip\n  ⇧→ main prompt",
+      "source": "codex-rs/tui/src/bottom_pane/async_questions/snapshots/codex_tui__bottom_pane__async_questions__tests__question_wrapped_named_option.snap"
+    },
+    "codex-async-input": {
+      "screen": "  1 of 2\n\n  Run this command:\n\n  printf '診 断 '\n\n  Then review the diagnostics\n  (https://example.com/diagnostics?view=full)?\n\n  Type your answer\n\n  enter submit   ⌃] skip   ⇧→ main prompt\n  ⇧← next question",
+      "source": "codex-rs/tui/src/bottom_pane/async_questions/snapshots/codex_tui__bottom_pane__async_questions__tests__question_multiline.snap"
+    },
+    "codex-async-remapped": {
+      "screen": "  2 of 2\n  Second\n\n  › 1. Option 1 is long enough to wrap across\n       rows\n    2. Option 2 is long enough to wrap across\n       rows\n\n  f9 submit   ⌃] skip   option 1/13\n  ⇧→ prev question",
+      "source": "codex-rs/tui/src/bottom_pane/async_questions/snapshots/codex_tui__bottom_pane__async_questions__tests__question_remapped_choice_footer.snap"
+    },
+    "codex-input-options": {
+      "screen": "  Question 1/1 (1 unanswered)\n  Choose an option.\n\n  › 1. Option 1           First choice.\n    2. Option 2           Second choice.\n    3. Option 3           Third choice.\n    4. None of the above  Optionally, add details in notes (tab)\n\n  tab to add notes | enter to submit answer | esc to interrupt",
+      "source": "codex-rs/tui/src/bottom_pane/request_user_input/snapshots/codex_tui__bottom_pane__request_user_input__tests__request_user_input_options.snap"
+    },
+    "codex-input-freeform": {
+      "screen": "  Question 1/1 (1 unanswered)\n  Share details.\n\n  › Type your answer (optional)\n\n\n\n  enter to submit answer | esc to interrupt",
+      "source": "codex-rs/tui/src/bottom_pane/request_user_input/snapshots/codex_tui__bottom_pane__request_user_input__tests__request_user_input_freeform.snap"
+    },
+    "codex-input-notes": {
+      "screen": "  Question 1/1 (1 unanswered)\n  Choose an option.\n\n  › 1. Option 1  First choice.\n    2. Option 2  Second choice.\n    3. Option 3  Third choice.\n\n  › Add notes\n\n\n\n\n\n  tab or esc to clear notes | enter to submit answer",
+      "source": "codex-rs/tui/src/bottom_pane/request_user_input/snapshots/codex_tui__bottom_pane__request_user_input__tests__request_user_input_options_notes_visible.snap"
+    },
+    "codex-input-first": {
+      "screen": "  Question 1/2 (2 unanswered)\n  Choose an option.\n\n  › 1. Option 1  First choice.\n    2. Option 2  Second choice.\n    3. Option 3  Third choice.\n\n  tab to add notes | enter to submit answer | ←/→ to navigate questions | esc to interrupt",
+      "source": "codex-rs/tui/src/bottom_pane/request_user_input/snapshots/codex_tui__bottom_pane__request_user_input__tests__request_user_input_multi_question_first.snap"
+    },
+    "codex-input-last": {
+      "screen": "  Question 2/2 (2 unanswered)\n  Share details.\n\n  › Type your answer (optional)\n\n\n\n\n\n  enter to submit all | ⌃p / ⌃n change question | esc to interrupt",
+      "source": "codex-rs/tui/src/bottom_pane/request_user_input/snapshots/codex_tui__bottom_pane__request_user_input__tests__request_user_input_multi_question_last.snap"
+    },
+    "codex-input-long": {
+      "screen": "  Question 1/1 (1 unanswered)\n  Choose one option.\n\n  › 1. Job: running/completed/failed/expired; Run/Experiment: succeeded/failed/    Keep async job statuses for\n       unknown (Recommended when triaging long-running background work and status  progress tracking and include\n       transitions)                                                                enough context for debugging\n                                                                                   retries, stale workers, and\n                                                                                   unexpected expiration paths.\n    2. Add a short status model                                                    Simpler labels with less detail for\n                                                                                   quick rollouts.\n\n  tab to add notes | enter to submit answer | esc to interrupt",
+      "source": "codex-rs/tui/src/bottom_pane/request_user_input/snapshots/codex_tui__bottom_pane__request_user_input__tests__request_user_input_long_option_text.snap"
+    },
+    "codex-input-hidden": {
+      "screen": "  Question 1/1 (1 unanswered)\n  What would you like to do next?\n\n    2. Run tests      Pick a crate and run its tests.\n    3. Review a diff  Summarize or review current changes.\n  › 4. Refactor       Tighten structure and remove dead code.\n\n  option 4/5 | tab to add notes | enter to submit answer | esc to interrupt",
+      "source": "codex-rs/tui/src/bottom_pane/request_user_input/snapshots/codex_tui__bottom_pane__request_user_input__tests__request_user_input_hidden_options_footer.snap"
+    },
+    "codex-input-remapped": {
+      "screen": "  Question 1/1 (1 unanswered)\n  Share details.\n\n  › Type your answer (optional)\n\n\n\n  ⌃j to submit answer | esc to interrupt",
+      "source": "codex-rs/tui/src/bottom_pane/request_user_input/snapshots/codex_tui__bottom_pane__request_user_input__tests__request_user_input_freeform_remapped_submit.snap"
+    },
+    "codex-model-wrapped": {
+      "screen": "  Select Model and Effort\n\n\n› 1. gpt-5.1-codex (current)  Optimized for Codex. Balance of reasoning quality\n                              and coding ability.\n  2. gpt-5.1-codex-mini       Optimized for Codex. Cheaper, faster, but less\n                              capable.\n  3. gpt-4.1-codex            Legacy model. Use when you need compatibility with\n                              older automations.",
+      "source": "codex-rs/tui/src/bottom_pane/snapshots/codex_tui__bottom_pane__list_selection_view__tests__list_selection_model_picker_width_80.snap"
+    },
+    "codex-permissions": {
+      "screen": "  Would you like to grant these permissions?\n\n  Reason: need workspace access\n\n  Permission rule: network; read `/tmp/readme.txt`; write `/tmp/out.txt`\n\n\n› 1. Yes, grant these permissions for this turn (y)\n  2. Yes, grant for this turn with strict auto review (r)\n  3. Yes, grant these permissions for this session (a)\n  4. No, continue without permissions (d)\n\n  Press enter to confirm or esc to cancel",
+      "source": "codex-rs/tui/src/bottom_pane/snapshots/codex_tui__bottom_pane__approval_overlay__tests__approval_overlay_permissions_prompt.snap"
+    },
+    "codex-unanswered": {
+      "screen": "  Submit with unanswered questions?\n  2 unanswered questions\n\n  › 1. Proceed  Submit with 2 unanswered questions\n    2. Go back  Return to the first unanswered question\n\n\n\n\n  Press enter to confirm or esc to go back",
+      "source": "codex-rs/tui/src/bottom_pane/request_user_input/snapshots/codex_tui__bottom_pane__request_user_input__tests__request_user_input_unanswered_confirmation.snap"
+    }
+  }
+}

@@ -1,5 +1,6 @@
 import { TranslationError } from "../i18n";
 import type { PromptDeliveryOptions, PromptDeliveryResult } from "./contracts";
+import type { InteractionWrite, TerminalInteractionResult } from "./interaction";
 
 /**
  * 从 PTY 粘贴写入完成后留出解析窗口。Codex 的非 bracketed paste Enter 抑制为 120ms，
@@ -33,6 +34,7 @@ export class PromptInput {
   private disposed = false;
   private settleTimer: ReturnType<typeof setTimeout> | undefined;
   private finishSettle: (() => void) | undefined;
+  private captured: string[] | null = null;
 
   constructor(private readonly ports: PromptInputPorts) {}
 
@@ -44,6 +46,7 @@ export class PromptInput {
   }
 
   onData(data: string) {
+    if (this.captured) { this.captured.push(data); return; }
     const sessionId = this.session();
     if (!sessionId) return;
     this.lastWrite = this.tail.then(() => {
@@ -70,6 +73,19 @@ export class PromptInput {
     return true;
   }
 
+  /** Shares the keyboard queue; its validity check runs after older writes finish. */
+  sendInteraction(request: InteractionWrite): Promise<TerminalInteractionResult> {
+    const sessionId = this.session();
+    if (!sessionId) return Promise.resolve({ status: "unavailable" });
+    if (this.pending) return Promise.resolve({ status: "busy" });
+    if (this.failed) return Promise.resolve({ status: "failed" });
+    this.pending = true;
+    const revision = this.revision;
+    const submission = this.tail.then(() => this.submitInteraction(request, sessionId, revision));
+    this.tail = submission.then(() => undefined);
+    return submission.finally(() => { this.pending = false; });
+  }
+
   private emit(action: () => void) {
     this.emitting = true;
     try { action(); } finally { this.emitting = false; }
@@ -89,6 +105,49 @@ export class PromptInput {
       this.finishSettle = () => { this.finishSettle = undefined; this.settleTimer = undefined; resolve(); };
       this.settleTimer = setTimeout(this.finishSettle, this.ports.settleMs ?? PASTE_SETTLE_MS);
     });
+  }
+
+  private encoded(action: () => void): string {
+    this.captured = [];
+    try { this.emit(action); return this.captured.join(""); }
+    finally { this.captured = null; }
+  }
+
+  private async submitInteraction(request: InteractionWrite, sessionId: string, revision: number): Promise<TerminalInteractionResult> {
+    let attempted = false;
+    const attached = () => this.session() === sessionId;
+    const untouched = () => this.revision === revision && !this.failed;
+    const write = async (data: string) => {
+      if (!data) throw new Error("The terminal did not encode the requested input.");
+      attempted = true;
+      this.writeAttempts += 1;
+      await this.ports.write(sessionId, data);
+    };
+    try {
+      if (!attached()) return { status: "unavailable" };
+      if (!untouched() || !request.valid()) return { status: "changed" };
+      if (request.navigation) {
+        await write(request.navigation);
+        if (!attached() || !untouched() || !await request.navigationReady?.()) return { status: "uncertain" };
+        // Never send Enter based solely on an assumed arrow/space key mapping.
+        if (!attached() || !untouched() || !request.validAfterNavigation?.()) return { status: "uncertain" };
+      }
+      if (request.keys) await write(request.keys);
+      if (request.text !== undefined) {
+        if (!attached() || !untouched()) return { status: attempted ? "uncertain" : "changed" };
+        const pasted = this.encoded(() => this.ports.paste(request.text!));
+        // A raw multi-line paste can submit before validation. Require bracketed paste.
+        if (/[\r\n]/.test(request.text) && !pasted.startsWith("\u001b[200~")) return { status: attempted ? "uncertain" : "invalid" };
+        await write(pasted);
+        await this.settle();
+        if (!attached() || !untouched() || !(request.validAfterPaste ?? request.valid)()) return { status: "uncertain" };
+        await write(this.encoded(() => this.ports.enter()));
+      }
+      return { status: attached() ? "sent" : "uncertain" };
+    } catch (error) {
+      if (attached()) { this.failed = true; this.ports.error(error); }
+      return { status: attempted ? "uncertain" : "failed" };
+    }
   }
 
   private async submit(text: string, sessionId: string, revision: number): Promise<PromptDeliveryResult> {

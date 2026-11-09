@@ -10,6 +10,7 @@ import { PluginManagement } from "../../src-tauri/src/plugins/node/management.mj
 import { PluginMarket } from "../../src-tauri/src/plugins/node/market.mjs";
 import { administration } from "../../src-tauri/src/plugins/node/administration.mjs";
 import { scaffold } from "../../src-tauri/src/plugins/node/author.mjs";
+import { MarketUiDiagnostics, diagnosticsFor } from "./market-ui-diagnostics.mjs";
 
 export const SOURCE_SELECT = 'button[aria-label="插件市场来源"]';
 export const CUSTOM_INPUT = 'input[aria-label="目录地址"]';
@@ -18,8 +19,11 @@ const UI_TIMEOUT_MS = 10_000;
 const REGISTRY = { format: "belfry-directory-plugins-v1", storeSchemaVersion: 1, revision: "0", plugins: [] };
 const RUNTIME = { available: true, errors: {}, commands: [], tools: [], skills: [], views: [], themes: [], services: [], plugins: [], shortcuts: [] };
 
-export async function marketUiFixture(t, settings) {
-  const lifetime = cleanupScope(t), root = await temporary(lifetime);
+export async function marketUiFixture(t, settings, { diagnose = true, diagnosticOptions } = {}) {
+  const lifetime = cleanupScope(t), diagnostics = diagnose ? new MarketUiDiagnostics(t, diagnosticOptions) : undefined;
+  const step = (name, run) => diagnostics ? diagnostics.step(name, run) : run();
+  const after = (name, run) => lifetime.after(() => step(`cleanup.${name}`, run));
+  const root = await step("temporary", () => temporary({ after: (run) => after("temporary", run) }));
   const management = await new PluginManagement(join(root, "data")).init();
   if (settings) await management.setSource(settings);
   const market = new PluginMarket({ base: join(root, "data"), management, installed: () => [] });
@@ -27,8 +31,10 @@ export async function marketUiFixture(t, settings) {
   await scaffold({ directory, template: "panel-basic", id: "mine.notes", name: "我的笔记", author: "Maker" });
   await market.personal.publish({ directory });
   const routes = new Map(), calls = [], manager = { management, market };
-  const server = await createServer({ configFile: false, logLevel: "silent", cacheDir: join(root, "vite-cache"),
+  const server = await step("server.create", () => createServer({ configFile: false, logLevel: "silent", cacheDir: join(root, "vite-cache"),
+    ...(diagnostics ? { customLogger: diagnostics.logger() } : {}),
     plugins: [react(), { name: "market-page-test", configureServer: (vite) => {
+      if (diagnostics) vite.middlewares.use((request, response, next) => diagnostics.middleware(request, response, next));
       vite.middlewares.use((request, response, next) => {
         if (request.url !== "/__market-rpc" && !routes.has(request.url)) { next(); return; }
         void respond({ request, response }, { manager, routes, calls }).catch((error) => {
@@ -36,13 +42,18 @@ export async function marketUiFixture(t, settings) {
         });
       });
     } }], server: { host: "127.0.0.1", port: 0, hmr: false, watch: null },
-  });
-  lifetime.after(() => server.close());
-  await server.listen();
+  }));
+  after("server", () => server.close());
+  await step("server.listen", () => server.listen());
   const origin = `http://127.0.0.1:${server.httpServer.address().port}`;
-  const engine = await new BrowserProcess(join(root, "chromium")).start(); lifetime.after(() => engine.close());
-  const view = await new BrowserTarget(engine, { workspace: root, frame: () => {}, state: () => {} }).start();
-  lifetime.after(() => view.close());
+  const engine = new BrowserProcess(join(root, "chromium")); diagnostics?.attachEngine(engine);
+  await step("browser.start", () => engine.start()); after("browser", () => engine.close());
+  const view = await step("target.start", () => new BrowserTarget(engine, { workspace: root, frame: () => {}, state: () => {} }).start());
+  after("target", () => view.close());
+  if (diagnostics) {
+    await diagnostics.attachView(view, origin);
+    lifetime.after(() => diagnostics.captures.length ? undefined : diagnostics.capture("teardown"));
+  }
   await view.send("Page.addScriptToEvaluateOnNewDocument", { source: "if (!localStorage.getItem('belfry.locale.v1')) localStorage.setItem('belfry.locale.v1', 'zh-CN')" });
   const open = async () => {
     await view.navigate({ url: `${origin}/scripts/plugin-tests/fixtures/market-page.html` });
@@ -50,7 +61,7 @@ export async function marketUiFixture(t, settings) {
     await click(view, "#plugins-tab-market");
     await waitFor(view, `!!document.querySelector(${JSON.stringify(SOURCE_SELECT)})`);
   };
-  return { root, view, management, market, origin, routes, calls, open };
+  return { root, view, management, market, origin, routes, calls, open, diagnostics };
 }
 
 async function respond({ request, response }, { manager, routes, calls }) {
@@ -73,13 +84,31 @@ function dispatch(manager, command, args) {
 }
 
 export async function waitFor(view, expression) {
+  const diagnostics = diagnosticsFor(view);
+  diagnostics?.record("phases", "wait.start", { expression: expression.slice(0, 512), nextRequestId: diagnostics.engine.next + 1 });
   try {
-    return await view.cdp.evaluate(`new Promise((resolve,reject)=>{
+    const value = await view.cdp.evaluate(`new Promise((resolve,reject)=>{
       const deadline=Date.now()+${UI_TIMEOUT_MS};
       const check=()=>{if(${expression})resolve(true);else if(Date.now()>deadline)reject(new Error('等待页面状态超时'));else setTimeout(check,20)};
       check();
     })`);
-  } catch (error) { throw new Error(`${error.message}\n${expression}\n${(await view.cdp.snapshot()).tree}`); }
+    diagnostics?.record("phases", "wait.end");
+    return value;
+  } catch (error) {
+    diagnostics?.failure(error, "wait");
+    await diagnostics?.persist(); // Save the first error before any further CDP query.
+    diagnostics?.record("phases", "snapshot.start");
+    const [snapshot] = await Promise.allSettled([Promise.resolve().then(() => view.cdp.snapshot()), diagnostics?.capture("wait.failure")]);
+    diagnostics?.record("phases", "snapshot.end", { status: snapshot.status,
+      ...(snapshot.status === "rejected" ? { error: String(snapshot.reason?.message).slice(0, 2_048) } : {}) });
+    const tree = snapshot.status === "fulfilled" ? snapshot.value.tree : `(snapshot unavailable: ${snapshot.reason.message})`;
+    diagnostics?.record("phases", "wait.error", { snapshot: snapshot.status });
+    const failure = new Error(`${error.message}\n${expression}\n${tree}`, { cause: error });
+    if (error.code) failure.code = error.code;
+    if (error.browserRequest) failure.browserRequest = error.browserRequest;
+    if (snapshot.status === "rejected") failure.snapshotError = snapshot.reason;
+    throw failure;
+  }
 }
 
 export async function click(view, selector) {

@@ -5,6 +5,7 @@ import { writeTerminal } from "../api";
 import { consumeWebClipboardPaste, listenForClipboardImagePaste, usesWebClipboardFallback } from "../clipboardPaste";
 import type { CodexThemeSync } from "../codexThemeSync";
 import type { PromptDeliveryOptions, TerminalLaunch, TerminalSession } from "../contracts";
+import type { InteractionWrite } from "../interaction";
 import { formatDroppedPaths, pointInsideRect } from "../fileDrop";
 import { emptyInputLine, feedInputLine, muteInputLine } from "../inputLine";
 import { pasteSettleMs, PromptInput } from "../promptInput";
@@ -63,6 +64,8 @@ export class TerminalInput {
     if (!options?.background) this.ports.terminal.focus();
     return this.prompt.sendText(text, options);
   }
+
+  sendInteraction(request: InteractionWrite) { return this.prompt.sendInteraction(request); }
 
   stop() { this.stopped = true; this.prompt.dispose(); }
 

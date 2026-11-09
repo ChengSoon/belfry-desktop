@@ -8,11 +8,13 @@ import type { MountCallbacks } from "./types";
 export class SessionActivity {
   private readonly hook;
   private screen: IDisposable | null;
+  private waiting: string | null = null;
 
   constructor(terminal: Terminal, agent: AgentKind | null, private readonly callbacks: MountCallbacks) {
     callbacks.onActivity("idle");
     callbacks.onAgentState?.(null);
     this.hook = new HookActivity(({ activity, hook }) => {
+      this.waiting = activity === "awaiting-choice" ? hook?.reason ?? "" : null;
       callbacks.onActivity(activity);
       callbacks.onAgentState?.(hook);
     });
@@ -20,8 +22,10 @@ export class SessionActivity {
   }
 
   accept(snapshot: HookSnapshot) { this.hook.accept(snapshot); }
+  get waitingReason() { return this.waiting; }
 
   stop() {
+    this.waiting = null;
     this.hook.stop();
     this.screen?.dispose();
     this.screen = null;

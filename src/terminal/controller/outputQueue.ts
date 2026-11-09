@@ -39,6 +39,9 @@ export class OutputQueue {
 
   constructor(private readonly ports: OutputQueuePorts) {}
 
+  /** A screen-based answer must not overtake output still waiting for xterm. */
+  get settled() { return !this.disposed && !this.busy && this.pending.length === 0; }
+
   bind(session: Pick<TerminalSession, "id" | "connectionId">) {
     if (this.disposed) return;
     try { this.checkIdentity(session.id, session.connectionId); }

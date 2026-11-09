@@ -26,7 +26,7 @@ const nativeSource = `(() => {
 })();`;
 
 test('English history search and details remain readable and usable at 720x480', async t => {
-  const {view} = await productionFixture(t, {nativeSource});
+  const {view} = await productionFixture(t, {nativeSource, readinessDiagnostics: true});
   const token = await view.cdp.evaluate('__productionQA.token');
   await resize(view, 720, 480);
   await openAction(view, 'session history');
@@ -45,7 +45,7 @@ test('English history search and details remain readable and usable at 720x480',
 });
 
 test('English usage and file preview fit the minimum window', async t => {
-  const {view} = await productionFixture(t, {nativeSource});
+  const {view} = await productionFixture(t, {nativeSource, readinessDiagnostics: true});
   const token = await view.cdp.evaluate('__productionQA.token');
   await resize(view, 720, 480);
   await openAction(view, 'usage and quotas');
