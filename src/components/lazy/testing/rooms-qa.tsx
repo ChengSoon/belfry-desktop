@@ -218,7 +218,9 @@ const theme = params.get("theme") ?? "dark";
 document.documentElement.dataset.theme = theme;
 localStorage.setItem(THEME_MODE_KEY, theme);
 const attention = params.get("attention") !== "0";
-const choiceQa = params.has("choices") ? createChoiceQaState(params.get("choices")!) : null;
+const choiceQa = params.get("choices") === "terminal"
+  ? await (await import("./roomsChoiceTerminalQa")).createRoomTerminalQa()
+  : params.has("choices") ? createChoiceQaState(params.get("choices")!) : null;
 const tabs = [tab("t1", untracked ? "talking" : "idle"), tab("t2", attention ? "awaiting-choice" : "talking"), tab("t3", "talking"), tab("t4", "idle")];
 
 performance.mark("rooms-qa:importing-view");

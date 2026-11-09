@@ -1,5 +1,6 @@
 import type { TerminalChoice } from "../../../terminal/choice";
-import type { RoomInteractionTarget, TerminalInteraction, TerminalInteractionAnswer, TerminalInteractionResult } from "../../../rooms/useRoomInteractions";
+import type { TerminalCommandTarget } from "../../../terminal/contracts";
+import type { TerminalInteraction, TerminalInteractionAnswer, TerminalInteractionResult } from "../../../terminal/interaction";
 
 // Representative strings from the user's Codex new-conversation menu. Replies
 // here exercise the room UI contract; T35 tests the actual xterm/PTY execution.
@@ -18,7 +19,7 @@ export function createChoiceQaState(scenario: string) {
   const held = new Set<string>();
   const pending = new Map<string, (result: TerminalInteractionResult) => void>();
   const results = new Map<string, TerminalInteractionResult>();
-  const targets = new Map<string, RoomInteractionTarget>();
+  const targets = new Map<string, TerminalCommandTarget>();
   const sessionIds = new Map<string, string | null>();
   const legacyChoice = (): TerminalChoice | null => {
     const request = requests.get("t2");

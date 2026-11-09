@@ -566,7 +566,17 @@ function AttentionPanel(props: {
           {t("rooms.choice.collapseRequests")}<X aria-hidden="true" />
         </Button>
       </header>
-      <div className="room-attention-scroll" tabIndex={0} role="region" aria-label={t("rooms.choice.requests")}>
+      <div className="room-attention-scroll" tabIndex={0} role="region" aria-label={t("rooms.choice.requests")}
+        onFocus={event => {
+          const scroll = event.currentTarget, control = event.target;
+          if (control === scroll) return;
+          // Textareas may reveal only their caret on Tab. Reveal the control
+          // inside this scroll area without moving the conversation or focus.
+          const area = scroll.getBoundingClientRect(), field = control.getBoundingClientRect();
+          const top = area.top + 4, bottom = area.bottom - 4;
+          if (field.top < top || field.height > bottom - top) scroll.scrollTop += field.top - top;
+          else if (field.bottom > bottom) scroll.scrollTop += field.bottom - bottom;
+        }}>
       {requests.map(request => <RoomChoiceCard key={request.key} request={request} onAnswer={answer} onOpenSession={props.onOpenSession}
         avatar={<MemberAvatar id={request.member.id} room={room} size="sm" />} />)}
       {stuck.map((member) => (

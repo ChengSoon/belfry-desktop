@@ -6,8 +6,9 @@ import { Kbd } from "../../components/ui/kbd";
 import { Spinner } from "../../components/ui/spinner";
 import { Textarea } from "../../components/ui/textarea";
 import { t, useTranslation } from "../../i18n";
+import type { TerminalInteractionAnswer, TerminalInteractionResult } from "../../terminal/interaction";
 import { composingKey } from "../../utils/keyboard";
-import type { RoomInteractionRequest, TerminalInteractionAnswer, TerminalInteractionResult } from "../useRoomInteractions";
+import type { RoomInteractionRequest } from "../useRoomInteractions";
 
 function resultText(result: TerminalInteractionResult) {
   switch (result.status) {

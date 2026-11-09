@@ -1,50 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { AgentKind } from "../agent/contracts";
 import type { TerminalCommandTarget } from "../terminal/contracts";
+import type { TerminalInteraction, TerminalInteractionAnswer, TerminalInteractionResult } from "../terminal/interaction";
 import type { WorkspaceTab } from "../workspace/contracts";
 import type { Room, RoomMember } from "./contracts";
 import { activeMembers, memberStatus } from "./model";
-
-// T35's additive contract. Replace these declarations with the terminal exports
-// when its independently reviewed implementation is integrated.
-export interface TerminalInteraction {
-  requestId: string;
-  source: { sessionId: string; agent: AgentKind | null };
-  kind: "single" | "multiple" | "confirmation" | "input" | "unknown";
-  question: string;
-  detail: string;
-  options: Array<{ index: number; label: string; description?: string }>;
-  selected: number | null;
-  selectedIndices: number[];
-  input: { label: string; placeholder?: string; optional?: boolean } | null;
-  state: "pending" | "submitting" | "submitted" | "uncertain";
-  optionsComplete?: boolean;
-}
-export type TerminalInteractionAnswer =
-  | { kind: "single"; index: number }
-  | { kind: "multiple"; indices: number[] }
-  | { kind: "input"; text: string };
-export interface TerminalInteractionResult {
-  status: "sent" | "changed" | "unavailable" | "busy" | "invalid" | "failed" | "uncertain";
-  message?: string;
-}
-export interface RoomInteractionTarget extends TerminalCommandTarget {
-  readInteraction?: () => TerminalInteraction | null;
-  answerInteraction?: (requestId: string, answer: TerminalInteractionAnswer) => Promise<TerminalInteractionResult>;
-}
 
 export interface RoomInteractionRequest {
   key: string;
   member: RoomMember;
   interaction: TerminalInteraction;
-  target?: RoomInteractionTarget;
+  target?: TerminalCommandTarget;
   legacySignature?: string;
 }
 
 interface Sources {
   room: Room;
   tabs: WorkspaceTab[];
-  targets?: ReadonlyMap<string, RoomInteractionTarget>;
+  targets?: ReadonlyMap<string, TerminalCommandTarget>;
 }
 
 function unknown(sessionId: string): TerminalInteraction {
