@@ -278,5 +278,15 @@
     "other": "{{count}}/{{limit}} 个附件"
   },
   "markdown.imageAlt": "[图片：{{alt}}]",
-  "markdown.image": "[图片]"
+  "markdown.image": "[图片]",
+  "new": {
+    "projectLabel": "项目地址",
+    "selectProject": "选择房间项目目录",
+    "choose": "选择…",
+    "projectRequired": "请选择项目目录",
+    "projectChecking": "正在选择并校验项目目录…",
+    "projectHint": "选择房间使用的项目目录，成员会话将在这里启动。",
+    "projectError": "无法打开这个项目目录：{{reason}}",
+    "teamWithoutProject": "班子（成员会话将在所选项目里启动）"
+  }
 }

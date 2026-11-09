@@ -61,6 +61,7 @@ import {
 } from "../model";
 import { useRoomAttachments } from "../useRoomAttachments";
 import { useRoomDraft } from "../drafts";
+import { useRoomProject } from "../useRoomProject";
 import { useRooms, type RoomsState } from "../useRooms";
 import { AttachmentCard, MessageAttachments } from "./RoomAttachments";
 import { RoomFlow } from "./RoomFlow";
@@ -139,7 +140,7 @@ export function RoomView(props: RoomViewProps) {
   }, [ordered, search, getLocale()]);
   const actions = useMemo(() => ({ onOpenFile: props.onOpenFile, onClearContext: props.onClearContext }), [props.onOpenFile, props.onClearContext, getLocale()]);
   const close = () => setDialog(null);
-  const canCreate = props.project !== null && rooms.loadError === null;
+  const canCreate = rooms.loadError === null;
 
   return (
     <RoomActions.Provider value={actions}>
@@ -155,7 +156,7 @@ export function RoomView(props: RoomViewProps) {
         <aside className="room-sidebar flex min-h-0 flex-col border-r border-border bg-(--sidebar)">
           <header className="flex h-12 shrink-0 items-center gap-1 px-3">
             <span className="flex-1 text-[15px] font-semibold tracking-tight">{t("rooms.RoomView.text_63235691ff")}</span>
-            <IconButton disabled={!canCreate} label={props.project ? t("rooms.RoomView.text_b88f06080b") : t("rooms.RoomView.text_9e26f2e2ce")}
+            <IconButton disabled={!canCreate} label={t("rooms.RoomView.text_b88f06080b")}
               onClick={() => setDialog({ kind: "new-room" })}>
               <Plus />
             </IconButton>
@@ -196,6 +197,7 @@ export function RoomView(props: RoomViewProps) {
                       </span>
                     ) : null}
                   </span>
+                  <span className="truncate text-xs text-muted-foreground">{summary.projectRoot}</span>
                   <span className="flex items-center gap-2 text-xs text-muted-foreground">
                     <Users className="size-3" /> {formatNumber(summary.memberCount)}
                     <ListTodo className="ml-1 size-3" /> {summary.doneTasks}/{formatNumber(total)}
@@ -250,7 +252,7 @@ export function RoomView(props: RoomViewProps) {
               {!ordered.length ? (
                 <EmptyContent>
                   <Button disabled={!canCreate} onClick={() => setDialog({ kind: "new-room" })}><Plus />{t("rooms.RoomView.text_b88f06080b")}</Button>
-                  {!props.project ? <span className="text-xs text-muted-foreground">{t("rooms.RoomView.text_b74fd0280e")}</span> : null}
+                  {!props.project ? <span className="text-xs text-muted-foreground">{t("rooms.new.projectHint")}</span> : null}
                 </EmptyContent>
               ) : null}
             </Empty>
@@ -266,7 +268,7 @@ export function RoomView(props: RoomViewProps) {
           </div>
         ) : null}
 
-        {dialog?.kind === "new-room" && props.project ? (
+        {dialog?.kind === "new-room" ? (
           <NewRoomDialog agents={props.agents} onClose={close} onLaunchMember={props.onLaunchMember}
             onRenameAgent={props.onRenameAgent} project={props.project} rooms={rooms} />
         ) : null}
@@ -1523,7 +1525,7 @@ function guardedClose(busy: boolean, onClose: () => void) {
 }
 
 function NewRoomDialog(props: {
-  agents: AgentAvailability[]; project: ProjectWorkspace; rooms: RoomsState; onClose: () => void;
+  agents: AgentAvailability[]; project: ProjectWorkspace | null; rooms: RoomsState; onClose: () => void;
   onLaunchMember?: RoomViewProps["onLaunchMember"]; onRenameAgent?: RoomViewProps["onRenameAgent"];
 }) {
   useTranslation();
@@ -1535,50 +1537,82 @@ function NewRoomDialog(props: {
     () => DEFAULT_ROSTER.map((row) => ({ ...row, kind: (kinds[0]?.value ?? "claude") as AgentKind })),
   );
   const [busy, setBusy] = useState(false);
+  const submitting = useRef(false);
+  const selection = useRoomProject(props.project);
+  const locked = busy || selection.busy;
   const [error, setError] = useFeedback<string | null>(null);
   const canLaunch = Boolean(props.onLaunchMember) && kinds.length > 0;
   const rowErrors = roster.map((row, index) => titleError(row.title, roster.filter((_, other) => other !== index).map((r) => r.title)));
   const update = (index: number, patch: Partial<RosterRow & { kind: AgentKind }>) =>
     setRoster((rows) => rows.map((row, at) => at === index ? { ...row, ...patch } : row));
   const submit = async () => {
-    if (!name.trim() || busy || (canLaunch && rowErrors.some(Boolean))) return;
+    if (!name.trim() || locked || submitting.current || !selection.canSubmit || !selection.project || (canLaunch && rowErrors.some(Boolean))) return;
+    submitting.current = true;
     setBusy(true);
     setError(null);
-    const room = await props.rooms.create(name, props.project.rootPath, objective);
-    if (room && canLaunch && props.onLaunchMember) {
-      // 逐个拉起；任何一步失败就停，已经建好的房间和成员都保留——半路回滚会丢掉已经起好的会话。
-      for (const [index, row] of roster.entries()) {
-        const reason = await launchInto(room, row, index === 0, props.onLaunchMember, props.onRenameAgent);
-        if (reason) { setError(() => t("rooms.RoomView.text_90d75dd820", { reason: reason })); setBusy(false); void props.rooms.refresh(); return; }
+    try {
+      const room = await props.rooms.create(name, selection.project.rootPath, objective);
+      if (room && canLaunch && props.onLaunchMember) {
+        // 逐个拉起；任何一步失败就停，已经建好的房间和成员都保留——半路回滚会丢掉已经起好的会话。
+        for (const [index, row] of roster.entries()) {
+          const reason = await launchInto(room, row, index === 0, props.onLaunchMember, props.onRenameAgent);
+          if (reason) { setError(() => t("rooms.RoomView.text_90d75dd820", { reason: reason })); void props.rooms.refresh(); return; }
+        }
+        void props.rooms.refresh();
       }
-      void props.rooms.refresh();
+      if (room) props.onClose();
+    } catch (cause) {
+      setError(cause);
+    } finally {
+      submitting.current = false;
+      setBusy(false);
     }
-    setBusy(false);
-    if (room) props.onClose();
   };
-  const { onOpenChange, ...guards } = guardedClose(busy, props.onClose);
+  const { onOpenChange, ...guards } = guardedClose(locked, props.onClose);
   return (
     <Dialog onOpenChange={onOpenChange} open>
-      <DialogContent className="gap-5 sm:max-w-2xl" {...guards}>
-        <DialogHeader>
+      <DialogContent className="flex max-h-[calc(100dvh-2rem)] min-h-0 flex-col gap-4 sm:max-w-2xl" {...guards}>
+        <DialogHeader className="shrink-0">
           <DialogTitle>{t("rooms.RoomView.text_b88f06080b")}</DialogTitle>
           <DialogDescription>{t("rooms.RoomView.text_7e8a9fdb2f")}</DialogDescription>
         </DialogHeader>
-        <div className="flex flex-col gap-4">
+        <div data-room-create-fields className="min-h-0 overflow-y-auto">
+        <fieldset className="m-0 flex min-w-0 flex-col gap-4 border-0 p-0" disabled={locked}>
           <Field id={`${id}-name`} label={t("rooms.RoomView.text_9d9f6a08cf")}>
             <Input autoFocus id={`${id}-name`} maxLength={40} onChange={(event) => setName(event.target.value)} placeholder={t("rooms.RoomView.text_db93bd3ad1")} value={name} />
           </Field>
+          <div data-room-project>
+            <Field id={`${id}-project`} label={t("rooms.new.projectLabel")}>
+              {selection.project ? <span className="truncate text-sm font-medium">{selection.project.name}</span> : null}
+              <div className="flex min-w-0 items-center gap-2">
+                <Input id={`${id}-project`} className="min-w-0 flex-1" readOnly value={selection.path}
+                  aria-required="true" aria-invalid={Boolean(selection.error)}
+                  aria-describedby={`${id}-project-hint${selection.error ? ` ${id}-project-error` : ""}`}
+                  placeholder={t("rooms.new.projectRequired")} title={selection.path} />
+                <Button className="shrink-0" disabled={locked} onClick={() => void selection.choose()} variant="outline"
+                  aria-label={t("rooms.new.selectProject")}>
+                  {selection.busy ? <Spinner /> : <FolderGit2 />}{t("rooms.new.choose")}
+                </Button>
+              </div>
+              <p id={`${id}-project-hint`} className="text-xs text-muted-foreground" role={selection.busy ? "status" : undefined}>
+                {selection.busy ? t("rooms.new.projectChecking") : t("rooms.new.projectHint")}
+              </p>
+              {selection.error ? <p id={`${id}-project-error`} className="break-words text-xs text-destructive" role="alert">
+                {t("rooms.new.projectError", { reason: selection.error })}
+              </p> : null}
+            </Field>
+          </div>
           <Field id={`${id}-objective`} label={t("rooms.RoomView.text_7011272724")}>
             <Textarea className="min-h-20" id={`${id}-objective`} onChange={(event) => setObjective(event.target.value)} placeholder={t("rooms.RoomView.text_bce659ddb4")} rows={3} value={objective} />
           </Field>
           {canLaunch ? (
-            <Field label={t("rooms.RoomView.text_fd3e5af2bf", { name: props.project.name })}>
+            <Field label={selection.project ? t("rooms.RoomView.text_fd3e5af2bf", { name: selection.project.name }) : t("rooms.new.teamWithoutProject")}>
               <div className="overflow-hidden rounded-lg border border-border">
-                <div className="grid grid-cols-[64px_120px_minmax(0,1fr)_128px_32px] gap-2 border-b border-border bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground">
+                <div className="grid grid-cols-[104px_minmax(0,1fr)_minmax(0,1fr)_112px_28px] gap-2 border-b border-border bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground">
                   <span>{t("rooms.RoomView.text_2a9c9e9976")}</span><span>{t("rooms.RoomView.text_c0362bdb59")}</span><span>{t("rooms.RoomView.text_6d513de90d")}</span><span>Agent</span><span />
                 </div>
                 {roster.map((row, index) => (
-                  <div className="grid grid-cols-[64px_120px_minmax(0,1fr)_128px_32px] items-center gap-2 border-b border-border px-3 py-2 last:border-b-0" key={index}>
+                  <div className="grid grid-cols-[104px_minmax(0,1fr)_minmax(0,1fr)_112px_28px] items-center gap-2 border-b border-border px-3 py-2 last:border-b-0" key={index}>
                     {index === 0 ? (
                       <Badge className="border-warning/50 text-warning" variant="outline"><Crown />{t("rooms.RoomView.text_8153348240")}</Badge>
                     ) : <Badge variant="secondary">{t("rooms.RoomView.text_6e6d6ddbb7")}</Badge>}
@@ -1607,10 +1641,11 @@ function NewRoomDialog(props: {
             <p className="rounded-md border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">{t("rooms.RoomView.text_e945c2de3b")}</p>
           )}
           {error ? <p className="text-xs text-destructive" role="alert">{error}</p> : null}
+        </fieldset>
         </div>
-        <DialogFooter>
-          <Button disabled={busy} onClick={props.onClose} variant="outline">{t("rooms.RoomView.text_2cd0f3be87")}</Button>
-          <Button disabled={busy || !name.trim() || (canLaunch && rowErrors.some(Boolean))} onClick={() => void submit()}>
+        <DialogFooter className="shrink-0">
+          <Button disabled={locked} onClick={props.onClose} variant="outline">{t("rooms.RoomView.text_2cd0f3be87")}</Button>
+          <Button data-room-create disabled={locked || !selection.canSubmit || !name.trim() || (canLaunch && rowErrors.some(Boolean))} onClick={() => void submit()}>
             {busy ? <><Spinner />{t("rooms.RoomView.text_c83943535e")}</> : t("rooms.RoomView.text_cde2cd071d")}
           </Button>
         </DialogFooter>
