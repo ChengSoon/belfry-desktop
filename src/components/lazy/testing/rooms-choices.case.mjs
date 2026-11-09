@@ -365,6 +365,30 @@ test("only explicitly optional input permits an actively submitted empty answer"
   assert.deepEqual(await view.cdp.evaluate("qaChoiceCalls.map(call => call.answer)"), [{ kind: "input", text: "" }]);
 });
 
+test("successive requests retain keyboard access without stealing another member's input", async t => {
+  const view = await ready(t);
+  await resize(view, 720, 480);
+  await clickVisible(view, ".room-attention-open");
+  await tabTo(view, `${FE} [data-option-index="2"]`);
+  await enter(view);
+  await waitFor(view, `document.querySelector('${FE}')?.dataset.requestState === 'submitted'`);
+  await view.cdp.evaluate("qaPatchInteraction('t2', { requestId: 'next-keyboard-request', kind: 'multiple', state: 'pending', question: 'Select checks for the new conversation' })");
+  await waitFor(view, `document.querySelector('${FE}')?.dataset.requestKind === 'multiple'`);
+  await tabTo(view, `${FE} [role=checkbox]`);
+  assert.ok(await ownsClick(view, `${FE} [role=checkbox]`));
+  await press(view, " ");
+  await view.cdp.evaluate(`qaSetInteraction('t3', { ...qaReadInteraction('t2'), requestId: 'other-member-input', source: { sessionId: 'session-t3', agent: 'codex' },
+    kind: 'input', question: 'Report path', selected: null, options: [], input: { label: 'Path' } })`);
+  await waitFor(view, `!!document.querySelector('${BE} textarea')`);
+  await tabTo(view, `${BE} textarea`);
+  await view.send("Input.insertText", { text: "preserve other member draft" });
+  await view.cdp.evaluate("qaPatchInteraction('t2', { requestId: 'third-keyboard-request', question: 'A different member request' })");
+  await waitFor(view, `document.querySelector('${FE} h3')?.textContent === 'A different member request'`);
+  assert.equal(await view.cdp.evaluate(`document.activeElement?.matches('${BE} textarea')`), true);
+  assert.equal(await view.cdp.evaluate(`document.querySelector('${BE} textarea').value`), "preserve other member draft");
+  assert.equal(await view.cdp.evaluate("qaChoiceCalls.length"), 1);
+});
+
 for (const locale of ["zh-CN", "en"]) {
   for (const theme of ["dark", "light"]) {
     for (const [width, height] of [[1440, 900], [720, 480]]) {
