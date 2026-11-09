@@ -2,16 +2,23 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { PluginChild } from "../../src-tauri/src/plugins/node/child.mjs";
 import { terminate } from "../../src-tauri/src/plugins/node/process-tree.mjs";
-import { plugin, temporary, waitFor } from "./support.mjs";
+import { cleanupScope, plugin, temporary, waitFor } from "./support.mjs";
 
 function alive(pid) { try { process.kill(pid, 0); return true; } catch { return false; } }
 
 async function worker(t, root, id, code) {
   const entry = await plugin(root, id, { code });
   const child = new PluginChild({ path: entry.path, onHost: () => null, onExit: () => {}, onLog: () => {} });
-  t.after(async () => { terminate(child.process, "SIGKILL"); await child.exited; });
+  const pids = [child.process.pid];
+  const closed = new Promise((resolve) => child.process.once("close", resolve));
+  t.after(async () => {
+    terminate(child.process, "SIGKILL");
+    assert.ok(await waitFor(() => pids.every((pid) => !alive(pid)), { timeout: 5000 }),
+      `worker cleanup left live processes: ${pids.filter(alive)}`);
+    await closed;
+  });
   await child.invoke("init", entry, { timeout: 3000 });
-  return child;
+  return { child, pids };
 }
 
 const grandchildCode = 'process.on("SIGTERM", () => {}); console.log(process.pid); setInterval(() => {}, 1000);';
@@ -26,10 +33,11 @@ const resistant = `
 `;
 
 test("TIMEOUT force-kills a TERM-resistant worker and its descendants while other plugins keep working", { timeout: 10000 }, async (t) => {
-  const root = await temporary(t);
-  const hung = await worker(t, root, "local.hung", resistant);
-  const pids = await hung.invoke("panel.invoke", { channel: "pids" });
-  const healthy = await worker(t, root, "local.healthy", "module.exports.onPanelInvoke = () => 'still working';");
+  // 先停止所有 worker，再删它们的工作目录；原生 t.after 按注册顺序执行。
+  const lifetime = cleanupScope(t), root = await temporary(lifetime);
+  const { child: hung, pids } = await worker(lifetime, root, "local.hung", resistant);
+  pids.push(...(await hung.invoke("panel.invoke", { channel: "pids" })).slice(1));
+  const { child: healthy } = await worker(lifetime, root, "local.healthy", "module.exports.onPanelInvoke = () => 'still working';");
   const started = Date.now();
   await assert.rejects(hung.invoke("panel.invoke", { channel: "hang" }, { timeout: 50 }), { code: "TIMEOUT" });
   assert.equal(await healthy.invoke("panel.invoke", {}), "still working");
@@ -39,9 +47,9 @@ test("TIMEOUT force-kills a TERM-resistant worker and its descendants while othe
 });
 
 test("cancelled unresponsive calls have a short cleanup grace instead of their original request timeout", { timeout: 10000 }, async (t) => {
-  const root = await temporary(t);
-  const child = await worker(t, root, "local.cancel-hung", resistant);
-  const pids = await child.invoke("panel.invoke", { channel: "pids" });
+  const lifetime = cleanupScope(t), root = await temporary(lifetime);
+  const { child, pids } = await worker(lifetime, root, "local.cancel-hung", resistant);
+  pids.push(...(await child.invoke("panel.invoke", { channel: "pids" })).slice(1));
   const abort = new AbortController();
   const result = child.invoke("panel.invoke", { channel: "hang" }, { timeout: 15000, context: { abort } });
   abort.abort();

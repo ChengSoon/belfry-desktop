@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
@@ -165,11 +166,17 @@ fn native_backend_uses_requested_project_cwd() {
     backend
         .write(&session.id, working_directory_command().as_bytes())
         .unwrap();
-    assert!(wait_for_text(
-        &sink,
-        &expected.to_string_lossy(),
-        Duration::from_secs(3)
-    ));
+    assert!(wait_for_events(&sink, Duration::from_secs(3), |events| {
+        let bytes = output_bytes(events);
+        let output = String::from_utf8_lossy(&bytes);
+        // ConPTY 可在路径两端插入控制序列，保留原有的规范路径匹配。
+        // macOS shell 也可能沿用 PWD 中的 /tmp 别名，完整路径行须先规范化。
+        output.contains(expected.to_string_lossy().as_ref())
+            || output.lines().any(|line| {
+                let path = Path::new(line.trim());
+                path.is_absolute() && canonicalize(path).is_ok_and(|actual| actual == expected)
+            })
+    }));
     backend.close(&session.id).unwrap();
 }
 

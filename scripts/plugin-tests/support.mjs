@@ -44,7 +44,10 @@ export async function temporary(t) {
   const root = await mkdtemp(join(tmpdir(), "belfry-runtime-test-"));
   t.after(async () => {
     for (const stop of stopHostsFirst(t).splice(0)) await stop().catch(() => {});
-    await rm(root, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+    // Windows 在进程退出后仍可能短暂占用工作目录句柄。
+    await rm(root, { recursive: true, force: true,
+      maxRetries: process.platform === "win32" ? 10 : 3,
+      retryDelay: process.platform === "win32" ? 200 : 100 });
   });
   return root;
 }
