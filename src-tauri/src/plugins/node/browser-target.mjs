@@ -3,6 +3,7 @@ import { BrowserCdp } from "./browser-cdp.mjs";
 import { BrowserPreview } from "./browser-preview.mjs";
 import { apiError } from "./errors.mjs";
 import { BrowserFileChooser } from "./browser-files.mjs";
+import { diagnosticError } from "./browser-diagnostics.mjs";
 
 export class BrowserTarget extends EventEmitter {
   constructor(process, options) {
@@ -12,10 +13,13 @@ export class BrowserTarget extends EventEmitter {
     this.viewport = { width: 1280, height: 720 }; this.visible = false; this.isLoading = false; this.closed = false; this.generation = 0;
   }
   async start() {
-    this.contextId = (await this.process.send("Target.createBrowserContext", { disposeOnDetach: true })).browserContextId;
+    this.process.diagnostics.record("target.start");
     try {
+      this.contextId = (await this.process.send("Target.createBrowserContext", { disposeOnDetach: true })).browserContextId;
       this.targetId = (await this.process.send("Target.createTarget", { url: "about:blank", browserContextId: this.contextId })).targetId;
       this.sessionId = (await this.process.send("Target.attachToTarget", { targetId: this.targetId, flatten: true })).sessionId;
+      this.process.diagnostics.record("target.attached", this.process.diagnostics.ids({ browserContextId: this.contextId,
+        targetId: this.targetId, sessionId: this.sessionId }));
       this.listener = (message) => { if (message.sessionId === this.sessionId) this.event(message.method, message.params ?? {}); };
       this.process.on("protocol", this.listener);
       await this.cdp.initialize();
@@ -29,8 +33,15 @@ export class BrowserTarget extends EventEmitter {
       await this.send("Page.addScriptToEvaluateOnNewDocument", { source: `addEventListener('DOMContentLoaded',()=>{
         const title=document.querySelector('title'); if(title)new MutationObserver(()=>window.__belfryBrowserState('')).observe(title,{childList:true,subtree:true,characterData:true});
       });` });
+      this.process.diagnostics.record("target.ready", this.process.diagnostics.ids(this));
       return this;
-    } catch (error) { await this.close(); throw error; }
+    } catch (error) {
+      // Save the initialization failure before disposal can wait/fail, then retain
+      // both phases. Cleanup must never replace the original protocol error.
+      this.process.reportFailure(error, "target.start");
+      try { await this.close(); } catch (cleanup) { this.process.diagnostics.record("target.cleanup.error", diagnosticError(cleanup)); }
+      this.process.refreshDiagnostics(error); throw error;
+    }
   }
   send(method, params = {}) { return this.process.send(method, params, this.sessionId); }
   event(method, params) {
@@ -94,9 +105,12 @@ export class BrowserTarget extends EventEmitter {
   async close() {
     if (this.closed) return;
     this.closed = true; clearTimeout(this.stateTimer);
+    this.process.diagnostics.record("target.close", this.process.diagnostics.ids(this));
     if (this.listener) this.process.off("protocol", this.listener);
     await this.preview.close();
-    if (this.contextId) await this.process.send("Target.disposeBrowserContext", { browserContextId: this.contextId }).catch(() => {});
+    if (this.contextId) await this.process.send("Target.disposeBrowserContext", { browserContextId: this.contextId })
+      .catch((error) => this.process.diagnostics.record("target.dispose.error", diagnosticError(error)));
     this.removeAllListeners();
+    this.process.diagnostics.record("target.closed", this.process.diagnostics.ids(this));
   }
 }
