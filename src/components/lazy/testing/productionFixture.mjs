@@ -6,12 +6,15 @@ import { cleanupScope, temporary } from "../../../../scripts/plugin-tests/suppor
 import { BrowserProcess } from "../../../../src-tauri/src/plugins/node/browser-process.mjs";
 import { BrowserTarget } from "../../../../src-tauri/src/plugins/node/browser-target.mjs";
 import { click, waitFor } from "../../../../scripts/plugin-tests/market-ui-support.mjs";
+import { productionReadinessQa } from "./productionReadinessQa.mjs";
 export { click, press, waitFor } from "../../../../scripts/plugin-tests/market-ui-support.mjs";
 
 /** 不启动 Vite、不转换模块、不禁用浏览器缓存。缺少生产构建直接失败。 */
 export async function productionFixture(t, options = {}) {
-  const files = await productionFiles(), requests = [];
-  const lifetime = cleanupScope(t), root = await temporary(lifetime);
+  const requests = [], diagnostics = options.readinessDiagnostics ? productionReadinessQa(t, requests) : null;
+  const files = await productionFiles(), lifetime = cleanupScope(t);
+  diagnostics?.afterCleanup();
+  const root = await temporary(lifetime);
   const server = createServer((request, response) => {
     const pathname = new URL(request.url, "http://127.0.0.1").pathname;
     const record = { url: request.url, pathname, status: null };
@@ -26,10 +29,12 @@ export async function productionFixture(t, options = {}) {
   });
   lifetime.after(() => new Promise((done) => { server.close(done); server.closeAllConnections(); }));
   await new Promise((done) => server.listen(0, "127.0.0.1", done));
-  const browser = await new BrowserProcess(join(root, "browser")).start();
+  const browser = new BrowserProcess(join(root, "browser"));
+  diagnostics?.browser(browser);
+  await browser.start();
   lifetime.after(() => browser.close());
   const origin = `http://127.0.0.1:${server.address().port}`;
-  const openWindow = () => openProductionWindow({ browser, lifetime, root, origin, options });
+  const openWindow = () => openProductionWindow({ browser, lifetime, root, origin, options, diagnostics });
   const view = await openWindow();
   return { view, requests, origin, openWindow };
 }
@@ -49,26 +54,37 @@ async function productionFiles() {
   return files;
 }
 
-async function openProductionWindow({ browser, lifetime, root, origin, options }) {
-  const view = await new BrowserTarget(browser, { workspace: root, frame: () => {}, state: () => {} }).start();
-  lifetime.after(() => view.close());
-  await view.bounds({ x: 0, y: 0, width: 1080, height: 700 });
-  const source = await readFile(new URL("./productionNative.js", import.meta.url), "utf8");
-  await view.send("Page.addScriptToEvaluateOnNewDocument", { source });
-  if (options.nativeSource) await view.send("Page.addScriptToEvaluateOnNewDocument", { source: options.nativeSource });
-  await options.beforeNavigate?.(view);
-  await view.navigate({ url: origin });
+async function openProductionWindow({ browser, lifetime, root, origin, options, diagnostics }) {
+  const view = new BrowserTarget(browser, { workspace: root, frame: () => {}, state: () => {} });
   const terminalCount = options.terminalCount ?? 1;
-  await waitFor(view, `document.querySelectorAll('.xterm').length === ${terminalCount} && __productionQA.creates === ${terminalCount}`);
-  await view.cdp.evaluate(`__productionQA.terminals = [...document.querySelectorAll('.xterm')];
-    __productionQA.input = document.querySelector('.xterm-helper-textarea');
-    __productionQA.input.focus(); __productionQA.removed = 0;
-    new MutationObserver(records => {
-      for (const record of records) for (const node of record.removedNodes) {
-        if (__productionQA.terminals.some(terminal => node === terminal || node.contains(terminal))) __productionQA.removed++;
-      }
-    }).observe(document.body, { childList: true, subtree: true });`);
-  return view;
+  const observation = diagnostics?.window(view, terminalCount);
+  try {
+    await view.start();
+    lifetime.after(() => view.close());
+    await view.bounds({ x: 0, y: 0, width: 1080, height: 700 });
+    const source = await readFile(new URL("./productionNative.js", import.meta.url), "utf8");
+    await view.send("Page.addScriptToEvaluateOnNewDocument", { source });
+    if (options.nativeSource) await view.send("Page.addScriptToEvaluateOnNewDocument", { source: options.nativeSource });
+    if (observation) {
+      await view.send("Network.enable");
+      await view.send("Page.addScriptToEvaluateOnNewDocument", { source: observation.source });
+    }
+    await options.beforeNavigate?.(view);
+    observation?.stage("navigate");
+    await view.navigate({ url: origin });
+    observation?.stage("readiness.wait");
+    await waitFor(view, `document.querySelectorAll('.xterm').length === ${terminalCount} && __productionQA.creates === ${terminalCount}`);
+    observation?.stage("readiness.passed");
+    await view.cdp.evaluate(`__productionQA.terminals = [...document.querySelectorAll('.xterm')];
+      __productionQA.input = document.querySelector('.xterm-helper-textarea');
+      __productionQA.input.focus(); __productionQA.removed = 0;
+      new MutationObserver(records => {
+        for (const record of records) for (const node of record.removedNodes) {
+          if (__productionQA.terminals.some(terminal => node === terminal || node.contains(terminal))) __productionQA.removed++;
+        }
+      }).observe(document.body, { childList: true, subtree: true });`);
+    return view;
+  } catch (error) { observation?.failed(error); throw error; }
 }
 
 function mime(path) {
