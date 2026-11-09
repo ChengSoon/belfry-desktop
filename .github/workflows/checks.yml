@@ -43,7 +43,7 @@ jobs:
           workspaces: src-tauri
       - run: pnpm install --frozen-lockfile
       - name: Catalog checks and CI failure propagation regression
-        run: node --test scripts/i18n-checks.case.mjs .github/workflows/check-shell.case.mjs
+        run: node --test scripts/i18n-checks.case.mjs .github/workflows/check-shell.case.mjs .github/workflows/plugin-suite.case.mjs
       - name: Translation catalogs and hardcoded text
         run: |
           node scripts/sync-backend-i18n.mjs --check
