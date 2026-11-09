@@ -153,6 +153,7 @@ Object.assign(window, { qaCalls: calls });
 
 let callback = 0;
 Object.assign(window, {
+  __TAURI_EVENT_PLUGIN_INTERNALS__: { unregisterListener: () => {} },
   __TAURI_INTERNALS__: { metadata: { currentWindow: { label: "qa" }, currentWebview: { label: "qa", windowLabel: "qa" } },
     transformCallback: () => ++callback, unregisterCallback: () => {},
     invoke: async (command: string, args?: unknown) => {
@@ -180,6 +181,7 @@ Object.assign(window, {
         return { id: `01m6v2yfg2ps6jak5pk7tdrf${String(imported).padStart(3, "0")}`, name: `拖入文件${imported}.txt`,
           path: `/qa/拖入文件${imported}.txt`, size: 12, mimeType: "text/plain" };
       }
+      if (command === "plugin:event|listen") return ++callback;
       if (command.startsWith("plugin:")) return null;
       throw new Error(`QA 未提供原生命令：${command}`);
     } },

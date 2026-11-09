@@ -51,8 +51,12 @@ test("Escape closes an open menu first and only then the room", async (t) => {
   await press(view, "Escape");
   await waitFor(view, "!document.querySelector('[data-radix-popper-content-wrapper]')");
   assert.equal(await view.cdp.evaluate("window.qaClosed"), 0, "收起菜单的那一下不能关掉房间");
+  const listeners = await view.cdp.evaluate("qaCalls.filter(call => call.command === 'plugin:event|listen').map(call => call.args.event).sort()");
+  assert.ok(listeners.length > 0, "房间已注册原生拖放事件");
   await press(view, "Escape");
   await waitFor(view, "window.qaClosed === 1");
+  await waitFor(view, `qaCalls.filter(call => call.command === 'plugin:event|unlisten').length === ${listeners.length}`);
+  assert.deepEqual(await view.cdp.evaluate("qaCalls.filter(call => call.command === 'plugin:event|unlisten').map(call => call.args.event).sort()"), listeners);
 });
 
 test("files can be dropped, pasted and seen in messages", async (t) => {
@@ -255,19 +259,35 @@ test("small scrolls near the bottom are not pulled back and polling does not mov
   const { view } = await browserFixture(t, `${PAGE}?attention=0`);
   await view.bounds({ x: 0, y: 0, width: 1440, height: 900 });
   await waitFor(view, "!!document.querySelector('[aria-label=房间对话] article')");
-  const metrics = "(() => { const l = document.querySelector('[aria-label=房间对话]'); return { top: l.scrollTop, max: l.scrollHeight - l.clientHeight }; })()";
+  // Fonts and the asynchronously loaded attachment can still resize the timeline.
+  await waitFor(view, `(() => {
+    const image = document.querySelector('[aria-label=消息附件] img');
+    return document.fonts.status === 'loaded' && image?.complete && image.naturalWidth > 0;
+  })()`);
+  await view.cdp.evaluate("new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))");
+  const metrics = "(() => { const l = document.querySelector('[aria-label=房间对话]'); return { top: l.scrollTop, max: l.scrollHeight - l.clientHeight, scrollHeight: l.scrollHeight, clientHeight: l.clientHeight, roomGets: qaCalls.filter(call => call.command === 'room_get').length }; })()";
   await waitFor(view, `${metrics}.max > 200 && ${metrics}.max - ${metrics}.top < 4`);
   const box = await view.cdp.evaluate("(() => { const r = document.querySelector('[aria-label=房间对话]').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()");
+  const steps = [];
+  const polling = {};
+  t.after(() => t.diagnostic(JSON.stringify({ scrollSteps: steps, polling })));
   // 触控板一下只滚十来个像素：连滚几下，每一下都要真的往上走。
   for (let step = 0; step < 4; step++) {
+    const before = await view.cdp.evaluate(metrics);
+    const sample = { step, before };
+    steps.push(sample);
     await view.send("Input.dispatchMouseEvent", { type: "mouseWheel", x: box.x, y: box.y, deltaX: 0, deltaY: -12 });
-    await new Promise((resolve) => setTimeout(resolve, 80));
+    // CDP acknowledges dispatch before the compositor commits the scroll.
+    await waitFor(view, `${metrics}.top <= ${before.top - 12}`);
+    sample.after = await view.cdp.evaluate(metrics);
   }
   const after = await view.cdp.evaluate(metrics);
+  polling.before = after;
   assert.ok(after.max - after.top >= 40, `往上滚了却被拽回底部：离底 ${after.max - after.top}px`);
   // 再等两轮轮询（1.5 秒一轮）：没有新消息时视野一动不动。
   await new Promise((resolve) => setTimeout(resolve, 3_400));
   const later = await view.cdp.evaluate(metrics);
+  polling.after = later;
   assert.equal(later.top, after.top, "轮询不该挪动正在看历史的视野");
   // 浮标出现，点一下回到底部。
   await waitFor(view, "[...document.querySelectorAll('button')].some((b) => b.textContent.includes('回到底部'))");
