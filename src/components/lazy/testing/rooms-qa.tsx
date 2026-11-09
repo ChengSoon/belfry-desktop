@@ -117,6 +117,12 @@ Object.assign(window, {
   qaSetBrief: (brief: Room["brief"]) => { room.brief = structuredClone(brief); },
   qaSetMemberTab: (id: string, tabId: string) => { room.members = room.members.map(member => member.id === id ? { ...member, tabId } : member); },
   qaRemoveMember: (id: string) => { room.members = room.members.filter(member => member.id !== id); },
+  qaSetMemberPresent: (memberId: string, present: boolean, roomId = room.id) => {
+    const current = roomData.get(roomId)!;
+    const member = current.members.find((member) => member.id === memberId);
+    if (!member) throw new Error(`Unknown QA member: ${memberId}`);
+    member.leftAt = present ? null : Date.now();
+  },
   qaRollMessage: () => {
     const removed = room.messages.shift()!;
     const message = msg("live-new", Date.now(), "foreman", "Live arrival while browsing history", ["user"]);

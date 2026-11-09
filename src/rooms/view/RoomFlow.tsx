@@ -1,11 +1,12 @@
 import { getLocale, t, useTranslation } from "../../i18n";
 import {
   Background, BackgroundVariant, BaseEdge, Controls, EdgeLabelRenderer, getBezierPath, Handle, Position, ReactFlow,
-  ReactFlowProvider, useNodesInitialized, useReactFlow, useStore, type Edge, type EdgeProps, type Node, type NodeProps,
+  ReactFlowProvider, useNodesInitialized, useReactFlow, useStore, useUpdateNodeInternals,
+  type Edge, type EdgeProps, type Node, type NodeProps, type OnNodesChange,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { Crown, SquareTerminal, User } from "lucide-react";
-import { memo, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { Avatar, AvatarFallback } from "../../components/ui/avatar";
 import { Button } from "../../components/ui/button";
 import { cn } from "../../lib/utils";
@@ -150,6 +151,7 @@ function FlowCanvas({ room, tabs, onOpenSession }: { room: Room; tabs: Workspace
   useTranslation();
   const [now, setNow] = useState(() => Date.now());
   const flow = useReactFlow();
+  const updateNodeInternals = useUpdateNodeInternals();
   const { mode } = useTheme();
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), TICK_MS);
@@ -162,14 +164,37 @@ function FlowCanvas({ room, tabs, onOpenSession }: { room: Room; tabs: Workspace
     () => flowGraph(room, (member) => memberStatus(tabs.find((tab) => tab.id === member.tabId)), now),
     [room, tabs, now, getLocale()],
   );
+  // Controlled nodes must retain the dimensions React Flow measured. Dropping
+  // them on an activity update also clears handle bounds and can leave the same
+  // DOM nodes uninitialized without another ResizeObserver notification.
+  const [measured, setMeasured] = useState(() => new Map<string, { width: number; height: number }>());
+  const onNodesChange = useCallback<OnNodesChange<Node<MemberNodeData>>>((changes) => {
+    setMeasured((current) => {
+      let next = current;
+      for (const change of changes) {
+        if (change.type !== "dimensions" || !change.dimensions) continue;
+        const previous = current.get(change.id);
+        if (previous?.width === change.dimensions.width && previous.height === change.dimensions.height) continue;
+        if (next === current) next = new Map(current);
+        next.set(change.id, change.dimensions);
+      }
+      return next;
+    });
+  }, []);
+  useEffect(() => {
+    const ids = new Set(graph.nodes.map((node) => node.id));
+    setMeasured((current) => [...current.keys()].every((id) => ids.has(id))
+      ? current : new Map([...current].filter(([id]) => ids.has(id))));
+  }, [graph.nodes]);
   const nodes = useMemo<Node<MemberNodeData>[]>(() => graph.nodes.map((node) => ({
     id: node.id,
     type: "member",
     position: { x: node.x - NODE_WIDTH / 2, y: node.y - NODE_HEIGHT / 2 },
     data: { ...node, onOpenSession },
+    measured: measured.get(node.id),
     draggable: false,
     selectable: false,
-  })), [graph.nodes, onOpenSession, getLocale()]);
+  })), [graph.nodes, measured, onOpenSession, getLocale()]);
   const edges = useMemo<Edge<FlowEdgeData>[]>(() => graph.edges.map((edge) => ({
     id: edge.id,
     type: "flow",
@@ -184,6 +209,12 @@ function FlowCanvas({ room, tabs, onOpenSession }: { room: Room; tabs: Workspace
   // 节点量好尺寸、成员进出、画布变大变小（上面冒出选择卡片）时重新框住全图。
   // 只在这几种时候框：平时成员状态变化不动用户缩放好的视野。
   const initialized = useNodesInitialized();
+  useEffect(() => {
+    // The first measurement may arrive just before a pending node update. If
+    // that update cleared its handle bounds, measure the current DOM again after
+    // the dimensions have reached our controlled nodes.
+    if (!initialized && measured.size) updateNodeInternals([...measured.keys()]);
+  }, [initialized, measured, updateNodeInternals]);
   const size = useStore((state) => `${Math.round(state.width)}x${Math.round(state.height)}`);
   const layoutKey = graph.nodes.map((node) => node.id).join(",");
   useEffect(() => {
@@ -196,7 +227,7 @@ function FlowCanvas({ room, tabs, onOpenSession }: { room: Room; tabs: Workspace
     <ReactFlow
       className="room-flow" colorMode={mode} edges={edges} edgeTypes={edgeTypes} fitView
       fitViewOptions={{ padding: 0.2, maxZoom: 1.1 }} maxZoom={1.75} minZoom={0.3} nodes={nodes} nodesConnectable={false}
-      nodesDraggable={false} nodeTypes={nodeTypes} proOptions={{ hideAttribution: true }}>
+      nodesDraggable={false} nodeTypes={nodeTypes} onNodesChange={onNodesChange} proOptions={{ hideAttribution: true }}>
       <Background color="var(--border)" gap={24} size={1.25} variant={BackgroundVariant.Dots} />
       <Controls className="room-flow-controls" position="bottom-left" showInteractive={false} />
       <FlowLegend />
