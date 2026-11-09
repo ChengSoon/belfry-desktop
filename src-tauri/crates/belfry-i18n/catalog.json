@@ -15,6 +15,16 @@
     "en": "Room not found."
   },
   {
+    "code": "ROOM_PROJECT_NOT_FOUND",
+    "zh": "找不到房间项目目录：{path}",
+    "en": "Room project directory was not found: {path}"
+  },
+  {
+    "code": "ROOM_PROJECT_NOT_DIRECTORY",
+    "zh": "房间项目地址必须是目录：{path}",
+    "en": "Room project path must point to a directory: {path}"
+  },
+  {
     "code": "PROVIDER_NOT_FOUND",
     "zh": "找不到 provider：{id}",
     "en": "Provider not found: {id}"

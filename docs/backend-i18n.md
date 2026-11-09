@@ -19,11 +19,15 @@ Rust 的已注册业务命令返回 `{ code, message, retryable, params? }`。`c
 | 示例 | code | params |
 | --- | --- | --- |
 | 房间名必填 | `ROOM_NAME_REQUIRED` | 无 |
+| 房间项目目录不存在或无法解析 | `ROOM_PROJECT_NOT_FOUND` | `path` |
+| 房间项目地址指向文件 | `ROOM_PROJECT_NOT_DIRECTORY` | `path` |
 | 角色名长度限制 | `ROOM_ROLE_NAME_LIMIT` | `max` |
 | 原后台任务丢失 | `SESSION_MISSING` | 无 |
 | 后台连接失败 | `TERMINAL_BACKGROUND_SERVICE_CONNECTION_FAILED` | `error` |
 
-共享词库目前含 1111 条，导出目录含 1114 条（另含 `CONFLICT`、`SESSION_MISSING`、`PROCESS_EXITED`）。共享目录也包含 CLI、通知和原生 UI 文本，并非每一条都是失败类型。`fallbackOnly` 列出的通用类别保留服务端英文 `message`；前端不要用一个泛化译文覆盖它。
+共享词库目前含 1113 条，导出目录含 1116 条（另含 `CONFLICT`、`SESSION_MISSING`、`PROCESS_EXITED`）。共享目录也包含 CLI、通知和原生 UI 文本，并非每一条都是失败类型。`fallbackOnly` 列出的通用类别保留服务端英文 `message`；前端不要用一个泛化译文覆盖它。
+
+`room_create` 对项目地址去除首尾空白后，按 `project_open` 相同的 `resource::canonicalize` 和目录检查规则校验，再保存规范化后的路径。失败时不创建房间，两个项目错误的 `path` 都是去除首尾空白后的输入；空地址继续返回 `ROOM_A_ROOM_MUST_BELONG_TO_A_PROJECT`。相对路径、`..` 和符号链接会解析为实际目录；已保存房间的项目地址保持原样，不在加载或后续保存时重新校验或规范化。
 
 旧 Rust helper 的字符串在命令边界按已登记模板匹配成稳定码与参数，外链和用量统计也纳入该边界。不能匹配的英文保留原文；未映射的中文错误在脱敏日志中保留诊断线索，对前端给出英文诊断兜底。参数按字段名和内容脱敏，再生成英文兜底，避免密钥通过参数或兜底泄露。操作系统、第三方插件与用户输入提供的详情不属于应用模板。
 

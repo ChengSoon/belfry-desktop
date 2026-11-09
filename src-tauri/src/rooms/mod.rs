@@ -48,3 +48,7 @@ mod rooms_test;
 #[cfg(test)]
 #[path = "history_test.rs"]
 mod history_test;
+
+#[cfg(test)]
+#[path = "project_path_test.rs"]
+mod project_path_test;

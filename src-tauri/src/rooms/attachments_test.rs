@@ -18,8 +18,9 @@ struct Fixture {
 impl Fixture {
     fn new() -> Self {
         let root = std::env::temp_dir().join(format!("belfry-room-attachments-{}", new_id()));
+        fs::create_dir_all(&root).unwrap();
         let store = Arc::new(RoomStore::load(Some(root.join("rooms"))));
-        let room = store.create("附件测试", "/synthetic/project", "").unwrap();
+        let room = store.create("附件测试", root.to_str().unwrap(), "").unwrap();
         store.mutate(&room.id, |room| crate::rooms::test_support::add(room, "tab-1", "设计", "")).unwrap();
         let room = store.get(&room.id).unwrap();
         Self { root, store, room }
@@ -90,7 +91,7 @@ fn attachment_only_messages_survive_reload_and_reach_members_with_readable_paths
 #[test]
 fn attachments_cannot_cross_rooms_and_discard_only_removes_the_requested_draft() {
     let fixture = Fixture::new();
-    let other = fixture.store.create("另一间房", "/synthetic/project", "").unwrap();
+    let other = fixture.store.create("另一间房", &fixture.room.project_root, "").unwrap();
     let first = import_bytes(&fixture.store, &fixture.room.id, "a.txt", b"a").unwrap();
     let second = import_bytes(&fixture.store, &fixture.room.id, "b.txt", b"b").unwrap();
     assert!(resolve(&fixture.store, &other.id, &[first.id.clone()]).is_err());
