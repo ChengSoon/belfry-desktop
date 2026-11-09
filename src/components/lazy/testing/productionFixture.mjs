@@ -66,8 +66,8 @@ async function openProductionWindow({ browser, lifetime, root, origin, options, 
     await view.send("Page.addScriptToEvaluateOnNewDocument", { source });
     if (options.nativeSource) await view.send("Page.addScriptToEvaluateOnNewDocument", { source: options.nativeSource });
     if (observation) {
-      await view.send("Network.enable");
-      await view.send("Page.addScriptToEvaluateOnNewDocument", { source: observation.source });
+      await observation.install("network", () => view.send("Network.enable"));
+      await observation.install("documentHook", () => view.send("Page.addScriptToEvaluateOnNewDocument", { source: observation.source }));
     }
     await options.beforeNavigate?.(view);
     observation?.stage("navigate");

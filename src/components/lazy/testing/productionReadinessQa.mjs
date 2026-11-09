@@ -30,6 +30,7 @@ export function productionReadinessQa(t, requests) {
           browser: processState(), events: entry.events, droppedEvents: entry.dropped ?? 0,
           pageFacts: entry.pageFacts ?? [], droppedPageFacts: entry.droppedFacts ?? 0,
           requests: requests.slice(0, 100), omittedRequests: Math.max(0, requests.length - 100),
+          installationErrors: entry.installationErrors ?? [],
           state: null, captureErrors: [], artifacts: directory ? { json: join(directory, `${name}.json`), screenshot: null } : null };
         // Keep host/IPC transport facts even if the page is no longer responsive.
         await save(entry);
@@ -53,7 +54,8 @@ export function productionReadinessQa(t, requests) {
         } else entry.report.captureErrors.push({ stage: "page", message: "Target unavailable before evidence capture" });
         await save(entry);
         t.diagnostic(JSON.stringify({ productionReadiness: { artifacts: entry.report.artifacts, phase: entry.phase,
-          failure: entry.report.failure, counts: entry.report.state?.counts, captureErrors: entry.report.captureErrors } }));
+          failure: entry.report.failure, counts: entry.report.state?.counts,
+          installationErrors: entry.report.installationErrors, captureErrors: entry.report.captureErrors } }));
       } catch (error) { t.diagnostic(`Readiness evidence capture failed: ${error.message}`); }
       finally { if (entry.listen) browser?.off("protocol", entry.listen); }
     }
@@ -66,7 +68,7 @@ export function productionReadinessQa(t, requests) {
       });
     },
     window(view, expected) {
-      const entry = { view, expected, phase: "target.start", events: [], dropped: 0, pageFacts: [], droppedFacts: 0 };
+      const entry = { view, expected, phase: "target.start", events: [], dropped: 0, pageFacts: [], droppedFacts: 0, installationErrors: [] };
       const record = (event, detail = {}) => {
         entry.events.push({ at: Date.now(), event, ...detail });
         if (entry.events.length > 200) { entry.events.splice(30, 1); entry.dropped++; }
@@ -91,6 +93,17 @@ export function productionReadinessQa(t, requests) {
       browser.on("protocol", entry.listen); windows.push(entry); record("target.start");
       return {
         source: `(${observeProductionReadiness.toString()})(${JSON.stringify(expected)})`,
+        async install(stage, operation) {
+          record("diagnostics.install.start", { stage });
+          try {
+            await operation();
+            record("diagnostics.install.passed", { stage });
+          } catch (error) {
+            const failure = { stage, error: errorInfo(error) };
+            entry.installationErrors.push(failure);
+            record("diagnostics.install.failed", failure);
+          }
+        },
         stage(phase) { entry.phase = phase; record(phase); },
         failed(error) { entry.failure ??= error; record("failed", { phase: entry.phase, error: errorInfo(error) }); },
       };
