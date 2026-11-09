@@ -67,7 +67,7 @@ test("actual entry discovers all mandatory directories and completes a miniature
       BELFRY_PI_SOURCE: "", BELFRY_PANEL_ARTIFACTS: join(root, "artifacts"), GITHUB_STEP_SUMMARY: join(root, "summary.md") } });
   assert.ifError(result.error); assert.equal(result.status, 0, result.stdout + result.stderr);
   const report = JSON.parse(await readFile(join(root, "artifacts/plugin-suite-summary.json"), "utf8"));
-  assert.deepEqual(report.files, files.sort());
+  assert.deepEqual(report.files.map((file) => file.replaceAll("\\", "/")).sort(), files.sort());
   assert.equal(report.tap.complete, true); assert.equal(report.tap.summary.tests, 5); assert.equal(report.tap.summary.skipped, 0);
   assert.equal(report.budget.testTimeoutMs, 300000);
   assert.equal(report.budget.concurrency, process.platform === "darwin" ? 1 : 2);
