@@ -65,6 +65,7 @@ import { useRoomInteractions } from "../useRoomInteractions";
 import { AttachmentCard, MessageAttachments } from "./RoomAttachments";
 import { RoomFlow } from "./RoomFlow";
 import { RoomChoiceCard } from "./RoomChoiceCard";
+import { useAttentionLayout } from "./useAttentionLayout";
 import { RoomMarkdown } from "./RoomMarkdown";
 import { RoomMessagePreview, RoomReplyInbox } from "./RoomReplyInbox";
 import "../tailwind.css";
@@ -536,14 +537,34 @@ function AttentionPanel(props: {
   const members = activeMembers(room);
   const stuck = members.filter((member) => props.paused.some((item) => item.tabId === member.tabId));
   const { requests, answer } = useRoomInteractions({ room, tabs, targets });
+  const id = useId();
+  const count = requests.length + stuck.length;
+  const layout = useAttentionLayout(room.id, count > 0);
+  const names = formatList([...new Set([...requests.map(request => request.member.title), ...stuck.map(member => member.title)])]);
   if (!requests.length && !stuck.length) return null;
 
   return (
-    <section aria-label={t("rooms.RoomView.text_f50a99897d")} className="room-attention">
+    <section aria-label={t("rooms.RoomView.text_f50a99897d")} className="room-attention" ref={layout.panel}
+      data-compact={layout.compact} data-expanded={layout.expanded}>
       <header className="room-attention-heading">
         <BellRing aria-hidden="true" className="size-3.5" />
-        <span>{t("rooms.RoomView.text_f50a99897d")}</span>
-        <span className="room-attention-count" aria-live="polite">{t("rooms.choice.count", { count: requests.length + stuck.length })}</span>
+        <span className="room-attention-label">{t("rooms.RoomView.text_f50a99897d")}</span>
+        <span className="room-attention-members" title={names}>{names}</span>
+        <span className="room-attention-count" aria-live="polite">{t("rooms.choice.count", { count })}</span>
+        <Button className="room-attention-open" size="sm" variant="outline" ref={layout.trigger}
+          aria-controls={id} aria-expanded={layout.expanded} onClick={() => layout.expanded ? layout.close(true) : layout.open()}>
+          {t("rooms.choice.openRequests")}<ArrowDown aria-hidden="true" />
+        </Button>
+      </header>
+      <div className="room-attention-body" ref={layout.body} id={id} tabIndex={-1}
+        role="region" aria-label={t("rooms.choice.requests")}
+        style={layout.compact ? { maxHeight: layout.maxHeight } : undefined}>
+      <header className="room-attention-expanded-heading">
+        <BellRing aria-hidden="true" className="size-3.5" />
+        <span>{t("rooms.choice.count", { count })}</span>
+        <Button className="room-attention-close" size="sm" variant="ghost" onClick={() => layout.close(true)}>
+          {t("rooms.choice.collapseRequests")}<X aria-hidden="true" />
+        </Button>
       </header>
       <div className="room-attention-scroll" tabIndex={0} role="region" aria-label={t("rooms.choice.requests")}>
       {requests.map(request => <RoomChoiceCard key={request.key} request={request} onAnswer={answer} onOpenSession={props.onOpenSession}
@@ -566,6 +587,7 @@ function AttentionPanel(props: {
           <Button onClick={() => props.onResume?.(member.tabId)} size="xs"><Play />{t("rooms.RoomView.text_1825931945")}</Button>
         </article>
       ))}
+      </div>
       </div>
     </section>
   );

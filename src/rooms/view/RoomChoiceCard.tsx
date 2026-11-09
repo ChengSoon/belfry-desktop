@@ -49,8 +49,9 @@ export function RoomChoiceCard({ request, avatar, onAnswer, onOpenSession }: {
   const state = pending ? "submitting" : result?.status === "sent" ? "submitted"
     : result?.status === "uncertain" ? "uncertain" : interaction.state;
   const disabled = state !== "pending";
+  const emptyRequired = interaction.kind === "input" && !interaction.input?.optional && !text.trim();
   const submit = async (reply: TerminalInteractionAnswer) => {
-    if (submitting.current || disabled) return;
+    if (submitting.current || disabled || (reply.kind === "input" && !interaction.input?.optional && !reply.text.trim())) return;
     submitting.current = true;
     setPending(true);
     setResult(null);
@@ -142,14 +143,17 @@ export function RoomChoiceCard({ request, avatar, onAnswer, onOpenSession }: {
       ) : null}
       {interaction.kind === "input" ? (
         <form className="room-choice-input" onSubmit={event => { event.preventDefault(); void submit({ kind: "input", text }); }}>
-          <label htmlFor={`${id}-answer`}>{interaction.input?.label || t("rooms.choice.answerLabel")}</label>
+          <label htmlFor={`${id}-answer`}>{interaction.input?.label || t("rooms.choice.answerLabel")}
+            {interaction.input?.optional ? <span className="room-choice-optional"> {t("rooms.choice.optional")}</span> : null}
+          </label>
           <Textarea id={`${id}-answer`} value={text} rows={2} disabled={disabled} placeholder={interaction.input?.placeholder}
+            aria-required={!interaction.input?.optional}
             onChange={event => setText(event.target.value)} onKeyDown={event => {
               if (event.key === "Enter" && (event.metaKey || event.ctrlKey) && !composingKey(event)) {
                 event.preventDefault(); void submit({ kind: "input", text });
               }
             }} />
-          <div className="room-choice-submit"><Button type="submit" size="sm" disabled={disabled}><SendHorizontal />{t("rooms.choice.submitAnswer")}</Button></div>
+          <div className="room-choice-submit"><Button type="submit" size="sm" disabled={disabled || emptyRequired}><SendHorizontal />{t("rooms.choice.submitAnswer")}</Button></div>
         </form>
       ) : null}
       {interaction.optionsComplete === false && interaction.kind !== "unknown" ? (

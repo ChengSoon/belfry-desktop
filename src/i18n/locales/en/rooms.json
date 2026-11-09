@@ -318,6 +318,9 @@
     "other": "{{count}} requests"
   },
   "choice.requests": "Pending requests",
+  "choice.openRequests": "Review requests",
+  "choice.collapseRequests": "Collapse",
+  "choice.optional": "(optional)",
   "choice.moreOptions": "View more options in the terminal",
   "choice.pending": "Waiting for you",
   "choice.submitting": "Sending…",

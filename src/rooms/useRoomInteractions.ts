@@ -16,7 +16,7 @@ export interface TerminalInteraction {
   options: Array<{ index: number; label: string; description?: string }>;
   selected: number | null;
   selectedIndices: number[];
-  input: { label: string; placeholder?: string } | null;
+  input: { label: string; placeholder?: string; optional?: boolean } | null;
   state: "pending" | "submitting" | "submitted" | "uncertain";
   optionsComplete?: boolean;
 }

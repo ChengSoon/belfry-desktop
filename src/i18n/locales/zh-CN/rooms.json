@@ -286,6 +286,9 @@
     "other": "{{count}} 项"
   },
   "choice.requests": "待处理请求",
+  "choice.openRequests": "处理请求",
+  "choice.collapseRequests": "收起",
+  "choice.optional": "（选填）",
   "choice.moreOptions": "到终端查看更多选项",
   "choice.pending": "等你选择",
   "choice.submitting": "正在发送…",
