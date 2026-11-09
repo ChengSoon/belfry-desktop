@@ -9,7 +9,8 @@ for (const [locale, field] of [["zh-CN", "zhCN"], ["en", "en"]]) {
   const path = `src/i18n/locales/${locale}/errors.json`;
   const value = JSON.stringify(Object.fromEntries(entries.map(entry => [entry.code, entry[field].trim()])), null, 2) + "\n";
   if (process.argv.includes("--check")) {
-    if (await readFile(path, "utf8").catch(() => "") !== value) throw new Error(`Backend translations changed: run pnpm sync:i18n (${locale})`);
+    const actual = (await readFile(path, "utf8").catch(() => "")).replace(/\r\n/g, "\n");
+    if (actual !== value) throw new Error(`Backend translations changed: run pnpm sync:i18n (${locale})`);
   } else await writeFile(path, value);
 }
 console.log(`Synchronized ${entries.length} backend error/message codes.`);

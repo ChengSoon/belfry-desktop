@@ -29,6 +29,7 @@ export async function browserFixture(t, page, options = {}) {
   await view.bounds({ x: 0, y: 0, width: 1080, height: 700 });
   await view.send("Page.addScriptToEvaluateOnNewDocument", { source: "if (!localStorage.getItem('belfry.locale.v1')) localStorage.setItem('belfry.locale.v1', 'zh-CN')" });
   const origin = `http://127.0.0.1:${server.httpServer.address().port}`;
+  await options.beforeNavigate?.(view, { server, requests, origin, root });
   await view.navigate({ url: `${origin}/${page}` });
   return { view, requests, origin, root };
 }
