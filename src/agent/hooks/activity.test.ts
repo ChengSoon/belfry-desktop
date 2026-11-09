@@ -17,6 +17,17 @@ function setup() {
 
 afterEach(() => vi.useRealTimers());
 
+it.each(["processing", "completed", "awaiting_input"] as const)("Codex screen request remains visible after a %s hook", state => {
+  const { activity, latest } = setup();
+  activity.accept(snapshot(state, 1));
+  vi.advanceTimersByTime(2000);
+  activity.screen("awaiting-choice");
+  expect(latest()?.activity).toBe("awaiting-choice");
+  activity.screen("idle");
+  expect(latest()?.activity).toBe(state === "processing" ? "talking" : state === "awaiting_input" ? "awaiting-choice" : "idle");
+  activity.dispose();
+});
+
 it("Antigravity 审批框补充 Hook，屏幕安静不能提前开放队列", () => {
   const { activity, latest } = setup();
   activity.accept({ ...snapshot("processing", 1), agent: "antigravity" });
