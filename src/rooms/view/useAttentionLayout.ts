@@ -38,9 +38,11 @@ export function useAttentionLayout(roomId: string, present: boolean) {
       const input = composer?.getBoundingClientRect();
       // Keep the composer and at least 80px of conversation below the overlay.
       const bottom = input?.height ? input.top : bounds.bottom;
-      // Apply the limit before this resize is painted; React state can leave
-      // the previous height in place for a frame while the composer grows.
-      content.style.maxHeight = `${Math.max(0, bottom - bounds.top - 8 - 80)}px`;
+      // Resolve the main's changing height in CSS: navigation font transitions
+      // can move its top before the next resize notification. Only the space
+      // below the conversation needs measuring; apply it synchronously when
+      // the composer grows so a later React commit cannot leave a stale limit.
+      content.style.maxHeight = `max(0px, calc(100% - ${bounds.bottom - bottom + 8 + 80}px))`;
     };
     const observer = new ResizeObserver(measure);
     observer.observe(main, { box: "border-box" });

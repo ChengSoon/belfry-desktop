@@ -60,6 +60,27 @@ async function captureChoicePanel(view, name) {
   await capturePanel(view, name);
 }
 
+// Capture the actual limit and containing blocks with the assertion, rather
+// than relying on a later screenshot or the fixture's truncated document HTML.
+function readAttentionLayout() {
+  const inspect = selector => {
+    const element = document.querySelector(selector);
+    if (!element) return null;
+    const rect = element.getBoundingClientRect(), style = getComputedStyle(element);
+    return { top: rect.top, bottom: rect.bottom, height: rect.height, width: rect.width,
+      clientHeight: element.clientHeight, scrollHeight: element.scrollHeight, scrollTop: element.scrollTop,
+      inline: element.getAttribute("style"), maxHeight: style.maxHeight, display: style.display,
+      boxSizing: style.boxSizing, position: style.position, transform: style.transform,
+      borderTop: style.borderTopWidth, borderBottom: style.borderBottomWidth };
+  };
+  const main = inspect(".room-main"), body = inspect(".room-attention-body"), composer = inspect(".room-composer"),
+    chat = inspect('[aria-label="Room conversation"], [aria-label="房间对话"]');
+  return { at: performance.now(), font: getComputedStyle(document.documentElement).fontSize, fonts: document.fonts.status,
+    expanded: document.querySelector(".room-attention")?.dataset.expanded, main, body, composer, chat,
+    nav: inspect(".room-compact-nav"), scroll: inspect(".room-attention-scroll"), input: inspect(".room-composer textarea"),
+    reserve: chat && body ? chat.bottom - Math.max(chat.top, body.bottom) : null };
+}
+
 test("available interactions appear before the activity changes to waiting", async t => {
   const { view } = await browserFixture(t, `${PAGE}?attention=0&choices=worktree`);
   await view.bounds({ x: 0, y: 0, width: 1440, height: 900 });
@@ -381,6 +402,73 @@ test("compact requests reserve conversation space in the same frame as composer 
   assert.equal(await view.cdp.evaluate('document.querySelector(\'textarea[aria-label="Message"]\').value'), "T36 chat remains usable");
 });
 
+for (const locale of ["zh-CN", "en"]) {
+  test(`compact requests reserve conversation space during navigation font resizing (${locale})`, async t => {
+    const { view } = await browserFixture(t, `${PAGE}?attention=0&choices=worktree&locale=${locale}&theme=dark`);
+    await view.bounds({ x: 0, y: 0, width: 720, height: 480 });
+    await view.send("Emulation.setDeviceMetricsOverride", { width: 720, height: 480, deviceScaleFactor: 1, mobile: false });
+    await waitFor(view, "document.querySelector('.room-attention')?.dataset.compact === 'true'");
+    await view.cdp.evaluate("qaPatchInteraction('t2', { question: 'Choose the working directory ' + 'long-directory/'.repeat(20) })");
+    await waitFor(view, "document.querySelector('.room-choice-question')?.textContent.includes('long-directory')");
+    const message = `textarea[aria-label="${locale === "en" ? "Message" : "消息"}"]`;
+    await clickVisible(view, message);
+    await view.send("Input.insertText", { text: "Retain this conversation draft" });
+    const animations = await view.cdp.evaluate(`(() => {
+      const nav = document.querySelector('.room-compact-nav');
+      nav.getBoundingClientRect();
+      document.documentElement.style.fontSize = '20px';
+      nav.getBoundingClientRect();
+      const heights = nav.getAnimations({ subtree: true }).filter(animation => animation.transitionProperty === 'height');
+      window.qaNavAnimations = heights;
+      // Control only the existing font-driven transitions, with real browser
+      // dimensions and unmodified ResizeObservers. Finish unrelated motion so
+      // the composer is already at its new size before the navigation moves.
+      for (const animation of document.getAnimations()) {
+        if (animation.effect.getTiming().iterations === Infinity) continue;
+        if (heights.includes(animation)) { animation.pause(); animation.currentTime = 50; }
+        else animation.finish();
+      }
+      return heights.map(animation => ({ frames: animation.effect.getKeyframes(), duration: animation.effect.getTiming().duration }));
+    })()`);
+    assert.ok(animations.length > 0, "the font change started the native navigation height transitions");
+    await clickVisible(view, ".room-attention-open");
+    await waitFor(view, "document.querySelector('.room-attention')?.dataset.expanded === 'true'");
+    const snapshots = await view.cdp.evaluate(`new Promise((resolve, reject) => {
+      const snapshots = [], sample = phase => snapshots.push({ phase, ...(${readAttentionLayout})() });
+      const timeout = setTimeout(() => { observer.disconnect(); reject(new Error('Navigation resize was not observed')); }, 5000);
+      const observer = new ResizeObserver(() => {
+        if (!snapshots.length) {
+          sample('initial-observation');
+          requestAnimationFrame(() => {
+            sample('before-animation-step');
+            qaNavAnimations.forEach(animation => { animation.currentTime = 65; });
+            // Read in the same layout update, before another size notification
+            // can conceal the stale limit, just as a real event can read it.
+            sample('after-animation-step');
+          });
+        } else {
+          sample('following-observation');
+          observer.disconnect(); clearTimeout(timeout); resolve(snapshots);
+        }
+      });
+      observer.observe(document.querySelector('.room-main'), { box: 'border-box' });
+    })`);
+    t.diagnostic(JSON.stringify({ navigationResize: { animations, snapshots } }));
+    // This is the subsequent rendered state; the atomic geometry above is the
+    // evidence for the update interval even if a later observation repairs it.
+    await capturePanel(view, `room-choice-navigation-resize-${locale}`);
+    assert.equal(snapshots.length, 4);
+    const before = snapshots[1], after = snapshots[2];
+    assert.ok(before.reserve >= 80, "the animation starts from the reserved conversation space");
+    assert.ok(after.main.top > before.main.top, "the native navigation transition moved the main boundary");
+    assert.equal(after.composer.top, before.composer.top, "the composer is already at its final font size");
+    assert.ok(after.reserve >= 80, `transition-frame conversation reserve is ${after.reserve}px`);
+    assert.ok(snapshots[3].reserve >= 80, "the subsequent resize notification retains the reserve");
+    assert.ok(await ownsClick(view, `button[aria-label="${locale === "en" ? "Send" : "发送"}"]`));
+    assert.equal(await view.cdp.evaluate(`document.querySelector(${JSON.stringify(message)}).value`), "Retain this conversation draft");
+  });
+}
+
 test("only explicitly optional input permits an actively submitted empty answer", async t => {
   const view = await ready(t);
   await view.cdp.evaluate("qaPatchInteraction('t2', { requestId: 'required-input', kind: 'input', options: [], input: { label: 'Required answer' } })");
@@ -455,7 +543,7 @@ for (const locale of ["zh-CN", "en"]) {
               escaped: [...panel.querySelectorAll('h3, .room-choice-option-title, .room-choice-option-description, pre')].filter(el => {
                 if (!el.getClientRects().length) return false;
                 const b = el.getBoundingClientRect(); return b.left < bounds.left - 1 || b.right > bounds.right + 1;
-              }).map(el => el.textContent.slice(0, 40)) };
+              }).map(el => el.textContent.slice(0, 40)), layout: (${readAttentionLayout})() };
           })()`);
           t.diagnostic(JSON.stringify({ geometry }));
           await capturePanel(view, `room-choice-${locale}-${theme}-${width}-${font}`);
