@@ -341,5 +341,15 @@
   "choice.busy": "A reply is already being sent.",
   "choice.invalid": "Check your answer and try again.",
   "choice.failed": "The reply was not sent. You can try again.",
-  "choice.uncertain": "Delivery could not be confirmed. Check the terminal before continuing."
+  "choice.uncertain": "Delivery could not be confirmed. Check the terminal before continuing.",
+  "new": {
+    "projectLabel": "Project directory",
+    "selectProject": "Choose a project directory for this room",
+    "choose": "Choose…",
+    "projectRequired": "Choose a project directory",
+    "projectChecking": "Choosing and checking the project directory…",
+    "projectHint": "Choose the project directory where room members will start their sessions.",
+    "projectError": "Could not open this project directory: {{reason}}",
+    "teamWithoutProject": "Team (sessions start in the selected project)"
+  }
 }

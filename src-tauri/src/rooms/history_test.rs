@@ -4,8 +4,9 @@ use std::{fs, io::{BufWriter, Write}, path::PathBuf, time::Instant};
 #[test]
 fn regression_startup_reads_only_the_committed_projection() {
     let root = std::env::temp_dir().join(format!("belfry-checkpoint-test-{}", new_id()));
+    fs::create_dir_all(&root).unwrap();
     let store = RoomStore::load(Some(root.clone()));
-    let room = store.create("Checkpoint", "/proj", "").unwrap();
+    let room = store.create("Checkpoint", root.to_str().unwrap(), "").unwrap();
     store.mutate(&room.id, |room| super::test_support::add(room, "worker", "Worker", "")).unwrap();
     let (posted, _) = store.mutate(&room.id, |room| ops::say(room, &Actor::User, &[], "pending reply", None, true, 1)).unwrap();
     drop(store);
@@ -20,8 +21,9 @@ fn regression_startup_reads_only_the_committed_projection() {
 
 fn history_fixture() -> (PathBuf, RoomStore, Room) {
     let root = std::env::temp_dir().join(format!("belfry-history-test-{}", new_id()));
+    fs::create_dir_all(&root).unwrap();
     let store = RoomStore::load(Some(root.clone()));
-    let room = store.create("History", "/proj", "").unwrap();
+    let room = store.create("History", root.to_str().unwrap(), "").unwrap();
     (root, store, room)
 }
 
@@ -167,8 +169,9 @@ fn startup_benchmark_prepare() {
     let root = benchmark_root();
     assert!(!root.exists(), "benchmark fixture directory must be new");
     let count = std::env::var("BELFRY_BENCH_EVENTS").unwrap().parse::<usize>().unwrap();
+    fs::create_dir_all(&root).unwrap();
     let store = RoomStore::load(Some(root.clone()));
-    let room = store.create("Benchmark", "/proj", "").unwrap();
+    let room = store.create("Benchmark", root.to_str().unwrap(), "").unwrap();
     drop(store);
     let path = ledger::path(&root, &room.id).unwrap();
     fs::create_dir_all(path.parent().unwrap()).unwrap();

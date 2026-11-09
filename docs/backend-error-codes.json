@@ -35,6 +35,22 @@
       "zhCN": "找不到这个房间"
     },
     {
+      "code": "ROOM_PROJECT_NOT_FOUND",
+      "params": [
+        "path"
+      ],
+      "en": "Room project directory was not found: {{path}}",
+      "zhCN": "找不到房间项目目录：{{path}}"
+    },
+    {
+      "code": "ROOM_PROJECT_NOT_DIRECTORY",
+      "params": [
+        "path"
+      ],
+      "en": "Room project path must point to a directory: {{path}}",
+      "zhCN": "房间项目地址必须是目录：{{path}}"
+    },
+    {
       "code": "PROVIDER_NOT_FOUND",
       "params": [
         "id"

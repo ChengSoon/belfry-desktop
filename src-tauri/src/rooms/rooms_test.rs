@@ -6,7 +6,9 @@ use super::ops;
 use super::store::{deliveries, RoomStore};
 
 fn temp_root(tag: &str) -> PathBuf {
-    std::env::temp_dir().join(format!("belfry-rooms-{tag}-{}", new_id()))
+    let root = std::env::temp_dir().join(format!("belfry-rooms-{tag}-{}", new_id()));
+    fs::create_dir_all(&root).unwrap();
+    root
 }
 
 #[test]
@@ -14,7 +16,7 @@ fn regression_room_notices_and_recipient_aliases_follow_the_app_language() {
     belfry_i18n::with_locale(belfry_i18n::Locale::En, || {
         let root = temp_root("locale");
         let store = RoomStore::load(Some(root.clone()));
-        let mut room = store.create("用户的项目", "/proj", "用户的目标").unwrap();
+        let mut room = store.create("用户的项目", root.to_str().unwrap(), "用户的目标").unwrap();
         super::test_support::add(&mut room, "lead", "Lead", "coordination").unwrap();
         super::test_support::add(&mut room, "worker", "Worker", "implementation").unwrap();
         let welcome = room.messages.iter().find(|message| message.text.contains("belfry room status")).unwrap();
@@ -33,11 +35,11 @@ fn regression_room_notices_and_recipient_aliases_follow_the_app_language() {
     });
 }
 
-fn delivery_registry() -> crate::collab::SessionRegistry {
+fn delivery_registry(project_root: &str) -> crate::collab::SessionRegistry {
     let registry = crate::collab::SessionRegistry::default();
     registry.replace(vec![serde_json::from_value(serde_json::json!({
         "tabId": "t1", "name": "worker", "title": "Worker", "agent": "codex", "activity": "idle",
-        "canReceive": true, "projectRoot": "/proj"
+        "canReceive": true, "projectRoot": project_root
     })).unwrap()]);
     registry
 }
@@ -47,14 +49,14 @@ fn regression_room_outbox_recovers_a_commit_without_board_acceptance() {
     use crate::collab::task::{TaskBoard, DeliveryPhase};
     let root = temp_root("outbox-recovery");
     let store = RoomStore::load(Some(root.join("rooms")));
-    let room = store.create("Room", "/proj", "").unwrap();
+    let room = store.create("Room", root.to_str().unwrap(), "").unwrap();
     store.mutate(&room.id, |room| super::test_support::add(room, "t1", "Worker", "")).unwrap();
     let (posted, _) = store.mutate(&room.id, |room| ops::say(room, &Actor::User, &[], "durable message", None, false, 1)).unwrap();
     // 模拟房间已经成功落盘，但进程在调用 TaskBoard 之前退出。
     drop(store);
     let store = RoomStore::load(Some(root.join("rooms")));
     let board = TaskBoard::load(Some(root.join("collab")));
-    let registry = delivery_registry();
+    let registry = delivery_registry(&room.project_root);
     store.pump_outbox(&board, &registry).unwrap();
     let task = board.snapshot().into_iter().find(|task| task.chat.as_ref().unwrap().message_ids.contains(&posted.message_id))
         .expect("accepted room messages must recover their pending delivery");
@@ -87,12 +89,12 @@ fn a_stale_room_delivery_snapshot_cannot_reenqueue_after_receipt_cleanup() {
     use crate::collab::task::{TaskBoard, DeliveryPhase};
     let root = temp_root("stale-outbox");
     let store = RoomStore::load(Some(root.clone()));
-    let room = store.create("Room", "/proj", "").unwrap();
+    let room = store.create("Room", root.to_str().unwrap(), "").unwrap();
     store.mutate(&room.id, |room| super::test_support::add(room, "t1", "Worker", "")).unwrap();
     let (posted, room) = store.mutate(&room.id, |room| ops::say(room, &Actor::User, &[], "only once", None, false, 1)).unwrap();
     let posts = deliveries(&room, &[posted]);
     let board = TaskBoard::default();
-    let registry = delivery_registry();
+    let registry = delivery_registry(&room.project_root);
     store.pump_outbox(&board, &registry).unwrap();
     for task in board.snapshot() {
         assert!(board.claim_delivery(&task.id, "attempt").unwrap());
@@ -110,7 +112,7 @@ fn a_stale_room_delivery_snapshot_cannot_reenqueue_after_receipt_cleanup() {
 fn regression_snapshot_rename_failure_does_not_publish_ledger_messages() {
     let root = temp_root("rename-failure");
     let store = RoomStore::load(Some(root.clone()));
-    let room = store.create("一致性", "/proj", "original").unwrap();
+    let room = store.create("一致性", root.to_str().unwrap(), "original").unwrap();
     store.mutate(&room.id, |room| super::test_support::add(room, "t1", "统筹员", "")).unwrap();
     let file = root.join("rooms.json");
     let before = fs::read(&file).unwrap();
@@ -132,7 +134,7 @@ fn regression_snapshot_rename_failure_does_not_publish_ledger_messages() {
 fn regression_active_reply_survives_more_than_three_thousand_events_and_restart() {
     let root = temp_root("retained-reply");
     let store = RoomStore::load(Some(root.clone()));
-    let room = store.create("长对话", "/proj", "").unwrap();
+    let room = store.create("长对话", root.to_str().unwrap(), "").unwrap();
     store.mutate(&room.id, |room| super::test_support::add(room, "t1", "统筹员", "")).unwrap();
     let (asked, _) = store.mutate(&room.id, |room| ops::say(room, &Actor::User, &[], "earliest open question", None, true, now_millis())).unwrap();
     store.mutate(&room.id, |room| {
@@ -161,7 +163,7 @@ fn regression_active_reply_survives_more_than_three_thousand_events_and_restart(
 fn regression_unknown_ledger_records_are_never_removed_by_startup_compaction() {
     let root = temp_root("unknown-events");
     let store = RoomStore::load(Some(root.clone()));
-    let room = store.create("兼容历史", "/proj", "").unwrap();
+    let room = store.create("兼容历史", root.to_str().unwrap(), "").unwrap();
     let path = super::ledger::path(&root, &room.id).unwrap();
     let events: Vec<_> = (0..3100).map(|index| super::ledger::LedgerEvent {
         v: 1, id: new_id(), ts: index, kind: "future.unknown".into(), room_id: room.id.clone(), by: "system".into(), data: serde_json::json!({"preserve": index})
@@ -182,7 +184,7 @@ fn regression_unknown_ledger_records_are_never_removed_by_startup_compaction() {
 fn regression_a_stale_store_cannot_overwrite_another_instances_commit() {
     let root = temp_root("stale-writer");
     let first = RoomStore::load(Some(root.clone()));
-    let room = first.create("original", "/proj", "").unwrap();
+    let room = first.create("original", root.to_str().unwrap(), "").unwrap();
     let stale = RoomStore::load(Some(root.clone()));
     first.mutate(&room.id, |room| { room.name = "new name".into(); Ok(()) }).unwrap();
     assert!(stale.mutate(&room.id, |room| { room.brief.objective = "stale".into(); Ok(()) }).is_err());
@@ -195,7 +197,7 @@ fn append_sync_and_commit_faults_restart_at_the_previous_commit_and_retry_once()
     for stage in ["append", "sync", "rename"] {
         let root = temp_root(stage);
         let store = RoomStore::load(Some(root.clone()));
-        let room = store.create("transaction", "/proj", "old").unwrap();
+        let room = store.create("transaction", root.to_str().unwrap(), "old").unwrap();
         store.mutate(&room.id, |room| super::test_support::add(room, "t1", "统筹员", "")).unwrap();
         super::store::fail_next_commit(stage);
         assert!(store.mutate(&room.id, |room| {
@@ -221,13 +223,13 @@ fn append_sync_and_commit_faults_restart_at_the_previous_commit_and_retry_once()
 fn truncated_committed_ledgers_are_readonly_instead_of_silently_losing_messages() {
     let root = temp_root("short-ledger");
     let store = RoomStore::load(Some(root.clone()));
-    let room = store.create("truncated", "/proj", "").unwrap();
+    let room = store.create("truncated", root.to_str().unwrap(), "").unwrap();
     store.mutate(&room.id, |room| super::test_support::add(room, "t1", "统筹员", "")).unwrap();
     let path = super::ledger::path(&root, &room.id).unwrap();
     fs::write(&path, "{broken").unwrap();
     let recovered = RoomStore::load(Some(root.clone()));
     assert!(recovered.list().unwrap().load_error.is_some());
-    assert!(recovered.create("new", "/proj", "").is_err());
+    assert!(recovered.create("new", root.to_str().unwrap(), "").is_err());
     assert_eq!(fs::read_to_string(path).unwrap(), "{broken");
     let _ = fs::remove_dir_all(root);
 }
@@ -473,7 +475,7 @@ fn deliveries_carry_the_short_id_author_and_quote() {
 fn the_store_persists_rooms_and_the_committed_message_projection() {
     let root = temp_root("persist");
     let store = RoomStore::load(Some(root.clone()));
-    let room = store.create("登录改版", "/proj", "做完登录页").unwrap();
+    let room = store.create("登录改版", root.to_str().unwrap(), "做完登录页").unwrap();
     store
         .mutate(&room.id, |room| {
             super::test_support::add(room, "t1", "统筹员", "")?;
@@ -505,7 +507,7 @@ fn the_store_persists_rooms_and_the_committed_message_projection() {
 fn a_failed_action_leaves_the_store_untouched() {
     let root = temp_root("rollback");
     let store = RoomStore::load(Some(root.clone()));
-    let room = store.create("登录改版", "/proj", "").unwrap();
+    let room = store.create("登录改版", root.to_str().unwrap(), "").unwrap();
     let result = store.mutate(&room.id, |room| {
         super::test_support::add(room, "t1", "统筹员", "")?;
         Err::<(), _>("中途失败".to_string())
@@ -520,7 +522,7 @@ fn a_failed_action_leaves_the_store_untouched() {
 fn a_torn_ledger_line_is_skipped_and_duplicates_replay_once() {
     let root = temp_root("torn");
     let store = RoomStore::load(Some(root.clone()));
-    let room = store.create("登录改版", "/proj", "").unwrap();
+    let room = store.create("登录改版", root.to_str().unwrap(), "").unwrap();
     store.mutate(&room.id, |room| super::test_support::add(room, "t1", "统筹员", "")).unwrap();
     let ledger = root.join("ledgers").join(format!("{}.jsonl", room.id));
     let text = fs::read_to_string(&ledger).unwrap();
@@ -541,7 +543,7 @@ fn an_unknown_store_version_stays_readonly_and_keeps_the_file() {
     fs::write(root.join("rooms.json"), original).unwrap();
     let store = RoomStore::load(Some(root.clone()));
     assert!(store.list().unwrap().load_error.is_some());
-    assert!(store.create("新房间", "/proj", "").is_err());
+    assert!(store.create("新房间", root.to_str().unwrap(), "").is_err());
     assert_eq!(fs::read_to_string(root.join("rooms.json")).unwrap(), original);
     let _ = fs::remove_dir_all(&root);
 }
@@ -550,7 +552,7 @@ fn an_unknown_store_version_stays_readonly_and_keeps_the_file() {
 fn deleting_a_room_removes_its_ledger() {
     let root = temp_root("delete");
     let store = RoomStore::load(Some(root.clone()));
-    let room = store.create("登录改版", "/proj", "").unwrap();
+    let room = store.create("登录改版", root.to_str().unwrap(), "").unwrap();
     store.mutate(&room.id, |room| super::test_support::add(room, "t1", "统筹员", "")).unwrap();
     let ledger = root.join("ledgers").join(format!("{}.jsonl", room.id));
     assert!(ledger.exists());
@@ -651,7 +653,7 @@ fn a_paused_room_records_messages_but_delivers_nothing_and_stops_nudging() {
 fn room_summaries_carry_the_latest_message_addressed_to_you() {
     let root = temp_root("inbox");
     let store = RoomStore::load(Some(root.clone()));
-    let room = store.create("登录改版", "/proj", "").unwrap();
+    let room = store.create("登录改版", root.to_str().unwrap(), "").unwrap();
     store.mutate(&room.id, |room| super::test_support::add(room, "t1", "统筹员", "")).unwrap();
     assert!(store.list().unwrap().rooms[0].last_to_user.is_none());
     store.mutate(&room.id, |room| ops::say(room, &Actor::User, &[], "做个登录页", None, false, now_millis())).unwrap();
@@ -671,7 +673,7 @@ fn room_summaries_carry_the_latest_message_addressed_to_you() {
 fn a_long_legacy_ledger_keeps_its_history_while_bounding_the_recent_projection() {
     let root = temp_root("compact");
     let store = RoomStore::load(Some(root.clone()));
-    let room = store.create("登录改版", "/proj", "").unwrap();
+    let room = store.create("登录改版", root.to_str().unwrap(), "").unwrap();
     store.mutate(&room.id, |room| super::test_support::add(room, "t1", "统筹员", "")).unwrap();
     let (asked, _) = store.mutate(&room.id, |room| ops::say(room, &Actor::User, &[], "要回复", None, true, now_millis())).unwrap();
     let member_id = store.get(&room.id).unwrap().members[0].id.clone();

@@ -309,5 +309,15 @@
   "choice.busy": "回答正在发送，请稍候。",
   "choice.invalid": "请检查回答后重试。",
   "choice.failed": "回答未发送，可重试。",
-  "choice.uncertain": "无法确认是否已发送，请到终端核对后继续。"
+  "choice.uncertain": "无法确认是否已发送，请到终端核对后继续。",
+  "new": {
+    "projectLabel": "项目地址",
+    "selectProject": "选择房间项目目录",
+    "choose": "选择…",
+    "projectRequired": "请选择项目目录",
+    "projectChecking": "正在选择并校验项目目录…",
+    "projectHint": "选择房间使用的项目目录，成员会话将在这里启动。",
+    "projectError": "无法打开这个项目目录：{{reason}}",
+    "teamWithoutProject": "班子（成员会话将在所选项目里启动）"
+  }
 }

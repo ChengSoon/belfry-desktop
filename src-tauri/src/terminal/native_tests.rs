@@ -23,6 +23,8 @@ use crate::resource::{canonicalize, path_to_file_uri};
 
 const MEBIBYTE: usize = 1024 * 1024;
 const OUTPUT_PATTERN: &[u8] = b"0123456789abcdef";
+#[path = "native_room_project_tests.rs"]
+mod room_project;
 // 这些测试都会启动真实 shell。并行运行会让多个 PowerShell/ConPTY 争抢 CPU 和控制台
 // I/O，使延迟基准测到测试间干扰而非单会话性能。
 static NATIVE_TEST_LOCK: Mutex<()> = Mutex::new(());
