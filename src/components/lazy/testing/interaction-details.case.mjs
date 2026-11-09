@@ -17,6 +17,7 @@ async function fixture(t) {
   const view = await new BrowserTarget(browser, { workspace: root, frame: () => {}, state: () => {} }).start();
   scope.after(() => view.close());
   await view.bounds({ x: 0, y: 0, width: 1440, height: 960 });
+  await view.send('Page.addScriptToEvaluateOnNewDocument', { source: "if (!localStorage.getItem('belfry.locale.v1')) localStorage.setItem('belfry.locale.v1', 'zh-CN')" });
   await view.send('Page.addScriptToEvaluateOnNewDocument', { source: `window.__interactionErrors=[];
     window.addEventListener('error', e => __interactionErrors.push(e.message));
     window.addEventListener('unhandledrejection', e => __interactionErrors.push(String(e.reason)));` });

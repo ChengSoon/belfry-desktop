@@ -60,16 +60,24 @@ test('motion: long grouped list, 12 interrupted folds, keyboard exclusion and re
   }
   await resize(view,1440,960);
   const full = await view.cdp.evaluate("document.querySelector('.session-group__collapse').getBoundingClientRect().height");
-  // Observe and trigger in the same browser turn so remote CDP latency cannot skip the transition.
-  const frames = await view.cdp.evaluate(`new Promise((resolve,reject) => {
-    const el=document.querySelector('.session-group__collapse'),values=[el.getBoundingClientRect().height];
+  assert.ok(full > 0, 'the group starts expanded');
+  // A loaded renderer can skip every intermediate RAF. CSS transition events still
+  // prove that the height transition ran, even when its start/end share one frame.
+  const { frames, transitions } = await view.cdp.evaluate(`new Promise((resolve,reject) => {
+    const el=document.querySelector('.session-group__collapse'),frames=[el.getBoundingClientRect().height],transitions=[];
+    const record=event=>{if(event.target===el && event.propertyName==='grid-template-rows')
+      transitions.push({type:event.type,elapsedTime:event.elapsedTime});};
+    const events=['transitionrun','transitionend'];
+    events.forEach(type=>el.addEventListener(type,record));
+    const cleanup=()=>events.forEach(type=>el.removeEventListener(type,record));
     const deadline=performance.now()+5000;
-    const tick=()=>{const height=el.getBoundingClientRect().height;values.push(height);
-      if(height===0)return resolve(values);
-      if(performance.now()>deadline)return reject(new Error('group collapse did not settle'));
+    const tick=()=>{const height=el.getBoundingClientRect().height;frames.push(height);
+      if(height===0 && transitions.some(event=>event.type==='transitionend')){cleanup();return resolve({frames,transitions});}
+      if(performance.now()>deadline){cleanup();return reject(new Error('group collapse did not finish a height transition: '+JSON.stringify({frames,transitions})));}
       requestAnimationFrame(tick);};
     document.querySelector('.session-group__head').click();requestAnimationFrame(tick);})`);
-  assert.ok(frames.some(h=>h>0 && h<full), 'collapse includes intermediate heights');
+  assert.deepEqual(transitions.map(event=>event.type), ['transitionrun','transitionend']);
+  assert.ok(transitions[1].elapsedTime > 0, 'collapse runs a nonzero height transition');
   assert.equal(frames.at(-1),0);
   const hidden = await view.cdp.evaluate(`(() => {const content=document.querySelector('.session-group__collapse');content.querySelector('button').focus();
     return {inert:content.inert,focused:content.contains(document.activeElement),expanded:document.querySelector('.session-group__head').getAttribute('aria-expanded')};})()`);
@@ -106,7 +114,7 @@ test('motion: long grouped list, 12 interrupted folds, keyboard exclusion and re
   await click(view,'.session-group__head');
   assert.equal(await view.cdp.evaluate("document.querySelector('.session-group__collapse').getBoundingClientRect().height"),full);
   await intact(view,baseline); await assertTerminalInput(view);
-  t.diagnostic(JSON.stringify({foldSamples:frames,rapidReversals:12,syntheticSessions:20}));
+  t.diagnostic(JSON.stringify({foldSamples:frames,foldTransitions:transitions,rapidReversals:12,syntheticSessions:20}));
 });
 
 test('motion: hover and press feedback without layout movement, disabled and reduced motion', {timeout:45_000}, async t => {
