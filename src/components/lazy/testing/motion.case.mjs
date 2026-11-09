@@ -59,25 +59,83 @@ test('motion: long grouped list, 12 interrupted folds, keyboard exclusion and re
     }
   }
   await resize(view,1440,960);
-  const full = await view.cdp.evaluate("document.querySelector('.session-group__collapse').getBoundingClientRect().height");
+  // resize() only waits for the viewport dimensions. Flush the expanded style
+  // across two rendered frames before making the one change under observation.
+  const ready = await view.cdp.evaluate(`(async () => {
+    await document.fonts.ready;
+    const el=document.querySelector('.session-group__collapse');
+    el.getBoundingClientRect();
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    const css=getComputedStyle(el),properties=css.transitionProperty.split(',').map(value=>value.trim());
+    const durations=css.transitionDuration.split(',').map(value=>value.trim());
+    const index=properties.findLastIndex(property=>property==='grid-template-rows' || property==='all');
+    const duration=index<0?'0s':durations[index%durations.length];
+    return {height:el.getBoundingClientRect().height,expanded:document.querySelector('.session-group__head').getAttribute('aria-expanded'),
+      property:css.transitionProperty,duration:css.transitionDuration,
+      heightDurationMs:parseFloat(duration)*(duration.endsWith('ms')?1:1000),
+      active:el.getAnimations().filter(animation=>animation.transitionProperty==='grid-template-rows').length};
+  })()`);
+  t.diagnostic(JSON.stringify({foldReady:ready}));
+  const full = ready.height;
   assert.ok(full > 0, 'the group starts expanded');
-  // A loaded renderer can skip every intermediate RAF. CSS transition events still
-  // prove that the height transition ran, even when its start/end share one frame.
-  const { frames, transitions } = await view.cdp.evaluate(`new Promise((resolve,reject) => {
+  assert.equal(ready.expanded,'true');
+  assert.equal(ready.active,0,'the expanded group has no transition left over from setup');
+  assert.ok(ready.heightDurationMs > 0,'the expanded group has a nonzero height transition duration');
+  // Capture the actual CSS transition at the class mutation, before the next
+  // frame can finish it. macOS Chromium can emit start/end(0)/start while this
+  // same animation is pending, then finish normally. Its clock is authoritative.
+  const fold = await view.cdp.evaluate(`new Promise((resolve,reject) => {
     const el=document.querySelector('.session-group__collapse'),frames=[el.getBoundingClientRect().height],transitions=[];
-    const record=event=>{if(event.target===el && event.propertyName==='grid-template-rows')
-      transitions.push({type:event.type,elapsedTime:event.elapsedTime});};
-    const events=['transitionrun','transitionend'];
+    const animations=new Map(),frameTimes=[];
+    const describe=animation=>({property:animation.transitionProperty,playState:animation.playState,pending:animation.pending,
+      currentTime:animation.currentTime,startTime:animation.startTime,timing:animation.effect?.getComputedTiming(),
+      keyframes:animation.effect?.getKeyframes()});
+    const sampleAnimations=phase=>{for(const animation of el.getAnimations()){
+      if(animation.transitionProperty==='grid-template-rows' && !animations.has(animation))
+        animations.set(animation,{phase,at:performance.now(),initial:describe(animation)});
+    }};
+    const css=getComputedStyle(el),before={duration:css.transitionDuration,property:css.transitionProperty,
+      rows:css.gridTemplateRows,theme:document.documentElement.dataset.theme,visibility:document.visibilityState,
+      expanded:document.querySelector('.session-group__head').getAttribute('aria-expanded'),
+      reducedMotion:matchMedia('(prefers-reduced-motion: reduce)').matches,userAgent:navigator.userAgent,
+      at:performance.now(),timeline:document.timeline.currentTime};
+    sampleAnimations('before');
+    const record=event=>{if(event.target===el && event.propertyName==='grid-template-rows'){
+      transitions.push({type:event.type,elapsedTime:event.elapsedTime,at:performance.now(),timeStamp:event.timeStamp,
+        timeline:document.timeline.currentTime,trusted:event.isTrusted});sampleAnimations(event.type);
+    }};
+    const events=['transitionrun','transitionstart','transitioncancel','transitionend'];
     events.forEach(type=>el.addEventListener(type,record));
-    const cleanup=()=>events.forEach(type=>el.removeEventListener(type,record));
+    const observer=new MutationObserver(()=>sampleAnimations('class mutation'));
+    observer.observe(el.parentElement,{attributes:true,attributeFilter:['class']});
+    const cleanup=()=>{observer.disconnect();events.forEach(type=>el.removeEventListener(type,record));};
+    const result=()=>({frames,frameTimes,transitions,before,
+      animations:[...animations].map(([animation,initial])=>({...initial,final:describe(animation)})),
+      after:{duration:getComputedStyle(el).transitionDuration,rows:getComputedStyle(el).gridTemplateRows,
+        expanded:document.querySelector('.session-group__head').getAttribute('aria-expanded')}});
+    const finished=()=>[...animations].some(([animation,initial])=>initial.phase!=='before'
+      && initial.initial.timing.activeDuration>0 && animation.playState==='finished' && !animation.pending
+      && animation.currentTime>=initial.initial.timing.endTime);
     const deadline=performance.now()+5000;
     const tick=()=>{const height=el.getBoundingClientRect().height;frames.push(height);
-      if(height===0 && transitions.some(event=>event.type==='transitionend')){cleanup();return resolve({frames,transitions});}
-      if(performance.now()>deadline){cleanup();return reject(new Error('group collapse did not finish a height transition: '+JSON.stringify({frames,transitions})));}
+      frameTimes.push({at:performance.now(),timeline:document.timeline.currentTime});sampleAnimations('frame');
+      if(height===0 && finished() && transitions.some(event=>event.type==='transitionend')){cleanup();return resolve(result());}
+      if(performance.now()>deadline){cleanup();return reject(new Error('group collapse did not finish a height transition: '+JSON.stringify(result())));}
       requestAnimationFrame(tick);};
     document.querySelector('.session-group__head').click();requestAnimationFrame(tick);})`);
-  assert.deepEqual(transitions.map(event=>event.type), ['transitionrun','transitionend']);
-  assert.ok(transitions[1].elapsedTime > 0, 'collapse runs a nonzero height transition');
+  // Emit before assertions: the CI zero-duration failure still needs its timeline.
+  t.diagnostic(JSON.stringify({fold}));
+  const { frames, transitions } = fold;
+  for (const type of ['transitionrun','transitionstart','transitionend']) {
+    assert.ok(transitions.some(event=>event.type===type),`the height transition emits ${type}`);
+  }
+  assert.ok(!transitions.some(event=>event.type==='transitioncancel'),'the height transition is not cancelled');
+  const animation = fold.animations.find(item=>item.phase!=='before');
+  assert.ok(animation,'the collapse creates a real grid-template-rows transition');
+  assert.ok(animation.initial.timing.activeDuration > 0,'the height transition has a nonzero active duration');
+  assert.ok(animation.initial.currentTime < animation.initial.timing.endTime,'the height transition is observed before completion');
+  assert.equal(animation.final.playState,'finished','the observed height transition finishes without cancellation');
+  assert.ok(animation.final.currentTime >= animation.initial.timing.endTime,'the height transition clock reaches its end');
   assert.equal(frames.at(-1),0);
   const hidden = await view.cdp.evaluate(`(() => {const content=document.querySelector('.session-group__collapse');content.querySelector('button').focus();
     return {inert:content.inert,focused:content.contains(document.activeElement),expanded:document.querySelector('.session-group__head').getAttribute('aria-expanded')};})()`);
@@ -114,7 +172,7 @@ test('motion: long grouped list, 12 interrupted folds, keyboard exclusion and re
   await click(view,'.session-group__head');
   assert.equal(await view.cdp.evaluate("document.querySelector('.session-group__collapse').getBoundingClientRect().height"),full);
   await intact(view,baseline); await assertTerminalInput(view);
-  t.diagnostic(JSON.stringify({foldSamples:frames,foldTransitions:transitions,rapidReversals:12,syntheticSessions:20}));
+  t.diagnostic(JSON.stringify({rapidReversals:12,syntheticSessions:20}));
 });
 
 test('motion: hover and press feedback without layout movement, disabled and reduced motion', {timeout:45_000}, async t => {

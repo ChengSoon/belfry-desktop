@@ -26,7 +26,8 @@ const output = `${JSON.stringify({
 }, null, 2)}\n`;
 const target = path.join(root, 'docs/backend-error-codes.json');
 if (process.argv.includes('--check')) {
-  if (await readFile(target, 'utf8') !== output) throw new Error('Backend error directory is stale. Run node scripts/export-backend-i18n.mjs.');
+  const actual = (await readFile(target, 'utf8')).replace(/\r\n/g, '\n');
+  if (actual !== output) throw new Error('Backend error directory is stale. Run node scripts/export-backend-i18n.mjs.');
 } else {
   await writeFile(target, output);
   process.stdout.write(`Exported ${entries.length} stable catalog codes to docs/backend-error-codes.json\n`);
