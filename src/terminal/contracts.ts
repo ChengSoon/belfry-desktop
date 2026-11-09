@@ -172,6 +172,11 @@ export interface TerminalCommandTarget {
    * 替用户选第 `index` 项。发按键前重读一遍屏幕，`signature` 对不上就不发（返回 `changed`）。
    */
   answerChoice?: (signature: string, index: number) => "sent" | "changed" | "unavailable";
+  /** Read all supported request kinds regardless of the coarser activity indicator. */
+  readInteraction?: () => import("./interaction").TerminalInteraction | null;
+  /** Only user actions call this; sent means the PTY write completed, not task completion. */
+  answerInteraction?: (requestId: string, answer: import("./interaction").TerminalInteractionAnswer)
+    => Promise<import("./interaction").TerminalInteractionResult>;
 }
 
 export type TerminalStreamEvent =

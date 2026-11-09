@@ -19,13 +19,14 @@ export class HookActivity {
   screen(activity: SessionActivity) {
     if (this.stopped) return;
     this.screenActivity = activity;
-    if (this.pending) { this.finishIfReady(); return; }
-    if (!this.view.hook || this.view.hook.source === "screen_heuristic") this.emit(activity, this.view.hook);
-    else if (this.view.hook.agent === "antigravity" && this.view.hook.state === "processing") {
-      // Antigravity has no permission-request event. A visible approval may close
-      // the queue; a quiet screen must never override a running hook to open it.
+    if (this.pending) {
       this.emit(activity === "awaiting-choice" ? activity : "talking", this.view.hook);
+      this.finishIfReady(); return;
     }
+    if (!this.view.hook || this.view.hook.source === "screen_heuristic") this.emit(activity, this.view.hook);
+    // Menus and questions do not consistently emit permission hooks. A positive
+    // screen signal can close the queue; silence cannot override a busy hook.
+    else this.emit(activity === "awaiting-choice" ? activity : activityFor(this.view.hook), this.view.hook);
   }
 
   accept(snapshot: HookSnapshot) {
@@ -35,12 +36,12 @@ export class HookActivity {
     if (snapshot.source === "hook" && snapshot.state === "completed") {
       this.pending = snapshot;
       // Stop 之后其他 Hook 仍可能继续当前回合；稳定前保持队列关闭。
-      this.emit("talking", this.view.hook);
+      this.emit(this.screenActivity === "awaiting-choice" ? "awaiting-choice" : "talking", this.view.hook);
       this.timer = setTimeout(() => { this.ready = true; this.finishIfReady(); }, COMPLETION_SETTLE_MS);
       return;
     }
     const activity = snapshot.source === "screen_heuristic" ? this.screenActivity
-      : snapshot.agent === "antigravity" && snapshot.state === "processing" && this.screenActivity === "awaiting-choice"
+      : this.screenActivity === "awaiting-choice"
         ? "awaiting-choice" : activityFor(snapshot);
     this.emit(activity, snapshot);
   }

@@ -15,6 +15,7 @@ import { TerminalOutput } from "./output";
 import { OutputQueue } from "./outputQueue";
 import { SessionActivity } from "./sessionActivity";
 import type { MountCallbacks } from "./types";
+import type { InteractionWrite } from "../interaction";
 
 interface LifecyclePorts {
   host: HTMLDivElement;
@@ -38,6 +39,7 @@ export class TerminalLifecycle {
   private readonly channel = new Channel<TerminalEvent>();
   private restoredMissingAttachment = false;
   private resumeSessionId: string | null = null;
+  private nativeIdentity: string | null = null;
   private readonly activity;
   private readonly input;
   private readonly output;
@@ -52,10 +54,16 @@ export class TerminalLifecycle {
       onGap: () => ports.callbacks.onError(t("terminal.lifecycle.text_6f9801c626")),
       onExit: (code, tail) => this.finishExit(code, tail),
       onAgentState: (snapshot) => {
-        if (snapshot.session) ports.callbacks.onSessionIdentity?.(snapshot.session);
+        if (snapshot.session) {
+          this.nativeIdentity = `${snapshot.session.agent}:${snapshot.session.id}`;
+          ports.callbacks.onSessionIdentity?.(snapshot.session);
+        }
         this.activity.accept(snapshot);
       },
-      onSessionIdentity: (session) => ports.callbacks.onSessionIdentity?.(session),
+      onSessionIdentity: (session) => {
+        this.nativeIdentity = `${session.agent}:${session.id}`;
+        ports.callbacks.onSessionIdentity?.(session);
+      },
     });
     this.queue = new OutputQueue({ render: (events) => this.output.render(events),
       acknowledge: acknowledgeTerminalOutput, fail: (error) => this.fail(error) });
@@ -64,6 +72,9 @@ export class TerminalLifecycle {
 
   get alive() { return !this.disposed; }
   get agentKind() { return agentKindFromProfile(this.ports.launch.profileId); }
+  get outputSettled() { return this.queue.settled; }
+  get waitingReason() { return this.activity.waitingReason; }
+  get interactionScope() { return this.nativeIdentity ?? this.resumeSessionId; }
 
   async start() {
     const { host, terminal, fit, launch, theme, callbacks } = this.ports;
@@ -101,6 +112,8 @@ export class TerminalLifecycle {
   }
 
   sendText(text: string, options?: PromptDeliveryOptions) { return this.input.sendText(text, options); }
+
+  sendInteraction(request: InteractionWrite) { return this.input.sendInteraction(request); }
 
   /** 替用户按下选择键：走和键盘同一条输入通道，PTY 不在时不发。 */
   pressKeys(keys: string): boolean {

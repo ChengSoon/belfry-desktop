@@ -285,9 +285,22 @@ test('motion: drawer switch/interruptions, terminal resize bounded and reduced-m
       await pause(view);
       assert.equal(await view.cdp.evaluate("document.querySelectorAll('.motion-drawer').length"),1);
       await evidence(view,`motion-history-${mode}-${width}x${height}`,['button[title="关闭历史会话"]']);
+      // Capture at the exit mutation: a CDP round trip can outlast the 180ms presence timer.
+      await view.cdp.evaluate(`(() => {
+        const element = document.querySelector('.motion-drawer');
+        if (!element) throw new Error('missing drawer before exit capture');
+        __productionQA.drawerExit = null;
+        const observer = new MutationObserver(() => {
+          __productionQA.drawerExit = {state: element.dataset.motionState, position: getComputedStyle(element).position};
+          observer.disconnect();
+        });
+        observer.observe(element, {attributes: true, attributeFilter: ['data-motion-state']});
+      })()`);
       await click(view,'button[title="关闭历史会话"]');
-      assert.equal(await view.cdp.evaluate("document.querySelector('.motion-drawer').dataset.motionState"),'exit');
-      assert.equal(await view.cdp.evaluate("getComputedStyle(document.querySelector('.motion-drawer')).position"),'absolute');
+      await waitFor(view,"__productionQA.drawerExit !== null");
+      const exit = await view.cdp.evaluate("__productionQA.drawerExit");
+      t.diagnostic(JSON.stringify({drawerExit: exit, mode, width, height}));
+      assert.deepEqual(exit,{state:'exit',position:'absolute'});
       await waitFor(view,"!document.querySelector('.motion-drawer')");
       await settleTerminal(view);
       const counts=await view.cdp.evaluate(`(() => {__productionQA.observer.disconnect();

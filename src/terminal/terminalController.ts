@@ -1,12 +1,13 @@
 import type { TerminalTheme } from "../theme/xtermTheme";
 import type { TypographyRuntime } from "../typography/contracts";
 import { composerLooksEmpty, readScreenTail } from "./activity";
-import { CHOICE_TAIL_LINES, choiceKeys, readTerminalChoice } from "./choice";
+import { CHOICE_TAIL_LINES } from "./choice";
 import type { TerminalLaunch } from "./contracts";
 import { TerminalLayout } from "./controller/layout";
 import { TerminalLifecycle } from "./controller/lifecycle";
 import { TerminalView } from "./controller/view";
 import type { MountCallbacks, TerminalHandle } from "./controller/types";
+import { TerminalInteractions } from "./controller/interaction";
 
 export type { MountCallbacks, TerminalHandle } from "./controller/types";
 export { diagnoseTerminalExit, errorMessage } from "./controller/diagnostics";
@@ -34,6 +35,11 @@ export function mountTerminal(
 function createHandle({ view, lifecycle, layout }: {
   view: TerminalView; lifecycle: TerminalLifecycle; layout: TerminalLayout;
 }): TerminalHandle {
+  const interactions = new TerminalInteractions({ terminal: view.terminal, agent: lifecycle.agentKind,
+    session: () => lifecycle.alive ? lifecycle.current?.id ?? null : null,
+    scope: () => lifecycle.interactionScope,
+    outputSettled: () => lifecycle.outputSettled, waitingReason: () => lifecycle.waitingReason,
+    write: (request) => lifecycle.sendInteraction(request) });
   return {
     applyTheme: (theme, transparent) => {
       if (!lifecycle.alive) return;
@@ -50,18 +56,13 @@ function createHandle({ view, lifecycle, layout }: {
     focus: () => { if (lifecycle.alive) view.terminal.focus(); },
     sendText: (text, options) => lifecycle.sendText(text, options),
     composerEmpty: () => lifecycle.alive && composerLooksEmpty(readScreenTail(view.terminal, CHOICE_TAIL_LINES), lifecycle.agentKind),
-    readChoice: () => lifecycle.alive ? readTerminalChoice(view.terminal, lifecycle.agentKind) : null,
-    answerChoice: (signature, index) => {
-      if (!lifecycle.alive) return "unavailable";
-      // 发之前重读一遍：用户点按钮这几秒里，选择框可能已经换了一个或者消失了。
-      const choice = readTerminalChoice(view.terminal, lifecycle.agentKind);
-      if (!choice || choice.signature !== signature) return "changed";
-      const keys = choiceKeys(choice, index, view.terminal.modes.applicationCursorKeysMode);
-      if (!keys) return "changed";
-      return lifecycle.pressKeys(keys) ? "sent" : "unavailable";
-    },
+    readChoice: () => interactions.readChoice(),
+    answerChoice: (signature, index) => interactions.answerChoice(signature, index),
+    readInteraction: () => interactions.read(),
+    answerInteraction: (requestId, answer) => interactions.answer(requestId, answer),
     dispose: () => {
       if (!lifecycle.alive) return;
+      interactions.dispose();
       lifecycle.dispose();
       layout.dispose();
       view.dispose();
