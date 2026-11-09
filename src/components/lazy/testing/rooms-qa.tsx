@@ -11,6 +11,7 @@ import type { TerminalChoice } from "../../../terminal/choice";
 import type { TerminalCommandTarget } from "../../../terminal/contracts";
 import type { WorkspaceTab } from "../../../workspace/contracts";
 
+performance.mark("rooms-qa:initializing");
 const now = new Date(2026, 10, 7, 15, 30).getTime();
 const min = 60_000;
 const params = new URLSearchParams(location.search);
@@ -152,6 +153,7 @@ Object.assign(window, { qaCalls: calls });
 
 let callback = 0;
 Object.assign(window, {
+  __TAURI_EVENT_PLUGIN_INTERNALS__: { unregisterListener: () => {} },
   __TAURI_INTERNALS__: { metadata: { currentWindow: { label: "qa" }, currentWebview: { label: "qa", windowLabel: "qa" } },
     transformCallback: () => ++callback, unregisterCallback: () => {},
     invoke: async (command: string, args?: unknown) => {
@@ -179,6 +181,7 @@ Object.assign(window, {
         return { id: `01m6v2yfg2ps6jak5pk7tdrf${String(imported).padStart(3, "0")}`, name: `拖入文件${imported}.txt`,
           path: `/qa/拖入文件${imported}.txt`, size: 12, mimeType: "text/plain" };
       }
+      if (command === "plugin:event|listen") return ++callback;
       if (command.startsWith("plugin:")) return null;
       throw new Error(`QA 未提供原生命令：${command}`);
     } },
@@ -200,11 +203,14 @@ localStorage.setItem(THEME_MODE_KEY, theme);
 const attention = params.get("attention") !== "0";
 const tabs = [tab("t1", untracked ? "talking" : "idle"), tab("t2", attention ? "awaiting-choice" : "talking"), tab("t3", "talking"), tab("t4", "idle")];
 
+performance.mark("rooms-qa:importing-view");
 const { RoomView } = await import("../../../rooms/view/RoomView");
+performance.mark("rooms-qa:rendering");
 function QaRoom() {
   const [currentTabs, setTabs] = useState(tabs);
   const [open, setOpen] = useState(true);
   useEffect(() => {
+    performance.mark("rooms-qa:mounted");
     Object.assign(window, { qaShowRoom: setOpen, qaSetActivity: (id: string, activity: WorkspaceTab["activity"]) => {
       setTabs((current) => current.map((tab) => tab.id === id ? { ...tab, activity } : tab));
     } });
