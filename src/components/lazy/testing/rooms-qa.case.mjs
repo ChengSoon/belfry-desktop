@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { browserFixture, capturePanel, click, press, waitFor } from "./browserFixture.mjs";
+import { browserFixture, capturePanel, click, press, waitFor } from "./roomsQaFixture.mjs";
 
 const PAGE = "src/components/lazy/testing/rooms-qa.html";
 
