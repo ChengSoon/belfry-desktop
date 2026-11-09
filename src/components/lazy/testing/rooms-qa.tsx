@@ -8,6 +8,7 @@ import type { Room, RoomsView } from "../../../rooms/contracts";
 import type { RoomHistoryPage, RoomHistoryRecord } from "../../../rooms/history-api";
 import { setLocalePreference } from "../../../i18n";
 import type { TerminalChoice } from "../../../terminal/choice";
+import { createChoiceQaState } from "./roomsChoiceQa";
 import type { TerminalCommandTarget } from "../../../terminal/contracts";
 import type { WorkspaceTab } from "../../../workspace/contracts";
 
@@ -114,6 +115,8 @@ const pending = new Map<string, Array<{ resolve: () => void; reject: (cause: Err
 Object.assign(window, {
   qaRoomIds: [room.id, secondRoom.id],
   qaSetBrief: (brief: Room["brief"]) => { room.brief = structuredClone(brief); },
+  qaSetMemberTab: (id: string, tabId: string) => { room.members = room.members.map(member => member.id === id ? { ...member, tabId } : member); },
+  qaRemoveMember: (id: string) => { room.members = room.members.filter(member => member.id !== id); },
   qaRollMessage: () => {
     const removed = room.messages.shift()!;
     const message = msg("live-new", Date.now(), "foreman", "Live arrival while browsing history", ["user"]);
@@ -209,6 +212,7 @@ const theme = params.get("theme") ?? "dark";
 document.documentElement.dataset.theme = theme;
 localStorage.setItem(THEME_MODE_KEY, theme);
 const attention = params.get("attention") !== "0";
+const choiceQa = params.has("choices") ? createChoiceQaState(params.get("choices")!) : null;
 const tabs = [tab("t1", untracked ? "talking" : "idle"), tab("t2", attention ? "awaiting-choice" : "talking"), tab("t3", "talking"), tab("t4", "idle")];
 
 performance.mark("rooms-qa:importing-view");
@@ -230,7 +234,7 @@ function QaRoom() {
       onOpenFile={(root, path, line) => { (window as unknown as { qaFiles: unknown[] }).qaFiles.push({ root, path, line }); }}
       onClearContext={() => true} onOpenSession={(tabId) => { (window as unknown as { qaOpened: string[] }).qaOpened.push(tabId); }} onResumeDelivery={() => true}
       pausedDeliveries={attention ? [{ tabId: "t3", message: "协作任务尚未确认开始处理" }] : []}
-      project={null} tabs={currentTabs} targets={new Map(currentTabs.map((t) => [t.id, target(t.id)]))} /> : null}
+      project={null} tabs={currentTabs} targets={choiceQa?.targets ?? new Map(currentTabs.map((t) => [t.id, target(t.id)]))} /> : null}
   </div>
   </ThemeProvider>
   );

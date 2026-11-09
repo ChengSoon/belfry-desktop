@@ -281,5 +281,30 @@
     "other": "{{count}}/{{limit}} 个附件"
   },
   "markdown.imageAlt": "[图片：{{alt}}]",
-  "markdown.image": "[图片]"
+  "markdown.image": "[图片]",
+  "choice.count": {
+    "other": "{{count}} 项"
+  },
+  "choice.requests": "待处理请求",
+  "choice.moreOptions": "到终端查看更多选项",
+  "choice.pending": "等你选择",
+  "choice.submitting": "正在发送…",
+  "choice.submitted": "已发送",
+  "choice.checkTerminal": "待核对",
+  "choice.openTerminal": "打开{{name}}的终端",
+  "choice.waitingQuestion": "这条会话需要你的输入",
+  "choice.details": "查看详情",
+  "choice.unsupported": "请打开终端完成这项请求。",
+  "choice.currentItem": "终端当前项，尚未提交。",
+  "choice.multipleHint": "勾选需要的项目，然后提交。",
+  "choice.submitSelection": "提交选择",
+  "choice.answerLabel": "你的回答",
+  "choice.submitAnswer": "发送回答",
+  "choice.sent": "回答已发送到终端。",
+  "choice.changed": "请求已更新或关闭，请查看最新请求。",
+  "choice.unavailable": "终端暂时不可用，请打开终端查看。",
+  "choice.busy": "回答正在发送，请稍候。",
+  "choice.invalid": "请检查回答后重试。",
+  "choice.failed": "回答未发送，可重试。",
+  "choice.uncertain": "无法确认是否已发送，请到终端核对后继续。"
 }
