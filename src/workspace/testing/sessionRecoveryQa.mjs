@@ -9,21 +9,30 @@ export function sessionRecoveryQa(t) {
   t.after(async () => {
     if (!view) return;
     try {
-      const [state, screenshot] = await Promise.all([
+      const captures = await Promise.allSettled([
         view.cdp.evaluate("__productionQA.recovery.snapshot()"),
         view.send("Page.captureScreenshot", { format: "png" }),
       ]);
+      const state = captures[0].status === "fulfilled" ? captures[0].value : null;
+      const screenshot = captures[1].status === "fulfilled" ? captures[1].value : null;
+      const captureErrors = captures.flatMap((result, index) => result.status === "rejected"
+        ? [{ stage: ["snapshot", "screenshot"][index], message: String(result.reason?.message ?? result.reason) }] : []);
       const directory = process.env.BELFRY_PANEL_ARTIFACTS;
-      const artifacts = directory ? { json: join(directory, "session-recovery-final.json"), screenshot: join(directory, "session-recovery-final.png") } : null;
+      const artifacts = directory ? { json: join(directory, "session-recovery-final.json"), screenshot: screenshot ? join(directory, "session-recovery-final.png") : null } : null;
       const report = { test: t.name, head: process.env.GITHUB_SHA ?? null, node: process.version,
-        platform: process.platform, state, protocol, errors, artifacts };
+        platform: process.platform, state, protocol, errors, captureErrors, artifacts };
       if (artifacts) {
         await mkdir(directory, { recursive: true });
-        await writeFile(artifacts.json, JSON.stringify(report, null, 2) + "\n");
-        await writeFile(artifacts.screenshot, Buffer.from(screenshot.data, "base64"));
+        const saved = await Promise.allSettled([
+          writeFile(artifacts.json, JSON.stringify(report, null, 2) + "\n"),
+          (async () => { if (artifacts.screenshot) await writeFile(artifacts.screenshot, Buffer.from(screenshot.data, "base64")); })(),
+        ]);
+        saved.forEach((result, index) => {
+          if (result.status === "rejected") t.diagnostic(`Recovery ${["JSON", "screenshot"][index]} write failed: ${result.reason?.message ?? result.reason}`);
+        });
       }
-      t.diagnostic(JSON.stringify({ recovery: { artifacts, session: state.session, active: state.active,
-        inputs: state.inputs, writes: state.writes, creates: state.creates, events: state.timeline.length, errors } }));
+      t.diagnostic(JSON.stringify({ recovery: { artifacts, session: state?.session, active: state?.active,
+        inputs: state?.inputs, writes: state?.writes, creates: state?.creates, events: state?.timeline.length, errors, captureErrors } }));
     } catch (error) { t.diagnostic(`Recovery evidence capture failed: ${error.message}`); }
   });
   return {
