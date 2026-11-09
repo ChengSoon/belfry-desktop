@@ -59,10 +59,31 @@ test('motion: long grouped list, 12 interrupted folds, keyboard exclusion and re
     }
   }
   await resize(view,1440,960);
-  const full = await view.cdp.evaluate("document.querySelector('.session-group__collapse').getBoundingClientRect().height");
+  // resize() only waits for the viewport dimensions. Flush the expanded style
+  // across two rendered frames before making the one change under observation.
+  const ready = await view.cdp.evaluate(`(async () => {
+    await document.fonts.ready;
+    const el=document.querySelector('.session-group__collapse');
+    el.getBoundingClientRect();
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    const css=getComputedStyle(el),properties=css.transitionProperty.split(',').map(value=>value.trim());
+    const durations=css.transitionDuration.split(',').map(value=>value.trim());
+    const index=properties.findLastIndex(property=>property==='grid-template-rows' || property==='all');
+    const duration=index<0?'0s':durations[index%durations.length];
+    return {height:el.getBoundingClientRect().height,expanded:document.querySelector('.session-group__head').getAttribute('aria-expanded'),
+      property:css.transitionProperty,duration:css.transitionDuration,
+      heightDurationMs:parseFloat(duration)*(duration.endsWith('ms')?1:1000),
+      active:el.getAnimations().filter(animation=>animation.transitionProperty==='grid-template-rows').length};
+  })()`);
+  t.diagnostic(JSON.stringify({foldReady:ready}));
+  const full = ready.height;
   assert.ok(full > 0, 'the group starts expanded');
-  // A loaded renderer can skip every intermediate RAF. CSS transition events still
-  // prove that the height transition ran, even when its start/end share one frame.
+  assert.equal(ready.expanded,'true');
+  assert.equal(ready.active,0,'the expanded group has no transition left over from setup');
+  assert.ok(ready.heightDurationMs > 0,'the expanded group has a nonzero height transition duration');
+  // Capture the actual CSS transition at the class mutation, before the next
+  // frame can finish it. macOS Chromium can emit start/end(0)/start while this
+  // same animation is pending, then finish normally. Its clock is authoritative.
   const fold = await view.cdp.evaluate(`new Promise((resolve,reject) => {
     const el=document.querySelector('.session-group__collapse'),frames=[el.getBoundingClientRect().height],transitions=[];
     const animations=new Map(),frameTimes=[];
@@ -92,18 +113,29 @@ test('motion: long grouped list, 12 interrupted folds, keyboard exclusion and re
       animations:[...animations].map(([animation,initial])=>({...initial,final:describe(animation)})),
       after:{duration:getComputedStyle(el).transitionDuration,rows:getComputedStyle(el).gridTemplateRows,
         expanded:document.querySelector('.session-group__head').getAttribute('aria-expanded')}});
+    const finished=()=>[...animations].some(([animation,initial])=>initial.phase!=='before'
+      && initial.initial.timing.activeDuration>0 && animation.playState==='finished' && !animation.pending
+      && animation.currentTime>=initial.initial.timing.endTime);
     const deadline=performance.now()+5000;
     const tick=()=>{const height=el.getBoundingClientRect().height;frames.push(height);
       frameTimes.push({at:performance.now(),timeline:document.timeline.currentTime});sampleAnimations('frame');
-      if(height===0 && transitions.some(event=>event.type==='transitionend')){cleanup();return resolve(result());}
+      if(height===0 && finished() && transitions.some(event=>event.type==='transitionend')){cleanup();return resolve(result());}
       if(performance.now()>deadline){cleanup();return reject(new Error('group collapse did not finish a height transition: '+JSON.stringify(result())));}
       requestAnimationFrame(tick);};
     document.querySelector('.session-group__head').click();requestAnimationFrame(tick);})`);
   // Emit before assertions: the CI zero-duration failure still needs its timeline.
   t.diagnostic(JSON.stringify({fold}));
   const { frames, transitions } = fold;
-  assert.deepEqual(transitions.map(event=>event.type), ['transitionrun','transitionstart','transitionend']);
-  assert.ok(transitions.at(-1).elapsedTime > 0, 'collapse runs a nonzero height transition');
+  for (const type of ['transitionrun','transitionstart','transitionend']) {
+    assert.ok(transitions.some(event=>event.type===type),`the height transition emits ${type}`);
+  }
+  assert.ok(!transitions.some(event=>event.type==='transitioncancel'),'the height transition is not cancelled');
+  const animation = fold.animations.find(item=>item.phase!=='before');
+  assert.ok(animation,'the collapse creates a real grid-template-rows transition');
+  assert.ok(animation.initial.timing.activeDuration > 0,'the height transition has a nonzero active duration');
+  assert.ok(animation.initial.currentTime < animation.initial.timing.endTime,'the height transition is observed before completion');
+  assert.equal(animation.final.playState,'finished','the observed height transition finishes without cancellation');
+  assert.ok(animation.final.currentTime >= animation.initial.timing.endTime,'the height transition clock reaches its end');
   assert.equal(frames.at(-1),0);
   const hidden = await view.cdp.evaluate(`(() => {const content=document.querySelector('.session-group__collapse');content.querySelector('button').focus();
     return {inert:content.inert,focused:content.contains(document.activeElement),expanded:document.querySelector('.session-group__head').getAttribute('aria-expanded')};})()`);
