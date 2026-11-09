@@ -557,8 +557,7 @@ function AttentionPanel(props: {
         </Button>
       </header>
       <div className="room-attention-body" ref={layout.body} id={id} tabIndex={-1}
-        role="region" aria-label={t("rooms.choice.requests")}
-        style={layout.compact ? { maxHeight: layout.maxHeight } : undefined}>
+        role="region" aria-label={t("rooms.choice.requests")}>
       <header className="room-attention-expanded-heading">
         <BellRing aria-hidden="true" className="size-3.5" />
         <span>{t("rooms.choice.count", { count })}</span>

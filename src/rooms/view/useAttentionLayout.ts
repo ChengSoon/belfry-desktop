@@ -11,7 +11,6 @@ export function useAttentionLayout(roomId: string, present: boolean) {
   const trigger = useRef<HTMLButtonElement>(null);
   const [compact, setCompact] = useState(() => window.matchMedia(COMPACT).matches);
   const [open, setOpen] = useState(false);
-  const [maxHeight, setMaxHeight] = useState<number>();
   const expanded = compact && open;
 
   useLayoutEffect(() => {
@@ -31,21 +30,28 @@ export function useAttentionLayout(roomId: string, present: boolean) {
   useLayoutEffect(() => {
     if (!compact || !present) return;
     const main = panel.current?.closest("main");
-    if (!main) return;
+    const content = body.current;
+    if (!main || !content) return;
     const composer = main.querySelector<HTMLElement>(".room-composer");
     const measure = () => {
       const bounds = main.getBoundingClientRect();
       const input = composer?.getBoundingClientRect();
       // Keep the composer and at least 80px of conversation below the overlay.
       const bottom = input?.height ? input.top : bounds.bottom;
-      setMaxHeight(Math.max(0, bottom - bounds.top - 8 - 80));
+      // Apply the limit before this resize is painted; React state can leave
+      // the previous height in place for a frame while the composer grows.
+      content.style.maxHeight = `${Math.max(0, bottom - bounds.top - 8 - 80)}px`;
     };
     const observer = new ResizeObserver(measure);
-    observer.observe(main);
-    if (composer) observer.observe(composer);
+    observer.observe(main, { box: "border-box" });
+    if (composer) observer.observe(composer, { box: "border-box" });
     window.addEventListener("resize", measure);
     measure();
-    return () => { observer.disconnect(); window.removeEventListener("resize", measure); };
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+      content.style.removeProperty("max-height");
+    };
   }, [compact, present, roomId]);
 
   const close = (restoreFocus = false) => {
@@ -79,5 +85,5 @@ export function useAttentionLayout(roomId: string, present: boolean) {
     };
   }, [expanded]);
 
-  return { panel, body, trigger, compact, expanded, maxHeight, open: () => setOpen(true), close };
+  return { panel, body, trigger, compact, expanded, open: () => setOpen(true), close };
 }

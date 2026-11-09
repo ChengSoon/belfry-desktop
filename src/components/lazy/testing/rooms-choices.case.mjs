@@ -347,6 +347,40 @@ for (const locale of ["zh-CN", "en"]) {
   });
 }
 
+test("compact requests reserve conversation space in the same frame as composer resizing", async t => {
+  const view = await ready(t, "attention=0&choices=worktree&locale=en&theme=light");
+  await resize(view, 720, 480);
+  await clickVisible(view, 'textarea[aria-label="Message"]');
+  await view.send("Input.insertText", { text: "T36 chat remains usable" });
+  await view.cdp.evaluate("Promise.allSettled(document.querySelector('.room-composer').getAnimations({ subtree: true }).filter(animation => animation.effect.getTiming().iterations !== Infinity).map(animation => animation.finished))");
+  await clickVisible(view, ".room-attention-open");
+  await waitFor(view, "document.querySelector('.room-composer').getBoundingClientRect().top - document.querySelector('.room-attention-body').getBoundingClientRect().bottom >= 80");
+  const snapshots = await view.cdp.evaluate(`new Promise((resolve, reject) => {
+    const composer = document.querySelector('.room-composer'), body = document.querySelector('.room-attention-body');
+    const snapshots = [];
+    const timeout = setTimeout(() => { observer.disconnect(); reject(new Error('Composer resize was not observed')); }, 5000);
+    const observer = new ResizeObserver(() => {
+      const input = composer.getBoundingClientRect(), panel = body.getBoundingClientRect();
+      snapshots.push({ at: performance.now(), composerTop: input.top, panelBottom: panel.bottom,
+        reserve: input.top - panel.bottom, maxHeight: body.style.maxHeight,
+        conversation: document.querySelector('[aria-label="Room conversation"]').clientHeight });
+      if (snapshots.length === 1) {
+        // A real size change after the first observation, without changing the
+        // product observer or inventing dimensions for its measurement.
+        requestAnimationFrame(() => { composer.style.height = (composer.getBoundingClientRect().height + 4) + 'px'; });
+      } else { clearTimeout(timeout); observer.disconnect(); resolve(snapshots); }
+    });
+    observer.observe(composer);
+  })`);
+  t.diagnostic(JSON.stringify({ composerResize: snapshots }));
+  assert.ok(snapshots[0].reserve >= 80, "the measured resize starts from the reserved conversation space");
+  assert.ok(snapshots[0].conversation >= 84, "the resize leaves space for the full conversation reserve");
+  assert.equal(snapshots[0].composerTop - snapshots[1].composerTop, 4);
+  assert.ok(snapshots[1].reserve >= 80, `same-frame conversation reserve is ${snapshots[1].reserve}px`);
+  assert.ok(await ownsClick(view, 'button[aria-label="Send"]'));
+  assert.equal(await view.cdp.evaluate('document.querySelector(\'textarea[aria-label="Message"]\').value'), "T36 chat remains usable");
+});
+
 test("only explicitly optional input permits an actively submitted empty answer", async t => {
   const view = await ready(t);
   await view.cdp.evaluate("qaPatchInteraction('t2', { requestId: 'required-input', kind: 'input', options: [], input: { label: 'Required answer' } })");
