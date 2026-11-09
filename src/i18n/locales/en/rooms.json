@@ -309,5 +309,8 @@
   "RoomView.text_52f3ea95df": "Replaces “{{title}}”, who will become a regular member.",
   "RoomView.text_b841e821cc": "This room has no coordinator yet.",
   "RoomView.text_cc708a7a29": "Adding…",
-  "RoomView.text_7a8a11ead5": "Add"
+  "RoomView.text_7a8a11ead5": "Add",
+  "RoomView.expandBrief": "Expand brief",
+  "RoomView.collapseBrief": "Collapse brief",
+  "RoomView.briefDetails": "Full brief"
 }

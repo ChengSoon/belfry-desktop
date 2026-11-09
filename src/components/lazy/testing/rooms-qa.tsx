@@ -113,6 +113,7 @@ const holds = new Map<string, Array<{ promise: Promise<void>; resolve: () => voi
 const pending = new Map<string, Array<{ resolve: () => void; reject: (cause: Error) => void }>>();
 Object.assign(window, {
   qaRoomIds: [room.id, secondRoom.id],
+  qaSetBrief: (brief: Room["brief"]) => { room.brief = structuredClone(brief); },
   qaRollMessage: () => {
     const removed = room.messages.shift()!;
     const message = msg("live-new", Date.now(), "foreman", "Live arrival while browsing history", ["user"]);
@@ -167,6 +168,13 @@ Object.assign(window, {
       // 真实 IPC 每次都是一份新对象：返回拷贝，界面的结构共享才测得到。
       if (command === "room_list") return structuredClone(view);
       if (command === "room_get") return structuredClone(current);
+      if (command === "room_update_brief") {
+        const patch = args as { objective: string; focus: string; constraints: string[] };
+        current.brief = { objective: patch.objective, currentFocus: patch.focus, constraints: patch.constraints,
+          updatedAt: Date.now(), updatedBy: "user" };
+        view.rooms = view.rooms.map(item => item.id === current.id ? { ...item, objective: current.brief.objective } : item);
+        return structuredClone(current);
+      }
       if (command === "room_history") {
         if (current.id !== room.id) return { entries: [], nextCursor: null, ledgerBytes: 0, snapshotBytes: 0 };
         return structuredClone(historyPages.get((args as { cursor: string | null }).cursor) ?? { entries: [], nextCursor: null, ledgerBytes: 0, snapshotBytes: 0 });

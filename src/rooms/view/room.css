@@ -34,6 +34,12 @@
   .room-message-actions { position: static; grid-column: 2; justify-self: end; translate: none; opacity: 1; }
 }
 
+/* Bound the brief and its editor while leaving room for the conversation. */
+.room-main > .room-brief { max-height: min(18rem, 22vh); overflow: hidden; }
+@media (max-height: 600px) {
+  .room-main > .room-brief[data-editing="false"] { max-height: 15vh; padding-block: 0.25rem; }
+}
+
 /* 成员头像：按成员 id 散列出的色相，亮暗两套色阶。 */
 [data-slot="avatar-fallback"].room-avatar {
   background-color: hsl(var(--avatar-hue) 32% 30%);
