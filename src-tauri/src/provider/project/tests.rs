@@ -198,6 +198,14 @@ fn role_model_overrides_the_launch_copy_for_every_agent_without_mutating_the_pro
     for kind in AgentKind::ALL {
         for model in ["builder-model", "reviewer-model"] {
             let overlay = launch::prepare_with_model(&root.0, kind, &provider, Some(model)).unwrap();
+            let selected = overlay.arguments.windows(2).find(|pair| pair[0] == "--model").expect("role model must be explicit at launch");
+            let expected = match kind {
+                AgentKind::Antigravity => "Belfry".to_string(),
+                AgentKind::Kimi => "__kimi_env_model__".to_string(),
+                AgentKind::Opencode => format!("belfry/{model}"),
+                _ => model.to_string(),
+            };
+            assert_eq!(selected[1], expected);
             match kind {
                 AgentKind::Codex => assert!(overlay.arguments.contains(&format!("model=\"{model}\""))),
                 AgentKind::Claude => {
@@ -211,6 +219,7 @@ fn role_model_overrides_the_launch_copy_for_every_agent_without_mutating_the_pro
                     let models: serde_json::Value = serde_json::from_str(&fs::read_to_string(dir.join("models.json")).unwrap()).unwrap();
                     assert_eq!(settings["defaultModel"], model);
                     assert_eq!(models["providers"]["belfry"]["models"][0]["id"], model);
+                    assert!(overlay.arguments.windows(2).any(|pair| pair == ["--provider", "belfry"]));
                 }
                 AgentKind::Antigravity => {
                     let settings: serde_json::Value = serde_json::from_str(&fs::read_to_string(&overlay.arguments[1]).unwrap()).unwrap();
@@ -239,6 +248,7 @@ fn inherited_role_model_keeps_the_selected_provider_model() {
     let provider = provider("selected-project");
     let overlay = launch::prepare_with_model(&root.0, AgentKind::Codex, &provider, None).unwrap();
     assert!(overlay.arguments.contains(&"model=\"test-model\"".to_string()));
+    assert!(!overlay.arguments.contains(&"--model".to_string()), "inheritance keeps the existing provider launch behavior");
     assert_eq!(overlay.environment["BELFRY_PROVIDER_API_KEY"], provider.api_key);
 }
 

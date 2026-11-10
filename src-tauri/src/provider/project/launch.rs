@@ -29,7 +29,18 @@ pub(super) fn prepare_with_model(
 ) -> Result<LaunchOverlay, AppError> {
     let mut provider = provider.clone();
     if let Some(model) = model { provider.model = model.to_string(); }
-    prepare(base, kind, &provider)
+    let mut overlay = prepare(base, kind, &provider)?;
+    if model.is_some() {
+        // 角色选择是本次启动的显式参数，继续已有历史时也不能只依赖默认模型。
+        // Kimi/Antigravity 已由 prepare 设置模型别名，保留其映射。
+        match kind {
+            AgentKind::Codex | AgentKind::Claude => overlay.arguments.extend(["--model".into(), provider.model.clone()]),
+            AgentKind::Pi => overlay.arguments.extend(["--provider".into(), "belfry".into(), "--model".into(), provider.model.clone()]),
+            AgentKind::Opencode => overlay.arguments.extend(["--model".into(), format!("belfry/{}", provider.model)]),
+            AgentKind::Kimi | AgentKind::Antigravity => {}
+        }
+    }
+    Ok(overlay)
 }
 
 pub(super) fn prepare(
