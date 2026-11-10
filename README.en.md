@@ -285,6 +285,12 @@ See the [CLI feature backlog](docs/cli-manager-feature-backlog.md) and [implemen
 - **Internationalization**: support Simplified Chinese, English, and the system language, with localized dates and numbers; provide bilingual CLI help, native notifications and menus, Agent collaboration instructions, and the Windows installer.
 - **Release checksums**: publish `SHA256SUMS.txt`, verify assets before making the release public, and document verification on Windows and macOS.
 
+### v0.26.0 · Room projects & terminal requests
+
+- **Room project selection**: choose and validate a project directory when creating a room; member terminals start in that directory.
+- **Terminal request panel**: view questions, context, and options at the top of a room and answer single-choice, confirmation, multiple-choice, and text requests; retain drafts, revalidate requests before submission, and open the terminal for unknown formats.
+- **Room layout and stability**: keep chat and sending controls accessible in small windows, contain long briefs, and preserve flow nodes during activity updates; improve browser startup diagnostics and cross-platform checks.
+
 ### Long-term tracks
 
 - **Shared UI** — split panes, settings, quick open, file preview panes (v0.13)
