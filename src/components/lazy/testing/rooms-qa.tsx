@@ -230,6 +230,9 @@ function QaRoom() {
   const [currentTabs, setTabs] = useState(tabs);
   const [open, setOpen] = useState(true);
   useEffect(() => {
+    Object.assign(window, { qaRoomTabStates: currentTabs.map(({ id, phase, activity }) => ({ id, phase, activity })) });
+  }, [currentTabs]);
+  useEffect(() => {
     performance.mark("rooms-qa:mounted");
     Object.assign(window, { qaShowRoom: setOpen, qaSetActivity: (id: string, activity: WorkspaceTab["activity"]) => {
       setTabs((current) => current.map((tab) => tab.id === id ? { ...tab, activity } : tab));

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { TerminalCommandTarget } from "../terminal/contracts";
-import type { TerminalInteraction, TerminalInteractionAnswer, TerminalInteractionResult } from "../terminal/interaction";
+import type { TerminalInteraction, TerminalInteractionAnswer, TerminalInteractionOpenResult, TerminalInteractionResult } from "../terminal/interaction";
 import type { WorkspaceTab } from "../workspace/contracts";
 import type { Room, RoomMember } from "./contracts";
 import { activeMembers, memberStatus } from "./model";
@@ -55,7 +55,8 @@ function readRequests({ room, tabs, targets }: Sources): RoomInteractionRequest[
     const key = JSON.stringify([room.id, member.id, member.tabId, interaction.source.sessionId, interaction.requestId]);
     requests.push({ key, member, target, legacySignature, interaction: { ...interaction,
       source: { ...interaction.source }, options: interaction.options.map(option => ({ ...option })),
-      selectedIndices: [...interaction.selectedIndices], input: interaction.input ? { ...interaction.input } : null } });
+      selectedIndices: [...interaction.selectedIndices], input: interaction.input ? { ...interaction.input } : null,
+      ...(interaction.queue ? { queue: { ...interaction.queue } } : {}) } });
   }
   return requests;
 }
@@ -65,6 +66,7 @@ export function useRoomInteractions(sources: Sources) {
   const latest = useRef(sources);
   latest.current = sources;
   const mounted = useRef(true);
+  const opening = useRef(new Set<string>());
   useEffect(() => {
     mounted.current = true;
     return () => { mounted.current = false; };
@@ -96,16 +98,19 @@ export function useRoomInteractions(sources: Sources) {
     // Replacing a room/session must never redirect an old rendered button.
     const current = refresh().find(candidate => candidate.key === request.key);
     if (!current) return { status: "changed" };
-    if (current.interaction.state === "submitting") return { status: "busy" };
+    if (current.interaction.state === "submitting" || current.interaction.state === "opening") return { status: "busy" };
     if (current.interaction.state === "submitted") return { status: "changed" };
     if (current.interaction.state === "uncertain") return { status: "uncertain" };
+    if (reply.kind === "single" && current.interaction.options.some(option => option.index === reply.index && option.action === "input")) {
+      return { status: "invalid" };
+    }
     try {
       if (current.target?.getSessionId && current.target.getSessionId() !== current.interaction.source.sessionId) return { status: "changed" };
       if (current.legacySignature !== undefined) {
         if (current.target !== request.target || reply.kind !== "single") return { status: "changed" };
         return { status: current.target?.answerChoice?.(current.legacySignature, reply.index) ?? "unavailable" };
       }
-      if (!current.target?.answerInteraction || current.interaction.kind === "unknown") return { status: "unavailable" };
+      if (!current.target?.answerInteraction || current.interaction.kind === "unknown" || current.interaction.kind === "queued") return { status: "unavailable" };
       return await current.target.answerInteraction(current.interaction.requestId, reply);
     } catch {
       // A rejected transport cannot prove whether it wrote before failing.
@@ -115,8 +120,44 @@ export function useRoomInteractions(sources: Sources) {
     }
   }, [refresh]);
 
+  const open = useCallback(async (request: RoomInteractionRequest, optionIndex?: number): Promise<TerminalInteractionOpenResult> => {
+    const roomId = latest.current.room.id;
+    const current = refresh().find(candidate => candidate.key === request.key);
+    if (!current) return { status: "changed" };
+    if (opening.current.has(request.key) || current.interaction.state === "opening"
+      || current.interaction.state === "submitting") return { status: "busy" };
+    if (current.interaction.state === "uncertain") return { status: "uncertain" };
+    const canOpen = optionIndex === undefined ? current.interaction.kind === "queued"
+      : (current.interaction.kind === "single" || current.interaction.kind === "confirmation")
+        && current.interaction.options.some(option => option.index === optionIndex && option.action === "input");
+    if (current.interaction.state !== "pending" || !canOpen) return { status: "changed" };
+    const target = current.target;
+    if (!target?.openInteraction) return { status: "unavailable" };
+    opening.current.add(request.key);
+    try {
+      const sessionId = current.interaction.source.sessionId;
+      if (target.getSessionId && target.getSessionId() !== sessionId) return { status: "changed" };
+      const result = optionIndex === undefined ? await target.openInteraction(current.interaction.requestId)
+        : await target.openInteraction(current.interaction.requestId, optionIndex);
+      if (result.status !== "opened") return result;
+      // Opening is not an answer. Only adopt the newly observed request from
+      // this same room, member and terminal; a late receipt cannot redirect it.
+      const key = JSON.stringify([roomId, request.member.id, request.member.tabId, sessionId, result.requestId]);
+      const next = refresh().find(candidate => candidate.key === key);
+      if (!next || next.target !== target || next.interaction.kind === "queued"
+        || result.requestId === current.interaction.requestId
+        || (target.getSessionId && target.getSessionId() !== sessionId)) return { status: "changed" };
+      return result;
+    } catch {
+      return { status: "uncertain" };
+    } finally {
+      opening.current.delete(request.key);
+      refresh();
+    }
+  }, [refresh]);
+
   const requests = snapshot.roomId === sources.room.id ? snapshot.requests.filter(request =>
     activeMembers(sources.room).some(member => member.id === request.member.id && member.tabId === request.member.tabId)
     && memberStatus(sources.tabs.find(tab => tab.id === request.member.tabId)) !== "offline") : [];
-  return { requests, answer };
+  return { requests, answer, open };
 }
