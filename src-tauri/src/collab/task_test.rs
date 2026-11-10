@@ -23,6 +23,8 @@ fn request<'a>(from: &'a str, to: &'a str, parent: Option<&'a CollabTask>) -> Ta
 
 fn task_at(from: &str, to: &str, hop: u8, path: &[&str]) -> CollabTask {
     CollabTask {
+        source_sequence: 0,
+        project_root: None,
         id: "01ABCDEF".into(),
         from: from.into(),
         to: to.into(),

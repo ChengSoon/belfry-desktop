@@ -41,7 +41,10 @@ pub(super) fn apply_task_op(
         }
         RoomTaskOp::Assign { task, assignee } => same(task, ops::task_assign(room, actor, task, assignee, now)),
         RoomTaskOp::Start { task } => same(task, ops::task_start(room, actor, task, now)),
-        RoomTaskOp::Done { task, result } => same(task, ops::task_done(room, actor, task, result.as_deref(), now)),
+        RoomTaskOp::Done { task, result, generation } => {
+            if let Some(generation) = generation && room.task_index(task).is_none_or(|index| room.tasks[index].generation != *generation) { return Err("Task assignment generation changed; this completion belongs to an earlier lifecycle".into()); }
+            same(task, ops::task_done(room, actor, task, result.as_deref(), now))
+        },
         RoomTaskOp::Reopen { task } => same(task, ops::task_reopen(room, actor, task, now)),
         RoomTaskOp::Note { task, text } => same(task, ops::task_note(room, actor, task, text, now)),
         RoomTaskOp::Archive { task } => same(task, ops::task_archive(room, actor, task, now)),

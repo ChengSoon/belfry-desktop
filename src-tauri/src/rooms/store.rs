@@ -20,7 +20,7 @@ use crate::collab::task::{TaskBoard, TaskOrigin, DeliveryPhase};
 use crate::resource::canonicalize;
 use crate::terminal::AppError;
 
-pub const STORE_VERSION: u32 = 3;
+pub const STORE_VERSION: u32 = 4;
 
 #[derive(Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -203,6 +203,48 @@ impl RoomStore {
         self.inner.lock().map_err(|_| AppError::io(belfry_i18n::text("房间存储锁不上，请重启应用后重试。")))
     }
 
+    pub(crate) fn inbox_snapshot(&self) -> Result<(Vec<Room>, u64, Option<String>), AppError> {
+        let inner = self.lock()?;
+        Ok((inner.rooms.clone(), inner.revision, inner.load_error.clone()))
+    }
+
+    /// Lock order: rooms (+ disk fence), tasks (+ disk fence), inbox. Never hold across PTY I/O.
+    pub(crate) fn with_inbox_sources<T>(&self, action: impl FnOnce(&[Room], u64) -> Result<T, AppError>) -> Result<T, AppError> {
+        let inner = self.lock()?;
+        if let Some(error) = &inner.load_error { return Err(AppError::io(error)); }
+        let root = inner.root.as_ref().ok_or_else(|| AppError::io("Room source is unavailable"))?;
+        let _writer = FileLock::acquire(&root.join("store.lock"))?;
+        let disk = read_store(root).map_err(AppError::io)?;
+        if disk.revision != inner.revision || disk.version != STORE_VERSION { return Err(AppError::conflict("Room source changed in another process")); }
+        action(&inner.rooms, inner.revision)
+    }
+
+    pub(crate) fn inbox_delivery(&self, room_id: &str, message_id: &str, member_id: &str, submitted: bool) -> Result<(), AppError> {
+        let mut inner = self.lock()?;
+        let Some(index) = inner.rooms.iter().position(|room| room.id == room_id) else { return Ok(()); };
+        let mut room = inner.rooms[index].clone();
+        let changed = if submitted { super::ops::record_delivery(&mut room, message_id, member_id, now_millis()) } else { false };
+        let previous = room.delivery_outbox.len();
+        room.delivery_outbox.retain(|entry| entry.message_id != message_id || entry.member_id != member_id);
+        if changed || previous != room.delivery_outbox.len() { commit(&mut inner, index, room)?; }
+        Ok(())
+    }
+
+    pub(crate) fn inbox_withdraw(&self, room_id: &str, message_id: &str, member_id: &str, actor: &str) -> Result<(), AppError> {
+        let mut inner = self.lock()?;
+        let Some(index) = inner.rooms.iter().position(|room| room.id == room_id) else { return Ok(()); };
+        let mut room = inner.rooms[index].clone();
+        let changed = room.message(message_id).is_some_and(|message| message.awaiting().iter().any(|member| member == member_id));
+        if changed {
+            let event = ledger::withdraw_recipient_event(room_id, message_id, member_id, actor, now_millis());
+            ledger::apply(&mut room, &event); room.pending.push(event);
+        }
+        let previous = room.delivery_outbox.len();
+        room.delivery_outbox.retain(|entry| entry.message_id != message_id || entry.member_id != member_id);
+        if changed || previous != room.delivery_outbox.len() { commit(&mut inner, index, room)?; }
+        Ok(())
+    }
+
     pub fn list(&self) -> Result<RoomsView, AppError> {
         let inner = self.lock()?;
         Ok(RoomsView { rooms: inner.rooms.iter().map(summarize).collect(), load_error: inner.load_error.clone() })
@@ -262,6 +304,7 @@ impl RoomStore {
             messages: Vec::new(),
             retained_messages: Vec::new(),
             delivery_outbox: Vec::new(),
+            message_operations: Default::default(),
             ledger_bytes: 0,
             pending: Vec::new(),
         };
@@ -440,6 +483,7 @@ impl RoomStore {
 
     /// 房间状态提交后、总线受理前崩溃，仍能从同一次房间提交的 outbox 恢复。
     pub fn pump_outbox(&self, board: &TaskBoard, registry: &crate::collab::SessionRegistry) -> Result<(), AppError> {
+        if board.inbox_enabled() { return Ok(()); }
         self.reconcile(board)?;
         let posts = {
             let inner = self.lock()?;
@@ -456,6 +500,7 @@ impl RoomStore {
     /// 在房间锁内复查 outbox 后受理。另一线程提交回执并清理总线后，旧投递快照不能重新入队。
     pub fn enqueue_posts(&self, board: &TaskBoard, registry: &crate::collab::SessionRegistry, posts: &[RoomPost]) -> Result<(), AppError> {
         let inner = self.lock()?;
+        if board.inbox_enabled() { return Ok(()); }
         for post in posts {
             let Some(room) = inner.rooms.iter().find(|room| room.id == post.room_id && !room.paused) else { continue };
             let Some(member) = room.member_by_tab(&post.tab_id) else { continue };
@@ -533,7 +578,7 @@ fn read_store(root: &Path) -> Result<StoreFile, String> {
         return Ok(StoreFile { version: STORE_VERSION, ..StoreFile::default() });
     }
     let file: StoreFile = serde_json::from_str(&text).map_err(|error| belfry_i18n::lformat!("房间存储解析失败：{error}；已按只读处理。"))?;
-    if !matches!(file.version, 1 | 2 | STORE_VERSION) {
+    if !matches!(file.version, 1 | 2 | 3 | STORE_VERSION) {
         return Err(belfry_i18n::lformat!(
             "房间存储版本是 {}，当前版本只认识 {STORE_VERSION}；已按只读处理，请在更新前保留原文件。",
             file.version
@@ -559,10 +604,13 @@ fn load_rooms(root: &Path) -> Result<StoreFile, String> {
             return Err(belfry_i18n::text("消息账本短于已提交游标，已保留现场").into());
         }
         if migrating {
-            ledger::visit_committed(&path, length, |event| {
-                if event.room_id == room.id { ledger::apply(room, &event); }
-            }).map_err(|err| belfry_i18n::lformat!("房间消息账本读取失败：{}", err.message))?;
+            if file.version < 3 {
+                ledger::visit_committed(&path, length, |event| {
+                    if event.room_id == room.id { ledger::apply(room, &event); }
+                }).map_err(|err| belfry_i18n::lformat!("房间消息账本读取失败：{}", err.message))?;
+            }
             room.ledger_bytes = length;
+            super::semantics::migrate(room);
         } else if room.ledger_bytes != length {
             return Err(belfry_i18n::text("房间投影与账本提交游标不一致，已按只读处理").into());
         }

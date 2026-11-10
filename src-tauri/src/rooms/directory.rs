@@ -194,13 +194,14 @@ impl RoomDirectory for MemberDirectory {
                     (ResponseData::RoomLog { room: room.name.clone(), entries }, Vec::new())
                 })
             }
-            Command::RoomSay { room, text, reply_to, to, ask } => {
+            Command::RoomSay { room, text, reply_to, to, ask, inbox } => {
                 let now = now_millis();
                 let (posted, room) = self.store.mutate_as_member(tab_id, room.as_deref(), |room, me| {
                     say_rate_guard(&room.id, &me.id, now)?;
-                    ops::say(room, &Actor::Member(me), to, text, reply_to.as_deref(), *ask, now)
+                    if let Some(options) = inbox { super::semantics::say(room, &Actor::Member(me), to, text, reply_to.as_deref(), *ask, options, now) }
+                    else { ops::say(room, &Actor::Member(me), to, text, reply_to.as_deref(), *ask, now).map(|posted| vec![posted]) }
                 })?;
-                let posts = deliveries(&room, std::slice::from_ref(&posted));
+                let posts = deliveries(&room, &posted);
                 let mut skipped: Vec<String> = posts
                     .iter()
                     .filter(|post| self.registry.find(&post.tab_id).is_none())
@@ -212,8 +213,8 @@ impl RoomDirectory for MemberDirectory {
                 Ok((
                     ResponseData::RoomSaid {
                         room: room.name.clone(),
-                        message: short_id(&posted.message_id),
-                        recipients: posted.to.iter().map(|id| room.label(id)).collect(),
+                        message: short_id(&posted[0].message_id),
+                        recipients: posted.iter().flat_map(|item| &item.to).map(|id| room.label(id)).collect(),
                         skipped,
                         ask: *ask,
                     },

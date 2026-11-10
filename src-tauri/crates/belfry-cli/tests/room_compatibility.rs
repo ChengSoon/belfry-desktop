@@ -365,3 +365,26 @@ fn wait_cannot_turn_a_reserved_transport_payload_into_a_room_write() {
     assert!(String::from_utf8_lossy(&output.stderr).contains("任务编号无效"));
     assert!(requests.is_empty());
 }
+
+const INBOX_PEERS: &str = r#"{"status":"ok","data":{"kind":"peers","peers":[],"capabilities":["rooms_v1","collaboration-inbox-v1"]}}"#;
+#[test]
+fn inbox_metadata_always_uses_opaque_transport_and_is_sent_only_once() {
+    let said = r#"{"status":"ok","data":{"kind":"roomSaid","room":"test","message":"one","recipients":["worker"],"skipped":[],"ask":false}}"#;
+    let (output, requests) = run(&["room", "say", "answer", "--room", "test", "--topic", "api", "--answer", "q1", "--answer", "q2", "--op", "stable"], &[&compat_reply(INBOX_PEERS), &compat_reply(said)]);
+    assert!(output.status.success(), "{output:?}"); assert_eq!(kinds(&requests), ["taskState", "taskState"]);
+    let command = compat_command(&requests[1]); assert_eq!(command["inbox"]["answers"], serde_json::json!(["q1", "q2"])); assert_eq!(command["inbox"]["operationId"], "stable");
+}
+#[test]
+fn inbox_capability_is_required_before_sending_new_operations() {
+    let (output, requests) = run(&["inbox", "ack", "entry@1", "--state", "processed", "--op", "stable"], &[&compat_reply(CURRENT_PEERS)]);
+    assert!(!output.status.success()); assert_eq!(requests.len(), 1); assert_eq!(compat_command(&requests[0])["kind"], "peers");
+}
+#[test]
+fn uncertain_batch_resolution_and_generation_checks_survive_an_old_relay() {
+    let response = r#"{"status":"ok","data":{"kind":"collaborationInbox","result":{"ok":true}}}"#;
+    let (output, requests) = run(&["inbox", "resolve", "original-batch", "--attempt", "attempt", "--revision", "2", "--sequence", "1", "--decision", "abandon", "--op", "check-1"], &[&compat_reply(INBOX_PEERS), &compat_reply(response)]);
+    assert!(output.status.success(), "{output:?}");
+    let command = compat_command(&requests[1]); assert_eq!(command["command"]["op"], "resolve"); assert_eq!(command["command"]["request"]["batch"]["expectedRevision"], 2);
+    let (output, requests) = run(&["room", "task", "done", "T1", "--generation", "7", "complete"], &[&compat_reply(INBOX_PEERS), &compat_reply(response)]);
+    assert!(output.status.success()); assert_eq!(compat_command(&requests[1])["op"]["generation"], 7);
+}

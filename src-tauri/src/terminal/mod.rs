@@ -3,6 +3,8 @@ mod backend;
 pub mod commands;
 mod contracts;
 pub(crate) mod daemon;
+pub(crate) mod input_gate;
+mod input_gate_vt;
 mod launch;
 mod native;
 mod native_lifecycle;
