@@ -190,6 +190,7 @@
   function renderDemo() {
     const p = $("#demo-panel");
     p.hidden = location.hash !== "#demo";
+    document.body.classList.toggle("demo-on", !p.hidden);
     if (p.hidden) return;
     const s = session(state.selected);
     p.innerHTML = `<div class="demo-head"><strong>演示控制</strong><span>模拟后台事件，不属于产品界面 · 作用于「${esc(s?.name)}」</span></div>

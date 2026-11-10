@@ -160,6 +160,31 @@ await step("720×480：列表 → 详情 → 返回，能看能点，无横向�
   await p.shot(`${out}/720-sessions-light.png`);
 });
 
+await step("可读性：辅助文字不小于 12px", async () => {
+  await fresh(1440, 900, "#demo");
+  const small = await p.eval(`[...document.querySelectorAll('body *')].filter(e => e.offsetParent && e.childNodes.length && [...e.childNodes].some(n => n.nodeType === 3 && n.textContent.trim()) && parseFloat(getComputedStyle(e).fontSize) < 12).map(e => e.className || e.tagName)`);
+  assert.deepEqual(small, []);
+});
+
+await step("720×480：演示控制可达，“交差当前任务”能点并生效", async () => {
+  await fresh(720, 480, "#demo");
+  await open("be");
+  await p.shot(`${out}/720-demo.png`);
+  await demo("finish");
+  assert.equal(await S("return s.sessions.find(x => x.key === 'be').task"), null);
+  await sleep(1500);
+  assert.equal(await S("return s.messages.find(m => m.id === 'm107').delivery"), "submitted");
+});
+
+await step("仅送达的非询问消息、撤回消息都不显示为已处理", async () => {
+  await fresh(1440, 900);
+  await open("fe");
+  assert.match(await text("#msg-m095 .message-status"), /处理情况未知/);
+  await open("mgr");
+  assert.match(await text("#msg-m112 .message-status"), /已撤回/);
+  for (const id of ["m095", "m112", "m111"]) assert.doesNotMatch(await p.eval(`document.querySelector('#msg-${id}')?.innerText || ''`).then(String), /处理完成|已确认处理/);
+});
+
 await step("无运行时错误", async () => { assert.deepEqual(p.errors, []); });
 
 await p.close();

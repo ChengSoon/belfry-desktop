@@ -8,5 +8,5 @@
 
 工具：
 
-- `node tools/verify.mjs [输出目录]`：启动本机无头 Chrome，真实点击跑 14 项验证并截图（默认写到 `../screenshots/`）。
+- `node tools/verify.mjs [输出目录]`：启动本机无头 Chrome，真实点击跑 17 项验证并截图（默认写到 `../screenshots/`）。
 - `node tools/build-icons.mjs <lucide-react/dist/esm/icons>`：重新生成 `icons.js`。

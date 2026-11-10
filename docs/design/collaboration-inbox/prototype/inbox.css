@@ -43,7 +43,7 @@ strong, b, h1, h2 { font-weight: 500; }
 .list-head { padding: 16px 14px 10px; border-bottom: 1px solid var(--border); }
 .title-row { display: flex; align-items: center; gap: 8px; }
 h1 { font-size: 18px; letter-spacing: -.3px; }
-.sample-tag { font-size: 11px; color: var(--muted); border: 1px dashed var(--strong); border-radius: 4px; padding: 1px 6px; }
+.sample-tag { font-size: 12px; color: var(--muted); border: 1px dashed var(--strong); border-radius: 4px; padding: 1px 6px; }
 .icon-button { margin-left: auto; width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; color: var(--muted); }
 .filters { display: flex; gap: 4px; margin-top: 12px; }
 .filters button { font-size: 12px; padding: 5px 10px; color: var(--muted); display: inline-flex; gap: 6px; }
@@ -56,12 +56,12 @@ h1 { font-size: 18px; letter-spacing: -.3px; }
 .session-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
 .session-top { display: flex; align-items: baseline; gap: 8px; }
 .session-top strong { font-size: 14px; white-space: nowrap; }
-.agent { font-size: 11px; color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; white-space: nowrap; }
-.session-top time { margin-left: auto; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.agent { font-size: 12px; color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; white-space: nowrap; }
+.session-top time { margin-left: auto; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .session-status { display: flex; align-items: center; gap: 6px; font-size: 12px; min-width: 0; }
 .session-status > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .session-preview { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.session-counts { font-size: 11px; color: var(--muted); }
+.session-counts { font-size: 12px; color: var(--muted); }
 
 .avatar { width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--strong); display: inline-flex; align-items: center; justify-content: center; flex: none; font-size: 14px; color: var(--muted); background: var(--raised); }
 .avatar.small { width: 26px; height: 26px; font-size: 12px; border-radius: 7px; }
@@ -85,8 +85,8 @@ h1 { font-size: 18px; letter-spacing: -.3px; }
 .message { display: flex; gap: 11px; max-width: 760px; margin-bottom: 20px; }
 .message-body { min-width: 0; flex: 1; }
 .message-meta { display: flex; align-items: center; gap: 8px; font-size: 12px; min-height: 26px; }
-.message-meta time { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
-.kind { font-size: 11px; padding: 0 6px; border-radius: 4px; border: 1px solid var(--border); color: var(--muted); line-height: 18px; }
+.message-meta time { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.kind { font-size: 12px; padding: 0 6px; border-radius: 4px; border: 1px solid var(--border); color: var(--muted); line-height: 20px; }
 .kind.task { color: var(--info); border-color: color-mix(in srgb, var(--info) 35%, var(--border)); }
 .quote { display: flex; gap: 6px; align-items: flex-start; margin-top: 4px; padding: 4px 8px; border-left: 2px solid var(--strong); font-size: 12px; color: var(--muted); }
 .quote .ico { margin-top: 2px; } .quote .ico svg { width: 12px; height: 12px; }
@@ -94,12 +94,12 @@ h1 { font-size: 18px; letter-spacing: -.3px; }
 .message-text { margin-top: 4px; font-size: 14px; line-height: 1.75; overflow-wrap: anywhere; }
 .questions { margin-top: 8px; padding: 0; list-style: none; counter-reset: q; display: flex; flex-direction: column; gap: 6px; }
 .questions li { counter-increment: q; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; line-height: 1.6; background: var(--surface); }
-.questions li::before { content: "问题 " counter(q); font-size: 11px; color: var(--muted); }
+.questions li::before { content: "问题 " counter(q); font-size: 12px; color: var(--muted); }
 .q-text { flex: 1; min-width: 12em; }
 .q-state { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; white-space: nowrap; }
 .q-state .ico svg { width: 13px; height: 13px; }
 .questions li.replied .q-state { white-space: normal; }
-.message-status { display: flex; align-items: center; gap: 6px; font-size: 11px; margin-top: 6px; }
+.message-status { display: flex; align-items: center; gap: 6px; font-size: 12px; margin-top: 6px; }
 .message.withdrawn .message-text { color: var(--muted); text-decoration: line-through; }
 
 .empty { display: flex; flex-direction: column; align-items: center; gap: 10px; color: var(--muted); padding: 48px 20px; font-size: 13px; }
@@ -109,9 +109,9 @@ h1 { font-size: 18px; letter-spacing: -.3px; }
 /* ---- 演示控制（仅 #demo） ---- */
 .demo-panel { position: fixed; right: 16px; bottom: 16px; width: 300px; background: var(--surface); border: 1px dashed var(--strong); border-radius: 10px; box-shadow: var(--shadow); padding: 10px; z-index: 30; }
 .demo-head { display: flex; flex-direction: column; gap: 2px; font-size: 12px; margin-bottom: 8px; }
-.demo-head span { color: var(--muted); font-size: 11px; }
+.demo-head span { color: var(--muted); font-size: 12px; }
 .demo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
-.demo-grid button { font-size: 11px; padding: 6px 4px; border: 1px solid var(--border); }
+.demo-grid button { font-size: 12px; padding: 6px 4px; border: 1px solid var(--border); }
 .toast { position: fixed; bottom: 18px; left: 50%; transform: translate(-50%, 10px); background: var(--raised); border: 1px solid var(--strong); border-radius: 8px; box-shadow: var(--shadow); padding: 9px 14px; font-size: 13px; max-width: min(520px, calc(100vw - 32px)); opacity: 0; pointer-events: none; transition: opacity .18s, transform .18s; z-index: 40; }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -138,3 +138,5 @@ h1 { font-size: 18px; letter-spacing: -.3px; }
 }
 @media (max-width: 420px) { .who .button span { display: none; } }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+/* #demo 打开时给消息区留出面板高度，最后一条能滚到面板上方 */
+body.demo-on .messages { padding-bottom: 150px; }
