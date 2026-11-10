@@ -130,8 +130,14 @@ pub fn terminal_write(
     runtime: State<'_, TerminalRuntime>,
     session_id: String,
     bytes: Vec<u8>,
+    inbox_guard: Option<belfry_protocol::inbox::WriteGuard>,
+    write_sequence: Option<u64>,
 ) -> Result<(), AppError> {
-    runtime.write(&session_id, &bytes)
+    match (inbox_guard, write_sequence) {
+        (Some(guard), Some(sequence)) => runtime.write_inbox(&session_id, &bytes, &guard, sequence),
+        (None, None) => runtime.write(&session_id, &bytes),
+        _ => Err(AppError::invalid_argument("Both inboxGuard and writeSequence are required for an inbox write")),
+    }
 }
 
 #[tauri::command]

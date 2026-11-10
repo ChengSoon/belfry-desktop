@@ -6,10 +6,10 @@ use std::{collections::HashMap, path::{Path, PathBuf}, sync::Mutex};
 
 #[derive(Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct BoardFile { version: u32, revision: u64, tasks: Vec<CollabTask> }
+struct BoardFile { #[serde(default)] inbox_enabled: bool, version: u32, revision: u64, tasks: Vec<CollabTask> }
 
 #[derive(Default)]
-struct Inner { tasks: HashMap<String, CollabTask>, root: Option<PathBuf>, revision: u64, error: Option<String> }
+struct Inner { inbox_enabled: bool, tasks: HashMap<String, CollabTask>, root: Option<PathBuf>, revision: u64, error: Option<String> }
 
 #[derive(Default)]
 pub struct TaskBoard { inner: Mutex<Inner> }
@@ -19,10 +19,15 @@ impl TaskBoard {
         let mut inner = Inner { root: root.clone(), ..Inner::default() };
         let loaded = root.as_ref().ok_or_else(|| belfry_i18n::text("找不到任务存储目录").to_string()).and_then(|root| {
             let _writer = FileLock::acquire(&root.join("tasks.lock")).map_err(|error| error.message)?;
-            read(root)
+            let mut file = read(root)?;
+            if file.version == 1 {
+                file.version = 2;
+                write_atomic(&root.join("tasks.json"), &serde_json::to_string(&file).map_err(|e| e.to_string())?, true).map_err(|e| e.message)?;
+            }
+            Ok(file)
         });
         match loaded {
-            Ok(file) => { inner.revision = file.revision; inner.tasks = file.tasks.into_iter().map(|task| (task.id.clone(), task)).collect(); }
+            Ok(file) => { inner.inbox_enabled = file.inbox_enabled; inner.revision = file.revision; inner.tasks = file.tasks.into_iter().map(|task| (task.id.clone(), task)).collect(); }
             Err(error) => inner.error = Some(error),
         }
         let board = Self { inner: Mutex::new(inner) };
@@ -48,10 +53,14 @@ impl TaskBoard {
     pub fn load_error(&self) -> Option<String> { self.inner.lock().ok().and_then(|inner| inner.error.clone()) }
 
     pub(super) fn edit<T>(&self, action: impl FnOnce(&mut HashMap<String, CollabTask>) -> Result<T, String>) -> Result<T, String> {
+        self.edit_mode(|tasks, _enabled| action(tasks))
+    }
+
+    pub(super) fn edit_mode<T>(&self, action: impl FnOnce(&mut HashMap<String, CollabTask>, bool) -> Result<T, String>) -> Result<T, String> {
         let mut inner = self.inner.lock().map_err(|_| belfry_i18n::text("任务表锁不上"))?;
         if let Some(error) = &inner.error { return Err(error.clone()); }
         let mut tasks = inner.tasks.clone();
-        let result = action(&mut tasks)?;
+        let result = action(&mut tasks, inner.inbox_enabled)?;
         if let Some(root) = &inner.root {
             let _writer = FileLock::acquire(&root.join("tasks.lock")).map_err(|error| error.message)?;
             let current = read(root)?;
@@ -60,7 +69,7 @@ impl TaskBoard {
             let revision = inner.revision.checked_add(1).ok_or(belfry_i18n::text("任务版本溢出"))?;
             let mut entries: Vec<_> = tasks.values().cloned().collect();
             entries.sort_by(|left, right| left.id.cmp(&right.id));
-            let file = BoardFile { version: 1, revision, tasks: entries };
+            let file = BoardFile { inbox_enabled: inner.inbox_enabled, version: 2, revision, tasks: entries };
             let text = serde_json::to_string(&file).map_err(|error| error.to_string())?;
             write_atomic(&root.join("tasks.json"), &text, true).map_err(|error| error.message)?;
             inner.revision = revision;
@@ -69,9 +78,76 @@ impl TaskBoard {
         Ok(result)
     }
 
-    pub fn insert(&self, task: CollabTask) -> Result<(), String> {
+    pub fn inbox_enabled(&self) -> bool { self.inner.lock().map(|inner| inner.inbox_enabled).unwrap_or(true) }
+
+    /// Persist the single-dispatcher boundary under the same lock as claim/beforeSend.
+    pub(crate) fn enable_inbox(&self) -> Result<(), String> {
+        let mut inner = self.inner.lock().map_err(|_| "Task store unavailable")?;
+        if let Some(error) = &inner.error { return Err(error.clone()); }
+        if inner.inbox_enabled { return Ok(()); }
+        let mut tasks = inner.tasks.clone();
+        for task in tasks.values_mut() {
+            match task.delivery.phase {
+                DeliveryPhase::Accepted | DeliveryPhase::Queued => task.delivery = DeliveryReceipt::default(),
+                DeliveryPhase::Submitting => { task.delivery.phase = DeliveryPhase::Uncertain; task.delivery.message = Some("Legacy submission was active during inbox activation".into()); }
+                _ => {}
+            }
+        }
+        let revision = inner.revision.checked_add(1).ok_or("Task revision overflow")?;
+        if let Some(root) = &inner.root {
+            let _writer = FileLock::acquire(&root.join("tasks.lock")).map_err(|e| e.message)?;
+            if read(root)?.revision != inner.revision { return Err("Task store changed in another process".into()); }
+            let file = BoardFile { inbox_enabled: true, version: 2, revision, tasks: tasks.values().cloned().collect() };
+            write_atomic(&root.join("tasks.json"), &serde_json::to_string(&file).map_err(|e| e.to_string())?, true).map_err(|e| e.message)?;
+        }
+        inner.tasks = tasks; inner.revision = revision; inner.inbox_enabled = true;
+        Ok(())
+    }
+
+    pub(crate) fn inbox_snapshot(&self) -> (Vec<CollabTask>, u64, Option<String>) {
+        self.inner.lock().map(|inner| (inner.tasks.values().cloned().collect(), inner.revision, inner.error.clone()))
+            .unwrap_or_else(|_| (vec![], 0, Some("Task store unavailable".into())))
+    }
+
+    /// Legacy direct tasks did not save a project. Pin their fixed target's
+    /// first available project once; later tab moves cannot retarget the work.
+    pub(crate) fn pin_inbox_projects(&self, roots: &HashMap<String, String>) -> Result<(), String> {
+        if roots.is_empty() { return Ok(()); }
+        self.edit_mode(|tasks, enabled| {
+            if enabled {
+                for task in tasks.values_mut().filter(|task| task.chat.is_none() && task.project_root.is_none()) {
+                    if let Some(root) = roots.get(&task.to) { task.project_root = Some(root.clone()); }
+                }
+            }
+            Ok(())
+        })
+    }
+
+    pub(crate) fn with_inbox_sources<T>(&self, action: impl FnOnce(&HashMap<String, CollabTask>, u64) -> Result<T, crate::terminal::AppError>) -> Result<T, crate::terminal::AppError> {
+        let inner = self.inner.lock().map_err(|_| crate::terminal::AppError::io("Task store unavailable"))?;
+        if let Some(error) = &inner.error { return Err(crate::terminal::AppError::io(error)); }
+        let _writer = inner.root.as_ref().map(|root| FileLock::acquire(&root.join("tasks.lock"))).transpose()?;
+        if let Some(root) = &inner.root && read(root).map_err(crate::terminal::AppError::io)?.revision != inner.revision {
+            return Err(crate::terminal::AppError::conflict("Task source changed in another process"));
+        }
+        action(&inner.tasks, inner.revision)
+    }
+
+    pub(crate) fn inbox_delivery(&self, id: &str, batch: &str, submitted: bool) -> Result<(), String> {
+        self.edit(|tasks| {
+            if let Some(task) = tasks.get_mut(id) {
+                task.delivery.phase = if submitted { DeliveryPhase::Submitted } else { DeliveryPhase::Cancelled };
+                task.delivery.attempt_id = Some(batch.into());
+                if !super::is_settled(&task.state) { task.state = if submitted { TaskState::Dispatched } else { TaskState::Abandoned }; }
+            }
+            Ok(())
+        })
+    }
+
+    pub fn insert(&self, mut task: CollabTask) -> Result<(), String> {
         self.edit(|tasks| {
             if tasks.values().any(|existing| short_id(&existing.id) == short_id(&task.id)) { return Err(belfry_i18n::text("任务编号重复，未创建任务").into()); }
+            task.source_sequence = tasks.values().map(|task| task.source_sequence).max().unwrap_or(0).saturating_add(1);
             tasks.insert(task.id.clone(), task);
             Ok(())
         })
@@ -83,17 +159,19 @@ impl TaskBoard {
     pub fn snapshot(&self) -> Vec<CollabTask> { self.inner.lock().map(|inner| inner.tasks.values().cloned().collect()).unwrap_or_default() }
 
     pub fn pending(&self) -> Vec<CollabTask> {
-        if self.load_error().is_some() { return Vec::new(); }
+        let Ok(inner) = self.inner.lock() else { return Vec::new(); };
+        if inner.error.is_some() || inner.inbox_enabled { return Vec::new(); }
         let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis() as i64;
-        let mut pending: Vec<_> = self.snapshot().into_iter().filter(|task| task.state == TaskState::Queued
-            && matches!(task.delivery.phase, DeliveryPhase::Accepted | DeliveryPhase::Queued) && task.due_at <= now).collect();
+        let mut pending: Vec<_> = inner.tasks.values().filter(|task| task.state == TaskState::Queued
+            && matches!(task.delivery.phase, DeliveryPhase::Accepted | DeliveryPhase::Queued) && task.due_at <= now).cloned().collect();
         pending.sort_by_key(|task| task.created_at);
         pending
     }
 
     pub fn claim_delivery(&self, id: &str, attempt: &str) -> Result<bool, String> {
         if attempt.is_empty() || attempt.len() > 128 || !attempt.bytes().all(|byte| byte.is_ascii_alphanumeric() || byte == b'-') { return Err(belfry_i18n::text("投递回执编号无效").into()); }
-        self.edit(|tasks| {
+        self.edit_mode(|tasks, enabled| {
+            if enabled { return Ok(false); }
             let Some(task) = tasks.get_mut(id) else { return Ok(false); };
             if task.state != TaskState::Queued || !matches!(task.delivery.phase, DeliveryPhase::Accepted | DeliveryPhase::Queued) { return Ok(false); }
             if let Some(owner) = &task.delivery.attempt_id { return Ok(owner == attempt); }
@@ -114,7 +192,8 @@ impl TaskBoard {
 
     pub fn delivery_update(&self, id: &str, attempt: &str, sequence: u64, phase: DeliveryPhase, message: Option<String>) -> Result<bool, String> {
         if message.as_ref().is_some_and(|message| message.len() > 4096) { return Err(belfry_i18n::text("投递说明超过限制").into()); }
-        self.edit(|tasks| {
+        self.edit_mode(|tasks, enabled| {
+            if enabled { return Ok(false); }
             let Some(task) = tasks.get_mut(id) else { return Ok(false); };
             if task.delivery.attempt_id.as_deref() != Some(attempt) { return Ok(false); }
             // beforeSend 的幂等确认不能授权已取消、已提交或不确定的任务再写一次。
@@ -151,7 +230,8 @@ impl TaskBoard {
 
     /// 人工操作使用面板读到的原序号做 CAS；不能复用自动回执的幂等确认语义。
     pub fn resolve_delivery(&self, id: &str, attempt: &str, expected_sequence: u64, submitted: bool) -> Result<(), String> {
-        self.edit(|tasks| {
+        self.edit_mode(|tasks, enabled| {
+            if enabled { return Err("Resolve the original inbox batch after activation".into()); }
             let task = tasks.get_mut(id).ok_or("The delivery has changed. Refresh the task panel.")?;
             if task.delivery.phase != DeliveryPhase::Uncertain || task.delivery.attempt_id.as_deref() != Some(attempt)
                 || task.delivery.sequence != expected_sequence {
@@ -207,7 +287,8 @@ impl TaskBoard {
         })
     }
     pub fn abandon_for(&self, tab_id: &str) -> Result<(), String> {
-        self.edit(|tasks| {
+        self.edit_mode(|tasks, enabled| {
+            if enabled { return Ok(()); }
             for task in tasks.values_mut().filter(|task| task.to == tab_id && !super::is_settled(&task.state)) { cancel(task, belfry_i18n::text("目标会话已关闭")); }
             Ok(())
         })
@@ -227,8 +308,8 @@ fn cancel(task: &mut CollabTask, reason: &str) {
 
 fn read(root: &Path) -> Result<BoardFile, String> {
     let text = read_text_optional(&root.join("tasks.json")).map_err(|error| error.message)?;
-    if text.trim().is_empty() { return Ok(BoardFile { version: 1, ..BoardFile::default() }); }
+    if text.trim().is_empty() { return Ok(BoardFile { version: 2, ..BoardFile::default() }); }
     let file: BoardFile = serde_json::from_str(&text).map_err(|error| belfry_i18n::lformat!("任务文件无效，已保留现场：{error}"))?;
-    if file.version != 1 { return Err(belfry_i18n::text("任务文件版本不支持，已按只读处理").into()); }
+    if !matches!(file.version, 1 | 2) { return Err(belfry_i18n::text("任务文件版本不支持，已按只读处理").into()); }
     Ok(file)
 }

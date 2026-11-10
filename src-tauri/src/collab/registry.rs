@@ -7,7 +7,7 @@
 //! 这份数据只读不判：`can_receive` 由前端按能力算好，这里不重新推导——
 //! 一旦两边各自判断，迟早出现「UI 说能派活、CLI 说不能」的分歧。
 
-use std::sync::Mutex;
+use std::sync::{Mutex, atomic::{AtomicU64, Ordering}};
 
 use belfry_protocol::Peer;
 use serde::{Deserialize, Serialize};
@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 /// 比 `Peer` 多一个项目根：派活要判断是不是同项目，而这个信息不该暴露给
 /// 别的 Agent。也不能改从身份表读——那里只有领过牌子的会话才有，
 /// 名册才是前端推过来的完整状态。
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionSnapshot {
     pub tab_id: String,
@@ -40,17 +40,19 @@ pub struct SessionSnapshot {
 
 #[derive(Default)]
 pub struct SessionRegistry {
+    revision: AtomicU64,
     sessions: Mutex<Vec<SessionSnapshot>>,
 }
 
 impl SessionRegistry {
+    pub(crate) fn revision(&self) -> u64 { self.revision.load(Ordering::Acquire) }
     /// 整份替换。
     ///
     /// 不做增量合并：前端每次给的是完整列表，合并只会让已关闭的会话在名册里
     /// 阴魂不散，而「派活给一条已经不存在的会话」是最难查的那类问题。
     pub fn replace(&self, sessions: Vec<SessionSnapshot>) {
         if let Ok(mut current) = self.sessions.lock() {
-            *current = sessions;
+            if *current != sessions { *current = sessions; self.revision.fetch_add(1, Ordering::Release); }
         }
     }
 

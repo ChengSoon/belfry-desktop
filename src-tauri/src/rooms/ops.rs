@@ -13,7 +13,8 @@ use super::ledger;
 use super::model::*;
 
 /// 一条要送进成员终端的消息。`to` 里的 `user` 不投递（用户在界面上看）。
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Posted {
     pub message_id: String,
     pub to: Vec<String>,
@@ -37,8 +38,22 @@ fn post(
     attachments: Vec<RoomAttachment>,
     now: i64,
 ) -> Posted {
+    let id = new_id();
+    let semantics = super::semantics::legacy(room, &id, &text, &to, mode, reply_to.as_deref());
+    post_semantic(room, kind, by, text, to, mode, reply_to, attachments, now, id, semantics)
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(super) fn post_semantic(room: &mut Room, kind: MessageKind, by: &str, text: String, to: Vec<String>, mode: MessageMode,
+    reply_to: Option<String>, attachments: Vec<RoomAttachment>, now: i64, id: String,
+    mut semantics: belfry_protocol::inbox::MessageSemantics) -> Posted {
+    semantics.revision = 1;
+    semantics.source_sequence = room.ledger_bytes.saturating_add(room.pending.len() as u64).saturating_add(1);
+    semantics.sender_tab = room.members.iter().find(|member| member.id == by).map(|member| member.tab_id.clone());
+    semantics.sender_name = Some(room.label(by));
     let message = Message {
-        id: new_id(),
+        inbox: Some(semantics),
+        id,
         at: now,
         kind,
         by: by.to_string(),
@@ -54,9 +69,9 @@ fn post(
     let event = ledger::message_event(&room.id, &message);
     ledger::apply(room, &event);
     room.pending.push(event);
-    if !room.paused {
+    {
         for member_id in to.iter().filter(|id| room.active_member(id).is_some()).cloned().collect::<Vec<_>>() {
-            room.delivery_outbox.push(RoomDelivery { message_id: message.id.clone(), member_id, phase: Default::default(), message: None });
+            room.delivery_outbox.push(RoomDelivery { tab_id: room.active_member(&member_id).map(|member| member.tab_id.clone()), message_id: message.id.clone(), member_id, phase: Default::default(), message: None });
         }
     }
     Posted { message_id: message.id, to }
@@ -143,6 +158,7 @@ pub fn add_member(
     }
     let id = new_id();
     room.members.push(Member {
+        extensions: Default::default(),
         id: id.clone(),
         tab_id: tab_id.to_string(),
         agent: agent.to_string(),
@@ -252,13 +268,14 @@ pub fn remove_member(room: &mut Room, member_id: &str, now: i64) -> Result<Vec<P
                 && matches!(task.status, TaskStatus::Planned | TaskStatus::Active)
         })
         .map(|task| {
+            task.generation = task.generation.checked_add(1).ok_or("Task lifecycle generation overflow")?;
             task.assignee = None;
             task.status = TaskStatus::Planned;
             task.rev += 1;
             task.updated_at = now;
-            task.id.clone()
+            Ok(task.id.clone())
         })
-        .collect();
+        .collect::<Result<_, String>>()?;
     if !orphaned.is_empty() {
         let to = room.foreman().map(|member| vec![member.id.clone()]).unwrap_or_default();
         posted.push(notice(
@@ -410,7 +427,7 @@ pub fn record_delivery(room: &mut Room, message_id: &str, member_id: &str, now: 
 
 // ---- 暂停 ----
 
-/// 暂停或恢复房间。暂停期间消息只记在时间线上，不送进成员终端；恢复后不补发，避免一次涌进一堆旧消息。
+/// 暂停只关闭投递闸门；新消息仍持久化，恢复后由收件箱调度。
 pub fn set_paused(room: &mut Room, paused: bool, now: i64) -> Result<Posted, String> {
     if room.paused == paused {
         return Err(if paused { belfry_i18n::text("房间已经暂停了").to_string() } else { belfry_i18n::text("房间没有暂停").to_string() });
@@ -419,7 +436,7 @@ pub fn set_paused(room: &mut Room, paused: bool, now: i64) -> Result<Posted, Str
     let text = if paused {
         belfry_i18n::text("你暂停了房间：之后的消息只记在房间里，不再送进成员终端，空闲提醒也停了。成员手上正在做的不会被打断。")
     } else {
-        belfry_i18n::text("你恢复了房间：新消息照常送进成员终端。暂停期间的消息不会补发，需要的话再说一遍。")
+        belfry_i18n::text("你恢复了房间：收件箱中的待发消息会在成员可接收时按议题投递。")
     };
     Ok(notice(room, text.to_string(), Vec::new(), now))
 }
@@ -541,6 +558,7 @@ pub fn task_add(
     let id = format!("T{}", room.next_task);
     room.next_task += 1;
     room.tasks.push(Task {
+        generation: 1,
         id: id.clone(),
         title: title.to_string(),
         outcome: outcome.unwrap_or_default().trim().to_string(),
@@ -573,6 +591,7 @@ pub fn task_add(
     }
     to.dedup();
     let posted = notice(room, text, to, now);
+    super::semantics::tag_task(room, &posted, &id);
     Ok((id, vec![posted]))
 }
 
@@ -594,6 +613,7 @@ pub fn task_assign(room: &mut Room, actor: &Actor, raw: &str, assignee: &str, no
     let previous = snapshot.assignee.clone();
     let task = task_mut(room, raw)?;
     task.assignee = Some(assignee.clone());
+    task.generation = task.generation.checked_add(1).ok_or("Task lifecycle generation overflow")?;
     touch(task, now);
     let id = task.id.clone();
     let title = task.title.clone();
@@ -613,7 +633,9 @@ pub fn task_assign(room: &mut Room, actor: &Actor, raw: &str, assignee: &str, no
     if let Some(previous) = previous.filter(|previous| previous != actor.id() && *previous != assignee) {
         to.push(previous);
     }
-    posted.push(notice(room, text, to, now));
+    let assignment = notice(room, text, to, now);
+    super::semantics::tag_task(room, &assignment, &id);
+    posted.push(assignment);
     Ok(posted)
 }
 
@@ -704,13 +726,16 @@ pub fn task_reopen(room: &mut Room, actor: &Actor, raw: &str, now: i64) -> Resul
     check_move(actor, snapshot.status, TaskStatus::Planned)?;
     let task = &mut room.tasks[index];
     task.status = TaskStatus::Planned;
+    task.generation = task.generation.checked_add(1).ok_or("Task lifecycle generation overflow")?;
     if snapshot.status == TaskStatus::Done {
         task.result = None;
     }
     touch(task, now);
     let text = belfry_i18n::lformat!("{}把 {}「{}」退回待开工。", room.label(actor.id()), snapshot.id, snapshot.title);
     let to: Vec<String> = snapshot.assignee.into_iter().filter(|member| member != actor.id()).collect();
-    Ok(vec![notice(room, text, to, now)])
+    let posted = notice(room, text, to, now);
+    super::semantics::tag_task(room, &posted, &snapshot.id);
+    Ok(vec![posted])
 }
 
 pub fn task_note(room: &mut Room, actor: &Actor, raw: &str, text: &str, now: i64) -> Result<Vec<Posted>, String> {

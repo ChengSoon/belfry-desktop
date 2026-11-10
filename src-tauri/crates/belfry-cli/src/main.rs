@@ -8,6 +8,7 @@
 //! 说清下一步做什么，而不是抛一个错误码让它自己猜。
 
 mod transport;
+mod inbox;
 use transport::{Transport, IPC_TIMEOUT, MAX_RESPONSE_BYTES};
 use std::io::{BufRead, BufReader, Read, Write};
 use std::process::ExitCode;
@@ -60,7 +61,7 @@ fn poll_interval(waited: Duration) -> Duration {
 
 fn run(args: &[String], invoked_at: Instant) -> Result<String, String> {
     if args.is_empty() || args.first().is_some_and(|arg| matches!(arg.as_str(), "help" | "--help" | "-h")) {
-        return Ok(usage().to_string());
+        return Ok(format!("{}{}", usage(), inbox::HELP));
     }
     let action = parse(args)?;
     let session = Session::from_env()?;
@@ -204,6 +205,7 @@ fn parse(args: &[String]) -> Result<Action, String> {
         (Some("rooms"), 1) => once(Command::Rooms),
         (Some("room"), _) => parse_room(&args[1..]).and_then(once),
         (Some("inbox"), 1) => once(Command::Inbox),
+        (Some("inbox"), _) => inbox::parse(&args[1..]).and_then(once),
         (Some("send"), _) => parse_send(&args[1..]).and_then(once),
         (Some("done"), _) => parse_done(&args[1..]).and_then(once),
         (Some("fail"), _) => parse_fail(&args[1..]).and_then(once),
@@ -300,12 +302,20 @@ fn parse_room(args: &[String]) -> Result<Command, String> {
 
 /// `belfry room say <内容…> [--to <角色>]… [--ask] [--reply <消息id>] [--room <房间>]`
 fn parse_room_say(args: &[String]) -> Result<Command, String> {
-    let flags = Flags::parse(args, &["--room", "--to", "--reply"], &["--ask"])?;
+    let flags = Flags::parse(args, &["--room", "--to", "--reply", "--topic", "--question", "--answer", "--class", "--correction-of", "--op"], &["--ask"])?;
     let text = flags.text(0);
     if text.trim().is_empty() {
         return Err(belfry_i18n::text("belfry room say 要说点什么，比如：belfry room say @后端 接口定了吗").to_string());
     }
+    let class = flags.one("--class").map(|value| match value.as_str() {
+        "discussion" => Ok(belfry_protocol::inbox::MessageClass::Discussion), "reply" => Ok(belfry_protocol::inbox::MessageClass::Reply),
+        "fyi" => Ok(belfry_protocol::inbox::MessageClass::Fyi), _ => Err("--class must be discussion, reply or fyi".to_string()),
+    }).transpose()?;
+    let options = belfry_protocol::inbox::MessageOptions { topic_id: flags.one("--topic"), questions: flags.all("--question"), answers: flags.all("--answer"),
+        class, correction_of: flags.one("--correction-of"), operation_id: flags.one("--op") };
+    let inbox = (options != Default::default()).then_some(options);
     Ok(Command::RoomSay {
+        inbox,
         room: flags.one("--room"),
         text,
         reply_to: flags.one("--reply"),
@@ -317,7 +327,7 @@ fn parse_room_say(args: &[String]) -> Result<Command, String> {
 /// `belfry room task <动作> …`
 fn parse_room_task(args: &[String]) -> Result<Command, String> {
     let action = args.first().map(String::as_str);
-    let flags = Flags::parse(args.get(1..).unwrap_or_default(), &["--room", "--to", "--outcome", "--after"], &[])?;
+    let flags = Flags::parse(args.get(1..).unwrap_or_default(), &["--room", "--to", "--outcome", "--after", "--generation"], &[])?;
     let task = || {
         flags
             .positional
@@ -352,7 +362,7 @@ fn parse_room_task(args: &[String]) -> Result<Command, String> {
         Some("start") => RoomTaskOp::Start { task: task()? },
         Some("done") => {
             let result = flags.text(1);
-            RoomTaskOp::Done { task: task()?, result: (!result.trim().is_empty()).then_some(result) }
+            RoomTaskOp::Done { generation: flags.one("--generation").map(|value| value.parse::<u64>().map_err(|_| "--generation must be an unsigned integer".to_string())).transpose()?, task: task()?, result: (!result.trim().is_empty()).then_some(result) }
         }
         Some("reopen") => RoomTaskOp::Reopen { task: task()? },
         Some("archive") => RoomTaskOp::Archive { task: task()? },
@@ -482,6 +492,15 @@ impl Session {
         // wait 只能查询真实任务号；内部传输外壳由本进程通过 exchange 发送。
         if room_compat::unwrap_command(&command).is_some() {
             return Err(belfry_i18n::text("任务编号无效：房间操作请使用 belfry room 命令").into());
+        }
+        if command.requires_inbox() {
+            // Always use the opaque envelope: an older daemon may advertise room support but strip new fields.
+            let probe = self.exchange(room_compat::wrap_command(&Command::Peers)?, deadline).and_then(room_compat::unwrap_response)?;
+            match probe {
+                Response::Ok { data: ResponseData::Peers { capabilities, .. } } if capabilities.iter().any(|value| value == belfry_protocol::inbox::CAPABILITY) => {},
+                _ => return Err("Application does not support collaboration-inbox-v1; no inbox operation was sent".into()),
+            }
+            return room_compat::unwrap_response(self.exchange(room_compat::wrap_command(&command)?, deadline)?);
         }
         if command.is_room() {
             // 必须在写操作之前检查。旧后台可能已经转发 room say，却丢掉回执字段；
@@ -634,6 +653,7 @@ fn render_status(status: &belfry_protocol::RoomStatusView) -> String {
 /// 不输出 JSON：Agent 读的是终端，人话它一样解析得了，而且用户瞟一眼也能看懂。
 fn render(data: ResponseData) -> String {
     match data {
+        ResponseData::CollaborationInbox { result } => serde_json::to_string_pretty(&result).unwrap_or_else(|error| error.to_string()),
         ResponseData::Peers { peers, .. } => {
             if peers.is_empty() {
                 return belfry_i18n::text("现在没有别的会话").to_string();
@@ -1055,7 +1075,7 @@ mod tests {
     #[test]
     fn room_say_reads_recipients_ask_reply_and_room() {
         match command(&["room", "say", "--to", "后端", "--to", "@前端", "--ask", "接口", "定了吗", "--room", "登录"]) {
-            Command::RoomSay { room, text, reply_to, to, ask } => {
+            Command::RoomSay { room, text, reply_to, to, ask, .. } => {
                 assert_eq!(room.as_deref(), Some("登录"));
                 assert_eq!(text, "接口 定了吗");
                 assert_eq!(reply_to, None);
@@ -1094,7 +1114,7 @@ mod tests {
     fn room_task_actions_take_a_task_number() {
         assert!(matches!(command(&["room", "task", "start", "T1"]), Command::RoomTask { op: RoomTaskOp::Start { .. }, .. }));
         match command(&["room", "task", "done", "T1", "已", "合并"]) {
-            Command::RoomTask { op: RoomTaskOp::Done { task, result }, .. } => {
+            Command::RoomTask { op: RoomTaskOp::Done { task, result, .. }, .. } => {
                 assert_eq!(task, "T1");
                 assert_eq!(result.as_deref(), Some("已 合并"));
             }

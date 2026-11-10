@@ -197,7 +197,7 @@
   "ROOM_THE_ROOM_IS_ALREADY_PAUSED": "The room is already paused.",
   "ROOM_THE_ROOM_IS_NOT_PAUSED": "The room is not paused.",
   "ROOM_YOU_PAUSED_THE_ROOM_NEW_MESSAGES_WILL": "You paused the room. New messages will be saved in the room without delivery to member terminals, and idle reminders are paused. Work already in progress continues.",
-  "ROOM_YOU_RESUMED_THE_ROOM_NEW_MESSAGES_WILL": "You resumed the room. New messages will be delivered to member terminals. Messages saved while paused will not be delivered automatically; send them again if needed.",
+  "ROOM_YOU_RESUMED_THE_ROOM_NEW_MESSAGES_WILL": "You resumed the room. Pending inbox messages will be delivered by topic when members are ready to receive them.",
   "ROOM_IDLE_REMINDER": "[Idle reminder]",
   "ROOM_HAVE_NO_ASSIGNED_TASKS_AND_THE_ROOM": "{{prefix}}\"{{members}}\" have no assigned tasks, and the room has been quiet for {{minutes}} minutes. Assign any remaining work with belfry room task add <title> --to <role>; otherwise no reply is needed.",
   "ROOM_TASK_WAS_NOT_FOUND_RUN_BELFRY_ROOM": "Task {{task}} was not found. Run belfry room status to view the task board.",

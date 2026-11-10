@@ -1405,8 +1405,8 @@
     {
       "code": "ROOM_YOU_RESUMED_THE_ROOM_NEW_MESSAGES_WILL",
       "params": [],
-      "en": "You resumed the room. New messages will be delivered to member terminals. Messages saved while paused will not be delivered automatically; send them again if needed.",
-      "zhCN": "你恢复了房间：新消息照常送进成员终端。暂停期间的消息不会补发，需要的话再说一遍。"
+      "en": "You resumed the room. Pending inbox messages will be delivered by topic when members are ready to receive them.",
+      "zhCN": "你恢复了房间：收件箱中的待发消息会在成员可接收时按议题投递。"
     },
     {
       "code": "ROOM_IDLE_REMINDER",

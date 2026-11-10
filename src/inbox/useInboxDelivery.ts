@@ -16,7 +16,7 @@ const TICK_MS = 750;
 
 /**
  * "probing"：还没决定；"legacy"：后端没有收件箱命令，沿用旧路径；"inbox"：新协议是唯一 owner；
- * "halted"：后端支持但启用失败。此时两条路径都不自动投递，避免部分切换后出现两个 owner。
+ * "halted"：探测失败、协议不兼容或启用失败。此时两条路径都不自动投递，避免出现两个 owner。
  */
 export type DeliveryMode = "probing" | "legacy" | "inbox" | "halted";
 
@@ -32,7 +32,7 @@ function supportedShape(caps: Capabilities) {
 
 /**
  * 决定投递 owner 并驱动新运行时。顺序：
- * 1. 查 capabilities。命令不存在/不支持 → legacy（旧 DeliveryCoordinator 照旧）。
+ * 1. 查 capabilities。只有命令不存在才进入 legacy；未知协议或缺少能力标记保持停止。
  * 2. 支持但未启用 → 旧循环此时从未启动过，没有旧项可能写入，直接 activate。
  * 3. 启用后只跑 InboxRuntime；旧循环保持关闭，避免双重投递。
  * 4. activate 失败 → halted：不回退旧路径，下次启动再试。
@@ -69,7 +69,7 @@ export function useInboxDelivery(options: {
         return;
       }
       if (!supportedShape(caps)) { if (!cancelled) setMode("halted"); return; }
-      if (!caps.capabilities.includes(INBOX_CAPABILITY)) { if (!cancelled) setMode(caps.enabled ? "halted" : "legacy"); return; }
+      if (!caps.capabilities.includes(INBOX_CAPABILITY)) { if (!cancelled) setMode("halted"); return; }
       if (caps.enabled) { if (!cancelled) setMode("inbox"); return; }
       try {
         const next = await activate(crypto.randomUUID());

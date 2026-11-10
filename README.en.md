@@ -78,7 +78,8 @@ Neither agent detected? Doesn't matter. Shell sessions don't depend on them, and
 - Antigravity CLI, OpenCode, and Kimi Code support native history, usage, providers, plugins, queues, and collaboration. See the [integration notes](docs/native-agent-integration.md) for tested versions and native differences
 - Session state separates process lifecycle (creating / running / exited / error) from current behavior (idle / talking / awaiting choice)
 - Tab titles are extracted from your first prompt; the untruncated original stays in the tooltip
-- Collaboration tasks queue per target Agent while it is busy or awaiting confirmation, then dispatch in order when it returns to idle
+- Tasks, discussions, and replies share each Agent's [collaboration inbox](docs/collaboration-inbox.md), with original messages and waiting reasons visible; messages dispatch by topic when idle, while new tasks wait for the previous task to finish
+- Room members can [choose a model per role](docs/room-role-models.md) for the next launch, or clear the override to use the default
 
 **Activity notifications**
 

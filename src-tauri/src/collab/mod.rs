@@ -11,6 +11,7 @@
 //! 只认能力。新接一个 CLI 进来时，这里不该有任何改动。
 
 pub mod commands;
+pub(crate) mod inbox;
 mod identity;
 mod registry;
 mod server;

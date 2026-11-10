@@ -85,10 +85,12 @@ describe("投递 owner 切换", () => {
     expect(api.inboxPending).not.toHaveBeenCalled();
   });
 
-  it("没有能力标记 → legacy", async () => {
-    probe = vi.fn(async () => caps([], false)); activate = vi.fn();
-    render(); await flush();
-    expect(state.mode).toBe("legacy");
+  it.each([false, true])("存在探测命令却缺少能力标记时停止投递（enabled=%s）", async (enabled) => {
+    probe = vi.fn(async () => caps([], enabled)); activate = vi.fn();
+    render(); await flush(); await flush(3_000);
+    expect(state.mode).toBe("halted");
+    expect(activate).not.toHaveBeenCalled();
+    expect(api.inboxPending).not.toHaveBeenCalled();
   });
 
   it("探测 IO 失败不能当作旧后端，也不启动任何投递", async () => {

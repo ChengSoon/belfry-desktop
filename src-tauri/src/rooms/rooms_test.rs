@@ -12,6 +12,32 @@ fn temp_root(tag: &str) -> PathBuf {
 }
 
 #[test]
+fn inbox_migrates_v3_projection_without_replaying_history_or_losing_role_extensions() {
+    let root = temp_root("inbox-v3-migration"); let store = RoomStore::load(Some(root.clone()));
+    let room = store.create("Legacy", root.to_str().unwrap(), "").unwrap();
+    store.mutate(&room.id, |room| {
+        super::test_support::add(room, "old-tab", "Worker", "")?;
+        ops::say(room, &Actor::User, &["Worker".into()], "old question", None, true, 1)
+    }).unwrap();
+    let path = root.join("rooms.json");
+    let mut disk: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap(); disk["version"] = serde_json::json!(3);
+    disk["rooms"][0]["members"][0]["modelOverride"] = serde_json::json!("role-specific-model");
+    disk["rooms"][0].as_object_mut().unwrap().remove("messageOperations");
+    for message in disk["rooms"][0]["messages"].as_array_mut().unwrap() { message.as_object_mut().unwrap().remove("inbox"); }
+    fs::write(&path, serde_json::to_vec(&disk).unwrap()).unwrap();
+    super::ledger::take_replay_bytes();
+    let migrated = RoomStore::load(Some(root.clone()));
+    assert_eq!(super::ledger::take_replay_bytes(), 0, "v3 already has a committed projection");
+    let message = migrated.get(&room.id).unwrap().messages.into_iter().find(|message| message.text == "old question").unwrap();
+    assert!(message.inbox.unwrap().questions[0].legacy);
+    migrated.mutate(&room.id, |room| { room.brief.objective = "new goal".into(); Ok(()) }).unwrap();
+    let saved: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    assert_eq!(saved["version"], 4); assert_eq!(saved["rooms"][0]["members"][0]["modelOverride"], "role-specific-model");
+    assert!(store.mutate(&room.id, |room| { room.brief.objective = "stale overwrite".into(); Ok(()) }).is_err());
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn regression_room_notices_and_recipient_aliases_follow_the_app_language() {
     belfry_i18n::with_locale(belfry_i18n::Locale::En, || {
         let root = temp_root("locale");
@@ -31,6 +57,9 @@ fn regression_room_notices_and_recipient_aliases_follow_the_app_language() {
         let body = "用户原文：已完成";
         let posted = ops::say(&mut room, &Actor::User, &[], body, None, false, now_millis()).unwrap();
         assert_eq!(room.message(&posted.message_id).unwrap().text, body);
+        ops::set_paused(&mut room, true, now_millis()).unwrap();
+        let resumed = ops::set_paused(&mut room, false, now_millis()).unwrap();
+        assert!(room.message(&resumed.message_id).unwrap().text.contains("Pending inbox messages will be delivered by topic"));
         let _ = fs::remove_dir_all(root);
     });
 }
@@ -139,7 +168,7 @@ fn regression_active_reply_survives_more_than_three_thousand_events_and_restart(
     let (asked, _) = store.mutate(&room.id, |room| ops::say(room, &Actor::User, &[], "earliest open question", None, true, now_millis())).unwrap();
     store.mutate(&room.id, |room| {
         for index in 0..3100 {
-            let message = Message { id: new_id(), at: now_millis() + index, kind: MessageKind::Notice, by: "system".into(), text: format!("history {index}"), to: Vec::new(), mode: MessageMode::Send, reply_to: None, attachments: Vec::new(), delivered_to: Vec::new(), replied_by: Vec::new(), reply_cancelled: false };
+            let message = Message { inbox: None, id: new_id(), at: now_millis() + index, kind: MessageKind::Notice, by: "system".into(), text: format!("history {index}"), to: Vec::new(), mode: MessageMode::Send, reply_to: None, attachments: Vec::new(), delivered_to: Vec::new(), replied_by: Vec::new(), reply_cancelled: false };
             let event = super::ledger::message_event(&room.id, &message);
             super::ledger::apply(room, &event);
             room.pending.push(event);
@@ -250,6 +279,7 @@ fn team() -> Room {
         messages: Vec::new(),
         retained_messages: Vec::new(),
         delivery_outbox: Vec::new(),
+        message_operations: Default::default(),
         ledger_bytes: 0,
         pending: Vec::new(),
     };
@@ -683,7 +713,7 @@ fn a_long_legacy_ledger_keeps_its_history_while_bounding_the_recent_projection()
     let mut filler = store.get(&room.id).unwrap();
     let extra: Vec<_> = (0..super::ledger::COMPACT_AFTER + 50)
         .map(|index| {
-            let message = Message {
+            let message = Message { inbox: None,
                 id: new_id(), at: now_millis() + index as i64, kind: MessageKind::Notice, by: "system".into(),
                 text: format!("注记 {index}"), to: Vec::new(), mode: MessageMode::Send, reply_to: None,
                 attachments: Vec::new(), delivered_to: Vec::new(), replied_by: Vec::new(), reply_cancelled: false,

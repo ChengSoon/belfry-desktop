@@ -7,6 +7,7 @@
 //! 也不做流式——CLI 的每次调用都是一次性的，多余的状态只会带来重连语义。
 
 pub mod hooks;
+pub mod inbox;
 pub mod room_compat;
 
 use serde::{Deserialize, Serialize};
@@ -62,6 +63,7 @@ impl Request {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum Command {
+    CollaborationInbox { command: inbox::AgentCommand },
     /// 现在有哪些会话、各自什么状态。派活之前先看一眼。
     Peers,
     /// 我在的协作房间：角色、统筹是谁、需求目标、还有几条活没完。
@@ -78,6 +80,8 @@ pub enum Command {
     /// 成员发给统筹，统筹发给全体成员。`ask` 为真＝要求回复，收件人回复前一直挂着「待回复」。
     #[serde(rename_all = "camelCase")]
     RoomSay {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        inbox: Option<inbox::MessageOptions>,
         #[serde(default)]
         room: Option<String>,
         text: String,
@@ -155,10 +159,15 @@ pub enum Command {
 }
 
 impl Command {
+    pub fn requires_inbox(&self) -> bool {
+        matches!(self, Self::CollaborationInbox { .. } | Self::RoomSay { inbox: Some(_), .. }
+            | Self::RoomTask { op: RoomTaskOp::Done { generation: Some(_), .. }, .. })
+    }
     pub fn is_room(&self) -> bool {
         matches!(
             self,
-            Self::Rooms
+            Self::CollaborationInbox { .. }
+                | Self::Rooms
                 | Self::RoomStatus { .. }
                 | Self::RoomSay { .. }
                 | Self::RoomLog { .. }
@@ -190,6 +199,7 @@ impl Response {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum ResponseData {
+    CollaborationInbox { result: serde_json::Value },
     Peers {
         peers: Vec<Peer>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -320,6 +330,8 @@ pub enum RoomTaskOp {
     Start { task: String },
     #[serde(rename_all = "camelCase")]
     Done {
+        #[serde(default)]
+        generation: Option<u64>,
         task: String,
         #[serde(default)]
         result: Option<String>,
@@ -477,6 +489,7 @@ mod tests {
             "t".into(),
             "k".into(),
             Command::RoomSay {
+                inbox: None,
                 room: Some("登录改版".into()),
                 text: "接口定了吗".into(),
                 reply_to: None,

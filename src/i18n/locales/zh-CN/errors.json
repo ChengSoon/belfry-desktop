@@ -197,7 +197,7 @@
   "ROOM_THE_ROOM_IS_ALREADY_PAUSED": "房间已经暂停了",
   "ROOM_THE_ROOM_IS_NOT_PAUSED": "房间没有暂停",
   "ROOM_YOU_PAUSED_THE_ROOM_NEW_MESSAGES_WILL": "你暂停了房间：之后的消息只记在房间里，不再送进成员终端，空闲提醒也停了。成员手上正在做的不会被打断。",
-  "ROOM_YOU_RESUMED_THE_ROOM_NEW_MESSAGES_WILL": "你恢复了房间：新消息照常送进成员终端。暂停期间的消息不会补发，需要的话再说一遍。",
+  "ROOM_YOU_RESUMED_THE_ROOM_NEW_MESSAGES_WILL": "你恢复了房间：收件箱中的待发消息会在成员可接收时按议题投递。",
   "ROOM_IDLE_REMINDER": "【空闲提醒】",
   "ROOM_HAVE_NO_ASSIGNED_TASKS_AND_THE_ROOM": "{{prefix}}「{{members}}」手上没有任务，房间已经安静 {{minutes}} 分钟。还有要做的就拆成任务派给他们（belfry room task add <标题> --to <角色>）；没有就不用回复。",
   "ROOM_TASK_WAS_NOT_FOUND_RUN_BELFRY_ROOM": "没有任务 {{task}}，用 belfry room status 看任务板",
