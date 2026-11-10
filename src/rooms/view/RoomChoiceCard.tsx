@@ -1,4 +1,4 @@
-import { AlertCircle, ChevronDown, SendHorizontal, SquareTerminal } from "lucide-react";
+import { AlertCircle, ArrowRight, ChevronDown, SendHorizontal, SquareTerminal } from "lucide-react";
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { Button } from "../../components/ui/button";
 import { Checkbox } from "../../components/ui/checkbox";
@@ -6,26 +6,30 @@ import { Kbd } from "../../components/ui/kbd";
 import { Spinner } from "../../components/ui/spinner";
 import { Textarea } from "../../components/ui/textarea";
 import { t, useTranslation } from "../../i18n";
-import type { TerminalInteractionAnswer, TerminalInteractionResult } from "../../terminal/interaction";
+import type { TerminalInteractionAnswer, TerminalInteractionOpenResult, TerminalInteractionResult } from "../../terminal/interaction";
 import { composingKey } from "../../utils/keyboard";
 import type { RoomInteractionRequest } from "../useRoomInteractions";
 
-function resultText(result: TerminalInteractionResult) {
+type InteractionResult = TerminalInteractionResult | TerminalInteractionOpenResult;
+
+function resultText(result: InteractionResult, opening: boolean) {
   switch (result.status) {
+    case "opened": return t("rooms.choice.opened");
     case "sent": return t("rooms.choice.sent");
     case "changed": return t("rooms.choice.changed");
     case "unavailable": return t("rooms.choice.unavailable");
-    case "busy": return t("rooms.choice.busy");
-    case "invalid": return t("rooms.choice.invalid");
-    case "failed": return t("rooms.choice.failed");
-    case "uncertain": return t("rooms.choice.uncertain");
+    case "busy": return t(opening ? "rooms.choice.openBusy" : "rooms.choice.busy");
+    case "invalid": return t(opening ? "rooms.choice.changed" : "rooms.choice.invalid");
+    case "failed": return t(opening ? "rooms.choice.openFailed" : "rooms.choice.failed");
+    case "uncertain": return t(opening ? "rooms.choice.openUncertain" : "rooms.choice.uncertain");
   }
 }
 
-export function RoomChoiceCard({ request, avatar, onAnswer, onOpenSession }: {
+export function RoomChoiceCard({ request, avatar, onAnswer, onOpenRequest, onOpenSession }: {
   request: RoomInteractionRequest;
   avatar: ReactNode;
   onAnswer: (request: RoomInteractionRequest, answer: TerminalInteractionAnswer) => Promise<TerminalInteractionResult>;
+  onOpenRequest: (request: RoomInteractionRequest, optionIndex?: number) => Promise<TerminalInteractionOpenResult>;
   onOpenSession?: (tabId: string) => void;
 }) {
   useTranslation();
@@ -33,8 +37,10 @@ export function RoomChoiceCard({ request, avatar, onAnswer, onOpenSession }: {
   const { member, interaction } = request;
   const [indices, setIndices] = useState(interaction.selectedIndices);
   const [text, setText] = useState("");
-  const [pending, setPending] = useState(false);
-  const [result, setResult] = useState<TerminalInteractionResult | null>(null);
+  const [pending, setPending] = useState<"open" | "answer" | null>(null);
+  const [action, setAction] = useState<"open" | "answer">("answer");
+  const [result, setResult] = useState<InteractionResult | null>(null);
+  const queued = interaction.kind === "queued";
   const submitting = useRef(false);
   const dirty = useRef(false);
   const mounted = useRef(true);
@@ -47,22 +53,27 @@ export function RoomChoiceCard({ request, avatar, onAnswer, onOpenSession }: {
     if (!dirty.current) setIndices(JSON.parse(checked) as number[]);
   }, [checked]);
 
-  const state = pending ? "submitting" : result?.status === "sent" ? "submitted"
+  const state = pending === "open" || result?.status === "opened" ? "opening" : pending === "answer" ? "submitting" : result?.status === "sent" ? "submitted"
     : result?.status === "uncertain" ? "uncertain" : interaction.state;
   const disabled = state !== "pending";
   const emptyRequired = interaction.kind === "input" && !interaction.input?.optional && !text.trim();
-  const submit = async (reply: TerminalInteractionAnswer) => {
-    if (submitting.current || disabled || (reply.kind === "input" && !interaction.input?.optional && !reply.text.trim())) return;
+  const perform = async (action: "open" | "answer", run: () => Promise<InteractionResult>) => {
+    if (submitting.current || disabled) return;
     submitting.current = true;
-    setPending(true);
+    setAction(action);
+    setPending(action);
     setResult(null);
     try {
-      const next = await onAnswer(request, reply);
+      const next = await run();
       if (mounted.current) setResult(next);
     } finally {
       submitting.current = false;
-      if (mounted.current) setPending(false);
+      if (mounted.current) setPending(null);
     }
+  };
+  const submit = (reply: TerminalInteractionAnswer) => {
+    if (reply.kind === "input" && !interaction.input?.optional && !reply.text.trim()) return;
+    return perform("answer", () => onAnswer(request, reply));
   };
   const moveFocus = (event: KeyboardEvent<HTMLDivElement>) => {
     if (composingKey(event) || !["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
@@ -74,7 +85,8 @@ export function RoomChoiceCard({ request, avatar, onAnswer, onOpenSession }: {
       : (at + (event.key === "ArrowDown" ? 1 : -1) + buttons.length) % buttons.length;
     buttons[next]?.focus();
   };
-  const hasError = result && !["sent", "busy"].includes(result.status);
+  const hasError = result && !["sent", "opened", "busy"].includes(result.status);
+  const resultMessage = result && "message" in result ? result.message : undefined;
 
   return (
     <article className="room-choice-card" data-member-id={member.id} data-request-kind={interaction.kind} data-request-state={state}
@@ -83,15 +95,17 @@ export function RoomChoiceCard({ request, avatar, onAnswer, onOpenSession }: {
         {avatar}
         <span className="room-choice-member">{member.title}</span>
         <span className="room-choice-state" data-state={state}>
-          {state === "submitting" ? <Spinner className="size-3" /> : <span className="room-choice-state-dot" aria-hidden="true" />}
-          {state === "submitting" ? t("rooms.choice.submitting") : state === "submitted" ? t("rooms.choice.submitted")
-            : state === "uncertain" ? t("rooms.choice.checkTerminal") : t("rooms.choice.pending")}
+          {state === "submitting" || state === "opening" ? <Spinner className="size-3" /> : <span className="room-choice-state-dot" aria-hidden="true" />}
+          {state === "opening" ? t("rooms.choice.opening") : state === "submitting" ? t("rooms.choice.submitting") : state === "submitted" ? t("rooms.choice.submitted")
+            : state === "uncertain" ? t("rooms.choice.checkTerminal") : queued ? t("rooms.choice.queuedPending") : t("rooms.choice.pending")}
         </span>
         {onOpenSession ? <Button className="room-choice-terminal" size="icon-xs" variant="ghost"
           aria-label={t("rooms.choice.openTerminal", { name: member.title })} title={t("rooms.choice.openTerminal", { name: member.title })}
           onClick={() => onOpenSession(member.tabId)}><SquareTerminal /></Button> : null}
       </header>
-      <h3 className="room-choice-question" id={`${id}-question`}>{interaction.question || t("rooms.choice.waitingQuestion")}</h3>
+      <h3 className="room-choice-question" id={`${id}-question`}>{interaction.queue && (queued || interaction.kind === "unknown")
+        ? t("rooms.choice.queuedQuestions", { count: interaction.queue.count })
+        : interaction.question || t(queued ? "rooms.choice.queuedQuestion" : "rooms.choice.waitingQuestion")}</h3>
       {interaction.detail ? (
         <details className="room-choice-details">
           <summary><ChevronDown className="size-3.5" />{t("rooms.choice.details")}</summary>
@@ -99,6 +113,13 @@ export function RoomChoiceCard({ request, avatar, onAnswer, onOpenSession }: {
         </details>
       ) : null}
       {interaction.kind === "unknown" ? <p className="room-choice-help">{t("rooms.choice.unsupported")}</p> : null}
+      {queued ? <div>
+        <p className="room-choice-help">{t("rooms.choice.queuedHint")}</p>
+        <Button type="button" size="sm" className="room-choice-open" disabled={disabled}
+          onClick={() => void perform("open", () => onOpenRequest(request))}>
+          {t("rooms.choice.openQuestion")}<ArrowRight />
+        </Button>
+      </div> : null}
       {interaction.kind === "single" || interaction.kind === "confirmation" ? (
         <div className="room-choice-options" role="group" aria-labelledby={`${id}-question`} onKeyDown={moveFocus}>
           <span className="sr-only" id={`${id}-current`}>{t("rooms.choice.currentItem")}</span>
@@ -108,14 +129,17 @@ export function RoomChoiceCard({ request, avatar, onAnswer, onOpenSession }: {
               aria-current={option.index === interaction.selected ? true : undefined}
               aria-labelledby={`${id}-option-${option.index}`} aria-describedby={[
                 option.description ? `${id}-description-${option.index}` : "", option.index === interaction.selected ? `${id}-current` : "",
+                option.action === "input" ? `${id}-action-${option.index}` : "",
               ].filter(Boolean).join(" ") || undefined}
-              onClick={() => void submit({ kind: "single", index: option.index })}>
+              onClick={() => option.action === "input" ? void perform("open", () => onOpenRequest(request, option.index))
+                : void submit({ kind: "single", index: option.index })}>
               <Kbd aria-hidden="true">{option.index}</Kbd>
               <span className="room-choice-option-copy">
                 <span className="room-choice-option-title" id={`${id}-option-${option.index}`}>{option.label}</span>
                 {option.description ? <span className="room-choice-option-description" id={`${id}-description-${option.index}`}>{option.description}</span> : null}
+                {option.action === "input" ? <span className="room-choice-option-description" id={`${id}-action-${option.index}`}>{t("rooms.choice.customAnswer")}</span> : null}
               </span>
-              <span className="room-choice-current-dot" aria-hidden="true" />
+              {option.action === "input" ? <ArrowRight className="mt-1 shrink-0" aria-hidden="true" /> : <span className="room-choice-current-dot" aria-hidden="true" />}
             </Button>
           ))}
         </div>
@@ -167,7 +191,7 @@ export function RoomChoiceCard({ request, avatar, onAnswer, onOpenSession }: {
         <div className="room-choice-feedback" data-error={Boolean(hasError || state === "uncertain")}
           role={hasError || state === "uncertain" ? "alert" : "status"}>
           {hasError || state === "uncertain" ? <AlertCircle className="size-3.5" /> : null}
-          <div><p>{result ? resultText(result) : t("rooms.choice.uncertain")}</p>{result?.message ? <p>{result.message}</p> : null}</div>
+          <div><p>{result ? resultText(result, queued || action === "open") : t(queued || action === "open" ? "rooms.choice.openUncertain" : "rooms.choice.uncertain")}</p>{resultMessage ? <p>{resultMessage}</p> : null}</div>
         </div>
       ) : null}
     </article>

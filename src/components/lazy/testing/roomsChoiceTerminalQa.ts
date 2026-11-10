@@ -36,8 +36,14 @@ export async function createRoomTerminalQa() {
   const target: TerminalCommandTarget = {
     focus: () => {}, sendText: () => false, getSessionId: () => sessionId,
     readInteraction: () => interactions.read(), answerInteraction: (requestId, answer) => interactions.answer(requestId, answer),
+    openInteraction: (requestId, optionIndex) => interactions.open(requestId, optionIndex),
   };
-  Object.assign(window, { qaRoomTerminal: { read: () => interactions.read(), paint, errors } });
+  Object.assign(window, { qaRoomTerminal: { read: () => interactions.read(), paint, errors,
+    screen: () => {
+      const buffer = terminal.buffer.active;
+      return { rows: terminal.rows, cols: terminal.cols, baseY: buffer.baseY, cursorY: buffer.cursorY,
+        lines: Array.from({ length: terminal.rows }, (_, row) => buffer.getLine(buffer.baseY + row)?.translateToString(true) ?? "") };
+    } } });
   window.addEventListener("pagehide", () => { interactions.dispose(); prompt.dispose(); terminal.dispose(); host.remove(); }, { once: true });
   return { targets: new Map([["t2", target]]) };
 }

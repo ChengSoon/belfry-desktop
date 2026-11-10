@@ -1,8 +1,8 @@
 import { fork } from "node:child_process";
 
 /** Reuse T35's executable input consumer without sending keys to a user session. */
-export async function roomChoiceProcess(t) {
-  const child = fork(new URL("./terminal-choice-process.mjs", import.meta.url), [], { silent: true });
+export async function roomChoiceProcess(t, { consumerModule = new URL("./terminal-choice-process.mjs", import.meta.url) } = {}) {
+  const child = fork(consumerModule, [], { silent: true });
   t.after(() => child.kill());
   let latest, stderr = "", nextGate;
   const waiting = new Set(), writes = [], externalWrites = [];

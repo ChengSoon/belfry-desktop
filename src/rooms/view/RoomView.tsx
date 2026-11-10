@@ -538,7 +538,7 @@ function AttentionPanel(props: {
   const { room, tabs, targets } = props;
   const members = activeMembers(room);
   const stuck = members.filter((member) => props.paused.some((item) => item.tabId === member.tabId));
-  const { requests, answer } = useRoomInteractions({ room, tabs, targets });
+  const { requests, answer, open } = useRoomInteractions({ room, tabs, targets });
   const id = useId();
   const count = requests.length + stuck.length;
   const layout = useAttentionLayout(room.id, count > 0);
@@ -578,7 +578,7 @@ function AttentionPanel(props: {
           if (field.top < top || field.height > bottom - top) scroll.scrollTop += field.top - top;
           else if (field.bottom > bottom) scroll.scrollTop += field.bottom - bottom;
         }}>
-      {requests.map(request => <RoomChoiceCard key={request.key} request={request} onAnswer={answer} onOpenSession={props.onOpenSession}
+      {requests.map(request => <RoomChoiceCard key={request.key} request={request} onAnswer={answer} onOpenRequest={open} onOpenSession={props.onOpenSession}
         avatar={<MemberAvatar id={request.member.id} room={room} size="sm" />} />)}
       {stuck.map((member) => (
         <article className="room-attention-paused" key={`stuck-${member.id}`}>
