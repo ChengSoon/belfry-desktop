@@ -248,6 +248,7 @@ export function useTerminalSession(
   const sendText = useCallback<TerminalCommandTarget["sendText"]>((text, options) => handle.current?.sendText(text, options) ?? false, []);
   const commandTarget = useMemo<TerminalCommandTarget>(() => ({ focus, sendText, notifyInputIssue: setError,
     getSessionId: () => sessionId.current,
+    inputRevision: () => handle.current?.inputRevision() ?? -1,
     composerEmpty: () => handle.current?.composerEmpty() ?? false,
     readChoice: () => handle.current?.readChoice() ?? null,
     readInteraction: () => handle.current?.readInteraction() ?? null,

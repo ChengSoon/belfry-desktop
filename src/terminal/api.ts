@@ -26,10 +26,15 @@ export function acknowledgeTerminalOutput(receipt: OutputReceipt) {
   return invoke<boolean>("terminal_ack_output", { ...receipt });
 }
 
-export function writeTerminal(sessionId: string, bytes: Uint8Array) {
+/** 收件箱批次的原生写入许可：一批的每次程序化写入都带同一 guard，writeSequence 从 1 连续递增。 */
+export interface TerminalWriteGuard { guard: import("../inbox/contracts").WriteGuard; sequence: number }
+
+export function writeTerminal(sessionId: string, bytes: Uint8Array, guarded?: TerminalWriteGuard) {
   return invoke<void>("terminal_write", {
     sessionId,
     bytes: Array.from(bytes),
+    // 用户输入不带 guard：Rust 在仲裁锁下推进 inputRevision 并撤销旧 offer。
+    ...(guarded ? { inboxGuard: guarded.guard, writeSequence: guarded.sequence } : {}),
   });
 }
 

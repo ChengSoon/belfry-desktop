@@ -35,7 +35,9 @@ export function usePromptQueue({ tabs, targets }: PromptQueueOptions) {
     return () => window.clearInterval(timer);
   }, [tabs, targets]);
 
-  return { submit, cancel, paused, resume, resolvePersisted };
+  const isEmptyFor = useCallback((tabId: string) => runtime.current.isEmptyFor(tabId), []);
+
+  return { submit, cancel, paused, resume, resolvePersisted, isEmptyFor };
 }
 
 function sameDeliveries(a: readonly PausedDelivery[], b: readonly PausedDelivery[]) {

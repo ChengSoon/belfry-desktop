@@ -113,6 +113,8 @@ export class TerminalLifecycle {
 
   sendText(text: string, options?: PromptDeliveryOptions) { return this.input.sendText(text, options); }
 
+  get inputRevision() { return this.input.inputRevision; }
+
   sendInteraction(request: InteractionWrite) { return this.input.sendInteraction(request); }
 
   /** 替用户按下选择键：走和键盘同一条输入通道，PTY 不在时不发。 */

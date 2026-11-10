@@ -55,6 +55,7 @@ function createHandle({ view, lifecycle, layout }: {
     search: view.search,
     focus: () => { if (lifecycle.alive) view.terminal.focus(); },
     sendText: (text, options) => lifecycle.sendText(text, options),
+    inputRevision: () => lifecycle.inputRevision,
     composerEmpty: () => lifecycle.alive && composerLooksEmpty(readScreenTail(view.terminal, CHOICE_TAIL_LINES), lifecycle.agentKind),
     readChoice: () => interactions.readChoice(),
     answerChoice: (signature, index) => interactions.answerChoice(signature, index),
