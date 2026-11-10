@@ -351,5 +351,6 @@
     "projectHint": "Choose the project directory where room members will start their sessions.",
     "projectError": "Could not open this project directory: {{reason}}",
     "teamWithoutProject": "Team (sessions start in the selected project)"
-  }
+  },
+  "tasks.assigneeUnavailable": "The selected member has left. Choose an assignee again."
 }

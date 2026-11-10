@@ -1413,10 +1413,10 @@ function TaskCard({ room, rooms, task }: { room: Room; rooms: RoomsState; task: 
           {task.status !== "done" && task.status !== "archived" ? (
             <div className="flex items-center gap-2">
               <span className="w-14 shrink-0 text-muted-foreground">{t("rooms.RoomView.text_a525346277")}</span>
-              <Select onValueChange={(value) => run({ op: "assign", task: task.id, assignee: value })} value={assignee?.title ?? ""}>
+              <Select onValueChange={(value) => run({ op: "assign", task: task.id, assignee: value })} value={assignee?.id ?? ""}>
                 <SelectTrigger aria-label={t("rooms.RoomView.text_a525346277")} className="h-7 flex-1 text-xs" size="sm"><SelectValue placeholder={t("rooms.RoomView.text_59b6aaf112")} /></SelectTrigger>
                 <SelectContent>
-                  {activeMembers(room).map((member) => <SelectItem key={member.id} value={member.title}>{member.title}</SelectItem>)}
+                  {activeMembers(room).map((member) => <SelectItem key={member.id} value={member.id}>{member.title}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -1464,13 +1464,16 @@ function Detail({ label, children }: { label: string; children: ReactNode }) {
 
 function TaskForm({ room, rooms, onDone }: { room: Room; rooms: RoomsState; onDone: () => void }) {
   useTranslation();
+  const id = useId();
   const [title, setTitle] = useState("");
   const [outcome, setOutcome] = useState("");
   const [assignee, setAssignee] = useState("");
   const [after, setAfter] = useState<string[]>([]);
+  const members = activeMembers(room);
+  const missingAssignee = Boolean(assignee) && !members.some(member => member.id === assignee);
   const open = room.tasks.filter((task) => task.status === "planned" || task.status === "active");
   const submit = async () => {
-    if (!title.trim()) return;
+    if (!title.trim() || missingAssignee) return;
     const created = await rooms.run(() => api.roomTask(room.id, { op: "add", title, outcome: outcome || null, assignee: assignee || null, after }));
     if (created) onDone();
   };
@@ -1480,12 +1483,16 @@ function TaskForm({ room, rooms, onDone }: { room: Room; rooms: RoomsState; onDo
       <Input aria-label={t("rooms.RoomView.text_f118de64d6")} autoFocus maxLength={80} onChange={(event) => setTitle(event.target.value)} placeholder={t("rooms.RoomView.text_f118de64d6")} value={title} />
       <Textarea aria-label={t("rooms.RoomView.text_fa4aa984fe")} className="min-h-14 text-sm" onChange={(event) => setOutcome(event.target.value)}
         placeholder={t("rooms.RoomView.text_df3d1cf7e4")} rows={2} value={outcome} />
-      <Select onValueChange={setAssignee} value={assignee}>
-        <SelectTrigger aria-label={t("rooms.RoomView.text_a525346277")} className="w-full" size="sm"><SelectValue placeholder={t("rooms.RoomView.text_205cf96a14")} /></SelectTrigger>
+      <Select onValueChange={setAssignee} value={missingAssignee ? "" : assignee}>
+        <SelectTrigger aria-label={t("rooms.RoomView.text_a525346277")} aria-invalid={missingAssignee}
+          aria-describedby={missingAssignee ? `${id}-assignee-error` : undefined} className="w-full" size="sm"><SelectValue placeholder={t("rooms.RoomView.text_205cf96a14")} /></SelectTrigger>
         <SelectContent>
-          {activeMembers(room).map((member) => <SelectItem key={member.id} value={member.title}>{member.title}</SelectItem>)}
+          {members.map((member) => <SelectItem key={member.id} value={member.id}>{member.title}</SelectItem>)}
         </SelectContent>
       </Select>
+      {missingAssignee ? <p id={`${id}-assignee-error`} className="text-xs text-destructive" role="alert">
+        {t("rooms.tasks.assigneeUnavailable")}
+      </p> : null}
       {open.length ? (
         <div className="flex flex-col gap-1.5">
           <span className="text-xs text-muted-foreground">{t("rooms.RoomView.text_abc76e272d")}</span>
@@ -1500,7 +1507,7 @@ function TaskForm({ room, rooms, onDone }: { room: Room; rooms: RoomsState; onDo
       ) : null}
       <div className="flex justify-end gap-2">
         <Button onClick={onDone} size="sm" type="button" variant="ghost">{t("rooms.RoomView.text_2cd0f3be87")}</Button>
-        <Button disabled={!title.trim() || rooms.busy} size="sm" type="submit">{t("rooms.RoomView.text_5a4058d383")}</Button>
+        <Button disabled={!title.trim() || rooms.busy || missingAssignee} size="sm" type="submit">{t("rooms.RoomView.text_5a4058d383")}</Button>
       </div>
     </form>
   );
