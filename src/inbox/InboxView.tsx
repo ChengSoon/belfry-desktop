@@ -37,9 +37,14 @@ export function InboxView({ inbox, onOpenSession, availableTabIds }: InboxViewPr
   useEffect(() => {
     if (!reading) return;
     backRef.current?.focus({ preventScroll: true });
-    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape" && !event.defaultPrevented) { event.preventDefault(); close(); } };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    // 捕获阶段先处理：详情里的 Esc 只返回列表，不让外层面板的 dismiss 把整个面板关掉。
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented || event.isComposing) return;
+      event.preventDefault();
+      close();
+    };
+    document.addEventListener("keydown", onKey, true);
+    return () => document.removeEventListener("keydown", onKey, true);
   }, [reading]);
 
   const close = () => {
@@ -124,7 +129,7 @@ function SessionRow({ session, onOpen }: { session: SessionView; onOpen: () => v
       <span className="inbox-session__body">
         <span className="inbox-session__top">
           <strong>{session.name}</strong>
-          <span className="inbox-agent">{session.agent} · {shortTab(session.tabId)}</span>
+          <span className="inbox-agent" title={session.tabId}>{session.agent} · {shortTab(session.tabId)}</span>
           {session.lastMessageAt ? <time dateTime={new Date(session.lastMessageAt).toISOString()}>{formatDateTime(session.lastMessageAt, { hour: "2-digit", minute: "2-digit" })}</time> : null}
         </span>
         <span className={`inbox-status inbox-status--${tone}`}><i aria-hidden="true" />{statusText(session.summaryStatus)}</span>
@@ -243,4 +248,5 @@ function Message({ message, quoted }: { message: MessageView; quoted?: MessageVi
 }
 
 function initial(name: string) { return [...name.trim()][0] ?? "?"; }
-function shortTab(tabId: string) { return tabId.length > 8 ? tabId.slice(0, 4) : tabId; }
+/** 长 tabId 取末 6 位：前缀常相同（agent-…），末尾才区分同类模型的不同会话。完整 id 放 title。 */
+function shortTab(tabId: string) { return tabId.length > 8 ? `…${tabId.slice(-6)}` : tabId; }
