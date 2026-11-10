@@ -27,7 +27,7 @@ const nativeSource = `(() => {
 const PANEL = 'button[title="会话协作"]';
 
 test("uncertain tasks locate the stable terminal and require a current manual decision without repasting", async (t) => {
-  const { view } = await productionFixture(t, { nativeSource, terminalCount: 2 });
+  const { view } = await productionFixture(t, { nativeSource, terminalCount: 2, readinessDiagnostics: true });
   await click(view, PANEL);
   await waitFor(view, "!!document.querySelector('[data-delivery-action=locate]')");
   await click(view, "[data-delivery-action=locate]");

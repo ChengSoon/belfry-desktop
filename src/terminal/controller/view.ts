@@ -8,6 +8,7 @@ import { registerFileLinkProvider, registerHttpLinkProvider } from "../links";
 import { TerminalSearchController } from "../search";
 import { configureUnicode } from "../unicode";
 import { hostIsLaidOut } from "./hostSize";
+import { measureMountPhase } from "./mountPhase";
 import { attachWebglRenderer, applyTypographyOptions, createXterm } from "./renderConfig";
 
 interface ViewOptions {
@@ -29,18 +30,18 @@ export class TerminalView {
   private readonly renderer;
 
   constructor(options: ViewOptions) {
-    this.terminal = createXterm(options.theme, options.transparent, options.typography);
+    this.terminal = measureMountPhase(options.host, "xterm.create", () => createXterm(options.theme, options.transparent, options.typography));
     configureUnicode(this.terminal);
     this.links = registerHttpLinkProvider(this.terminal);
     this.fileLinks = registerFileLinkProvider(this.terminal, options.onOpenFile);
     this.search = new TerminalSearchController(this.terminal);
     this.themeSync = new CodexThemeSync(options.theme, options.transparent, options.codex);
     this.terminal.loadAddon(this.fit);
-    this.terminal.open(options.host);
-    this.renderer = attachWebglRenderer(this.terminal);
+    measureMountPhase(options.host, "xterm.open", () => this.terminal.open(options.host));
+    this.renderer = measureMountPhase(options.host, "renderer.attach", () => attachWebglRenderer(this.terminal));
     // 被藏起来的宿主（房间打开时的工作台）拟合出的是假尺寸：10 列宽。宁可保持 xterm
     // 的默认网格，等它真的布过局再由 ResizeObserver 拟合。
-    if (hostIsLaidOut(options.host)) this.fit.fit();
+    measureMountPhase(options.host, "view.fit", () => { if (hostIsLaidOut(options.host)) this.fit.fit(); });
   }
 
   applyTheme(theme: TerminalTheme, transparent: boolean) {

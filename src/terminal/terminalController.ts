@@ -8,6 +8,7 @@ import { TerminalLifecycle } from "./controller/lifecycle";
 import { TerminalView } from "./controller/view";
 import type { MountCallbacks, TerminalHandle } from "./controller/types";
 import { TerminalInteractions } from "./controller/interaction";
+import { measureMountPhase } from "./controller/mountPhase";
 
 export type { MountCallbacks, TerminalHandle } from "./controller/types";
 export { diagnoseTerminalExit, errorMessage } from "./controller/diagnostics";
@@ -21,13 +22,13 @@ export function mountTerminal(
   typography: TypographyRuntime,
   callbacks: MountCallbacks,
 ): TerminalHandle {
-  const view = new TerminalView({ host, theme, transparent, typography,
-    codex: launch.profileId === "agent:codex", onOpenFile: callbacks.onOpenFile });
-  const lifecycle = new TerminalLifecycle({ host, launch, theme, callbacks,
+  const view = measureMountPhase(host, "view.construct", () => new TerminalView({ host, theme, transparent, typography,
+    codex: launch.profileId === "agent:codex", onOpenFile: callbacks.onOpenFile }), launch.tabId);
+  const lifecycle = measureMountPhase(host, "lifecycle.construct", () => new TerminalLifecycle({ host, launch, theme, callbacks,
     terminal: view.terminal, fit: view.fit, themeSync: view.themeSync,
-    onStopped: () => layout.cancelPending(), onReady: () => layout.syncSize() });
-  const layout = new TerminalLayout({ host, terminal: view.terminal, fit: view.fit,
-    session: () => lifecycle.current, update: (session) => lifecycle.updateSession(session), error: callbacks.onError });
+    onStopped: () => layout.cancelPending(), onReady: () => layout.syncSize() }));
+  const layout = measureMountPhase(host, "layout.construct", () => new TerminalLayout({ host, terminal: view.terminal, fit: view.fit,
+    session: () => lifecycle.current, update: (session) => lifecycle.updateSession(session), error: callbacks.onError }));
   void lifecycle.start();
   return createHandle({ view, lifecycle, layout });
 }

@@ -16,6 +16,7 @@ import { OutputQueue } from "./outputQueue";
 import { SessionActivity } from "./sessionActivity";
 import type { MountCallbacks } from "./types";
 import type { InteractionWrite } from "../interaction";
+import { measureMountPhase } from "./mountPhase";
 
 interface LifecyclePorts {
   host: HTMLDivElement;
@@ -84,7 +85,7 @@ export class TerminalLifecycle {
     try {
       // 宿主被藏着（房间打开时的工作台）时 fitAddon 会拟出退化网格：把计算宽度
       // `width: 100%` 误读成 100px、算出十来个列宽。不要拟合，也不要把这种尺寸报给后台。
-      if (hostIsLaidOut(host)) fit.fit();
+      measureMountPhase(host, "lifecycle.fit", () => { if (hostIsLaidOut(host)) fit.fit(); });
       const grid = initialGrid(host, terminal);
       const request = createTerminalRequest(grid.cols, grid.rows, launch, palette(theme));
       request.resume = callbacks.getResumeSessionId?.() ?? request.resume;

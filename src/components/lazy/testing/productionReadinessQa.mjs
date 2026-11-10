@@ -80,7 +80,7 @@ export function productionReadinessQa(t, requests) {
             const source = params.args[1]?.value;
             if (typeof source !== "string" || source.length > 6000) throw new Error("Invalid readiness fact");
             entry.pageFacts.push({ receivedAt: Date.now(), contextId: params.executionContextId, ...JSON.parse(source) });
-            if (entry.pageFacts.length > 80) { entry.pageFacts.splice(30, 1); entry.droppedFacts++; }
+            if (entry.pageFacts.length > 160) { entry.pageFacts.splice(40, 1); entry.droppedFacts++; }
           } catch (error) { record("fact.error", { message: error.message }); }
           return;
         }
@@ -92,7 +92,7 @@ export function productionReadinessQa(t, requests) {
       };
       browser.on("protocol", entry.listen); windows.push(entry); record("target.start");
       return {
-        source: `(${observeProductionReadiness.toString()})(${JSON.stringify(expected)})`,
+        source: `(${observeProductionReadiness.toString()})(${JSON.stringify(expected)}, ${observeTerminalMount.toString()})`,
         async install(stage, operation) {
           record("diagnostics.install.start", { stage });
           try {
@@ -111,10 +111,10 @@ export function productionReadinessQa(t, requests) {
   };
 }
 
-function observeProductionReadiness(expected) {
+function observeProductionReadiness(expected, observeMount) {
   const documentId = crypto.randomUUID(), timeline = [], ids = new WeakMap();
   const emit = console.debug.bind(console);
-  let nextId = 0, dropped = 0, previous = "";
+  let nextId = 0, dropped = 0, previous = "", mounting;
   const safe = (value, depth = 0) => {
     if (typeof value === "string") return value.slice(0, 1000);
     if (value == null || typeof value !== "object") return value;
@@ -145,6 +145,7 @@ function observeProductionReadiness(expected) {
     const state = { ...counts(), readyState: document.readyState, nodes: [...document.querySelectorAll(".xterm")].map(identity) };
     const key = JSON.stringify(state);
     if (key !== previous) { previous = key; record("readiness.changed", state); }
+    if (state.terminals === expected && state.creates === expected) mounting?.ready();
   };
   const native = window.__TAURI_INTERNALS__;
   if (native?.invoke) {
@@ -164,6 +165,9 @@ function observeProductionReadiness(expected) {
       return callback(value);
     }, once);
   }
+  mounting = observeMount(fact => emit("__belfryProductionReadiness", JSON.stringify({
+    documentId, timeOrigin: performance.timeOrigin, ...fact,
+  })));
   new MutationObserver(changed).observe(document, { childList: true, subtree: true });
   for (const kind of ["readystatechange", "DOMContentLoaded", "load", "pageshow", "pagehide"]) {
     addEventListener(kind, () => { record(kind, { readyState: document.readyState }); changed(); }, true);
@@ -182,7 +186,95 @@ function observeProductionReadiness(expected) {
       errors: qa?.errors.slice(0, 30), preloadErrors: qa?.preloadErrors.slice(0, 30),
       resources: performance.getEntriesByType("resource").slice(0, 80).map(item => ({ name: item.name, startTime: item.startTime, duration: item.duration, type: item.initiatorType, responseStatus: item.responseStatus })),
       dom: root?.outerHTML.slice(0, 60000), domTruncated: (root?.outerHTML.length ?? 0) > 60000,
-      timeline, dropped };
+      timeline, dropped, mounting: mounting.snapshot() };
   } };
   record("observer.installed"); changed();
+}
+
+// This source runs only in opted-in, isolated production pages. It records
+// synchronous boundaries without changing scheduling, rendering or IPC values.
+function observeTerminalMount(publish) {
+  const phases = [], contexts = [], longTasks = [], setupErrors = [], stack = [];
+  const hosts = new WeakMap(), canvases = new WeakMap(), tabs = new Map();
+  const dropped = { phases: 0, contexts: 0, longTasks: 0 };
+  let nextHost = 0, nextCanvas = 0, readyAt = null, observer;
+  const attempt = (stage, run) => {
+    try { return run(); }
+    catch (error) { if (setupErrors.length < 10) setupErrors.push({ stage, message: String(error).slice(0, 400) }); }
+  };
+  const append = (name, list, entry, limit) => {
+    list.push(entry);
+    if (list.length > limit) { list.splice(Math.min(20, limit - 1), 1); dropped[name]++; }
+    attempt("publish", () => publish({ kind: `mount.${name}`, ...entry }));
+  };
+  const trace = ({ host, tabId, stage, phase }) => attempt("phase", () => {
+    if (readyAt !== null) return;
+    if (!hosts.has(host)) hosts.set(host, ++nextHost);
+    const id = hosts.get(host), at = performance.now();
+    if (tabId != null) tabs.set(id, tabId);
+    const entry = { at, host: id, tabId: tabs.get(id), stage, phase };
+    if (phase === "start") stack.push(entry);
+    else {
+      const index = stack.findLastIndex(item => item.host === id && item.stage === stage);
+      if (index >= 0) { entry.duration = at - stack[index].at; stack.splice(index, 1); }
+    }
+    append("phases", phases, entry, 120);
+  });
+  const key = "__belfryTerminalMountTrace";
+  const originalTrace = attempt("phase.descriptor", () => Object.getOwnPropertyDescriptor(window, key));
+  attempt("phase.install", () => Object.defineProperty(window, key, { value: trace, configurable: true, writable: true }));
+
+  const prototype = HTMLCanvasElement.prototype;
+  const descriptor = attempt("context.descriptor", () => Object.getOwnPropertyDescriptor(prototype, "getContext")), original = descriptor?.value;
+  function getContext(...args) {
+    if (readyAt !== null) return Reflect.apply(original, this, args);
+    const entry = attempt("context.start", () => {
+      if (!canvases.has(this)) canvases.set(this, ++nextCanvas);
+      const scope = stack.at(-1);
+      const entry = { at: performance.now(), canvas: canvases.get(this), context: typeof args[0] === "string" ? args[0] : typeof args[0],
+        host: scope?.host, tabId: scope?.tabId, stage: scope?.stage, phase: "start" };
+      append("contexts", contexts, entry, 80);
+      return entry;
+    });
+    let returned = false, value;
+    try { value = Reflect.apply(original, this, args); returned = true; return value; }
+    finally {
+      if (entry) attempt("context.end", () => append("contexts", contexts, { ...entry,
+        at: performance.now(), duration: performance.now() - entry.at, phase: returned ? "return" : "throw",
+        ...(returned ? { available: value !== null } : {}) }, 80));
+    }
+  }
+  attempt("context.install", () => {
+    if (typeof original !== "function") throw new Error("Canvas getContext unavailable");
+    Object.defineProperty(prototype, "getContext", { ...descriptor, value: getContext });
+  });
+  const collectLongTasks = entries => attempt("longtask.capture", () => {
+    for (const entry of entries) {
+      if (readyAt !== null && entry.startTime > readyAt) continue;
+      append("longTasks", longTasks, { at: entry.startTime, duration: entry.duration, name: entry.name,
+        attribution: Array.from(entry.attribution ?? []).slice(0, 3).map(item => ({ name: item.name,
+          containerType: item.containerType, containerName: item.containerName?.slice(0, 100) })) }, 40);
+    }
+  });
+  attempt("longtask.install", () => {
+    if (!PerformanceObserver.supportedEntryTypes.includes("longtask")) throw new Error("Long-task entries unavailable");
+    observer = new PerformanceObserver(list => collectLongTasks(list.getEntries()));
+    observer.observe({ type: "longtask", buffered: true });
+  });
+  const restore = () => {
+    attempt("context.restore", () => { if (prototype.getContext === getContext) Object.defineProperty(prototype, "getContext", descriptor); });
+    attempt("phase.restore", () => {
+      if (window[key] !== trace) return;
+      if (originalTrace) Object.defineProperty(window, key, originalTrace);
+      else delete window[key];
+    });
+  };
+  addEventListener("pagehide", () => { restore(); observer?.disconnect(); }, { once: true });
+  return {
+    ready() { if (readyAt === null) { readyAt = performance.now(); restore(); } },
+    snapshot() {
+      if (observer) attempt("longtask.drain", () => collectLongTasks(observer.takeRecords()));
+      return { readyAt, phases, contexts, longTasks, dropped, setupErrors };
+    },
+  };
 }
