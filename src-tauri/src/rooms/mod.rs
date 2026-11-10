@@ -21,6 +21,7 @@ mod ledger;
 mod history;
 mod model;
 mod ops;
+mod scheduling;
 mod store;
 
 pub use store::RoomStore;
@@ -44,6 +45,10 @@ pub mod test_support {
 #[cfg(test)]
 #[path = "rooms_test.rs"]
 mod rooms_test;
+
+#[cfg(test)]
+#[path = "duty_test.rs"]
+mod duty_test;
 
 #[cfg(test)]
 #[path = "history_test.rs"]

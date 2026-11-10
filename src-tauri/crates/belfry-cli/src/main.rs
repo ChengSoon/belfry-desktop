@@ -604,11 +604,15 @@ fn render_status(status: &belfry_protocol::RoomStatusView) -> String {
     lines.push(belfry_i18n::text("需求简报").to_string());
     lines.extend(render_brief(&status.brief).lines().map(|line| format!("  {line}")));
     lines.push(String::new());
-    lines.push(belfry_i18n::text("成员").to_string());
-    for member in &status.members {
-        let me = if member.is_me { belfry_i18n::text("（我）") } else { "" };
-        let duty = if member.duty.is_empty() { String::new() } else { format!(" — {}", member.duty) };
-        lines.push(format!("  {}{me} [{}] {}{duty}", member.title, belfry_i18n::text(&member.role), member.activity));
+    if let Some(context) = status.coordination.as_deref().filter(|text| !text.is_empty()) {
+        lines.push(context.to_string());
+    } else {
+        lines.push(belfry_i18n::text("成员").to_string());
+        for member in &status.members {
+            let me = if member.is_me { belfry_i18n::text("（我）") } else { "" };
+            let duty = if member.duty.is_empty() { String::new() } else { format!(" — {}", member.duty) };
+            lines.push(format!("  {}{me} [{}] {}{duty}", member.title, belfry_i18n::text(&member.role), member.activity));
+        }
     }
     lines.push(String::new());
     if status.tasks.is_empty() {
@@ -1146,6 +1150,7 @@ mod tests {
     fn room_status_render_shows_brief_members_tasks_and_pending_replies() {
         let text = render(ResponseData::RoomStatus {
             status: belfry_protocol::RoomStatusView {
+                coordination: None,
                 room: "登录改版".into(),
                 my_title: "后端".into(),
                 i_am_foreman: false,
@@ -1177,6 +1182,26 @@ mod tests {
         for needle in ["我是成员「后端」", "目标：做完登录页", "当前重点：（未写）", "约束：不动协议", "后端（我）", "T2 [待开工] 登录页（前端） 等 T1 完成", "完成标准：能登录", "等你回复", "[abcd1234] 统筹 → 后端：今天能好吗"] {
             assert!(text.contains(needle), "缺「{needle}」：\n{text}");
         }
+    }
+
+    #[test]
+    fn room_status_accepts_legacy_servers_and_renders_shared_context_once() {
+        let legacy = serde_json::json!({
+            "room": "Routing", "myTitle": "Coordinator", "iAmForeman": true,
+            "brief": { "objective": "Save settings", "focus": "", "constraints": [] },
+            "members": [{ "title": "River", "role": "peer", "duty": "Storage and migrations", "isMe": false, "activity": "talking" }],
+            "tasks": [], "awaitingMe": []
+        });
+        let mut status: belfry_protocol::RoomStatusView = serde_json::from_value(legacy.clone()).unwrap();
+        assert!(status.coordination.is_none());
+        assert_eq!(serde_json::to_value(&status).unwrap(), legacy);
+        assert!(render_status(&status).contains("River [peer] talking — Storage and migrations"));
+        let context = "Assignment rules: use responsibilities.\nRiver (member ID: exact-id); responsibilities: Storage and migrations";
+        status.coordination = Some(context.into());
+        let output = render_status(&status);
+        assert!(output.contains(context));
+        assert_eq!(output.matches("Storage and migrations").count(), 1);
+        assert!(output.contains("Routing") && output.contains("Save settings"));
     }
 
     #[test]

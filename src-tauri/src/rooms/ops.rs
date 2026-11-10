@@ -87,7 +87,7 @@ fn onboarding(room: &Room, member: &Member) -> String {
 把需求拆成任务、按职责派给成员（belfry room task add <标题> --to <角色> --outcome <完成标准>）；\
 只有很小的活、或者没有合适的成员时才自己做。派活只用任务板，不要用 belfry send。\
 房间命令报错时向用户报告原始错误，先核对任务板；不要绕过任务板派活或重复创建。\
-成员完成任务或手上没活时你会收到通知，据此派下一件；全部完成后用 belfry room say --to @用户 汇报。"),
+成员完成任务或空闲通知用于核对进度，下一项仍须先匹配最新职责；全部完成后用 belfry room say --to @用户 汇报。"),
         MemberRole::Peer => belfry_i18n::text("你是成员：做好自己职责内的任务，开工 belfry room task start <任务号>，\
 完成 belfry room task done <任务号> <结果>；发现问题或需要别人配合，跟统筹说（belfry room say <内容>）。"),
     };
@@ -154,7 +154,8 @@ pub fn add_member(
     });
     let member = room.active_member(&id).cloned().expect("刚加入");
     let role = if becomes_foreman { belfry_i18n::text("统筹") } else { belfry_i18n::text("成员") };
-    posted.push(notice(room, belfry_i18n::lformat!("「{title}」以{role}身份加入了房间。"), Vec::new(), now));
+    let to = room.foreman().filter(|foreman| foreman.id != id).map(|foreman| vec![foreman.id.clone()]).unwrap_or_default();
+    posted.push(notice(room, belfry_i18n::lformat!("「{title}」以{role}身份加入了房间。"), to, now));
     posted.push(notice(room, onboarding(room, &member), vec![id.clone()], now));
     Ok((id, posted))
 }
@@ -218,14 +219,30 @@ pub fn update_member(
     }
     let mut posted = Vec::new();
     if let Some(title) = title.filter(|title| *title != current.title) {
-        posted.push(notice(room, belfry_i18n::lformat!("「{}」改名为「{title}」。", current.title), Vec::new(), now));
+        posted.push(notice(room, belfry_i18n::lformat!("「{}」改名为「{title}」。", current.title), member_change_recipients(room, member_id), now));
+    }
+    if duty.is_some_and(|duty| duty.trim() != current.duty) {
+        let member = room.active_member(member_id).expect("刚查过");
+        let title = &member.title;
+        let duty = if member.duty.is_empty() { belfry_i18n::text("未写职责") } else { member.duty.as_str() };
+        let text = belfry_i18n::lformat!("「{title}」职责更新为：{duty}。现有任务负责人保持不变，下一次派活请按最新职责判断。");
+        posted.push(notice(room, text, member_change_recipients(room, member_id), now));
     }
     // 换了会话：新会话对房间一无所知，重发一遍上手说明。
     if tab_id.is_some_and(|tab| tab != current.tab_id) {
         let member = room.active_member(member_id).cloned().expect("刚查过");
         posted.push(notice(room, onboarding(room, &member), vec![member.id.clone()], now));
+        if let Some(foreman) = room.foreman().filter(|foreman| foreman.id != member_id).cloned() {
+            posted.push(notice(room, belfry_i18n::lformat!("「{}」已绑定新的会话，成员身份和任务不变。", member.title), vec![foreman.id], now));
+        }
     }
     Ok(posted)
+}
+
+fn member_change_recipients(room: &Room, member_id: &str) -> Vec<String> {
+    let mut recipients = vec![member_id.to_string()];
+    if let Some(foreman) = room.foreman().filter(|foreman| foreman.id != member_id) { recipients.push(foreman.id.clone()); }
+    recipients
 }
 
 pub fn remove_member(room: &mut Room, member_id: &str, now: i64) -> Result<Vec<Posted>, String> {
@@ -233,7 +250,8 @@ pub fn remove_member(room: &mut Room, member_id: &str, now: i64) -> Result<Vec<P
     if let Some(member) = room.members.iter_mut().find(|member| member.id == member_id) {
         member.left_at = Some(now);
     }
-    let mut posted = vec![notice(room, belfry_i18n::lformat!("「{}」离开了房间。", leaving.title), Vec::new(), now)];
+    let to = room.foreman().map(|foreman| vec![foreman.id.clone()]).unwrap_or_default();
+    let mut posted = vec![notice(room, belfry_i18n::lformat!("「{}」（成员ID：{member_id}）离开了房间。", leaving.title), to, now)];
     // 统筹走了：最早加入的在场成员接任，不让房间失去统筹。
     if leaving.role == MemberRole::Foreman {
         demote(room, member_id);
@@ -420,7 +438,8 @@ pub fn set_paused(room: &mut Room, paused: bool, now: i64) -> Result<Posted, Str
     } else {
         belfry_i18n::text("你恢复了房间：新消息照常送进成员终端。暂停期间的消息不会补发，需要的话再说一遍。")
     };
-    Ok(notice(room, text.to_string(), Vec::new(), now))
+    let to = if paused { Vec::new() } else { room.foreman().map(|foreman| vec![foreman.id.clone()]).unwrap_or_default() };
+    Ok(notice(room, text.to_string(), to, now))
 }
 
 // ---- 空闲提醒 ----
@@ -470,8 +489,7 @@ pub fn idle_nudge(room: &mut Room, session_idle: &dyn Fn(&Member) -> bool, now: 
     room.idle_nudged_after = Some(last);
     let prefix = belfry_i18n::text(IDLE_NUDGE_PREFIX);
     let text = belfry_i18n::lformat!(
-        "{prefix}「{}」手上没有任务，房间已经安静 {} 分钟。还有要做的就拆成任务派给他们\
-（belfry room task add <标题> --to <角色>）；没有就不用回复。",
+        "{prefix}「{}」手上没有任务，房间已经安静 {} 分钟。请先核对剩余目标与成员职责；只向职责匹配者分派，空闲不代表适合。没有后续工作就不用回复。",
         idle.join("」「"),
         (now - last) / 60_000
     );
@@ -491,7 +509,8 @@ fn assignee_id(room: &Room, title: Option<&str>) -> Result<Option<String>, Strin
     match title.map(str::trim).filter(|title| !title.is_empty()) {
         None => Ok(None),
         Some(title) => room
-            .member_by_title(title)
+            .active_member(&title.trim_start_matches('@').to_lowercase())
+            .or_else(|| room.member_by_title(title))
             .map(|member| Some(member.id.clone()))
             .ok_or_else(|| belfry_i18n::lformat!("房间里没有「{}」", title.trim_start_matches('@'))),
     }

@@ -569,12 +569,15 @@ fn a_users_message_to_the_foreman_carries_the_member_roster() {
     let posted = ops::say(&mut room, &Actor::User, &[], "做个登录页", None, false, 5).unwrap();
     let posts = deliveries(&room, std::slice::from_ref(&posted));
     assert_eq!(posts.len(), 1);
-    assert!(posts[0].line.contains("可以派活的成员：前端（页面，手上 1 件）、后端（接口，手上 0 件）"), "{}", posts[0].line);
-    assert!(posts[0].line.contains("belfry room task add"));
-    // 成员之间的消息、发给成员的消息都不附名单。
+    for (title, duty, count) in [("前端", "页面", 1), ("后端", "接口", 0)] {
+        let line = posts[0].line.lines().find(|line| line.starts_with(&format!("- {title}（"))).unwrap();
+        assert!(line.contains(&member(&room, title).id) && line.contains(&format!("职责：{duty}；未完成任务：{count}")), "{line}");
+    }
+    assert!(posts[0].line.contains("先按任务目标匹配职责"));
+    // 发给普通成员的消息不附统筹调度上下文。
     let foreman = as_member(&room, "统筹员");
     let posted = ops::say(&mut room, &Actor::Member(&foreman), &["@后端".into()], "看下", None, false, 6).unwrap();
-    assert!(!deliveries(&room, &[posted])[0].line.contains("可以派活"));
+    assert!(!deliveries(&room, &[posted])[0].line.contains("派活规则："));
 }
 
 #[test]

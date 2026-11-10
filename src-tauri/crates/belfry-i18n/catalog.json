@@ -5563,5 +5563,80 @@
     "code": "NATIVE_BRING_ALL_TO_FRONT",
     "zh": "全部置于前台",
     "en": "Bring All to Front"
+  },
+  {
+    "code": "ROOM_COORDINATION_RULES",
+    "zh": "派活规则：先按任务目标匹配职责，再在匹配成员中考虑负载、会话状态和前置依赖；空闲本身不是派活理由。用户明确指定负责人时优先遵从，不静默改派；跨职责工作拆成任务，由统筹集成；没有合适成员时说明缺口。只用任务板派活，派活前用 belfry room status 核对最新职责与已有任务，避免重复创建。",
+    "en": "Assignment rules: match the task objective to responsibilities first, then consider workload, session activity and dependencies among matching members. Being idle is not a reason to assign work. Honor an owner explicitly named by the user; do not silently reassign. Split work across responsibilities and let the coordinator integrate it. Explain any responsibility gap. Use the task board, and check current responsibilities and existing tasks with belfry room status before assigning to avoid duplicates."
+  },
+  {
+    "code": "ROOM_COORDINATION_ROSTER",
+    "zh": "当前在场成员（本次快照；任意自定义职责，不按 Agent 类型分工）",
+    "en": "Current members (this snapshot; use custom responsibilities, not Agent type)"
+  },
+  {
+    "code": "ROOM_COORDINATION_ACTIVITY_UNKNOWN",
+    "zh": "会话状态请查 room status",
+    "en": "Check room status for session activity"
+  },
+  {
+    "code": "ROOM_COORDINATION_MEMBER",
+    "zh": "- {title}（成员ID：{id}，{role}，Agent：{agent}）；职责：{duty}；未完成任务：{count}（{task_ids}）；会话：{activity}",
+    "en": "- {title} (member ID: {id}, {role}, Agent: {agent}); responsibilities: {duty}; unfinished tasks: {count} ({task_ids}); session: {activity}"
+  },
+  {
+    "code": "ROOM_COORDINATION_OPEN_TASKS",
+    "zh": "现有未完成任务（详情和全部任务见 room status）",
+    "en": "Existing unfinished tasks (details and the full board: room status)"
+  },
+  {
+    "code": "ROOM_COORDINATION_TASK",
+    "zh": "- {id}「{title}」：{status}；负责人ID：{owner}；等待：{waiting}",
+    "en": "- {id} \"{title}\": {status}; owner ID: {owner}; waiting for: {waiting}"
+  },
+  {
+    "code": "ROOM_COORDINATION_MORE_TASKS",
+    "zh": "另有 {count} 项，请读取完整任务板。",
+    "en": "There are {count} more tasks; read the full board."
+  },
+  {
+    "code": "ROOM_COORDINATION_IDENTITY",
+    "zh": "task add --to / task assign 可用当前角色名或完整成员ID；角色名可能被重用，旧成员ID失效时不要自动改投同名新人。",
+    "en": "task add --to / task assign accepts a current role name or full member ID. Names can be reused; never replace an invalid former member ID with a newcomer using the same name."
+  },
+  {
+    "code": "ROOM_MEMBER_DUTY_UPDATED",
+    "zh": "「{title}」职责更新为：{duty}。现有任务负责人保持不变，下一次派活请按最新职责判断。",
+    "en": "Responsibilities for \"{title}\" are now: {duty}. Existing task owners are unchanged; use the current responsibilities for the next assignment."
+  },
+  {
+    "code": "ROOM_MEMBER_SESSION_REBOUND",
+    "zh": "「{title}」已绑定新的会话，成员身份和任务不变。",
+    "en": "\"{title}\" is attached to a new session; member identity and tasks are unchanged."
+  },
+  {
+    "code": "ROOM_MEMBER_ID_LEFT",
+    "zh": "「{title}」（成员ID：{member_id}）离开了房间。",
+    "en": "\"{title}\" (member ID: {member_id}) left the room."
+  },
+  {
+    "code": "ROOM_IDLE_DUTY_REMINDER",
+    "zh": "{prefix}「{members}」手上没有任务，房间已经安静 {minutes} 分钟。请先核对剩余目标与成员职责；只向职责匹配者分派，空闲不代表适合。没有后续工作就不用回复。",
+    "en": "{prefix}\"{members}\" have no tasks and the room has been quiet for {minutes} minutes. Check the remaining objective and member responsibilities first; assign only to matching members. Being idle does not mean being suitable. No reply is needed when there is no further work."
+  },
+  {
+    "code": "ROOM_COORDINATION_NONE",
+    "zh": "无",
+    "en": "None"
+  },
+  {
+    "code": "ROOM_COORDINATION_UNASSIGNED",
+    "zh": "未分配",
+    "en": "Unassigned"
+  },
+  {
+    "code": "ROOM_COORDINATOR_DUTY_ONBOARDING",
+    "zh": "你是统筹：你的主要工作是协调，不是自己动手。收到需求先看 belfry room status，把需求拆成任务、按职责派给成员（belfry room task add <标题> --to <角色> --outcome <完成标准>）；只有很小的活、或者没有合适的成员时才自己做。派活只用任务板，不要用 belfry send。房间命令报错时向用户报告原始错误，先核对任务板；不要绕过任务板派活或重复创建。成员完成任务或空闲通知用于核对进度，下一项仍须先匹配最新职责；全部完成后用 belfry room say --to @用户 汇报。",
+    "en": "You are the coordinator: your main job is coordination. Read belfry room status when a request arrives, split work into tasks and assign by responsibility (belfry room task add <title> --to <role> --outcome <acceptance criteria>). Do work yourself only when it is small or no member fits. Use the task board, not belfry send. If a room command fails, report the original error to the user and check the board; do not bypass it or create duplicates. Completion and idle notices are progress signals; the next assignment must still match current responsibilities. When all work is complete, report with belfry room say --to @user."
   }
 ]
