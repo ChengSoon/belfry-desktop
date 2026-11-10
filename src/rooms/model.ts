@@ -137,12 +137,13 @@ export const DEFAULT_ROSTER: RosterRow[] = localized(() => ([
 /** 角色名校验，与 Rust `ops::validate_title` 同一套规则；返回理由或 null。 */
 const RESERVED = recipientProtocol.reserved;
 export function titleError(raw: string, taken: readonly string[]): string | null {
-  const title = raw.trim().replace(/^@/, "").trim();
+  const normalize = (value: string) => value.trim().replace(/^@+/, "").trim();
+  const title = normalize(raw);
   if (!title) return t("rooms.model.text_9d8472ded9");
   if ([...title].length > 24) return t("rooms.model.text_9549432111");
   if (/\s/.test(title)) return t("rooms.model.text_4726ac3085");
   if (RESERVED.some((word) => word.toLowerCase() === title.toLowerCase())) return t("rooms.model.text_25fa52d9c3", { title: title });
-  if (taken.some((other) => other.toLowerCase() === title.toLowerCase())) return t("rooms.model.text_7d79c2fa77", { title: title });
+  if (taken.some((other) => normalize(other).toLowerCase() === title.toLowerCase())) return t("rooms.model.text_7d79c2fa77", { title: title });
   return null;
 }
 

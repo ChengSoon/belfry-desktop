@@ -330,5 +330,6 @@
     "projectHint": "选择房间使用的项目目录，成员会话将在这里启动。",
     "projectError": "无法打开这个项目目录：{{reason}}",
     "teamWithoutProject": "班子（成员会话将在所选项目里启动）"
-  }
+  },
+  "tasks.assigneeUnavailable": "所选成员已离开，请重新选择负责人。"
 }
