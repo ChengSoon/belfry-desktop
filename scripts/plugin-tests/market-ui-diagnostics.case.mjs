@@ -128,9 +128,15 @@ test("navigation during a pending wait records context changes and omits content
   assert.equal(JSON.stringify(f.diagnostics.engine.diagnostics.snapshot(f.diagnostics.engine.diagnosticState())).includes(secret), false);
 });
 
-test("an asynchronous polling exception remains a 20s failure with its exception and request timeline", { timeout: 45_000 }, async (t) => {
+test("an asynchronous polling exception retains its 20s failure when optional page diagnostics expire", { timeout: 45_000 }, async (t) => {
   if (!await browserAvailable(t)) return;
   const f = await fixture(t); await f.view.navigate({ url: f.origin + PAGE }); await waitFor(f.view, CONTROL);
+  // An optional page sample may exceed its own one-second observation window.
+  // Hold that sample pending while the original wait and accessibility snapshot
+  // continue through the real browser, so this path is deterministic on CI.
+  const captureOne = f.diagnostics.captureOne.bind(f.diagnostics);
+  f.diagnostics.captureOne = (capture, channel, read) => captureOne(capture, channel,
+    channel === "page" ? () => new Promise(() => {}) : read);
   // Synthetic expression: this reproduces a pending Promise, not the cause of
   // the CI's static querySelector. Keep that causal boundary explicit.
   const expression = '(()=>{window.qaChecks=(window.qaChecks??0)+1;if(window.qaChecks===2)throw new Error("controlled later callback");return false;})()';
@@ -144,5 +150,10 @@ test("an asynchronous polling exception remains a 20s failure with its exception
   assert.equal(requests.find((entry) => entry.event === "send").method, "Runtime.evaluate");
   assert.ok(requests.find((entry) => entry.event === "error").elapsedMs >= 19_900);
   assert.equal(snapshot.firstFailure.request.id, failure.browserRequest.id);
-  assert.equal(snapshot.captures[0].page.controls.some((control) => control.label === "设置类型"), true);
+  const capture = snapshot.captures[0];
+  assert.equal(capture.label, "wait.failure");
+  assert.equal(capture.page.unavailable, true);
+  assert.equal(capture.page.error.channel, "page");
+  assert.equal(capture.page.error.message, "diagnostic observation window elapsed");
+  assert.ok(snapshot.captureErrors.includes(capture.page.error));
 });

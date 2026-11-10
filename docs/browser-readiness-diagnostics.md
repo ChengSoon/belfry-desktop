@@ -23,6 +23,8 @@ Local evidence uses macOS arm64, Chrome 157.0.8103.39, Node 20.19.2 and 24.11.1.
 
 The added five cases cover original-error preservation (old helper fails), independently failing capture/write/setup channels, resource failure with a genuinely missing control, navigation/context change plus content scope, and the asynchronous exception timeline. They add one discovered test file and about 31 seconds of intentional waiting, including a real unchanged 20-second timeout. The final integrated suite's actual discovery/counts must still be checked; no full CI run was started for this local diagnostic change.
 
+The asynchronous-exception case also exercises expiry of the optional page observation. Windows [run 42729246474](https://github.com/ChengSoon/belfry-desktop/actions/runs/42729246474) retained the expected 20-second condition timeout and exception timeline, while the later page/frame observations exceeded their independent one-second window. The test previously assumed `page.controls` was always available and threw a secondary TypeError. It now deliberately holds only the optional page observation pending and requires the explicit unavailable marker and recorded capture error. The original condition, accessibility snapshot, 20-second deadline, exception and request assertions still use the real browser; successful page/DOM capture remains covered by the other cases.
+
 To run the focused checks from a prepared worktree:
 
 ```sh
