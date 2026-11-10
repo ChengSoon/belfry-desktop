@@ -337,6 +337,62 @@ impl RoomStore {
         Ok((value, snapshot))
     }
 
+    /// 用户修改角色模型。设置不投递消息，也不改正在运行的进程。
+    pub fn set_member_model(
+        &self,
+        room_id: &str,
+        member_id: &str,
+        expected_tab_id: &str,
+        expected_agent: &str,
+        expected_model: Option<&str>,
+        model: Option<&str>,
+    ) -> Result<Room, AppError> {
+        let model = super::member_model::normalize(model)?;
+        let mut inner = self.lock()?;
+        let index = inner.rooms.iter().position(|room| room.id == room_id)
+            .ok_or_else(|| AppError::not_found(belfry_i18n::text("找不到这个房间")))?;
+        let room = &inner.rooms[index];
+        let member = room.active_member(member_id)
+            .ok_or_else(|| AppError::not_found(belfry_i18n::text("找不到这位成员（或已离开）")))?;
+        if member.tab_id != expected_tab_id || member.agent != expected_agent || member.model_override.as_deref() != expected_model {
+            return Err(AppError::invalid_argument(belfry_i18n::text("角色绑定或模型设置已变化，请刷新后重试")));
+        }
+        if model.is_some() && !crate::agent::AgentKind::ALL.iter().any(|kind| kind.id() == member.agent) {
+            return Err(AppError::invalid_argument(belfry_i18n::text("当前 Agent 类型不支持独立模型设置")));
+        }
+        if model.is_some() && inner.rooms.iter()
+            .filter(|other| super::member_model::same_project(&other.project_root, &room.project_root))
+            .flat_map(|other| other.active_members())
+            .filter(|other| other.tab_id == member.tab_id).count() > 1
+        {
+            return Err(super::member_model::shared_session_error());
+        }
+        if member.model_override == model { return Ok(room.clone()); }
+        let mut room = room.clone();
+        room.members.iter_mut().find(|member| member.id == member_id).expect("member checked").model_override = model;
+        commit(&mut inner, index, room)
+    }
+
+    /// 仅在真正创建进程时读取，不把历史/其他项目同名角色的设置带入新会话。
+    pub(crate) fn model_override_for(
+        &self,
+        tab_id: &str,
+        project_root: &str,
+        kind: crate::agent::AgentKind,
+    ) -> Result<Option<String>, AppError> {
+        let inner = self.lock()?;
+        if let Some(error) = &inner.load_error { return Err(AppError::io(error.clone())); }
+        let members: Vec<_> = inner.rooms.iter()
+            .filter(|room| super::member_model::same_project(&room.project_root, project_root))
+            .filter_map(|room| room.member_by_tab(tab_id)).collect();
+        let Some(member) = members.iter().find(|member| member.model_override.is_some()) else { return Ok(None) };
+        if members.len() != 1 { return Err(super::member_model::shared_session_error()); }
+        if member.agent != kind.id() {
+            return Err(AppError::invalid_argument(belfry_i18n::text("角色的 Agent 类型与当前会话不一致，请重新绑定角色或清除模型覆盖")));
+        }
+        super::member_model::normalize(member.model_override.as_deref())
+    }
+
     /// 成员（CLI）在自己的房间上做一个动作。`hint` 是房间名或前缀；只在一间房里时可省略。
     pub fn mutate_as_member<T>(
         &self,

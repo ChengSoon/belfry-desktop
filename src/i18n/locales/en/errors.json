@@ -965,6 +965,12 @@
   "COLLAB_FAILED_TO_ENCODE_THE_ROOM_COMPATIBILITY_RESPONSE": "Failed to encode the room compatibility response.",
   "COLLAB_INVALID_RESPONSE_INVALID_ROOM_COMPATIBILITY_RECEIPT": "Invalid response: invalid room compatibility receipt: {{error}}",
   "COLLAB_INVALID_RESPONSE_THE_ROOM_COMPATIBILITY_RECEIPT_MARKER": "Invalid response: the room compatibility receipt marker does not match.",
+  "ROOM_ROLE_MODEL_REQUIRED": "Enter a model ID or choose to use the default",
+  "ROOM_ROLE_MODEL_INVALID": "Model IDs may contain up to 256 characters, without whitespace or control characters",
+  "ROOM_ROLE_MODEL_SHARED_SESSION": "This session is shared by multiple roles. Bind a separate session before specifying a role model",
+  "ROOM_ROLE_MODEL_CHANGED": "The role binding or model setting has changed. Refresh and try again",
+  "ROOM_ROLE_MODEL_UNSUPPORTED": "This Agent type does not support a separate role model",
+  "ROOM_ROLE_MODEL_AGENT_MISMATCH": "The role and session have different Agent types. Rebind the role or clear its model override",
   "CONFLICT": "The state has changed. Refresh before trying again.",
   "SESSION_MISSING": "The original background task no longer exists. Resume its history or start a new session; it has not been executed again automatically.",
   "PROCESS_EXITED": "The terminal session has exited."

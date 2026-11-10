@@ -20,6 +20,7 @@ mod directory;
 mod ledger;
 mod history;
 mod model;
+mod member_model;
 mod ops;
 mod store;
 
@@ -52,3 +53,6 @@ mod history_test;
 #[cfg(test)]
 #[path = "project_path_test.rs"]
 mod project_path_test;
+
+#[cfg(test)]
+mod member_model_test;

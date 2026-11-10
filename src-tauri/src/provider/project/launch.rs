@@ -12,6 +12,26 @@ use toml_edit::{InlineTable, Value};
 
 const CODEX_KEY: &str = "BELFRY_PROVIDER_API_KEY";
 
+/// 官方登录或由 CLI 自己管理路由时，只指定这次启动的模型。
+pub(super) fn model_only(model: Option<&str>) -> LaunchOverlay {
+    LaunchOverlay {
+        arguments: model.map(|model| vec!["--model".into(), model.to_string()]).unwrap_or_default(),
+        ..Default::default()
+    }
+}
+
+/// 修改本次启动使用的副本，保持已保存的 Provider 和其他角色不变。
+pub(super) fn prepare_with_model(
+    base: &Path,
+    kind: AgentKind,
+    provider: &ProviderConfig,
+    model: Option<&str>,
+) -> Result<LaunchOverlay, AppError> {
+    let mut provider = provider.clone();
+    if let Some(model) = model { provider.model = model.to_string(); }
+    prepare(base, kind, &provider)
+}
+
 pub(super) fn prepare(
     base: &Path,
     kind: AgentKind,

@@ -1,4 +1,23 @@
 {
+  "roleModel": {
+    "menu": "Set role model",
+    "title": "Model for {{title}}",
+    "description": "Choose the model this role uses when it starts.",
+    "mode": "Model setting",
+    "inherit": "Use default",
+    "override": "Specify a model",
+    "model": "Model ID",
+    "placeholder": "Enter or select a model",
+    "suggestions": "Choose a configured model",
+    "modelHint": "Enter a model ID supported by the current provider, or select a configured model.",
+    "invalid": "Use up to 256 characters without whitespace or control characters.",
+    "inheritHint": "Use the project's default model, or the Agent's global configuration if the project has no override.",
+    "nextLaunch": "Applies the next time this role starts. A running session keeps its current model.",
+    "summary": "Model: {{model}}",
+    "cancel": "Cancel",
+    "save": "Save",
+    "saving": "Saving…"
+  },
   "delivery": {
     "summary": "{{phase}} {{count}}/{{total}}"
   },

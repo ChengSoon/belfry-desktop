@@ -965,6 +965,12 @@
   "COLLAB_FAILED_TO_ENCODE_THE_ROOM_COMPATIBILITY_RESPONSE": "房间兼容响应编码失败",
   "COLLAB_INVALID_RESPONSE_INVALID_ROOM_COMPATIBILITY_RECEIPT": "回应看不懂：房间兼容回执无效：{{error}}",
   "COLLAB_INVALID_RESPONSE_THE_ROOM_COMPATIBILITY_RECEIPT_MARKER": "回应看不懂：房间兼容回执标记不匹配",
+  "ROOM_ROLE_MODEL_REQUIRED": "请输入模型标识，或选择沿用默认",
+  "ROOM_ROLE_MODEL_INVALID": "模型标识最多 256 个字符，不能包含空白或控制字符",
+  "ROOM_ROLE_MODEL_SHARED_SESSION": "这条会话被多个角色共用。请先绑定独立会话，再指定角色模型",
+  "ROOM_ROLE_MODEL_CHANGED": "角色绑定或模型设置已变化，请刷新后重试",
+  "ROOM_ROLE_MODEL_UNSUPPORTED": "当前 Agent 类型不支持独立模型设置",
+  "ROOM_ROLE_MODEL_AGENT_MISMATCH": "角色的 Agent 类型与当前会话不一致，请重新绑定角色或清除模型覆盖",
   "CONFLICT": "状态已变更，请刷新后再操作。",
   "SESSION_MISSING": "原来的后台任务已不存在，请从历史继续或新建会话；没有自动重新执行。",
   "PROCESS_EXITED": "终端会话已退出。"

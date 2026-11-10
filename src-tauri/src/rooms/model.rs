@@ -62,6 +62,9 @@ pub struct Member {
     /// 角色名，房间内唯一（在场成员之间）。点名、显示都用它。
     pub title: String,
     pub duty: String,
+    /// 用户为此角色指定的启动模型；None 沿用项目/CLI 设置。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model_override: Option<String>,
     pub role: MemberRole,
     pub joined_at: i64,
     #[serde(default)]

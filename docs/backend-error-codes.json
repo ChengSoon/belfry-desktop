@@ -7324,6 +7324,42 @@
       "zhCN": "全部置于前台"
     },
     {
+      "code": "ROOM_ROLE_MODEL_REQUIRED",
+      "params": [],
+      "en": "Enter a model ID or choose to use the default",
+      "zhCN": "请输入模型标识，或选择沿用默认"
+    },
+    {
+      "code": "ROOM_ROLE_MODEL_INVALID",
+      "params": [],
+      "en": "Model IDs may contain up to 256 characters, without whitespace or control characters",
+      "zhCN": "模型标识最多 256 个字符，不能包含空白或控制字符"
+    },
+    {
+      "code": "ROOM_ROLE_MODEL_SHARED_SESSION",
+      "params": [],
+      "en": "This session is shared by multiple roles. Bind a separate session before specifying a role model",
+      "zhCN": "这条会话被多个角色共用。请先绑定独立会话，再指定角色模型"
+    },
+    {
+      "code": "ROOM_ROLE_MODEL_CHANGED",
+      "params": [],
+      "en": "The role binding or model setting has changed. Refresh and try again",
+      "zhCN": "角色绑定或模型设置已变化，请刷新后重试"
+    },
+    {
+      "code": "ROOM_ROLE_MODEL_UNSUPPORTED",
+      "params": [],
+      "en": "This Agent type does not support a separate role model",
+      "zhCN": "当前 Agent 类型不支持独立模型设置"
+    },
+    {
+      "code": "ROOM_ROLE_MODEL_AGENT_MISMATCH",
+      "params": [],
+      "en": "The role and session have different Agent types. Rebind the role or clear its model override",
+      "zhCN": "角色的 Agent 类型与当前会话不一致，请重新绑定角色或清除模型覆盖"
+    },
+    {
       "code": "CONFLICT",
       "params": [],
       "en": "The state has changed. Refresh before trying again.",

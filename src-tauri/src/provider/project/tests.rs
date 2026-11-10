@@ -189,3 +189,70 @@ fn missing_credentials_cannot_fall_back_to_a_different_global_login() {
         assert!(launch::prepare(&root.0, kind, &value).is_err());
     }
 }
+
+#[test]
+fn role_model_overrides_the_launch_copy_for_every_agent_without_mutating_the_provider() {
+    let root = TempRoot::new();
+    let provider = provider("shared");
+    let before = provider.clone();
+    for kind in AgentKind::ALL {
+        for model in ["builder-model", "reviewer-model"] {
+            let overlay = launch::prepare_with_model(&root.0, kind, &provider, Some(model)).unwrap();
+            match kind {
+                AgentKind::Codex => assert!(overlay.arguments.contains(&format!("model=\"{model}\""))),
+                AgentKind::Claude => {
+                    let settings: serde_json::Value = serde_json::from_str(&fs::read_to_string(&overlay.arguments[1]).unwrap()).unwrap();
+                    assert_eq!(settings["model"], model);
+                    assert_eq!(overlay.environment["ANTHROPIC_MODEL"], model);
+                }
+                AgentKind::Pi => {
+                    let dir = PathBuf::from(&overlay.environment["PI_CODING_AGENT_DIR"]);
+                    let settings: serde_json::Value = serde_json::from_str(&fs::read_to_string(dir.join("settings.json")).unwrap()).unwrap();
+                    let models: serde_json::Value = serde_json::from_str(&fs::read_to_string(dir.join("models.json")).unwrap()).unwrap();
+                    assert_eq!(settings["defaultModel"], model);
+                    assert_eq!(models["providers"]["belfry"]["models"][0]["id"], model);
+                }
+                AgentKind::Antigravity => {
+                    let settings: serde_json::Value = serde_json::from_str(&fs::read_to_string(&overlay.arguments[1]).unwrap()).unwrap();
+                    assert_eq!(settings["customModelsConfig"]["customModels"]["belfry"]["modelName"], model);
+                    assert_eq!(overlay.arguments[3], "Belfry");
+                }
+                AgentKind::Opencode => {
+                    let settings: serde_json::Value = serde_json::from_str(&overlay.environment["OPENCODE_CONFIG_CONTENT"]).unwrap();
+                    assert_eq!(settings["model"], format!("belfry/{model}"));
+                    assert!(settings["providers"]["belfry"]["models"].get(model).is_some());
+                }
+                AgentKind::Kimi => {
+                    assert_eq!(overlay.arguments, ["--model", "__kimi_env_model__"]);
+                    assert_eq!(overlay.environment["KIMI_MODEL_NAME"], model);
+                }
+            }
+        }
+        assert_eq!((&provider.id, &provider.name, &provider.model, &provider.base_url, &provider.api_key, provider.created_at),
+            (&before.id, &before.name, &before.model, &before.base_url, &before.api_key, before.created_at));
+    }
+}
+
+#[test]
+fn inherited_role_model_keeps_the_selected_provider_model() {
+    let root = TempRoot::new();
+    let provider = provider("selected-project");
+    let overlay = launch::prepare_with_model(&root.0, AgentKind::Codex, &provider, None).unwrap();
+    assert!(overlay.arguments.contains(&"model=\"test-model\"".to_string()));
+    assert_eq!(overlay.environment["BELFRY_PROVIDER_API_KEY"], provider.api_key);
+}
+
+#[test]
+fn model_only_launch_keeps_cli_authentication_and_native_codex_routing() {
+    let overlay = launch::model_only(Some("role-model"));
+    assert_eq!(overlay.arguments, ["--model", "role-model"]);
+    assert!(overlay.environment.is_empty());
+    assert!(overlay.unset.is_empty());
+    assert!(overlay.retained_files.is_empty());
+    let mut command = CommandBuilder::new("agent");
+    command.env("EXISTING_AUTH", "native-test-value");
+    overlay.apply(&mut command);
+    assert_eq!(command.get_env("EXISTING_AUTH"), Some(std::ffi::OsStr::new("native-test-value")));
+    let inherited = launch::model_only(None);
+    assert!(inherited.arguments.is_empty() && inherited.environment.is_empty());
+}

@@ -148,6 +148,7 @@ pub fn add_member(
         agent: agent.to_string(),
         title: title.clone(),
         duty: duty.trim().to_string(),
+        model_override: None,
         role: if becomes_foreman { MemberRole::Foreman } else { MemberRole::Peer },
         joined_at: now,
         left_at: None,

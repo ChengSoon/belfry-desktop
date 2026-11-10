@@ -133,6 +133,7 @@ pub fn run() {
             rooms::commands::room_delete,
             rooms::commands::room_add_member,
             rooms::commands::room_update_member,
+            rooms::commands::room_set_member_model,
             rooms::commands::room_set_foreman,
             rooms::commands::room_remove_member,
             rooms::commands::room_update_brief,
