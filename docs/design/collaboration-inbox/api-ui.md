@@ -88,6 +88,15 @@ uncertain 在这里仅提供“查看目标会话”的定位；核对继续复�
 
 人类的两类只读接口之外，Agent 才需要完整收件项、议题和问题关系。所有写操作带 operationId，按调用者/命令/参数摘要幂等；同 ID 不同参数拒绝。权限沿用当前成员/任务规则，不因能读收件箱就能修改其他人的工作。
 
+完整 Agent 读模型补充以下调度字段，默认人类界面不展示或编辑它们：
+
+| 内部字段 | 首版约定 |
+| --- | --- |
+| `deliveryGate` | `{scope:"session", blocked, reason, blockingBatchId}`；存在 uncertain 时 reason=uncertain，阻塞同一 `(projectRoot, tabId)` 跨房间的全部后续自动投递，包含新任务、协商和等待答复。不停止新消息持久化、只读查看或其他会话投递。核对解除后仍须检查安全输入及任务占位，不自动补贴原批次。 |
+| `batchLimits` | `{maxSourceScopes:1, maxTopics:1, maxRecipients:1, maxMessages:20, maxPayloadBytes:32768, maxExpandedQuestions:32, maxTaskAssignments:1}`；sourceScope 指房间/普通任务来源范围，不是单条 sourceEventId。任一上限到达即截止，任务分派单独成批，超长单条走原文引用。这是首版建议值，不采用种子演示中的“3 议题/8 条”。 |
+
+`answers` 是 questionId 数组，`replyTo` 仍是单个原文引用。一次答复涉及同来源/同议题的多个提问方时，可保留一个 replyMessageId，将各提问方列入 to，再分别建立投递记录；发给用户的仍走既有用户通知。跨议题答复分开提交，不能为按提问方回流而重复关闭义务或复制成无关联的多条原文。
+
 | 使用方 | 建议接口与约束 |
 | --- | --- |
 | 发信/答复 Agent | 沿用 room_say/room_task/普通 send 的来源操作，增加 topicId、class、questions、replyTo、answers、correctionOf；回复只更新指定 questionId 对应本人的义务，返回 replyMessageId 和提问者的待投递状态。 |
