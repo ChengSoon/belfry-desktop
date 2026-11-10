@@ -1,11 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { fork } from "node:child_process";
-import { browserFixture, waitFor } from "./browserFixture.mjs";
+import { mkdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { browserFixture, capturePanel, waitFor } from "./browserFixture.mjs";
 
 async function fixture(t, withProcess = false) {
   const writes = [];
-  const consumer = withProcess ? await processConsumer(t) : null;
+  const consumer = withProcess ? await processConsumer(t, withProcess === "queued" ? "./terminal-queued-process.mjs" : "./terminal-choice-process.mjs") : null;
   const view = (await browserFixture(t, "src/components/lazy/testing/terminal-choice.html", {
     handle(request, response) {
       if (request.url === "/qa-choice-state" && consumer) {
@@ -30,8 +32,8 @@ async function fixture(t, withProcess = false) {
   return { view, writes };
 }
 
-async function processConsumer(t) {
-  const child = fork(new URL("./terminal-choice-process.mjs", import.meta.url), [], { silent: true });
+async function processConsumer(t, module) {
+  const child = fork(new URL(module, import.meta.url), [], { silent: true });
   t.after(() => child.kill());
   let latest, stderr = "";
   const waiting = new Set();
@@ -109,4 +111,63 @@ test("terminal requests: an isolated input consumer receives the chosen answer a
   assert.equal(await view.cdp.evaluate("qaChoice.read()"), null);
   assert.equal(writes.length, 6);
   assert.ok(writes.every(write => write.sessionId === "fixture-pty"));
+});
+
+test("terminal requests: Working queue opens without answering and consumes the exact new selection and text", async t => {
+  const { view, writes } = await fixture(t, "queued");
+  const queued = await view.cdp.evaluate("qaChoice.connectProcess()");
+  assert.ok(queued, "The real xterm Working screen must expose its queued question entry");
+  await waitFor(view, "qaChoice.snapshot().activity === 'talking'");
+  await capturePanel(view, "terminal-queued-collapsed");
+  assert.equal(queued.kind, "queued");
+  assert.deepEqual(queued.queue, { count: 1 });
+  assert.deepEqual(queued.options, []);
+  assert.deepEqual(await view.cdp.evaluate("qaChoice.answer(qaChoice.read().requestId, {kind:'single',index:1})"), { status: "invalid" });
+  assert.equal(writes.length, 0);
+  const opened = await view.cdp.evaluate("qaChoice.open(qaChoice.read().requestId)");
+  const editor = await view.cdp.evaluate("qaChoice.read()");
+  assert.deepEqual(opened, { status: "opened", requestId: editor.requestId });
+  assert.notEqual(editor.requestId, queued.requestId);
+  assert.equal(editor.state, "pending");
+  const afterOpen = await view.cdp.evaluate("qaChoice.remoteState()");
+  await capturePanel(view, "terminal-queued-expanded");
+  assert.deepEqual(afterOpen.opens, ["sample-color-1"]);
+  assert.deepEqual(afterOpen.answers, []);
+  assert.deepEqual(writes.map(write => write.data), ["\x1b[1;2D"]);
+  assert.deepEqual(await view.cdp.evaluate(`qaChoice.open(${JSON.stringify(queued.requestId)})`), { status: "changed" });
+  assert.deepEqual(await view.cdp.evaluate("qaChoice.answer(qaChoice.read().requestId, {kind:'single',index:2})"), { status: "sent" });
+  const next = await view.cdp.evaluate("qaChoice.read()");
+  assert.equal(next.kind, "queued");
+  assert.equal(next.queue.count, 1);
+  assert.notEqual(next.requestId, queued.requestId);
+  const afterChoice = await view.cdp.evaluate("qaChoice.remoteState()");
+  assert.deepEqual(afterChoice.answers, [{ questionId: "sample-color-1", question: "Which sample color should the isolated preview use?", text: "Green sample" }]);
+  assert.equal((await view.cdp.evaluate("qaChoice.open(qaChoice.read().requestId)")).status, "opened");
+  assert.equal((await view.cdp.evaluate("qaChoice.read()")).kind, "input");
+  assert.deepEqual(await view.cdp.evaluate("qaChoice.answer(qaChoice.read().requestId, {kind:'input',text:'Sample note\\n第二行'})"), { status: "sent" });
+  const afterText = await view.cdp.evaluate("qaChoice.remoteState()");
+  assert.deepEqual(afterText.answers, [...afterChoice.answers,
+    { questionId: "sample-note-2", question: "Which sample note should the isolated preview show?", text: "Sample note\n第二行" }]);
+  assert.deepEqual(afterText.opens, ["sample-color-1", "sample-note-2"]);
+  assert.deepEqual(writes.map(write => write.data), ["\x1b[1;2D", "\x1b[B", "\r", "\x1b[1;2D", "\x1b[200~Sample note\r第二行\x1b[201~", "\r"]);
+  assert.equal((await view.cdp.evaluate("qaChoice.open(qaChoice.read().requestId)")).status, "opened");
+  const otherOption = (await view.cdp.evaluate("qaChoice.read()")).options.at(-1);
+  assert.deepEqual(otherOption, { index: 3, label: "Other", action: "input" });
+  assert.equal((await view.cdp.evaluate("qaChoice.open(qaChoice.read().requestId, 3)")).status, "opened");
+  assert.equal((await view.cdp.evaluate("qaChoice.read()")).kind, "input");
+  assert.equal((await view.cdp.evaluate("qaChoice.remoteState()")).answers.length, 2);
+  assert.deepEqual(await view.cdp.evaluate("qaChoice.answer(qaChoice.read().requestId, {kind:'input',text:'Purple sample'})"), { status: "sent" });
+  const afterOther = await view.cdp.evaluate("qaChoice.remoteState()");
+  assert.deepEqual(afterOther.answers, [...afterText.answers,
+    { questionId: "sample-color-3", question: "Which sample color should the isolated preview use?", text: "Purple sample" }]);
+  assert.equal(await view.cdp.evaluate("qaChoice.read()"), null);
+  assert.deepEqual(writes.slice(6).map(write => write.data), ["\x1b[1;2D", "\x1b[B\x1b[B", "\x1b[200~Purple sample\x1b[201~", "\r"]);
+  assert.ok(writes.every(write => write.sessionId === "fixture-pty"));
+  await capturePanel(view, "terminal-queued-consumed");
+  const evidence = { evidence: "real xterm + independent stdin consumer", queued, afterOpen, afterChoice, afterText, afterOther, writes };
+  if (process.env.BELFRY_PANEL_ARTIFACTS) {
+    await mkdir(process.env.BELFRY_PANEL_ARTIFACTS, { recursive: true });
+    await writeFile(join(process.env.BELFRY_PANEL_ARTIFACTS, "terminal-queued-consumption.json"), JSON.stringify(evidence, null, 2));
+  }
+  t.diagnostic(JSON.stringify({ consumedQuestionIds: afterOther.answers.map(answer => answer.questionId), opens: afterOther.opens, writes: writes.length }));
 });

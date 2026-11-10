@@ -251,6 +251,7 @@ export function useTerminalSession(
     composerEmpty: () => handle.current?.composerEmpty() ?? false,
     readChoice: () => handle.current?.readChoice() ?? null,
     readInteraction: () => handle.current?.readInteraction() ?? null,
+    openInteraction: (requestId, optionIndex) => handle.current?.openInteraction(requestId, optionIndex) ?? Promise.resolve({ status: "unavailable" }),
     answerInteraction: (requestId, answer) => handle.current?.answerInteraction(requestId, answer) ?? Promise.resolve({ status: "unavailable" }),
     answerChoice: (signature, index) => handle.current?.answerChoice(signature, index) ?? "unavailable" }),
   [focus, sendText, generation, launch.tabId, launch.collaborationMode, launch.cwd, launch.profileId,

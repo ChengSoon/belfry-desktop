@@ -48,6 +48,7 @@ export interface TerminalHandle {
   composerEmpty: NonNullable<TerminalCommandTarget["composerEmpty"]>;
   readChoice: NonNullable<TerminalCommandTarget["readChoice"]>;
   readInteraction: NonNullable<TerminalCommandTarget["readInteraction"]>;
+  openInteraction: NonNullable<TerminalCommandTarget["openInteraction"]>;
   answerInteraction: NonNullable<TerminalCommandTarget["answerInteraction"]>;
   answerChoice: NonNullable<TerminalCommandTarget["answerChoice"]>;
   dispose: () => void;

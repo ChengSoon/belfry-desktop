@@ -44,7 +44,8 @@ export function composerLooksEmpty(tail: string, agent?: AgentKind | null): bool
 /** 屏幕行的最小投影。剥掉 xterm 依赖，判定逻辑才测得动（仓库没装 jsdom）。 */
 /** 等待选择优先于正在对话：权限框弹出来时 spinner 那行已经被擦掉了，实践中两者互斥。 */
 export function detectActivity(tail: string, agent?: AgentKind | null): SessionActivity {
-  if (parseInteractionText(tail, agent)) return "awaiting-choice";
+  const request = parseInteractionText(tail, agent);
+  if (request && !request.queue) return "awaiting-choice";
   return detectTalking(tail, agent);
 }
 
@@ -78,8 +79,9 @@ export function watchActivity(
   const scan = () => {
     pending = 0;
     scannedAt = Date.now();
-    const next = readInteractionScreen(terminal, agent ?? null) ? "awaiting-choice"
-      : detectTalking(readScreenTail(terminal, ACTIVITY_TAIL_LINES), agent);
+    const request = readInteractionScreen(terminal, agent ?? null);
+    const next = request && !request.queue ? "awaiting-choice"
+      : detectTalking(readScreenTail(terminal, request?.queue ? terminal.rows : ACTIVITY_TAIL_LINES), agent);
     if (next === current) return;
     current = next;
     onChange(next);

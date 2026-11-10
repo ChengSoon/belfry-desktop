@@ -54,6 +54,7 @@ Object.assign(window, { qaChoice: {
     return interactions.read();
   },
   read: () => interactions.read(),
+  open: (id: string, optionIndex?: number) => interactions.open(id, optionIndex),
   answer: (id: string, answer: TerminalInteractionAnswer) => interactions.answer(id, answer),
   snapshot: () => ({ writes: [...writes], errors: [...errors], activity, request: interactions.read() }),
   fail: () => { failure = true; },

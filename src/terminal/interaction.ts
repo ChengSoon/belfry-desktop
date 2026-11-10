@@ -5,14 +5,16 @@ import type { TerminalChoiceOption } from "./choice";
 export interface TerminalInteraction {
   requestId: string;
   source: { sessionId: string; agent: AgentKind | null };
-  kind: "single" | "multiple" | "confirmation" | "input" | "unknown";
+  kind: "single" | "multiple" | "confirmation" | "input" | "unknown" | "queued";
   question: string;
   detail: string;
-  options: TerminalChoiceOption[];
+  options: Array<TerminalChoiceOption & { action?: "input" }>;
   selected: number | null;
   selectedIndices: number[];
   input: { label: string; placeholder?: string; optional?: boolean } | null;
-  state: "pending" | "submitting" | "submitted" | "uncertain";
+  state: "pending" | "opening" | "submitting" | "submitted" | "uncertain";
+  /** An entry to the question editor, never enough evidence to submit an answer. */
+  queue?: { count: number };
   /** A numbered page is safe to answer locally, but more options remain in the terminal. */
   optionsComplete?: boolean;
 }
@@ -27,11 +29,19 @@ export interface TerminalInteractionResult {
   message?: string;
 }
 
+export type TerminalInteractionOpenResult =
+  | { status: "opened"; requestId: string }
+  | { status: Exclude<TerminalInteractionResult["status"], "sent">; message?: string };
+
 /** Parser evidence and input policy stay internal; UI cannot supply raw key sequences. */
 export interface ParsedInteraction extends Omit<TerminalInteraction, "requestId" | "source" | "state"> {
   signature: string;
   contextSignature: string;
-  control: "arrows" | "checkboxes" | "yes-no" | "text" | "none";
+  control: "arrows" | "checkboxes" | "yes-no" | "text" | "open-questions" | "none";
+  /** Visible queue context distinguishes replacements even when the count is unchanged. */
+  queueContext?: string;
+  /** Verified async question editor, as distinct from an unrelated menu. */
+  asyncQuestion?: boolean;
   axis?: "horizontal";
   answers?: string[];
   /** Prefix required before pasting into a verified input surface. */

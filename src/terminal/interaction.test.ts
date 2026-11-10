@@ -20,6 +20,8 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 0));
 const question = corpus.fixtures["codex-input-options"].screen;
 const freeform = corpus.fixtures["codex-input-freeform"].screen;
 const checks = "Status line\n\nType to search\n\n› [x] Model  Current model\n  [ ] Tokens  Tokens used\n  [x] Branch  Git branch\n\nspace toggle · ←/→ reorder · enter save · esc cancel";
+const queued = "? Which sample color should the isolated preview use?\n  • Blue sample\n  • Green sample\n\n◦ Working (14m 11s • esc to interrupt)\n\n• Queued follow-up inputs\n  ? 1 question\n    shift+← to answer\n\n› Ask Codex to do anything";
+const editor = "◦ Working (14m 12s • esc to interrupt)\n\n• Queued follow-up inputs\n\n  Which sample color should the isolated preview use?\n\n  › 1. Blue sample\n    2. Green sample\n    3. Other\n\n  enter submit   ⌃] skip   ⇧→ main prompt";
 
 function fixture(agent: AgentKind | null = "codex", dimensions = { cols: 120, rows: 60 }) {
   const terminal = new Terminal({ ...dimensions, allowProposedApi: true, scrollback: 100 });
@@ -360,6 +362,156 @@ describe("request lifetime and write outcomes", () => {
     expect(f.writes).toHaveLength(2);
     await f.paint("› ");
     expect(f.interactions.answerChoice(choice.signature, 2)).toBe("changed");
+  });
+});
+
+describe("opening a background Codex question", () => {
+  it("opens the verified Other input without submitting a selection", async () => {
+    const f = fixture();
+    await f.paint(editor);
+    const initial = f.interactions.read()!;
+    expect(initial.options.at(-1)).toMatchObject({ index: 3, label: "Other", action: "input" });
+    expect(f.interactions.readChoice()?.options).toHaveLength(2);
+    expect(f.interactions.answerChoice(initial.requestId, 3)).toBe("changed");
+    expect(await f.answer({ kind: "single", index: 3 })).toEqual({ status: "invalid" });
+    expect(await f.interactions.open(initial.requestId, 2)).toEqual({ status: "invalid" });
+    expect(f.writes).toEqual([]);
+    const opened = await f.interactions.open(initial.requestId, 3);
+    const input = f.interactions.read()!;
+    expect(opened).toEqual({ status: "opened", requestId: input.requestId });
+    expect(input.requestId).not.toBe(initial.requestId);
+    expect(input.kind).toBe("input");
+    expect(input.state).toBe("pending");
+    expect(f.writes.map(write => write.data)).toEqual(["\x1b[B\x1b[B"]);
+    f.write(async data => { if (data.startsWith("\x1b[200~")) await f.paint(editor.replace("› 1.", "  1.").replace("    3. Other", "  › 3. Purple sample")); });
+    expect(await f.answer({ kind: "input", text: "Purple sample" })).toEqual({ status: "sent" });
+    expect(f.writes.map(write => write.data)).toEqual(["\x1b[B\x1b[B", "\x1b[200~Purple sample\x1b[201~", "\r"]);
+  });
+
+  it("opens the editor once without Enter, and answers only the new request", async () => {
+    const f = fixture();
+    await f.paint(queued);
+    const old = f.interactions.read()!;
+    expect(old).toMatchObject({ kind: "queued", queue: { count: 1 }, source: { sessionId: "pty-a", agent: "codex" } });
+    expect(await f.interactions.answer(old.requestId, { kind: "single", index: 1 })).toEqual({ status: "invalid" });
+    expect(f.writes).toEqual([]);
+    f.write(async data => { if (data === "\x1b[1;2D") await f.paint(editor); });
+    const opened = await f.interactions.open(old.requestId);
+    const active = f.interactions.read()!;
+    expect(opened).toEqual({ status: "opened", requestId: active.requestId });
+    expect(active.requestId).not.toBe(old.requestId);
+    expect(active).toMatchObject({ kind: "single", state: "pending", question: "Which sample color should the isolated preview use?" });
+    expect(f.writes.map(write => write.data)).toEqual(["\x1b[1;2D"]);
+    expect(await f.interactions.open(old.requestId)).toEqual({ status: "changed" });
+    expect(await f.interactions.answer(old.requestId, { kind: "single", index: 1 })).toEqual({ status: "changed" });
+    expect(await f.interactions.answer(active.requestId, { kind: "single", index: 1 })).toEqual({ status: "sent" });
+    expect(f.writes.map(write => write.data)).toEqual(["\x1b[1;2D", "\r"]);
+  });
+
+  it("keeps the same entry across spinner/countdown output, but not a same-count replacement", async () => {
+    const f = fixture();
+    await f.paint(queued.replace("1 question", "2 questions · 20s"));
+    const id = f.interactions.read()!.requestId;
+    await f.paint(queued.replace("1 question", "2 questions · 19s").replace("◦ Working (14m 11s", "• Working (14m 12s"));
+    expect(f.interactions.read()!.requestId).toBe(id);
+    await f.paint(queued.replace("1 question", "2 questions · 19s").replace("sample color", "sample border"));
+    expect(f.interactions.read()!.requestId).not.toBe(id);
+    expect(await f.interactions.open(id)).toEqual({ status: "changed" });
+    expect(f.writes).toEqual([]);
+  });
+
+  it("binds an entry to its actual live buffer position", async () => {
+    const f = fixture("codex", { cols: 120, rows: 12 });
+    await f.paint(queued);
+    const id = f.interactions.read()!.requestId;
+    await f.raw("\x1b[12;1H\r\n"); // Scroll live buffer while leaving the same rendered text in place.
+    await f.paint(queued);
+    expect(f.interactions.read()!.requestId).not.toBe(id);
+    expect(await f.interactions.open(id)).toEqual({ status: "changed" });
+    expect(f.writes).toEqual([]);
+  });
+
+  it("invalidates disappearance between room polls", async () => {
+    const f = fixture();
+    await f.paint(queued);
+    const id = f.interactions.read()!.requestId;
+    await f.paint("Working (Esc to interrupt)");
+    await tick();
+    await f.paint(queued);
+    expect(f.interactions.read()!.requestId).not.toBe(id);
+    expect(await f.interactions.open(id)).toEqual({ status: "changed" });
+    expect(f.writes).toEqual([]);
+  });
+
+  it("prevents reentry while opening and never calls it submitted", async () => {
+    const f = fixture(), hold = deferred();
+    await f.paint(queued);
+    const id = f.interactions.read()!.requestId;
+    f.write(async () => { await hold.promise; await f.paint(editor); });
+    const opening = f.interactions.open(id);
+    await tick();
+    expect(f.interactions.read()!.state).toBe("opening");
+    expect(await f.interactions.open(id)).toEqual({ status: "busy" });
+    expect(await f.interactions.answer(id, { kind: "single", index: 1 })).toEqual({ status: "busy" });
+    hold.resolve();
+    expect((await opening).status).toBe("opened");
+    expect(f.interactions.read()!.state).toBe("pending");
+    expect(f.writes.map(write => write.data)).toEqual(["\x1b[1;2D"]);
+  });
+
+  it.each(["session", "scope"] as const)("refuses a stale %s before writing", async source => {
+    const f = fixture();
+    await f.paint(queued);
+    const id = f.interactions.read()!.requestId;
+    f[source]("replacement");
+    expect(await f.interactions.open(id)).toEqual({ status: "changed" });
+    expect(f.writes).toEqual([]);
+  });
+
+  it.each(["draft", "shortcut", "unsettled", "disconnected", "disposed"])("does not open with %s", async reason => {
+    const f = fixture();
+    await f.paint(reason === "draft" ? queued.replace("Ask Codex to do anything", "unfinished")
+      : reason === "shortcut" ? queued.replace("shift+←", "ctrl+q") : queued);
+    const id = f.interactions.read()!.requestId;
+    if (reason === "unsettled") f.settled(false);
+    if (reason === "disconnected") f.session(null);
+    if (reason === "disposed") f.interactions.dispose();
+    expect(await f.interactions.open(id)).toEqual({ status: reason === "unsettled" ? "busy"
+      : reason === "disconnected" || reason === "disposed" ? "unavailable" : "invalid" });
+    expect(f.writes).toEqual([]);
+  });
+
+  it("revalidates behind an older user write", async () => {
+    const f = fixture(), hold = deferred();
+    await f.paint(queued);
+    const id = f.interactions.read()!.requestId;
+    f.write(() => hold.promise);
+    f.terminal.input("user-key", true);
+    await tick();
+    const opening = f.interactions.open(id);
+    await f.paint(queued.replace("sample color", "sample border"));
+    hold.resolve();
+    expect(await opening).toEqual({ status: "changed" });
+    expect(f.writes.map(write => write.data)).toEqual(["user-key"]);
+  });
+
+  it.each(["user", "disconnected", "scope", "replacement", "ignored", "error"])("never confirms or retries after %s during opening", async reason => {
+    const f = fixture();
+    await f.paint(queued);
+    const id = f.interactions.read()!.requestId;
+    f.write(async () => {
+      if (reason === "user") { f.prompt.onUserInput(); await f.paint(editor); }
+      if (reason === "disconnected") f.session(null);
+      if (reason === "scope") { f.scope("native-b"); await f.paint(editor); }
+      if (reason === "replacement") await f.paint(queued.replace("sample color", "sample border"));
+      if (reason === "error") throw new Error("partial write");
+    });
+    expect(await f.interactions.open(id)).toEqual({ status: "uncertain" });
+    if (reason === "ignored" || reason === "error") {
+      expect(f.interactions.read()!.state).toBe("uncertain");
+      expect(await f.interactions.open(id)).toEqual({ status: "busy" });
+    }
+    expect(f.writes.map(write => write.data)).toEqual(["\x1b[1;2D"]);
   });
 });
 

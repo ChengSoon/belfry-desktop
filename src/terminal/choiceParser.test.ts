@@ -14,7 +14,7 @@ describe("Codex 0.167.0 rendered requests", () => {
     expect(request.question).toBe("Second");
     expect(request.options).toEqual([
       { index: 1, label: "A suggested answer that is\nlong enough to wrap across\nmultiple rows" },
-      { index: 2, label: "Other" },
+      { index: 2, label: "Other", action: "input" },
     ]);
     expect(detectActivity(screen("codex-async-wrapped"), "codex")).toBe("awaiting-choice");
   });

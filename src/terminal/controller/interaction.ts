@@ -2,7 +2,7 @@ import type { IDisposable, Terminal } from "@xterm/xterm";
 import type { AgentKind } from "../../agent/contracts";
 import { choiceKeys, type TerminalChoice } from "../choice";
 import { unknownInteraction } from "../choiceParser";
-import type { InteractionWrite, ParsedInteraction, TerminalInteraction, TerminalInteractionAnswer, TerminalInteractionResult } from "../interaction";
+import type { InteractionWrite, ParsedInteraction, TerminalInteraction, TerminalInteractionAnswer, TerminalInteractionOpenResult, TerminalInteractionResult } from "../interaction";
 import { readInteractionScreen } from "../interactionScreen";
 
 interface Ports {
@@ -47,23 +47,72 @@ export class TerminalInteractions {
       detail: occupied ? [parsed.detail, parsed.inputValue].filter(Boolean).join("\n") : parsed.detail,
       options: occupied ? [] : parsed.options.map(option => ({ ...option })), selected: parsed.selected,
       selectedIndices: [...parsed.selectedIndices], input: occupied ? null : parsed.input && { ...parsed.input },
-      state: request.state, optionsComplete: parsed.optionsComplete };
+      state: request.state, optionsComplete: parsed.optionsComplete, ...(parsed.queue ? { queue: { ...parsed.queue } } : {}) };
   }
 
   readChoice(): TerminalChoice | null {
     const request = this.observe();
     if (!request || request.parsed.control !== "arrows" || request.parsed.selected === null) return null;
     const { question, detail, selected, axis, options } = request.parsed;
-    return { question, detail, selected, axis, options: options.map(option => ({ ...option })), signature: request.id };
+    return { question, detail, selected, axis, options: options.filter(option => !option.action).map(option => ({ ...option })), signature: request.id };
   }
 
   answerChoice(signature: string, index: number): "sent" | "changed" | "unavailable" {
     const request = this.observe();
     if (!this.ports.session()) return "unavailable";
     if (!request || request.id !== signature || request.state !== "pending" || this.inFlight
-      || request.parsed.control !== "arrows" || !request.parsed.options.some(option => option.index === index)) return "changed";
+      || request.parsed.control !== "arrows" || !request.parsed.options.some(option => option.index === index && !option.action)) return "changed";
     void this.answer(signature, { kind: "single", index });
     return "sent";
+  }
+
+  /** Opening the queued editor is navigation only. It never confirms an answer. */
+  async open(requestId: string, optionIndex?: number): Promise<TerminalInteractionOpenResult> {
+    const request = this.observe();
+    if (!this.ports.session() || this.disposed) return { status: "unavailable" };
+    if (!request || request.id !== requestId) return { status: "changed" };
+    if (this.inFlight || request.state !== "pending" || !this.ports.outputSettled()) return { status: "busy" };
+    const initial = request.parsed;
+    const other = initial.control === "arrows" && initial.selected !== null && initial.asyncQuestion
+      && initial.options.find(option => option.index === optionIndex && option.action === "input");
+    const navigation = optionIndex === undefined && initial.control === "open-questions" ? "\u001b[1;2D"
+      : other ? choiceKeys({ ...initial, selected: initial.selected! }, other.index, this.ports.terminal.modes.applicationCursorKeysMode)?.slice(0, -1) : null;
+    if (!navigation) return { status: "invalid" };
+    request.state = "opening";
+    this.inFlight = request;
+    const sameSource = (next: Request) => next.sessionId === request.sessionId && next.scope === request.scope;
+    const opened = () => {
+      const next = this.observe();
+      return next && next !== request && sameSource(next) && next.parsed.asyncQuestion
+        && (!other || (next.parsed.control === "text" && next.parsed.selected === other.index
+          && next.parsed.question === initial.question && next.parsed.detail === initial.detail
+          && JSON.stringify(next.parsed.options) === JSON.stringify(initial.options.filter(option => option !== other))))
+        && this.ports.outputSettled() ? next : null;
+    };
+    try {
+      const result = await this.ports.write({ navigation,
+        valid: () => this.observe() === request && request.parsed.selected === initial.selected && this.ports.outputSettled(),
+        navigationReady: async () => {
+          const deadline = Date.now() + 1500;
+          do {
+            if (this.disposed || this.ports.session() !== request.sessionId) return false;
+            const next = this.observe();
+            if (next && (!sameSource(next) || (next !== request && next.parsed.queue))) return false;
+            if (opened()) return true;
+            await new Promise(resolve => setTimeout(resolve, 25));
+          } while (Date.now() < deadline);
+          return false;
+        },
+        validAfterNavigation: () => !!opened(),
+      });
+      const next = result.status === "sent" ? opened() : null;
+      if (next) return { status: "opened", requestId: next.id };
+      request.state = result.status === "sent" || result.status === "uncertain" ? "uncertain" : "pending";
+      return { ...result, status: result.status === "sent" ? "uncertain" : result.status };
+    } catch {
+      request.state = "uncertain";
+      return { status: "uncertain" };
+    } finally { this.inFlight = null; }
   }
 
   async answer(requestId: string, answer: TerminalInteractionAnswer): Promise<TerminalInteractionResult> {
@@ -145,7 +194,7 @@ function interactionInput(parsed: ParsedInteraction, answer: TerminalInteraction
       const key = parsed.answers?.[at];
       return key ? { keys: `${key}\r` } : null;
     }
-    if (parsed.control !== "arrows" || parsed.selected === null) return null;
+    if (parsed.control !== "arrows" || parsed.selected === null || parsed.options.some(option => option.index === answer.index && option.action)) return null;
     const keys = choiceKeys({ ...parsed, selected: parsed.selected }, answer.index, applicationCursor);
     return keys ? { navigation: keys.slice(0, -1), keys: "\r", selected: answer.index } : null;
   }
