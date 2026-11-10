@@ -393,6 +393,9 @@ pub struct RoomStatusView {
     pub room: String,
     pub my_title: String,
     pub i_am_foreman: bool,
+    /// Current responsibility, workload and routing context. Older servers may omit it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub coordination: Option<String>,
     pub brief: RoomBriefView,
     pub members: Vec<RoomMemberLine>,
     pub tasks: Vec<RoomTaskLine>,

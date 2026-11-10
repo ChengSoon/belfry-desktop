@@ -124,6 +124,10 @@ fn summarize(room: &Room) -> RoomSummary {
 
 /// 把动作产出的消息翻成逐位成员的投递。发给用户的不投（用户在界面上看）。
 pub fn deliveries(room: &Room, posted: &[Posted]) -> Vec<RoomPost> {
+    deliveries_with_runtime(room, posted, None)
+}
+
+fn deliveries_with_runtime(room: &Room, posted: &[Posted], registry: Option<&crate::collab::SessionRegistry>) -> Vec<RoomPost> {
     // 暂停的房间：消息照样记在时间线上，只是不送进终端。
     if room.paused {
         return Vec::new();
@@ -145,9 +149,10 @@ pub fn deliveries(room: &Room, posted: &[Posted]) -> Vec<RoomPost> {
         }
         for member_id in &item.to {
             if let Some(member) = room.active_member(member_id) {
-                let line = match roster_hint(room, message, member) {
-                    Some(hint) => format!("{line}\n{hint}"),
-                    None => line.clone(),
+                let line = if member.role == MemberRole::Foreman {
+                    format!("{line}\n{}", super::scheduling::context(room, registry))
+                } else {
+                    line.clone()
                 };
                 out.push(RoomPost {
                     room_id: room.id.clone(),
@@ -162,28 +167,6 @@ pub fn deliveries(room: &Room, posted: &[Posted]) -> Vec<RoomPost> {
         }
     }
     out
-}
-
-/// 用户发给统筹的消息，附上成员名单：统筹读到需求的那一刻就看得见可以派给谁。
-fn roster_hint(room: &Room, message: &Message, recipient: &Member) -> Option<String> {
-    if recipient.role != MemberRole::Foreman || message.by != "user" || message.kind != MessageKind::Chat {
-        return None;
-    }
-    let peers: Vec<String> = room
-        .active_members()
-        .filter(|member| member.role == MemberRole::Peer)
-        .map(|member| {
-            let duty = if member.duty.is_empty() { belfry_i18n::text("未写职责") } else { member.duty.as_str() };
-            belfry_i18n::lformat!("{}（{duty}，手上 {} 件）", member.title, workload(room, &member.id))
-        })
-        .collect();
-    if peers.is_empty() {
-        return None;
-    }
-    Some(belfry_i18n::lformat!(
-        "可以派活的成员：{}。先拆成任务派出去：belfry room task add <标题> --to <角色>",
-        peers.join("、")
-    ))
 }
 
 impl RoomStore {
@@ -462,7 +445,12 @@ impl RoomStore {
             if room.delivery_outbox.iter().any(|entry| entry.message_id == post.message_id && entry.member_id == member.id
                 && matches!(entry.phase, DeliveryPhase::Accepted | DeliveryPhase::Queued))
                 && registry.find(&post.tab_id).is_some() {
-                crate::collab::task::enqueue_room_post(board, &format!("room:{}", post.room_id), post, now_millis()).map_err(AppError::io)?;
+                // Rebuild the body and scheduling snapshot while the room is locked. A caller
+                // may have prepared its RoomPost before a duty/name/session update committed.
+                let posted = Posted { message_id: post.message_id.clone(), to: vec![member.id.clone()] };
+                if let Some(current) = deliveries_with_runtime(room, &[posted], Some(registry)).first() {
+                    crate::collab::task::enqueue_room_post(board, &format!("room:{}", room.id), current, now_millis()).map_err(AppError::io)?;
+                }
             }
         }
         Ok(())

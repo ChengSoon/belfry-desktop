@@ -100,6 +100,7 @@ impl MemberDirectory {
             room: room.name.clone(),
             my_title: me.title.clone(),
             i_am_foreman: me.role == MemberRole::Foreman,
+            coordination: (me.role == MemberRole::Foreman).then(|| super::scheduling::context(room, Some(&self.registry))),
             brief: brief_view(room),
             members: room
                 .active_members()

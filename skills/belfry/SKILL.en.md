@@ -53,7 +53,7 @@ Reply to messages listed as requiring your response. Ordinary messages need no r
 
 ### Task board
 
-Task IDs are T1, T2, and so on. Everyone in the room shares the same board.
+Task IDs are T1, T2, and so on. Everyone in the room shares the same board. `task add --to` and `task assign` accept a current role name or a full member ID. Preserve the member ID when saving a selection: renaming keeps the same identity, and a departed ID must not be replaced by a newcomer using the same name.
 
 ```bash
 belfry room task add Login API --to backend --outcome "Return the session ID and expiry"
@@ -66,7 +66,7 @@ belfry room task reopen T1
 
 Use `--after T1,T2` when creating work that depends on other tasks.
 
-- **Coordinator:** Read the brief, divide the request into tasks, and assign them by role using the task board. Do work yourself only when it is very small or no suitable member is available. Assign the next task when members finish or have no remaining work. Report completion with `belfry room say --to @user`. Update the brief with `belfry room brief --focus <focus>` (also `--objective` and `--constraint`).
+- **Coordinator:** Read `belfry room status` before assigning to check the brief, current responsibilities and existing tasks. Match the task objective to responsibilities first, then consider workload, session activity and dependencies among matching members. Agent type is not a responsibility. Split work across responsibilities and integrate the results; explain any missing responsibility. Honor an owner explicitly named by the user and do not silently reassign. Completion and idle notices are progress signals, not a reason to give the next task to an idle member. Report completion with `belfry room say --to @user`. Update the brief with `belfry room brief --focus <focus>` (also `--objective` and `--constraint`).
 - **Member:** Work on your assigned tasks. Mark each started and then done with the artifacts and validation results. Tell the coordinator about blockers or requests for assistance; members cannot assign work to other members. Members may claim unassigned work for themselves.
 - Use `belfry room task done` for room work. `belfry done` settles direct assignments created by `belfry send`.
 
