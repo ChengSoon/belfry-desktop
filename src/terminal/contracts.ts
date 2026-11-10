@@ -155,6 +155,10 @@ export type PromptDeliveryResult = "submitted" | "cancelled" | "failed" | "detac
 export interface PromptDeliveryOptions {
   background?: boolean;
   onResult?: (result: PromptDeliveryResult) => void;
+  /** 协作收件箱批次的写入许可；只用于本次 sendText 自己的粘贴与回车写入。 */
+  inboxGuard?: import("../inbox/contracts").WriteGuard;
+  /** 发送前的输入代次；与当前不一致说明用户已抢先输入，不再写。 */
+  expectedInputRevision?: number;
 }
 
 /** 可由 Composer 等宿主 UI 驱动的最小终端输入面。 */
@@ -164,8 +168,12 @@ export interface TerminalCommandTarget {
   sendText: (text: string, options?: PromptDeliveryOptions) => boolean;
   notifyInputIssue?: (message: string) => void;
   getSessionId?: () => string | null;
+  /** 本地输入代次：用户每次键入/粘贴都会推进；程序化写入不推进。 */
+  inputRevision?: () => number;
   /** 输入区是不是空的（底栏显示 `? for shortcuts`）。投递队列靠它确认任务已被提交走。 */
   composerEmpty?: () => boolean;
+  /** Whether xterm will encode a complete bracketed paste frame. */
+  canPasteMultiline?: () => boolean;
   /** 读屏幕底部的选择框；读不准返回 null。 */
   readChoice?: () => import("./choice").TerminalChoice | null;
   /**

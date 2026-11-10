@@ -35,6 +35,11 @@ export class PromptQueueRuntime {
 
   get items(): readonly PromptQueueItem[] { return this.queue; }
 
+  /** 这个会话在旧队列里没有排队、在途或暂停的内容；收件箱只在此时才占用输入位置。 */
+  isEmptyFor(tabId: string): boolean {
+    return !this.queue.some((item) => item.tabId === tabId) && !this.inFlight.has(tabId) && !this.paused.has(tabId);
+  }
+
   /** 暂停中的会话与原因，房间界面拿它显示「消息暂停了」。 */
   pausedDeliveries(): PausedDelivery[] {
     return [...this.paused.entries()].map(([tabId, pending]) => ({ tabId, message: pending.issue ?? "" }));

@@ -3,6 +3,8 @@ const callbacks = new Map(), channels = new Map();
 let nextCallback = 0;
 const project = { id: "production-qa", name: "panel-qa", rootPath: "/qa/panel-project", rootUri: "file:///qa/panel-project" };
 const qa = window.__productionQA = { calls: [], creates: 0, writes: [], preloadErrors: [], errors: [], token: crypto.randomUUID() };
+// 用例可直接驱动某个 PTY 的输出（模拟 Agent 屏幕变化），不经过输入通道。
+qa.output = (sessionId, text) => output(sessionId, text);
 if (!localStorage.getItem("belfry.locale.v1")) localStorage.setItem("belfry.locale.v1", "zh-CN");
 window.addEventListener("vite:preloadError", (event) => qa.preloadErrors.push(String(event.payload?.message ?? event.payload)));
 window.addEventListener("error", (event) => { if (event.error) qa.errors.push(String(event.error)); });

@@ -40,7 +40,7 @@ export class TerminalInput {
       session: () => this.session()?.id ?? null,
       paste: (text) => terminal.paste(text),
       enter: () => terminal.input("\r", true),
-      write: (id, data) => writeTerminal(id, new TextEncoder().encode(data)),
+      write: (id, data, guarded) => writeTerminal(id, new TextEncoder().encode(data), guarded),
       error: (error) => callbacks.onError(t("terminal.input.text_48ac6518d5", { error: errorMessage(error) })),
       settleMs: pasteSettleMs(navigator.userAgent),
     });
@@ -66,6 +66,8 @@ export class TerminalInput {
   }
 
   sendInteraction(request: InteractionWrite) { return this.prompt.sendInteraction(request); }
+
+  get inputRevision() { return this.prompt.inputRevision; }
 
   stop() { this.stopped = true; this.prompt.dispose(); }
 

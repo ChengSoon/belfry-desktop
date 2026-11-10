@@ -31,6 +31,8 @@ import { useProjectWorkspace } from "./workspace/useProjectWorkspace";
 import { NamedWorkspaceControls } from "./workspace/named/NamedWorkspaceControls";
 import { useSessionRoster } from "./collab/useSessionRoster";
 import { useTaskDelivery } from "./collab/useTaskDelivery";
+import { useInboxDelivery } from "./inbox/useInboxDelivery";
+import { useInbox } from "./inbox/useInbox";
 import { useRoomBoundTabs } from "./rooms/useRoomBoundTabs";
 import { useRoomInbox } from "./rooms/useRoomInbox";
 import { resolveAgentRename } from "./collab/naming";
@@ -146,8 +148,11 @@ export default function App() {
     return workspace.launch(kind, undefined, projectRoot, false, isAgentKind(kind));
   }, [unfold, workspace.activeProject, workspace.launch]);
   const promptQueue = usePromptQueue({ tabs: workspace.tabs, targets: terminalTargets.targets });
-  // `belfry send` 的任务经后台队列投进目标终端，等待目标 Agent 空闲。
-  const resolveTaskDelivery = useTaskDelivery(promptQueue.submit);
+  // 协作收件箱：后端支持时成为唯一投递 owner；否则沿用旧的 `belfry send` 队列。决定之前两者都不跑。
+  const inboxDelivery = useInboxDelivery({ tabs: workspace.tabs, targets: terminalTargets.targets, promptQueueEmpty: promptQueue.isEmptyFor });
+  const resolveTaskDelivery = useTaskDelivery(promptQueue.submit, inboxDelivery.mode === "legacy");
+  const inboxRoots = useMemo(() => [...new Set(workspace.tabs.map((tab) => tab.project.rootPath))].sort(), [workspace.tabs]);
+  const inbox = useInbox(inboxRoots, inboxDelivery.mode === "inbox" && collabOpen);
   // 统筹、成员发给你的消息：房间关着时发系统通知；未读的房间也算进侧栏计数。
   const roomUnread = useRoomInbox(roomBound.summaries, roomsOpen);
   // 房间成员在等你选择、或者发给他的消息卡住了：侧栏「协作房间」按钮亮起，房间藏着也看得见。
@@ -416,7 +421,7 @@ export default function App() {
         tabs={workspace.tabs}
       />
 
-      <Presence open={collabOpen} drawer><CollabPanel collab={collab} onClose={() => setCollabOpen(false)}
+      <Presence open={collabOpen} drawer><CollabPanel collab={collab} inbox={inboxDelivery.mode === "inbox" ? inbox : undefined} deliveryHalted={inboxDelivery.mode === "halted"} deliveryError={inboxDelivery.error} onClose={() => setCollabOpen(false)}
         availableTabIds={workspace.tabs.map(tab => tab.id)} onOpenTerminal={tabId => { setCollabOpen(false); openRoomSession(tabId); }} /></Presence>
       <PluginDock visible={pluginDockOpen && !settingsOpen} onClose={() => setPluginDockOpen(false)} />
 
