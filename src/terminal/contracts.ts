@@ -174,6 +174,8 @@ export interface TerminalCommandTarget {
   answerChoice?: (signature: string, index: number) => "sent" | "changed" | "unavailable";
   /** Read all supported request kinds regardless of the coarser activity indicator. */
   readInteraction?: () => import("./interaction").TerminalInteraction | null;
+  /** Explicitly opens a queued question editor; does not submit an answer. */
+  openInteraction?: (requestId: string, optionIndex?: number) => Promise<import("./interaction").TerminalInteractionOpenResult>;
   /** Only user actions call this; sent means the PTY write completed, not task completion. */
   answerInteraction?: (requestId: string, answer: import("./interaction").TerminalInteractionAnswer)
     => Promise<import("./interaction").TerminalInteractionResult>;

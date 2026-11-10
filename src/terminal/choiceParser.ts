@@ -2,8 +2,9 @@ import type { AgentKind } from "../agent/contracts";
 import type { TerminalChoiceOption } from "./choice";
 import type { ParsedInteraction } from "./interaction";
 import { CHECKBOX_OPTION, CHOICE_QUESTION, CONFIRM_TAIL, NUMBERED_OPTION, QUESTION_PAGE, RULE,
-  cleanChoiceLine, hasDefaultSubmit, isChoiceFooter, isNormalComposer } from "./choiceSignals";
+  choiceFooterStart, cleanChoiceLine, hasDefaultSubmit, isChoiceFooter, isNormalComposer } from "./choiceSignals";
 import { unicodeStringWidth } from "./unicode";
+import { CODEX_QUEUED_HEADER, codexQueuedQuestions, isCodexQuestionEditor } from "./codexQueuedQuestions";
 
 type Evidence = Omit<ParsedInteraction, "signature" | "contextSignature">;
 const PROMPT_TITLE = /^(?:[▶❯›]\s*)?(?:Select (?:Model|Reasoning|a model)|Update Model Permissions|Configure Status Line|Choose (?:an option|a mode)|Where should the new conversation run|Submit with unanswered questions|Run this command|Write this file|Apply these edits|Stop this task|Ready to build with this plan|Approve\b|Permission required|Status line)/i;
@@ -11,7 +12,7 @@ const INPUT_PLACEHOLDER = /^(?:[›❯]\s*)?(Type your answer(?: \(optional\))?|
 
 function finish(value: Evidence): ParsedInteraction {
   const contextSignature = JSON.stringify([value.kind, value.question, value.detail, value.options,
-    value.control, value.axis, value.answers, value.input?.label, value.optionsComplete]);
+    value.control, value.axis, value.answers, value.input?.label, value.optionsComplete, value.queue, value.queueContext]);
   return { ...value, contextSignature, signature: JSON.stringify([contextSignature, value.inputValue ?? "", value.input?.placeholder, value.input?.optional]) };
 }
 
@@ -22,10 +23,18 @@ export function unknownInteraction(question: string, detail: string): ParsedInte
 
 /** Full live-screen text, not the scrollback or a fixed 12/30-line suffix. */
 export function parseInteractionText(tail: string, agent?: AgentKind | null): ParsedInteraction | null {
-  const lines = tail.split("\n").map(cleanChoiceLine);
+  const rawLines = tail.split("\n");
+  let lines = rawLines.map(cleanChoiceLine);
   while (lines.length && !lines.at(-1)?.trim()) lines.pop();
   if (!lines.length) return null;
-  const footerAt = lastIndex(lines, isChoiceFooter);
+  const queued = agent === "codex" ? codexQueuedQuestions(lines, rawLines) : null;
+  if (queued) return finish(queued);
+  const asyncQuestion = agent === "codex" && isCodexQuestionEditor(lines);
+  const header = lastIndex(lines, line => CODEX_QUEUED_HEADER.test(line));
+  // The active editor follows the queue heading; numbered history above it is not its menu.
+  if (asyncQuestion && header >= 0 && !rawLines.slice(0, header).some(line => /^\s*(?:```|~~~)/.test(line))) lines = lines.slice(header + 1);
+  const editor = (parsed: ParsedInteraction) => asyncQuestion ? { ...parsed, asyncQuestion: true } : parsed;
+  const footerAt = choiceFooterStart(lines);
   const footer = footerAt < 0 ? "" : lines.slice(footerAt).join(" ");
   const lastOption = lastIndex(lines, line => NUMBERED_OPTION.test(line) || CHECKBOX_OPTION.test(line));
   let fenced = false;
@@ -46,13 +55,13 @@ export function parseInteractionText(tail: string, agent?: AgentKind | null): Pa
   const selection = readSelection(lines, footerAt, footer, agent);
   // Codex question input can coexist with its numbered options (notes / Other).
   const input = agent === "codex" ? readCodexInput(lines, footerAt, footer, selection) : null;
-  if (input) return input;
-  if (selection) return selection;
+  if (input) return editor(input);
+  if (selection) return editor(selection);
 
   if (explicitWaiting(lines, footer, agent)) {
     const content = lines.slice(0, footerAt < 0 ? lines.length : footerAt);
     const { question, detail } = questionContext(content, content.length);
-    return unknownInteraction(question, detail || content.map(line => line.trim()).filter(Boolean).join("\n"));
+    return editor(unknownInteraction(question, detail || content.map(line => line.trim()).filter(Boolean).join("\n")));
   }
   return null;
 }
@@ -110,7 +119,7 @@ function readSelection(lines: string[], footerAt: number, footer: string, agent?
     // Checkbox menus may show a preview of checked labels above their footer.
     else if (at <= end || !checkbox) unsafe = true;
   }
-  const options = rows.map(({ index, label, description }) => ({ index, label, ...(description ? { description } : {}) }));
+  const options: ParsedInteraction["options"] = rows.map(({ index, label, description }) => ({ index, label, ...(description ? { description } : {}) }));
   const context = questionContext(lines, start);
   const sequential = options.every((option, at) => Number.isSafeInteger(option.index) && option.index > 0
     && (at === 0 || option.index === options[at - 1].index + 1));
@@ -133,6 +142,9 @@ function readSelection(lines: string[], footerAt: number, footer: string, agent?
   if (checkbox && agent !== "codex") return unknownInteraction(context.question, lines.slice(start).join("\n"));
   const kind = checkbox ? "multiple" : CHOICE_QUESTION.test(context.question) || /^(?:Submit with unanswered|[▶❯›]?\s*(?:Run this command|Write this file|Apply these edits))/i.test(context.question)
     ? "confirmation" : "single";
+  const other = options.at(-1);
+  if (!checkbox && agent === "codex" && isCodexQuestionEditor(lines) && optionsComplete
+    && other && /^Other(?: \(write an answer\))?$/.test(other.label)) other.action = "input";
   return finish({ ...context, kind, options, selected, selectedIndices, input: null,
     control: checkbox ? "checkboxes" : "arrows", optionsComplete });
 }

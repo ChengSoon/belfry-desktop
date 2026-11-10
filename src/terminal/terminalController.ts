@@ -59,6 +59,7 @@ function createHandle({ view, lifecycle, layout }: {
     readChoice: () => interactions.readChoice(),
     answerChoice: (signature, index) => interactions.answerChoice(signature, index),
     readInteraction: () => interactions.read(),
+    openInteraction: (requestId, optionIndex) => interactions.open(requestId, optionIndex),
     answerInteraction: (requestId, answer) => interactions.answer(requestId, answer),
     dispose: () => {
       if (!lifecycle.alive) return;

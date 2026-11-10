@@ -1,0 +1,53 @@
+{
+  "source": "Real isolated Codex PTY (local deterministic Responses transport, no remote model); trailing cell spaces trimmed from rendered 110x40 screen. Full ANSI and receipts retained separately.",
+  "version": "codex-cli 0.167.0",
+  "upstreamCommit": "086ccc833bc9cf01024ad2dd6af7dbd421b6bf9a",
+  "capturedAt": "2026-11-10",
+  "fixtures": {
+    "collapsed": {
+      "screen": "  >_ OpenAI Codex (v0.167.0)\n     /tmp/belfry-t50-live-final/workspace\n\n  To get started, describe a task or try one of these commands:\n\n  /init - create an AGENTS.md file with instructions for Codex\n  /status - show current session configuration\n  /permissions - choose what Codex is allowed to do\n  /model - choose what model and reasoning effort to use\n  /review - review any changes and find issues\n\n\n› Controlled Belfry QA: use the provided generic question only. Do not execute commands or access files.\n\n\n? Which sample color should the isolated preview use?\n\n  • Blue sample\n  • Green sample\n\n• Working (33s • esc to interrupt)\n\n• Queued follow-up inputs\n  ? 1 question\n    ⇧← to answer\n\n› Ask Codex to do anything\n\n  GPT-6-Astra xhigh Fast · /tmp/belfry-t50-live-final/workspace · ← for agents",
+      "source": "/tmp/belfry-t50-live-final/collapsed.ansi",
+      "ansiSha256": "664989f91417d99b61f180ee5f4cf3b5ff51dbbe389d2f008b91acbfc94a9c2f"
+    },
+    "expanded": {
+      "screen": "  >_ OpenAI Codex (v0.167.0)\n     /tmp/belfry-t50-live-final/workspace\n\n  To get started, describe a task or try one of these commands:\n\n  /init - create an AGENTS.md file with instructions for Codex\n  /status - show current session configuration\n  /permissions - choose what Codex is allowed to do\n  /model - choose what model and reasoning effort to use\n  /review - review any changes and find issues\n\n\n› Controlled Belfry QA: use the provided generic question only. Do not execute commands or access files.\n\n\n? Which sample color should the isolated preview use?\n\n  • Blue sample\n  • Green sample\n\n• Working (33s • esc to interrupt)\n\n• Queued follow-up inputs\n\n  Which sample color should the isolated preview use?\n\n  › 1. Blue sample\n    2. Green sample\n    3. Other\n\n  enter submit   ⌃] skip   ⇧→ main prompt",
+      "source": "/tmp/belfry-t50-live-final/expanded.ansi",
+      "ansiSha256": "86cc4148971b343101c9e6d49395b1108a10119b20fcdaacd2d8f200bd601719"
+    },
+    "other": {
+      "screen": "  >_ OpenAI Codex (v0.167.0)\n     /tmp/belfry-t50-live-final/workspace\n\n  To get started, describe a task or try one of these commands:\n\n  /init - create an AGENTS.md file with instructions for Codex\n  /status - show current session configuration\n  /permissions - choose what Codex is allowed to do\n  /model - choose what model and reasoning effort to use\n  /review - review any changes and find issues\n\n\n› Controlled Belfry QA: use the provided generic question only. Do not execute commands or access files.\n\n\n? Which sample color should the isolated preview use?\n\n  • Blue sample\n  • Green sample\n\n• Working (33s • esc to interrupt)\n\n• Queued follow-up inputs\n\n  Which sample color should the isolated preview use?\n\n    1. Blue sample\n    2. Green sample\n  › 3. Other\n\n  enter submit   ⌃] skip   ⇧→ main prompt",
+      "source": "/tmp/belfry-t50-live-final/other-input.ansi",
+      "ansiSha256": "6f96bb55100ec2ebdc1609d9a8cb388b82d30ccf4577b39db1cbb0b9517d566f"
+    },
+    "otherDraft": {
+      "screen": "  >_ OpenAI Codex (v0.167.0)\n     /tmp/belfry-t50-live-final/workspace\n\n  To get started, describe a task or try one of these commands:\n\n  /init - create an AGENTS.md file with instructions for Codex\n  /status - show current session configuration\n  /permissions - choose what Codex is allowed to do\n  /model - choose what model and reasoning effort to use\n  /review - review any changes and find issues\n\n\n› Controlled Belfry QA: use the provided generic question only. Do not execute commands or access files.\n\n\n? Which sample color should the isolated preview use?\n\n  • Blue sample\n  • Green sample\n\n• Working (33s • esc to interrupt)\n\n• Queued follow-up inputs\n\n  Which sample color should the isolated preview use?\n\n    1. Blue sample\n    2. Green sample\n  › 3. Purple sample\n\n  enter submit   ⌃] skip   ⇧→ main prompt",
+      "source": "/tmp/belfry-t50-live-final/other-draft.ansi",
+      "ansiSha256": "d107018c1361d0336662fe96f8ddf61d71f51b650402dd972003bc91cedea30a"
+    },
+    "text": {
+      "screen": "  >_ OpenAI Codex (v0.167.0)\n     /tmp/belfry-t50-live-text/workspace\n\n  To get started, describe a task or try one of these commands:\n\n  /init - create an AGENTS.md file with instructions for Codex\n  /status - show current session configuration\n  /permissions - choose what Codex is allowed to do\n  /model - choose what model and reasoning effort to use\n  /review - review any changes and find issues\n\n\n› Controlled Belfry QA: use the provided generic question only. Do not execute commands or access files.\n\n\n? Which sample note should the isolated preview show?\n\n• Working (40s • esc to interrupt)\n\n• Queued follow-up inputs\n\n  Which sample note should the isolated preview show?\n\n  Type your answer\n\n  enter submit   ⌃] skip   ⇧→ main prompt",
+      "source": "/tmp/belfry-t50-live-text/expanded.ansi",
+      "ansiSha256": "372e055d8181199a11b50f2e05dc28004683a5c4224e042032456da268c45ce6"
+    },
+    "textDraft": {
+      "screen": "  >_ OpenAI Codex (v0.167.0)\n     /tmp/belfry-t50-live-text/workspace\n\n  To get started, describe a task or try one of these commands:\n\n  /init - create an AGENTS.md file with instructions for Codex\n  /status - show current session configuration\n  /permissions - choose what Codex is allowed to do\n  /model - choose what model and reasoning effort to use\n  /review - review any changes and find issues\n\n\n› Controlled Belfry QA: use the provided generic question only. Do not execute commands or access files.\n\n\n? Which sample note should the isolated preview show?\n\n• Working (40s • esc to interrupt)\n\n• Queued follow-up inputs\n\n  Which sample note should the isolated preview show?\n\n  Sample note\n  Second line\n\n  enter submit   ⌃] skip   ⇧→ main prompt",
+      "source": "/tmp/belfry-t50-live-text/draft.ansi",
+      "ansiSha256": "b766ba9bbec415f9bfdc0a2f747b4183f73405d1743fd1e4a833a3897e26806f"
+    },
+    "pairCollapsed": {
+      "screen": "  >_ OpenAI Codex (v0.167.0)\n     /tmp/belfry-t50-live-pair/workspace\n\n  To get started, describe a task or try one of these commands:\n\n  /init - create an AGENTS.md file with instructions for Codex\n  /status - show current session configuration\n  /permissions - choose what Codex is allowed to do\n  /model - choose what model and reasoning effort to use\n  /review - review any changes and find issues\n\n\n› Controlled Belfry QA: use the provided generic question only. Do not execute commands or access files.\n\n\n? Which sample color should the isolated preview use?\n\n  • Blue sample\n  • Green sample\n\n? Which sample note should the isolated preview show?\n\n◦ Working (33s • esc to interrupt)\n\n• Queued follow-up inputs\n  ? 2 questions\n    ⇧← to answer\n\n› Ask Codex to do anything\n\n  GPT-6-Astra xhigh Fast · /tmp/belfry-t50-live-pair/workspace · ← for agents",
+      "source": "/tmp/belfry-t50-live-pair/collapsed.ansi",
+      "ansiSha256": "80462fe80310fff40c2f8712090bc75fd4588a8ee9016d9eb1be68d6d36ce409"
+    },
+    "pairFirst": {
+      "screen": "  >_ OpenAI Codex (v0.167.0)\n     /tmp/belfry-t50-live-pair/workspace\n\n  To get started, describe a task or try one of these commands:\n\n  /init - create an AGENTS.md file with instructions for Codex\n  /status - show current session configuration\n  /permissions - choose what Codex is allowed to do\n  /model - choose what model and reasoning effort to use\n  /review - review any changes and find issues\n\n\n› Controlled Belfry QA: use the provided generic question only. Do not execute commands or access files.\n\n\n? Which sample color should the isolated preview use?\n\n  • Blue sample\n  • Green sample\n\n? Which sample note should the isolated preview show?\n\n• Working (33s • esc to interrupt)\n\n• Queued follow-up inputs\n\n  1 of 2\n  Which sample color should the isolated preview use?\n\n  › 1. Blue sample\n    2. Green sample\n    3. Other\n\n  enter submit   ⌃] skip   ⇧→ main prompt   ⇧← next question",
+      "source": "/tmp/belfry-t50-live-pair/expanded-first.ansi",
+      "ansiSha256": "cc6e4d7fc25e6b551bc2d6441b8a8d3cdc696442e3b78f28b1090cf2e87cbc01"
+    },
+    "pairSecond": {
+      "screen": "  >_ OpenAI Codex (v0.167.0)\n     /tmp/belfry-t50-live-pair/workspace\n\n  To get started, describe a task or try one of these commands:\n\n  /init - create an AGENTS.md file with instructions for Codex\n  /status - show current session configuration\n  /permissions - choose what Codex is allowed to do\n  /model - choose what model and reasoning effort to use\n  /review - review any changes and find issues\n\n\n› Controlled Belfry QA: use the provided generic question only. Do not execute commands or access files.\n\n\n? Which sample color should the isolated preview use?\n\n  • Blue sample\n  • Green sample\n\n? Which sample note should the isolated preview show?\n\n• Working (33s • esc to interrupt)\n\n• Queued follow-up inputs\n\n  2 of 2\n\n  Which sample note should the isolated preview show?\n\n  Type your answer\n\n  enter submit   ⌃] skip   ⇧→ prev question",
+      "source": "/tmp/belfry-t50-live-pair/expanded-second.ansi",
+      "ansiSha256": "a139e5391d07de42cabe448b8462febd365a7faa6cc579ae057f24db1ec84ad7"
+    }
+  }
+}

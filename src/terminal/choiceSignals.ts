@@ -18,6 +18,14 @@ export function isChoiceFooter(line: string): boolean {
     && /\b(?:submit|confirm|select|toggle|save|cancel|skip|notes|interrupt|navigate|back)\b|确认|提交|选择|切换|取消/iu.test(line);
 }
 
+/** Ratatui can wrap its hint groups onto adjacent rows in a narrow terminal. */
+export function choiceFooterStart(lines: string[]): number {
+  let at = lines.length - 1;
+  while (at >= 0 && !isChoiceFooter(lines[at])) at -= 1;
+  while (at > 0 && isChoiceFooter(lines[at - 1])) at -= 1;
+  return at;
+}
+
 export function hasDefaultSubmit(footer: string): boolean {
   return /\benter\s+(?:to\s+)?(?:submit(?: answer)?|confirm|select|save)\b|↵\s*confirm|回车\s*(?:确认|提交|选择)/iu.test(footer);
 }
