@@ -34,14 +34,10 @@
     "attachments": {
       "other": "{{count}} 个附件"
     },
-    "unavailableTarget": "该会话当前不在，恢复后可核对。",
-    "verifyTitle": "核对这次投递",
-    "verifyHint": "仅在目标终端里已经出现这条内容时确认。系统不会自动重发。",
-    "confirmSubmitted": "确认已提交",
-    "abandon": "放弃此次投递",
-    "verifyFailed": "状态已变化，请刷新后再核对。",
     "views": "收件箱与任务",
-    "tasks": "任务"
+    "tasks": "任务",
+    "halted": "协作收件箱未能启用，自动投递已暂停，消息仍会保存。请重启应用后再试。",
+    "targetGone": "这个会话当前不在，无法打开"
   },
   "class": {
     "task_assignment": "任务",

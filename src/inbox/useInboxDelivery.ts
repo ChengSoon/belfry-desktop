@@ -12,14 +12,18 @@ import { InboxRuntime, type GuardedResult, type InputSlot } from "./runtime";
 
 const TICK_MS = 750;
 
-/** "probing"：还没决定；"legacy"：后端不支持，沿用旧路径；"inbox"：新协议是唯一 owner。 */
-export type DeliveryMode = "probing" | "legacy" | "inbox";
+/**
+ * "probing"：还没决定；"legacy"：后端没有收件箱命令，沿用旧路径；"inbox"：新协议是唯一 owner；
+ * "halted"：后端支持但启用失败。此时两条路径都不自动投递，避免部分切换后出现两个 owner。
+ */
+export type DeliveryMode = "probing" | "legacy" | "inbox" | "halted";
 
 /**
  * 决定投递 owner 并驱动新运行时。顺序：
  * 1. 查 capabilities。命令不存在/不支持 → legacy（旧 DeliveryCoordinator 照旧）。
  * 2. 支持但未启用 → 旧循环此时从未启动过，没有旧项可能写入，直接 activate。
  * 3. 启用后只跑 InboxRuntime；旧循环保持关闭，避免双重投递。
+ * 4. activate 失败 → halted：不回退旧路径，下次启动再试。
  * 决定之前两条路径都不跑。
  */
 export function useInboxDelivery(options: {
@@ -40,14 +44,20 @@ export function useInboxDelivery(options: {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      try {
-        let caps = await probe();
-        if (!caps.capabilities.includes(INBOX_CAPABILITY)) { if (!cancelled) setMode("legacy"); return; }
-        if (!caps.enabled) caps = await activate(crypto.randomUUID());
-        if (!cancelled) setMode(caps.enabled ? "inbox" : "legacy");
-      } catch {
-        // 旧后端没有这些命令：只走旧路径。
+      let caps: Capabilities;
+      try { caps = await probe(); }
+      catch {
+        // 只有“命令不存在”（旧后端）才走旧路径。
         if (!cancelled) setMode("legacy");
+        return;
+      }
+      if (!caps.capabilities.includes(INBOX_CAPABILITY)) { if (!cancelled) setMode("legacy"); return; }
+      if (caps.enabled) { if (!cancelled) setMode("inbox"); return; }
+      try {
+        const next = await activate(crypto.randomUUID());
+        if (!cancelled) setMode(next.enabled ? "inbox" : "halted");
+      } catch {
+        if (!cancelled) setMode("halted");
       }
     })();
     return () => { cancelled = true; };
@@ -107,7 +117,5 @@ export function useInboxDelivery(options: {
     return () => { runtime.stop(); runtimeRef.current = null; window.clearInterval(timer); };
   }, [mode, slot, write]);
 
-  /** 人工核对（确认/放弃）后调用，解除本地阻塞。 */
-  const unblock = useCallback((tabId: string) => runtimeRef.current?.unblock(tabId), []);
-  return { mode, unblock };
+  return { mode };
 }

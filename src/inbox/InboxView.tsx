@@ -58,7 +58,7 @@ export function InboxView({ inbox, onOpenSession, availableTabIds }: InboxViewPr
           </button>
           {session ? <SessionHeader session={session} /> : null}
           {session ? (
-            <button className="collab-button inbox-open" type="button" disabled={!canOpen} title={canOpen ? undefined : t("inbox.panel.unavailableTarget")}
+            <button className="collab-button inbox-open" type="button" disabled={!canOpen} title={canOpen ? undefined : t("inbox.panel.targetGone")}
               onClick={() => canOpen && onOpenSession!(session.tabId)}>
               <SquareTerminal aria-hidden="true" size={ICON.sm} />{t("inbox.panel.openSession")}
             </button>

@@ -28,7 +28,12 @@ function harness(over: Partial<InboxRuntimePorts> = {}, pending: PendingView = {
     bind: async () => { calls.push("bind"); return binding; },
     offer: async () => { calls.push("offer"); return offer; },
     revoke: async () => { calls.push("revoke"); },
-    prepare: async (): Promise<PrepareResult> => { calls.push("prepare"); return { batch: batch(), blocker: null }; },
+    // 模拟后台 deliveryGate：收到 uncertain 回执后，该会话的 prepare 一律返回 uncertain blocker。
+    prepare: async (): Promise<PrepareResult> => {
+      calls.push("prepare");
+      if (receipts.some((r) => r.phase === "uncertain")) return { batch: null, blocker: { code: "uncertain", params: {} } };
+      return { batch: batch(), blocker: null };
+    },
     begin: async (b): Promise<BeginResult> => { calls.push("begin"); return { batch: { ...b, sequence: 2, phase: "submitting" }, writeGuard: { batchId: b.id, attemptId: b.attemptId, token: "tok", ownerId: "owner", targetEpoch: "e1", inputRevision: 3 } }; },
     receipt: async (r) => { calls.push(`receipt:${r.phase}`); receipts.push(r); return null; },
     abort: async () => { calls.push("abort"); return null; },
@@ -77,32 +82,41 @@ describe("InboxRuntime", () => {
     expect(h.writes).toEqual([]);
   });
 
-  it("begin 之后输入位置变化：不写入，回执 uncertain，并阻塞该会话后续自动投递", async () => {
+  it("begin 之后输入位置变化：不写入，回执 uncertain；回执未送达前本地阻塞，送达后交给后台门控", async () => {
     const h = harness();
     h.ports.begin = async (b) => {
       h.state.slot = slot({ composerEmpty: false });
       return { batch: { ...b, sequence: 2 }, writeGuard: { batchId: b.id, attemptId: b.attemptId, token: "tok", ownerId: "o", targetEpoch: "e1", inputRevision: 3 } };
     };
+    let receiptOk = false;
+    h.ports.receipt = async (r) => { if (!receiptOk) throw new Error("ipc"); h.receipts.push(r); return null; };
     const rt = new InboxRuntime(h.ports);
     await rt.tick();
     expect(h.writes).toEqual([]);
-    expect(h.receipts.map((r) => r.phase)).toEqual(["uncertain"]);
     expect(rt.blockedTabs).toEqual(["tab-b"]);
     h.state.slot = slot();
     h.calls.length = 0;
     await rt.tick();
-    expect(h.calls).toEqual(["pending"]); // 不确定未核对前不再自动投递
+    expect(h.calls).toEqual(["pending"]); // 回执没送达前不会再 offer
+    receiptOk = true;
+    await rt.tick();
+    expect(h.receipts.map((r) => r.phase)).toEqual(["uncertain"]);
+    expect(rt.blockedTabs).toEqual([]); // 之后由后台 prepare 的 blocker 决定
+    await rt.tick();
+    expect(h.writes).toEqual([]);
   });
 
-  it("begin 结果未知（请求失败）：不写入、不重发，阻塞该会话", async () => {
+  it("begin 结果未知（请求失败）：本批不写入、不重发；下一次必须重新 prepare，由后台决定是否放行", async () => {
     const h = harness();
     h.ports.begin = async () => { h.calls.push("begin"); throw new Error("lost"); };
     const rt = new InboxRuntime(h.ports);
     await rt.tick();
-    await rt.tick();
     expect(h.writes).toEqual([]);
+    h.ports.prepare = async () => { h.calls.push("prepare"); return { batch: null, blocker: { code: "uncertain", params: {} } }; };
+    await rt.tick();
     expect(h.calls.filter((c) => c === "begin")).toHaveLength(1);
-    expect(rt.blockedTabs).toEqual(["tab-b"]);
+    expect(h.calls.filter((c) => c === "prepare")).toHaveLength(2);
+    expect(h.writes).toEqual([]);
   });
 
   it("写入后未确认（detached/失败）只回执 uncertain，不会第二次写入", async () => {
@@ -184,16 +198,6 @@ describe("InboxRuntime", () => {
     expect(h.writes).toEqual([]);
   });
 
-  it("人工核对后 unblock，需要新的输入机会才继续", async () => {
-    const h = harness({ write: async () => "uncertain" });
-    const rt = new InboxRuntime(h.ports);
-    await rt.tick();
-    expect(rt.blockedTabs).toEqual(["tab-b"]);
-    rt.unblock("tab-b");
-    h.ports.write = async (_t, payload, guard) => { h.writes.push({ payload, token: guard.token }); return "submitted"; };
-    await rt.tick();
-    expect(h.writes).toHaveLength(1);
-  });
 
   it("pendingCount 为 0 的会话不触发任何投递调用", async () => {
     const h = harness({}, { revision: 1, recipients: [{ sessionKey: "sk", tabId: "tab-b", projectRoot: "/p", pendingCount: 0 }] });

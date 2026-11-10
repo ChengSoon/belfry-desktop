@@ -47,7 +47,7 @@ export interface InboxRuntimePorts {
 }
 
 interface Bound { binding: Binding; terminalSessionId: string }
-interface Receipt { request: ReceiptRequest; final: boolean }
+interface Receipt { request: ReceiptRequest; tabId: string }
 
 export class InboxRuntime {
   readonly ownerId: string;
@@ -56,7 +56,10 @@ export class InboxRuntime {
   private busy = new Set<string>();
   /** 回执失败只重试原回执，不重新写入。 */
   private receipts: Receipt[] = [];
-  /** 本地已知 uncertain 的会话：等人工核对，不再自动投递。 */
+  /**
+   * 本地刚出现 uncertain、回执还没送达后台的会话。回执送达后由后台的 deliveryGate 接管阻塞
+   * （跨房间、跨窗口都生效），本地标记随即解除；核对在后台/Agent 侧完成，界面不提供按钮。
+   */
   private blocked = new Set<string>();
   private stopped = false;
 
@@ -66,8 +69,6 @@ export class InboxRuntime {
 
   stop() { this.stopped = true; }
 
-  /** 人工核对后（确认或放弃）解除本地阻塞，下次需要新的输入机会。 */
-  unblock(tabId: string) { this.blocked.delete(tabId); }
 
   /** 一次调度：先补交回执，再为每个有待收件的会话尝试一次。返回本轮写入的批数。 */
   async tick(): Promise<number> {
@@ -148,15 +149,14 @@ export class InboxRuntime {
     try {
       begun = await this.ports.begin(batch, offer);
     } catch {
-      // begin 结果未知：不能当作未开始，也不能重发。查询交给后台恢复规则；本地先阻塞该会话。
-      this.blocked.add(tabId);
+      // begin 结果未知：不能当作未开始，也不能重发本批。后台若已落意图，会按恢复规则转 uncertain 并阻塞该会话；
+      // 若从未落盘，原项仍是 pending，下次需要新的输入机会和新的 prepare。
       return false;
     }
 
     // 已有提交意图。最后一次复查：被抢先就不写，回执 uncertain，不能把这批再排队。
     if (this.stopped || !this.stillReady(tabId, slot)) {
       this.queueReceipt(begun.batch, "uncertain", "input changed after submit intent");
-      this.blocked.add(tabId);
       return false;
     }
 
@@ -170,14 +170,14 @@ export class InboxRuntime {
     }
     // not-written 在 begin 之后也只能算不确定：意图已落盘，不能退回 pending 重投。
     this.queueReceipt(begun.batch, "uncertain", result === "not-written" ? "write not accepted after submit intent" : null);
-    this.blocked.add(tabId);
     return false;
   }
 
   private queueReceipt(batch: BatchView, phase: "submitted" | "uncertain", message: string | null) {
+    if (phase === "uncertain") this.blocked.add(batch.recipient.tabId);
     this.receipts.push({
       request: { batchId: batch.id, attemptId: batch.attemptId, sequence: batch.sequence + 1, phase, payloadHash: batch.payloadHash, message },
-      final: true,
+      tabId: batch.recipient.tabId,
     });
   }
 
@@ -188,6 +188,9 @@ export class InboxRuntime {
       catch { remaining.push(receipt); }
     }
     this.receipts = remaining;
+    for (const tabId of [...this.blocked]) {
+      if (!remaining.some((item) => item.tabId === tabId)) this.blocked.delete(tabId);
+    }
   }
 
   /** 未送出的回执数（测试与诊断用）。 */

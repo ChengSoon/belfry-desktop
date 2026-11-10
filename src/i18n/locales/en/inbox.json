@@ -37,14 +37,10 @@
       "one": "{{count}} attachment",
       "other": "{{count}} attachments"
     },
-    "unavailableTarget": "This session is not available. Check it after it comes back.",
-    "verifyTitle": "Check this delivery",
-    "verifyHint": "Confirm only if the content already appears in the target terminal. Nothing is resent automatically.",
-    "confirmSubmitted": "Confirm submitted",
-    "abandon": "Abandon this delivery",
-    "verifyFailed": "The state has changed. Refresh and check again.",
     "views": "Inbox and tasks",
-    "tasks": "Tasks"
+    "tasks": "Tasks",
+    "halted": "The collaboration inbox could not be enabled. Automatic delivery is paused; messages are still saved. Restart the app to try again.",
+    "targetGone": "This session is not open right now"
   },
   "class": {
     "task_assignment": "Task",
