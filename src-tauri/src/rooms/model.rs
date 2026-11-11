@@ -54,6 +54,9 @@ pub enum MemberRole {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Member {
+    /// Preserve additive role settings across concurrent feature integration.
+    #[serde(default, flatten)]
+    pub extensions: std::collections::BTreeMap<String, serde_json::Value>,
     pub id: String,
     /// 绑定的会话。
     pub tab_id: String,
@@ -62,6 +65,9 @@ pub struct Member {
     /// 角色名，房间内唯一（在场成员之间）。点名、显示都用它。
     pub title: String,
     pub duty: String,
+    /// 用户为此角色指定的启动模型；None 沿用项目/CLI 设置。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model_override: Option<String>,
     pub role: MemberRole,
     pub joined_at: i64,
     #[serde(default)]
@@ -107,6 +113,9 @@ impl TaskStatus {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Task {
+    /// Assignment lifecycle, distinct from notes/status revision.
+    #[serde(default)]
+    pub generation: u64,
     /// `T<编号>`，房间内永不复用（CCCC 任务编号规则）。
     pub id: String,
     pub title: String,
@@ -154,6 +163,8 @@ pub enum MessageMode {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Message {
+    #[serde(default)]
+    pub inbox: Option<belfry_protocol::inbox::MessageSemantics>,
     pub id: String,
     pub at: i64,
     pub kind: MessageKind,
@@ -177,6 +188,12 @@ pub struct Message {
 impl Message {
     /// 还欠一句回复的收件人。
     pub fn awaiting(&self) -> Vec<String> {
+        if self.reply_cancelled { return Vec::new(); }
+        if let Some(semantics) = &self.inbox {
+            return self.to.iter().filter(|recipient| **recipient != "user" && semantics.questions.iter().any(|question|
+                question.recipients.contains(recipient) && !question.cancelled_for.contains(recipient)
+                    && !question.replies.contains_key(*recipient))).cloned().collect();
+        }
         if self.mode != MessageMode::RequestReply || self.reply_cancelled {
             return Vec::new();
         }
@@ -215,6 +232,10 @@ pub struct Room {
     /// 与房间动作同一次提交的待投递记录；正文仍由账本保存。
     #[serde(default)]
     pub delivery_outbox: Vec<RoomDelivery>,
+    /// Acceptance receipts outlive the bounded message projection, so retrying
+    /// an old operation cannot create a second message after history trimming.
+    #[serde(default)]
+    pub message_operations: std::collections::BTreeMap<String, MessageOperation>,
     /// 已提交账本字节数，供房间信息展示；不包含失败事务的尾部。
     #[serde(default)]
     pub ledger_bytes: u64,
@@ -225,7 +246,16 @@ pub struct Room {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct MessageOperation {
+    pub hash: String,
+    pub posted: Vec<super::ops::Posted>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RoomDelivery {
+    #[serde(default)]
+    pub tab_id: Option<String>,
     pub message_id: String,
     pub member_id: String,
     #[serde(default)]
@@ -267,7 +297,9 @@ impl Room {
     }
 
     pub fn trim_messages(&mut self) {
-        let references: std::collections::HashSet<String> = self.all_messages().filter_map(|message| message.reply_to.clone()).collect();
+        let mut references: std::collections::HashSet<String> = self.all_messages().filter_map(|message| message.reply_to.clone()).collect();
+        let answered: std::collections::HashSet<&String> = self.all_messages().flat_map(|message| message.inbox.iter().flat_map(|semantics| &semantics.answers)).collect();
+        references.extend(self.all_messages().filter(|message| message.inbox.as_ref().is_some_and(|semantics| semantics.questions.iter().any(|question| answered.contains(&question.id)))).map(|message| message.id.clone()));
         let retain = |message: &Message| !message.awaiting().is_empty()
             || message.to.iter().any(|id| id != "user" && !message.delivered_to.contains(id))
             || references.contains(&message.id);

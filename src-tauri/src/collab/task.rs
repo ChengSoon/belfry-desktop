@@ -106,6 +106,10 @@ pub struct ChatDelivery {
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CollabTask {
+    #[serde(default)]
+    pub source_sequence: u64,
+    #[serde(default)]
+    pub project_root: Option<String>,
     pub id: String,
     pub from: String,
     pub to: String,
@@ -220,6 +224,8 @@ pub fn build_task(
         .unwrap_or_else(|| vec![request.from.to_string()]);
     path.push(request.to.to_string());
     CollabTask {
+        source_sequence: 0,
+        project_root: None,
         id,
         from: request.from.to_string(),
         to: request.to.to_string(),
@@ -244,7 +250,8 @@ pub fn build_task(
 /// 同房间、同接收者、还在排队、窗口内的投递并成一段（要求回复只升级不降级），
 /// 成员读到一段对话摘录，而不是被反复打断。
 pub fn enqueue_room_post(board: &TaskBoard, from: &str, post: &super::RoomPost, now: i64) -> Result<(), String> {
-    board.edit(|tasks| {
+    board.edit_mode(|tasks, enabled| {
+    if enabled { return Ok(()); }
     if tasks.values().any(|task| task.to == post.tab_id && matches!(&task.origin, Some(TaskOrigin::Room { id, .. }) if id == &post.room_id)
         && task.chat.as_ref().is_some_and(|chat| chat.message_ids.contains(&post.message_id))) { return Ok(()); }
     let pending = tasks
@@ -275,6 +282,8 @@ pub fn enqueue_room_post(board: &TaskBoard, from: &str, post: &super::RoomPost, 
     tasks.insert(
         id.clone(),
         CollabTask {
+            source_sequence: 0,
+            project_root: None,
             id,
             from: from.to_string(),
             to: post.tab_id.clone(),

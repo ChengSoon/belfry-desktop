@@ -16,6 +16,8 @@ export interface RoomMember {
   agent: string;
   title: string;
   duty: string;
+  /** Null/absent inherits the project or CLI model on the next process launch. */
+  modelOverride?: string | null;
   role: MemberRole;
   joinedAt: number;
   leftAt: number | null;

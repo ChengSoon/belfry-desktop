@@ -10,12 +10,14 @@ export function shouldMarkDispatched(result: PromptSubmitResult | PromptQueueUpd
   return result === "submitted";
 }
 
-export function useTaskDelivery(submit: (tabId: string, text: string, options?: PromptSubmitOptions) => PromptSubmitResult) {
+/** enabled=false 时旧投递循环完全不启动；收件箱启用后只能有一个投递 owner。 */
+export function useTaskDelivery(submit: (tabId: string, text: string, options?: PromptSubmitOptions) => PromptSubmitResult, enabled = true) {
   const coordinator = useRef(new DeliveryCoordinator());
   const submitRef = useRef(submit);
   submitRef.current = submit;
 
   useEffect(() => {
+    if (!enabled) return;
     let stopped = false;
     let running = false;
     const tick = async () => {
@@ -32,6 +34,6 @@ export function useTaskDelivery(submit: (tabId: string, text: string, options?: 
     };
     const timer = window.setInterval(() => void tick(), POLL_INTERVAL_MS);
     return () => { stopped = true; window.clearInterval(timer); };
-  }, []);
+  }, [enabled]);
   return useCallback((id: string) => coordinator.current.resolvePersisted(id), []);
 }

@@ -87,6 +87,25 @@ fn a_valid_request_is_served() {
 }
 
 #[test]
+fn inbox_accepts_known_busy_or_offline_agents_without_crossing_project_scope() {
+    let identities = SessionIdentities::default(); let token = token_of(&identities.issue("sender", None));
+    let registry = SessionRegistry::default(); let board = TaskBoard::default();
+    board.enable_inbox().unwrap();
+    for activity in ["talking", "awaiting-choice", "exited"] {
+        let mut target = snapshot("target", "codex"); target.activity = activity.into(); target.can_receive = false;
+        registry.replace(vec![snapshot("sender", "codex"), target]);
+        let response = handle_line(&line("sender", &token, Command::Send { to: "target".into(), instruction: format!("queue while {activity}"), parent_task: None }),
+            &identities, &registry, &board, &RoomAccess::default());
+        assert!(matches!(response, Response::Ok { data: ResponseData::Sent { .. } }), "{response:?}");
+    }
+    assert_eq!(board.snapshot().len(), 3);
+    assert!(board.snapshot().iter().all(|task| task.project_root.as_deref() == Some("/tmp/project") && task.delivery.phase == task::DeliveryPhase::Accepted));
+    let mut target = snapshot("target", "codex"); target.project_root = Some("/tmp/other-project".into()); registry.replace(vec![snapshot("sender", "codex"), target]);
+    let send = Command::Send { to: "target".into(), instruction: "must not cross projects".into(), parent_task: None };
+    assert!(matches!(handle_line(&line("sender", &token, send), &identities, &registry, &board, &RoomAccess::default()), Response::Error { .. }));
+}
+
+#[test]
 fn a_wrong_token_is_rejected() {
     let identities = SessionIdentities::default();
     let registry = SessionRegistry::default();
@@ -397,7 +416,7 @@ impl RoomDirectory for StubRooms {
 }
 
 fn say(text: &str) -> Command {
-    Command::RoomSay { room: None, text: text.into(), reply_to: None, to: Vec::new(), ask: false }
+    Command::RoomSay { inbox: None, room: None, text: text.into(), reply_to: None, to: Vec::new(), ask: false }
 }
 
 #[test]

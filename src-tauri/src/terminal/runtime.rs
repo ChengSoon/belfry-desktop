@@ -23,6 +23,7 @@ pub struct TerminalRuntime {
     launch_epochs: Mutex<HashMap<String, u64>>,
     workspace_gate: Mutex<()>,
     sessions: Arc<Mutex<HashMap<String, PathBuf>>>,
+    pub(crate) input_gate: Arc<super::input_gate::InputGate>,
 }
 
 impl TerminalRuntime {
@@ -35,6 +36,7 @@ impl TerminalRuntime {
             launch_epochs: Mutex::new(HashMap::new()),
             workspace_gate: Mutex::new(()),
             sessions: Arc::new(Mutex::new(HashMap::new())),
+            input_gate: Arc::new(super::input_gate::InputGate::default()),
         }
     }
 
@@ -47,6 +49,7 @@ impl TerminalRuntime {
             launch_epochs: Mutex::new(HashMap::new()),
             workspace_gate: Mutex::new(()),
             sessions: Arc::new(Mutex::new(HashMap::new())),
+            input_gate: Arc::new(super::input_gate::InputGate::default()),
         }
     }
 
@@ -60,6 +63,8 @@ impl TerminalRuntime {
         let _guard = self.lock_workspace();
         self.validate_launch(&request)?;
         let cwd = super::launch::resolve_cwd(request.cwd.as_deref())?;
+        let tab_id = request.tab_id.clone();
+        let launch_epoch = request.launch_overlay.launch_epoch;
         let exited = Arc::new(AtomicBool::new(false));
         let hook = request.launch_overlay.hook.clone();
         let output_acknowledgements = request.launch_overlay.output_acknowledgements;
@@ -67,6 +72,7 @@ impl TerminalRuntime {
             channel,
             hook: hook.clone(),
             sessions: self.sessions.clone(),
+            input_gate: self.input_gate.clone(),
             exited: exited.clone(),
             output_acknowledgements,
         });
@@ -82,7 +88,9 @@ impl TerminalRuntime {
         };
         if let Ok(session) = &result {
             let mut sessions = self.sessions.lock().unwrap();
-            if !exited.load(Ordering::Acquire) {
+            if !exited.load(Ordering::Acquire) && tab_id.as_ref().is_none_or(|tab| self.launch_epoch(tab) == launch_epoch) {
+                let cwd = crate::resource::file_uri_to_path(&session.cwd).unwrap_or(cwd);
+                self.input_gate.register(&session.id, tab_id, cwd.clone());
                 sessions.insert(session.id.clone(), cwd);
             }
         }
@@ -173,6 +181,7 @@ impl TerminalRuntime {
 
     pub fn close_tab(&self, tab_id: &str) -> Result<Vec<String>, AppError> {
         let _guard = self.lock_workspace();
+        self.input_gate.retire_tab(tab_id);
         if self.closing.load(Ordering::Acquire) {
             return Ok(vec![]);
         }
@@ -208,6 +217,7 @@ impl TerminalRuntime {
         *self.launch_epochs.lock().unwrap().get(tab).unwrap_or(&0)
     }
     pub fn cancel_pending(&self, tab: &str) {
+        self.input_gate.retire_tab(tab);
         let mut epochs = self.launch_epochs.lock().unwrap();
         *epochs.entry(tab.into()).or_default() += 1;
     }
@@ -224,6 +234,7 @@ impl TerminalRuntime {
     }
 
     pub fn detach(&self, id: &str, connection: &str) {
+        self.input_gate.retire(id);
         if let Some(daemon) = &self.daemon {
             daemon.detach(id, connection);
         }
@@ -238,6 +249,7 @@ impl TerminalRuntime {
     pub fn prepare_exit(&self, terminate: bool) -> Result<(), AppError> {
         let _guard = self.lock_workspace();
         self.closing.store(true, Ordering::Release);
+        self.input_gate.retire_all();
         if let Some(daemon) = &self.daemon {
             if terminate {
                 if let Err(error) = daemon.shutdown() {
@@ -253,7 +265,11 @@ impl TerminalRuntime {
     }
 
     pub fn write(&self, session_id: &str, bytes: &[u8]) -> Result<(), AppError> {
-        self.backend.write(session_id, bytes)
+        self.input_gate.user_write(session_id, bytes, || self.backend.write(session_id, bytes))
+    }
+
+    pub(crate) fn write_inbox(&self, session_id: &str, bytes: &[u8], guard: &belfry_protocol::inbox::WriteGuard, sequence: u64) -> Result<(), AppError> {
+        self.input_gate.guarded_write(session_id, guard, sequence, bytes, || self.backend.write(session_id, bytes))
     }
 
     pub fn resize(&self, session_id: &str, size: TerminalSize) -> Result<(), AppError> {
@@ -265,6 +281,7 @@ impl TerminalRuntime {
     }
 
     pub fn close(&self, session_id: &str) -> Result<(), AppError> {
+        self.input_gate.retire(session_id);
         if self.closing.load(Ordering::Acquire) {
             return Ok(());
         }
@@ -273,6 +290,7 @@ impl TerminalRuntime {
 }
 
 struct TauriSink {
+    input_gate: Arc<super::input_gate::InputGate>,
     channel: Channel<TerminalEvent>,
     hook: Option<Arc<crate::agent::hooks::HookConnection>>,
     sessions: Arc<Mutex<HashMap<String, PathBuf>>>,
@@ -301,10 +319,16 @@ impl TerminalEventSink for TauriSink {
 
 impl TauriSink {
     fn observe_exit(&self, event: &TerminalEvent) {
+        match event {
+            TerminalEvent::Output { session_id, sequence, bytes, .. } => self.input_gate.observe_output(session_id, *sequence, bytes),
+            TerminalEvent::ReplayGap { session_id, .. } | TerminalEvent::Disconnected { session_id, .. } => self.input_gate.output_gap(session_id),
+            _ => {}
+        }
         if let TerminalEvent::Exit { session_id, .. } = &event {
             let mut sessions = self.sessions.lock().unwrap();
             self.exited.store(true, Ordering::Release);
             sessions.remove(session_id);
+            self.input_gate.retire(session_id);
         }
         if let (
             Some(hook),

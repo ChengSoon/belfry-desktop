@@ -58,28 +58,37 @@ pub(crate) fn prepare(
     let Some(kind) = agent_kind(&request.profile_id) else {
         return Ok(());
     };
-    if kind == AgentKind::Codex && crate::agent::native_launch::enabled(&request.env) {
-        return Ok(());
-    }
     let path = match &request.cwd {
         Some(uri) => crate::resource::file_uri_to_path(uri)?,
         None => std::env::current_dir().map_err(|error| AppError::io(error.to_string()))?,
     };
     let root = project_path(&path)?;
+    let model = match request.tab_id.as_deref() {
+        Some(tab_id) => app.state::<std::sync::Arc<crate::rooms::RoomStore>>()
+            .model_override_for(tab_id, &root, kind)?,
+        None => None,
+    };
+    // 原生诊断模式不接管路由/凭据，显式角色模型仍是普通 CLI 启动参数。
+    if kind == AgentKind::Codex && crate::agent::native_launch::enabled(&request.env) {
+        request.launch_overlay = launch::model_only(model.as_deref());
+        return Ok(());
+    }
     let base = base(app)?;
     let choices = storage::read(&base.join(FILE))?;
-    if kind != AgentKind::Antigravity && choices.provider(&root, kind).is_none() {
+    let project_selected = choices.provider(&root, kind);
+    if kind != AgentKind::Antigravity && project_selected.is_none() && model.is_none() {
         return Ok(());
     }
     let _guard = store::lock()?;
     let store = store::load(app)?;
     let global = store.agent(kind);
-    let selected = choices.provider(&root, kind).or_else(|| {
-        (kind == AgentKind::Antigravity)
+    let selected = project_selected.or_else(|| {
+        (kind == AgentKind::Antigravity || model.is_some())
             .then_some(global.current_id.as_deref())
             .flatten()
     });
     let Some(id) = selected else {
+        request.launch_overlay = launch::model_only(model.as_deref());
         return Ok(());
     };
     if store.agent(kind).find(id).is_none() {
@@ -88,7 +97,14 @@ pub(crate) fn prepare(
         ));
     }
     let provider = store.resolve_provider(app, kind, id)?;
-    let mut overlay = launch::prepare(&base, kind, &provider)?;
+    let mut overlay = if project_selected.is_none() && provider.api_key.trim().is_empty()
+        && kind != AgentKind::Antigravity
+    {
+        // 旧的全局配置可能借用 CLI 登录。角色模型不能要求用户另填一份凭据。
+        launch::model_only(model.as_deref())
+    } else {
+        launch::prepare_with_model(&base, kind, &provider, model.as_deref())?
+    };
     if kind == AgentKind::Opencode {
         let existing = request
             .env

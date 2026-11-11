@@ -1,0 +1,90 @@
+{
+  "panel": {
+    "title": "Inbox",
+    "close": "Close inbox",
+    "search": "Search sessions or latest message",
+    "filters": "Filter sessions",
+    "all": "All sessions",
+    "active": "Needs attention",
+    "empty": "No collaboration messages yet. Tasks and discussions between agents appear here.",
+    "emptyFilter": "No sessions need attention",
+    "emptySearch": "No matching sessions",
+    "pick": "Select a session to read its messages",
+    "back": "Sessions",
+    "openSession": "Open session",
+    "loadError": "Could not read the inbox. The last loaded content is kept below.",
+    "retry": "Retry",
+    "loadOlder": "Load earlier messages",
+    "noMessages": "This session has not received any messages",
+    "sessionMeta": "{{agent}} · session {{tab}} · {{availability}}",
+    "pendingCount": {
+      "one": "{{count}} message waiting",
+      "other": "{{count}} messages waiting"
+    },
+    "awaitingCount": {
+      "one": "{{count}} question awaiting reply",
+      "other": "{{count}} questions awaiting reply"
+    },
+    "question": "Question {{index}}",
+    "replyTo": "Reply to {{name}}: {{text}}",
+    "answered": "Answered: {{text}}",
+    "answeredNoText": "Answered",
+    "awaiting": "Awaiting reply",
+    "notDelivered": "Not delivered yet",
+    "cancelled": "Cancelled",
+    "legacy": "Legacy question",
+    "attachments": {
+      "one": "{{count}} attachment",
+      "other": "{{count}} attachments"
+    },
+    "views": "Inbox and tasks",
+    "tasks": "Tasks",
+    "halted": "The collaboration inbox could not be enabled. Automatic delivery is paused; messages are still saved. Restart the app to try again.",
+    "targetGone": "This session is not open right now"
+  },
+  "class": {
+    "task_assignment": "Task",
+    "reply": "Reply",
+    "fyi": "FYI"
+  },
+  "availability": {
+    "ready": "idle",
+    "busy": "working",
+    "needs_input": "awaiting choice",
+    "offline": "offline",
+    "unavailable": "unavailable"
+  },
+  "status": {
+    "turn_busy": "Waiting for the member to finish the current turn",
+    "previous_task": "Waiting for the previous task to finish · {{task}}",
+    "task_dependency": "Waiting for a prerequisite task · {{task}}",
+    "room_paused": "Delivery paused; messages are saved",
+    "topic_held": "This message is on hold",
+    "target_offline": "Waiting for the member to come online",
+    "target_changed": "The recipient changed; the message is kept",
+    "awaiting_input": "Waiting for the member to finish the current choice",
+    "composer_not_empty": "The terminal has unsent input",
+    "source_sync_pending": "Saved, waiting to be queued",
+    "runtime_not_ready": "Waiting for the terminal to be ready",
+    "approval_required": "Waiting for approval",
+    "queue_turn": "Collected, waiting for automatic delivery",
+    "collecting": "Collected, waiting for automatic delivery",
+    "capacity_exceeded": "Collected, waiting for the next delivery",
+    "mixed_waiting": "Some messages are waiting",
+    "prepared": "Delivering messages",
+    "submitting": "Delivering messages",
+    "submitted": "Submitted to the terminal; handling unknown",
+    "waiting_reply": "Delivered, awaiting reply",
+    "uncertain": "Submission needs checking; later deliveries are paused",
+    "reference": "Original link delivered; waiting for the member to read it",
+    "processing": "The member confirmed handling",
+    "processed": "The member reported it handled",
+    "abandoned": "This uncertain delivery was abandoned; whether it was written is still unknown",
+    "withdrawn": "Pending message withdrawn",
+    "fyi": "FYI, recorded",
+    "unknown_handling": "Submitted to the terminal; handling unknown",
+    "ready": "Ready to deliver",
+    "empty": "No messages waiting",
+    "unknown": "Status updated"
+  }
+}

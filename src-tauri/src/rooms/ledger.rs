@@ -35,6 +35,7 @@ pub const CHAT_MESSAGE: &str = "chat.message";
 pub const SYSTEM_NOTIFY: &str = "system.notify";
 pub const RUNTIME_DELIVERY: &str = "runtime.delivery";
 pub const REPLY_CANCELLED: &str = "chat.reply_request.cancelled";
+pub const RECIPIENT_WITHDRAWN: &str = "chat.recipient.withdrawn";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct LedgerEvent {
@@ -51,6 +52,8 @@ pub struct LedgerEvent {
 
 #[derive(Default, Serialize, Deserialize)]
 struct MessageData {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    inbox: Option<belfry_protocol::inbox::MessageSemantics>,
     #[serde(default)]
     text: String,
     #[serde(default)]
@@ -77,6 +80,13 @@ struct CancelData {
     source_event_id: String,
 }
 
+#[derive(Serialize, Deserialize)]
+struct WithdrawRecipientData {
+    source_event_id: String,
+    member_id: String,
+    reason: String,
+}
+
 fn event(room_id: &str, id: String, ts: i64, kind: &str, by: &str, data: impl Serialize) -> LedgerEvent {
     LedgerEvent {
         v: LEDGER_VERSION,
@@ -95,6 +105,7 @@ pub fn message_event(room_id: &str, message: &Message) -> LedgerEvent {
         MessageKind::Notice => SYSTEM_NOTIFY,
     };
     let data = MessageData {
+        inbox: message.inbox.clone(),
         text: message.text.clone(),
         to: message.to.clone(),
         message_mode: message.mode,
@@ -119,6 +130,11 @@ pub fn cancel_event(room_id: &str, message_id: &str, by: &str, ts: i64) -> Ledge
     event(room_id, super::model::new_id(), ts, REPLY_CANCELLED, by, data)
 }
 
+pub fn withdraw_recipient_event(room_id: &str, message_id: &str, member_id: &str, by: &str, ts: i64) -> LedgerEvent {
+    let data = WithdrawRecipientData { source_event_id: message_id.into(), member_id: member_id.into(), reason: "Inbox recipient withdrawn before submission".into() };
+    event(room_id, super::model::new_id(), ts, RECIPIENT_WITHDRAWN, by, data)
+}
+
 /// 把一条事件投影到房间上。幂等：同一批事件重复追加（保存失败后重试）时，
 /// 重放结果不变。认不出的 kind 原样忽略。
 pub fn apply(room: &mut Room, event: &LedgerEvent) {
@@ -128,15 +144,29 @@ pub fn apply(room: &mut Room, event: &LedgerEvent) {
             if room.all_messages().any(|message| message.id == event.id) {
                 return;
             }
-            // 带 reply_to 的回复了结发件人在原消息上的回复义务（CCCS §6.1）。
-            if let Some(target) = &data.reply_to
-                && let Some(original) = room.message_mut(target)
-                && original.to.contains(&event.by)
-                && !original.replied_by.contains(&event.by)
-            {
-                original.replied_by.push(event.by.clone());
+            let answers = data.inbox.as_ref().map(|s| s.answers.clone()).unwrap_or_default();
+            for original in room.retained_messages.iter_mut().chain(room.messages.iter_mut()) {
+                if let Some(semantics) = &mut original.inbox {
+                    if data.reply_to.as_deref() == Some(&original.id) || semantics.questions.iter().any(|question| answers.contains(&question.id)) { semantics.revision = semantics.revision.max(1).saturating_add(1); }
+                    for question in &mut semantics.questions {
+                        let legacy_reply = question.legacy && data.reply_to.as_deref() == Some(&original.id);
+                        let same_recipient = if let Some(sender) = &data.inbox { sender.sender_tab.as_ref().is_some_and(|tab| semantics.recipient_tabs.get(&event.by) == Some(tab)) } else { question.legacy };
+                        if (answers.contains(&question.id) || legacy_reply) && question.recipients.contains(&event.by) && same_recipient
+                            && !question.cancelled_for.contains(&event.by) && !original.reply_cancelled {
+                            let replies = question.replies.entry(event.by.clone()).or_default();
+                            if !replies.contains(&event.id) { replies.push(event.id.clone()); }
+                        }
+                    }
+                    let applicable: Vec<_> = semantics.questions.iter().filter(|q| q.recipients.contains(&event.by)).collect();
+                    if !applicable.is_empty() && applicable.iter().all(|q| q.replies.contains_key(&event.by))
+                        && !original.replied_by.contains(&event.by) { original.replied_by.push(event.by.clone()); }
+                } else if data.reply_to.as_deref() == Some(&original.id) && original.to.contains(&event.by) && !original.replied_by.contains(&event.by) {
+                    original.replied_by.push(event.by.clone());
+                }
             }
+            super::semantics::remember_operation(room, &event.by, &event.id, &data.to, data.inbox.as_ref());
             room.messages.push(Message {
+                inbox: data.inbox,
                 id: event.id.clone(),
                 at: event.ts,
                 kind: if event.kind == SYSTEM_NOTIFY { MessageKind::Notice } else { MessageKind::Chat },
@@ -162,10 +192,25 @@ pub fn apply(room: &mut Room, event: &LedgerEvent) {
                 message.delivered_to.push(data.actor_id);
             }
         }
+        RECIPIENT_WITHDRAWN => {
+            let Ok(data) = WithdrawRecipientData::deserialize(&event.data) else { return; };
+            if let Some(message) = room.message_mut(&data.source_event_id) && let Some(semantics) = &mut message.inbox {
+                let mut changed = false;
+                for question in &mut semantics.questions {
+                    if question.recipients.contains(&data.member_id) && !question.replies.contains_key(&data.member_id) && !question.cancelled_for.contains(&data.member_id) {
+                        question.cancelled_for.push(data.member_id.clone()); changed = true;
+                    }
+                }
+                if changed { semantics.revision = semantics.revision.max(1).saturating_add(1); }
+            }
+        }
         REPLY_CANCELLED => {
             let Ok(data) = CancelData::deserialize(&event.data) else { return };
             if let Some(message) = room.message_mut(&data.source_event_id) {
                 message.reply_cancelled = true;
+                if let Some(semantics) = &mut message.inbox { semantics.revision = semantics.revision.max(1).saturating_add(1); for question in &mut semantics.questions {
+                    question.cancelled_for = question.recipients.iter().filter(|id| !question.replies.contains_key(*id)).cloned().collect();
+                } }
             }
         }
         _ => {}

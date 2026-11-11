@@ -41,7 +41,10 @@ pub(super) fn apply_task_op(
         }
         RoomTaskOp::Assign { task, assignee } => same(task, ops::task_assign(room, actor, task, assignee, now)),
         RoomTaskOp::Start { task } => same(task, ops::task_start(room, actor, task, now)),
-        RoomTaskOp::Done { task, result } => same(task, ops::task_done(room, actor, task, result.as_deref(), now)),
+        RoomTaskOp::Done { task, result, generation } => {
+            if let Some(generation) = generation && room.task_index(task).is_none_or(|index| room.tasks[index].generation != *generation) { return Err("Task assignment generation changed; this completion belongs to an earlier lifecycle".into()); }
+            same(task, ops::task_done(room, actor, task, result.as_deref(), now))
+        },
         RoomTaskOp::Reopen { task } => same(task, ops::task_reopen(room, actor, task, now)),
         RoomTaskOp::Note { task, text } => same(task, ops::task_note(room, actor, task, text, now)),
         RoomTaskOp::Archive { task } => same(task, ops::task_archive(room, actor, task, now)),
@@ -148,6 +151,19 @@ pub fn room_update_member(
     })?;
     deliver(&store, &board, &registry, &room, &posted);
     Ok(room)
+}
+
+#[tauri::command]
+pub fn room_set_member_model(
+    store: State<'_, Arc<RoomStore>>,
+    id: String,
+    member_id: String,
+    expected_tab_id: String,
+    expected_agent: String,
+    expected_model_override: Option<String>,
+    model_override: Option<String>,
+) -> Result<Room, AppError> {
+    store.set_member_model(&id, &member_id, &expected_tab_id, &expected_agent, expected_model_override.as_deref(), model_override.as_deref())
 }
 
 #[tauri::command]

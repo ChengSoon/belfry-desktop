@@ -116,6 +116,7 @@ Object.assign(window, {
   qaRoomIds: [room.id, secondRoom.id],
   qaSetBrief: (brief: Room["brief"]) => { room.brief = structuredClone(brief); },
   qaSetMemberTab: (id: string, tabId: string) => { room.members = room.members.map(member => member.id === id ? { ...member, tabId } : member); },
+  qaSetMemberModel: (id: string, modelOverride: string | null) => { room.members = room.members.map(member => member.id === id ? { ...member, modelOverride } : member); },
   qaRemoveMember: (id: string) => { room.members = room.members.filter(member => member.id !== id); },
   qaSetMemberPresent: (memberId: string, present: boolean, roomId = room.id) => {
     const current = roomData.get(roomId)!;
@@ -177,6 +178,19 @@ Object.assign(window, {
       // 真实 IPC 每次都是一份新对象：返回拷贝，界面的结构共享才测得到。
       if (command === "room_list") return structuredClone(view);
       if (command === "room_get") return structuredClone(current);
+      if (command === "project_provider_report") return {
+        rootPath: room.projectRoot, envConflicts: [], agents: [{ kind: "codex", providerId: null, source: "global", effectiveName: "Example", missing: false,
+          choices: [{ id: "example", name: "Example", baseUrl: "https://example.invalid", model: "configured-model", configured: true }] }],
+      };
+      if (command === "room_set_member_model") {
+        const patch = args as { memberId: string; expectedTabId: string; expectedAgent: string; expectedModelOverride: string | null; modelOverride: string | null };
+        const member = current.members.find((member) => member.id === patch.memberId && member.leftAt === null);
+        if (!member || member.tabId !== patch.expectedTabId || member.agent !== patch.expectedAgent || (member.modelOverride ?? null) !== patch.expectedModelOverride) {
+          throw { code: "ROOM_ROLE_MODEL_CHANGED", message: "The role binding or model setting has changed. Refresh and try again.", retryable: false };
+        }
+        member.modelOverride = patch.modelOverride;
+        return structuredClone(current);
+      }
       if (command === "room_update_brief") {
         const patch = args as { objective: string; focus: string; constraints: string[] };
         current.brief = { objective: patch.objective, currentFocus: patch.focus, constraints: patch.constraints,

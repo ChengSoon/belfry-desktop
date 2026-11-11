@@ -1,0 +1,87 @@
+{
+  "panel": {
+    "title": "收件箱",
+    "close": "关闭收件箱",
+    "search": "搜索会话或最新消息",
+    "filters": "筛选会话",
+    "all": "全部会话",
+    "active": "有待处理",
+    "empty": "还没有收到协作消息。Agent 之间的任务与协商会显示在这里。",
+    "emptyFilter": "没有待处理的会话",
+    "emptySearch": "没有匹配的会话",
+    "pick": "选择一个会话查看消息",
+    "back": "会话",
+    "openSession": "打开会话",
+    "loadError": "读取收件箱失败，下面保留上次读取的内容。",
+    "retry": "重试",
+    "loadOlder": "加载更早的消息",
+    "noMessages": "这个会话还没有收到消息",
+    "sessionMeta": "{{agent}} · 会话 {{tab}} · {{availability}}",
+    "pendingCount": {
+      "other": "{{count}} 条等待投递"
+    },
+    "awaitingCount": {
+      "other": "{{count}} 个问题待回复"
+    },
+    "question": "问题 {{index}}",
+    "replyTo": "回复 {{name}}：{{text}}",
+    "answered": "已回复：{{text}}",
+    "answeredNoText": "已回复",
+    "awaiting": "待回复",
+    "notDelivered": "尚未送达",
+    "cancelled": "已取消",
+    "legacy": "旧版问题",
+    "attachments": {
+      "other": "{{count}} 个附件"
+    },
+    "views": "收件箱与任务",
+    "tasks": "任务",
+    "halted": "协作收件箱未能启用，自动投递已暂停，消息仍会保存。请重启应用后再试。",
+    "targetGone": "这个会话当前不在，无法打开"
+  },
+  "class": {
+    "task_assignment": "任务",
+    "reply": "回复",
+    "fyi": "仅知会"
+  },
+  "availability": {
+    "ready": "空闲",
+    "busy": "处理中",
+    "needs_input": "等待选择",
+    "offline": "离线",
+    "unavailable": "不可用"
+  },
+  "status": {
+    "turn_busy": "等待成员结束当前轮次",
+    "previous_task": "等待上一任务完成 · {{task}}",
+    "task_dependency": "等待前置任务完成 · {{task}}",
+    "room_paused": "投递已暂停，消息已保存",
+    "topic_held": "这条消息已暂缓",
+    "target_offline": "等待成员上线",
+    "target_changed": "接收成员已变化，消息仍保留",
+    "awaiting_input": "等待成员完成当前选择",
+    "composer_not_empty": "终端有未提交输入",
+    "source_sync_pending": "消息已保存，等待排队",
+    "runtime_not_ready": "等待终端就绪",
+    "approval_required": "等待批准",
+    "queue_turn": "消息已收集，等待自动投递",
+    "collecting": "消息已收集，等待自动投递",
+    "capacity_exceeded": "消息已收集，等待下一批投递",
+    "mixed_waiting": "部分消息等待投递",
+    "prepared": "正在投递消息",
+    "submitting": "正在投递消息",
+    "submitted": "已提交到终端，处理情况未知",
+    "waiting_reply": "已投递待回复",
+    "uncertain": "提交结果待核对，后续投递已暂停",
+    "reference": "已投递原文入口，等待成员读取处理",
+    "processing": "成员已确认处理",
+    "processed": "成员已报告处理完成",
+    "abandoned": "已放弃此次不确定投递；此前是否写入仍未知",
+    "withdrawn": "待发消息已撤回",
+    "fyi": "仅知会，已记录",
+    "unknown_handling": "已提交到终端，处理情况未知",
+    "ready": "可以投递",
+    "empty": "暂无待投递消息",
+    "unknown": "状态已更新"
+  }
+}

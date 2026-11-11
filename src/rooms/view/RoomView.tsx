@@ -10,7 +10,7 @@ import { TimelineAnchor } from "./TimelineAnchor";
 import {
   AlertTriangle, Archive, BellRing, Check, CheckCheck, CircleCheck, CircleDashed, CircleDot, Clock, Crown, FolderGit2,
   Inbox, Info, ListTodo, MessageSquareReply, MessagesSquare, MoreHorizontal, Network, Paperclip, Pause, Pencil, Play, Plus, RotateCcw, Search, ArrowDown, Eraser,
-  SendHorizontal, SquareTerminal, Trash2, UserMinus, UserPlus, Users, X,
+  SendHorizontal, Settings2, SquareTerminal, Trash2, UserMinus, UserPlus, Users, X,
 } from "lucide-react";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { createContext, memo, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent, type ReactNode } from "react";
@@ -69,6 +69,7 @@ import { RoomChoiceCard } from "./RoomChoiceCard";
 import { useAttentionLayout } from "./useAttentionLayout";
 import { RoomMarkdown } from "./RoomMarkdown";
 import { RoomMessagePreview, RoomReplyInbox } from "./RoomReplyInbox";
+import { RoleModelDialog } from "./RoleModelDialog";
 import "../tailwind.css";
 import "./room.css";
 
@@ -102,6 +103,7 @@ type DialogState =
   | { kind: "new-room" }
   | { kind: "add-member" }
   | { kind: "delete-room"; room: Room }
+  | { kind: "role-model"; room: Room; member: RoomMember }
   | { kind: "remove-member"; member: RoomMember };
 
 /** 开着的 Radix 浮层：下拉菜单、选择框、提示（popper）与对话框。 */
@@ -116,6 +118,14 @@ export function RoomView(props: RoomViewProps) {
   const [dialog, setDialog] = useState<DialogState | null>(null);
   const [compactPanel, setCompactPanel] = useState<"members" | "tasks" | null>(null);
   const room = rooms.room;
+
+  useEffect(() => {
+    setDialog((current) => {
+      if (current?.kind !== "role-model") return current;
+      const member = room?.members.find((member) => member.id === current.member.id && member.leftAt === null);
+      return room?.id === current.room.id && member?.tabId === current.member.tabId && member.agent === current.member.agent ? current : null;
+    });
+  }, [room]);
 
   // Escape 关整个视图。Radix 的下拉菜单、选择框、提示在 document 捕获阶段处理 Escape，但不 preventDefault；
   // 它们收起时 DOM 还没更新，所以按「此刻有没有浮层开着」判断：开着就只让浮层收起。
@@ -217,6 +227,7 @@ export function RoomView(props: RoomViewProps) {
           </nav>
           {room ? (
             <MemberList onAdd={() => setDialog({ kind: "add-member" })} onOpenSession={props.onOpenSession}
+              onModel={(member) => setDialog({ kind: "role-model", room, member: { ...member } })}
               onRemove={(member) => setDialog({ kind: "remove-member", member })} room={room} rooms={rooms} tabs={props.tabs} />
           ) : null}
         </aside>
@@ -277,6 +288,9 @@ export function RoomView(props: RoomViewProps) {
         {dialog?.kind === "add-member" && room ? (
           <AddMemberDialog agents={props.agents} onClose={close} onLaunchMember={props.onLaunchMember}
             onRenameAgent={props.onRenameAgent} room={room} rooms={rooms} tabs={props.tabs} />
+        ) : null}
+        {dialog?.kind === "role-model" && room?.id === dialog.room.id ? (
+          <RoleModelDialog key={`${dialog.room.id}:${dialog.member.id}`} room={dialog.room} member={dialog.member} rooms={rooms} onClose={close} />
         ) : null}
         {dialog?.kind === "delete-room" ? (
           <ConfirmDialog body={t("rooms.RoomView.text_91bff70848")}
@@ -379,6 +393,7 @@ const STATUS_DOT: Record<MemberStatus, string> = {
 function MemberList(props: {
   room: Room; rooms: RoomsState; tabs: WorkspaceTab[];
   onAdd: () => void; onRemove: (member: RoomMember) => void; onOpenSession?: (tabId: string) => void;
+  onModel: (member: RoomMember) => void;
 }) {
   useTranslation();
   const { room, rooms } = props;
@@ -417,6 +432,7 @@ function MemberList(props: {
                   <span className={cn(status === "waiting" && "font-medium text-warning")}>{cleared === member.id ? t("rooms.RoomView.text_1fa489c596") : STATUS_TEXT[status]}</span>
                   {current ? <> · <span className="text-foreground/80">{current.id} {current.title}</span></> : member.duty ? <> · {member.duty}</> : null}
                 </div>
+                {member.modelOverride ? <div className="truncate text-xs text-muted-foreground" title={member.modelOverride}>{t("rooms.roleModel.summary", { model: member.modelOverride })}</div> : null}
               </div>
               {load ? (
                 <span className="flex items-center gap-0.5 text-[11px] text-muted-foreground tabular-nums" title={t("rooms.RoomView.text_1d08cac920", { count: load })}>
@@ -431,6 +447,9 @@ function MemberList(props: {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-40">
+                  {isAgentKind(member.agent) || member.modelOverride ? (
+                    <DropdownMenuItem onSelect={() => props.onModel(member)}><Settings2 />{t("rooms.roleModel.menu")}</DropdownMenuItem>
+                  ) : null}
                   {tab && props.onOpenSession ? (
                     <DropdownMenuItem onSelect={() => props.onOpenSession?.(tab.id)}><SquareTerminal />{t("rooms.RoomView.text_b89a0e4584")}</DropdownMenuItem>
                   ) : null}

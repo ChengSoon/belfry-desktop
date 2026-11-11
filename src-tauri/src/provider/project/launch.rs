@@ -12,6 +12,37 @@ use toml_edit::{InlineTable, Value};
 
 const CODEX_KEY: &str = "BELFRY_PROVIDER_API_KEY";
 
+/// 官方登录或由 CLI 自己管理路由时，只指定这次启动的模型。
+pub(super) fn model_only(model: Option<&str>) -> LaunchOverlay {
+    LaunchOverlay {
+        arguments: model.map(|model| vec!["--model".into(), model.to_string()]).unwrap_or_default(),
+        ..Default::default()
+    }
+}
+
+/// 修改本次启动使用的副本，保持已保存的 Provider 和其他角色不变。
+pub(super) fn prepare_with_model(
+    base: &Path,
+    kind: AgentKind,
+    provider: &ProviderConfig,
+    model: Option<&str>,
+) -> Result<LaunchOverlay, AppError> {
+    let mut provider = provider.clone();
+    if let Some(model) = model { provider.model = model.to_string(); }
+    let mut overlay = prepare(base, kind, &provider)?;
+    if model.is_some() {
+        // 角色选择是本次启动的显式参数，继续已有历史时也不能只依赖默认模型。
+        // Kimi/Antigravity 已由 prepare 设置模型别名，保留其映射。
+        match kind {
+            AgentKind::Codex | AgentKind::Claude => overlay.arguments.extend(["--model".into(), provider.model.clone()]),
+            AgentKind::Pi => overlay.arguments.extend(["--provider".into(), "belfry".into(), "--model".into(), provider.model.clone()]),
+            AgentKind::Opencode => overlay.arguments.extend(["--model".into(), format!("belfry/{}", provider.model)]),
+            AgentKind::Kimi | AgentKind::Antigravity => {}
+        }
+    }
+    Ok(overlay)
+}
+
 pub(super) fn prepare(
     base: &Path,
     kind: AgentKind,

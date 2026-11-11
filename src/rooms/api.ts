@@ -38,6 +38,13 @@ export function roomSetForeman(id: string, memberId: string) {
   return invoke<Room>("room_set_foreman", { id, memberId });
 }
 
+export function roomSetMemberModel(id: string, member: { id: string; tabId: string; agent: string; modelOverride?: string | null }, modelOverride: string | null) {
+  return invoke<Room>("room_set_member_model", {
+    id, memberId: member.id, expectedTabId: member.tabId, expectedAgent: member.agent,
+    expectedModelOverride: member.modelOverride ?? null, modelOverride,
+  });
+}
+
 export function roomRemoveMember(id: string, memberId: string) {
   return invoke<Room>("room_remove_member", { id, memberId });
 }

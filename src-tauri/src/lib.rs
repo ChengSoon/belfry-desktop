@@ -44,6 +44,7 @@ pub fn run() {
     // 句柄才拿得到路径；装载完成后挂进去，晚到的请求自动看到真实数据。
     let room_access = std::sync::Arc::new(collab::RoomAccess::default());
     let sessions_for_rooms = sessions.clone();
+    let board_for_inbox = board.clone();
     // 协作是增强功能：socket 起不来（被占用、权限不足）不该让整个应用起不来。
     // 这和「Agent 检测失败不该让你打不开一个 Shell」是同一条取向。
     let endpoint = collab::CollabServer::start(
@@ -71,7 +72,12 @@ pub fn run() {
             // 原因原样报给界面，且存储不可写时拒绝修改，不覆盖现场。
             let rooms_root = app.path().app_data_dir().ok().map(|dir| dir.join("rooms"));
             let rooms = std::sync::Arc::new(rooms::RoomStore::load(rooms_root));
-            room_access.set(rooms::member_directory(rooms.clone(), sessions_for_rooms.clone()));
+            let inbox = std::sync::Arc::new(collab::inbox::InboxService::load(
+                app.path().app_data_dir().ok().map(|dir| dir.join("collab")), rooms.clone(), board_for_inbox.clone(), sessions_for_rooms.clone(),
+                app.state::<TerminalRuntime>().input_gate.clone()));
+            room_access.set(rooms::inbox_directory(rooms.clone(), sessions_for_rooms.clone(), inbox.clone()));
+            collab::inbox::InboxService::start(&inbox);
+            app.manage(inbox);
             app.manage(rooms);
             if let Err(error) = i18n::refresh_menu(app.handle()) { log::warn!("Cannot initialize native menu language: {error}"); }
             Ok(())
@@ -113,6 +119,20 @@ pub fn run() {
             backup::backup_export,
             backup::backup_import,
             collaboration_protocol::collaboration_log_read,
+            collab::inbox::commands::collab_inbox_capabilities,
+            collab::inbox::commands::collab_inbox_activate,
+            collab::inbox::commands::collab_inbox_sessions,
+            collab::inbox::commands::collab_inbox_messages,
+            collab::inbox::commands::collab_inbox_pending,
+            collab::inbox::commands::collab_inbox_bind_target,
+            collab::inbox::commands::collab_inbox_offer,
+            collab::inbox::commands::collab_inbox_revoke_offer,
+            collab::inbox::commands::collab_inbox_prepare,
+            collab::inbox::commands::collab_inbox_begin_submit,
+            collab::inbox::commands::collab_inbox_receipt,
+            collab::inbox::commands::collab_inbox_abort_prepared,
+            collab::inbox::commands::collab_inbox_batch_get,
+            collab::inbox::commands::collab_inbox_resolve,
             collab::commands::collab_sync_sessions,
             collab::commands::collab_pending_tasks,
             collab::commands::collab_mark_dispatched,
@@ -133,6 +153,7 @@ pub fn run() {
             rooms::commands::room_delete,
             rooms::commands::room_add_member,
             rooms::commands::room_update_member,
+            rooms::commands::room_set_member_model,
             rooms::commands::room_set_foreman,
             rooms::commands::room_remove_member,
             rooms::commands::room_update_brief,

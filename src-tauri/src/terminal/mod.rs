@@ -3,6 +3,12 @@ mod backend;
 pub mod commands;
 mod contracts;
 pub(crate) mod daemon;
+pub(crate) mod input_gate;
+mod input_gate_vt;
+#[cfg(test)]
+mod inbox_concurrency_test;
+#[cfg(all(test, target_os = "macos"))]
+mod native_inbox_test;
 mod launch;
 mod native;
 mod native_lifecycle;

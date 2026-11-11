@@ -58,6 +58,7 @@ pub struct RoomPost {
 /// 总线不认识房间的具体类型：`belfry room …` 的请求原样交给房间层，拿回给 CLI 的
 /// 回答和要投递的消息。依赖方向是 rooms → collab，总线不回头认识 rooms。
 pub trait RoomDirectory: Send + Sync {
+    fn inbox_capable(&self) -> bool { false }
     fn handle(&self, tab_id: &str, command: &Command) -> Result<(ResponseData, Vec<RoomPost>), String>;
     fn enqueue_posts(&self, board: &TaskBoard, registry: &SessionRegistry, posts: &[RoomPost]) -> Result<(), String> {
         for post in posts {
@@ -319,11 +320,12 @@ fn dispatch(
     match &request.command {
         Command::Peers => Response::Ok {
             data: ResponseData::Peers {
-                capabilities: vec![belfry_protocol::CAPABILITY_ROOMS_V1.into()],
+                capabilities: std::iter::once(belfry_protocol::CAPABILITY_ROOMS_V1.to_string()).chain(rooms.0.get().filter(|directory| directory.inbox_capable()).map(|_| belfry_protocol::inbox::CAPABILITY.to_string())).collect(),
                 peers: registry.peers_for(&request.tab_id),
             },
         },
-        Command::Rooms
+        Command::CollaborationInbox { .. }
+        | Command::Rooms
         | Command::RoomStatus { .. }
         | Command::RoomSay { .. }
         | Command::RoomLog { .. }
@@ -423,10 +425,14 @@ fn dispatch_send(
         .and_then(|session| session.project_root);
     let info = TargetInfo {
         exists: true,
-        can_receive: target.can_receive,
+        // The roster contains known Agent tabs. In inbox mode acceptance is
+        // independent of current runtime readiness; the native gate controls
+        // delivery after busy, interactive or offline periods end.
+        can_receive: target.can_receive || board.inbox_enabled(),
         // 两边都没有项目时不算同项目：那说明谁都没打开目录，
         // 派过去也没有共同的工作现场。
-        same_project: mine.is_some() && mine == target.project_root,
+        same_project: mine.as_deref().is_some_and(|mine| target.project_root.as_deref().is_some_and(|root|
+            super::inbox::normalize_root(mine) == super::inbox::normalize_root(root))),
     };
     let outgoing = TaskRequest {
         from: &request.tab_id,
@@ -456,7 +462,8 @@ fn dispatch_send(
         Verdict::Rejected(message) => Response::error(message),
         verdict => {
             let id = ulid::Ulid::generate().to_string().to_lowercase();
-            let created = task::build_task(id, &outgoing, now_millis(), &verdict);
+            let mut created = task::build_task(id, &outgoing, now_millis(), &verdict);
+            created.project_root = target.project_root.clone();
             let short = task::short_id(&created.id).to_string();
             if let Err(error) = board.insert(created) { return Response::error(error); }
             Response::Ok {
