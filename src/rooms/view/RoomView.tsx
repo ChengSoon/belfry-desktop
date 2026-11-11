@@ -70,6 +70,9 @@ import { useAttentionLayout } from "./useAttentionLayout";
 import { RoomMarkdown } from "./RoomMarkdown";
 import { RoomMessagePreview, RoomReplyInbox } from "./RoomReplyInbox";
 import { RoleModelDialog } from "./RoleModelDialog";
+import { InboxView } from "../../inbox/InboxView";
+import { useInbox } from "../../inbox/useInbox";
+import { needsAttention } from "../../inbox/status";
 import "../tailwind.css";
 import "./room.css";
 
@@ -94,6 +97,8 @@ export interface RoomViewProps {
   onOpenFile?: (projectRoot: string, path: string, line: number | null) => void;
   /** 清除成员 Agent 的上下文（Claude 的 /clear、Codex 的 /new）。返回是否已经送出或排上队。 */
   onClearContext?: (tabId: string) => boolean;
+  /** 后端协作收件箱已接管投递：房间里显示本房间的只读收件箱。 */
+  inboxEnabled?: boolean;
 }
 
 /** 深处的组件（消息正文、成员菜单）要用的外部动作，免得一层层往下传。 */
@@ -246,7 +251,7 @@ export function RoomView(props: RoomViewProps) {
               <AttentionPanel onOpenSession={props.onOpenSession} onResume={props.onResumeDelivery}
                 paused={props.pausedDeliveries ?? []} room={room} tabs={props.tabs} targets={props.targets} />
               <BriefPanel room={room} rooms={rooms} />
-              <CenterTabs onOpenSession={props.onOpenSession} room={room} rooms={rooms} tabs={props.tabs} />
+              <CenterTabs inboxEnabled={!!props.inboxEnabled} onOpenSession={props.onOpenSession} room={room} rooms={rooms} tabs={props.tabs} />
             </main>
             <TaskBoard onOpenSession={props.onOpenSession} room={room} rooms={rooms} tabs={props.tabs} />
           </>
@@ -750,21 +755,32 @@ function Field({ id, label, hint, children }: { id?: string; label: string; hint
  * 中栏两个视图：对话（时间线 + 输入框）和流程图（谁派活给谁、谁在做）。
  * 对话不卸载：切去看流程图再切回来，草稿、附件和滚动位置都还在。
  */
-function CenterTabs({ room, rooms, tabs, onOpenSession }: {
-  room: Room; rooms: RoomsState; tabs: WorkspaceTab[]; onOpenSession?: (tabId: string) => void;
+function CenterTabs({ room, rooms, tabs, onOpenSession, inboxEnabled }: {
+  room: Room; rooms: RoomsState; tabs: WorkspaceTab[]; onOpenSession?: (tabId: string) => void; inboxEnabled: boolean;
 }) {
   useTranslation();
-  const [view, setView] = useState<"chat" | "flow">("chat");
+  const [view, setView] = useState<"chat" | "flow" | "inbox">("chat");
+  // 本房间的收件：按房间筛选，只读；页签可见就轮询，以便角标及时反映待处理会话。
+  const inboxRoots = useMemo(() => [room.projectRoot], [room.projectRoot]);
+  const inbox = useInbox(inboxRoots, inboxEnabled, undefined, room.id);
+  const inboxAttention = inbox.sessions.filter(needsAttention).length;
+  const tabIds = useMemo(() => tabs.map((tab) => tab.id), [tabs]);
+  useEffect(() => { if (!inboxEnabled && view === "inbox") setView("chat"); }, [inboxEnabled, view]);
   const { store } = useRoomDraft(room.id);
   const active = room.tasks.filter((task) => task.status === "active").length;
   return (
-    <Tabs className="flex min-h-0 flex-1 flex-col gap-0" onValueChange={(value) => setView(value as "chat" | "flow")} value={view}>
+    <Tabs className="flex min-h-0 flex-1 flex-col gap-0" onValueChange={(value) => setView(value as "chat" | "flow" | "inbox")} value={view}>
       <div className="flex h-10 shrink-0 items-center border-b border-border px-3">
         <TabsList className="h-8" variant="line">
           <TabsTrigger className="gap-1.5 px-2.5 text-xs" value="chat"><MessagesSquare />{t("rooms.RoomView.text_6bf6d3f3d6")}</TabsTrigger>
           <TabsTrigger className="gap-1.5 px-2.5 text-xs" value="flow">
             <Network />{t("rooms.RoomView.text_bdd207e8c6")}{active ? <span className="rounded-full bg-primary/15 px-1.5 text-[10px] font-semibold text-primary tabular-nums">{active}</span> : null}
           </TabsTrigger>
+          {inboxEnabled ? (
+            <TabsTrigger className="gap-1.5 px-2.5 text-xs" data-room-inbox-tab value="inbox">
+              <Inbox />{t("inbox.panel.title")}{inboxAttention ? <span className="rounded-full bg-primary/15 px-1.5 text-[10px] font-semibold text-primary tabular-nums">{formatNumber(inboxAttention)}</span> : null}
+            </TabsTrigger>
+          ) : null}
         </TabsList>
         <RoomReplyInbox room={room} onReply={(replyTo) => { store.update({ replyTo }); setView("chat"); }} />
       </div>
@@ -775,6 +791,11 @@ function CenterTabs({ room, rooms, tabs, onOpenSession }: {
       <TabsContent className="flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden" value="flow">
         <RoomFlow onOpenSession={onOpenSession} room={room} tabs={tabs} />
       </TabsContent>
+      {inboxEnabled ? (
+        <TabsContent className="room-inbox flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden" value="inbox">
+          <InboxView availableTabIds={tabIds} inbox={inbox} onOpenSession={onOpenSession} />
+        </TabsContent>
+      ) : null}
     </Tabs>
   );
 }

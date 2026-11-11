@@ -74,6 +74,7 @@ interface AppOverlaysProps {
   onDismissFailure: () => void;
   onInstallUpdate: () => void;
   onOpenRoomSession: (tabId: string) => void;
+  roomInboxEnabled?: boolean;
   onOpenRoomFile: (projectRoot: string, path: string, line: number | null) => void;
   onClearRoomMemberContext: (tabId: string) => boolean;
   onResumeRoomDelivery: (tabId: string) => boolean;
@@ -116,6 +117,7 @@ function PrimaryPanels(props: AppOverlaysProps) {
           onClose={props.onCloseRooms}
           onLaunchMember={props.onLaunchRoomMember}
           onOpenSession={props.onOpenRoomSession}
+          inboxEnabled={props.roomInboxEnabled}
           onOpenFile={props.onOpenRoomFile}
           onClearContext={props.onClearRoomMemberContext}
           onResumeDelivery={props.onResumeRoomDelivery}

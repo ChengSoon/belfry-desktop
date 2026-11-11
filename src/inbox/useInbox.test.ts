@@ -65,12 +65,13 @@ const page = (list: MessageView[], nextCursor: string | null = null, revision = 
 let state: ReturnType<typeof useInbox>;
 let ports: { sessions: ReturnType<typeof vi.fn>; messages: ReturnType<typeof vi.fn> };
 let roots = ["/p"];
+let roomId: string | null = null;
 function render() {
   let turns = 0;
   do {
     if (++turns > 20) throw new Error("hook render did not settle");
     hooks.cursor = 0; hooks.dirty = false;
-    state = useInbox(roots, true, ports as unknown as InboxReadPorts);
+    state = useInbox(roots, true, ports as unknown as InboxReadPorts, roomId);
     hooks.effects.splice(0).forEach((effect) => effect());
   } while (hooks.dirty);
 }
@@ -81,7 +82,7 @@ beforeEach(async () => {
   hooks.cursor = 0; hooks.slots = []; hooks.effects = []; hooks.dirty = false; hooks.writes = 0;
   vi.useFakeTimers();
   vi.stubGlobal("window", { setInterval, clearInterval, setTimeout, clearTimeout });
-  roots = ["/p"];
+  roots = ["/p"]; roomId = null;
   ports = {
     sessions: vi.fn(async () => sessions([session("A", 2), session("B", 1)])),
     messages: vi.fn(async ({ sessionKey }: { sessionKey: string }) => page([message(`${sessionKey}1`, 1)])),
@@ -232,5 +233,23 @@ describe("已展开历史与项目范围", () => {
     old.resolve(page([message("late-old", 0)])); await loading; await flush();
     expect(state.messages).toEqual([]);
     expect(state.hasOlder).toBe(false);
+  });
+});
+
+describe("房间内收件箱", () => {
+  it("按房间读取会话与消息，换房间清除旧选择并丢弃旧房间的迟到响应", async () => {
+    unmount(); hooks.cursor = 0; hooks.slots = []; hooks.effects = [];
+    roomId = "room-1"; ports.sessions.mockClear(); ports.messages.mockClear();
+    render(); await flush();
+    expect(ports.sessions).toHaveBeenLastCalledWith("/p", "room-1");
+    const slow = deferred<MessagesView>();
+    ports.messages.mockReturnValueOnce(slow.promise);
+    state.select("A"); await flush();
+    expect(ports.messages).toHaveBeenLastCalledWith(expect.objectContaining({ sessionKey: "A", roomId: "room-1" }));
+    roomId = "room-2"; render(); await flush();
+    expect(state.selected).toBeNull();
+    expect(ports.sessions).toHaveBeenLastCalledWith("/p", "room-2");
+    slow.resolve(page([message("stale-room-1", 9)])); await flush();
+    expect(state.messages).toEqual([]);
   });
 });

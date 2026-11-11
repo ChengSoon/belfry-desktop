@@ -5,6 +5,7 @@ import { ICON } from "../theme/sizing";
 import type { MessageView, SessionView } from "./contracts";
 import { messageStatus, needsAttention, questionState, statusText, statusTone } from "./status";
 import type { InboxView as InboxData } from "./useInbox";
+import "../collab/collab.css";
 import "./inbox.css";
 
 interface InboxViewProps {

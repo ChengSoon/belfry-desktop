@@ -212,6 +212,25 @@ Object.assign(window, {
         return { id: `01m6v2yfg2ps6jak5pk7tdrf${String(imported).padStart(3, "0")}`, name: `拖入文件${imported}.txt`,
           path: `/qa/拖入文件${imported}.txt`, size: 12, mimeType: "text/plain" };
       }
+      if (command === "collab_inbox_sessions") {
+        const { roomId } = args as { roomId: string | null };
+        if (roomId !== room.id) return { schemaVersion: 1, revision: 1, generatedAt: now, sessions: [], loadError: null };
+        return { schemaVersion: 1, revision: 1, generatedAt: now, loadError: null, sessions: [
+          { sessionKey: "sk-t1", tabId: "t1", name: "后端", agent: "codex", projectRoot: room.projectRoot, runtimeAvailability: "busy",
+            summaryStatus: { code: "partial_pending", params: {} }, pendingCount: 2, awaitingReplyCount: 1,
+            lastMessagePreview: "登录接口的错误码表已更新", lastMessageAt: now - 5 * min, oldestPendingAt: now - 20 * min },
+        ] };
+      }
+      if (command === "collab_inbox_messages") {
+        const status = (code: string) => ({ code, params: {} });
+        return { schemaVersion: 1, revision: 1, nextCursor: null, loadError: null, messages: [
+          { id: "inbox-1", messageId: "msg-1", revision: 1, source: { kind: "room", roomId: room.id, name: room.name, messageId: "msg-1" },
+            recipient: { id: "rcpt", sessionKey: "sk-t1", projectRoot: room.projectRoot, tabId: "t1", roomId: room.id, memberId: null, name: "后端", agent: "codex" },
+            topicId: "topic-1", class: "discussion", by: { id: "lead", name: "统筹", tabId: null, memberId: null }, createdAt: now - 5 * min,
+            text: "登录接口的错误码表已更新，回归时以新表为准。", attachments: [], replyTo: null, questions: [], replies: [],
+            deliveryPhase: "pending", deliveryStatus: status("queue_turn"), handlingStatus: status("unknown_handling"), waitingReason: null },
+        ] };
+      }
       if (command === "plugin:event|listen") return ++callback;
       if (command.startsWith("plugin:")) return null;
       throw new Error(`QA 未提供原生命令：${command}`);
@@ -256,7 +275,7 @@ function QaRoom() {
       onOpenFile={(root, path, line) => { (window as unknown as { qaFiles: unknown[] }).qaFiles.push({ root, path, line }); }}
       onClearContext={() => true} onOpenSession={(tabId) => { (window as unknown as { qaOpened: string[] }).qaOpened.push(tabId); }} onResumeDelivery={() => true}
       pausedDeliveries={attention ? [{ tabId: "t3", message: "协作任务尚未确认开始处理" }] : []}
-      project={null} tabs={currentTabs} targets={choiceQa?.targets ?? new Map(currentTabs.map((t) => [t.id, target(t.id)]))} /> : null}
+      inboxEnabled={params.get("inbox") === "1"} project={null} tabs={currentTabs} targets={choiceQa?.targets ?? new Map(currentTabs.map((t) => [t.id, target(t.id)]))} /> : null}
   </div>
   </ThemeProvider>
   );

@@ -464,6 +464,7 @@ export default function App() {
         onDismissFailure={workspace.dismissFailure}
         onInstallUpdate={updater.install}
         onOpenRoomSession={openRoomSession}
+        roomInboxEnabled={inboxDelivery.mode === "inbox"}
         onOpenRoomFile={openRoomFile}
         onClearRoomMemberContext={clearRoomMemberContext}
         onResumeRoomDelivery={promptQueue.resume}

@@ -32,7 +32,7 @@ export interface InboxView {
  * 只读收件箱数据。两个读接口都无副作用：打开、切换、翻页不会 claim 或触发投递。
  * 每类请求各有代次：切换会话或项目后，迟到的旧响应一律丢弃；读取失败保留上次结果并显示错误。
  */
-export function useInbox(projectRoots: readonly string[], enabled: boolean, ports: InboxReadPorts = defaultPorts): InboxView {
+export function useInbox(projectRoots: readonly string[], enabled: boolean, ports: InboxReadPorts = defaultPorts, roomId: string | null = null): InboxView {
   const [sessions, setSessions] = useState<readonly SessionView[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [messages, setMessages] = useState<readonly MessageView[]>([]);
@@ -43,7 +43,9 @@ export function useInbox(projectRoots: readonly string[], enabled: boolean, port
   const [messagesError, setMessagesError] = useFeedback<string | null>(null);
   const listGen = useRef(0), msgGen = useRef(0), olderGen = useRef(0);
   const mounted = useRef(true);
-  const rootsKey = projectRoots.join("\n");
+  // 房间页签只看本房间的收件；换房间等同换范围，旧选择与旧响应一并作废。
+  const rootsKey = `${roomId ?? ""}\u0000${projectRoots.join("\n")}`;
+  const roomRef = useRef(roomId); roomRef.current = roomId;
   const rootsRef = useRef(projectRoots); rootsRef.current = projectRoots;
   const selectedRef = useRef(selected); selectedRef.current = selected;
   const portsRef = useRef(ports); portsRef.current = ports;
@@ -52,13 +54,14 @@ export function useInbox(projectRoots: readonly string[], enabled: boolean, port
   const readRevision = useRef<number | null>(null);
   const sessionRoots = useRef(new Map<string, string[]>());
   const previousRoots = useRef(rootsKey);
+  const previousRoom = useRef(roomId);
 
   const readSessions = useCallback(async () => {
     const request = ++listGen.current;
     listBusy.current = true;
     try {
       const roots = [...rootsRef.current];
-      const views = await Promise.all(roots.map((root) => portsRef.current.sessions(root, null)));
+      const views = await Promise.all(roots.map((root) => portsRef.current.sessions(root, roomRef.current)));
       if (!mounted.current || request !== listGen.current) return;
       const failed = views.find((view) => view.loadError);
       const origins = new Map<string, string[]>();
@@ -81,7 +84,7 @@ export function useInbox(projectRoots: readonly string[], enabled: boolean, port
     if (!key) { setMessages([]); setCursor(null); return; }
     msgBusy.current = true;
     try {
-      const view = await portsRef.current.messages({ sessionKey: key, limit: PAGE });
+      const view = await portsRef.current.messages({ sessionKey: key, roomId: roomRef.current, limit: PAGE });
       if (!mounted.current || request !== msgGen.current || key !== selectedRef.current) return;
       const oldest = reset ? undefined : messagesRef.current[0];
       let incoming = sortMessages(view.messages), next = view.nextCursor, revision = view.revision;
@@ -91,7 +94,7 @@ export function useInbox(projectRoots: readonly string[], enabled: boolean, port
         while (next && (!incoming.length || compareMessages(incoming[0], oldest) > 0)) {
           if (seen.has(next)) throw new Error("The message history cursor did not advance.");
           seen.add(next);
-          const older = await portsRef.current.messages({ sessionKey: key, cursor: next, limit: PAGE });
+          const older = await portsRef.current.messages({ sessionKey: key, roomId: roomRef.current, cursor: next, limit: PAGE });
           if (!mounted.current || request !== msgGen.current || key !== selectedRef.current) return;
           incoming = mergeMessages(incoming, older.messages);
           revision = Math.min(revision, older.revision);
@@ -122,7 +125,7 @@ export function useInbox(projectRoots: readonly string[], enabled: boolean, port
     setLoadingOlder(true);
     try {
       // 游标原样回传，不解析。
-      const view = await portsRef.current.messages({ sessionKey: key, cursor, limit: PAGE });
+      const view = await portsRef.current.messages({ sessionKey: key, roomId: roomRef.current, cursor, limit: PAGE });
       if (!mounted.current || request !== olderGen.current || key !== selectedRef.current) return;
       setMessages((current) => {
         const merged = mergeMessages(current, view.messages);
@@ -148,8 +151,9 @@ export function useInbox(projectRoots: readonly string[], enabled: boolean, port
   useEffect(() => {
     mounted.current = true;
     if (previousRoots.current !== rootsKey) {
-      previousRoots.current = rootsKey;
-      const inScope = (key: string) => sessionRoots.current.get(key)?.some((root) => rootsRef.current.includes(root));
+      const roomChanged = previousRoom.current !== roomId;
+      previousRoots.current = rootsKey; previousRoom.current = roomId;
+      const inScope = (key: string) => !roomChanged && sessionRoots.current.get(key)?.some((root) => rootsRef.current.includes(root));
       setSessions((current) => current.filter((session) => inScope(session.sessionKey)));
       if (selectedRef.current && !inScope(selectedRef.current)) select(null);
       setLoaded(false);
@@ -162,7 +166,7 @@ export function useInbox(projectRoots: readonly string[], enabled: boolean, port
       if (selectedRef.current && !msgBusy.current) void readLatest(false);
     }, POLL_MS);
     return () => { mounted.current = false; listGen.current++; msgGen.current++; olderGen.current++; window.clearInterval(timer); };
-  }, [enabled, rootsKey, readSessions, readLatest, select]);
+  }, [enabled, rootsKey, roomId, readSessions, readLatest, select]);
 
   const refresh = useCallback(async () => { await Promise.all([readSessions(), readLatest(false)]); }, [readSessions, readLatest]);
 
