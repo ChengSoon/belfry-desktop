@@ -9,14 +9,22 @@
     "model": "Model ID",
     "placeholder": "Enter or select a model",
     "suggestions": "Choose a configured model",
-    "modelHint": "Enter a model ID supported by the current provider, or select a configured model.",
+    "modelHint": "Enter a model ID supported by the current provider, or fetch the model list and choose one.",
     "invalid": "Use up to 256 characters without whitespace or control characters.",
     "inheritHint": "Use the project's default model, or the Agent's global configuration if the project has no override.",
     "nextLaunch": "Applies the next time this role starts. A running session keeps its current model.",
     "summary": "Model: {{model}}",
     "cancel": "Cancel",
     "save": "Save",
-    "saving": "Saving…"
+    "saving": "Saving…",
+    "fetch": "Fetch models",
+    "fetching": "Fetching…",
+    "fetched": {
+      "one": "Fetched {{count}} model from “{{provider}}”. Use the arrow to choose.",
+      "other": "Fetched {{count}} models from “{{provider}}”. Use the arrow to choose."
+    },
+    "fetchedEmpty": "The provider returned no models. Enter a model ID manually.",
+    "fetchUnavailable": "This role uses the official sign-in, which has no model list to fetch. Enter a model ID manually."
   },
   "delivery": {
     "summary": "{{phase}} {{count}}/{{total}}"

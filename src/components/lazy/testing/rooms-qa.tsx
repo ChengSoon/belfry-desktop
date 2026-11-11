@@ -182,6 +182,13 @@ Object.assign(window, {
         rootPath: room.projectRoot, envConflicts: [], agents: [{ kind: "codex", providerId: null, source: "global", effectiveName: "Example", missing: false,
           choices: [{ id: "example", name: "Example", baseUrl: "https://example.invalid", model: "configured-model", configured: true }] }],
       };
+      if (command === "provider_list") return { envConflicts: [], agents: [{ kind: "codex", currentId: params.get("official") === "1" ? null : "example",
+        providers: [{ id: "example", name: "Example", baseUrl: "https://example.invalid", model: "configured-model", hasApiKey: true }] }] };
+      if (command === "provider_models") {
+        const failure = (window as unknown as { qaModelsFailure?: string }).qaModelsFailure;
+        if (failure) throw { code: "IO", message: failure, retryable: true };
+        return ["gpt-5.5", "gpt-5.5-mini", "configured-model", "o5-reasoner"];
+      }
       if (command === "room_set_member_model") {
         const patch = args as { memberId: string; expectedTabId: string; expectedAgent: string; expectedModelOverride: string | null; modelOverride: string | null };
         const member = current.members.find((member) => member.id === patch.memberId && member.leftAt === null);

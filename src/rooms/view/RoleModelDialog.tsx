@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, RefreshCcw } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
@@ -8,6 +8,10 @@ import { Label } from "../../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 import { useTranslation } from "../../i18n";
 import { readProjectProviders } from "../../provider/project/api";
+import { fetchProviderModels, listProviders } from "../../provider/api";
+import { toDraft, type ProviderConfig } from "../../provider/contracts";
+import type { AgentKind } from "../../workspace/contracts";
+import { useFeedback } from "../../i18n";
 import { toAppFailure } from "../../workspace/errors";
 import { roomSetMemberModel } from "../api";
 import type { Room, RoomMember } from "../contracts";
@@ -21,6 +25,12 @@ export function RoleModelDialog({ room, member, rooms, onClose }: {
   const [mode, setMode] = useState(member.modelOverride ? "override" : "inherit");
   const [model, setModel] = useState(member.modelOverride ?? "");
   const [suggestions, setSuggestions] = useState<{ value: string; label: string }[]>([]);
+  // 这个角色启动时实际生效的供应商：项目指定优先，否则全局当前。官方端点（null）没有可拉取的列表。
+  const [provider, setProvider] = useState<ProviderConfig | null>(null);
+  const [fetched, setFetched] = useState<string[] | null>(null);
+  const [fetching, setFetching] = useState(false);
+  const [fetchError, setFetchError] = useFeedback<string | null>(null);
+  const fetchGen = useRef(0);
   const [saving, setSaving] = useState(false);
   const [failure, setFailure] = useState<unknown>(null);
   const alive = useRef(true);
@@ -33,9 +43,36 @@ export function RoleModelDialog({ room, member, rooms, onClose }: {
       const choices = report.agents.find((agent) => agent.kind === member.agent)?.choices ?? [];
       const models = [...new Set(choices.map((choice) => choice.model.trim()).filter(Boolean))];
       setSuggestions(models.map((value) => ({ value, label: value })));
+      const projectId = report.agents.find((agent) => agent.kind === member.agent)?.providerId ?? null;
+      return listProviders().then((catalog) => {
+        if (!current) return;
+        const group = catalog.agents.find((agent) => agent.kind === member.agent);
+        const id = projectId ?? group?.currentId ?? null;
+        setProvider(group?.providers.find((item) => item.id === id) ?? null);
+      });
     }).catch(() => { /* 候选不可用时仍允许输入当前供应商支持的模型。 */ });
-    return () => { current = false; alive.current = false; };
+    return () => { current = false; alive.current = false; fetchGen.current++; };
   }, [room.projectRoot, member.agent]);
+
+  const fetchModels = async () => {
+    if (!provider) return;
+    const request = ++fetchGen.current;
+    setFetching(true); setFetchError(null);
+    try {
+      // 用已保存的密钥向该供应商端点读取模型列表；不改动供应商配置。
+      const list = await fetchProviderModels(member.agent as AgentKind, toDraft(provider));
+      if (request === fetchGen.current) setFetched([...new Set(list.map((item) => item.trim()).filter(Boolean))]);
+    } catch (cause) {
+      if (request === fetchGen.current) setFetchError(() => toAppFailure(cause).message);
+    } finally {
+      if (request === fetchGen.current) setFetching(false);
+    }
+  };
+  const options = [...new Map([...(fetched ?? []), ...suggestions.map((item) => item.value)]
+    .map((value) => [value, { value, label: value }])).values()];
+  const filter = model.trim().toLocaleLowerCase();
+  const listed = fetched && filter && !options.some((option) => option.value.toLocaleLowerCase() === filter)
+    ? options.filter((option) => option.value.toLocaleLowerCase().includes(filter)) : options;
 
   const trimmed = model.trim();
   const invalid = mode === "override" && (!trimmed || [...trimmed].length > 256 || /[\s\p{Cc}]/u.test(trimmed));
@@ -84,19 +121,28 @@ export function RoleModelDialog({ room, member, rooms, onClose }: {
                 <Input id="role-model-id" aria-label={t("rooms.roleModel.model")} disabled={saving} required maxLength={256}
                   autoComplete="off" spellCheck={false} value={model} placeholder={t("rooms.roleModel.placeholder")}
                   onChange={(event) => { setModel(event.target.value); setFailure(null); }} />
-                {suggestions.length ? (
+                {options.length ? (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button type="button" size="icon" variant="outline" disabled={saving} aria-label={t("rooms.roleModel.suggestions")}><ChevronDown /></Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="max-w-[calc(100vw-3rem)]">
-                      {suggestions.map((option) => <DropdownMenuItem key={option.value} onSelect={() => { setModel(option.value); setFailure(null); }}>
+                    <DropdownMenuContent align="end" className="max-h-72 max-w-[calc(100vw-3rem)] overflow-y-auto" data-role-model-options>
+                      {(listed.length ? listed : options).map((option) => <DropdownMenuItem key={option.value} onSelect={() => { setModel(option.value); setFailure(null); }}>
                         <span className="truncate" title={option.value}>{option.label}</span>
                       </DropdownMenuItem>)}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 ) : null}
+                <Button type="button" variant="outline" className="shrink-0" disabled={saving || fetching || !provider} data-role-model-fetch
+                  title={provider ? undefined : t("rooms.roleModel.fetchUnavailable")} onClick={() => void fetchModels()}>
+                  <RefreshCcw className={fetching ? "animate-spin" : undefined} />{t(fetching ? "rooms.roleModel.fetching" : "rooms.roleModel.fetch")}
+                </Button>
               </div>
+              {fetchError ? <p className="break-words text-sm text-destructive" role="alert">{fetchError}</p> : null}
+              {!fetchError && fetched ? <p className="text-xs text-muted-foreground" role="status" data-role-model-fetched>
+                {fetched.length ? t("rooms.roleModel.fetched", { count: fetched.length, provider: provider?.name ?? "" }) : t("rooms.roleModel.fetchedEmpty")}
+              </p> : null}
+              {!provider ? <p className="text-xs leading-relaxed text-muted-foreground">{t("rooms.roleModel.fetchUnavailable")}</p> : null}
               <p className="text-xs leading-relaxed text-muted-foreground">{t("rooms.roleModel.modelHint")}</p>
               {trimmed && invalid ? <p className="text-sm text-destructive" role="alert">{t("rooms.roleModel.invalid")}</p> : null}
             </div>

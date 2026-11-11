@@ -9,14 +9,22 @@
     "model": "模型标识",
     "placeholder": "输入或选择模型",
     "suggestions": "选择已配置的模型",
-    "modelHint": "填写当前供应商支持的模型标识，也可以从已配置的模型中选择。",
+    "modelHint": "填写当前供应商支持的模型标识，或拉取模型列表后选择。",
     "invalid": "模型标识最多 256 个字符，不能包含空白或控制字符。",
     "inheritHint": "使用此项目的默认模型；项目未设置时沿用 Agent 的全局配置。",
     "nextLaunch": "下次启动此角色时生效，当前运行中的会话会继续使用原模型。",
     "summary": "模型：{{model}}",
     "cancel": "取消",
     "save": "保存",
-    "saving": "保存中…"
+    "saving": "保存中…",
+    "fetch": "拉取模型列表",
+    "fetching": "拉取中…",
+    "fetched": {
+      "one": "已从「{{provider}}」拉取 {{count}} 个模型，点右侧箭头选择。",
+      "other": "已从「{{provider}}」拉取 {{count}} 个模型，点右侧箭头选择。"
+    },
+    "fetchedEmpty": "该供应商没有返回模型，请手动填写模型标识。",
+    "fetchUnavailable": "这个角色使用官方登录，没有可拉取的模型列表，请手动填写模型标识。"
   },
   "delivery": {
     "summary": "{{phase}} {{count}}/{{total}}"

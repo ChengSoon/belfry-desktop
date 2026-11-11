@@ -100,3 +100,57 @@ test("failed role-model saves preserve the draft and reject a stale setting", as
   await view.cdp.evaluate("qaSetMemberTab('fe', 'replacement-tab')");
   await waitFor(view, `!document.querySelector('${dialog}')`);
 });
+
+for (const locale of ["zh-CN", "en"]) {
+  test(`role model list can be fetched from the role's provider and chosen (${locale})`, async t => {
+    const words = labels[locale];
+    const { view } = await browserFixture(t, `src/components/lazy/testing/rooms-qa.html?attention=0&locale=${locale}`);
+    await view.bounds({ x: 0, y: 0, width: 720, height: 480 });
+    await waitFor(view, "!!document.querySelector('.room-sidebar button[aria-haspopup=menu]')");
+    await openModel(view, words, words.member, 720);
+    await chooseMode(view, words.override);
+    await waitFor(view, "document.querySelector('[data-role-model-fetch]')?.disabled === false");
+    await click(view, "[data-role-model-fetch]");
+    await waitFor(view, "!!document.querySelector('[data-role-model-fetched]')");
+    assert.match(await view.cdp.evaluate("document.querySelector('[data-role-model-fetched]').textContent"), /4/);
+    const call = await view.cdp.evaluate("qaCalls.find(c => c.command === 'provider_models').args");
+    assert.equal(call.kind, "codex");
+    assert.deepEqual([call.draft.id, call.draft.apiKeyAction, call.draft.apiKey], ["example", "keep", ""], "uses the saved key without sending it from the page");
+    await click(view, `${dialog} button[aria-haspopup="menu"]`);
+    await waitFor(view, "document.querySelectorAll('[data-role-model-options] [role=menuitem]').length === 4");
+    const items = await view.cdp.evaluate("[...document.querySelectorAll('[data-role-model-options] [role=menuitem]')].map(i => i.textContent)");
+    assert.deepEqual(items, ["gpt-5.5", "gpt-5.5-mini", "configured-model", "o5-reasoner"], "fetched models are listed once, configured model not duplicated");
+    await click(view, "[data-role-model-options] [role=menuitem]:nth-child(2)");
+    await waitFor(view, `document.querySelector('input[aria-label=${JSON.stringify(words.model)}]')?.value === 'gpt-5.5-mini'`);
+    await waitFor(view, "!document.querySelector('[data-role-model-options]') && document.getAnimations().every(a => a.playState !== 'running' || a.effect?.getComputedTiming().iterations === Infinity)");
+    await capturePanel(view, `role-model-fetched-${locale}`);
+    const geometry = await view.cdp.evaluate(`(() => { const d = document.querySelector('${dialog}'), b = d.querySelector('button[type="submit"]'), r = b.getBoundingClientRect(); return { overflow: document.documentElement.scrollWidth > innerWidth, reachable: r.top >= 0 && r.bottom <= innerHeight }; })()`);
+    assert.deepEqual(geometry, { overflow: false, reachable: true });
+    await save(view, 1);
+    assert.equal(await view.cdp.evaluate("qaCalls.find(c => c.command === 'room_set_member_model').args.modelOverride"), "gpt-5.5-mini");
+    assert.equal(await view.cdp.evaluate("qaCalls.filter(c => /provider_(save|switch|select)/.test(c.command)).length"), 0, "fetching does not change provider settings");
+  });
+}
+
+test("model fetch failure keeps manual input, and official sign-in has nothing to fetch", async t => {
+  const words = labels.en;
+  const { view } = await browserFixture(t, "src/components/lazy/testing/rooms-qa.html?attention=0&locale=en");
+  await waitFor(view, "!!document.querySelector('.room-sidebar button[aria-haspopup=menu]')");
+  await openModel(view, words, words.member);
+  await chooseMode(view, words.override);
+  await inputModel(view, words, "typed-model");
+  await view.cdp.evaluate("window.qaModelsFailure = 'Endpoint unreachable'");
+  await waitFor(view, "document.querySelector('[data-role-model-fetch]')?.disabled === false");
+  await click(view, "[data-role-model-fetch]");
+  await waitFor(view, `document.querySelector('${dialog} [role="alert"]')?.textContent.includes('Endpoint unreachable')`);
+  assert.equal(await view.cdp.evaluate(`document.querySelector('input[aria-label="Model ID"]').value`), "typed-model");
+  assert.equal(await view.cdp.evaluate(`document.querySelector('${dialog} button[type="submit"]').disabled`), false, "manual entry can still be saved");
+
+  const official = await browserFixture(t, "src/components/lazy/testing/rooms-qa.html?attention=0&locale=en&official=1");
+  await waitFor(official.view, "!!document.querySelector('.room-sidebar button[aria-haspopup=menu]')");
+  await openModel(official.view, words, words.member);
+  await chooseMode(official.view, words.override);
+  await waitFor(official.view, `document.querySelector('${dialog}').textContent.includes('official sign-in')`);
+  assert.equal(await official.view.cdp.evaluate("document.querySelector('[data-role-model-fetch]').disabled"), true);
+  assert.equal(await official.view.cdp.evaluate("qaCalls.some(c => c.command === 'provider_models')"), false);
+});
