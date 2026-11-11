@@ -474,8 +474,3 @@
 .collab-delivery-actions .collab-event__actions { flex-wrap: wrap; }
 .collab-delivery-confirm { padding: 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
 /* 收件箱启用时：面板顶部在“收件箱 / 任务”之间切换。 */
-.collab-views { display: flex; flex-shrink: 0; gap: 18px; padding: 0 16px; border-bottom: 1px solid var(--border); }
-.collab-views button { position: relative; min-height: 36px; padding: 0; border: 0; color: var(--text-muted); background: none; font: inherit; font-size: var(--fs-sm); cursor: pointer; }
-.collab-views button[aria-selected="true"] { color: var(--text); }
-.collab-views button[aria-selected="true"]::after { content: ""; position: absolute; right: 0; bottom: -1px; left: 0; height: 2px; background: var(--accent); }
-.collab-views button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

@@ -39,7 +39,7 @@
 
 收件箱测试运行未改写的 `dist/` 生产构建、真实 React 页面和 xterm；**原生 IPC 被测试替身替换**。它验证页面点击、输入运行时调用顺序、粘贴编码和前端竞争处理，不等同于浏览器到实际 Tauri 后端的完整贯通测试。角色模型测试同样替换原生 IPC，使用真实房间设置组件。
 
-收件箱五个场景覆盖中文 1440×900、720×480 的只读列表/详情/搜索/返回，用户抢先输入，原生代次先变化，真实 xterm 的安全粘贴与 DSR，以及英文窄窗的阅读和打开会话。截图在 [production-screenshots](design/collaboration-inbox/production-screenshots/)，共六张；截图等待页面入场动画结束后采集。
+收件箱运行时四个场景覆盖顶部面板不显示收件箱、用户抢先输入、原生代次先变化，以及真实 xterm 的安全粘贴与 DSR。只读界面在协作房间里，`rooms-inbox.case.mjs` 四个场景覆盖中文 1440×900、720×480 与英文窄窗的列表/详情/返回、按房间读取和打开会话。截图在 [production-screenshots](design/collaboration-inbox/production-screenshots/)，共五张；截图等待页面入场动画结束后采集。
 
 ## 复跑
 
@@ -53,6 +53,7 @@ node scripts/sync-backend-i18n.mjs --check
 node scripts/export-backend-i18n.mjs --check
 node --test scripts/backend-i18n.test.mjs
 node --experimental-websocket --test src/components/lazy/testing/inbox.case.mjs
+node --experimental-websocket --test src/components/lazy/testing/rooms-inbox.case.mjs
 node --experimental-websocket --test src/components/lazy/testing/room-role-model.case.mjs
 ```
 

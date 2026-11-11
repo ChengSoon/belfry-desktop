@@ -37,8 +37,6 @@
       "one": "{{count}} attachment",
       "other": "{{count}} attachments"
     },
-    "views": "Inbox and tasks",
-    "tasks": "Tasks",
     "halted": "The collaboration inbox could not be enabled. Automatic delivery is paused; messages are still saved. Restart the app to try again.",
     "targetGone": "This session is not open right now"
   },

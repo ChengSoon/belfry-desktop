@@ -227,9 +227,19 @@ Object.assign(window, {
           { id: "inbox-1", messageId: "msg-1", revision: 1, source: { kind: "room", roomId: room.id, name: room.name, messageId: "msg-1" },
             recipient: { id: "rcpt", sessionKey: "sk-t1", projectRoot: room.projectRoot, tabId: "t1", roomId: room.id, memberId: null, name: "后端", agent: "codex" },
             topicId: "topic-1", class: "discussion", by: { id: "lead", name: "统筹", tabId: null, memberId: null }, createdAt: now - 5 * min,
-            text: "登录接口的错误码表已更新，回归时以新表为准。", attachments: [], replyTo: null, questions: [], replies: [],
+            text: "登录接口的错误码表已更新，回归时以新表为准。", attachments: [], replyTo: "msg-other",
+            replyPreview: { messageId: "msg-other", by: { id: "fe", name: "前端", tabId: "t2", memberId: null }, createdAt: now - 30 * min, text: "错误码表还用旧的吗？", answers: [] },
+            questions: [], replies: [],
             deliveryPhase: "pending", deliveryStatus: status("queue_turn"), handlingStatus: status("unknown_handling"), waitingReason: null },
-        ] };
+          { id: "inbox-2", messageId: "msg-2", revision: 1, source: { kind: "room", roomId: room.id, name: room.name, messageId: "msg-2" },
+            recipient: { id: "rcpt", sessionKey: "sk-t1", projectRoot: room.projectRoot, tabId: "t1", roomId: room.id, memberId: null, name: "后端", agent: "codex" },
+            topicId: "topic-1", class: "discussion", by: { id: "fe", name: "前端", tabId: "t2", memberId: null }, createdAt: now - 20 * min,
+            text: "两个问题想先确认。", attachments: [], replyTo: null,
+            questions: [{ id: "q1", text: "页码从 0 还是从 1 开始？", state: "replied", replyMessageIds: ["msg-r1"], legacy: false },
+              { id: "q2", text: "排序字段沿用 sort 还是 orderBy？", state: "open", replyMessageIds: [], legacy: false }],
+            replies: [{ messageId: "msg-r1", by: { id: "be", name: "后端", tabId: "t1", memberId: null }, createdAt: now - 18 * min, text: "从 1 开始。", answers: ["q1"] }],
+            deliveryPhase: "submitted", deliveryStatus: status("submitted"), handlingStatus: status("processing"), waitingReason: null },
+        ].sort((a, b) => a.createdAt - b.createdAt) };
       }
       if (command === "plugin:event|listen") return ++callback;
       if (command.startsWith("plugin:")) return null;

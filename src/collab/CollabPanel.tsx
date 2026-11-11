@@ -10,8 +10,6 @@ import type { CollabTasksView } from "./useCollabTasks";
 import { DeliveryActions, type DeliveryDecision } from "./DeliveryActions";
 import { t, useTranslation } from "../i18n";
 import "./collab.css";
-import { InboxView } from "../inbox/InboxView";
-import type { InboxView as InboxData } from "../inbox/useInbox";
 
 /** 节点里的图标要比常规图标小一档才压得进 10px 的节点位，比 ICON.xs(16) 还小。 */
 const NODE_ICON = 12;
@@ -22,13 +20,12 @@ interface CollabPanelProps {
   onOpenTerminal?: (tabId: string) => void;
   availableTabIds?: readonly string[];
   /** 后端启用协作收件箱时提供：面板顶部切到只读的会话/消息视图。 */
-  inbox?: InboxData;
   /** 收件箱支持但启用失败：自动投递已暂停，需要告诉用户。 */
   deliveryHalted?: boolean;
   deliveryError?: string | null;
 }
 
-export function CollabPanel({ collab, onClose, onOpenTerminal, availableTabIds, inbox, deliveryHalted, deliveryError }: CollabPanelProps) {
+export function CollabPanel({ collab, onClose, onOpenTerminal, availableTabIds, deliveryHalted, deliveryError }: CollabPanelProps) {
   useTranslation();
   // Other panel triggers switch on click. Closing on mousedown creates an empty
   // rail between press/release and resizes every terminal twice unnecessarily.
@@ -39,8 +36,6 @@ export function CollabPanel({ collab, onClose, onOpenTerminal, availableTabIds, 
     (task) => !waiting.includes(task) && !active.includes(task),
   );
   const [filter, setFilter] = useState<"all" | "waiting" | "active" | "settled">("all");
-  const [view, setView] = useState<"inbox" | "tasks">("inbox");
-  const showInbox = !!inbox && view === "inbox";
   const filters = [
     { id: "all", label: t("collab.CollabPanel.text_5c55a67935"), count: collab.tasks.length },
     { id: "waiting", label: t("collab.CollabPanel.text_a8b0bd9c65"), count: waiting.length },
@@ -73,13 +68,6 @@ export function CollabPanel({ collab, onClose, onOpenTerminal, availableTabIds, 
       {deliveryHalted ? (
         <div className="collab-panel__error" role="alert"><AlertTriangle aria-hidden="true" size={ICON.sm} /><div><span>{t("inbox.panel.halted")}</span>{deliveryError ? <small>{deliveryError}</small> : null}</div></div>
       ) : null}
-      {inbox ? (
-        <div className="collab-views" role="tablist" aria-label={t("inbox.panel.views")}>
-          <button type="button" role="tab" aria-selected={view === "inbox"} onClick={() => setView("inbox")}>{t("inbox.panel.title")}</button>
-          <button type="button" role="tab" aria-selected={view === "tasks"} onClick={() => setView("tasks")}>{t("inbox.panel.tasks")}</button>
-        </div>
-      ) : null}
-      {showInbox ? <InboxView inbox={inbox!} availableTabIds={availableTabIds} onOpenSession={onOpenTerminal} /> : <>
       <div className="collab-panel__context">
         <p>{t("collab.CollabPanel.text_63ac23a22d")}</p>
         <div className="collab-filters" role="group" aria-label={t("collab.CollabPanel.text_c310faf317")}>
@@ -139,7 +127,6 @@ export function CollabPanel({ collab, onClose, onOpenTerminal, availableTabIds, 
           <button className="collab-button collab-button--danger" disabled={collab.pending.size > 0} onClick={() => void collab.stopAll()} type="button">{t("collab.CollabPanel.text_784aaf3360")}</button>
         ) : null}
       </footer>
-      </>}
     </aside>
   );
 }

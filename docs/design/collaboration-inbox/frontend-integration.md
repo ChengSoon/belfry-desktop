@@ -10,7 +10,7 @@
 | `src/inbox/useInboxDelivery.ts` | 决定唯一投递 owner 并驱动运行时（见下）。 |
 | `src/inbox/runtime.ts` | 输入运行时：offer → prepare → begin → 一次写入 → 回执。 |
 | `src/inbox/useInbox.ts` | 只读数据：会话列表、消息分页，带请求代次。 |
-| `src/inbox/InboxView.tsx`、`status.ts` | 会话协作面板里的“收件箱”页：会话列表 → 消息详情。 |
+| `src/inbox/InboxView.tsx`、`status.ts` | 协作房间中栏“收件箱”页签（`src/rooms/view/RoomView.tsx`）：按房间读取，会话列表 → 消息详情。顶部“会话协作”面板不再显示收件箱。 |
 | `src/terminal/promptInput.ts` 等 | `sendText` 新增 `inboxGuard`、`expectedInputRevision`；`terminal_write` 透传 `inboxGuard`/`writeSequence`；target 暴露 `inputRevision()` 和 `canPasteMultiline()`。 |
 
 ## 投递 owner 切换
@@ -48,12 +48,12 @@
 
 - 整合后相关前端回归 20 文件、190 项通过；最终兼容判断修正增加 1 项并定向复跑 `useInboxDelivery.test.ts`，10 项通过。类型、生产构建及国际化检查通过。完整命令和范围见[整合验收](../../collaboration-inbox-verification.md)。
 - 生产浏览器（`src/components/lazy/testing/inbox.case.mjs`，未改写的生产构建 + 按契约模拟的原生 IPC）：
-  1. 1440 与 720×480：会话列表、混合原因、计数、详情各类状态、无投递类按钮、Esc 返回且焦点归位、搜索/无结果、720 无横向溢出。
+  1. 顶部“会话协作”面板不显示、也不读取收件箱；运行时照常激活。
   2. 运行时：Agent 工作中不 offer；prepare 后用户键入 → abort 且零写入；再次就绪后整批一次写入，guard 一致、序号 1、2，回执 `submitted`/3，新任务不随协商送出，没有重复写入，旧 `collab_pending_tasks` 未被调用。
   3. 原生侧先收到用户写入（前端未见）→ begin 被拒，零写入、零回执。
   4. 真实 xterm 未启用安全粘贴时不 begin；启用后自动生成 DSR 应答，不误判为用户输入。
-  5. 英文 720×480：列表、详情、Esc 返回、打开目标终端。
-- 五个场景全部通过；最终文案构建后只重跑两项阅读场景更新截图。截图位于 `production-screenshots/`，包含中文 1440、720×480 及英文 720×480 的列表和详情。
+- 房间收件箱（`src/components/lazy/testing/rooms-inbox.case.mjs`，房间夹具 + 模拟原生 IPC）：只按本房间读取、角标、逐问题答复与跨会话引用、无投递类按钮、打开会话、只读不触发投递；720×480 列表/详情/返回；英文与 Esc 只返回列表；无收件箱后端时不出现页签。
+- 截图位于 `production-screenshots/`：中文 1440 列表与详情、720×480 列表与详情，以及英文 720×480 详情。
 
 ## 未覆盖
 

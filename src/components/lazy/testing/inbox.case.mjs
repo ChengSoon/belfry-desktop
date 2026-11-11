@@ -1,17 +1,15 @@
 import assert from "node:assert/strict";
-import { mkdir, writeFile } from "node:fs/promises";
 import test from "node:test";
-import { productionFixture, click, press, waitFor } from "./productionFixture.mjs";
+import { productionFixture, click, waitFor } from "./productionFixture.mjs";
 
 /*
  * 协作收件箱真实页面验证：未经改写的生产构建 + 可控原生 IPC。
  * 模拟后台只按 T62 implementation-contract.md 的命令/字段返回，验证前端运行时与只读界面：
  * - 忙时多条来信只形成一个提醒；终端就绪（idle + 输入区空）后整批一次写入，带 guard 且序号连续。
  * - 用户在 prepare 后抢先输入：abort，不写入。
- * - 只读界面：会话列表 → 消息详情 → 返回；无投递/合并/撤回/答复按钮；1440 与 720x480 可点。
+ * - 顶部「协作」面板不显示也不读取收件箱；只读界面在协作房间里，见 rooms-inbox.case.mjs。
  */
 const ROOT = "/qa/panel-project";
-const SHOTS = process.env.BELFRY_INBOX_SHOTS;
 
 const nativeSource = `(() => {
   const w = JSON.parse(localStorage.getItem('belfry.workspace.v1'));
@@ -125,63 +123,13 @@ const PANEL = 'button[title="会话协作"]';
 // 只给 Agent 终端“画屏幕”（模拟 PTY 输出），不经过 terminal_write，不算用户输入。
 function emit(text) { window.__productionQA.output('agent-backend-pty', text); }
 
-async function shot(view, name) {
-  if (!SHOTS) return;
-  await waitFor(view, "document.getAnimations().every(animation => animation.playState !== 'running' || animation.effect?.getComputedTiming().iterations === Infinity)");
-  await mkdir(SHOTS, { recursive: true });
-  const { data } = await view.send("Page.captureScreenshot", { format: "png" });
-  await writeFile(`${SHOTS}/${name}.png`, Buffer.from(data, "base64"));
-}
-async function openInbox(view) {
-  if (!await view.cdp.evaluate("!!document.querySelector('.collab-panel')")) await click(view, PANEL);
-  await waitFor(view, "!!document.querySelector('.inbox-session[data-session=sk-be]')");
-}
-
-test("收件箱：只读会话列表与消息详情，1440 与 720x480 可点、可返回", { timeout: 60_000 }, async (t) => {
+test("顶部「协作」面板不再显示收件箱；投递运行时照常接管", { timeout: 60_000 }, async (t) => {
   const { view } = await productionFixture(t, { nativeSource, terminalCount: 2 });
-  await view.bounds({ x: 0, y: 0, width: 1440, height: 900 });
   await waitFor(view, "__inboxQA.activated === true");
-  await openInbox(view);
-  const row = await view.cdp.evaluate("document.querySelector('.inbox-session[data-session=sk-be]').innerText");
-  assert.match(row, /后端/); assert.match(row, /codex/);
-  assert.match(row, /部分消息等待投递/, "协商等轮次 + 任务等交差 → 混合原因");
-  assert.match(row, /3 条等待投递 · 1 个问题待回复/);
-  assert.match(await view.cdp.evaluate("document.querySelector('.inbox-session[data-session=sk-qa]').innerText"), /等待成员上线/);
-  await shot(view, "1440-inbox-sessions");
-
-  await click(view, ".inbox-session[data-session=sk-be]");
-  await waitFor(view, "document.querySelectorAll('.inbox-message').length === 5");
-  const detail = await view.cdp.evaluate("document.querySelector('.inbox--detail').innerText");
-  assert.match(detail, /等待上一任务完成 · T60 调整接口返回值/);
-  assert.match(detail, /等待成员结束当前轮次/);
-  assert.match(detail, /已回复：从 1 开始。/);
-  assert.match(detail, /待回复/);
-  assert.match(detail, /尚未送达/);
-  assert.match(detail, /成员已确认处理/);
-  assert.match(detail, /回复 后端：请确认是否保留已有字段名。/, "被引用原文不在当前页时仍显示后端提供的原文预览");
-  const labels = await view.cdp.evaluate("[...document.querySelectorAll('.collab-panel button')].filter(b => b.offsetParent).map(b => b.innerText.trim())");
-  for (const word of ["投递", "合并", "撤回", "暂缓", "答复", "重发", "确认已提交", "放弃"]) {
-    assert.ok(!labels.some((label) => label.includes(word)), `收件箱不应出现「${word}」按钮：${labels}`);
-  }
-  await shot(view, "1440-inbox-detail");
-
-  await press(view, "Escape");
-  await waitFor(view, "!document.querySelector('.inbox--detail') && document.activeElement?.dataset?.session === 'sk-be'");
-
-  await view.bounds({ x: 0, y: 0, width: 720, height: 480 });
-  await openInbox(view);
-  await shot(view, "720x480-inbox-sessions");
-  await click(view, ".inbox-session[data-session=sk-be]");
-  await waitFor(view, "!!document.querySelector('.inbox--detail .inbox-message')");
-  await shot(view, "720x480-inbox-detail");
-  assert.equal(await view.cdp.evaluate("document.documentElement.scrollWidth > innerWidth"), false, "720 宽无横向溢出");
-  await click(view, ".inbox-back");
-  await waitFor(view, "!!document.querySelector('.inbox-session[data-session=sk-be]')");
-  await click(view, ".inbox-search input");
-  await view.send("Input.insertText", { text: "测试" });
-  await waitFor(view, "document.querySelectorAll('.inbox-session').length === 1 && !!document.querySelector('[data-session=sk-qa]')");
-  await view.send("Input.insertText", { text: "不存在" });
-  await waitFor(view, "document.querySelector('.inbox-empty')?.textContent.includes('没有匹配的会话')");
+  await click(view, PANEL);
+  await waitFor(view, "!!document.querySelector('.collab-panel')");
+  assert.equal(await view.cdp.evaluate("!!document.querySelector('.collab-panel .inbox, .collab-panel [role=tablist]')"), false, "收件箱只在协作房间里");
+  assert.equal(await view.cdp.evaluate("__inboxQA.calls.some(c => c === 'collab_inbox_sessions' || c === 'collab_inbox_messages')"), false, "顶部面板不读取收件箱");
   assert.deepEqual(await view.cdp.evaluate("__productionQA.errors"), []);
 });
 
@@ -256,30 +204,5 @@ test("真实 xterm：安全粘贴未开启时不 begin，开启后的 DSR 应答
   assert.equal(result.inputRevision, 0);
   assert.deepEqual(result.guarded.map((write) => write.sequence), [1, 2]);
   assert.equal(result.receipts[0].phase, "submitted");
-  assert.deepEqual(await view.cdp.evaluate("__productionQA.errors"), []);
-});
-
-test("收件箱英文窄窗可阅读、返回和打开目标会话", { timeout: 60_000 }, async (t) => {
-  const { view } = await productionFixture(t, { nativeSource: `${nativeSource}\nlocalStorage.setItem('belfry.locale.v1', 'en');`, terminalCount: 2 });
-  await view.bounds({ x: 0, y: 0, width: 720, height: 480 });
-  await waitFor(view, "__inboxQA.activated === true");
-  await click(view, 'button[title="Session collaboration"]');
-  await waitFor(view, "!!document.querySelector('.inbox-session[data-session=sk-be]')");
-  assert.match(await view.cdp.evaluate("document.querySelector('.inbox').innerText"), /Needs attention/);
-  await shot(view, "720x480-inbox-sessions-en");
-  await click(view, ".inbox-session[data-session=sk-be]");
-  await waitFor(view, "document.querySelectorAll('.inbox-message').length === 5");
-  const detail = await view.cdp.evaluate("document.querySelector('.inbox--detail').innerText");
-  assert.match(detail, /Awaiting reply/);
-  assert.match(detail, /Reply to 后端:/);
-  assert.match(detail, /Open session/);
-  assert.equal(await view.cdp.evaluate("document.documentElement.scrollWidth > innerWidth"), false);
-  await shot(view, "720x480-inbox-detail-en");
-  await press(view, "Escape");
-  await waitFor(view, "!!document.querySelector('.inbox-session[data-session=sk-be]') && !document.querySelector('.inbox--detail')");
-  await click(view, ".inbox-session[data-session=sk-be]");
-  await waitFor(view, "!!document.querySelector('.inbox-open')");
-  await click(view, ".inbox-open");
-  await waitFor(view, "!document.querySelector('.collab-panel')");
   assert.deepEqual(await view.cdp.evaluate("__productionQA.errors"), []);
 });

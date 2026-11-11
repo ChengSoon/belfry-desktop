@@ -1,14 +1,14 @@
 # 协作收件箱
 
-在「协作房间」里，中栏的「对话 / 流程 / 收件箱」页签中选「收件箱」，查看本房间成员会话收到的任务、协商和回复；页签角标是本房间有待处理消息的会话数。点击顶部的「协作」打开「会话协作」面板，也能看到跨房间的全部收件。列表按 Agent 会话归组：同一会话收到多项任务、协商消息和回复时，集中在这一行；即使两位成员使用相同的 Agent 或模型，也各有自己的收件箱。
+在「协作房间」里，中栏的「对话 / 流程 / 收件箱」页签中选「收件箱」，查看本房间成员会话收到的任务、协商和回复；页签角标是本房间有待处理消息的会话数。列表按 Agent 会话归组：同一会话收到多项任务、协商消息和回复时，集中在这一行；即使两位成员使用相同的 Agent 或模型，也各有自己的收件箱。
 
-点进会话可以查看消息原文、引用和每个问题的答复状态。筛选「有待处理」可以找到仍有消息等待投递或问题等待回复的会话；搜索按会话名称、Agent 和最新消息摘要筛选列表。小窗口先显示列表，进入详情后可用返回按钮或 Esc 回到列表。目标终端仍在工作区时，可以从详情打开它。
+点进会话可以查看消息原文、引用和每个问题的答复状态。筛选「有待处理」可以找到本房间仍有消息等待投递或问题等待回复的会话；搜索按会话名称、Agent 和最新消息摘要筛选列表。小窗口先显示列表，进入详情后可用返回按钮或 Esc 回到列表。目标终端仍在工作区时，可以从详情打开它。
 
-![房间里的收件箱](design/collaboration-inbox/production-screenshots/1440-room-inbox-detail.png)
+![房间收件箱会话列表](design/collaboration-inbox/production-screenshots/1440-room-inbox-sessions.png)
 
-![会话列表](design/collaboration-inbox/production-screenshots/1440-inbox-sessions.png)
+![房间收件箱消息详情](design/collaboration-inbox/production-screenshots/1440-room-inbox-detail.png)
 
-![720×480 消息详情](design/collaboration-inbox/production-screenshots/720x480-inbox-detail.png)
+![720×480 消息详情](design/collaboration-inbox/production-screenshots/720x480-room-inbox-detail.png)
 
 ## 状态怎么读
 
