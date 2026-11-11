@@ -68,6 +68,8 @@ window.__TAURI_INTERNALS__ = {
     if (command === "plugin:event|listen") return ++nextCallback;
     if (command.startsWith("plugin:event|") || voidCommands.has(command)) return null;
     if (handlers[command]) return handlers[command](args);
+    // 这些用例模拟没有协作收件箱的旧后端：沿用 Tauri 原生的“命令不存在”报错，前端走旧投递路径。
+    if (command === "collab_inbox_capabilities") throw `Command ${command} not found`;
     throw new Error(`生产面板 QA 未提供原生命令：${command}`);
   },
 };

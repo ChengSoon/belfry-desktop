@@ -86,6 +86,8 @@
     "plugin:notification|is_permission_granted": () => false,
     "plugin:window|set_badge_count": ({ count }) => { qa.badgeCount = count; return null; },
     "plugin:updater|check": () => null,
+    // 模拟没有协作收件箱的旧后端（Tauri 原生的命令不存在报错），前端走旧投递路径。
+    collab_inbox_capabilities: () => { throw "Command collab_inbox_capabilities not found"; },
   };
   window.__TAURI_INTERNALS__.invoke = async (command, args = {}) => {
     if (handlers[command]) { qa.calls.push({ command, args }); return structuredClone(await handlers[command](args)); }
