@@ -4,7 +4,7 @@ import { InboxRuntime, type GuardedResult, type InboxRuntimePorts, type InputSlo
 
 const slot = (over: Partial<InputSlot> = {}): InputSlot => ({
   tabId: "tab-b", terminalSessionId: "pty-1", running: true, idle: true, composerEmpty: true,
-  awaitingInput: false, promptQueueEmpty: true, inputRevision: 3, ...over,
+  awaitingInput: false, promptQueueEmpty: true, safePaste: true, inputRevision: 3, ...over,
 });
 const batch = (over: Partial<BatchView> = {}): BatchView => ({
   id: "batch-1", attemptId: "att-1", revision: 1, sequence: 1,
@@ -44,6 +44,17 @@ function harness(over: Partial<InboxRuntimePorts> = {}, pending: PendingView = {
 }
 
 describe("InboxRuntime", () => {
+  it("未开启安全粘贴时不冻结、不创建提交意图，开启后可继续", async () => {
+    const h = harness();
+    h.state.slot = slot({ safePaste: false });
+    const runtime = new InboxRuntime(h.ports);
+    expect(await runtime.tick()).toBe(0);
+    expect(h.calls).toEqual(["pending"]);
+    h.state.slot = slot({ safePaste: true });
+    expect(await runtime.tick()).toBe(1);
+    expect(h.writes).toHaveLength(1);
+  });
+
   it("忙时多条来信只形成一个提醒，就绪后整批一次写入并回执 submitted", async () => {
     const h = harness();
     const rt = new InboxRuntime(h.ports);

@@ -38,6 +38,8 @@ export interface MessageView {
   text: string;
   attachments: Attachment[];
   replyTo: string | null;
+  /** Persisted original preview, also available when the original is in another session/page. */
+  replyPreview?: ReplyView | null;
   questions: QuestionView[];
   replies: ReplyView[];
   deliveryPhase: DeliveryPhase;

@@ -250,6 +250,7 @@ export function useTerminalSession(
     getSessionId: () => sessionId.current,
     inputRevision: () => handle.current?.inputRevision() ?? -1,
     composerEmpty: () => handle.current?.composerEmpty() ?? false,
+    canPasteMultiline: () => handle.current?.canPasteMultiline() ?? false,
     readChoice: () => handle.current?.readChoice() ?? null,
     readInteraction: () => handle.current?.readInteraction() ?? null,
     answerInteraction: (requestId, answer) => handle.current?.answerInteraction(requestId, answer) ?? Promise.resolve({ status: "unavailable" }),

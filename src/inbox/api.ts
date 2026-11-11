@@ -30,5 +30,5 @@ export const prepareBatch = (request: PrepareRequest) => invoke<PrepareResult>("
 export const beginSubmit = (request: BeginRequest) => invoke<BeginResult>("collab_inbox_begin_submit", { request });
 export const sendReceipt = (request: ReceiptRequest) => invoke<BatchView>("collab_inbox_receipt", { request });
 export const abortPrepared = (request: BatchRequest) => invoke<BatchView>("collab_inbox_abort_prepared", { request });
-export const getBatch = (batchId: string) => invoke<BatchView>("collab_inbox_batch_get", { request: { batchId } });
+export const getBatch = (batchId: string) => invoke<BatchView>("collab_inbox_batch_get", { batchId });
 export const resolveBatch = (request: ResolveRequest) => invoke<BatchView>("collab_inbox_resolve", { request });

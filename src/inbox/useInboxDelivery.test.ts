@@ -85,10 +85,29 @@ describe("投递 owner 切换", () => {
     expect(api.inboxPending).not.toHaveBeenCalled();
   });
 
-  it("没有能力标记 → legacy", async () => {
-    probe = vi.fn(async () => caps([], false)); activate = vi.fn();
+  it.each([false, true])("存在探测命令却缺少能力标记时停止投递（enabled=%s）", async (enabled) => {
+    probe = vi.fn(async () => caps([], enabled)); activate = vi.fn();
+    render(); await flush(); await flush(3_000);
+    expect(state.mode).toBe("halted");
+    expect(activate).not.toHaveBeenCalled();
+    expect(api.inboxPending).not.toHaveBeenCalled();
+  });
+
+  it("探测 IO 失败不能当作旧后端，也不启动任何投递", async () => {
+    probe = vi.fn(async () => { throw new Error("inbox store busy"); }); activate = vi.fn();
+    render(); await flush(); await flush(3_000);
+    expect(state.mode).toBe("halted");
+    expect(state.error).toContain("inbox store busy");
+    expect(activate).not.toHaveBeenCalled();
+    expect(api.inboxPending).not.toHaveBeenCalled();
+  });
+
+  it("不认识的协议版本保持停止，不能启用旧 owner", async () => {
+    probe = vi.fn(async () => ({ schemaVersion: 2, capabilities: ["collaboration-inbox-v2"], enabled: true }));
+    activate = vi.fn();
     render(); await flush();
-    expect(state.mode).toBe("legacy");
+    expect(state.mode).toBe("halted");
+    expect(activate).not.toHaveBeenCalled();
   });
 
   it("支持但未启用 → activate 一次后进入 inbox，并开始轮询 pending", async () => {

@@ -172,6 +172,8 @@ export interface TerminalCommandTarget {
   inputRevision?: () => number;
   /** 输入区是不是空的（底栏显示 `? for shortcuts`）。投递队列靠它确认任务已被提交走。 */
   composerEmpty?: () => boolean;
+  /** Whether xterm will encode a complete bracketed paste frame. */
+  canPasteMultiline?: () => boolean;
   /** 读屏幕底部的选择框；读不准返回 null。 */
   readChoice?: () => import("./choice").TerminalChoice | null;
   /**

@@ -169,7 +169,16 @@ export class PromptInput {
       try { this.emit(action); } finally { this.guard = null; }
     };
     try {
-      guarded(() => this.ports.paste(text));
+      if (guard) {
+        const pasted = this.encoded(() => this.ports.paste(text));
+        const normalized = text.replace(/\r\n?/g, "\n");
+        const frames = [normalized, normalized.replace(/\n/g, "\r"), normalized.replace(/\n/g, "\r\n")]
+          .map((body) => `\x1b[200~${body}\x1b[201~`);
+        if (!frames.includes(pasted)) return "not-written";
+        guarded(() => this.onData(pasted));
+      } else {
+        guarded(() => this.ports.paste(text));
+      }
       await this.lastWrite;
       if (this.session() !== sessionId) return detached();
       await this.settle();

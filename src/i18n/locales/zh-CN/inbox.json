@@ -2,7 +2,7 @@
   "panel": {
     "title": "收件箱",
     "close": "关闭收件箱",
-    "search": "搜索会话或消息",
+    "search": "搜索会话或最新消息",
     "filters": "筛选会话",
     "all": "全部会话",
     "active": "有待处理",

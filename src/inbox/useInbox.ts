@@ -48,14 +48,24 @@ export function useInbox(projectRoots: readonly string[], enabled: boolean, port
   const selectedRef = useRef(selected); selectedRef.current = selected;
   const portsRef = useRef(ports); portsRef.current = ports;
   const listBusy = useRef(false), msgBusy = useRef(false);
+  const messagesRef = useRef(messages); messagesRef.current = messages;
+  const readRevision = useRef<number | null>(null);
+  const sessionRoots = useRef(new Map<string, string[]>());
+  const previousRoots = useRef(rootsKey);
 
   const readSessions = useCallback(async () => {
     const request = ++listGen.current;
     listBusy.current = true;
     try {
-      const views = await Promise.all(rootsRef.current.map((root) => portsRef.current.sessions(root, null)));
+      const roots = [...rootsRef.current];
+      const views = await Promise.all(roots.map((root) => portsRef.current.sessions(root, null)));
       if (!mounted.current || request !== listGen.current) return;
       const failed = views.find((view) => view.loadError);
+      const origins = new Map<string, string[]>();
+      views.forEach((view, index) => view.sessions.forEach((session) => {
+        origins.set(session.sessionKey, [...(origins.get(session.sessionKey) ?? []), roots[index]]);
+      }));
+      sessionRoots.current = origins;
       setSessions(mergeSessions(views.map((view) => view.sessions)));
       setError(failed?.loadError ? () => failed.loadError : null);
       setLoaded(true);
@@ -64,7 +74,7 @@ export function useInbox(projectRoots: readonly string[], enabled: boolean, port
     } finally { if (request === listGen.current) listBusy.current = false; }
   }, []);
 
-  /** 读最新一页。保留已加载的更早页：按收件项 id 合并，新数据覆盖旧状态。 */
+  /** 版本变化后重取已展开的时间范围，同时补齐一次到达多页消息时的间隙。 */
   const readLatest = useCallback(async (reset: boolean) => {
     const key = selectedRef.current;
     const request = ++msgGen.current;
@@ -73,9 +83,33 @@ export function useInbox(projectRoots: readonly string[], enabled: boolean, port
     try {
       const view = await portsRef.current.messages({ sessionKey: key, limit: PAGE });
       if (!mounted.current || request !== msgGen.current || key !== selectedRef.current) return;
-      setMessages((current) => reset ? sortMessages(view.messages) : mergeMessages(current, view.messages));
-      if (reset) setCursor(view.nextCursor);
-      setMessagesError(view.loadError ? () => view.loadError : null);
+      const oldest = reset ? undefined : messagesRef.current[0];
+      let incoming = sortMessages(view.messages), next = view.nextCursor, revision = view.revision;
+      let loadError = view.loadError;
+      const seen = new Set<string>();
+      if (oldest && view.revision !== readRevision.current && !loadError) {
+        while (next && (!incoming.length || compareMessages(incoming[0], oldest) > 0)) {
+          if (seen.has(next)) throw new Error("The message history cursor did not advance.");
+          seen.add(next);
+          const older = await portsRef.current.messages({ sessionKey: key, cursor: next, limit: PAGE });
+          if (!mounted.current || request !== msgGen.current || key !== selectedRef.current) return;
+          incoming = mergeMessages(incoming, older.messages);
+          revision = Math.min(revision, older.revision);
+          next = older.nextCursor;
+          if (older.loadError) { loadError = older.loadError; break; }
+        }
+        // The existing cursor still addresses the original oldest boundary.
+        // Do not silently load extra history just because a refresh crossed a page.
+        incoming = incoming.filter((message) => compareMessages(message, oldest) >= 0);
+      }
+      setMessages((current) => {
+        const merged = reset ? incoming : mergeMessages(current, incoming);
+        messagesRef.current = merged;
+        return merged;
+      });
+      if (reset || !oldest) setCursor(view.nextCursor);
+      if (!loadError) readRevision.current = revision;
+      setMessagesError(loadError ? () => loadError : null);
     } catch (cause) {
       if (mounted.current && request === msgGen.current) setMessagesError(() => toAppFailure(cause).message);
     } finally { if (request === msgGen.current) msgBusy.current = false; }
@@ -90,7 +124,11 @@ export function useInbox(projectRoots: readonly string[], enabled: boolean, port
       // 游标原样回传，不解析。
       const view = await portsRef.current.messages({ sessionKey: key, cursor, limit: PAGE });
       if (!mounted.current || request !== olderGen.current || key !== selectedRef.current) return;
-      setMessages((current) => mergeMessages(current, view.messages));
+      setMessages((current) => {
+        const merged = mergeMessages(current, view.messages);
+        messagesRef.current = merged;
+        return merged;
+      });
       setCursor(view.nextCursor);
       setMessagesError(view.loadError ? () => view.loadError : null);
     } catch (cause) {
@@ -102,12 +140,20 @@ export function useInbox(projectRoots: readonly string[], enabled: boolean, port
     if (key === selectedRef.current) return;
     selectedRef.current = key;
     olderGen.current++;
+    messagesRef.current = []; readRevision.current = null;
     setSelected(key); setMessages([]); setCursor(null); setLoadingOlder(false); setMessagesError(null);
     void readLatest(true);
   }, [readLatest]);
 
   useEffect(() => {
     mounted.current = true;
+    if (previousRoots.current !== rootsKey) {
+      previousRoots.current = rootsKey;
+      const inScope = (key: string) => sessionRoots.current.get(key)?.some((root) => rootsRef.current.includes(root));
+      setSessions((current) => current.filter((session) => inScope(session.sessionKey)));
+      if (selectedRef.current && !inScope(selectedRef.current)) select(null);
+      setLoaded(false);
+    }
     if (!enabled) return () => { mounted.current = false; };
     void readSessions();
     if (selectedRef.current) void readLatest(true);
@@ -116,7 +162,7 @@ export function useInbox(projectRoots: readonly string[], enabled: boolean, port
       if (selectedRef.current && !msgBusy.current) void readLatest(false);
     }, POLL_MS);
     return () => { mounted.current = false; listGen.current++; msgGen.current++; olderGen.current++; window.clearInterval(timer); };
-  }, [enabled, rootsKey, readSessions, readLatest]);
+  }, [enabled, rootsKey, readSessions, readLatest, select]);
 
   const refresh = useCallback(async () => { await Promise.all([readSessions(), readLatest(false)]); }, [readSessions, readLatest]);
 
@@ -124,8 +170,9 @@ export function useInbox(projectRoots: readonly string[], enabled: boolean, port
 }
 
 export function sortMessages(list: readonly MessageView[]) {
-  return [...list].sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id));
+  return [...list].sort(compareMessages);
 }
+function compareMessages(a: MessageView, b: MessageView) { return a.createdAt - b.createdAt || a.id.localeCompare(b.id); }
 /** 按收件项 id 去重；同一 id 取 revision 较新的那份。 */
 export function mergeMessages(current: readonly MessageView[], incoming: readonly MessageView[]) {
   const byId = new Map(current.map((m) => [m.id, m]));

@@ -57,6 +57,7 @@ function createHandle({ view, lifecycle, layout }: {
     sendText: (text, options) => lifecycle.sendText(text, options),
     inputRevision: () => lifecycle.inputRevision,
     composerEmpty: () => lifecycle.alive && composerLooksEmpty(readScreenTail(view.terminal, CHOICE_TAIL_LINES), lifecycle.agentKind),
+    canPasteMultiline: () => lifecycle.alive && view.terminal.modes.bracketedPasteMode,
     readChoice: () => interactions.readChoice(),
     answerChoice: (signature, index) => interactions.answerChoice(signature, index),
     readInteraction: () => interactions.read(),

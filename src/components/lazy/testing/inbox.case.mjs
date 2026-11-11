@@ -35,7 +35,10 @@ const nativeSource = `(() => {
         replies: [{ messageId: 'o-r1', by: actor('后端'), createdAt: now - 18 * 60000, text: '从 1 开始。', answers: ['q1'] }] }),
       msg('e3', 9, '项目经理', '补充登录接口的边界测试并记录验证结果。', { class: 'task_assignment', waitingReason: st('previous_task', { task: 'T60 调整接口返回值' }) }),
       msg('e4', 6, '前端', 'total 是总记录数还是当前页条数？', { questions: [{ id: 'q3', text: 'total 是总记录数还是当前页条数？', state: 'open', replyMessageIds: [], legacy: false }] }),
-      msg('e5', 4, '项目经理', '约束：保留已有字段名，兼容当前客户端。'),
+      msg('e5', 4, '项目经理', '约束：保留已有字段名，兼容当前客户端。', {
+        replyTo: 'o-other-session', replyPreview: { messageId: 'o-other-session', by: actor('后端'), createdAt: now - 11 * 60000,
+          text: '请确认是否保留已有字段名。', answers: [] },
+      }),
     ],
   };
   const sessions = () => {
@@ -100,8 +103,17 @@ const nativeSource = `(() => {
         return { ...b, phase: req.phase };
       }
       case 'terminal_write': {
-        if (args.inboxGuard) inbox.guarded.push({ token: args.inboxGuard.token, sequence: args.writeSequence, text: new TextDecoder().decode(new Uint8Array(args.bytes)) });
-        else if (args.sessionId === 'agent-backend-pty') { inbox.userWrites++; inbox.inputRevision++; inbox.offers.clear(); }
+        const text = new TextDecoder().decode(new Uint8Array(args.bytes));
+        if (args.inboxGuard) {
+          inbox.guarded.push({ token: args.inboxGuard.token, sequence: args.writeSequence, text });
+          if (args.writeSequence === 1 && inbox.queryDuringPaste) {
+            inbox.expectedDsr = true;
+            window.__productionQA.output('agent-backend-pty', '\\x1b[6n');
+          }
+        } else if (args.sessionId === 'agent-backend-pty') {
+          if (inbox.expectedDsr && /^\\x1b\\[\\d+;\\d+R$/.test(text)) { inbox.expectedDsr = false; inbox.dsr = text; }
+          else { inbox.userWrites++; inbox.inputRevision++; inbox.offers.clear(); }
+        }
         return invoke(command, args);
       }
     }
@@ -115,6 +127,7 @@ function emit(text) { window.__productionQA.output('agent-backend-pty', text); }
 
 async function shot(view, name) {
   if (!SHOTS) return;
+  await waitFor(view, "document.getAnimations().every(animation => animation.playState !== 'running' || animation.effect?.getComputedTiming().iterations === Infinity)");
   await mkdir(SHOTS, { recursive: true });
   const { data } = await view.send("Page.captureScreenshot", { format: "png" });
   await writeFile(`${SHOTS}/${name}.png`, Buffer.from(data, "base64"));
@@ -145,6 +158,7 @@ test("收件箱：只读会话列表与消息详情，1440 与 720x480 可点、
   assert.match(detail, /待回复/);
   assert.match(detail, /尚未送达/);
   assert.match(detail, /成员已确认处理/);
+  assert.match(detail, /回复 后端：请确认是否保留已有字段名。/, "被引用原文不在当前页时仍显示后端提供的原文预览");
   const labels = await view.cdp.evaluate("[...document.querySelectorAll('.collab-panel button')].filter(b => b.offsetParent).map(b => b.innerText.trim())");
   for (const word of ["投递", "合并", "撤回", "暂缓", "答复", "重发", "确认已提交", "放弃"]) {
     assert.ok(!labels.some((label) => label.includes(word)), `收件箱不应出现「${word}」按钮：${labels}`);
@@ -186,13 +200,13 @@ test("收件箱运行时：就绪后整批一次带 guard 写入；用户抢先�
     const host = document.querySelectorAll('.xterm')[1].querySelector('.xterm-helper-textarea');
     host.dispatchEvent(new InputEvent('beforeinput', { bubbles: true, data: 'x', inputType: 'insertText' }));
     window.__TAURI_INTERNALS__.invoke('terminal_write', { sessionId: 'agent-backend-pty', bytes: [120], inboxGuard: null, writeSequence: null }); };`);
-  await view.cdp.evaluate(`(${emit.toString()})('\\x1b[2J\\x1b[H› \\r\\n  ? for shortcuts\\r\\n')`);
+  await view.cdp.evaluate(`(${emit.toString()})('\\x1b[?2004h\\x1b[2J\\x1b[H› \\r\\n  ? for shortcuts\\r\\n')`);
   await waitFor(view, "__inboxQA.aborts >= 1 || __inboxQA.guarded.length > 0", 15_000);
   assert.equal(await view.cdp.evaluate("__inboxQA.guarded.length"), 0, "抢先输入后不得写入");
   assert.ok(await view.cdp.evaluate("__inboxQA.aborts") >= 1);
 
   // 再次就绪：整批一次写入，粘贴与回车都带同一 guard，序号 1、2 连续；回执 submitted，sequence = batch.sequence + 1。
-  await view.cdp.evaluate(`(${emit.toString()})('\\x1b[2J\\x1b[H› \\r\\n  ? for shortcuts\\r\\n')`);
+  await view.cdp.evaluate(`(${emit.toString()})('\\x1b[?2004h\\x1b[2J\\x1b[H› \\r\\n  ? for shortcuts\\r\\n')`);
   await waitFor(view, "__inboxQA.receipts.length === 1", 20_000);
   const guarded = await view.cdp.evaluate("__inboxQA.guarded");
   assert.deepEqual(guarded.map((w) => w.sequence), [1, 2]);
@@ -217,10 +231,55 @@ test("收件箱运行时：原生侧先收到用户写入（前端没看到）�
   // 只推进原生输入代次并撤销 offer（模拟另一窗口/外部输入），不触发前端输入事件。
   await view.cdp.evaluate(`__inboxQA.prepareHook = () => { __inboxQA.prepareHook = null;
     window.__TAURI_INTERNALS__.invoke('terminal_write', { sessionId: 'agent-backend-pty', bytes: [120], inboxGuard: null, writeSequence: null }); };`);
-  await view.cdp.evaluate(`(${emit.toString()})('\\x1b[2J\\x1b[H› \\r\\n  ? for shortcuts\\r\\n')`);
+  await view.cdp.evaluate(`(${emit.toString()})('\\x1b[?2004h\\x1b[2J\\x1b[H› \\r\\n  ? for shortcuts\\r\\n')`);
   await waitFor(view, "__inboxQA.calls.includes('collab_inbox_begin_submit')", 15_000);
   await new Promise((done) => setTimeout(done, 1_000));
   assert.equal(await view.cdp.evaluate("__inboxQA.guarded.length"), 0, "begin 被拒后不得写入");
   assert.equal(await view.cdp.evaluate("__inboxQA.receipts.length"), 0, "没有提交意图就不发回执");
+  assert.deepEqual(await view.cdp.evaluate("__productionQA.errors"), []);
+});
+
+test("真实 xterm：安全粘贴未开启时不 begin，开启后的 DSR 应答不打断批次", { timeout: 60_000 }, async (t) => {
+  const { view } = await productionFixture(t, { nativeSource, terminalCount: 2 });
+  await waitFor(view, "__inboxQA.activated === true");
+  await view.cdp.evaluate(`(${emit.toString()})('\\x1b[?2004l\\x1b[2J\\x1b[H› \\r\\n  ? for shortcuts\\r\\n')`);
+  await new Promise((done) => setTimeout(done, 2_000));
+  assert.equal(await view.cdp.evaluate("__inboxQA.batches.length"), 0);
+  assert.equal(await view.cdp.evaluate("__inboxQA.calls.includes('collab_inbox_begin_submit')"), false);
+  await view.cdp.evaluate("__inboxQA.queryDuringPaste = true");
+  await view.cdp.evaluate(`(${emit.toString()})('\\x1b[?2004h\\x1b[2J\\x1b[H› \\r\\n  ? for shortcuts\\r\\n')`);
+  await waitFor(view, "__inboxQA.receipts.length === 1", 20_000);
+  const result = await view.cdp.evaluate("({ guarded: __inboxQA.guarded, dsr: __inboxQA.dsr, inputRevision: __inboxQA.inputRevision, receipts: __inboxQA.receipts })");
+  assert.ok(result.guarded[0].text.startsWith("\x1b[200~"));
+  assert.ok(result.guarded[0].text.endsWith("\x1b[201~"));
+  assert.match(result.dsr, /^\x1b\[\d+;\d+R$/);
+  assert.equal(result.inputRevision, 0);
+  assert.deepEqual(result.guarded.map((write) => write.sequence), [1, 2]);
+  assert.equal(result.receipts[0].phase, "submitted");
+  assert.deepEqual(await view.cdp.evaluate("__productionQA.errors"), []);
+});
+
+test("收件箱英文窄窗可阅读、返回和打开目标会话", { timeout: 60_000 }, async (t) => {
+  const { view } = await productionFixture(t, { nativeSource: `${nativeSource}\nlocalStorage.setItem('belfry.locale.v1', 'en');`, terminalCount: 2 });
+  await view.bounds({ x: 0, y: 0, width: 720, height: 480 });
+  await waitFor(view, "__inboxQA.activated === true");
+  await click(view, 'button[title="Session collaboration"]');
+  await waitFor(view, "!!document.querySelector('.inbox-session[data-session=sk-be]')");
+  assert.match(await view.cdp.evaluate("document.querySelector('.inbox').innerText"), /Needs attention/);
+  await shot(view, "720x480-inbox-sessions-en");
+  await click(view, ".inbox-session[data-session=sk-be]");
+  await waitFor(view, "document.querySelectorAll('.inbox-message').length === 5");
+  const detail = await view.cdp.evaluate("document.querySelector('.inbox--detail').innerText");
+  assert.match(detail, /Awaiting reply/);
+  assert.match(detail, /Reply to 后端:/);
+  assert.match(detail, /Open session/);
+  assert.equal(await view.cdp.evaluate("document.documentElement.scrollWidth > innerWidth"), false);
+  await shot(view, "720x480-inbox-detail-en");
+  await press(view, "Escape");
+  await waitFor(view, "!!document.querySelector('.inbox-session[data-session=sk-be]') && !document.querySelector('.inbox--detail')");
+  await click(view, ".inbox-session[data-session=sk-be]");
+  await waitFor(view, "!!document.querySelector('.inbox-open')");
+  await click(view, ".inbox-open");
+  await waitFor(view, "!document.querySelector('.collab-panel')");
   assert.deepEqual(await view.cdp.evaluate("__productionQA.errors"), []);
 });

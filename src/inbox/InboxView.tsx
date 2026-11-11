@@ -203,6 +203,7 @@ function MessageList({ inbox }: { inbox: InboxData }) {
 
 function Message({ message, quoted }: { message: MessageView; quoted?: MessageView }) {
   useTranslation();
+  const original = quoted ?? message.replyPreview;
   const status = messageStatus(message);
   const tone = statusTone(status);
   const kind = message.class === "discussion" ? null : t(`inbox.class.${message.class}`);
@@ -215,8 +216,8 @@ function Message({ message, quoted }: { message: MessageView; quoted?: MessageVi
           {kind ? <span className={`inbox-kind inbox-kind--${message.class}`}>{kind}</span> : null}
           <time dateTime={new Date(message.createdAt).toISOString()}>{formatDateTime(message.createdAt, { hour: "2-digit", minute: "2-digit" })}</time>
         </div>
-        {quoted ? (
-          <p className="inbox-quote"><Reply aria-hidden="true" size={12} />{t("inbox.panel.replyTo", { name: quoted.by.name, text: quoted.text })}</p>
+        {original ? (
+          <p className="inbox-quote"><Reply aria-hidden="true" size={12} />{t("inbox.panel.replyTo", { name: original.by.name, text: original.text })}</p>
         ) : null}
         <p className="inbox-message__text">{message.text}</p>
         {message.attachments.length ? (

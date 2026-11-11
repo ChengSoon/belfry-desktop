@@ -2,7 +2,7 @@
   "panel": {
     "title": "Inbox",
     "close": "Close inbox",
-    "search": "Search sessions or messages",
+    "search": "Search sessions or latest message",
     "filters": "Filter sessions",
     "all": "All sessions",
     "active": "Needs attention",

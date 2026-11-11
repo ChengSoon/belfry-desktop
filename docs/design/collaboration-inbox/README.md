@@ -2,6 +2,8 @@
 
 2026-11-10。基于 `main 9b5fc4d197937f7492329b62630b93f39ef16d29`。本目录包含首版设计建议和使用示例数据的可点击原型，尚未接入生产调度。人类界面只提供简单会话列表和消息详情；合并、调度、发送交给 Agent 与后台。
 
+2026-11-11：生产实现已在 `feat/collaboration-inbox-integration` 分支整合。[使用说明](../../collaboration-inbox.md)包含实际界面入口与截图，[整合验收](../../collaboration-inbox-verification.md)区分浏览器、Rust 和真实终端的验证范围；Rust/CLI、IPC、存储和原生输入约定见[生产接入契约](implementation-contract.md)。以下原型及源码依据保留为设计验收时的记录。
+
 **消息先持久化收集，接收会话真正有可用输入机会时，后端才冻结一批。** 人类查看和 Agent 读取候选都不接管消息。已冻结内容不追加；后来消息进入下一批。
 
 ## 查看原型
@@ -27,6 +29,10 @@ python3 -m http.server 18782 --bind 127.0.0.1
 
 | 文档 | 内容 |
 | --- | --- |
+| [使用说明](../../collaboration-inbox.md) | 正式界面入口、状态含义、Agent 命令和角色模型 |
+| [整合验收](../../collaboration-inbox-verification.md) | 集成分支的检查结果、真实 PTY 证据与未覆盖范围 |
+| [生产接入契约](implementation-contract.md) | 实际 Rust DTO、IPC、CLI 与持久化协议 |
+| [前端接入](frontend-integration.md) | 正式界面、读取刷新与输入运行时 |
 | [prototype/index.html](prototype/index.html) | 会话列表与消息详情的可点击只读原型 |
 | [prototype/README.md](prototype/README.md) | 预览方式、界面范围与浏览器验证说明 |
 | [prototype.md](prototype.md) | 界面取舍、状态文案与字段对照 |

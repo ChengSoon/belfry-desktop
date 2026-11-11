@@ -421,7 +421,7 @@ export default function App() {
         tabs={workspace.tabs}
       />
 
-      <Presence open={collabOpen} drawer><CollabPanel collab={collab} inbox={inboxDelivery.mode === "inbox" ? inbox : undefined} deliveryHalted={inboxDelivery.mode === "halted"} onClose={() => setCollabOpen(false)}
+      <Presence open={collabOpen} drawer><CollabPanel collab={collab} inbox={inboxDelivery.mode === "inbox" ? inbox : undefined} deliveryHalted={inboxDelivery.mode === "halted"} deliveryError={inboxDelivery.error} onClose={() => setCollabOpen(false)}
         availableTabIds={workspace.tabs.map(tab => tab.id)} onOpenTerminal={tabId => { setCollabOpen(false); openRoomSession(tabId); }} /></Presence>
       <PluginDock visible={pluginDockOpen && !settingsOpen} onClose={() => setPluginDockOpen(false)} />
 

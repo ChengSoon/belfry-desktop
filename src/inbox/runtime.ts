@@ -24,6 +24,8 @@ export interface InputSlot {
   awaitingInput: boolean;
   /** 旧 PromptQueue（宿主反馈等）对这个会话没有排队或在途的内容。 */
   promptQueueEmpty: boolean;
+  /** xterm has enabled bracketed paste at this input position. */
+  safePaste: boolean;
   /** 本地输入代次：用户每次输入都会推进。用来发现异步间隙中的抢先输入。 */
   inputRevision: number;
 }
@@ -91,7 +93,7 @@ export class InboxRuntime {
   }
 
   private ready(slot: InputSlot | null): slot is InputSlot {
-    return !!slot && slot.running && slot.idle && slot.composerEmpty && !slot.awaitingInput && slot.promptQueueEmpty;
+    return !!slot && slot.running && slot.idle && slot.composerEmpty && !slot.awaitingInput && slot.promptQueueEmpty && slot.safePaste;
   }
 
   /** 在原地复查：会话没换、输入没被抢、仍然就绪。 */

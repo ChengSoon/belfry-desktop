@@ -1,13 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PASTE_SETTLE_MS, PromptInput } from "./promptInput";
 
-function setup() {
+function setup(encodePaste = (text: string) => `\x1b[200~${text}\x1b[201~`) {
   let session: string | null = "old";
   const write = vi.fn(async (_id: string, _data: string, _guarded?: { guard: { token: string }; sequence: number }) => {});
   const error = vi.fn();
   const input = new PromptInput({
     session: () => session,
-    paste: (text) => input.onData(`\x1b[200~${text}\x1b[201~`),
+    paste: (text) => input.onData(encodePaste(text)),
     enter: () => input.onData("\r"),
     write,
     error,
@@ -133,6 +133,20 @@ describe("PromptInput", () => {
 
 describe("PromptInput 收件箱 guard", () => {
   const guard = { batchId: "b", attemptId: "a", token: "tok", ownerId: "o", targetEpoch: "e", inputRevision: 0 };
+
+  it.each([
+    (text: string) => text.replace(/\n/g, "\r"),
+    (text: string) => `\x1b[200~${text}`,
+    (text: string) => `\x1b[200~changed ${text}\x1b[201~`,
+  ])("实际粘贴没有完整匹配冻结正文时零写入", async (encode) => {
+    vi.useFakeTimers();
+    const { input, write } = setup(encode);
+    const results: string[] = [];
+    input.sendText("first\nsecond", { inboxGuard: guard, onResult: (result) => results.push(result) });
+    await vi.runAllTimersAsync();
+    expect(write).not.toHaveBeenCalled();
+    expect(results).toEqual(["not-written"]);
+  });
 
   it("本批的粘贴与回车都带同一 guard，writeSequence 从 1 连续递增", async () => {
     vi.useFakeTimers();

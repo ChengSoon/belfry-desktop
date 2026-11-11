@@ -60,7 +60,7 @@ function message(id: string, at: number, text = id, revision = 1): MessageView {
     handlingStatus: status("unknown_handling"), waitingReason: null };
 }
 const sessions = (list: SessionView[], loadError: string | null = null): SessionsView => ({ schemaVersion: 1, revision: 1, generatedAt: 0, sessions: list, loadError });
-const page = (list: MessageView[], nextCursor: string | null = null): MessagesView => ({ schemaVersion: 1, revision: 1, messages: list, nextCursor, loadError: null });
+const page = (list: MessageView[], nextCursor: string | null = null, revision = 1): MessagesView => ({ schemaVersion: 1, revision, messages: list, nextCursor, loadError: null });
 
 let state: ReturnType<typeof useInbox>;
 let ports: { sessions: ReturnType<typeof vi.fn>; messages: ReturnType<typeof vi.fn> };
@@ -186,5 +186,51 @@ describe("mergeMessages", () => {
   it("同 id 以较新 revision 为准，不被旧数据回滚", () => {
     const merged = mergeMessages([message("a", 1, "new", 3)], [message("a", 1, "old", 2)]);
     expect(merged[0].text).toBe("new");
+  });
+});
+
+describe("已展开历史与项目范围", () => {
+  it("旧页问题收到答复后会刷新，且不改变历史游标", async () => {
+    const question = { ...message("old", 1), questions: [{ id: "q", text: "confirm?", state: "open" as const, replyMessageIds: [], legacy: false }] };
+    ports.messages.mockResolvedValueOnce(page([message("latest", 3)], "older"));
+    state.select("A"); await flush();
+    ports.messages.mockResolvedValueOnce(page([question, message("middle", 2)], "oldest"));
+    await state.loadOlder(); await flush();
+    ports.messages.mockImplementation(async ({ cursor }: { cursor?: string }) => cursor
+      ? page([{ ...question, revision: 2, questions: [{ ...question.questions[0], state: "replied", replyMessageIds: ["answer"] }] }, message("middle", 2)], "oldest", 2)
+      : page([message("latest", 3)], "older", 2));
+    await flush(1_500);
+    expect(state.messages.find((item) => item.id === "old")?.questions[0].state).toBe("replied");
+    expect(state.hasOlder).toBe(true);
+    ports.messages.mockResolvedValueOnce(page([message("earliest", 0)]));
+    await state.loadOlder(); await flush();
+    expect(ports.messages).toHaveBeenLastCalledWith(expect.objectContaining({ cursor: "oldest" }));
+  });
+
+  it("一轮出现多页新消息时补齐中间页，不跳过原文", async () => {
+    ports.messages.mockResolvedValueOnce(page([message("m4", 4), message("m5", 5)], "after3"));
+    state.select("A"); await flush();
+    ports.messages.mockImplementation(async ({ cursor }: { cursor?: string }) => {
+      if (cursor === "after7") return page([message("m6", 6), message("m7", 7)], "after5", 2);
+      if (cursor === "after5") return page([message("m4", 4), message("m5", 5)], "after3", 2);
+      return page([message("m8", 8), message("m9", 9)], "after7", 2);
+    });
+    await flush(1_500);
+    expect(state.messages.map((item) => item.id)).toEqual(["m4", "m5", "m6", "m7", "m8", "m9"]);
+  });
+
+  it("移出选中会话所属项目时立即清除详情，迟到旧页不能恢复", async () => {
+    ports.messages.mockResolvedValueOnce(page([message("old-project", 1)], "older"));
+    state.select("A"); await flush();
+    const old = deferred<MessagesView>();
+    ports.messages.mockImplementationOnce(() => old.promise);
+    const loading = state.loadOlder();
+    ports.sessions.mockResolvedValue(sessions([session("Q", 3, "/q")]));
+    roots = ["/q"]; render(); await flush();
+    expect(state.selected).toBeNull();
+    expect(state.messages).toEqual([]);
+    old.resolve(page([message("late-old", 0)])); await loading; await flush();
+    expect(state.messages).toEqual([]);
+    expect(state.hasOlder).toBe(false);
   });
 });

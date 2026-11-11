@@ -47,6 +47,7 @@ export interface TerminalHandle {
   sendText: TerminalCommandTarget["sendText"];
   inputRevision: () => number;
   composerEmpty: NonNullable<TerminalCommandTarget["composerEmpty"]>;
+  canPasteMultiline: NonNullable<TerminalCommandTarget["canPasteMultiline"]>;
   readChoice: NonNullable<TerminalCommandTarget["readChoice"]>;
   readInteraction: NonNullable<TerminalCommandTarget["readInteraction"]>;
   answerInteraction: NonNullable<TerminalCommandTarget["answerInteraction"]>;

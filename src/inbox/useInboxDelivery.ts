@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { isAgentKind } from "../agent/contracts";
 import { canDispatchPrompt } from "../prompt/contracts";
+import { useFeedback } from "../i18n";
+import { toAppFailure } from "../workspace/errors";
 import type { PromptDeliveryResult, TerminalCommandTarget } from "../terminal/contracts";
 import type { WorkspaceTab } from "../workspace/contracts";
 import {
@@ -14,13 +16,23 @@ const TICK_MS = 750;
 
 /**
  * "probing"：还没决定；"legacy"：后端没有收件箱命令，沿用旧路径；"inbox"：新协议是唯一 owner；
- * "halted"：后端支持但启用失败。此时两条路径都不自动投递，避免部分切换后出现两个 owner。
+ * "halted"：探测失败、协议不兼容或启用失败。此时两条路径都不自动投递，避免出现两个 owner。
  */
 export type DeliveryMode = "probing" | "legacy" | "inbox" | "halted";
 
+function commandMissing(cause: unknown) {
+  const message = typeof cause === "string" ? cause : (cause as { message?: unknown } | null)?.message;
+  return typeof message === "string" && /\bcollab_inbox_capabilities\b/i.test(message)
+    && /\b(?:unknown command|command\b.*\bnot found)\b/i.test(message);
+}
+
+function supportedShape(caps: Capabilities) {
+  return caps?.schemaVersion === 1 && Array.isArray(caps.capabilities) && typeof caps.enabled === "boolean";
+}
+
 /**
  * 决定投递 owner 并驱动新运行时。顺序：
- * 1. 查 capabilities。命令不存在/不支持 → legacy（旧 DeliveryCoordinator 照旧）。
+ * 1. 查 capabilities。只有命令不存在才进入 legacy；未知协议或缺少能力标记保持停止。
  * 2. 支持但未启用 → 旧循环此时从未启动过，没有旧项可能写入，直接 activate。
  * 3. 启用后只跑 InboxRuntime；旧循环保持关闭，避免双重投递。
  * 4. activate 失败 → halted：不回退旧路径，下次启动再试。
@@ -34,6 +46,7 @@ export function useInboxDelivery(options: {
   activate?: (operationId: string) => Promise<Capabilities>;
 }) {
   const [mode, setMode] = useState<DeliveryMode>("probing");
+  const [error, setError] = useFeedback<string | null>(null);
   const tabsRef = useRef(options.tabs); tabsRef.current = options.tabs;
   const targetsRef = useRef(options.targets); targetsRef.current = options.targets;
   const emptyRef = useRef(options.promptQueueEmpty); emptyRef.current = options.promptQueueEmpty;
@@ -46,18 +59,23 @@ export function useInboxDelivery(options: {
     void (async () => {
       let caps: Capabilities;
       try { caps = await probe(); }
-      catch {
+      catch (cause) {
         // 只有“命令不存在”（旧后端）才走旧路径。
-        if (!cancelled) setMode("legacy");
+        if (!cancelled) {
+          const missing = commandMissing(cause);
+          setMode(missing ? "legacy" : "halted");
+          if (!missing) setError(() => toAppFailure(cause).message);
+        }
         return;
       }
-      if (!caps.capabilities.includes(INBOX_CAPABILITY)) { if (!cancelled) setMode("legacy"); return; }
+      if (!supportedShape(caps)) { if (!cancelled) setMode("halted"); return; }
+      if (!caps.capabilities.includes(INBOX_CAPABILITY)) { if (!cancelled) setMode("halted"); return; }
       if (caps.enabled) { if (!cancelled) setMode("inbox"); return; }
       try {
         const next = await activate(crypto.randomUUID());
-        if (!cancelled) setMode(next.enabled ? "inbox" : "halted");
-      } catch {
-        if (!cancelled) setMode("halted");
+        if (!cancelled) setMode(supportedShape(next) && next.capabilities.includes(INBOX_CAPABILITY) && next.enabled ? "inbox" : "halted");
+      } catch (cause) {
+        if (!cancelled) { setMode("halted"); setError(() => toAppFailure(cause).message); }
       }
     })();
     return () => { cancelled = true; };
@@ -76,6 +94,7 @@ export function useInboxDelivery(options: {
       composerEmpty: target.composerEmpty?.() ?? false,
       awaitingInput: tab.activity === "awaiting-choice" || interaction !== null,
       promptQueueEmpty: emptyRef.current(tabId),
+      safePaste: target.canPasteMultiline?.() ?? false,
       inputRevision: target.inputRevision?.() ?? -1,
     };
   }, []);
@@ -117,5 +136,5 @@ export function useInboxDelivery(options: {
     return () => { runtime.stop(); runtimeRef.current = null; window.clearInterval(timer); };
   }, [mode, slot, write]);
 
-  return { mode };
+  return { mode, error };
 }

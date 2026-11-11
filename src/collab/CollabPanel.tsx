@@ -25,9 +25,10 @@ interface CollabPanelProps {
   inbox?: InboxData;
   /** 收件箱支持但启用失败：自动投递已暂停，需要告诉用户。 */
   deliveryHalted?: boolean;
+  deliveryError?: string | null;
 }
 
-export function CollabPanel({ collab, onClose, onOpenTerminal, availableTabIds, inbox, deliveryHalted }: CollabPanelProps) {
+export function CollabPanel({ collab, onClose, onOpenTerminal, availableTabIds, inbox, deliveryHalted, deliveryError }: CollabPanelProps) {
   useTranslation();
   // Other panel triggers switch on click. Closing on mousedown creates an empty
   // rail between press/release and resizes every terminal twice unnecessarily.
@@ -70,7 +71,7 @@ export function CollabPanel({ collab, onClose, onOpenTerminal, availableTabIds, 
         </button>
       </header>
       {deliveryHalted ? (
-        <div className="collab-panel__error" role="alert"><AlertTriangle aria-hidden="true" size={ICON.sm} /><div><span>{t("inbox.panel.halted")}</span></div></div>
+        <div className="collab-panel__error" role="alert"><AlertTriangle aria-hidden="true" size={ICON.sm} /><div><span>{t("inbox.panel.halted")}</span>{deliveryError ? <small>{deliveryError}</small> : null}</div></div>
       ) : null}
       {inbox ? (
         <div className="collab-views" role="tablist" aria-label={t("inbox.panel.views")}>
