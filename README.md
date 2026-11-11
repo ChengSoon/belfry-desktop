@@ -297,6 +297,10 @@ pnpm exec docusaurus build       # 生产构建，输出到 website/build
 - **国际化**：应用支持简体中文、English 与跟随系统，统一日期和数字格式；CLI 帮助、原生通知与菜单、Agent 协作说明及 Windows 安装器支持中英。
 - **发布校验和**：发布时附带 `SHA256SUMS.txt`，公开前校验资产，并提供 Windows / macOS 核对步骤。
 
+### v1.0.1 · Claude delivery fix
+
+- 修复 Claude Code 在权限模式下，空输入框未被识别、协作消息一直等待投递的问题；有草稿、附件或选择提示时继续等待。
+
 ### v1.0.0 · Room inbox & role models
 
 - **房间收件箱**：房间中栏新增「收件箱」页签，按成员会话查看任务、协商、逐题答复与投递状态；只读查看，不触发投递。

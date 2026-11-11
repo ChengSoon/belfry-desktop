@@ -2,7 +2,14 @@
 
 本文件记录 Belfry 面向用户的版本更新，按版本倒序排列。版本日期以 Git 发布节点为准。
 
-当前整理范围：`v0.6.0` 至 `v1.0.0`。
+当前整理范围：`v0.6.0` 至 `v1.0.1`。
+
+## [1.0.1] - 2026-11-11
+
+### 修复
+
+- 修复 Claude Code 在 bypass permissions、accept edits 或 plan 模式下，输入框已经为空、会话显示空闲，协作消息仍一直停在「等待自动投递」的问题。现在根据输入框内的内容判断是否为空，兼容权限模式底栏。
+- 输入框中仍有草稿、多行文本、粘贴内容或图片占位符时继续等待；权限确认和选择提示不会被当成空输入框。
 
 ## [1.0.0] - 2026-11-11
 
@@ -519,6 +526,7 @@
 
 ## 版本链接
 
+[1.0.1]: https://github.com/ChengSoon/belfry-desktop/releases/tag/v1.0.1
 [0.20.1]: https://github.com/ChengSoon/belfry-desktop/releases/tag/v0.20.1
 [0.12.0]: https://github.com/ChengSoon/belfry-desktop/releases/tag/v0.12.0
 [0.13.0]: https://github.com/ChengSoon/belfry-desktop/releases/tag/v0.13.0

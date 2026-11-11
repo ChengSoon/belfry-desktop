@@ -286,6 +286,10 @@ See the [CLI feature backlog](docs/cli-manager-feature-backlog.md) and [implemen
 - **Internationalization**: support Simplified Chinese, English, and the system language, with localized dates and numbers; provide bilingual CLI help, native notifications and menus, Agent collaboration instructions, and the Windows installer.
 - **Release checksums**: publish `SHA256SUMS.txt`, verify assets before making the release public, and document verification on Windows and macOS.
 
+### v1.0.1 · Claude delivery fix
+
+- Fix collaboration messages remaining queued when Claude Code has an empty input with a permission-mode footer; drafts, attachments, and selection prompts still block delivery.
+
 ### v1.0.0 · Room inbox & role models
 
 - **Room inbox**: an Inbox tab beside Chat and Flow shows each member session's tasks, discussions, per-question replies and delivery status; read-only, reading never triggers delivery.
