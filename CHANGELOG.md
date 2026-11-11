@@ -2,7 +2,18 @@
 
 本文件记录 Belfry 面向用户的版本更新，按版本倒序排列。版本日期以 Git 发布节点为准。
 
-当前整理范围：`v0.6.0` 至 `v1.0.1`。
+当前整理范围：`v0.6.0` 至 `v1.0.2`。
+
+## [1.0.2] - 2026-11-11
+
+### 修复
+
+- 修复 Claude Code 已完成问题选择、会话继续执行后，协作房间仍显示「等你选择」和「需要你的输入」、后续消息无法继续自动投递的问题。现在将同一次调用的权限请求与回答完成事件关联，选择完成后恢复处理，本轮结束后恢复空闲。
+- 并行工具按各自调用更新状态；其他工具完成时，仍在等待确认的请求继续保留。
+
+### 升级提示
+
+- 本次修复包含后台与 Hook 程序。升级后请结束正在运行的任务，重启后台服务（或重启电脑）并重开 Agent 会话，让状态跟踪使用新版；已卡住的旧会话可先打开终端发送一条新消息刷新状态。
 
 ## [1.0.1] - 2026-11-11
 
@@ -526,6 +537,7 @@
 
 ## 版本链接
 
+[1.0.2]: https://github.com/ChengSoon/belfry-desktop/releases/tag/v1.0.2
 [1.0.1]: https://github.com/ChengSoon/belfry-desktop/releases/tag/v1.0.1
 [0.20.1]: https://github.com/ChengSoon/belfry-desktop/releases/tag/v0.20.1
 [0.12.0]: https://github.com/ChengSoon/belfry-desktop/releases/tag/v0.12.0
