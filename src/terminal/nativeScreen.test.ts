@@ -5,6 +5,47 @@ import { parseOpencodeChoice, type ChoiceRow } from "./opencodeChoice";
 
 const kimiEditor = ["╭──────────────────────╮", "│ >                    │", "╰──────────────────────╯", "test-model thinking /project", "context: 1% (17/256k)"].join("\n");
 const ocEditor = ["┃", "┃", "┃", "┃ Build · test-model Belfry", "╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀", "/project 17 (0%) ctrl+p commands"].join("\n");
+const claudeRule = "────────────────────────────────────────";
+const claudeFooter = "  ⏵⏵ bypass permissions on (shift+tab to cycle) · ← 1 agent";
+const claudeEditor = (content = "❯ ", footer = claudeFooter) => [claudeRule, content, claudeRule, footer].join("\n");
+
+describe("Claude composer", () => {
+  it.each([
+    claudeFooter,
+    "  ⏵⏵ accept edits on (shift+tab to cycle)",
+    "  ⏸ plan mode on (shift+tab to cycle)",
+    "  ? for shortcuts",
+  ])("recognizes an empty framed input with footer %s", footer => {
+    expect(composerLooksEmpty(claudeEditor("❯ ", footer), "claude")).toBe(true);
+  });
+
+  it.each([
+    "❯ unsent draft",
+    "❯ \n  second line of draft",
+    "❯ [Pasted text #1 +3 lines]",
+    "❯ [Image #1]",
+  ])("preserves nonempty input %s even when shortcuts are visible", content => {
+    for (const footer of [claudeFooter, "? for shortcuts"]) {
+      expect(composerLooksEmpty(claudeEditor(content, footer), "claude")).toBe(false);
+    }
+  });
+
+  it("does not treat the permission-mode footer alone as an empty input", () => {
+    expect(composerLooksEmpty(claudeFooter, "claude")).toBe(false);
+    expect(composerLooksEmpty(["❯ ", claudeRule, claudeFooter].join("\n"), "claude")).toBe(false);
+    expect(composerLooksEmpty([claudeRule, "❯ ", claudeFooter].join("\n"), "claude")).toBe(false);
+  });
+
+  it("does not reuse an earlier empty composer when the current input has a draft", () => {
+    expect(composerLooksEmpty(`${claudeEditor()}\n${claudeEditor("❯ draft")}`, "claude")).toBe(false);
+  });
+
+  it("does not treat a permission or selection prompt as an empty composer", () => {
+    const choice = claudeEditor("Do you want to proceed?\n❯ 1. Yes\n  2. No");
+    expect(composerLooksEmpty(choice, "claude")).toBe(false);
+    expect(detectActivity(choice, "claude")).toBe("awaiting-choice");
+  });
+});
 
 describe("native composer and activity", () => {
   it("acknowledges a submitted Kimi prompt but preserves a user's draft", () => {

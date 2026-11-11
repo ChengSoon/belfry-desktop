@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { BatchView, BeginResult, Binding, Offer, PendingView, PrepareResult, ReceiptRequest } from "./contracts";
 import { InboxRuntime, type GuardedResult, type InboxRuntimePorts, type InputSlot } from "./runtime";
+import { composerLooksEmpty } from "../terminal/activity";
 
 const slot = (over: Partial<InputSlot> = {}): InputSlot => ({
   tabId: "tab-b", terminalSessionId: "pty-1", running: true, idle: true, composerEmpty: true,
@@ -44,6 +45,26 @@ function harness(over: Partial<InboxRuntimePorts> = {}, pending: PendingView = {
 }
 
 describe("InboxRuntime", () => {
+  it("delivers to Claude's empty bypass-mode composer while preserving a draft", async () => {
+    const h = harness();
+    const runtime = new InboxRuntime(h.ports);
+    const screen = (draft: string) => [
+      "────────────────────────────────────────",
+      `❯ ${draft}`,
+      "────────────────────────────────────────",
+      "⏵⏵ bypass permissions on (shift+tab to cycle) · ← 1 agent",
+    ].join("\n");
+    h.state.slot = slot({ composerEmpty: composerLooksEmpty(screen("unsent draft"), "claude") });
+    expect(await runtime.tick()).toBe(0);
+    expect(h.calls).toEqual(["pending"]);
+
+    h.state.slot = slot({ composerEmpty: composerLooksEmpty(screen(""), "claude"), inputRevision: 4 });
+    expect(await runtime.tick()).toBe(1);
+    expect(h.writes).toHaveLength(1);
+    expect(h.receipts).toHaveLength(1);
+    expect(h.receipts[0].phase).toBe("submitted");
+  });
+
   it("未开启安全粘贴时不冻结、不创建提交意图，开启后可继续", async () => {
     const h = harness();
     h.state.slot = slot({ safePaste: false });

@@ -31,13 +31,12 @@ const TALKING = /esc to interrupt|\bto interrupt(?: and send immediately)?\)/i;
 export const ACTIVITY_TAIL_LINES = 12;
 
 /**
- * 输入区是空的。Claude Code 和 Codex 都只在输入框没内容时才在底栏显示 `? for shortcuts`，
- * 打了字就换成别的提示——投递队列靠它判断「贴进去的任务已经被提交走了」。
+ * Codex 的空输入提示。Claude 的权限模式会替换这句提示，需要检查输入框本身。
  */
 const COMPOSER_EMPTY = /\?\s+for shortcuts/i;
 
 export function composerLooksEmpty(tail: string, agent?: AgentKind | null): boolean {
-  if (agent === "opencode" || agent === "kimi") return nativeComposerEmpty(tail, agent);
+  if (agent === "claude" || agent === "opencode" || agent === "kimi") return nativeComposerEmpty(tail, agent);
   return COMPOSER_EMPTY.test(tail);
 }
 
