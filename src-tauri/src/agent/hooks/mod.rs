@@ -25,6 +25,8 @@ mod edge_tests;
 #[cfg(test)]
 mod install_tests;
 #[cfg(test)]
+mod matching_tests;
+#[cfg(test)]
 mod registry_tests;
 #[cfg(test)]
 mod transport_tests;

@@ -2,11 +2,12 @@ use super::super::contracts::{
     AgentKind, AgentLifecycleState as State, AgentSessionRef, AgentStateSource,
 };
 use super::contracts::{HookInput, HookSnapshot};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 pub(super) struct Machine {
     snapshot: HookSnapshot,
     waiting: HashSet<String>,
+    active_tools: HashMap<String, String>,
     turn_id: Option<String>,
     last_event_at: i64,
     expected_session: Option<String>,
@@ -26,6 +27,7 @@ impl Machine {
                 transcript_path: None,
             },
             waiting: HashSet::new(),
+            active_tools: HashMap::new(),
             turn_id: None,
             last_event_at: 0,
             expected_session: None,
@@ -135,7 +137,7 @@ impl Machine {
         match input.event.as_str() {
             "SessionStart" => Some(self.session_start(input)),
             "UserPromptSubmit" => {
-                self.waiting.clear();
+                self.reset_tools();
                 self.turn_id = input.turn_id.clone();
                 Some(State::Processing)
             }
@@ -150,7 +152,7 @@ impl Machine {
         if input.source.as_deref() == Some("compact") {
             return self.working();
         }
-        self.waiting.clear();
+        self.reset_tools();
         self.turn_id = None;
         State::Unknown
     }
@@ -158,10 +160,11 @@ impl Machine {
     fn tool_state(&mut self, input: &HookInput) -> Option<State> {
         match input.event.as_str() {
             "PermissionRequest" => {
-                self.waiting.insert(wait_key(input));
+                self.wait_for_tool(input);
                 Some(State::AwaitingInput)
             }
             "PreToolUse" => {
+                self.remember_tool(input);
                 if matches!(
                     input.tool_name.as_deref(),
                     Some(
@@ -178,8 +181,7 @@ impl Machine {
                 Some(self.working())
             }
             "PostToolUse" | "PostToolUseFailure" | "PermissionResult" => {
-                self.waiting.remove(&wait_key(input));
-                self.waiting.remove("notification");
+                self.finish_tool(input);
                 Some(if input.is_interrupt && self.waiting.is_empty() {
                     State::Interrupted
                 } else {
@@ -190,6 +192,57 @@ impl Machine {
         }
     }
 
+    fn remember_tool(&mut self, input: &HookInput) {
+        if let (Some(key), Some(fingerprint)) = (&input.tool_key, &input.tool_fingerprint) {
+            if key != fingerprint {
+                self.active_tools.insert(key.clone(), fingerprint.clone());
+            }
+        }
+    }
+
+    fn wait_for_tool(&mut self, input: &HookInput) {
+        let key = wait_key(input);
+        if input.tool_fingerprint.as_ref() == Some(&key) {
+            let candidates: Vec<_> = self
+                .active_tools
+                .iter()
+                .filter(|(_, fingerprint)| *fingerprint == &key)
+                .map(|(id, _)| id.clone())
+                .collect();
+            if !candidates.is_empty() {
+                // No ID means identical parallel inputs are ambiguous. Keep all
+                // candidates blocked until their own result arrives.
+                self.waiting.extend(candidates);
+                return;
+            }
+        }
+        self.remember_tool(input);
+        self.waiting.insert(key);
+    }
+
+    fn finish_tool(&mut self, input: &HookInput) {
+        let key = wait_key(input);
+        self.waiting.remove(&key);
+        let registered = self.active_tools.remove(&key);
+        for fingerprint in registered.iter().chain(input.tool_fingerprint.iter()) {
+            // Also handle a missing PreToolUse or input rewritten by a hook.
+            // A parallel invocation with this input still owns its wait.
+            if !self
+                .active_tools
+                .values()
+                .any(|active| active == fingerprint)
+            {
+                self.waiting.remove(fingerprint);
+            }
+        }
+        self.waiting.remove("notification");
+    }
+
+    fn reset_tools(&mut self) {
+        self.waiting.clear();
+        self.active_tools.clear();
+    }
+
     fn lifecycle_state(&mut self, input: &HookInput) -> Option<State> {
         match input.event.as_str() {
             "Stop" => Some(if !self.waiting.is_empty() {
@@ -197,14 +250,15 @@ impl Machine {
             } else if input.background_work {
                 State::Processing
             } else {
+                self.active_tools.clear();
                 State::Completed
             }),
             "StopFailure" => {
-                self.waiting.clear();
+                self.reset_tools();
                 Some(State::Failed)
             }
             "Interrupt" | "SessionEnd" => {
-                self.waiting.clear();
+                self.reset_tools();
                 Some(State::Interrupted)
             }
             "PreCompact" | "PostCompact" => Some(self.working()),

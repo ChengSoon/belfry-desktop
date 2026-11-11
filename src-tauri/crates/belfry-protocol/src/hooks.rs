@@ -42,6 +42,8 @@ pub struct HookInput {
     pub source: Option<String>,
     pub agent_id: Option<String>,
     pub tool_key: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool_fingerprint: Option<String>,
     pub tool_name: Option<String>,
     pub transcript_path: Option<String>,
     pub notification_type: Option<String>,
@@ -151,6 +153,41 @@ mod native_tests {
             before.tool_key,
             from_native_value("kimi", None, &tool, 3).unwrap().tool_key
         );
+    }
+
+    #[test]
+    fn claude_permission_input_can_be_correlated_without_exposing_arguments() {
+        let mut value = json!({"hook_event_name":"PreToolUse", "session_id":"native",
+            "tool_use_id":"question-1", "tool_name":"AskUserQuestion",
+            "tool_input":{"questions":[{"question":"private-question"}]}});
+        let pre = from_native_value("claude", None, &value, 1).unwrap();
+        value["hook_event_name"] = json!("PermissionRequest");
+        value.as_object_mut().unwrap().remove("tool_use_id");
+        let permission = from_native_value("claude", None, &value, 2).unwrap();
+        assert_eq!(pre.tool_key.as_deref(), Some("question-1"));
+        assert!(pre.tool_fingerprint.is_some());
+        assert_eq!(pre.tool_fingerprint, permission.tool_fingerprint);
+        assert_eq!(permission.tool_key, pre.tool_fingerprint);
+        assert!(
+            !serde_json::to_string(&pre)
+                .unwrap()
+                .contains("private-question")
+        );
+    }
+
+    #[test]
+    fn old_hook_messages_without_a_fingerprint_remain_readable() {
+        let input = from_value(
+            &json!({"hook_event_name":"PreToolUse", "session_id":"native",
+            "tool_use_id":"call-1", "tool_name":"Bash", "tool_input":{"command":"ls"}}),
+            1,
+        )
+        .unwrap();
+        let mut value = serde_json::to_value(input).unwrap();
+        value.as_object_mut().unwrap().remove("toolFingerprint");
+        let legacy: HookInput = serde_json::from_value(value).unwrap();
+        assert_eq!(legacy.tool_key.as_deref(), Some("call-1"));
+        assert!(legacy.tool_fingerprint.is_none());
     }
 }
 
@@ -279,6 +316,11 @@ pub fn from_value(value: &Value, occurred_at: i64) -> Option<HookInput> {
         return None;
     }
     let tool_name = field(value, "tool_name");
+    // PermissionRequest can omit the invocation ID included by Pre/PostToolUse.
+    // Keep the input hash alongside that ID so the observer can correlate them.
+    let tool_fingerprint = tool_name
+        .as_ref()
+        .map(|name| tool_key(name, &value["tool_input"]));
     Some(HookInput {
         event,
         session_id,
@@ -290,11 +332,8 @@ pub fn from_value(value: &Value, occurred_at: i64) -> Option<HookInput> {
         notification_type: field(value, "notification_type"),
         tool_key: field(value, "tool_call_id")
             .or_else(|| field(value, "tool_use_id"))
-            .or_else(|| {
-                tool_name
-                    .as_ref()
-                    .map(|name| tool_key(name, &value["tool_input"]))
-            }),
+            .or_else(|| tool_fingerprint.clone()),
+        tool_fingerprint,
         tool_name,
         is_interrupt: value["is_interrupt"].as_bool().unwrap_or(false),
         background_work: ["background_tasks", "session_crons"]
