@@ -281,7 +281,7 @@ dependencies = [
 
 [[package]]
 name = "belfry-desktop"
-version = "0.26.0"
+version = "1.0.0"
 dependencies = [
  "aes-gcm",
  "belfry-i18n",

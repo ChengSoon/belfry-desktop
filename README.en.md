@@ -286,6 +286,12 @@ See the [CLI feature backlog](docs/cli-manager-feature-backlog.md) and [implemen
 - **Internationalization**: support Simplified Chinese, English, and the system language, with localized dates and numbers; provide bilingual CLI help, native notifications and menus, Agent collaboration instructions, and the Windows installer.
 - **Release checksums**: publish `SHA256SUMS.txt`, verify assets before making the release public, and document verification on Windows and macOS.
 
+### v1.0.0 · Room inbox & role models
+
+- **Room inbox**: an Inbox tab beside Chat and Flow shows each member session's tasks, discussions, per-question replies and delivery status; read-only, reading never triggers delivery.
+- **Durable automatic delivery**: messages are collected while members are busy or offline and submitted per topic once the session is ready; user input wins, and uncertain results are never re-pasted.
+- **Per-role models**: set a model for a single role, fetch the provider's model list to choose from; applies on the role's next launch.
+
 ### v0.26.0 · Room projects & terminal requests
 
 - **Room project selection**: choose and validate a project directory when creating a room; member terminals start in that directory.
