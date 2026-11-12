@@ -286,6 +286,10 @@ See the [CLI feature backlog](docs/cli-manager-feature-backlog.md) and [implemen
 - **Internationalization**: support Simplified Chinese, English, and the system language, with localized dates and numbers; provide bilingual CLI help, native notifications and menus, Agent collaboration instructions, and the Windows installer.
 - **Release checksums**: publish `SHA256SUMS.txt`, verify assets before making the release public, and document verification on Windows and macOS.
 
+### v1.0.3 · Inbox delivery fix
+
+- Fixes the collaboration inbox blocking every later message for a session after one delivery was interrupted. Batches interrupted before the full text reached the terminal return to pending and are redelivered automatically without duplicates; switching windows no longer interrupts delivery; unverifiable records left by the old dispatcher no longer block delivery.
+
 ### v1.0.2 · Claude choice state fix
 
 - Fixes rooms continuing to show "Awaiting your choice" and blocking later collaboration messages after a Claude Code question has been answered. The session resumes processing and becomes idle when the turn ends; other pending requests retain their own state. Restart the background service and reopen Agent sessions after upgrading.
