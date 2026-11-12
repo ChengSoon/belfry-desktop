@@ -46,6 +46,17 @@ impl Store {
                 for id in submitting {
                     model::set_phase(data, &id, "uncertain");
                 }
+                // Imported old-dispatcher intents have no native evidence and can never be reconciled
+                // automatically; settle them as abandoned (never reposted) so they stop gating sessions.
+                let legacy: Vec<_> = data
+                    .batches
+                    .values()
+                    .filter(|batch| batch.view.content_mode == "legacy" && batch.view.phase == "uncertain")
+                    .map(|batch| batch.view.id.clone())
+                    .collect();
+                for id in legacy {
+                    model::set_phase(data, &id, "abandoned");
+                }
                 Ok(())
             })
         {

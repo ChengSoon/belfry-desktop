@@ -320,7 +320,12 @@ pub(super) fn cas(view: &BatchView, request: &BatchRequest) -> Result<(), AppErr
         Ok(())
     }
 }
-pub(super) fn receipt(data: &mut Data, request: &ReceiptRequest, native_evidence: bool) -> Result<BatchView, AppError> {
+pub(super) fn receipt(
+    data: &mut Data,
+    request: &ReceiptRequest,
+    native_evidence: bool,
+    never_pasted: bool,
+) -> Result<BatchView, AppError> {
     if !matches!(request.phase.as_str(), "submitted" | "uncertain")
         || request.message.as_ref().is_some_and(|m| m.len() > 4096)
     {
@@ -342,7 +347,11 @@ pub(super) fn receipt(data: &mut Data, request: &ReceiptRequest, native_evidence
     if request.phase == "submitted" && !native_evidence {
         return Err(conflict("Submitted requires successful guarded payload and submit-key writes from this attempt"));
     }
-    set_phase(data, &request.batch_id, &request.phase);
+    if request.phase == "uncertain" && never_pasted && current.view.phase == "submitting" {
+        requeue(data, &request.batch_id);
+    } else {
+        set_phase(data, &request.batch_id, &request.phase);
+    }
     let batch = data.batches.get_mut(&request.batch_id).unwrap();
     batch.view.sequence = request.sequence;
     batch.receipt_hash = Some(signature);

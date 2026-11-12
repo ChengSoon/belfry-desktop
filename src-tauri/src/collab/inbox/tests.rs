@@ -136,6 +136,18 @@ impl Rig {
         let begin = self.begin(offer, &batch);
         self.finish(&begin)
     }
+    fn paste_only(&self, begin: &BeginResult) {
+        self.service
+            .gate
+            .guarded_write(
+                &begin.batch.terminal_session_id,
+                &begin.write_guard,
+                1,
+                format!("\x1b[200~{}\x1b[201~", begin.batch.payload).as_bytes(),
+                || Ok(()),
+            )
+            .unwrap();
+    }
     fn finish(&self, begin: &BeginResult) -> BatchView {
         let session = &begin.batch.terminal_session_id;
         self.service
@@ -656,6 +668,7 @@ fn uncertain_batches_can_only_be_resolved_by_recipient_or_current_coordinator() 
     rig.post("ambiguous", "api");
     let (offer, prepared) = rig.prepare("b");
     let begin = rig.begin(offer, &prepared);
+    rig.paste_only(&begin);
     let uncertain = rig
         .service
         .receipt(&ReceiptRequest {
@@ -875,6 +888,7 @@ fn deleted_room_keeps_only_the_original_recipient_recovery_right_and_never_repos
         let original = rig.post("deleted source body", "old");
         let (offer, batch) = rig.prepare("b");
         let begin = rig.begin(offer, &batch);
+        rig.paste_only(&begin);
         let uncertain = rig
             .service
             .receipt(&ReceiptRequest {
@@ -1390,4 +1404,49 @@ fn withdrawing_one_recipient_cancels_only_their_unanswered_obligations() {
             })
             .is_err()
     );
+}
+
+#[test]
+fn interrupted_before_any_paste_returns_to_pending_and_is_delivered_next() {
+    let rig = Rig::new();
+    rig.post("first", "api");
+    let (offer, prepared) = rig.prepare("b");
+    let begin = rig.begin(offer, &prepared);
+    // User typed before the paste: nothing reached the PTY, so the batch is safely requeued.
+    let receipt = rig
+        .service
+        .receipt(&ReceiptRequest {
+            batch_id: prepared.id.clone(),
+            attempt_id: prepared.attempt_id.clone(),
+            sequence: begin.batch.sequence + 1,
+            phase: "uncertain".into(),
+            payload_hash: prepared.payload_hash.clone(),
+            message: None,
+        })
+        .unwrap();
+    assert_eq!(receipt.phase, "aborted");
+    rig.post("second", "api");
+    let delivered = rig.submit("b");
+    assert!(delivered.entry_ids.iter().any(|id| prepared.entry_ids.contains(id)), "original entry is redelivered");
+}
+
+#[test]
+fn interrupted_after_paste_stays_uncertain() {
+    let rig = Rig::new();
+    rig.post("first", "api");
+    let (offer, prepared) = rig.prepare("b");
+    let begin = rig.begin(offer, &prepared);
+    rig.paste_only(&begin);
+    let receipt = rig
+        .service
+        .receipt(&ReceiptRequest {
+            batch_id: prepared.id.clone(),
+            attempt_id: prepared.attempt_id.clone(),
+            sequence: begin.batch.sequence + 1,
+            phase: "uncertain".into(),
+            payload_hash: prepared.payload_hash.clone(),
+            message: None,
+        })
+        .unwrap();
+    assert_eq!(receipt.phase, "uncertain");
 }

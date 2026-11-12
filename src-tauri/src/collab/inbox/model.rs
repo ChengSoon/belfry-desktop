@@ -141,6 +141,25 @@ pub(super) fn abort(data: &mut Data, id: &str) {
         }
     }
 }
+/// The native gate proved the frozen payload never fully reached the terminal (so Enter was never sent):
+/// return its entries to pending. The next attempt still needs an idle, empty input position.
+pub(super) fn requeue(data: &mut Data, id: &str) {
+    let Some(batch) = data.batches.get_mut(id) else {
+        return;
+    };
+    batch.view.phase = "aborted".into();
+    batch.view.revision += 1;
+    for id in &batch.view.entry_ids {
+        if let Some(entry) = data.entries.get_mut(id)
+            && matches!(entry.view.delivery_phase, DeliveryPhase::Submitting | DeliveryPhase::Uncertain)
+            && entry.batch_id.as_deref() == Some(&batch.view.id)
+        {
+            entry.view.delivery_phase = DeliveryPhase::Pending;
+            entry.batch_id = None;
+            entry.view.revision += 1;
+        }
+    }
+}
 pub(super) fn set_phase(data: &mut Data, batch_id: &str, phase: &str) {
     let Some(batch) = data.batches.get_mut(batch_id) else {
         return;

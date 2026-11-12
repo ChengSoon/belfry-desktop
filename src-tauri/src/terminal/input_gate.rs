@@ -17,6 +17,14 @@ const MAX_WRITES: usize = 64;
 const MAX_WRITE_BYTES: usize = belfry_protocol::inbox::MAX_BATCH_BYTES * 2 + 64;
 const WRITE_LEASE: Duration = Duration::from_secs(30);
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct WriteEvidence {
+    /// At least one guarded write reached (or may have reached) the PTY.
+    pub touched: bool,
+    /// The whole frozen bracketed payload was written without error.
+    pub paste_complete: bool,
+}
+
 #[derive(Default)]
 pub(crate) struct InputGate {
     revision: AtomicU64,
@@ -348,8 +356,10 @@ impl InputGate {
     ) -> Result<(), AppError> {
         let mut channels = self.inner.lock().map_err(|_| conflict("Input registry is unavailable"))?;
         let mut modes = self.modes.lock().map_err(|_| conflict("Terminal mode registry is unavailable"))?;
-        let protocol_response =
-            modes.get_mut(session).is_some_and(|mode| mode.response(bytes, crate::rooms::model::now_millis()));
+        // Focus reports (DECSET 1004) are emitted by xterm on window/tab focus changes. They never edit the
+        // input line, so they must not revoke an in-flight automatic paste.
+        let protocol_response = matches!(bytes, b"\x1b[I" | b"\x1b[O")
+            || modes.get_mut(session).is_some_and(|mode| mode.response(bytes, crate::rooms::model::now_millis()));
         // Keep input ownership through the write, but let the output reader drain
         // the PTY while its child is still reading a large input frame.
         drop(modes);
@@ -473,6 +483,16 @@ impl InputGate {
                 })
             })
             .unwrap_or(false)
+    }
+    /// What the native layer saw for this batch's current attempt. `None` means no attempt is held.
+    pub fn written(&self, session: &str, batch: &str) -> Option<WriteEvidence> {
+        let channels = self.inner.lock().ok()?;
+        let attempt = channels.get(session)?.attempt.as_ref().filter(|attempt| attempt.guard.batch_id == batch)?;
+        Some(WriteEvidence {
+            touched: !attempt.writes.is_empty(),
+            paste_complete: attempt.paste_complete
+                && attempt.writes.values().all(|write| write.error.is_none() || write.submit_key),
+        })
     }
     pub fn finish(&self, session: &str, batch: &str) {
         if let Ok(mut channels) = self.inner.lock()
@@ -661,6 +681,23 @@ mod payload_tests {
         let (gate, guard) = ready("frozen\nbody");
         gate.user_write("pty", b"\x1b[12;34R", || Ok(())).unwrap();
         assert!(!gate.valid_attempt("pty", "batch", &guard.target_epoch));
+    }
+    #[test]
+    fn focus_reports_during_paste_do_not_revoke() {
+        let (gate, guard) = ready("payload");
+        gate.guarded_write("pty", &guard, 1, b"\x1b[200~payload\x1b[201~", || Ok(())).unwrap();
+        gate.user_write("pty", b"\x1b[O", || Ok(())).unwrap();
+        gate.user_write("pty", b"\x1b[I", || Ok(())).unwrap();
+        gate.guarded_write("pty", &guard, 2, b"\r", || Ok(())).unwrap();
+        assert!(gate.has_written("pty", "batch"));
+    }
+    #[test]
+    fn write_evidence_distinguishes_untouched_from_pasted() {
+        let (gate, guard) = ready("payload");
+        assert_eq!(gate.written("pty", "batch"), Some(WriteEvidence { touched: false, paste_complete: false }));
+        gate.guarded_write("pty", &guard, 1, b"\x1b[200~payload\x1b[201~", || Ok(())).unwrap();
+        assert_eq!(gate.written("pty", "batch"), Some(WriteEvidence { touched: true, paste_complete: true }));
+        assert_eq!(gate.written("pty", "other"), None);
     }
     #[test]
     fn disabled_bracketed_paste_never_writes_a_multiline_body() {

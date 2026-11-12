@@ -162,8 +162,13 @@ impl InboxService {
                     })
                     .map(|batch| (batch.view.id.clone(), batch.view.terminal_session_id.clone()))
                     .collect();
-                for (id, _) in &lost {
-                    set_phase(data, id, "uncertain");
+                for (id, session) in &lost {
+                    // The native gate still holds this attempt and saw no complete paste: Enter was never sent.
+                    if self.gate.written(session, id).is_some_and(|written| !written.paste_complete) {
+                        requeue(data, id);
+                    } else {
+                        set_phase(data, id, "uncertain");
+                    }
                 }
                 Ok(lost)
             })
@@ -335,7 +340,13 @@ impl InboxService {
                     self.gate.valid_attempt(&batch.view.terminal_session_id, &batch.view.id, &batch.view.target_epoch)
                         && self.gate.has_written(&batch.view.terminal_session_id, &batch.view.id)
                 });
-                scheduler::receipt(data, request, evidence)
+                // Only native proof counts: an attempt the gate no longer holds stays uncertain.
+                let never_pasted = data.batches.get(&request.batch_id).is_some_and(|batch| {
+                    self.gate
+                        .written(&batch.view.terminal_session_id, &batch.view.id)
+                        .is_some_and(|written| !written.paste_complete)
+                });
+                scheduler::receipt(data, request, evidence, never_pasted)
             },
             |batch| {
                 self.gate.finish(&batch.terminal_session_id, &batch.id);
