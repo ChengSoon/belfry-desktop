@@ -1,4 +1,13 @@
 {
+  "recipient": {
+    "routing": "发送方式",
+    "default": "默认",
+    "broadcastHint": "发送给所有在场成员",
+    "members": {
+      "one": "房间成员 · {{count}} 人",
+      "other": "房间成员 · {{count}} 人"
+    }
+  },
   "roleModel": {
     "menu": "设置角色模型",
     "title": "{{title}}的模型",

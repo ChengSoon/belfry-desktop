@@ -1,4 +1,13 @@
 {
+  "recipient": {
+    "routing": "Send to",
+    "default": "Default",
+    "broadcastHint": "Send to everyone in the room",
+    "members": {
+      "one": "Room members · {{count}} person",
+      "other": "Room members · {{count}} people"
+    }
+  },
   "roleModel": {
     "menu": "Set role model",
     "title": "Model for {{title}}",

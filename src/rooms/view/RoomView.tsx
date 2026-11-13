@@ -34,7 +34,7 @@ import { Input } from "../../components/ui/input";
 import { Kbd } from "../../components/ui/kbd";
 import { Label } from "../../components/ui/label";
 import { Progress } from "../../components/ui/progress";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from "../../components/ui/select";
 import { Separator } from "../../components/ui/separator";
 import { Spinner } from "../../components/ui/spinner";
 import { Textarea } from "../../components/ui/textarea";
@@ -353,6 +353,62 @@ function MemberAvatar({ room, id, size = "default", status }: {
         )} />
       ) : null}
     </span>
+  );
+}
+
+/** Keep routing values separate from the richer visual labels and descriptions. */
+function RoomRecipientSelect({ room, value, onValueChange, disabled }: {
+  room: Room; value: string; onValueChange: (value: string) => void; disabled: boolean;
+}) {
+  const { t } = useTranslation();
+  const options = recipientOptions(room);
+  const members = activeMembers(room);
+  const selected = options.find((option) => (option.value || AUTO_RECIPIENT) === value);
+  const selectedMember = members.find((member) => member.title === value);
+  // A departed/renamed recipient stays visible until the user picks another;
+  // displaying a fallback must never imply that the stored routing changed.
+  const label = selected?.label ?? value;
+  const icon = (member: RoomMember | undefined, automatic: boolean) => member
+    ? <MemberAvatar id={member.id} room={room} size="sm" />
+    : automatic && foremanOf(room) ? <Crown /> : <Users />;
+  const item = (option: (typeof options)[number], automatic = false) => {
+    const member = automatic ? undefined : members.find((member) => member.title === option.value);
+    const description = option.description || (!member ? t("rooms.recipient.broadcastHint") : "");
+    return (
+      <SelectItem className="room-recipient-option" key={option.value || AUTO_RECIPIENT}
+        textValue={option.label} title={[option.label, description].filter(Boolean).join(" · ")}
+        value={option.value || AUTO_RECIPIENT}>
+        <span aria-hidden="true" className="room-recipient-avatar">{icon(member, automatic)}</span>
+        <span className="room-recipient-copy">
+          <span className="room-recipient-name">{option.label}</span>
+          {description ? <span className="room-recipient-description">{description}</span> : null}
+        </span>
+        {automatic || member?.role === "foreman" ? (
+          <span className="room-recipient-badge">{automatic ? t("rooms.recipient.default") : t("rooms.RoomView.text_8153348240")}</span>
+        ) : null}
+      </SelectItem>
+    );
+  };
+  return (
+    <Select disabled={disabled} onValueChange={onValueChange} value={value}>
+      <SelectTrigger aria-label={t("rooms.RoomView.text_c237b665a6")} className="room-recipient-trigger" size="sm" title={label}>
+        <span aria-hidden="true" className="room-recipient-trigger-icon">{icon(selectedMember, value === AUTO_RECIPIENT)}</span>
+        <span className="room-recipient-prefix">{t("rooms.RoomView.text_c7378a8741")}</span>
+        <SelectValue><span className="room-recipient-value">{label}</span></SelectValue>
+      </SelectTrigger>
+      <SelectContent align="start" aria-label={t("rooms.RoomView.text_c237b665a6")} className="room-recipient-content"
+        collisionPadding={{ top: 48, right: 12, bottom: 12, left: 12 }} position="popper" side="top" sideOffset={6}>
+        <SelectGroup>
+          <SelectLabel className="room-recipient-heading">{t("rooms.recipient.routing")}</SelectLabel>
+          {options.slice(0, 2).map((option, index) => item(option, index === 0))}
+        </SelectGroup>
+        <SelectSeparator className="room-recipient-separator" />
+        <SelectGroup>
+          <SelectLabel className="room-recipient-heading">{t("rooms.recipient.members", { count: members.length })}</SelectLabel>
+          {options.slice(2).map((option) => item(option))}
+        </SelectGroup>
+      </SelectContent>
+    </Select>
   );
 }
 
@@ -1122,7 +1178,6 @@ function Composer(props: { room: Room; rooms: RoomsState; replyTo: RoomMessage |
   const attachments = useRoomAttachments(room.id);
   const add = useRef(attachments.add);
   add.current = attachments.add;
-  const options = recipientOptions(room);
   const noMembers = activeMembers(room).length === 0;
   const blocked = useRef(noMembers);
   blocked.current = noMembers;
@@ -1309,19 +1364,7 @@ function Composer(props: { room: Room; rooms: RoomsState; replyTo: RoomMessage |
             </TooltipContent>
           </Tooltip>
           <Separator className="mx-0.5 h-4" orientation="vertical" />
-          <Select disabled={noMembers || replyTo !== null} onValueChange={setTo} value={to}>
-            <SelectTrigger aria-label={t("rooms.RoomView.text_c237b665a6")} className="h-7 max-w-52 gap-1.5 border-0 bg-transparent px-2 text-xs shadow-none hover:bg-accent dark:bg-transparent" size="sm">
-              <span className="text-muted-foreground">{t("rooms.RoomView.text_c7378a8741")}</span>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {options.map((option) => (
-                <SelectItem key={option.value || AUTO_RECIPIENT} value={option.value || AUTO_RECIPIENT}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <RoomRecipientSelect disabled={noMembers || replyTo !== null} onValueChange={setTo} room={room} value={to} />
           <Tooltip>
             <TooltipTrigger asChild>
               {/* 包一层 span：按钮禁用时收不到悬停事件，提示就出不来。 */}
