@@ -1,6 +1,6 @@
 //! Real PTY evidence for a room whose selected project differs from the active project.
 use std::fs;
-use std::io::IsTerminal;
+use std::io::{IsTerminal, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Arc;
@@ -9,7 +9,9 @@ use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
 
-use super::{RecordingSink, default_request, lock_native_test, output_bytes, wait_for_terminal};
+use super::{
+    RecordingSink, default_request, lock_native_test, output_bytes, wait_for_exit, wait_for_terminal,
+};
 use crate::project::commands::project_open;
 use crate::resource::{canonicalize, path_to_file_uri};
 use crate::rooms::{RoomStore, test_support};
@@ -17,6 +19,8 @@ use crate::terminal::{TerminalEvent, backend::PtyBackend, native::NativePtyBacke
 
 const PROBE_REPORT: &str = "BELFRY_ROOM_NATIVE_PROBE_REPORT";
 const OUTPUT_MARKER: &str = "__BELFRY_ROOM_NATIVE__";
+const OUTPUT_DONE_MARKER: &str = "__BELFRY_ROOM_NATIVE_DONE__";
+const OUTPUT_ACK: &str = "belfry-room-native-received";
 
 struct Fixture {
     root: PathBuf,
@@ -98,18 +102,25 @@ impl Fixture {
         let sink = Arc::new(RecordingSink::default());
         let session = self.backend.spawn(request, sink.clone()).unwrap();
         assert_eq!(session.cwd, path_to_file_uri(Path::new(project_root)));
+        // Keep the cwd probe alive until its complete PTY report reaches the
+        // parent. A short-lived child can otherwise exit before a loaded CI
+        // reader gets scheduled; this test verifies cwd rather than reader latency.
         assert!(
             wait_for_terminal(
                 &self.backend,
                 &session.id,
                 &sink,
                 Duration::from_secs(20),
-                |events| {
-                    events
-                        .iter()
-                        .any(|event| matches!(event, TerminalEvent::Exit { .. }))
-                }
+                |events| String::from_utf8_lossy(&output_bytes(events))
+                    .contains(OUTPUT_DONE_MARKER),
             ),
+            "member {member} did not deliver its complete PTY report"
+        );
+        self.backend
+            .write(&session.id, format!("{OUTPUT_ACK}\r").as_bytes())
+            .unwrap();
+        assert!(
+            wait_for_exit(&sink, Duration::from_secs(20)),
             "member {member} did not exit"
         );
         let events = sink.events.lock().unwrap();
@@ -290,7 +301,11 @@ fn probe_process() {
         "stdoutTerminal": std::io::stdout().is_terminal(),
     });
     fs::write(path, serde_json::to_vec(&report).unwrap()).unwrap();
-    println!("{OUTPUT_MARKER}{report}");
+    println!("{OUTPUT_MARKER}{report}\n{OUTPUT_DONE_MARKER}");
+    std::io::stdout().flush().unwrap();
+    let mut acknowledgement = String::new();
+    std::io::stdin().read_line(&mut acknowledgement).unwrap();
+    assert_eq!(acknowledgement.trim_end_matches(['\r', '\n']), OUTPUT_ACK);
 }
 
 fn wait_for_pid_exit(pid: u32) {
