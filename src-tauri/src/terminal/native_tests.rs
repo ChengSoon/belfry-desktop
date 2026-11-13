@@ -118,8 +118,12 @@ fn native_backend_preserves_one_mebibyte_of_ordered_output() {
     assert_sequences_are_ordered(&events);
     let bytes = output_bytes(&events);
     let (begin, end) = complete_payload_range(&bytes).unwrap();
+    #[cfg(target_os = "windows")]
+    let payload = console_payload_bytes(&bytes[begin..end]);
+    #[cfg(not(target_os = "windows"))]
+    let payload = &bytes[begin..end];
     assert_eq!(
-        &bytes[begin..end],
+        payload,
         OUTPUT_PATTERN.repeat(MEBIBYTE / OUTPUT_PATTERN.len())
     );
     drop(events);
@@ -485,6 +489,31 @@ fn complete_payload_range(bytes: &[u8]) -> Option<(usize, usize)> {
         .windows(end_marker.len())
         .rposition(|value| value == end_marker)?;
     (end >= begin + MEBIBYTE).then_some((begin, end))
+}
+
+#[cfg(any(target_os = "windows", test))]
+fn console_payload_bytes(bytes: &[u8]) -> Vec<u8> {
+    static CSI: OnceLock<regex::bytes::Regex> = OnceLock::new();
+    let csi = CSI.get_or_init(|| regex::bytes::Regex::new(r"\x1b\[[0-?]*[ -/]*[@-~]").unwrap());
+    // The fixture deliberately inserts newlines; only terminal presentation is
+    // removed. Every printable byte, including unexpected bytes, remains asserted.
+    csi.replace_all(bytes, b"".as_slice())
+        .iter()
+        .copied()
+        .filter(|byte| !matches!(byte, b'\r' | b'\n'))
+        .collect()
+}
+
+#[test]
+fn console_payload_normalization_keeps_unexpected_printable_bytes() {
+    assert_eq!(
+        console_payload_bytes(b"0123\r\n\x1b[29;1H4567\r\n"),
+        b"01234567"
+    );
+    assert_eq!(
+        console_payload_bytes(b"012X\r\n\x1b[29;1H4567"),
+        b"012X4567"
+    );
 }
 
 fn marker_position(bytes: &[u8], marker: &[u8]) -> Option<usize> {

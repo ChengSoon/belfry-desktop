@@ -46,7 +46,10 @@ pub fn shell_exit_command() -> &'static str {
 
 #[cfg(target_os = "windows")]
 pub fn large_output_command() -> String {
-    "[Console]::Out.Write('__BELFRY_BEGIN__'); [Console]::Out.Write('0123456789abcdef' * 65536); [Console]::Out.Write('__BELFRY_END__')\r".to_string()
+    // ConPTY renders console output: automatic wrapping can repeat the last cell and
+    // split markers with cursor moves. Explicit 64-column lines stay within the
+    // 100-column fixture and retain every payload byte for the ordered-output check.
+    "[Console]::Out.WriteLine('__BELFRY_BEGIN__'); [Console]::Out.Write((('0123456789abcdef' * 4) + [Environment]::NewLine) * 16384); [Console]::Out.WriteLine('__BELFRY_END__')\r".to_string()
 }
 
 #[cfg(target_os = "windows")]
