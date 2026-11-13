@@ -6,21 +6,29 @@ use crate::terminal::{CreateTerminalRequest, TerminalEvent};
 use std::{
     collections::HashMap,
     path::PathBuf,
-    sync::Arc,
+    sync::{Arc, MutexGuard},
     time::{Duration, Instant},
 };
 
 struct Fixture {
     root: PathBuf,
     service: Arc<Service>,
+    _native_guard: MutexGuard<'static, ()>,
 }
 impl Fixture {
     fn new() -> Self {
+        // These fixtures also launch real shells. Share the same serialization as
+        // native_backend_* so concurrent PTY startup/teardown cannot skew deadlines.
+        let native_guard = crate::terminal::native_tests::lock_native_test();
         let root =
             std::env::temp_dir().join(format!("belfry-daemon-qa-{}", ulid::Ulid::generate()));
         std::fs::create_dir_all(&root).unwrap();
         let service = Service::new(root.clone()).unwrap();
-        Self { root, service }
+        Self {
+            root,
+            service,
+            _native_guard: native_guard,
+        }
     }
     fn request(&self, tab: &str) -> CreateTerminalRequest {
         serde_json::from_value(serde_json::json!({ "platform": "macos", "profileId": "shell:bash", "tabId": tab,
