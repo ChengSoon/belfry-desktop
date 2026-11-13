@@ -1,3 +1,4 @@
+mod branch;
 mod command;
 pub mod commands;
 mod contracts;

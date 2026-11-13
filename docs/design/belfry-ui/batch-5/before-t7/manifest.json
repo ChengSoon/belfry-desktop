@@ -1,0 +1,294 @@
+{
+ "platform": "browser",
+ "source": "T7 dist index-C1gJpsbW",
+ "captures": [
+  {
+   "filename": "production-ui-files-dark-1024x768.png",
+   "sha256": "f6c5d3f4ac09f7ef51ac14d06ced92eea860484ef2356fb31a893e5140934f3a",
+   "width": 1024,
+   "height": 768
+  },
+  {
+   "filename": "production-ui-files-dark-1440x960.png",
+   "sha256": "095bb27ba333273ca7334a869f7f6d65ee5b3df58d70ddce3f3d85bca3d96f76",
+   "width": 1440,
+   "height": 960
+  },
+  {
+   "filename": "production-ui-files-dark-820x768.png",
+   "sha256": "16147550a3baca3cc39238038a829b42b061479eb990154c5614b4923d23cc43",
+   "width": 820,
+   "height": 768
+  },
+  {
+   "filename": "production-ui-files-light-1024x768.png",
+   "sha256": "d83f101cd9b087be811c97de2990b782d7db835e0175c2d5769b905e4b27f25f",
+   "width": 1024,
+   "height": 768
+  },
+  {
+   "filename": "production-ui-files-light-1440x960.png",
+   "sha256": "9336ca6ccc33f04189c0e5b6f7db64c734fe3c89145aa3ece588e6c4bb8a1a53",
+   "width": 1440,
+   "height": 960
+  },
+  {
+   "filename": "production-ui-files-light-820x768.png",
+   "sha256": "b37a9ea039747fae019e8db7422cf51d7056e539239e2f1d8530944af15e55e0",
+   "width": 820,
+   "height": 768
+  },
+  {
+   "filename": "production-ui-git-dark-1024x768.png",
+   "sha256": "2904b968441d2758031291e4c50a48b77238b9b07c9c8cc3a9b4a7ab4e19e510",
+   "width": 1024,
+   "height": 768
+  },
+  {
+   "filename": "production-ui-git-dark-1440x960.png",
+   "sha256": "b37a19269eef480b583dafd70573899630aa9ef4b7e94a8d17b5e97cb98ce6a6",
+   "width": 1440,
+   "height": 960
+  },
+  {
+   "filename": "production-ui-git-dark-820x768.png",
+   "sha256": "d22a6b93939313b47990591854113251bb1208bd8c111068f0dbd5680d08058c",
+   "width": 820,
+   "height": 768
+  },
+  {
+   "filename": "production-ui-git-light-1024x768.png",
+   "sha256": "c03403d3886bd15a93c9278c344422dcd278565976ea07008899d767d391bce4",
+   "width": 1024,
+   "height": 768
+  },
+  {
+   "filename": "production-ui-git-light-1440x960.png",
+   "sha256": "7c6d4ed4ed4228675929dad878b6d82565728d361e3fcce43d526e47a60d737e",
+   "width": 1440,
+   "height": 960
+  },
+  {
+   "filename": "production-ui-git-light-820x768.png",
+   "sha256": "a622d4f27e589fdd8f649595758ad208d59f1e080974cf0ff25cb7e41b4f4248",
+   "width": 820,
+   "height": 768
+  },
+  {
+   "filename": "production-ui-history-dark-1024x768.png",
+   "sha256": "9e89fcb8aae9834ac96856c4d472fdce6d29ccee7ec0fe7bef9d5dc63a79c8fb",
+   "width": 1024,
+   "height": 768
+  },
+  {
+   "filename": "production-ui-history-dark-1440x960.png",
+   "sha256": "4dd28a41637111c980483245c1a0e6ff6df52bfdf007a05b3a9fb9c2ef9f9646",
+   "width": 1440,
+   "height": 960
+  },
+  {
+   "filename": "production-ui-history-dark-820x768.png",
+   "sha256": "0100944c227067734ff84fc9c39c394cd3dcf222cd1e5d364f434438015894dd",
+   "width": 820,
+   "height": 768
+  },
+  {
+   "filename": "production-ui-history-light-1024x768.png",
+   "sha256": "675c080254c4807edca90408f19e4424e35cb1dbf6527a7876c2d1b51a9fbcdd",
+   "width": 1024,
+   "height": 768
+  },
+  {
+   "filename": "production-ui-history-light-1440x960.png",
+   "sha256": "ec3a178b3604a8dcace912b830f172b21e19fcd0d9b047fae43b3d48ea51c8c6",
+   "width": 1440,
+   "height": 960
+  },
+  {
+   "filename": "production-ui-history-light-820x768.png",
+   "sha256": "cb0c503906a0b1b889252ea9ba5aa2a71f91c57ad42c449fb6352b9f50b557db",
+   "width": 820,
+   "height": 768
+  },
+  {
+   "filename": "production-ui-provider-original-cards-dark-1024x768.png",
+   "sha256": "c8ec5448cd197451fe1745c14aff573053ee0c80fd62da14ec863c574514cf00",
+   "width": 1024,
+   "height": 768
+  },
+  {
+   "filename": "production-ui-provider-original-cards-dark-1440x960.png",
+   "sha256": "177be06729fa02a9a823efd4fbe7f0ad4bfdf8bb773668bc89f8857c6fa09493",
+   "width": 1440,
+   "height": 960
+  },
+  {
+   "filename": "production-ui-provider-original-cards-dark-820x768.png",
+   "sha256": "4a698f053bc527ae16512b393a7c0387ef6464c564d5c0b37bd019706425d710",
+   "width": 820,
+   "height": 768
+  },
+  {
+   "filename": "production-ui-provider-original-cards-light-1024x768.png",
+   "sha256": "280034c95bdf97ae96788e765cc0f4e389c8fafd43d18dae0a1ba339110ada58",
+   "width": 1024,
+   "height": 768
+  },
+  {
+   "filename": "production-ui-provider-original-cards-light-1440x960.png",
+   "sha256": "086ed59cb62b5d3d7e1a0b7d543c500973303af8669a6841c9ca36f87c0e34b6",
+   "width": 1440,
+   "height": 960
+  },
+  {
+   "filename": "production-ui-provider-original-cards-light-820x768.png",
+   "sha256": "351de310e7f0a64a443f7ca863af8bad803d6c0c61b9d333158520da2bfba516",
+   "width": 820,
+   "height": 768
+  },
+  {
+   "filename": "production-ui-settings-全局 Provider-dark-1024x768.png",
+   "sha256": "ca1b2553537e918865e7b90b31a1078cdf1344d1a0c6038847f3f4c3962dc528",
+   "width": 1024,
+   "height": 768
+  },
+  {
+   "filename": "production-ui-settings-全局 Provider-dark-1440x960.png",
+   "sha256": "5ea893e1458f598055ac1a238aa460920e58ed5ed87259782b0abff49bbd7683",
+   "width": 1440,
+   "height": 960
+  },
+  {
+   "filename": "production-ui-settings-全局 Provider-dark-820x768.png",
+   "sha256": "fb7e5e0deb683a28fc732b5fd7159bdffe61eabe534ddbfedcda0e414f7a855e",
+   "width": 820,
+   "height": 768
+  },
+  {
+   "filename": "production-ui-settings-全局 Provider-light-1024x768.png",
+   "sha256": "b5b9fa100364b4844e6cc69ef5e46b49e8129d85f96b6888670a904b48723e83",
+   "width": 1024,
+   "height": 768
+  },
+  {
+   "filename": "production-ui-settings-全局 Provider-light-1440x960.png",
+   "sha256": "762a0d05e6b98b96e154346824cc161c4d97ec07877f38fd2c02d2de1b9d7e3f",
+   "width": 1440,
+   "height": 960
+  },
+  {
+   "filename": "production-ui-settings-全局 Provider-light-820x768.png",
+   "sha256": "2f93bb0a48f4abd9718a2f62d5eb8e11caba5412e5e8edea1d7c792940b2bd47",
+   "width": 820,
+   "height": 768
+  },
+  {
+   "filename": "production-ui-settings-快捷键-dark-1024x768.png",
+   "sha256": "53d20642d4f6ccf4db8b03b599dcbbd12a372489d03aaf534f21b5a44db395f3",
+   "width": 1024,
+   "height": 768
+  },
+  {
+   "filename": "production-ui-settings-快捷键-dark-1440x960.png",
+   "sha256": "3455f6466f405217075e701d88de3cc8b5341887b59a5b006e969537ddcc3669",
+   "width": 1440,
+   "height": 960
+  },
+  {
+   "filename": "production-ui-settings-快捷键-dark-820x768.png",
+   "sha256": "b64b96e7d9b0728c4e2a187de54b5d2f920b26d96e2d3521c3f378625cbc4aab",
+   "width": 820,
+   "height": 768
+  },
+  {
+   "filename": "production-ui-settings-快捷键-light-1024x768.png",
+   "sha256": "3a3c5ae66cb1a976bd8a1eec832637472895d453c472a4ef54bb162113ca64e6",
+   "width": 1024,
+   "height": 768
+  },
+  {
+   "filename": "production-ui-settings-快捷键-light-1440x960.png",
+   "sha256": "0e6bc39786e6ab90c905e00aa1bee46e56fa0a75d02182b64ef37f5437ab96e9",
+   "width": 1440,
+   "height": 960
+  },
+  {
+   "filename": "production-ui-settings-快捷键-light-820x768.png",
+   "sha256": "63bfb1b27b8fa614e7f0b6a0a55544cb1faa6b713df50c330e49440c7740c1c2",
+   "width": 820,
+   "height": 768
+  },
+  {
+   "filename": "production-ui-settings-项目 Provider-dark-1024x768.png",
+   "sha256": "b67e384c6e7f35edc49dc12b7aa64c2aa6733b9b57a525a373647f91a5ddac74",
+   "width": 1024,
+   "height": 768
+  },
+  {
+   "filename": "production-ui-settings-项目 Provider-dark-1440x960.png",
+   "sha256": "488cddca3abff30b767c313ff8ce48dae70c9347058a8340bf05e5f8541a57b5",
+   "width": 1440,
+   "height": 960
+  },
+  {
+   "filename": "production-ui-settings-项目 Provider-dark-820x768.png",
+   "sha256": "a9a60869d13f93dcef98ea557025e192f32e76ebfbfdaa32d6a68bd682875d90",
+   "width": 820,
+   "height": 768
+  },
+  {
+   "filename": "production-ui-settings-项目 Provider-light-1024x768.png",
+   "sha256": "32549895697d94386d5aa187c76890583c56fa50bf6bf9b522e3152839083bd8",
+   "width": 1024,
+   "height": 768
+  },
+  {
+   "filename": "production-ui-settings-项目 Provider-light-1440x960.png",
+   "sha256": "a623f5ab8a46876d49768db79148426ace1c143124055400974950f1b446aed4",
+   "width": 1440,
+   "height": 960
+  },
+  {
+   "filename": "production-ui-settings-项目 Provider-light-820x768.png",
+   "sha256": "69631a0ba87243481142c61751c5a28d135fd9aab9b2dd80c3e4e32a1c4556b1",
+   "width": 820,
+   "height": 768
+  },
+  {
+   "filename": "production-ui-usage-dark-1024x768.png",
+   "sha256": "6345f21fae1749928e1839e2344736d8923f250cc6dc9d12df5a455f64832e8c",
+   "width": 1024,
+   "height": 768
+  },
+  {
+   "filename": "production-ui-usage-dark-1440x960.png",
+   "sha256": "d3edcbcb78edcdd00b8a8bc45bfcad710e245eab7ec8ca0371b85cb2c60e0121",
+   "width": 1440,
+   "height": 960
+  },
+  {
+   "filename": "production-ui-usage-dark-820x768.png",
+   "sha256": "3ceb86a1976bd1d299f6e07a69adca3152a4d9bacd0b47cbde12b23ec9652f81",
+   "width": 820,
+   "height": 768
+  },
+  {
+   "filename": "production-ui-usage-light-1024x768.png",
+   "sha256": "434798bc4091501cfda4da8ea48e08a5f8428d338fcd0392b1cf00bde0edf598",
+   "width": 1024,
+   "height": 768
+  },
+  {
+   "filename": "production-ui-usage-light-1440x960.png",
+   "sha256": "bb3fc00db55a0653d3a42233bb10124d0a5e56eda4e32f1f4df94e148629d1d4",
+   "width": 1440,
+   "height": 960
+  },
+  {
+   "filename": "production-ui-usage-light-820x768.png",
+   "sha256": "e471b98bf6e5d4296b15f4c936b3550e693a332c229d6da4b14c021c2c1eb0c7",
+   "width": 820,
+   "height": 768
+  }
+ ]
+}

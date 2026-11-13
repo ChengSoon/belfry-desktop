@@ -339,5 +339,12 @@
   },
   "removeRecentConfirm.onlyRecent": "Remove {{name}} from recent projects. The directory itself will be kept.",
   "ProjectProfileForm.text_75bb5ef278": "NODE_ENV=development\nOne NAME=value per line; values are passed as entered",
-  "Sidebar.sessionStatus": "{{name}}, {{status}}"
+  "Sidebar.sessionStatus": "{{name}}, {{status}}",
+  "Sidebar.searchPlaceholder": "Search sessions, projects, commands",
+  "Sidebar.sessionsLabel": "Sessions",
+  "Sidebar.awaitingBadge": "Needs you",
+  "Sidebar.footSummary": {
+    "one": "Local · {{count}} session",
+    "other": "Local · {{count}} sessions"
+  }
 }

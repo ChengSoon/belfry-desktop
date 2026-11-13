@@ -16,17 +16,17 @@
   --ds-text-muted: var(--text-muted);
   --ds-text-faint: var(--text-faint);
   --ds-border-default: var(--border);
-  --ds-border-subtle: var(--border);
+  --ds-border-subtle: var(--border-soft);
   --ds-border-strong: var(--border-strong);
-  --ds-tile: var(--surface);
+  --ds-tile: var(--panel);
   --ds-tile-hover: var(--surface-hover);
   --ds-tile-deep: var(--surface-hover);
   --ds-raised: var(--surface-raised);
-  --ds-raised-shadow: none;
+  --ds-raised-shadow: var(--shadow-sm);
   --ds-accent: var(--accent);
   --ds-accent-hover: var(--accent-hover);
   --ds-accent-soft: var(--accent-soft);
-  --ds-switch-track-off: var(--border-strong);
+  --ds-switch-track-off: var(--surface-hover);
   --ds-switch-ring-off: var(--border-strong);
   --ds-switch-knob-off: var(--text-muted);
   --ds-switch-knob-on: var(--accent-contrast);
@@ -34,6 +34,17 @@
   --ds-warning: var(--warning);
   --ds-error: var(--danger);
   --ds-shadow-dialog: var(--shadow-lg);
+  /* A08：插件中心的圆角阶梯和宿主对齐（tokens-01 在 .pi-plugins 内把 lg 定成 10）。 */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-md-plus: 8px;
+  --radius-lg: 12px;
+  /* A05/A11：动效时长与宿主统一，退出仍由各组件自己的 Presence 决定。 */
+  --motion-duration-fast: var(--motion-fast);
+  --motion-duration-normal: var(--motion-standard);
+  --motion-duration-slow: var(--motion-enter);
+  --motion-ease-out: var(--motion-ease);
   --text-base: var(--fs-md);
   --text-sm: var(--fs-sm);
   --text-sm-plus: var(--fs-md);
@@ -48,10 +59,104 @@
 .pi-plugins .plugins-title-icon { background: none; color: var(--text-muted); }
 .pi-plugins .plugins-header-actions > .btn { min-height: 36px; font-size: var(--fs-sm); }
 .pi-plugins .btn-primary, .pi-plugins .btn-primary:hover:not(:disabled) { color: var(--accent-contrast); }
-.pi-plugins :is(.field-input, .field-select, .field-textarea) { min-height: 38px; background: var(--canvas); border: 1px solid var(--border); border-radius: 6px; }
-.pi-plugins :is(.plugins-card, .plugins-row, .panel-card) { border-radius: 8px; }
+.pi-plugins :is(.field-input, .field-select, .field-textarea) { min-height: 38px; background: var(--canvas); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); }
+.pi-plugins :is(.plugins-card, .plugins-row, .panel-card) { border-radius: var(--radius-md); }
 .pi-plugins .plugins-page-description { margin-top: 6px; color: var(--text-muted); font-size: var(--fs-sm); line-height: 1.6; }
-.pi-plugins .plugin-launcher-surface { border-radius: 10px; }
+.pi-plugins .plugin-launcher-surface { border: 0; border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); }
 .pi-plugins .plugin-launcher-search-row { border-bottom: 1px solid var(--border); }
 .pi-plugins .plugin-launcher-option.active { color: var(--text); background: var(--accent-soft); }
 .pi-plugins .plugin-launcher-results { overflow-y: auto; }
+
+/* Host-owned floating surfaces use one elevation scale, including their hairline edge. */
+.pi-plugins :is(.scope-compact-menu, .scope-popover, .plugins-menu, .settings-theme-menu) {
+  border: 0;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+}
+.pi-plugins :is(.dialog, .plugins-modal, .plugins-sheet) {
+  border: 0;
+  box-shadow: var(--shadow-lg);
+}
+.pi-plugins :is(.dialog, .plugins-modal) { border-radius: var(--radius-lg); }
+.pi-plugins :is(.overlay, .plugins-modal-backdrop, .plugins-sheet-scrim) { background: var(--scrim); }
+
+/* ───────── T12：插件中心按 obsidian-screens/plugins.html 落地 ───────── */
+/* 已安装列表：一个分组外框 + 行内分隔，而不是一张张独立卡片。 */
+.pi-plugins .plugins-list { gap: 0; overflow: hidden; border-radius: var(--radius-md); background: var(--panel); box-shadow: inset 0 0 0 1px var(--border); }
+.pi-plugins .plugins-list > .plugins-row { min-height: 68px; padding: 12px 12px 12px 16px; border-radius: 0; background: transparent; }
+.pi-plugins .plugins-list > .plugins-row + .plugins-row { box-shadow: inset 0 1px 0 var(--border-soft); }
+.pi-plugins .plugins-list > .plugins-row:is(:hover, :has(:focus-visible), .menu-open) { background: var(--surface-hover); }
+.pi-plugins .plugins-list > .plugins-row:focus-within:not(:hover, :has(:focus-visible), .menu-open) { background: transparent; }
+/* 开关 36×20，滑块 14；关闭态浅底 + strong 描边，滑块保持 text-muted（状态不只靠描边，见 T10 README 对比度第 2 条）。 */
+.pi-plugins .settings-toggle { width: 36px; height: 20px; padding: 3px; }
+.pi-plugins .settings-toggle.on .settings-toggle-thumb { transform: translateX(16px); }
+.pi-plugins .settings-toggle-thumb { transition: transform var(--motion-standard) var(--motion-ease); }
+/* 按钮 32 高。 */
+.pi-plugins .plugins-header-actions > .btn { min-height: var(--control-height-sm); }
+/* 卡片 hover 不再用写死的黑色投影（A07），统一 shadow-md。 */
+.pi-plugins .plugins-card:hover { box-shadow: var(--shadow-md); }
+/* 宿主浮层同级投影（A07）：scope 菜单原本自带黑色 22% 投影。 */
+.pi-plugins .scope-compact-menu { box-shadow: var(--shadow-md); }
+/* 内联错误与宿主 Notice 同一套（A14）。 */
+.pi-plugins .plugins-inline-error { color: var(--text); background: var(--danger-soft); }
+
+/* ───────── T21：插件中心内页按 obsidian-screens/plugins.html 重排 ───────── */
+/* 市场卡片：panel 底 + 内描边 + r12（与稿里的分组/卡片同一语言）；hover 只提一档表面，不再上浮 1px。 */
+.pi-plugins .plugins-card { background: var(--panel); box-shadow: inset 0 0 0 1px var(--border); }
+.pi-plugins .plugins-card:hover { transform: none; background: var(--surface-hover); box-shadow: inset 0 0 0 1px var(--border-strong); }
+.pi-plugins .plugins-card:has(.plugins-card-hit:focus-visible) { box-shadow: inset 0 0 0 1px var(--border-strong), 0 0 0 2px var(--focus-ring); }
+.pi-plugins .plugins-card-glyph { border-radius: var(--radius-md); background: var(--surface); box-shadow: inset 0 0 0 1px var(--border); color: var(--text-muted); }
+
+/* 市场来源设置：与已安装列表同一个分组外框，控件走 38 高字段规格。 */
+.pi-plugins .plugins-market-settings { border-radius: var(--radius-md); background: var(--panel); box-shadow: inset 0 0 0 1px var(--border); }
+.pi-plugins .plugins-market-settings-row + .plugins-market-settings-row { box-shadow: inset 0 1px 0 var(--border-soft); }
+
+/* 详情抽屉 = 稿里的右侧详情栏：宽 380–480，panel 底，左侧 1px 分隔 + shadow-lg，遮罩用 --scrim。 */
+.pi-plugins .plugins-sheet-scrim { background: var(--scrim); }
+.pi-plugins .plugins-sheet {
+  width: min(380px, 100%);
+  background: var(--panel);
+  box-shadow: -1px 0 0 var(--border), var(--shadow-lg);
+}
+.pi-plugins .plugins-sheet-head { gap: var(--space-3); padding: var(--space-6) var(--space-6) var(--space-4); }
+.pi-plugins .plugins-sheet-head .plugins-card-glyph.is-large { width: 48px; height: 48px; border-radius: var(--radius-lg); font-size: var(--fs-lg); }
+.pi-plugins .plugins-sheet-title { font-size: var(--fs-lg); font-weight: 500; letter-spacing: 0; }
+.pi-plugins .plugins-sheet-meta { font-family: var(--font-mono); font-size: 12px; color: var(--text-faint); }
+.pi-plugins .plugins-sheet-head .plugins-icon-btn { width: var(--control-height-sm); height: var(--control-height-sm); border-radius: var(--radius-sm); color: var(--text-muted); }
+.pi-plugins .plugins-sheet-head .plugins-icon-btn:hover { color: var(--text); background: var(--surface-hover); }
+/* 安装条：放在头部下面的分组卡里，安装是唯一实心按钮。 */
+.pi-plugins .plugins-sheet-cta { margin: 0 var(--space-6); padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); background: var(--surface); box-shadow: inset 0 0 0 1px var(--border); }
+.pi-plugins .plugins-sheet-cta-version { font-size: var(--fs-md); font-weight: 500; }
+.pi-plugins .plugins-sheet-cta-meta { font-size: var(--fs-xs); color: var(--text-faint); }
+.pi-plugins .plugins-sheet-cta .btn { min-height: var(--control-height-sm); border-radius: var(--radius-sm); }
+.pi-plugins .plugins-sheet-body { padding: var(--space-2) var(--space-6) var(--space-8); }
+/* 分区标题：和稿里 d-sec h3 一致——12px/500 faint，不再全大写加字距（中文没有大小写）。 */
+.pi-plugins .plugins-sheet-section { padding: var(--space-5) 0 0; }
+.pi-plugins .plugins-sheet-section-title { margin-bottom: var(--space-2); color: var(--text-faint); font-size: var(--fs-xs); font-weight: 500; letter-spacing: .04em; text-transform: none; }
+/* 权限：每条一行（surface 底 r6），中/高风险整行染 warning/danger-soft 并在左侧给风险词，不只靠小号彩字。 */
+.pi-plugins .plugins-perm-list { gap: 6px; }
+.pi-plugins .plugins-perm-list > li { gap: var(--space-3); padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); background: var(--surface); }
+.pi-plugins .plugins-perm-list > li.risk-medium { background: var(--warning-soft); }
+.pi-plugins .plugins-perm-list > li.risk-high { background: var(--danger-soft); }
+.pi-plugins .plugins-perm-risk { min-width: 48px; padding-top: 1px; font-size: 11px; letter-spacing: 0; text-transform: none; }
+.pi-plugins .plugins-perm-copy > strong { font-size: var(--fs-sm); font-weight: 500; }
+.pi-plugins .plugins-perm-copy > span { font-size: var(--fs-xs); color: var(--text-muted); }
+/* 版本列表：选中版本 = 持久当前位置（A13），sidebar-active + 2px 竖条，而不是半透明叠色。 */
+.pi-plugins .plugins-version { position: relative; padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); }
+.pi-plugins .plugins-version:hover { background: var(--surface-hover); }
+.pi-plugins .plugins-version.active { background: var(--sidebar-active); }
+.pi-plugins .plugins-version.active::before { content: ""; position: absolute; left: 0; top: 8px; bottom: 8px; width: 2px; border-radius: 2px; background: var(--accent); }
+.pi-plugins .plugins-version-top { font-size: var(--fs-sm); }
+
+/* 模板 / 发布 / 安装弹窗（plugins-modal）= T10 dialogs 规格：宽 440、内边距 24、r12、标题 15/500、按钮 32/r6 右对齐。 */
+.pi-plugins .plugins-modal { width: min(440px, calc(100vw - 32px)); padding: var(--space-6); border-radius: var(--radius-lg); background: var(--surface-raised); }
+.pi-plugins .plugins-modal-head { gap: var(--space-3); }
+.pi-plugins .plugins-modal-icon { width: 36px; height: 36px; border-radius: var(--radius-md); background: var(--accent-soft); color: var(--accent); }
+.pi-plugins .plugins-modal-title { font-size: var(--fs-lg); font-weight: 500; letter-spacing: 0; }
+.pi-plugins :is(.plugins-modal-subtitle, .plugins-modal-lede) { font-size: var(--fs-sm); color: var(--text-muted); line-height: 1.6; }
+.pi-plugins .plugins-modal-actions { gap: var(--space-2); margin-top: var(--space-6); justify-content: flex-end; }
+.pi-plugins .plugins-modal-actions .btn { min-height: var(--control-height-sm); border-radius: var(--radius-sm); }
+/* 模板选项是单选：选中 = 持久当前位置（A13），sidebar-active 底，不用半透明叠色（暗色下看不出）。 */
+.pi-plugins .plugins-template { border-radius: var(--radius-sm); }
+.pi-plugins .plugins-template:hover { background: var(--surface-hover); }
+.pi-plugins .plugins-template.active { background: var(--sidebar-active); box-shadow: inset 0 0 0 1px var(--border); }

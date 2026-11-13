@@ -1,3 +1,4 @@
+import { menuAction } from "./production-uiFixture.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { productionFixture, click, waitFor } from "./productionFixture.mjs";
@@ -24,15 +25,15 @@ const nativeSource = `(() => {
     return invoke(command, args);
   };
 })();`;
-const PANEL = 'button[title="会话协作"]';
+const openCollab = view => menuAction(view, "会话协作");
 
 test("uncertain tasks locate the stable terminal and require a current manual decision without repasting", async (t) => {
   const { view } = await productionFixture(t, { nativeSource, terminalCount: 2 });
-  await click(view, PANEL);
+  await openCollab(view);
   await waitFor(view, "!!document.querySelector('[data-delivery-action=locate]')");
   await click(view, "[data-delivery-action=locate]");
   await waitFor(view, "!document.querySelector('.collab-panel') && JSON.parse(localStorage.getItem('belfry.workspace.v1')).activeTabId === 'delivery-target'");
-  await click(view, PANEL);
+  await openCollab(view);
   await click(view, "[data-delivery-action=confirm]");
   await waitFor(view, "!!document.querySelector('[data-delivery-action=resolve]')");
   await view.cdp.evaluate("window.qaTask.delivery.sequence = 8; window.qaTask.delivery.message = 'Newer receipt'");

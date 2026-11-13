@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { uiFixture, click, press, waitFor, resize, intact, evidence, theme, fill } from './production-uiFixture.mjs';
+import { uiFixture, click, press, waitFor, resize, intact, evidence, theme, fill, menuAction, clickText } from './production-uiFixture.mjs';
 import { assertTerminalInput } from './productionFixture.mjs';
 
 const pause = (view, ms = 260) => view.cdp.evaluate(`new Promise(r => setTimeout(r, ${ms}))`);
@@ -270,7 +270,7 @@ test('motion: drawer switch/interruptions, terminal resize bounded and reduced-m
         __productionQA.observer=new ResizeObserver(entries=>{const r=entries[0].contentRect;
           __productionQA.sizes.push(r.width);__productionQA.layoutSizes.push({width:r.width,height:r.height});});
         __productionQA.observer.observe(document.querySelector('.terminal-stage'));})()`);
-      await click(view,'button[aria-label="会话协作"]');
+      await menuAction(view,'会话协作');
       await waitFor(view,"!!document.querySelector('.collab-panel')");
       await pause(view);
       await evidence(view,`motion-collab-${mode}-${width}x${height}`,['button[aria-label="关闭协作面板"]']);
@@ -314,22 +314,23 @@ test('motion: drawer switch/interruptions, terminal resize bounded and reduced-m
   // The opener itself must close rather than outside-mousedown closing then click reopening.
   // Some webviews do not focus buttons on mouse press. Opening must still survive
   // its own bubbling click even when the captured focus is the terminal instead.
+  await click(view,'button[title="更多工具"]');
   await view.cdp.evaluate(`(() => {
     document.querySelector('.terminal-pane.is-onstage .xterm-helper-textarea').focus();
-    document.querySelector('button[aria-label="会话协作"]').addEventListener('mousedown',event=>event.preventDefault(),{once:true});
+    [...document.querySelectorAll('.workbench-menu button')].find(el=>el.textContent.includes('会话协作')).addEventListener('mousedown',event=>event.preventDefault(),{once:true});
   })()`);
-  await click(view,'button[aria-label="会话协作"]'); await pause(view);
+  await clickText(view,'会话协作','.workbench-menu'); await pause(view);
   assert.equal(await view.cdp.evaluate("document.querySelector('.collab-panel')?.closest('.motion-drawer')?.dataset.motionState ?? null"),'open');
-  await click(view,'button[aria-label="会话协作"]'); await pause(view);
+  await menuAction(view,'会话协作'); await pause(view);
   assert.equal(await view.cdp.evaluate("document.querySelectorAll('.motion-drawer').length"),0);
   // Outside dismissal still works, but only after the completed click; Escape is unchanged.
-  await click(view,'button[aria-label="会话协作"]');
+  await menuAction(view,'会话协作');
   await waitFor(view,"document.querySelector('.collab-panel')?.closest('.motion-drawer')?.dataset.motionState === 'open'");
   await mouse(view,'mousePressed','.terminal-stage'); await pause(view,200);
   assert.equal(await view.cdp.evaluate("document.querySelector('.collab-panel')?.closest('.motion-drawer')?.dataset.motionState ?? null"),'open');
   await mouse(view,'mouseReleased','.terminal-stage');
   await waitFor(view,"!document.querySelector('.collab-panel')");
-  await click(view,'button[aria-label="会话协作"]'); await press(view,'Escape');
+  await menuAction(view,'会话协作'); await press(view,'Escape');
   await waitFor(view,"!document.querySelector('.collab-panel')");
   // 12 rapid open/close pairs; no ghosts or occupied track after the final close.
   await view.cdp.evaluate(`new Promise(resolve=>{let n=0;const toggle=()=>{document.querySelector('button[title^="历史会话"]').click();

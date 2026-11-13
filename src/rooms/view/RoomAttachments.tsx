@@ -90,7 +90,7 @@ export function AttachmentCard({ roomId, attachment, name, size, onRemove, disab
           </span>
           <span className="min-w-0 flex-1">
             <span className="block truncate text-xs font-medium">{label}</span>
-            <span className={cn("block truncate text-[11px] text-muted-foreground", error && "text-destructive")}>
+            <span className={cn("block truncate text-xs text-muted-foreground", error && "text-destructive")}>
               {extension && attachment ? `${extension} · ` : ""}{detail}
             </span>
           </span>

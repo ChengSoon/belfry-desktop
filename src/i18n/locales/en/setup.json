@@ -10,5 +10,7 @@
   "contracts.text_69dc809232": {
     "one": "Synced {{count}} client (installed or updated: {{changed}}; already current: {{unchanged}})",
     "other": "Synced {{count}} clients (installed or updated: {{changed}}; already current: {{unchanged}})"
-  }
+  },
+  "EnvironmentSection.description": "Check whether Agent CLIs, the belfry command and skills are ready.",
+  "EnvironmentSection.checks": "Checks"
 }

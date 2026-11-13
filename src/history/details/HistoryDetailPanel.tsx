@@ -1,3 +1,4 @@
+import { Notice } from "../../components/Notice";
 import { t, useTranslation } from "../../i18n";
 import { ArrowLeft, Play, RefreshCcw, X } from "lucide-react";
 import { useState, type CSSProperties } from "react";
@@ -53,10 +54,10 @@ export function HistoryDetailPanel(props: Props) {
 function DetailReadStatus({ state }: { state: ReturnType<typeof useHistoryDetail> }) {
   useTranslation();
   return <>
-    {state.error ? <p className="history-detail__warning" role="alert">{state.error}</p> : null}
+    {state.error ? <Notice className="history-detail__warning" action={<button type="button" disabled={state.busy} onClick={state.reload}>{t("history.HistoryPanel.text_13be69053d")}</button>}>{state.error}</Notice> : null}
     {state.busy ? <p className="history-detail__note" role="status">{t("history.HistoryDetailPanel.text_e7985fed10")}</p> : null}
-    {state.page?.note ? <p className="history-detail__warning" role="status">{state.page.note}</p> : null}
-    {state.page?.skippedLines ? <p className="history-detail__warning" role="status">{t("history.HistoryDetailPanel.text_bf39ff5bdb", { count: state.page.skippedLines })}</p> : null}
+    {state.page?.note ? <Notice className="history-detail__warning" tone="warning" role="status">{state.page.note}</Notice> : null}
+    {state.page?.skippedLines ? <Notice className="history-detail__warning" tone="warning" role="status">{t("history.HistoryDetailPanel.text_bf39ff5bdb", { count: state.page.skippedLines })}</Notice> : null}
   </>;
 }
 

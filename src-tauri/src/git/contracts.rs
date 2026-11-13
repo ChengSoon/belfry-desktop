@@ -1,5 +1,14 @@
 use serde::{Deserialize, Serialize};
 
+/// 顶栏面包屑用的轻量结果：不是仓库时 `repository=false`；分离 HEAD 时 `branch=None`、`detached` 为短提交号。
+#[derive(Default, Debug, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct GitBranch {
+    pub repository: bool,
+    pub branch: Option<String>,
+    pub detached: Option<String>,
+}
+
 #[derive(Default, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GitStatus {

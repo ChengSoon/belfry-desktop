@@ -1,0 +1,208 @@
+{
+  "generatedAt": "2026-11-12T13:10:26.561Z",
+  "platform": "macos",
+  "browser": {
+    "protocolVersion": "1.3",
+    "product": "Chrome/157.0.8103.78",
+    "revision": "@4b3d0dabb8250b6f152d2d85d79e7706e309d087",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/157.0.0.0 Safari/537.36",
+    "jsVersion": "15.7.112.43"
+  },
+  "source": {
+    "revision": "949d77202b07e7acd47818e5f626ffb966d8fcd2",
+    "dirtyPaths": [
+      "M docs/design/belfry-ui/README.md",
+      " M index.html",
+      " M public/startup.js",
+      " M src-tauri/Cargo.toml",
+      " M src-tauri/tauri.conf.json",
+      " M src-tauri/tauri.windows.conf.json",
+      " M src/collab/useCollabTasks.test.ts",
+      " M src/components/lazy/testing/production-ui.case.mjs",
+      " M src/components/motion/motion.css",
+      " M src/plugins/center/styles/page-01.css",
+      " M src/rooms/contracts.ts",
+      " M src/rooms/model.ts",
+      " M src/rooms/view/RoomFlow.tsx",
+      " M src/rooms/view/RoomView.tsx",
+      " M src/settings/SettingsPanel.test.ts",
+      " M src/settings/SettingsPanel.tsx",
+      " M src/styles.css",
+      " M src/theme/ThemeProvider.tsx",
+      " M src/theme/graphite.test.mjs",
+      " M src/theme/xtermTheme.ts",
+      " M tsconfig.node.json",
+      " M vite.config.ts",
+      "?? docs/design/belfry-ui/baseline/",
+      "?? docs/design/belfry-ui/batch-1/",
+      "?? docs/design/belfry-ui/compare-ui-baseline.md",
+      "?? docs/design/belfry-ui/directions/",
+      "?? docs/design/belfry-ui/native-window-baseline.md",
+      "?? docs/design/belfry-ui/obsidian-contrast.mjs",
+      "?? docs/design/belfry-ui/obsidian-tokens.md",
+      "?? docs/design/belfry-ui/refresh-plan.md",
+      "?? docs/remote-collaboration.md",
+      "?? scripts/capture-plugin-search-review.mjs",
+      "?? scripts/capture-ui-baseline.mjs",
+      "?? scripts/compare-ui-baseline.case.mjs",
+      "?? scripts/compare-ui-baseline.mjs",
+      "?? scripts/theme-canvas.ts",
+      "?? src-tauri/src/remote/",
+      "?? src/i18n/locales/en/remote.json",
+      "?? src/i18n/locales/zh-CN/remote.json",
+      "?? src/remote/",
+      "?? src/theme/canvas.json"
+    ]
+  },
+  "productionAssets": [
+    {
+      "path": "/assets/index-C0vVt1iT.js",
+      "sha256": "cf6dd5424088e11cbaef88ce247a6efa123efc154a262bb8523502996850b89e"
+    },
+    {
+      "path": "/assets/keyboard-BFib-eUL.js",
+      "sha256": "fcb49640f17df6b6def8b3570874cbf8c0d5a0a7901f498954edc85ce26c12e8"
+    },
+    {
+      "path": "/assets/triangle-alert-CFSFAvJF.js",
+      "sha256": "5caa1a724174eb0e2949a6abd7ade8206a77909b5f6e38df055a516eedfdb753"
+    },
+    {
+      "path": "/assets/search-DszaN8yP.js",
+      "sha256": "af53057710b2bab219b1b3a5658b6ee08b39c8c6ca6753de78dc658940dca45c"
+    },
+    {
+      "path": "/assets/Select-C9Zd5qBR.js",
+      "sha256": "c1b07f1d7e59cafa63208b0bce6e01ee00c97fdd99f17574a597aca88f24695d"
+    },
+    {
+      "path": "/assets/Presence-DwW-oFI_.js",
+      "sha256": "185386a9a92894ea42c20008506a8290f99d5b50851086cf55d75de142f69c0f"
+    },
+    {
+      "path": "/assets/Select-oc_Lq_09.css",
+      "sha256": "bf903eae462561c5d3a8b76adec121e0ba3f0be628c4310e84db6f1e565049fd"
+    },
+    {
+      "path": "/assets/Presence-TqpzZ8Xa.css",
+      "sha256": "c9b1dec2e19027c8c30b2c7ad3e1af6d5ad1532467805068257d45d0a9962529"
+    },
+    {
+      "path": "/assets/index-Cm-BAe-t.css",
+      "sha256": "011250a5f6b99d6428ab9944f469417fdb24a849c01cf9e3d292a16a41df62a3"
+    }
+  ],
+  "syntheticNativeAdapter": true,
+  "realUserData": false,
+  "nativeWindowCaptured": false,
+  "captures": [
+    {
+      "filename": "workbench-dark-1440x960.png",
+      "sha256": "ea674f8c7613891ea88c19af0eb6073c77bbc9abd2e8e410e4e3c1eb2212ca8b",
+      "width": 1440,
+      "height": 960,
+      "scrollWidth": 1440,
+      "theme": "dark",
+      "platform": "macos",
+      "surface": {
+        "x": 228,
+        "y": 0,
+        "width": 1212,
+        "height": 960
+      },
+      "canvas": "#171a19",
+      "themeColor": "#171a19",
+      "alerts": []
+    },
+    {
+      "filename": "settings-dark-1440x960.png",
+      "sha256": "1b022db6cd0f5e6cdae6c9ba5917c1504a8035c283c77b6e5736384a443a7c3a",
+      "width": 1440,
+      "height": 960,
+      "scrollWidth": 1440,
+      "theme": "dark",
+      "platform": "macos",
+      "surface": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 960
+      },
+      "canvas": "#171a19",
+      "themeColor": "#171a19",
+      "alerts": []
+    },
+    {
+      "filename": "rooms-dark-1440x960.png",
+      "sha256": "23451fda478f030bb288dbc275a488094edb09ccf3b5a0df9b1311ae1cb67068",
+      "width": 1440,
+      "height": 960,
+      "scrollWidth": 1440,
+      "theme": "dark",
+      "platform": "macos",
+      "surface": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 960
+      },
+      "canvas": "#171a19",
+      "themeColor": "#171a19",
+      "alerts": []
+    },
+    {
+      "filename": "workbench-light-1440x960.png",
+      "sha256": "565acc56d52fdb7ccd9cf439866cd4808ba97a0c232d403770f0e3cd78bb727a",
+      "width": 1440,
+      "height": 960,
+      "scrollWidth": 1440,
+      "theme": "light",
+      "platform": "macos",
+      "surface": {
+        "x": 228,
+        "y": 0,
+        "width": 1212,
+        "height": 960
+      },
+      "canvas": "#fcfbf7",
+      "themeColor": "#fcfbf7",
+      "alerts": []
+    },
+    {
+      "filename": "settings-light-1440x960.png",
+      "sha256": "6f4c6ec5571083ba27c666ca4875e3c2c29825448f5782a6f7ea486e46760966",
+      "width": 1440,
+      "height": 960,
+      "scrollWidth": 1440,
+      "theme": "light",
+      "platform": "macos",
+      "surface": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 960
+      },
+      "canvas": "#fcfbf7",
+      "themeColor": "#fcfbf7",
+      "alerts": []
+    },
+    {
+      "filename": "rooms-light-1440x960.png",
+      "sha256": "06f6a3b259f9613ed404b8715e97988a43d774e79507f3b93d3990ffbfc48b0f",
+      "width": 1440,
+      "height": 960,
+      "scrollWidth": 1440,
+      "theme": "light",
+      "platform": "macos",
+      "surface": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 960
+      },
+      "canvas": "#fcfbf7",
+      "themeColor": "#fcfbf7",
+      "alerts": []
+    }
+  ]
+}

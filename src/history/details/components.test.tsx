@@ -29,3 +29,11 @@ it("无历史 Diff 时说明日志不足，不显示当前磁盘版本", () => {
   expect(html).toContain("日志未保存编辑片段或 patch");
   expect(html).not.toContain("打开当前文件");
 });
+
+it("多条失败记录不连续打断读屏：失败提示用 status，不用 alert（code-review L2）", () => {
+  const base = pageChanges([entry])[0];
+  const records = [0, 1, 2].map((index) => ({ ...base, id: `${base.id}-${index}`, success: false, resultPresent: true }));
+  const html = renderToStaticMarkup(<HistoryChanges records={records} onJump={vi.fn()} />);
+  expect(html).not.toContain('role="alert"');
+  expect(html.match(/role="status"/g)?.length ?? 0).toBeGreaterThanOrEqual(1);
+});

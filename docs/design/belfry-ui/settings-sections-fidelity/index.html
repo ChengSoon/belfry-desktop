@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Belfry 设置各分区 · T19 稿 vs 实装（T20）</title>
+<style>
+  body{margin:0;background:#101113;color:#e6e7ea;font:14px/1.5 -apple-system,"HarmonyOS Sans SC",sans-serif}
+  header{padding:24px 32px 4px} h1{margin:0;font-size:18px;font-weight:500} p{margin:4px 0 0;color:#9a9ca5}
+  nav{padding:8px 32px;display:flex;gap:12px;flex-wrap:wrap} nav a{color:#9ea3ff;font-size:13px}
+  section{padding:20px 32px} h2{margin:0 0 10px;font-size:13px;font-weight:500;color:#b0b2ba}
+  .pair{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  figure{margin:0} figcaption{margin-bottom:6px;font-size:12px;color:#8c8f99}
+  img{width:100%;border:1px solid #26282e;border-radius:8px;display:block}
+</style>
+</head>
+<body>
+<header>
+  <h1>设置各分区还原度：T19 设计稿（左） vs 生产实装（右）</h1>
+  <p>左：obsidian-screens/shots/sections-*.png（演示数据）。右：T20 构建经 scripts/capture-settings-sections.case.mjs 拍摄（合成测试数据，内容和条目数不同属正常）。1440×1200。逐条偏差说明见 README.md。</p>
+</header>
+<nav>
+<a href="#provider">全局 Provider</a><a href="#project">项目 Provider</a><a href="#hooks">会话状态 + 后台任务</a><a href="#shortcuts">快捷键</a><a href="#backup">本地备份</a><a href="#environment">协作环境</a><a href="#about">关于</a><a href="#shortcuts-recording">快捷键录制态</a></nav>
+<section id="provider"><h2>全局 Provider · 暗</h2><div class="pair">
+  <figure><figcaption>设计稿 · 暗</figcaption><img loading="lazy" src="../obsidian-screens/shots/sections-provider-dark.png" alt="设计稿 全局 Provider 暗"></figure>
+  <figure><figcaption>实装 · 暗</figcaption><img loading="lazy" src="after/sections-provider-dark.png" alt="实装 全局 Provider 暗"></figure>
+</div></section>
+<section id="provider-light"><h2>全局 Provider · 亮</h2><div class="pair">
+  <figure><figcaption>设计稿 · 亮</figcaption><img loading="lazy" src="../obsidian-screens/shots/sections-provider-light.png" alt="设计稿 全局 Provider 亮"></figure>
+  <figure><figcaption>实装 · 亮</figcaption><img loading="lazy" src="after/sections-provider-light.png" alt="实装 全局 Provider 亮"></figure>
+</div></section>
+<section id="project"><h2>项目 Provider · 暗</h2><div class="pair">
+  <figure><figcaption>设计稿 · 暗</figcaption><img loading="lazy" src="../obsidian-screens/shots/sections-project-dark.png" alt="设计稿 项目 Provider 暗"></figure>
+  <figure><figcaption>实装 · 暗</figcaption><img loading="lazy" src="after/sections-project-dark.png" alt="实装 项目 Provider 暗"></figure>
+</div></section>
+<section id="project-light"><h2>项目 Provider · 亮</h2><div class="pair">
+  <figure><figcaption>设计稿 · 亮</figcaption><img loading="lazy" src="../obsidian-screens/shots/sections-project-light.png" alt="设计稿 项目 Provider 亮"></figure>
+  <figure><figcaption>实装 · 亮</figcaption><img loading="lazy" src="after/sections-project-light.png" alt="实装 项目 Provider 亮"></figure>
+</div></section>
+<section id="hooks"><h2>会话状态 + 后台任务 · 暗</h2><div class="pair">
+  <figure><figcaption>设计稿 · 暗</figcaption><img loading="lazy" src="../obsidian-screens/shots/sections-hooks-dark.png" alt="设计稿 会话状态 + 后台任务 暗"></figure>
+  <figure><figcaption>实装 · 暗</figcaption><img loading="lazy" src="after/sections-hooks-dark.png" alt="实装 会话状态 + 后台任务 暗"></figure>
+</div></section>
+<section id="hooks-light"><h2>会话状态 + 后台任务 · 亮</h2><div class="pair">
+  <figure><figcaption>设计稿 · 亮</figcaption><img loading="lazy" src="../obsidian-screens/shots/sections-hooks-light.png" alt="设计稿 会话状态 + 后台任务 亮"></figure>
+  <figure><figcaption>实装 · 亮</figcaption><img loading="lazy" src="after/sections-hooks-light.png" alt="实装 会话状态 + 后台任务 亮"></figure>
+</div></section>
+<section id="shortcuts"><h2>快捷键 · 暗</h2><div class="pair">
+  <figure><figcaption>设计稿 · 暗</figcaption><img loading="lazy" src="../obsidian-screens/shots/sections-shortcuts-dark.png" alt="设计稿 快捷键 暗"></figure>
+  <figure><figcaption>实装 · 暗</figcaption><img loading="lazy" src="after/sections-shortcuts-dark.png" alt="实装 快捷键 暗"></figure>
+</div></section>
+<section id="shortcuts-light"><h2>快捷键 · 亮</h2><div class="pair">
+  <figure><figcaption>设计稿 · 亮</figcaption><img loading="lazy" src="../obsidian-screens/shots/sections-shortcuts-light.png" alt="设计稿 快捷键 亮"></figure>
+  <figure><figcaption>实装 · 亮</figcaption><img loading="lazy" src="after/sections-shortcuts-light.png" alt="实装 快捷键 亮"></figure>
+</div></section>
+<section id="backup"><h2>本地备份 · 暗</h2><div class="pair">
+  <figure><figcaption>设计稿 · 暗</figcaption><img loading="lazy" src="../obsidian-screens/shots/sections-backup-dark.png" alt="设计稿 本地备份 暗"></figure>
+  <figure><figcaption>实装 · 暗</figcaption><img loading="lazy" src="after/sections-backup-dark.png" alt="实装 本地备份 暗"></figure>
+</div></section>
+<section id="backup-light"><h2>本地备份 · 亮</h2><div class="pair">
+  <figure><figcaption>设计稿 · 亮</figcaption><img loading="lazy" src="../obsidian-screens/shots/sections-backup-light.png" alt="设计稿 本地备份 亮"></figure>
+  <figure><figcaption>实装 · 亮</figcaption><img loading="lazy" src="after/sections-backup-light.png" alt="实装 本地备份 亮"></figure>
+</div></section>
+<section id="environment"><h2>协作环境 · 暗</h2><div class="pair">
+  <figure><figcaption>设计稿 · 暗</figcaption><img loading="lazy" src="../obsidian-screens/shots/sections-environment-dark.png" alt="设计稿 协作环境 暗"></figure>
+  <figure><figcaption>实装 · 暗</figcaption><img loading="lazy" src="after/sections-environment-dark.png" alt="实装 协作环境 暗"></figure>
+</div></section>
+<section id="environment-light"><h2>协作环境 · 亮</h2><div class="pair">
+  <figure><figcaption>设计稿 · 亮</figcaption><img loading="lazy" src="../obsidian-screens/shots/sections-environment-light.png" alt="设计稿 协作环境 亮"></figure>
+  <figure><figcaption>实装 · 亮</figcaption><img loading="lazy" src="after/sections-environment-light.png" alt="实装 协作环境 亮"></figure>
+</div></section>
+<section id="about"><h2>关于 · 暗</h2><div class="pair">
+  <figure><figcaption>设计稿 · 暗</figcaption><img loading="lazy" src="../obsidian-screens/shots/sections-about-dark.png" alt="设计稿 关于 暗"></figure>
+  <figure><figcaption>实装 · 暗</figcaption><img loading="lazy" src="after/sections-about-dark.png" alt="实装 关于 暗"></figure>
+</div></section>
+<section id="about-light"><h2>关于 · 亮</h2><div class="pair">
+  <figure><figcaption>设计稿 · 亮</figcaption><img loading="lazy" src="../obsidian-screens/shots/sections-about-light.png" alt="设计稿 关于 亮"></figure>
+  <figure><figcaption>实装 · 亮</figcaption><img loading="lazy" src="after/sections-about-light.png" alt="实装 关于 亮"></figure>
+</div></section>
+<section id="shortcuts-recording"><h2>快捷键 · 行内录制态 · 暗</h2><div class="pair">
+  <figure><figcaption>设计稿（录制态画在面板分组第 2 行）· 暗</figcaption><img loading="lazy" src="../obsidian-screens/shots/sections-shortcuts-dark.png" alt="设计稿 录制态 暗"></figure>
+  <figure><figcaption>实装 · 「打开 / 关闭用量」录制中 · 暗</figcaption><img loading="lazy" src="after/sections-shortcuts-recording-dark.png" alt="实装 录制态 暗"></figure>
+</div></section>
+<section id="shortcuts-recording-light"><h2>快捷键 · 行内录制态 · 亮</h2><div class="pair">
+  <figure><figcaption>设计稿（录制态画在面板分组第 2 行）· 亮</figcaption><img loading="lazy" src="../obsidian-screens/shots/sections-shortcuts-light.png" alt="设计稿 录制态 亮"></figure>
+  <figure><figcaption>实装 · 「打开 / 关闭用量」录制中 · 亮</figcaption><img loading="lazy" src="after/sections-shortcuts-recording-light.png" alt="实装 录制态 亮"></figure>
+</div></section>
+</body>
+</html>

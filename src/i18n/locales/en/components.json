@@ -84,5 +84,12 @@
     "one": "{{count}} pending confirmation",
     "other": "{{count}} pending confirmations"
   },
-  "DatePicker.validDateInRange": "Enter a valid date within the allowed range"
+  "DatePicker.validDateInRange": "Enter a valid date within the allowed range",
+  "WorkbenchToolbar.branch": "Current branch {{branch}}",
+  "WorkbenchToolbar.sessionTab": "Current session {{name}}",
+  "WorkbenchToolbar.projectSessions": "Sessions in this project",
+  "WorkbenchToolbar.detachedHead": "Detached HEAD · {{branch}}",
+  "WorkbenchToolbar.split": "Split pane",
+  "WorkbenchToolbar.splitNeedsSession": "Open another session to split the pane",
+  "WorkbenchToolbar.splitChoose": "Choose a session to split on the right"
 }

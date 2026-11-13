@@ -1,6 +1,6 @@
+import { Notice } from "../components/Notice";
 import { formatNumber, t, useTranslation } from "../i18n";
 import {
-  AlertTriangle,
   ArrowLeft,
   ChevronRight,
   FileCode2,
@@ -115,9 +115,10 @@ export function FilePreviewPane({
               stale={preview.stale}
             />
           </div>
-          {preview.failure ? <div className="file-preview__error" role="alert"><AlertTriangle aria-hidden="true" size={ICON.sm} />
-            <span>{preview.failure}</span><button className="file-preview__retry" disabled={preview.loadingDirectory} onClick={preview.refresh} type="button">{t("filepreview.FilePreviewPane.text_ae93d47bc5")}</button>
-            <button onClick={preview.clearFailure} aria-label={t("filepreview.FilePreviewPane.text_9ce0447cb3")} title={t("filepreview.FilePreviewPane.text_9ce0447cb3")} type="button"><X aria-hidden="true" size={ICON.xs} /></button></div> : null}
+          {preview.failure ? <Notice className="file-preview__error" action={<>
+            <button className="file-preview__retry" disabled={preview.loadingDirectory} onClick={preview.refresh} type="button">{t("filepreview.FilePreviewPane.text_ae93d47bc5")}</button>
+            <button className="file-preview__dismiss" onClick={preview.clearFailure} aria-label={t("filepreview.FilePreviewPane.text_9ce0447cb3")} title={t("filepreview.FilePreviewPane.text_9ce0447cb3")} type="button"><X aria-hidden="true" size={ICON.xs} /></button>
+          </>}>{preview.failure}</Notice> : null}
         </>
       )}
 
@@ -182,10 +183,9 @@ function PreviewContent({ focusLine, preview, loading, stale, onReload }: Previe
         <span className="file-preview__language">{preview.language ?? "text"}</span>
       </header>
       {stale ? (
-        <div className="file-preview__stale" role="status">
-          <span>{t("filepreview.FilePreviewPane.text_d60322e8aa")}</span>
-          <button onClick={onReload} type="button">{t("filepreview.FilePreviewPane.text_7bdd5ce1e2")}</button>
-        </div>
+        <Notice className="file-preview__stale" tone="warning" action={<button onClick={onReload} type="button">{t("filepreview.FilePreviewPane.text_7bdd5ce1e2")}</button>}>
+          {t("filepreview.FilePreviewPane.text_d60322e8aa")}
+        </Notice>
       ) : null}
       <div className="file-preview__scroll">
         <HighlightedCode content={preview.content} focusLine={focusLine} language={preview.language} />

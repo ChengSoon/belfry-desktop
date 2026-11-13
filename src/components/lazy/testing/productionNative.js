@@ -54,7 +54,7 @@ const handlers = {
   usage_analytics: () => ({ rows: [], quotas: [], scannedFiles: 0, skippedFiles: 0, undatedRecords: 0,
     windowDays: 30, projectRoot: null, startAt: null, endAt: 1, generatedAt: 1 }),
   font_read: () => ({ fonts: [] }), background_read: () => null,
-  project_open: () => project, git_status: () => ({ branch: "qa", files: [] }),
+  project_open: () => project, git_status: () => ({ branch: "qa", files: [] }), git_branch: () => ({ repository: true, branch: "qa", detached: null }),
 };
 const voidCommands = new Set(["terminal_resize", "terminal_close", "terminal_close_tab", "terminal_detach",
   "terminal_set_palette", "terminal_exit", "collab_sync_sessions", "history_cancel_search", "usage_cancel_analytics", "app_set_locale"]);

@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>曜石 · 插件中心</title>
+<script src="boot.js"></script>
+<link rel="stylesheet" href="obsidian.css">
+<style>
+  .pc{display:grid;grid-template-columns:minmax(0,1fr) 380px;height:100%}
+  .pc-main{padding:var(--space-8);overflow:auto;min-width:0}
+  .toolbar{display:flex;align-items:center;gap:12px;margin-bottom:var(--space-5)}
+  .toolbar .grow{flex:1}
+  .toolbar .field{min-width:240px}
+  .tabs{display:inline-flex;padding:3px;gap:2px;border-radius:var(--radius-sm);background:var(--surface);box-shadow:inset 0 0 0 1px var(--border)}
+  .tabs button{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 12px;border-radius:4px;font-size:var(--fs-sm);color:var(--text-muted)}
+  .tabs button[aria-selected=true]{background:var(--surface-raised);color:var(--text);font-weight:500;box-shadow:var(--shadow-sm),0 0 0 1px var(--border)}
+  [data-theme=dark] .tabs button[aria-selected=true]{background:#2a2c33}
+  .tabs .n{font:400 11px var(--font-mono);color:var(--text-faint)}
+  .list-head{display:flex;align-items:center;gap:8px;margin:var(--space-5) 0 var(--space-2);font-size:var(--fs-xs);font-weight:500;color:var(--text-faint)}
+  .list{border:1px solid var(--border);border-radius:var(--radius-md);background:var(--panel);overflow:hidden}
+  .pl{position:relative;display:grid;grid-template-columns:36px minmax(0,1fr) auto auto;gap:14px;align-items:center;min-height:68px;padding:12px 12px 12px 16px;width:100%}
+  .pl + .pl{border-top:1px solid var(--border-soft)}
+  .pl:hover,.pl.is-hover{background:var(--surface-hover)}
+  .pl.is-active{background:var(--sidebar-active)}
+  .pl.is-active::before{content:"";position:absolute;left:0;top:14px;bottom:14px;width:2px;border-radius:2px;background:var(--accent)}
+  .pl-icon{width:36px;height:36px;border-radius:var(--radius-md);display:grid;place-items:center;background:var(--surface);box-shadow:inset 0 0 0 1px var(--border);color:var(--text-muted)}
+  .pl-title{display:flex;align-items:center;gap:8px;font-weight:500}
+  .pl-sub{font:400 12px var(--font-mono);color:var(--text-faint);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pl.off .pl-title{color:var(--text-muted)}
+  .scope{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:var(--radius-sm);font-size:var(--fs-sm);color:var(--text-muted);box-shadow:inset 0 0 0 1px var(--border)}
+  .scope svg{width:14px;height:14px}
+  .detail{background:var(--panel);border-left:1px solid var(--border);padding:var(--space-6);overflow:auto}
+  .d-head{display:flex;gap:14px;align-items:flex-start;margin-bottom:var(--space-5)}
+  .d-head .pl-icon{width:48px;height:48px;border-radius:var(--radius-lg)}
+  .d-head h2{margin:0;font-size:var(--fs-lg);font-weight:500}
+  .d-head p{margin:2px 0 0;font:400 12px var(--font-mono);color:var(--text-faint)}
+  .d-actions{display:flex;gap:8px;margin-bottom:var(--space-6)}
+  .d-sec{margin-bottom:var(--space-6)}
+  .d-sec h3{margin:0 0 var(--space-2);font-size:var(--fs-xs);font-weight:500;color:var(--text-faint);letter-spacing:.04em}
+  .d-sec p{margin:0;font-size:var(--fs-sm);color:var(--text-muted);line-height:1.65}
+  .perm{display:grid;gap:6px}
+  .perm div{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--radius-sm);background:var(--surface);font-size:var(--fs-sm)}
+  .perm code{font:400 12px var(--font-mono);color:var(--text-muted);margin-left:auto}
+  .meta{display:grid;grid-template-columns:80px 1fr;gap:6px 12px;font-size:var(--fs-sm)}
+  .meta dt{color:var(--text-faint)} .meta dd{margin:0}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="rail" aria-label="设置导航">
+    <div class="traffic" aria-hidden="true"><i></i><i></i><i></i></div>
+    <div class="nav-head"><strong>设置</strong></div>
+    <nav class="nav-group">
+      <h3>工作环境</h3>
+      <button class="nav-item"><svg viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="10" rx="1.5"/><circle cx="6" cy="7" r="1.3"/><path d="M14 11l-3.5-3.5L4 13"/></svg>外观</button>
+      <button class="nav-item"><svg viewBox="0 0 16 16"><rect x="1.5" y="4" width="13" height="8" rx="1.5"/><path d="M4 7h1M7 7h1M10 7h2M5 9.5h6"/></svg>快捷键</button>
+    </nav>
+    <nav class="nav-group">
+      <h3>扩展与数据</h3>
+      <button class="nav-item is-active"><svg viewBox="0 0 16 16"><path d="M6 2v3M10 2v3M4 5h8v3a4 4 0 0 1-8 0zM8 12v2"/></svg>插件<span class="count">3</span></button>
+      <button class="nav-item"><svg viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="3" rx="1"/><path d="M3 6v7h10V6M6.5 9h3"/></svg>本地备份</button>
+    </nav>
+  </aside>
+
+  <main class="face">
+    <div class="pc">
+      <section class="pc-main">
+        <header class="page-head" style="margin-bottom:var(--space-5)">
+          <div class="grow"><h1>插件</h1><p>插件运行在独立 worker 中，按声明的权限访问本机能力。</p></div>
+          <button class="btn btn-secondary"><svg viewBox="0 0 16 16"><path d="M8 2v8M4.5 6.5L8 10l3.5-3.5M3 13h10"/></svg>从文件安装</button>
+          <button class="btn btn-primary">浏览市场</button>
+        </header>
+        <div class="toolbar">
+          <div class="tabs" role="tablist" data-s="tabs 32 · 同分段控件">
+            <button role="tab" aria-selected="true">已安装<span class="n">3</span></button>
+            <button role="tab" aria-selected="false">插件市场</button>
+          </div>
+          <span class="grow"></span>
+          <label class="field"><svg viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg><input placeholder="搜索已安装插件"></label>
+        </div>
+
+        <div class="notice err s-below" style="margin-bottom:var(--space-2)" data-s="错误 notice：图标 + 原因 + 恢复动作（A14）">
+          <svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 5v3.5M8 11v.1"/></svg>
+          <div class="n-body"><b>「项目审阅」启动失败</b><span>worker 在 3 秒内没有响应；已自动停用。</span></div>
+          <button class="btn btn-secondary">查看日志</button>
+          <button class="btn btn-ghost">重试</button>
+        </div>
+
+        <div class="list-head">已启用 <span class="tag">2</span></div>
+        <div class="list s-left" data-s="list · r8 · panel · 行 ≥68 · 分隔 border-soft">
+          <div class="pl is-active s-in" data-s="当前详情：sidebar-active + 2px accent">
+            <span class="pl-icon"><svg viewBox="0 0 16 16"><path d="M3 5l3 3-3 3M8 11h5"/></svg></span>
+            <span><span class="pl-title">快捷指令<span class="tag">本地</span></span><span class="pl-sub">demo.command-library · v1.0.0</span></span>
+            <span class="scope"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M2 8h12M8 2c2 2 2 10 0 12M8 2c-2 2-2 10 0 12"/></svg>全局</span>
+            <button class="switch" role="switch" aria-checked="true" aria-label="启用"></button>
+          </div>
+          <div class="pl is-hover">
+            <span class="pl-icon"><svg viewBox="0 0 16 16"><path d="M4 3h8v10H4zM6 6h4M6 8.5h4M6 11h2"/></svg></span>
+            <span><span class="pl-title">小清新待办<span class="tag">本地</span><span class="tag ok">有更新</span></span><span class="pl-sub">demo.quick-notes · v1.0.0 → v1.1.0</span></span>
+            <span class="scope"><svg viewBox="0 0 16 16"><path d="M2 4h5l1.5 1.5H14V13H2z"/></svg>2 个项目</span>
+            <button class="switch" role="switch" aria-checked="true" aria-label="启用"></button>
+          </div>
+        </div>
+
+        <div class="list-head">已关闭 <span class="tag">1</span></div>
+        <div class="list">
+          <div class="pl off">
+            <span class="pl-icon"><svg viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg></span>
+            <span><span class="pl-title">项目审阅<span class="tag err">启动失败</span></span><span class="pl-sub">demo.project-review · v1.0.0</span></span>
+            <span class="scope">已关闭</span>
+            <button class="switch" role="switch" aria-checked="false" aria-label="启用"></button>
+          </div>
+        </div>
+      </section>
+
+      <aside class="detail s-in" aria-label="插件详情" data-s="详情 380 · panel · border-left">
+        <div class="d-head">
+          <span class="pl-icon"><svg viewBox="0 0 16 16"><path d="M3 5l3 3-3 3M8 11h5"/></svg></span>
+          <div><h2>快捷指令</h2><p>demo.command-library · v1.0.0</p></div>
+        </div>
+        <div class="d-actions">
+          <button class="btn btn-secondary">插件设置</button>
+          <button class="btn btn-ghost">打开目录</button>
+          <span style="flex:1"></span>
+          <button class="btn btn-ghost" style="color:var(--danger)">卸载</button>
+        </div>
+        <div class="d-sec"><h3>简介</h3><p>把常用 Shell 命令存成可搜索的片段，在 Quick Open 里一键发送到当前终端。</p></div>
+        <div class="d-sec">
+          <h3>权限</h3>
+          <div class="perm">
+            <div><svg viewBox="0 0 16 16"><path d="M3 5l3 3-3 3M8 11h5"/></svg>向当前终端写入<code>terminal.write</code></div>
+            <div><svg viewBox="0 0 16 16"><path d="M4 2h5l3 3v9H4z"/></svg>读写自己的数据目录<code>storage.self</code></div>
+            <div style="background:var(--warning-soft)"><svg viewBox="0 0 16 16" style="color:var(--warning)"><path d="M8 2l6.5 11.5h-13z"/><path d="M8 6.5v3M8 11.5v.1"/></svg>访问网络<code>net.fetch</code></div>
+          </div>
+        </div>
+        <div class="d-sec">
+          <h3>信息</h3>
+          <dl class="meta"><dt>来源</dt><dd>本地文件</dd><dt>作者</dt><dd>演示作者</dd><dt>作用范围</dt><dd>全局</dd><dt>安装时间</dt><dd class="mono">2026-11-02</dd></dl>
+        </div>
+      </aside>
+    </div>
+  </main>
+</div>
+<div class="demo">演示数据 · 设计稿</div>
+</body>
+</html>

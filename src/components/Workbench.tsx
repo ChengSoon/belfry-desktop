@@ -45,6 +45,11 @@ export interface WorkbenchProps {
   onToggleCollab: () => void;
   onTogglePreview: () => void;
   onToggleQuickOpen: () => void;
+  /** 顶栏会话标签切换；与侧栏点击走同一个入口。可选：静态渲染的单测不传。 */
+  onActivateTab?: (id: string) => void;
+  onSplitTab?: (id: string) => void;
+  /** 当前命名工作区允许加入分屏的会话。 */
+  splitTabIds?: string[];
 }
 
 export function Workbench(props: WorkbenchProps) {

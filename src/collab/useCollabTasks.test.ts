@@ -52,6 +52,7 @@ beforeEach(async () => {
   hooks.cursor = 0; hooks.slots = []; hooks.effects = []; hooks.dirty = false;
   vi.resetAllMocks(); vi.useFakeTimers();
   vi.stubGlobal("window", { setInterval, clearInterval, setTimeout, clearTimeout });
+  vi.stubGlobal("navigator", { languages: ["zh-CN"], language: "zh-CN" });
   vi.mocked(collabTasks).mockResolvedValue({ tasks: [] });
   render(); await flush();
 });

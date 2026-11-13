@@ -12,17 +12,22 @@ async function assertLayout(view, collapsed = false) {
     return { height:innerHeight, sidebar:rect('.sidebar'), shell:rect('.sidebar-shell'),
       footer:rect('.sidebar-foot'), list:rect('.session-list'), workbench:rect('.workbench'),
       rows:getComputedStyle(document.querySelector('.app-shell')).gridTemplateRows.split(' ').length,
+      inset:parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--content-inset')),
+      top:parseFloat(getComputedStyle(document.querySelector('.workbench')).marginTop),
       hidden:document.querySelector('.sidebar-shell').inert,
       visibility:getComputedStyle(document.querySelector('.sidebar')).visibility };
   })()`);
   assert.equal(layout.rows, 1, 'sidebar and workbench must remain in one grid row');
-  assert.equal(layout.workbench.y, 0);
-  assert.equal(layout.workbench.height, layout.height);
+  // 曜石：主区是浮起的内容面，上下右各内缩 --content-inset（上沿在 macOS 让位交通灯时可能更大）。
+  assert.equal(layout.inset, 8);
+  assert.equal(layout.workbench.y, layout.top);
+  assert.ok(layout.top >= layout.inset);
+  assert.equal(layout.workbench.bottom, layout.height - layout.inset);
   assert.ok(layout.workbench.width > 0);
   assert.equal(layout.hidden, collapsed);
   if (collapsed) {
     assert.equal(layout.shell.width, 0);
-    assert.equal(layout.workbench.x, 0);
+    assert.equal(layout.workbench.x, layout.inset, 'collapsed: content surface keeps its left inset');
     assert.equal(layout.visibility, 'hidden');
   } else {
     assert.equal(layout.sidebar.height, layout.height, 'sidebar fills the window, not just its contents');
@@ -79,7 +84,7 @@ test('sidebar collapse works with every right panel and settings takes the whole
     { trigger:'button[title^="额度用量"]', panel:'.usage-panel', close:'button[aria-label="关闭用量"]' },
     { trigger:'button[title^="历史会话"]', panel:'.history-panel', close:'button[title="关闭历史会话"]' },
     { trigger:'button[aria-label="文件预览"]', panel:'.file-preview-panel', close:'button[title="关闭文件预览"]' },
-    { trigger:'button[aria-label="会话协作"]', panel:'.collab-panel', close:'button[aria-label="关闭协作面板"]' },
+    { menu:'会话协作', panel:'.collab-panel', close:'button[aria-label="关闭协作面板"]' },
     { menu:'插件工作面板', panel:'.plugin-dock:not([hidden])', close:'button[aria-label="关闭工作面板"]' },
   ];
   for (const entry of panels) {
@@ -88,7 +93,7 @@ test('sidebar collapse works with every right panel and settings takes the whole
     await assertLayout(view);
     await toggleSidebar(view, true);
     // Open settings through Quick Open while the sidebar and a right panel are retained.
-    await click(view, 'button[aria-label="Quick Open"]');
+    await menuAction(view, 'Quick Open');
     await waitFor(view, "!!document.querySelector('.quick-open input')");
     await fill(view, '.quick-open input', '设置');
     await press(view, 'Enter');

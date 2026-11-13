@@ -19,13 +19,13 @@
 
 .usage-filters {
   display: grid;
-  gap: 8px;
-  padding: 12px 16px;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
 }
 
 .usage-segments {
   display: flex;
-  padding: 2px;
+  padding: var(--space-hair);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--canvas);
@@ -33,28 +33,29 @@
 
 .usage-segments button {
   flex: 1;
-  min-height: 30px;
-  padding: 4px 6px;
+  min-height: var(--control-height-sm);
+  padding: var(--space-1) var(--space-2);
   border: 0;
-  border-radius: calc(var(--radius-sm) - 2px);
+  border-radius: var(--radius-xs);
   color: var(--text-muted);
   background: transparent;
   font-size: var(--fs-sm);
   cursor: pointer;
-  transition: color var(--duration) var(--ease), background var(--duration) var(--ease);
+  transition: color var(--motion-standard) var(--motion-ease), background var(--motion-standard) var(--motion-ease);
 }
 
-.usage-segments button:hover { color: var(--text); }
+.usage-segments button:hover { color: var(--text); background: var(--surface-hover); }
 
 .usage-segments button.is-active {
-  color: var(--accent);
-  background: var(--accent-soft);
+  color: var(--text);
+  background: var(--sidebar-active);
+  font-weight: 500;
 }
 
 .usage-scope {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   overflow: hidden;
   color: var(--text-muted);
   font-size: var(--fs-sm);
@@ -69,32 +70,19 @@
   white-space: nowrap;
 }
 
-.usage-error {
-  display: flex;
-  align-items: flex-start;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 0 12px 8px;
-  color: var(--danger);
-  font-size: var(--fs-sm);
-  line-height: var(--lh-normal);
-  padding: 10px;
-  border-left: 2px solid var(--danger);
-  background: var(--surface);
-  overflow-wrap: anywhere;
-}
+.usage-error { margin: 0 var(--space-3) var(--space-2); }
 
-.usage-error > svg { flex: 0 0 auto; margin-top: 1px; }
+.usage-error > svg { flex: 0 0 auto; margin-top: var(--space-hair); }
 
 .usage-body {
   overflow-y: auto;
   min-width: 0;
-  padding: 0 16px 16px;
+  padding: 0 var(--space-4) var(--space-4);
   scrollbar-color: var(--scrollbar) transparent;
 }
 
 .usage-hint {
-  margin: 4px 0 0;
+  margin: var(--space-1) 0 0;
   color: var(--text-faint);
   font-size: var(--fs-sm);
   line-height: var(--lh-relaxed);
@@ -104,7 +92,7 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  padding: 9px 11px;
+  padding: var(--space-3);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface-raised);
@@ -119,10 +107,10 @@
   letter-spacing: -0.02em;
 }
 
-.usage-section { margin-top: 14px; }
+.usage-section { margin-top: var(--space-4); }
 
 .usage-section h3 {
-  margin: 0 0 7px;
+  margin: 0 0 var(--space-2);
   color: var(--text-faint);
   font-size: var(--fs-xs);
   font-weight: 500;
@@ -131,7 +119,7 @@
 }
 
 .usage-note {
-  margin: 9px 0 0;
+  margin: var(--space-2) 0 0;
   color: var(--text-faint);
   font-size: var(--fs-xs);
   line-height: var(--lh-relaxed);
@@ -139,32 +127,32 @@
 
 /* 套餐额度 */
 
-.usage-quota + .usage-quota { margin-top: 9px; }
+.usage-quota + .usage-quota { margin-top: var(--space-3); }
 
 .usage-quota__head {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 5px;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
 }
 
 .usage-quota__head > strong { font-size: var(--fs-md); font-weight: 500; }
 
 .usage-quota__plan {
-  padding: 1px 5px;
+  padding: var(--space-hair) var(--space-1);
   border-radius: var(--radius-sm);
   color: var(--text-muted);
   background: var(--surface-hover);
   font-size: var(--fs-xs);
 }
 
-.usage-quota__row + .usage-quota__row { margin-top: 7px; }
+.usage-quota__row + .usage-quota__row { margin-top: var(--space-2); }
 
 .usage-quota__bar,
 .usage-model__bar {
   overflow: hidden;
   height: 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: var(--surface-hover);
 }
 
@@ -172,9 +160,9 @@
 .usage-model__bar > i {
   display: block;
   height: 100%;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: var(--accent);
-  transition: width var(--duration) var(--ease);
+  transition: width var(--motion-standard) var(--motion-ease);
 }
 
 .usage-quota__bar[data-tone="warning"] > i { background: var(--warning); }
@@ -184,8 +172,8 @@
 .usage-model__meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 3px 9px;
-  margin-top: 4px;
+  gap: var(--space-1) var(--space-2);
+  margin-top: var(--space-1);
   color: var(--text-faint);
   font-size: var(--fs-xs);
 }
@@ -197,7 +185,7 @@
   display: grid;
   margin: 0;
   padding: 0;
-  gap: 11px;
+  gap: var(--space-3);
   list-style: none;
 }
 
@@ -205,8 +193,8 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 5px;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
 }
 
 .usage-model__name {
@@ -225,13 +213,13 @@
 
 /* 按项目 */
 
-.usage-projects { gap: 6px; }
+.usage-projects { gap: var(--space-2); }
 
 .usage-projects li {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--space-2);
   font-size: var(--fs-sm);
 }
 
@@ -249,7 +237,11 @@
   font-style: normal;
 }
 
-.usage-context { margin: 0; color: var(--text-muted); font-size: var(--fs-xs); line-height: 1.6; overflow-wrap: anywhere; }
+.usage-context { margin: 0; color: var(--text-muted); font-size: var(--fs-xs); line-height: var(--lh-relaxed); overflow-wrap: anywhere; }
 .usage-error span { flex: 1; min-width: 0; }
-.usage-error button { padding: 3px 7px; border: 1px solid var(--border); border-radius: var(--radius-xs); color: var(--accent); background: var(--surface); font: inherit; cursor: pointer; }
+.usage-error button { white-space: nowrap; }
 .usage-filters button:focus-visible, .usage-error button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.usage-segments button:focus-visible { background: var(--accent-soft); box-shadow: inset 2px 0 var(--accent); }
+.usage-total > strong, .usage-model__total, .usage-projects em { font-variant-numeric: tabular-nums; }
+.usage-empty { margin: 0; padding: var(--empty-inset) 0; color: var(--text-muted); font-size: var(--fs-sm); line-height: var(--lh-relaxed); text-align: center; }

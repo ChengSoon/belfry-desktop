@@ -148,5 +148,6 @@
   "ProjectProviderSection.shellVariable": "{{name}}（登录 Shell）",
   "ProjectProviderSection.processVariable": "{{name}}（宿主进程）",
   "ProjectProviderSection.selectedWithKey": "项目已选用 · 已配置独立密钥",
-  "ProjectProviderSection.selectedWithoutKey": "项目已选用 · 未配置独立密钥"
+  "ProjectProviderSection.selectedWithoutKey": "项目已选用 · 未配置独立密钥",
+  "ProjectProviderSection.agentsTitle": "各 Agent 路由"
 }

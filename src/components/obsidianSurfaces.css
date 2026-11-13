@@ -1,0 +1,175 @@
+/* 曜石二级界面（T12）。规格出自 docs/design/belfry-ui/obsidian-screens/README.md：
+   按钮 32 · 字段 38 · 导航 40 · 分段 32/26 · 开关 36×20 · 弹窗 440 r12 · Toast 380 r8 · notice 结构。
+   选中语义（A13）：持久当前位置 = sidebar-active + 2px accent 竖条 + 500；键盘候选 = accent-soft + 竖条；hover 只换底。
+   与 workspace/obsidianWorkbench.css 同理：在 App 里最后加载，覆盖各模块的旧 Graphite 尺寸，
+   不去改那些文件里和焦点管理、未保存保护、浮层定位有关的规则。颜色全部走令牌。 */
+
+/* ───────────── 设置：外壳与导航 ───────────── */
+/* macOS 顶部 28px 让位条按列走：导航那一列从窗口顶边就是侧栏色，内容那一列是画布色，
+   不再出现「整条 canvas 色 → 下面导航 sidebar 色」的横向色阶（T9 问题 1）。 */
+/* 设置外壳 = 工作台同一结构（T23，对应 settings.html / settings-sections.html）：
+   导航和窗口底一体（backdrop 色，无分隔线），内容区是内缩 --content-inset、r12、shadow-content 的浮起面。
+   让位：macOS 交通灯只在导航列让 28px（导航本来就是底色，顶部无色阶）；内容面上沿和工作台一样
+   取 max(inset, titlebar - 20)。Windows 自绘标题栏 40px 横跨整窗、与导航同为 sidebar 色，内容面从它下面再留 8px。 */
+:root .settings-view {
+  --settings-top-inset: max(var(--content-inset), calc(var(--titlebar-inset) - 20px));
+  padding-top: 0;
+  background: var(--backdrop);
+  grid-template-columns: 240px minmax(0, 1fr);
+}
+:root[data-platform="windows"] .settings-view { --settings-top-inset: calc(var(--titlebar-inset) + var(--content-inset)); }
+:root .settings-nav { padding-top: calc(var(--titlebar-inset) + 24px); border-right: 0; background: var(--sidebar); }
+:root[data-platform="windows"] .settings-nav { padding-top: calc(var(--titlebar-inset) + 16px); }
+:root .settings-content {
+  --settings-page-padding: var(--space-8);
+  margin: var(--settings-top-inset) var(--content-inset) var(--content-inset) 0;
+  padding: var(--space-8) var(--settings-page-padding) 64px;
+  border-radius: var(--radius-lg);
+  background: var(--canvas);
+  box-shadow: var(--shadow-content);
+}
+/* 用户要求右侧不留空白（T28）：正文填满可用宽度，边缘留白仍由滚动面统一提供。 */
+:root .settings-content > :is(.os-page, .appearance) { max-width: 100%; }
+/* 壁纸开启时内容面沿用 T12 的玻璃配方（透出壁纸），面本身的圆角和投影保留。 */
+:root[data-background="on"] .settings-view { background: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; }
+:root[data-background="on"] .settings-content {
+  background: var(--app-bg-glass, var(--canvas));
+  -webkit-backdrop-filter: var(--app-bg-glass-filter, none); backdrop-filter: var(--app-bg-glass-filter, none);
+}
+@media (max-width: 1024px) {
+  :root .settings-view { grid-template-columns: 196px minmax(0, 1fr); }
+  :root .settings-content { --settings-page-padding: var(--space-6); padding: var(--space-6); }
+}
+/* 窄窗：导航在上、内容在下（settings.css 的既有断点），内容面四周都内缩。 */
+@media (max-width: 640px) {
+  :root .settings-view { grid-template-columns: minmax(0, 1fr); }
+  :root .settings-nav { padding-top: calc(var(--titlebar-inset) + 12px); border-bottom: 0; }
+  :root .settings-content { --settings-page-padding: var(--space-4); margin: 0 var(--content-inset) var(--content-inset); padding: var(--space-6) var(--settings-page-padding); }
+}
+:root .settings-nav__group h3 { color: var(--text-faint); }
+:root .settings-nav__group button {
+  position: relative; min-height: var(--row-height-nav); padding: 0 10px; border-radius: var(--radius-sm);
+  transition: color var(--motion-standard) var(--motion-ease), background var(--motion-standard) var(--motion-ease);
+}
+:root .settings-nav__group button:hover:not(:disabled) { background: var(--sidebar-hover); }
+:root .settings-nav__group button.is-active { color: var(--text); background: var(--sidebar-active); font-weight: 500; }
+:root .settings-nav__group button.is-active::before {
+  content: ""; position: absolute; left: 0; top: 12px; bottom: 12px; width: 2px; border-radius: 2px;
+  background: var(--accent); pointer-events: none;
+}
+:root .settings-nav__group button:focus-visible { outline-color: var(--focus-ring); }
+:root .settings-search { border: 0; border-radius: var(--radius-sm); box-shadow: inset 0 0 0 1px var(--border-strong); }
+:root .settings-search:focus-within { outline-color: var(--focus-ring); }
+:root .settings-search input::placeholder { color: var(--text-faint); }
+:root .settings-nav__guard { border-left: 0; border-radius: var(--radius-sm); color: var(--text-muted); background: var(--warning-soft); padding: 10px 12px; }
+
+/* ───────────── 共享控件 ───────────── */
+:root .ui-control { --ui-fill: var(--surface); }
+:root .ui-control .ui-field, :root .ui-field.ui-select__trigger {
+  min-height: var(--control-height-md); padding: 0 12px; border: 0; border-radius: var(--radius-sm);
+  background: var(--surface); box-shadow: inset 0 0 0 1px var(--border-strong);
+  transition: box-shadow var(--motion-standard) var(--motion-ease), background var(--motion-standard) var(--motion-ease);
+}
+:root .ui-field.ui-select__trigger:hover:not(:disabled), :root .ui-control .ui-field:hover { box-shadow: inset 0 0 0 1px var(--text-faint); }
+/* 焦点：外加 2px accent 环（偏移 2），不只是换描边色——和按钮、导航的焦点表达一致。 */
+:root .ui-field.ui-select__trigger[aria-expanded="true"], :root .ui-control .ui-field:focus-within {
+  background: var(--surface); box-shadow: inset 0 0 0 1px var(--border-strong); outline: 2px solid var(--focus-ring); outline-offset: 2px;
+}
+:root .ui-control .ui-field:has([aria-invalid="true"]) { box-shadow: inset 0 0 0 1px var(--danger); }
+:root .ui-control__error { margin-top: 6px; }
+
+:root .ui-checkbox__mark { border: 0; box-shadow: inset 0 0 0 1px var(--border-strong); background: transparent; }
+:root .ui-checkbox[aria-checked="true"] > .ui-checkbox__mark { box-shadow: none; }
+:root .ui-checkbox:hover:not(:disabled) .ui-checkbox__mark { box-shadow: inset 0 0 0 1px var(--text-faint); }
+:root .ui-checkbox[aria-checked="true"]:hover:not(:disabled) .ui-checkbox__mark { box-shadow: none; }
+:root .ui-radio__mark { width: 16px; height: 16px; }
+:root .ui-radio-group .ui-radio[aria-checked="true"] { background: var(--sidebar-active); border-color: transparent; box-shadow: inset 0 0 0 1px var(--border-strong); }
+/* 单选组常出现在弹窗（raised 底）里：暗色下 raised #1d1f24 与 sidebar-active #1c1e23 几乎同色，
+   只靠底色认不出选中项，所以选中项再加一圈 border-strong 内描边。 */
+
+:root .ui-slider__rail { height: 4px; top: 12px; border-radius: 2px; background: var(--surface-hover); }
+:root .ui-slider__thumb { width: 14px; height: 14px; border: 0; background: var(--canvas); box-shadow: 0 0 0 2px var(--accent), var(--shadow-sm); }
+
+/* ───────────── 外观页：分段控件与主题下拉 ───────────── */
+:root .appearance__segments {
+  display: inline-flex; min-height: var(--control-height-sm); padding: 3px; gap: 2px; border: 0;
+  border-radius: var(--radius-sm); background: var(--surface); box-shadow: inset 0 0 0 1px var(--border);
+}
+:root .appearance__segments button { min-height: 26px; padding: 0 12px; border-radius: var(--radius-xs); font-size: var(--fs-sm); }
+:root .appearance__segments button.is-active {
+  color: var(--text); background: var(--surface-raised); font-weight: 500;
+  box-shadow: var(--shadow-sm), 0 0 0 1px var(--border);
+}
+/* 暗色下 raised 和 surface 只差一档，选中段再提一层才看得出来（设计稿里写死 #2a2c33，这里用 hover 档表达）。 */
+:root:not([data-theme="light"]) .appearance__segments button.is-active { background: var(--surface-hover); }
+/* 主题下拉与「语言」等下拉统一成 38 高带描边字段（T9 问题 3），不再是无描边胶囊。 */
+:root .plugin-theme-row .settings-theme-trigger {
+  height: var(--control-height-md); padding: 0 12px; border-radius: var(--radius-sm);
+  background: var(--surface); box-shadow: inset 0 0 0 1px var(--border-strong); font-size: var(--fs-sm);
+}
+:root .plugin-theme-row .settings-theme-trigger:hover { background: var(--surface); box-shadow: inset 0 0 0 1px var(--text-faint); }
+:root .plugin-theme-row .settings-theme-trigger[aria-expanded="true"] { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+:root .plugin-theme-row .settings-theme-trigger > svg { color: var(--text-faint); }
+
+/* ───────────── Quick Open ───────────── */
+:root .quick-open { width: min(640px, 100%); border-radius: var(--radius-lg); }
+:root .quick-open__scrim { padding-top: calc(var(--titlebar-inset) + 14vh); background: var(--scrim); -webkit-backdrop-filter: none; backdrop-filter: none; }
+:root .quick-open__head { min-height: 52px; padding: 8px 12px 8px 16px; }
+:root .quick-open__search-wrap input {
+  height: 36px; padding-left: 28px; border: 0; background: transparent; box-shadow: none; font-size: var(--fs-lg);
+}
+:root .quick-open__search-wrap input:focus { border: 0; box-shadow: none; }
+:root .quick-open__search-icon { left: 2px; }
+:root .quick-open__results { padding: 4px 6px 6px; }
+:root .quick-open__item {
+  position: relative; min-height: 44px; padding: 6px 10px; gap: 12px; grid-template-columns: 28px minmax(0, 1fr) auto;
+  border: 0; border-radius: var(--radius-sm);
+}
+/* hover 和键盘候选分开：hover 只换底；候选 = accent-soft + 2px 圆头竖条（A13），副标题提到 muted
+   （faint 落在 accent-soft 上暗色只有 4.39:1，见 obsidian-screens/README「对比度」）。 */
+:root .quick-open__item:hover { border-color: transparent; background: var(--surface-hover); box-shadow: none; }
+:root .quick-open__item.is-active { background: var(--accent-soft); box-shadow: none; }
+:root .quick-open__item.is-active::before {
+  content: ""; position: absolute; left: 0; top: 8px; bottom: 8px; width: 2px; border-radius: 2px; background: var(--accent);
+}
+:root .quick-open__item-icon {
+  display: grid; width: 28px; height: 28px; place-items: center; border-radius: var(--radius-sm);
+  background: var(--surface); box-shadow: inset 0 0 0 1px var(--border);
+}
+:root .quick-open__item.is-active .quick-open__item-icon { background: var(--canvas); }
+:root .quick-open__item-copy strong { font-weight: 400; }
+:root .quick-open__item.is-active .quick-open__item-copy strong { font-weight: 500; }
+:root .quick-open__item.is-active .quick-open__item-copy small { color: var(--text-muted); }
+:root .quick-open__item-kind { padding: 0; border: 0; background: transparent; }
+:root .quick-open__item.is-active .quick-open__item-kind { color: var(--text-muted); border: 0; background: transparent; }
+:root .quick-open__foot { min-height: 36px; background: var(--panel); }
+:root .quick-open__foot kbd { border-color: var(--border); border-bottom-width: 2px; }
+:root .quick-open__shortcut { color: var(--text-muted) !important; }
+
+/* ───────────── 确认弹窗 ───────────── */
+:root .modal { width: min(440px, 100%); padding: var(--space-6); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); }
+:root .modal__title { font-size: var(--fs-lg); font-weight: 500; }
+:root .modal__body { font-size: var(--fs-sm); line-height: 1.6; color: var(--text-muted); }
+:root .modal__actions { gap: var(--space-2); margin-top: var(--space-6); }
+:root .modal__actions button {
+  min-height: var(--control-height-sm); padding: 0 14px; border: 0; border-radius: var(--radius-sm);
+  background: var(--surface); box-shadow: inset 0 0 0 1px var(--border); font-size: var(--fs-sm); font-weight: 500;
+}
+:root .modal__actions button:hover:not(:disabled) { box-shadow: inset 0 0 0 1px var(--border-strong); background: var(--surface-hover); }
+:root .modal__actions button:disabled { opacity: .45; cursor: default; }
+:root .modal__actions .modal__primary { background: var(--accent); box-shadow: none; color: var(--accent-contrast); }
+:root .modal__actions .modal__primary:hover:not(:disabled) { background: var(--accent-hover); box-shadow: none; }
+/* 危险按钮唯一实心。文字色：暗 #0c0d10 / 亮 #fff，对 danger 分别 8.51 / 6.50:1。 */
+:root .modal__actions .modal__danger { background: var(--danger); box-shadow: none; color: var(--accent-contrast); }
+:root .modal__actions .modal__danger:hover:not(:disabled) { background: var(--danger-hover); box-shadow: none; color: var(--accent-contrast); }
+
+/* ───────────── Toast（宿主失败提示 + 插件 toast 同一规格） ───────────── */
+:root .failure-toast, :root .plugin-toast {
+  width: min(380px, calc(100% - 32px)); max-width: none; padding: 12px 14px; gap: 12px;
+  border: 0; border-radius: var(--radius-md); background: var(--surface-raised); box-shadow: var(--shadow-md); font-size: var(--fs-sm);
+}
+:root .failure-toast { right: 16px; bottom: 16px; grid-template-columns: 16px minmax(0, 1fr) 24px; align-items: start; }
+:root .failure-toast > svg { margin-top: 2px; }
+:root .plugin-toast { right: 16px; bottom: 16px; }
+:root .plugin-toast button { display: grid; width: 20px; height: 20px; place-items: center; padding: 0; border-radius: var(--radius-xs); color: var(--text-faint); font-size: var(--fs-md); }
+:root .plugin-toast button:hover { color: var(--text); background: var(--surface-hover); }

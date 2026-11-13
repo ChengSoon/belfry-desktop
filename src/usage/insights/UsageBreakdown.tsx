@@ -23,7 +23,7 @@ export function ModelBreakdown({ rows, prices }: { rows: UsageBucket[]; prices: 
       <TokenBreakdown tokens={model.tokens} />
       <p className="usage-note">{t("usage.UsageBreakdown.text_86ce2750fe", { count: formatExact(model.requests) })}</p>
       <PriceSources rows={model.rows} prices={prices} />
-    </Disclosure>) : <p className="usage-hint">{t("usage.UsageBreakdown.text_ce208bb160")}</p>}
+    </Disclosure>) : <p className="usage-empty">{t("usage.UsageBreakdown.text_ce208bb160")}</p>}
     {models.length > limit ? <button className="usage-show-more" type="button" onClick={() => setLimit(limit + PAGE_ITEMS)}>{t("usage.UsageBreakdown.text_76ab572143", { count: models.length - limit })}</button> : null}
   </section>;
 }

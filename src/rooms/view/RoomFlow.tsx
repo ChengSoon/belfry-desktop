@@ -68,7 +68,7 @@ const MemberNode = memo(function MemberNode({ data }: NodeProps<Node<MemberNodeD
       <span className="relative inline-flex shrink-0">
         <Avatar>
           <AvatarFallback
-            className={cn("font-semibold", node.kind === "user" ? "bg-primary text-primary-foreground" : "room-avatar")}
+            className={cn("room-avatar-label", node.kind === "user" ? "bg-primary text-primary-foreground" : "room-avatar")}
             style={node.kind === "user" ? undefined : { "--avatar-hue": hueOf(node.id) } as React.CSSProperties}>
             {node.kind === "user" ? <User className="size-4" /> : initialOf(node.title)}
           </AvatarFallback>
@@ -78,10 +78,10 @@ const MemberNode = memo(function MemberNode({ data }: NodeProps<Node<MemberNodeD
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-1">
-          <span className={cn("truncate font-semibold", node.status === "waiting" && "text-warning")}>{node.title}</span>
+          <span className={cn("truncate font-medium", node.status === "waiting" && "text-warning")}>{node.title}</span>
           {node.kind === "foreman" ? <Crown aria-label={t("rooms.RoomFlow.text_8153348240")} className="size-3.5 shrink-0 text-warning" /> : null}
           {node.load ? (
-            <span className="ml-auto rounded-full bg-primary/15 px-1.5 text-[11px] font-semibold text-primary tabular-nums" title={t("rooms.RoomFlow.text_292487f119", { count: node.load })}>
+            <span className="ml-auto rounded-full bg-primary/15 px-1.5 text-xs font-medium text-primary tabular-nums" title={t("rooms.RoomFlow.text_292487f119", { count: node.load })}>
               {node.load}
             </span>
           ) : null}
@@ -132,7 +132,7 @@ const FlowLine = memo(function FlowLine(props: EdgeProps<Edge<FlowEdgeData>>) {
       {data?.label ? (
         <EdgeLabelRenderer>
           <span className={cn(
-            "nodrag nopan pointer-events-auto absolute rounded-full border px-2 py-0.5 text-[11px] font-medium shadow-xs",
+            "nodrag nopan pointer-events-auto absolute rounded-full border px-2 py-0.5 text-xs font-medium shadow-xs",
             tone === "waiting" || tone === "reply" ? "border-warning/50 bg-card text-warning"
               : strong ? "border-primary/40 bg-card text-primary" : "border-border bg-card text-muted-foreground",
           )} style={{ transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)` }}>
@@ -244,7 +244,7 @@ function FlowLegend() {
     { tone: "idle", label: t("rooms.RoomFlow.text_f2da43f5e0") },
   ];
   return (
-    <div className="absolute right-3 bottom-3 z-10 flex items-center gap-3 rounded-lg border border-border bg-card/90 px-3 py-1.5 text-[11px] text-muted-foreground shadow-sm backdrop-blur">
+    <div className="absolute right-3 bottom-3 z-10 flex items-center gap-3 rounded-lg border border-border bg-card/90 px-3 py-1.5 text-xs text-muted-foreground shadow-sm backdrop-blur">
       {items.map((item) => (
         <span className="flex items-center gap-1.5" key={item.tone}>
           <span className="h-0.5 w-4 rounded-full" style={{ background: TONE_STROKE[item.tone], opacity: item.tone === "idle" ? 0.7 : 1 }} />

@@ -1,0 +1,154 @@
+/* 曜石 B 稿的工作台结构（T15）。对照 docs/design/belfry-ui/directions/workbench.html?dir=b。
+   只放结构和尺寸；颜色全部走 styles.css 的令牌，亮暗两套自动跟随。
+   单独成文件、最后加载：覆盖 quietSidebar.css / workbench.css / layout.css 里旧的 Graphite 尺寸，
+   不用去动那些文件里与拖拽、折叠动画、窄窗相关的既有规则。 */
+
+/* ── 侧栏：工作区切换（含标志）── */
+.sidebar .sidebar-context { align-items: center; gap: 6px; min-height: 0; margin: 4px 0 8px; padding: 0; border-bottom: 0; }
+.sidebar-context__logo { flex: 0 0 20px; width: 20px; height: 20px; margin-left: 8px; border-radius: 5px; }
+.sidebar .sidebar-context .named-workspaces { flex: 1; min-width: 0; }
+.sidebar .named-workspaces__trigger { min-height: 34px; padding: 0 8px; border-radius: var(--radius-md); }
+.sidebar .named-workspaces__trigger > svg:first-child { display: none; }
+.sidebar .sidebar-context__collapse { margin-top: 0; }
+
+/* ── 侧栏：常驻搜索条 ── */
+.sidebar-search {
+  display: flex; width: 100%; height: 32px; align-items: center; gap: 8px; margin-bottom: 14px; padding: 0 8px;
+  border: 0; border-radius: var(--radius-md); color: var(--text-faint); background: var(--sidebar-hover);
+  font: inherit; font-size: var(--fs-sm); text-align: left; cursor: pointer;
+  transition: background var(--motion-standard) var(--motion-ease), color var(--motion-standard) var(--motion-ease);
+}
+.sidebar-search > span { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.sidebar-search kbd { flex: none; padding: 3px 5px; border: 1px solid var(--border); border-radius: var(--radius-xs); color: var(--text-faint); font: 500 11px/1 var(--font-mono); }
+.sidebar-search:hover, .sidebar-search[aria-expanded="true"] { color: var(--text-muted); background: var(--surface-hover); }
+.sidebar-search:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+/* ── 侧栏：分区标签与项目分组 ── */
+.sidebar .sessions-head { height: 28px; margin-bottom: 0; padding-left: 8px; color: var(--text-faint); font-size: var(--fs-xs); letter-spacing: .02em; }
+.sidebar .session-group + .session-group { margin-top: 6px; }
+.sidebar .session-group__head > span { flex: 1 1 auto; min-width: 0; }
+/* 两行文字是 nowrap，grid 的 auto 轨道会按内容把整组撑到 400+px、溢出侧栏；
+   每一层都要钉成 minmax(0, 1fr)，截断才会发生在文字上而不是侧栏边缘。 */
+.sidebar .session-list,
+.sidebar .session-group,
+.sidebar .session-group__collapse,
+.sidebar .session-group__rows { grid-template-columns: minmax(0, 1fr); min-width: 0; }
+.sidebar .session-list { overflow-x: hidden; }
+.sidebar .session-group__head { height: 28px; min-height: 28px; margin: 4px 0 0; gap: 6px; padding: 0 8px; color: var(--text-muted); font-size: var(--fs-xs); }
+.sidebar .session-group__head:disabled { cursor: default; }
+.sidebar .session-group__head:disabled:hover { color: var(--text-muted); background: transparent; }
+.sidebar .session-group__head:disabled .session-group__chevron { transform: rotate(90deg); opacity: .6; }
+.sidebar .session-group__count { margin-left: auto; color: var(--text-faint); font: 400 11px var(--font-mono); }
+.sidebar .session-group__dot { order: 2; }
+.sidebar .session-group__count { order: 3; }
+
+/* ── 侧栏：会话行（图标块 + 两行文字 + 状态）── */
+.sidebar .session-row { height: auto; min-height: 44px; border-radius: var(--radius-md); }
+.sidebar .session-row__main { gap: 10px; padding: 0 4px 0 10px; }
+/* sidebar.css 里 `.session-row__main > span` 给的是 flex:1 + 截断，那是单行名字时代的规则；
+   这里的 span 有三种角色，要逐个改回来，不然 20px 的图标块会被拉满整行。 */
+.sidebar .session-row__main > .session-row__tile,
+.sidebar .session-row__main > .session-row__badge { flex: none; overflow: visible; }
+.sidebar .session-row__main > .session-row__text { overflow: hidden; }
+.session-row__tile {
+  display: grid; flex: 0 0 20px; width: 20px; height: 20px; place-items: center;
+  border-radius: 5px; color: var(--text-muted); background: var(--sidebar-hover);
+}
+.session-row__tile > svg { width: 14px; height: 14px; }
+.session-row__tile--claude { color: var(--brand-claude); }
+.session-row__text { display: flex; flex: 1; min-width: 0; flex-direction: column; justify-content: center; gap: 1px; }
+.session-row__name, .session-row__sub { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; text-align: left; }
+.session-row__name { color: inherit; font-size: var(--fs-sm); line-height: 1.4; }
+.session-row__sub { color: var(--text-faint); font-size: 11.5px; font-weight: 400; line-height: 1.35; }
+.session-row__badge {
+  flex: none; padding: 4px 6px; border-radius: var(--radius-xs); color: var(--warning); background: var(--warning-soft);
+  font-size: 11px; font-weight: 500; line-height: 1;
+}
+.sidebar .session-row.is-active .session-row__main { color: var(--text); }
+.sidebar .session-row.is-active .session-row__name { font-weight: 500; }
+.sidebar .session-row.is-active .session-row__tile { color: var(--text); }
+.sidebar .session-row.is-active .session-row__tile--claude { color: var(--brand-claude); }
+.sidebar .session-row.is-active::before { top: 10px; bottom: 10px; }
+.sidebar .session-row.is-dim .session-row__tile { opacity: .55; }
+.sidebar .session-row .activity-dot, .sidebar .session-row .status-dot { width: 7px; height: 7px; }
+.sidebar .session-row .status-dot--running { box-shadow: 0 0 0 3px var(--success-soft); }
+
+/* ── 侧栏：底栏（图标工具 + 本地统计）── */
+.sidebar .sidebar-foot { padding: 10px 10px 10px; border-top: 1px solid var(--border-soft); }
+.sidebar .sidebar-foot__actions { flex-direction: row; align-items: center; gap: 2px; }
+.sidebar-foot__actions .icon-button {
+  width: 30px; min-height: 30px; height: 30px; flex: none; justify-content: center; gap: 0; padding: 0;
+  border-radius: var(--radius-sm); color: var(--text-faint);
+}
+.sidebar-foot__actions .icon-button:hover:not(:disabled) { color: var(--text); }
+.sidebar-foot__text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.sidebar-foot__meta { margin-left: auto; overflow: hidden; padding-right: 4px; color: var(--text-faint); font-size: 11px; white-space: nowrap; text-overflow: ellipsis; }
+.sidebar .room-trigger { position: relative; }
+.sidebar .room-trigger__count { position: absolute; top: 2px; right: 1px; min-width: 14px; height: 14px; padding: 0 3px; border-radius: var(--radius-full); color: var(--accent-contrast); background: var(--warning); font: 500 10px/14px var(--font-sans); }
+
+/* 侧栏和窗口底是一体的（B 稿没有竖线）。拖宽把手平时不画线，悬停/拖动/键盘聚焦时才显出来。 */
+.sidebar > .panel-resize-handle::after { opacity: 0; }
+.sidebar > .panel-resize-handle:is(:hover, :focus-visible, .is-dragging)::after { opacity: 1; }
+
+/* ── 主区顶栏：项目 / 分支 · 当前会话标签 · 工具 ── */
+.workbench-toolbar { gap: 14px; padding: var(--workbench-titlebar-inset) 10px 0 16px; background: var(--canvas); }
+.workbench-toolbar__project { display: flex; flex: 0 1 auto; min-width: 0; max-width: 38%; align-items: center; gap: 7px; }
+.workbench-toolbar .stage-switcher { flex: 0 1 auto; min-width: 0; }
+.workbench-crumb__branch { flex: 0 1 auto; max-width: 160px; }
+.workbench-toolbar .project-trigger { gap: 6px; padding: 4px 6px; border-radius: var(--radius-sm); }
+.workbench-crumb__branch { display: inline-flex; min-width: 0; align-items: center; gap: 4px; color: var(--text-muted); font: 400 12px var(--font-mono); white-space: nowrap; }
+.workbench-crumb__branch > span:last-child { overflow: hidden; text-overflow: ellipsis; }
+.workbench-crumb__sep { margin-right: 3px; color: var(--text-faint); font-family: var(--font-sans); }
+.workbench-tabs { display: flex; flex: 1; min-width: 0; align-items: center; gap: 2px; height: 100%; overflow: hidden; }
+.workbench-tab {
+  display: inline-flex; flex: 0 1 auto; min-width: 72px; max-width: 260px; height: 28px; align-items: center; gap: 7px; padding: 0 10px;
+  border: 0; border-radius: var(--radius-md); color: var(--text-muted); background: transparent;
+  font: inherit; font-size: var(--fs-sm); white-space: nowrap; cursor: pointer;
+  transition: background var(--motion-standard) var(--motion-ease), color var(--motion-standard) var(--motion-ease);
+}
+.workbench-tab:hover { color: var(--text); background: var(--surface-hover); }
+.workbench-tab.is-active { color: var(--text); background: var(--sidebar-active); }
+.workbench-tab:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+.workbench-tab > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.workbench-tab > svg { flex: none; color: var(--text-faint); }
+.workbench-tab.is-active > svg { color: var(--text-muted); }
+.workbench-tab__dot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--success); box-shadow: 0 0 0 3px var(--success-soft); }
+.workbench-tab__dot.is-awaiting { background: var(--warning); box-shadow: 0 0 0 3px var(--warning-soft); }
+.workbench-toolbar__tools { gap: 2px; }
+.workbench-toolbar .icon-button--sm { width: 30px; height: 30px; border-radius: var(--radius-sm); }
+.workbench-toolbar .icon-button--sm:disabled { opacity: .45; cursor: default; }
+
+/* ── 终端状态信息条 ── */
+.terminal-pane:not(.is-split) .terminal-pane__bar {
+  height: 34px; flex-basis: 34px; gap: 12px; padding: 0 16px;
+  border-bottom: 1px solid var(--border-soft); color: var(--text-faint); font-size: var(--fs-xs);
+}
+.terminal-pane__state { display: inline-flex; flex: none; align-items: center; gap: 6px; color: var(--text-muted); }
+.terminal-pane__state > i { width: 7px; height: 7px; border-radius: 50%; background: var(--text-faint); }
+.terminal-pane__state--running > i, .terminal-pane__state--talking > i { background: var(--success); box-shadow: 0 0 0 3px var(--success-soft); }
+.terminal-pane__state--starting > i, .terminal-pane__state--awaiting > i { background: var(--warning); }
+.terminal-pane__state--awaiting { color: var(--warning); }
+.terminal-pane__state--error > i { background: var(--danger); }
+.terminal-pane__state--error { color: var(--danger); }
+.terminal-pane__path { min-width: 0; overflow: hidden; color: var(--text-faint); font: 400 11.5px var(--font-mono); white-space: nowrap; text-overflow: ellipsis; }
+.terminal-pane.is-split .terminal-pane__state { margin-left: auto; font-size: var(--fs-xs); }
+
+.terminal-pane__session { display: flex; flex: 1 0 auto; min-width: 0; align-items: center; gap: 12px; margin-left: auto; }
+.terminal-pane__session .hook-status-bar { flex: 1; padding: 0; }
+.terminal-pane__session .hook-status-bar > span:last-child { display: none; }
+.terminal-pane__session .hook-status-bar__source { color: var(--text-faint); opacity: 1; }
+.terminal-pane__session .session-stats-control { margin-left: auto; }
+.terminal-pane.is-split .terminal-pane__session { flex: 0 1 auto; }
+.terminal-pane.is-split .hook-status-bar { display: none; }
+
+/* ── 窄窗：顶栏让出位置给项目名，会话标签先收起 ── */
+@container (max-width: 720px) {
+  .workbench-tabs { display: none; }
+  .workbench-toolbar__project { flex: 1; max-width: none; }
+}
+@container (max-width: 520px) { .workbench-crumb__branch { display: none; } }
+@container (max-width: 440px) { .terminal-pane__path { display: none; } }
+@media (max-height: 580px) {
+  .sidebar-search { margin-bottom: 8px; }
+  .sidebar .session-row { min-height: 40px; }
+}

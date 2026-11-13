@@ -2,5 +2,12 @@
   "SplitDivider.text_eb89d945a1": "Resize panes horizontally",
   "SplitDivider.text_62a8101b48": "Resize panes vertically",
   "SplitDivider.text_f7ab3b3e5e": "Drag to resize panes; double-click for equal sizes",
-  "TerminalPane.text_31889cf993": "Remove {{title}} from split view"
+  "TerminalPane.text_31889cf993": "Remove {{title}} from split view",
+  "TerminalPane.running": "Running",
+  "TerminalPane.starting": "Starting",
+  "TerminalPane.exited": "Exited",
+  "TerminalPane.error": "Error",
+  "TerminalPane.talking": "Responding",
+  "TerminalPane.awaiting": "Needs you",
+  "TerminalPane.idle": "Idle"
 }

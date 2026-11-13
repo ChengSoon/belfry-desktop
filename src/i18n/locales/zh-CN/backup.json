@@ -61,5 +61,7 @@
   "workspace.text_057495a88b": "备份中的焦点引用了不存在的会话",
   "workspace.text_012e906ae5": "备份中的标识无效",
   "workspace.text_c3a5c1917b": "备份中的名称或路径无效",
-  "workspace.text_ffe9f388f6": "名称或路径包含凭据内容，请先移除后再备份"
+  "workspace.text_ffe9f388f6": "名称或路径包含凭据内容，请先移除后再备份",
+  "BackupSection.restoreTitle": "从备份恢复",
+  "BackupSection.restoreHint": "先预览备份内容，选择要恢复的数据域；在下次启动时替换，恢复前会自动保存快照。"
 }

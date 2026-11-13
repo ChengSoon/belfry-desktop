@@ -1,9 +1,4 @@
-:root {
-  --motion-fast: 120ms;
-  --motion-enter: 220ms;
-  --motion-exit: 180ms;
-  --motion-ease: cubic-bezier(.2, .8, .2, 1);
-}
+/* Shared motion tokens and legacy aliases live in styles.css. */
 
 /* Explicit scope: native window controls, resize handles and plugin UIs stay untouched.
    scale is independent of transform, so positioning/drag transforms are preserved. */

@@ -14,9 +14,6 @@ import type { TerminalSearchState } from "../terminal/search";
 import { ICON } from "../theme/sizing";
 import type { HookSnapshot } from "../agent/hooks/contracts";
 import type { AgentSessionRef } from "../agent/contracts";
-import { HookStatusBar } from "../agent/hooks/HookStatusBar";
-import { SessionStatisticsControl } from "../usage/session/SessionStatisticsControl";
-import { statisticsTarget } from "../usage/session/target";
 import { composingKey } from "../utils/keyboard";
 
 export interface TerminalSnapshot {
@@ -124,11 +121,7 @@ export function TerminalViewport({
   }, [onSnapshot, session.activity, session.agentState, session.agentSessionRef, session.error, session.lastInput, session.phase, session.daemonSessionId]);
 
   return (
-    <section className={`terminal-workspace${launch.profileId.startsWith("agent:") ? " terminal-workspace--agent" : ""}`} aria-hidden={!visible}>
-      {launch.profileId.startsWith("agent:") ? <div className="agent-session-toolbar">
-        <HookStatusBar snapshot={session.agentState} activity={session.activity} phase={session.phase} recovering={!!launch.attachmentId || !!launch.resumeSessionId} />
-        <SessionStatisticsControl {...statisticsTarget(launch, session.agentState)} visible={visible} />
-      </div> : null}
+    <section className="terminal-workspace" aria-hidden={!visible}>
       <div className="terminal-canvas" ref={terminalHost} />
       {searchOpen ? (
         <div className="terminal-search" role="search" onPointerDown={(event) => event.stopPropagation()}>

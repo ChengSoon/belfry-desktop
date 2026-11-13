@@ -1,3 +1,4 @@
+import { Notice } from "../../components/Notice";
 import { formatList, t, useTranslation } from "../../i18n";
 import type { SessionStatistics, SessionTokens, StatisticsView } from "./contracts";
 import { formatExact, formatMoment, formatTokens } from "../format";
@@ -6,7 +7,7 @@ export function StatisticsBody({ state, bound, note }: { state: StatisticsView; 
   useTranslation();
   if (!bound) return <p className="session-stats-note">{note ?? t("usage.StatisticsBody.text_df28ee0521")}</p>;
   return <div className="session-stats-body">
-    {state.error ? <p className="session-stats-error" role="alert">{state.error}</p> : null}
+    {state.error ? <Notice className="session-stats-error" role="alert">{state.error}</Notice> : null}
     {!state.report && state.loading ? <p className="session-stats-note" role="status">{t("usage.StatisticsBody.text_a94e58077a")}</p> : null}
     {state.report ? <StatisticsContent report={state.report} /> : null}
   </div>;

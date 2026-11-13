@@ -4,6 +4,7 @@ import { SHORTCUT_ACTIONS, defaultBinding } from "./actions";
 import { bindingIssues, recordBinding } from "./bindings";
 import { bindingChord } from "./chord";
 import { composingKey } from "../../utils/keyboard";
+import { ShortcutKeys } from "./ShortcutKeys";
 import type { BindingDraft, EditContext } from "./changes";
 import type { ShortcutBinding, ShortcutOverrides } from "./contracts";
 
@@ -32,20 +33,23 @@ export function ShortcutEditor(props: Props) {
     if (result.binding) change(result.binding);
     setKeyError(() => result.error);
   };
+  // 曜石稿（T19 shortcuts）：行内录制态——整行 accent-soft，左侧提示 / 说明 / 冲突，右侧键帽（accent 环）+ 取消 / 保存。
   return <div className="shortcut-editor" aria-label={t("shortcuts.ShortcutEditor.text_f18f9adcac", { label: action.label })}>
-    <button type="button" className="shortcut-editor__recorder" ref={recorder} data-shortcut-recorder={recording}
-      aria-describedby="shortcut-recorder-help" onKeyDown={press} onBlur={() => setRecording(false)} onClick={() => setRecording(true)}>
-      {recording ? t("shortcuts.ShortcutEditor.text_9f74096a45") : t("shortcuts.ShortcutEditor.text_e869e08188")}
-    </button>
-    <p id="shortcut-recorder-help">{t(props.context.platform === "macos" ? "shortcuts.ShortcutEditor.recordMac" : "shortcuts.ShortcutEditor.recordControl")}</p>
-    <p className="shortcut-editor__preview">{t(props.draft.binding === undefined ? "shortcuts.ShortcutEditor.defaultPreview" : "shortcuts.ShortcutEditor.preview", { shortcut: bindingChord(preview, props.context.platform).join("+") })}</p>
-    {error ? <p className="shortcut-settings__error" role="alert">{error}</p> : null}
-    <footer>
-      <button type="button" onClick={() => change(null)}>{t("shortcuts.ShortcutEditor.text_4e6fd0e28c")}</button>
-      <button type="button" onClick={() => change(undefined)}>{t("shortcuts.ShortcutEditor.text_7bdeee3d3f")}</button>
-      <span className="shortcut-editor__spacer" />
-      <button type="button" onClick={props.onCancel}>{t("shortcuts.ShortcutEditor.text_2cd0f3be87")}</button>
-      <button type="button" className="shortcut-settings__primary" disabled={recording || Boolean(error)} onClick={props.onSave}>{t("shortcuts.ShortcutEditor.text_a3030bf8f1")}</button>
+    <div className="shortcut-editor__body">
+      <button type="button" className="shortcut-editor__recorder" ref={recorder} data-shortcut-recorder={recording}
+        aria-describedby="shortcut-recorder-help" onKeyDown={press} onBlur={() => setRecording(false)} onClick={() => setRecording(true)}>
+        {recording ? t("shortcuts.ShortcutEditor.text_9f74096a45") : t("shortcuts.ShortcutEditor.text_e869e08188")}
+      </button>
+      <p id="shortcut-recorder-help">{t(props.context.platform === "macos" ? "shortcuts.ShortcutEditor.recordMac" : "shortcuts.ShortcutEditor.recordControl")}</p>
+      <p className="shortcut-editor__preview">{t(props.draft.binding === undefined ? "shortcuts.ShortcutEditor.defaultPreview" : "shortcuts.ShortcutEditor.preview", { shortcut: bindingChord(preview, props.context.platform).join("+") })}</p>
+      {error ? <p className="shortcut-editor__conflict" role="alert">{error}</p> : null}
+    </div>
+    <footer className="shortcut-editor__actions">
+      {preview ? <ShortcutKeys chord={bindingChord(preview, props.context.platform)} /> : <span className="shortcut-settings__unset">{bindingChord(null, props.context.platform).join("+")}</span>}
+      <button className="os-btn" type="button" onClick={() => change(null)}>{t("shortcuts.ShortcutEditor.text_4e6fd0e28c")}</button>
+      <button className="os-btn" type="button" onClick={() => change(undefined)}>{t("shortcuts.ShortcutEditor.text_7bdeee3d3f")}</button>
+      <button className="os-btn" type="button" onClick={props.onCancel}>{t("shortcuts.ShortcutEditor.text_2cd0f3be87")}</button>
+      <button type="button" className="os-btn primary shortcut-settings__primary" disabled={recording || Boolean(error)} onClick={props.onSave}>{t("shortcuts.ShortcutEditor.text_a3030bf8f1")}</button>
     </footer>
   </div>;
 }

@@ -30,5 +30,7 @@
   "AboutSection.upgradeAll": {
     "one": "Upgrade {{count}} agent",
     "other": "Upgrade all {{count}} agents"
-  }
+  },
+  "AboutSection.updateAvailable": "Version v{{version}} is available",
+  "AboutSection.updateAvailableHint": "Restart Belfry after the download to apply it."
 }

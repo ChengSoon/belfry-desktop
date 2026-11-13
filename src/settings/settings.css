@@ -34,11 +34,11 @@
 }
 :root[data-background="on"] .settings-nav {
   border-right-color: var(--app-bg-divider);
-  background: color-mix(in srgb, var(--sidebar) 78%, transparent);
+  background: color-mix(in srgb, var(--sidebar) var(--sidebar-translucency), transparent);
 }
 .settings-nav__head { display: flex; align-items: center; gap: 8px; padding-inline: 8px; }
 .settings-nav__head strong { flex: 1; color: var(--text); font-size: var(--fs-display); font-weight: 500; }
-.settings-search { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 0 10px; border: 1px solid var(--border); border-radius: 6px; color: var(--text-muted); background: var(--surface); }
+.settings-search { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 0 10px; border: 1px solid var(--border-strong); border-radius: 6px; color: var(--text-muted); background: var(--surface); }
 .settings-search svg { flex: none; }
 .settings-search input { min-width: 0; width: 100%; min-height: 38px; padding: 8px 0; border: 0; outline: none; color: var(--text); background: transparent; font: inherit; font-size: var(--fs-sm); }
 .settings-search input::placeholder { color: var(--text-muted); }

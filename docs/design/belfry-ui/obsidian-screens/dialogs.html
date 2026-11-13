@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>曜石 · 确认弹窗与 Toast</title>
+<script src="boot.js"></script>
+<link rel="stylesheet" href="obsidian.css">
+<style>
+  .stage{display:grid;grid-template-columns:1fr 1fr;gap:32px;padding:40px;height:100%;align-content:start}
+  .stage h4{margin:0 0 12px;font-size:var(--fs-xs);font-weight:500;color:var(--text-faint);letter-spacing:.04em}
+  .card{position:relative;border-radius:var(--radius-lg);background:var(--scrim);padding:40px 24px;display:grid;place-items:center}
+  .card .modal{width:100%;max-width:420px}
+  .stack{display:grid;gap:12px}
+  .modal .m-icon{width:36px;height:36px;border-radius:var(--radius-md);display:grid;place-items:center;margin-bottom:var(--space-4)}
+  .modal .m-icon.danger{background:var(--danger-soft);color:var(--danger)}
+  .modal .m-icon.warn{background:var(--warning-soft);color:var(--warning)}
+  .modal code{font:400 12px var(--font-mono);padding:1px 5px;border-radius:4px;background:var(--surface);color:var(--text)}
+  .modal .confirm-field{margin-top:var(--space-4)}
+  .modal .confirm-field > label:first-child{display:block;font-size:var(--fs-xs);color:var(--text-muted);margin-bottom:6px}
+  .modal .field{min-width:0}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="rail"><div class="traffic" aria-hidden="true"><i></i><i></i><i></i></div></aside>
+  <main class="face">
+    <div class="stage">
+      <section>
+        <h4>危险确认（删除工作区）</h4>
+        <div class="card">
+          <div class="modal s-in" role="alertdialog" data-s="modal 440 · p24 · r12 · raised · shadow-lg">
+            <div class="m-icon danger"><svg viewBox="0 0 16 16"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.5 9h6l.5-9"/></svg></div>
+            <h2>删除工作区「客户端重构」？</h2>
+            <p>会关闭其中 4 个会话并移除布局记录。项目文件和 Git 历史不受影响；此操作无法撤销。</p>
+            <div class="confirm-field">
+              <label>输入工作区名称以确认</label>
+              <label class="field is-focus"><input value="客户端重构"></label>
+            </div>
+            <div class="actions" data-s="actions gap8 · 右对齐 · 危险=唯一实心">
+              <button class="btn btn-secondary">取消</button>
+              <button class="btn btn-danger">删除工作区</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h4>未保存离开</h4>
+        <div class="card">
+          <div class="modal" role="alertdialog">
+            <div class="m-icon warn"><svg viewBox="0 0 16 16"><path d="M8 2l6.5 11.5h-13z"/><path d="M8 6.5v3M8 11.5v.1"/></svg></div>
+            <h2>放弃对 Provider 的修改？</h2>
+            <p>端点 <code>api.example.invalid</code> 与 1 个密钥尚未保存。离开后改动会丢失。</p>
+            <div class="actions">
+              <button class="btn btn-ghost">放弃修改</button>
+              <button class="btn btn-secondary">继续编辑</button>
+              <button class="btn btn-primary">保存并离开</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h4>Toast · 右下角堆叠，间距 8，宽 380</h4>
+        <div class="stack s-below" data-s="toast 380 · r8 · raised · shadow-md（含 1px 描边）">
+          <div class="toast" role="status">
+            <svg viewBox="0 0 16 16" style="color:var(--success)"><circle cx="8" cy="8" r="6"/><path d="M5.5 8.2l1.8 1.8 3.4-3.6"/></svg>
+            <div class="t-body"><b>备份完成</b><span>已保存到 ~/Belfry/backups，共 12 个会话。</span></div>
+            <button class="t-close" aria-label="关闭"><svg viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>
+          </div>
+          <div class="toast" role="alert">
+            <svg viewBox="0 0 16 16" style="color:var(--danger)"><circle cx="8" cy="8" r="6"/><path d="M8 5v3.5M8 11v.1"/></svg>
+            <div class="t-body"><b>SSH 连接失败</b><span>dev.example.invalid:22 拒绝了密钥认证。</span><a class="t-act" href="#">换用密码重试</a></div>
+            <button class="t-close" aria-label="关闭"><svg viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>
+          </div>
+          <div class="toast" role="status">
+            <svg viewBox="0 0 16 16" style="color:var(--info)"><circle cx="8" cy="8" r="6"/><path d="M8 7.2V11M8 5v.1"/></svg>
+            <div class="t-body"><b>Codex 设置将在新会话生效</b><span>已打开的 2 个 Codex 会话保持原配置。</span></div>
+            <button class="t-close" aria-label="关闭"><svg viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h4>按钮与状态一览</h4>
+        <div class="stack">
+          <div style="display:flex;gap:8px;flex-wrap:wrap" data-s="32 高 · r6 · 一个区域只有一个实心主动作" class="s-below">
+            <button class="btn btn-primary">主要</button>
+            <button class="btn btn-primary is-hover">主要 hover</button>
+            <button class="btn btn-secondary">次要</button>
+            <button class="btn btn-secondary is-hover">次要 hover</button>
+            <button class="btn btn-ghost">幽灵</button>
+            <button class="btn btn-danger">危险</button>
+            <button class="btn btn-secondary is-focus">焦点</button>
+            <button class="btn btn-primary" disabled>禁用</button>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+            <span class="tag ok"><span class="dot ok" style="box-shadow:none"></span>运行中</span>
+            <span class="tag warn">待确认</span>
+            <span class="tag err">失败</span>
+            <span class="tag accent">已选用</span>
+            <span class="tag">已配置</span>
+          </div>
+          <div class="notice info" style="margin-top:12px">
+            <svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 7.2V11M8 5v.1"/></svg>
+            <div class="n-body"><b>「已选用」不代表连接已验证</b><span>点击「测试连接」确认端点可用。</span></div>
+            <button class="btn btn-secondary">测试连接</button>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+<div class="demo">演示数据 · 设计稿</div>
+</body>
+</html>

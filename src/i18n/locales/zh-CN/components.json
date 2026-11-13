@@ -83,5 +83,12 @@
   "WorkbenchToolbar.pendingConfirmations": {
     "other": "{{count}} 条待确认"
   },
-  "DatePicker.validDateInRange": "请输入有效日期，且在允许范围内"
+  "DatePicker.validDateInRange": "请输入有效日期，且在允许范围内",
+  "WorkbenchToolbar.branch": "当前分支 {{branch}}",
+  "WorkbenchToolbar.sessionTab": "当前会话 {{name}}",
+  "WorkbenchToolbar.projectSessions": "同项目会话",
+  "WorkbenchToolbar.detachedHead": "分离 HEAD · {{branch}}",
+  "WorkbenchToolbar.split": "分屏",
+  "WorkbenchToolbar.splitNeedsSession": "打开另一条会话后可分屏",
+  "WorkbenchToolbar.splitChoose": "选择会话在右侧分屏"
 }

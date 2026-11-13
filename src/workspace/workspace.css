@@ -6,7 +6,7 @@
   --sidebar-track: auto;
   grid-template-columns: var(--sidebar-track) minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
-  background: var(--canvas);
+  background: var(--backdrop);
 }
 
 /* 侧栏保持挂载：收起后仍保留零宽轨道，工作台不能掉到下一行。
@@ -150,22 +150,42 @@
 .window-controls button:hover { color: var(--text); background: var(--surface-hover); }
 .window-controls .window-control-close:hover { color: #fff; background: #c42b1c; }
 
-/* 终端舞台：满幅铺开，只在顶部留一行路径。 */
+/* 内容面浮在侧栏同色的窗口底上。顶部让位只计一次，避免 inset 叠加后工具栏下移。
+   这些尺寸瞬时更新，不动画网格，也不影响终端节点和滚动缓冲的生命周期。
+
+   注意：圆角靠下面的 overflow: hidden 实现。写在 Workbench 子树里的 position: absolute 浮层，
+   超出内容面的部分会被静默裁掉，不报错。现有的项目切换、更多工具、Worktree 提醒都用
+   max-height: calc(100dvh - …) 加 100cqw 收在面内，生产用例在 720×480 下断言过不溢出。
+   以后新增的浮层（右键菜单、新下拉）一律走 ControlPopover 的 portal，不要直接 absolute 挂在这里（code-review L3）。 */
 
 .workbench {
+  --workbench-top-inset: max(var(--content-inset), calc(var(--titlebar-inset) - 20px));
+  --workbench-titlebar-inset: max(0px, calc(var(--titlebar-inset) - var(--workbench-top-inset)));
   position: relative;
   display: grid;
   min-width: 0;
   min-height: 0;
-  grid-template-rows: calc(60px + var(--titlebar-inset)) minmax(0, 1fr);
+  grid-template-rows: calc(var(--toolbar-height) + var(--workbench-titlebar-inset)) minmax(0, 1fr);
+  margin: var(--workbench-top-inset) var(--content-inset) var(--content-inset) 0;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: var(--canvas);
+  box-shadow: var(--shadow-content);
 }
+
+/* 自绘标题栏横跨整窗，圆角主区须从它下面开始，不能被标题栏盖住上沿。 */
+[data-platform="windows"] .workbench {
+  --workbench-top-inset: calc(var(--titlebar-inset) + var(--content-inset));
+}
+
+.app-shell.is-collapsed > .workbench { margin-left: var(--content-inset); }
 
 .stage-caption {
   display: flex;
   min-width: 0;
   align-items: center;
   justify-content: center;
-  padding: var(--titlebar-inset) 76px 0;
+  padding: var(--workbench-titlebar-inset) 76px 0;
   user-select: none;
 }
 
@@ -182,7 +202,7 @@
 /* 侧栏折叠后交通灯落在终端这一列上，把手要躲到它下面去，不能再贴着窗口顶角。 */
 .reveal-handle {
   position: absolute;
-  top: calc(6px + var(--titlebar-inset));
+  top: calc(6px + var(--workbench-titlebar-inset));
   left: 8px;
   z-index: 8;
 }
@@ -196,7 +216,7 @@
 
 .empty-stage {
   position: absolute;
-  inset: calc(60px + var(--titlebar-inset)) 0 0;
+  inset: calc(var(--toolbar-height) + var(--workbench-titlebar-inset)) 0 0;
   display: grid;
   place-content: center;
   justify-items: center;
@@ -236,10 +256,10 @@
   gap: 10px;
   grid-template-columns: 17px minmax(0, 1fr) 24px;
   padding: 11px 12px;
-  border: 1px solid var(--border);
+  border: 0;
   border-radius: var(--radius-md);
   background: var(--surface-raised);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-md);
   font-size: var(--fs-md);
 }
 
@@ -279,7 +299,7 @@
   overflow-y: auto;
   gap: 16px;
   padding: 24px;
-  border: 1px solid var(--border);
+  border: 0;
   border-radius: var(--radius-lg);
   background: var(--surface-raised);
   box-shadow: var(--shadow-lg);

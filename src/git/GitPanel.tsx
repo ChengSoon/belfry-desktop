@@ -1,3 +1,4 @@
+import { Notice } from "../components/Notice";
 import { t, useTranslation } from "../i18n";
 import { FileSearch, GitBranch, RefreshCcw, X } from "lucide-react";
 import { useState, type CSSProperties } from "react";
@@ -32,17 +33,16 @@ export function GitPanel(props: Props) {
   const open = (path: string) => { if (report) props.onOpenFile({ rootPath: report.rootPath, path }); };
   return <section className="file-preview-panel git-panel" aria-label={t("git.GitPanel.text_dc74d0bd7a")} style={{ "--file-preview-width": `${width.width}px` } as CSSProperties}>
     <GitHeader loading={model.status.loading || model.diff.loading} onRefresh={model.refresh} onClose={props.onClose} onFiles={props.onFiles} />
-    {props.failure || model.status.failure ? <div className="git-error" role="alert">
-      <span>{props.failure ?? model.status.failure}</span>
-      {model.status.failure ? <button type="button" disabled={model.status.loading} onClick={model.refresh}>{t("git.GitPanel.text_1133d6759e")}</button> : null}
-    </div> : null}
+    {props.failure || model.status.failure ? <Notice className="git-error"
+      action={model.status.failure ? <button type="button" disabled={model.status.loading} onClick={model.refresh}>{t("git.GitPanel.text_1133d6759e")}</button> : undefined}>
+      {props.failure ?? model.status.failure}</Notice> : null}
     {model.status.loading && !report ? <p className="git-hint" role="status">{t("git.GitPanel.text_26339409bb")}</p> : null}
     {!props.project ? <p className="git-empty">{t("git.GitPanel.text_6768388508")}</p> : null}
     {report && !report.repository ? <p className="git-empty">{t("git.GitPanel.text_6ed91929e1")}</p> : null}
     {report?.repository ? <>
       <BranchSummary report={report} />
       {props.onOpenProject ? <button className="worktree-entry" type="button" onClick={(event) => { event.currentTarget.focus(); setWorktreesOpen(true); }}>{t("git.GitPanel.text_a6e17bd57f")}</button> : null}
-      {report.truncated ? <p className="git-warning" role="status">{t("git.GitPanel.text_c801235b78")}</p> : null}
+      {report.truncated ? <Notice className="git-warning" tone="warning" role="status">{t("git.GitPanel.text_c801235b78")}</Notice> : null}
       <div className="git-body">
         <GitFileList groups={model.groups} query={model.query} selected={model.request} onQuery={model.setQuery}
           onSelect={model.select} onOpen={(file) => open(file.path)} />

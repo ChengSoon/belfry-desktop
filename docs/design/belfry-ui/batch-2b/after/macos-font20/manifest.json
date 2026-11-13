@@ -1,0 +1,390 @@
+{
+  "generatedAt": "2026-11-12T16:19:27.293Z",
+  "platform": "macos",
+  "browser": {
+    "protocolVersion": "1.3",
+    "product": "Chrome/157.0.8103.78",
+    "revision": "@4b3d0dabb8250b6f152d2d85d79e7706e309d087",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/157.0.0.0 Safari/537.36",
+    "jsVersion": "15.7.112.43"
+  },
+  "source": {
+    "revision": "949d77202b07e7acd47818e5f626ffb966d8fcd2",
+    "dirtyPaths": [
+      "M docs/design/belfry-ui/README.md",
+      " M index.html",
+      " M public/startup.js",
+      " M src-tauri/src/lib.rs",
+      " M src-tauri/tauri.conf.json",
+      " M src-tauri/tauri.windows.conf.json",
+      " M src/App.tsx",
+      " M src/background/background.css",
+      " M src/background/components/appearance.css",
+      " M src/background/components/fontFamilyField.css",
+      " M src/collab/useCollabTasks.test.ts",
+      " M src/components/Workbench.tsx",
+      " M src/components/WorkbenchToolbar.test.tsx",
+      " M src/components/WorkbenchToolbar.tsx",
+      " M src/components/controls/fields.css",
+      " M src/components/controls/popup.css",
+      " M src/components/lazy/testing/production-ui.case.mjs",
+      " M src/components/lazy/testing/sidebar-layout.case.mjs",
+      " M src/components/motion/motion.css",
+      " M src/components/ui/alert-dialog.tsx",
+      " M src/components/ui/dialog.tsx",
+      " M src/components/workbench.css",
+      " M src/filepreview/FilePreviewPane.tsx",
+      " M src/filepreview/filePreview.css",
+      " M src/filepreview/filePreviewTrigger.css",
+      " M src/git/GitDiffView.tsx",
+      " M src/git/GitPanel.tsx",
+      " M src/git/git.css",
+      " M src/git/review/GitReviewComposer.tsx",
+      " M src/git/review/review.css",
+      " M src/git/worktrees/WorktreeDialog.tsx",
+      " M src/git/worktrees/worktrees.css",
+      " M src/history/components/HistoryPanel.tsx",
+      " M src/history/details/HistoryChanges.tsx",
+      " M src/history/details/HistoryDetailPanel.tsx",
+      " M src/history/details/HistoryMessages.tsx",
+      " M src/history/details/historyDetails.css",
+      " M src/history/history.css",
+      " M src/history/historySearch.css",
+      " M src/i18n/locales/en/components.json",
+      " M src/i18n/locales/en/layout.json",
+      " M src/i18n/locales/en/workspace.json",
+      " M src/i18n/locales/zh-CN/components.json",
+      " M src/i18n/locales/zh-CN/layout.json",
+      " M src/i18n/locales/zh-CN/workspace.json",
+      " M src/layout/components/TerminalPane.tsx",
+      " M src/plugins/center/styles/graphite.css",
+      " M src/plugins/center/styles/page-01.css",
+      " M src/plugins/pluginBridge.css",
+      " M src/provider/components/ProviderConfigEditor.tsx",
+      " M src/provider/components/ProviderSection.tsx",
+      " M src/provider/configEditor.css",
+      " M src/provider/project/ProjectProviderSection.tsx",
+      " M src/provider/project/projectProvider.css",
+      " M src/provider/provider.css",
+      " M src/quickopen/quickOpen.css",
+      " M src/rooms/view/RoomAttachments.tsx",
+      " M src/rooms/view/RoomFlow.tsx",
+      " M src/rooms/view/RoomMarkdown.tsx",
+      " M src/rooms/view/RoomView.tsx",
+      " M src/rooms/view/room.css",
+      " M src/settings/settings.css",
+      " M src/shortcuts/custom/ShortcutEditor.tsx",
+      " M src/shortcuts/custom/ShortcutResetPreview.tsx",
+      " M src/shortcuts/custom/ShortcutSettingsSection.tsx",
+      " M src/shortcuts/custom/shortcutSettings.css",
+      " M src/shortcuts/shortcutGuide.css",
+      " M src/styles.css",
+      " M src/terminal/codexThemeSync.test.ts",
+      " M src/terminal/terminal.css",
+      " M src/theme/ThemeProvider.tsx",
+      " M src/theme/graphite.test.mjs",
+      " M src/theme/xtermTheme.ts",
+      " M src/usage/components/UsagePanel.tsx",
+      " M src/usage/insights/UsageBreakdown.tsx",
+      " M src/usage/insights/usageInsights.css",
+      " M src/usage/pricing/PriceBookEditor.tsx",
+      " M src/usage/pricing/priceBook.css",
+      " M src/usage/session/StatisticsBody.tsx",
+      " M src/usage/session/sessionStatistics.css",
+      " M src/usage/usage.css",
+      " M src/workspace/components/Sidebar.tsx",
+      " M src/workspace/named/namedWorkspaces.css",
+      " M src/workspace/projects/projectLibrary.css",
+      " M src/workspace/sidebar.css",
+      " M src/workspace/sshDialog.css",
+      " M src/workspace/workspace.css",
+      " M tsconfig.node.json",
+      " M vite.config.ts",
+      "?? docs/design/belfry-ui/baseline/",
+      "?? docs/design/belfry-ui/batch-1/",
+      "?? docs/design/belfry-ui/batch-2/",
+      "?? docs/design/belfry-ui/batch-2b/",
+      "?? docs/design/belfry-ui/batch-5/",
+      "?? docs/design/belfry-ui/code-review.md",
+      "?? docs/design/belfry-ui/compare-ui-baseline.md",
+      "?? docs/design/belfry-ui/directions/",
+      "?? docs/design/belfry-ui/handoff/",
+      "?? docs/design/belfry-ui/native-window-baseline.md",
+      "?? docs/design/belfry-ui/obsidian-contrast.mjs",
+      "?? docs/design/belfry-ui/obsidian-screens/",
+      "?? docs/design/belfry-ui/obsidian-tokens.md",
+      "?? docs/design/belfry-ui/refresh-plan.md",
+      "?? docs/design/belfry-ui/workbench-fidelity/",
+      "?? scripts/capture-plugin-search-review.mjs",
+      "?? scripts/capture-ui-baseline.mjs",
+      "?? scripts/compare-ui-baseline.case.mjs",
+      "?? scripts/compare-ui-baseline.mjs",
+      "?? scripts/theme-canvas.ts",
+      "?? src-tauri/src/window_reveal.rs",
+      "?? src/components/Notice.tsx",
+      "?? src/components/notice.css",
+      "?? src/theme/backdrop.json",
+      "?? src/theme/canvas.json",
+      "?? src/theme/nativeBackdrop.test.ts",
+      "?? src/theme/nativeBackdrop.ts",
+      "?? src/theme/obsidianNative.test.mjs",
+      "?? src/workspace/obsidianWorkbench.css"
+    ]
+  },
+  "productionAssets": [
+    {
+      "path": "/assets/index-Cx126E5j.js",
+      "sha256": "26286f797d5fb47dc6d289879b47db7df97fe1d69b4028d562b9149bf6deec82"
+    },
+    {
+      "path": "/assets/keyboard-B29FhL2O.js",
+      "sha256": "5925cc8d48b6e1bc29fa973d852c79eae1dd359bdfbb3dccdaf8324a477b201f"
+    },
+    {
+      "path": "/assets/refresh-ccw-DZOPDD6o.js",
+      "sha256": "9fdc6a0e3c24fc0f397ee958201e787f822d2baac827cf73672017ad6b2c5adf"
+    },
+    {
+      "path": "/assets/triangle-alert-B65CZfH4.js",
+      "sha256": "ff543f378947401c3fbe16bcfe9ea75acd1fb0e01c58d72372bec1c7d6808edb"
+    },
+    {
+      "path": "/assets/layerOwnership-CO8pOKkK.js",
+      "sha256": "404c4283becfb9e5c395aa3d633eaf9f6758b0bdecf741646369dbe753656d8c"
+    },
+    {
+      "path": "/assets/Presence-c2mtR6Pe.js",
+      "sha256": "daf3bc12c3e66cd73e1c9f1c63590fb5d47e8d1381b81e88b7846f781bebad8c"
+    },
+    {
+      "path": "/assets/Presence-TqpzZ8Xa.css",
+      "sha256": "c9b1dec2e19027c8c30b2c7ad3e1af6d5ad1532467805068257d45d0a9962529"
+    },
+    {
+      "path": "/assets/index-FD7-ZOhQ.css",
+      "sha256": "372b3e19e308205b597e88997cd533d8e5a5d6b6efde38e79abbb3948694c04a"
+    }
+  ],
+  "syntheticNativeAdapter": true,
+  "realUserData": false,
+  "nativeWindowCaptured": false,
+  "fontSize": 20,
+  "captures": [
+    {
+      "filename": "workbench-dark-1440x960.png",
+      "sha256": "ace05dc7d7dc86f70d555a5564ca7b1d97c0fb5a8b7fb282f369ef30d7658e71",
+      "width": 1440,
+      "height": 960,
+      "scrollWidth": 1440,
+      "theme": "dark",
+      "platform": "macos",
+      "surface": {
+        "x": 228,
+        "y": 8,
+        "width": 1204,
+        "height": 944
+      },
+      "canvas": "#131418",
+      "themeColor": "#0c0d10",
+      "alerts": []
+    },
+    {
+      "filename": "workbench-dark-1080x700.png",
+      "sha256": "8e4d9c645cb2e12cee0685e2559e45202bbd7eea1042c42ea4a872835d9a3d22",
+      "width": 1080,
+      "height": 700,
+      "scrollWidth": 1080,
+      "theme": "dark",
+      "platform": "macos",
+      "surface": {
+        "x": 228,
+        "y": 8,
+        "width": 844,
+        "height": 684
+      },
+      "canvas": "#131418",
+      "themeColor": "#0c0d10",
+      "alerts": []
+    },
+    {
+      "filename": "settings-dark-1440x960.png",
+      "sha256": "99896fdc247c1a54c39429c8963087fb6b90d3d63ca5e0dce3988afc31352800",
+      "width": 1440,
+      "height": 960,
+      "scrollWidth": 1440,
+      "theme": "dark",
+      "platform": "macos",
+      "surface": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 960
+      },
+      "canvas": "#131418",
+      "themeColor": "#0c0d10",
+      "alerts": []
+    },
+    {
+      "filename": "settings-dark-1080x700.png",
+      "sha256": "6ebde414600e41534b45072ba86bffd21340924841752be8d6678e89f9b4f3ab",
+      "width": 1080,
+      "height": 700,
+      "scrollWidth": 1080,
+      "theme": "dark",
+      "platform": "macos",
+      "surface": {
+        "x": 0,
+        "y": 0,
+        "width": 1080,
+        "height": 700
+      },
+      "canvas": "#131418",
+      "themeColor": "#0c0d10",
+      "alerts": []
+    },
+    {
+      "filename": "rooms-dark-1440x960.png",
+      "sha256": "a924b3a706f6f25a54013a6d7748fbe05619dccbe6abceaebaa287f87335e510",
+      "width": 1440,
+      "height": 960,
+      "scrollWidth": 1440,
+      "theme": "dark",
+      "platform": "macos",
+      "surface": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 960
+      },
+      "canvas": "#131418",
+      "themeColor": "#0c0d10",
+      "alerts": []
+    },
+    {
+      "filename": "rooms-dark-1080x700.png",
+      "sha256": "430005b3d2668a4c8e57293bfe068db48ffff4d69e8651a6ed7aca53305ed1ec",
+      "width": 1080,
+      "height": 700,
+      "scrollWidth": 1080,
+      "theme": "dark",
+      "platform": "macos",
+      "surface": {
+        "x": 0,
+        "y": 0,
+        "width": 1080,
+        "height": 700
+      },
+      "canvas": "#131418",
+      "themeColor": "#0c0d10",
+      "alerts": []
+    },
+    {
+      "filename": "workbench-light-1440x960.png",
+      "sha256": "9ad325809db5ff97e55ead6aa20916ef6a7fd8fe1d6cfffd8e665eefc9dd23a5",
+      "width": 1440,
+      "height": 960,
+      "scrollWidth": 1440,
+      "theme": "light",
+      "platform": "macos",
+      "surface": {
+        "x": 228,
+        "y": 8,
+        "width": 1204,
+        "height": 944
+      },
+      "canvas": "#fff",
+      "themeColor": "#ececef",
+      "alerts": []
+    },
+    {
+      "filename": "workbench-light-1080x700.png",
+      "sha256": "173c7c359a73f5cd187757dff01e0440f5c7be0a3e462f5eb78a01b45f582ec2",
+      "width": 1080,
+      "height": 700,
+      "scrollWidth": 1080,
+      "theme": "light",
+      "platform": "macos",
+      "surface": {
+        "x": 228,
+        "y": 8,
+        "width": 844,
+        "height": 684
+      },
+      "canvas": "#fff",
+      "themeColor": "#ececef",
+      "alerts": []
+    },
+    {
+      "filename": "settings-light-1440x960.png",
+      "sha256": "0c88c7f440de26ae8c7b2aa266d242404b52512812f86a3e720e0500428dea03",
+      "width": 1440,
+      "height": 960,
+      "scrollWidth": 1440,
+      "theme": "light",
+      "platform": "macos",
+      "surface": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 960
+      },
+      "canvas": "#fff",
+      "themeColor": "#ececef",
+      "alerts": []
+    },
+    {
+      "filename": "settings-light-1080x700.png",
+      "sha256": "c63de95c658bfc2dc663efd9be6baf0d7af235229db104d851ca8fa65438134f",
+      "width": 1080,
+      "height": 700,
+      "scrollWidth": 1080,
+      "theme": "light",
+      "platform": "macos",
+      "surface": {
+        "x": 0,
+        "y": 0,
+        "width": 1080,
+        "height": 700
+      },
+      "canvas": "#fff",
+      "themeColor": "#ececef",
+      "alerts": []
+    },
+    {
+      "filename": "rooms-light-1440x960.png",
+      "sha256": "8bb0403a61cddf6a7afe122c28a7dd911a1a6f08697d33638f2a221d233375cb",
+      "width": 1440,
+      "height": 960,
+      "scrollWidth": 1440,
+      "theme": "light",
+      "platform": "macos",
+      "surface": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 960
+      },
+      "canvas": "#fff",
+      "themeColor": "#ececef",
+      "alerts": []
+    },
+    {
+      "filename": "rooms-light-1080x700.png",
+      "sha256": "156d83698d78cff9b7fb44f41b68162d7c521517b6c8aef2b77f3b689d60841d",
+      "width": 1080,
+      "height": 700,
+      "scrollWidth": 1080,
+      "theme": "light",
+      "platform": "macos",
+      "surface": {
+        "x": 0,
+        "y": 0,
+        "width": 1080,
+        "height": 700
+      },
+      "canvas": "#fff",
+      "themeColor": "#ececef",
+      "alerts": []
+    }
+  ]
+}

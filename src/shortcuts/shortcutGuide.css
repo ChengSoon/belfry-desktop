@@ -7,11 +7,11 @@
 
 .shortcut-help-trigger[aria-expanded="true"] {
   color: var(--accent);
-  background: var(--accent-soft);
+  background: var(--sidebar-active);
 }
 
 .shortcut-guide__scrim {
-  animation: shortcut-scrim-in 140ms var(--ease) both;
+  animation: shortcut-scrim-in var(--motion-standard) var(--motion-ease) both;
   -webkit-backdrop-filter: blur(2px);
   backdrop-filter: blur(2px);
 }
@@ -22,10 +22,11 @@
   width: min(760px, 100%);
   max-height: min(720px, calc(100% - 32px));
   grid-template-rows: auto auto auto minmax(0, 1fr) auto;
-  gap: 12px;
+  gap: var(--space-3);
   overflow: hidden;
-  padding: 22px;
-  animation: shortcut-guide-in 180ms var(--ease) both;
+  padding: var(--space-6);
+  animation: shortcut-guide-in var(--motion-enter) var(--motion-ease) both;
+  --shortcut-stagger: 20ms;
 }
 
 /* workspace.css 里的通用 .modal 规则会在组件样式之后加载；提高选择器
@@ -33,8 +34,8 @@
 .modal.modal--shortcut-guide {
   width: min(760px, 100%);
   max-height: min(720px, calc(100% - 32px));
-  gap: 12px;
-  padding: 22px;
+  gap: var(--space-3);
+  padding: var(--space-6);
 }
 
 .modal--shortcut-guide::before {
@@ -43,7 +44,7 @@
   right: 20px;
   left: 20px;
   height: 2px;
-  border-radius: 0 0 2px 2px;
+  border-radius: 0 0 var(--radius-xs) var(--radius-xs);
   background: var(--accent);
   content: "";
 }
@@ -51,7 +52,7 @@
 .shortcut-guide__head {
   display: grid;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-3);
   grid-template-columns: 38px minmax(0, 1fr) 30px;
 }
 
@@ -64,10 +65,10 @@
   border-radius: var(--radius-md);
   color: var(--accent);
   background: var(--accent-soft);
-  box-shadow: inset 0 -2px 0 rgb(0 0 0 / 14%);
+  box-shadow: var(--shadow-sm);
 }
 
-.shortcut-guide__head > div { display: grid; min-width: 0; gap: 2px; }
+.shortcut-guide__head > div { display: grid; min-width: 0; gap: var(--space-hair); }
 
 .shortcut-guide__head strong {
   color: var(--text);
@@ -85,11 +86,11 @@
 .shortcut-guide__tabs {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-  gap: 4px;
-  padding: 4px;
+  gap: var(--space-1);
+  padding: var(--space-1);
   border: 1px solid var(--border);
-  border-radius: 11px;
-  background: color-mix(in srgb, var(--surface) 86%, var(--canvas));
+  border-radius: var(--radius-lg);
+  background: var(--surface);
 }
 
 .shortcut-guide__tabs button {
@@ -99,43 +100,35 @@
   height: 38px;
   align-items: center;
   justify-content: center;
-  gap: 7px;
+  gap: var(--space-2);
   border: 0;
   border-radius: var(--radius-sm);
   color: var(--text-faint);
   background: transparent;
   cursor: pointer;
-  transition: color var(--duration) var(--ease), background var(--duration) var(--ease),
-    box-shadow var(--duration) var(--ease);
+  transition: color var(--motion-standard) var(--motion-ease), background var(--motion-standard) var(--motion-ease),
+    box-shadow var(--motion-standard) var(--motion-ease);
 }
 
 .shortcut-guide__tabs button:hover { color: var(--text-muted); background: var(--surface-hover); }
 
 .shortcut-guide__tabs button[aria-selected="true"] {
   color: var(--text);
-  background: var(--surface-raised);
-  box-shadow: 0 0 0 1px var(--border-strong), 0 2px 7px rgb(0 0 0 / 12%);
+  background: var(--sidebar-active);
+
+  font-weight: 500;
 }
 
 .shortcut-guide__tabs button[aria-selected="true"] > svg { color: var(--accent); }
 
-.shortcut-guide__tabs button[aria-selected="true"]::after {
-  position: absolute;
-  right: 22%;
-  bottom: 3px;
-  left: 22%;
-  height: 2px;
-  border-radius: 2px;
-  background: var(--accent);
-  content: "";
-}
+
 
 .shortcut-guide__context {
   display: flex;
   min-width: 0;
   align-items: center;
-  gap: 7px;
-  margin: 0 2px;
+  gap: var(--space-2);
+  margin: 0 var(--space-hair);
   color: var(--text-faint);
   font-size: var(--fs-xs);
   line-height: 1.35;
@@ -161,7 +154,7 @@
 .shortcut-guide__body {
   min-height: 0;
   overflow-y: auto;
-  padding: 2px 3px 2px 0;
+  padding: var(--space-hair) var(--space-1) var(--space-hair) 0;
   overscroll-behavior: contain;
   scrollbar-color: var(--scrollbar) transparent;
 }
@@ -169,17 +162,17 @@
 .shortcut-guide__groups {
   display: grid;
   align-items: start;
-  gap: 16px;
+  gap: var(--space-4);
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.shortcut-group { display: grid; min-width: 0; gap: 8px; }
+.shortcut-group { display: grid; min-width: 0; gap: var(--space-2); }
 
 .shortcut-group__head {
   display: flex;
   min-width: 0;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .shortcut-group h2 {
@@ -194,11 +187,11 @@
 .shortcut-group__count {
   display: inline-grid;
   min-width: 20px;
-  height: 18px;
+  height: 20px;
   place-items: center;
-  padding: 0 5px;
+  padding: 0 var(--space-1);
   border: 1px solid var(--border);
-  border-radius: 99px;
+  border-radius: var(--radius-full);
   color: var(--text-faint);
   background: var(--surface);
   font-family: var(--font-mono);
@@ -220,22 +213,22 @@
 .shortcut-row {
   display: grid;
   min-width: 0;
-  min-height: 42px;
+  min-height: var(--row-height-nav);
   align-items: center;
-  gap: 12px;
+  gap: var(--space-3);
   grid-template-columns: minmax(0, 1fr) max-content;
-  padding: 7px 10px 7px 12px;
+  padding: var(--space-2) var(--space-3);
   color: var(--text-muted);
   font-size: var(--fs-sm);
   line-height: 1.35;
-  animation: shortcut-row-in 180ms var(--ease) both;
+  animation: shortcut-row-in var(--motion-enter) var(--motion-ease) both;
 }
 
 .shortcut-row + .shortcut-row { border-top: 1px solid var(--border); }
 .shortcut-row:hover { background: var(--surface-hover); }
-.shortcut-row:nth-child(2) { animation-delay: 20ms; }
-.shortcut-row:nth-child(3) { animation-delay: 40ms; }
-.shortcut-row:nth-child(4) { animation-delay: 60ms; }
+.shortcut-row:nth-child(2) { animation-delay: var(--shortcut-stagger); }
+.shortcut-row:nth-child(3) { animation-delay: calc(2 * var(--shortcut-stagger)); }
+.shortcut-row:nth-child(4) { animation-delay: calc(3 * var(--shortcut-stagger)); }
 
 .shortcut-row__label {
   min-width: 0;
@@ -253,7 +246,7 @@
 
 .shortcut-row code {
   min-width: 58px;
-  padding: 5px 8px;
+  padding: var(--space-1) var(--space-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--accent-hover);
@@ -270,21 +263,21 @@
   flex: 0 0 auto;
   align-items: center;
   justify-content: flex-end;
-  gap: 5px;
+  gap: var(--space-1);
   vertical-align: middle;
 }
 
 .key-chord kbd {
   display: inline-grid;
-  min-width: 27px;
-  height: 27px;
+  min-width: calc(var(--control-height-sm) - var(--space-1));
+  height: calc(var(--control-height-sm) - var(--space-1));
   place-items: center;
-  padding: 0 7px;
+  padding: 0 var(--space-2);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
   color: var(--text);
   background: var(--surface-raised);
-  box-shadow: 0 2px 0 var(--border), inset 0 1px 0 rgb(255 255 255 / 5%);
+  box-shadow: var(--shadow-sm);
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
   font-weight: 400;
@@ -296,14 +289,14 @@
   display: flex;
   min-height: 38px;
   align-items: center;
-  gap: 10px;
-  padding: 8px 11px;
-  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  color: var(--text-faint);
-  background: color-mix(in srgb, var(--accent-soft) 72%, var(--surface));
+  color: var(--text-muted);
+  background: var(--surface);
   font-size: var(--fs-sm);
-  line-height: 1.4;
+  line-height: var(--lh-normal);
 }
 
 .shortcut-guide__foot > span {
@@ -316,24 +309,24 @@
 .shortcut-guide__foot p { margin: 0; }
 
 @keyframes shortcut-scrim-in { from { opacity: 0; } }
-@keyframes shortcut-guide-in { from { opacity: 0; transform: translateY(7px) scale(0.99); } }
+@keyframes shortcut-guide-in { from { opacity: 0; transform: translateY(var(--space-2)) scale(0.99); } }
 @keyframes shortcut-row-in { from { opacity: 0; transform: translateX(-4px); } }
 
 @media (max-width: 620px) {
-  .shortcut-guide__scrim { padding: 14px; }
-  .modal.modal--shortcut-guide { max-height: calc(100% - 28px); gap: 11px; padding: 17px; }
+  .shortcut-guide__scrim { padding: var(--space-4); }
+  .modal.modal--shortcut-guide { max-height: calc(100% - 28px); gap: var(--space-3); padding: var(--space-4); }
   .shortcut-guide__groups { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 420px) {
-  .shortcut-guide__scrim { padding: 10px; }
-  .modal.modal--shortcut-guide { max-height: calc(100% - 20px); padding: 14px; }
-  .shortcut-guide__head { grid-template-columns: 34px minmax(0, 1fr) 28px; gap: 9px; }
+  .shortcut-guide__scrim { padding: var(--space-3); }
+  .modal.modal--shortcut-guide { max-height: calc(100% - 20px); padding: var(--space-4); }
+  .shortcut-guide__head { grid-template-columns: 34px minmax(0, 1fr) 28px; gap: var(--space-2); }
   .shortcut-guide__mark { width: 34px; height: 34px; }
   .shortcut-guide__head strong { font-size: calc(var(--fs-display) - 2px); }
-  .shortcut-guide__tabs button { height: 36px; gap: 5px; }
+  .shortcut-guide__tabs button { height: 36px; gap: var(--space-2); }
   .shortcut-guide__tabs button span { font-size: var(--fs-xs); }
-  .shortcut-row { gap: 8px; padding-right: 8px; padding-left: 10px; }
+  .shortcut-row { gap: var(--space-2); padding-right: var(--space-2); padding-left: var(--space-3); }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -341,3 +334,7 @@
   .modal--shortcut-guide,
   .shortcut-row { animation: none; }
 }
+
+.shortcut-guide__tabs button:focus-visible { background: var(--accent-soft); box-shadow: inset 2px 0 var(--accent); outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.shortcut-guide__tabs button:focus-visible { color: var(--text-muted); }
+.shortcut-guide__context-count, .shortcut-group__count { font-variant-numeric: tabular-nums; }

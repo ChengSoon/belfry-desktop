@@ -1,0 +1,453 @@
+{
+  "generatedAt": "2026-11-12T13:10:21.848Z",
+  "platform": "macos",
+  "threshold": 0,
+  "baselineDirectory": "/Users/cheng/work/Project/tool/belfry-win/docs/design/belfry-ui/batch-1/plugin-search/before",
+  "afterDirectory": "/Users/cheng/work/Project/tool/belfry-win/docs/design/belfry-ui/batch-1/plugin-search/after",
+  "baselineScenario": "Previously unreachable light selectors reproduced in the final build; not an archived pre-change build",
+  "afterScenario": "Final build with corrected light selectors",
+  "baselineSource": {
+    "revision": "949d77202b07e7acd47818e5f626ffb966d8fcd2"
+  },
+  "afterSource": {
+    "revision": "949d77202b07e7acd47818e5f626ffb966d8fcd2"
+  },
+  "baselineAssets": [
+    {
+      "path": "/assets/index-C0vVt1iT.js",
+      "sha256": "cf6dd5424088e11cbaef88ce247a6efa123efc154a262bb8523502996850b89e"
+    },
+    {
+      "path": "/assets/keyboard-BFib-eUL.js",
+      "sha256": "fcb49640f17df6b6def8b3570874cbf8c0d5a0a7901f498954edc85ce26c12e8"
+    },
+    {
+      "path": "/assets/triangle-alert-CFSFAvJF.js",
+      "sha256": "5caa1a724174eb0e2949a6abd7ade8206a77909b5f6e38df055a516eedfdb753"
+    },
+    {
+      "path": "/assets/search-DszaN8yP.js",
+      "sha256": "af53057710b2bab219b1b3a5658b6ee08b39c8c6ca6753de78dc658940dca45c"
+    },
+    {
+      "path": "/assets/Select-C9Zd5qBR.js",
+      "sha256": "c1b07f1d7e59cafa63208b0bce6e01ee00c97fdd99f17574a597aca88f24695d"
+    },
+    {
+      "path": "/assets/Presence-DwW-oFI_.js",
+      "sha256": "185386a9a92894ea42c20008506a8290f99d5b50851086cf55d75de142f69c0f"
+    },
+    {
+      "path": "/assets/Select-oc_Lq_09.css",
+      "sha256": "bf903eae462561c5d3a8b76adec121e0ba3f0be628c4310e84db6f1e565049fd"
+    },
+    {
+      "path": "/assets/Presence-TqpzZ8Xa.css",
+      "sha256": "c9b1dec2e19027c8c30b2c7ad3e1af6d5ad1532467805068257d45d0a9962529"
+    },
+    {
+      "path": "/assets/index-Cm-BAe-t.css",
+      "sha256": "011250a5f6b99d6428ab9944f469417fdb24a849c01cf9e3d292a16a41df62a3"
+    }
+  ],
+  "afterAssets": [
+    {
+      "path": "/assets/index-C0vVt1iT.js",
+      "sha256": "cf6dd5424088e11cbaef88ce247a6efa123efc154a262bb8523502996850b89e"
+    },
+    {
+      "path": "/assets/keyboard-BFib-eUL.js",
+      "sha256": "fcb49640f17df6b6def8b3570874cbf8c0d5a0a7901f498954edc85ce26c12e8"
+    },
+    {
+      "path": "/assets/triangle-alert-CFSFAvJF.js",
+      "sha256": "5caa1a724174eb0e2949a6abd7ade8206a77909b5f6e38df055a516eedfdb753"
+    },
+    {
+      "path": "/assets/search-DszaN8yP.js",
+      "sha256": "af53057710b2bab219b1b3a5658b6ee08b39c8c6ca6753de78dc658940dca45c"
+    },
+    {
+      "path": "/assets/Select-C9Zd5qBR.js",
+      "sha256": "c1b07f1d7e59cafa63208b0bce6e01ee00c97fdd99f17574a597aca88f24695d"
+    },
+    {
+      "path": "/assets/Presence-DwW-oFI_.js",
+      "sha256": "185386a9a92894ea42c20008506a8290f99d5b50851086cf55d75de142f69c0f"
+    },
+    {
+      "path": "/assets/Select-oc_Lq_09.css",
+      "sha256": "bf903eae462561c5d3a8b76adec121e0ba3f0be628c4310e84db6f1e565049fd"
+    },
+    {
+      "path": "/assets/Presence-TqpzZ8Xa.css",
+      "sha256": "c9b1dec2e19027c8c30b2c7ad3e1af6d5ad1532467805068257d45d0a9962529"
+    },
+    {
+      "path": "/assets/index-Cm-BAe-t.css",
+      "sha256": "011250a5f6b99d6428ab9944f469417fdb24a849c01cf9e3d292a16a41df62a3"
+    }
+  ],
+  "warnings": [],
+  "paired": 4,
+  "changed": 2,
+  "identical": 2,
+  "incomplete": 0,
+  "totalPixels": 44616,
+  "changedPixels": 17674,
+  "exactChangedPixels": 17674,
+  "changedPercent": 39.61359153666846,
+  "exactChangedPercent": 39.61359153666846,
+  "results": [
+    {
+      "filename": "plugin-search-dark-default.png",
+      "before": {
+        "filename": "plugin-search-dark-default.png",
+        "width": 286,
+        "height": 39,
+        "theme": "dark",
+        "sha256": "9e6fa199f56437665a1d3b121285efebe260979030e0675e9d07ce708e2dbfdd",
+        "evidence": {
+          "background": "oklab(0.951455 -0.00491476 0.00544578 / 0.05)",
+          "shadow": "none",
+          "focusVisible": false,
+          "rect": {
+            "x": 1097,
+            "y": 168.390625,
+            "width": 280,
+            "height": 32
+          },
+          "nearbyButton": {
+            "rect": {
+              "x": 1249,
+              "y": 60,
+              "width": 92,
+              "height": 36
+            },
+            "background": "rgb(178, 213, 182)",
+            "color": "rgb(24, 39, 28)",
+            "border": "0px none rgb(24, 39, 28)",
+            "borderRadius": "6px",
+            "shadow": "none"
+          }
+        },
+        "viewport": {
+          "width": 1440,
+          "height": 960
+        },
+        "component": ".plugins-search with 3px focus-ring margin"
+      },
+      "after": {
+        "filename": "plugin-search-dark-default.png",
+        "width": 286,
+        "height": 39,
+        "theme": "dark",
+        "sha256": "9e6fa199f56437665a1d3b121285efebe260979030e0675e9d07ce708e2dbfdd",
+        "evidence": {
+          "background": "oklab(0.951455 -0.00491476 0.00544578 / 0.05)",
+          "shadow": "none",
+          "focusVisible": false,
+          "rect": {
+            "x": 1097,
+            "y": 168.390625,
+            "width": 280,
+            "height": 32
+          },
+          "nearbyButton": {
+            "rect": {
+              "x": 1249,
+              "y": 60,
+              "width": 92,
+              "height": 36
+            },
+            "background": "rgb(178, 213, 182)",
+            "color": "rgb(24, 39, 28)",
+            "border": "0px none rgb(24, 39, 28)",
+            "borderRadius": "6px",
+            "shadow": "none"
+          }
+        },
+        "viewport": {
+          "width": 1440,
+          "height": 960
+        },
+        "component": ".plugins-search with 3px focus-ring margin"
+      },
+      "status": "identical",
+      "width": 286,
+      "height": 39,
+      "totalPixels": 11154,
+      "changedPixels": 0,
+      "exactChangedPixels": 0,
+      "changedPercent": 0,
+      "exactChangedPercent": 0,
+      "meanAbsoluteChannelDifference": 0,
+      "bounds": null
+    },
+    {
+      "filename": "plugin-search-dark-focus.png",
+      "before": {
+        "filename": "plugin-search-dark-focus.png",
+        "width": 286,
+        "height": 39,
+        "theme": "dark",
+        "sha256": "eb58edf8810f2e52740fad0dd5bb0678bbb57ff0913b2e897d5e6da740866162",
+        "evidence": {
+          "background": "oklab(0.951455 -0.00491476 0.00544578 / 0.07)",
+          "shadow": "oklab(0.839079 -0.0481004 0.0298223 / 0.45) 0px 0px 0px 1px",
+          "focusVisible": true,
+          "rect": {
+            "x": 1097,
+            "y": 168.390625,
+            "width": 280,
+            "height": 32
+          },
+          "nearbyButton": {
+            "rect": {
+              "x": 1249,
+              "y": 60,
+              "width": 92,
+              "height": 36
+            },
+            "background": "rgb(178, 213, 182)",
+            "color": "rgb(24, 39, 28)",
+            "border": "0px none rgb(24, 39, 28)",
+            "borderRadius": "6px",
+            "shadow": "none"
+          }
+        },
+        "viewport": {
+          "width": 1440,
+          "height": 960
+        },
+        "component": ".plugins-search with 3px focus-ring margin"
+      },
+      "after": {
+        "filename": "plugin-search-dark-focus.png",
+        "width": 286,
+        "height": 39,
+        "theme": "dark",
+        "sha256": "eb58edf8810f2e52740fad0dd5bb0678bbb57ff0913b2e897d5e6da740866162",
+        "evidence": {
+          "background": "oklab(0.951455 -0.00491476 0.00544578 / 0.07)",
+          "shadow": "oklab(0.839079 -0.0481004 0.0298223 / 0.45) 0px 0px 0px 1px",
+          "focusVisible": true,
+          "rect": {
+            "x": 1097,
+            "y": 168.390625,
+            "width": 280,
+            "height": 32
+          },
+          "nearbyButton": {
+            "rect": {
+              "x": 1249,
+              "y": 60,
+              "width": 92,
+              "height": 36
+            },
+            "background": "rgb(178, 213, 182)",
+            "color": "rgb(24, 39, 28)",
+            "border": "0px none rgb(24, 39, 28)",
+            "borderRadius": "6px",
+            "shadow": "none"
+          }
+        },
+        "viewport": {
+          "width": 1440,
+          "height": 960
+        },
+        "component": ".plugins-search with 3px focus-ring margin"
+      },
+      "status": "identical",
+      "width": 286,
+      "height": 39,
+      "totalPixels": 11154,
+      "changedPixels": 0,
+      "exactChangedPixels": 0,
+      "changedPercent": 0,
+      "exactChangedPercent": 0,
+      "meanAbsoluteChannelDifference": 0,
+      "bounds": null
+    },
+    {
+      "filename": "plugin-search-light-default.png",
+      "before": {
+        "filename": "plugin-search-light-default.png",
+        "width": 286,
+        "height": 39,
+        "theme": "light",
+        "sha256": "5ba28986e97467f78b69faf7ae2bd535b2ee841964a19406c6a7a80aaf9d0e17",
+        "evidence": {
+          "background": "oklab(0.287634 -0.0132904 0.0053948 / 0.05)",
+          "shadow": "none",
+          "focusVisible": false,
+          "rect": {
+            "x": 1097,
+            "y": 168.390625,
+            "width": 280,
+            "height": 32
+          },
+          "nearbyButton": {
+            "rect": {
+              "x": 1249,
+              "y": 60,
+              "width": 92,
+              "height": 36
+            },
+            "background": "rgb(40, 93, 55)",
+            "color": "rgb(255, 255, 255)",
+            "border": "0px none rgb(255, 255, 255)",
+            "borderRadius": "6px",
+            "shadow": "none"
+          }
+        },
+        "viewport": {
+          "width": 1440,
+          "height": 960
+        },
+        "component": ".plugins-search with 3px focus-ring margin"
+      },
+      "after": {
+        "filename": "plugin-search-light-default.png",
+        "width": 286,
+        "height": 39,
+        "theme": "light",
+        "sha256": "1cb47a4202a98bda0200ea26ffb27e203c67744476bd10ef99e22dfd8d581efb",
+        "evidence": {
+          "background": "rgb(241, 241, 235)",
+          "shadow": "none",
+          "focusVisible": false,
+          "rect": {
+            "x": 1097,
+            "y": 168.390625,
+            "width": 280,
+            "height": 32
+          },
+          "nearbyButton": {
+            "rect": {
+              "x": 1249,
+              "y": 60,
+              "width": 92,
+              "height": 36
+            },
+            "background": "rgb(40, 93, 55)",
+            "color": "rgb(255, 255, 255)",
+            "border": "0px none rgb(255, 255, 255)",
+            "borderRadius": "6px",
+            "shadow": "none"
+          }
+        },
+        "viewport": {
+          "width": 1440,
+          "height": 960
+        },
+        "component": ".plugins-search with 3px focus-ring margin"
+      },
+      "status": "changed",
+      "width": 286,
+      "height": 39,
+      "totalPixels": 11154,
+      "changedPixels": 8413,
+      "exactChangedPixels": 8413,
+      "changedPercent": 75.42585619508696,
+      "exactChangedPercent": 75.42585619508696,
+      "meanAbsoluteChannelDifference": 0.36675183790568405,
+      "bounds": {
+        "x": 3,
+        "y": 3,
+        "width": 280,
+        "height": 32
+      }
+    },
+    {
+      "filename": "plugin-search-light-focus.png",
+      "before": {
+        "filename": "plugin-search-light-focus.png",
+        "width": 286,
+        "height": 39,
+        "theme": "light",
+        "sha256": "5d1448ab28918b9825bf9ac15b2f69508ba3b6251a8916bac1742327dd9234d5",
+        "evidence": {
+          "background": "oklab(0.287634 -0.0132904 0.0053948 / 0.07)",
+          "shadow": "oklab(0.43126 -0.0736957 0.0414366 / 0.45) 0px 0px 0px 1px",
+          "focusVisible": true,
+          "rect": {
+            "x": 1097,
+            "y": 168.390625,
+            "width": 280,
+            "height": 32
+          },
+          "nearbyButton": {
+            "rect": {
+              "x": 1249,
+              "y": 60,
+              "width": 92,
+              "height": 36
+            },
+            "background": "rgb(40, 93, 55)",
+            "color": "rgb(255, 255, 255)",
+            "border": "0px none rgb(255, 255, 255)",
+            "borderRadius": "6px",
+            "shadow": "none"
+          }
+        },
+        "viewport": {
+          "width": 1440,
+          "height": 960
+        },
+        "component": ".plugins-search with 3px focus-ring margin"
+      },
+      "after": {
+        "filename": "plugin-search-light-focus.png",
+        "width": 286,
+        "height": 39,
+        "theme": "light",
+        "sha256": "0e6bfb068ef95d1a430a56fcd6c76bf82cfbd2de893e114799775b2b7a14ac29",
+        "evidence": {
+          "background": "rgb(252, 251, 247)",
+          "shadow": "oklab(0.43126 -0.0736957 0.0414366 / 0.35) 0px 0px 0px 1px",
+          "focusVisible": true,
+          "rect": {
+            "x": 1097,
+            "y": 168.390625,
+            "width": 280,
+            "height": 32
+          },
+          "nearbyButton": {
+            "rect": {
+              "x": 1249,
+              "y": 60,
+              "width": 92,
+              "height": 36
+            },
+            "background": "rgb(40, 93, 55)",
+            "color": "rgb(255, 255, 255)",
+            "border": "0px none rgb(255, 255, 255)",
+            "borderRadius": "6px",
+            "shadow": "none"
+          }
+        },
+        "viewport": {
+          "width": 1440,
+          "height": 960
+        },
+        "component": ".plugins-search with 3px focus-ring margin"
+      },
+      "status": "changed",
+      "width": 286,
+      "height": 39,
+      "totalPixels": 11154,
+      "changedPixels": 9261,
+      "exactChangedPixels": 9261,
+      "changedPercent": 83.02850995158687,
+      "exactChangedPercent": 83.02850995158687,
+      "meanAbsoluteChannelDifference": 8.653509951586875,
+      "bounds": {
+        "x": 2,
+        "y": 2,
+        "width": 282,
+        "height": 34
+      }
+    }
+  ]
+}

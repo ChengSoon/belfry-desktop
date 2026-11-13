@@ -7,6 +7,98 @@ const SESSION_A = '.session-row__main[aria-label^="Alpha"]';
 const SESSION_B = '.session-row__main[aria-label^="Beta"]';
 const PROVIDER_AGENTS = [["claude", "Claude Code"], ["codex", "Codex"], ["pi", "Pi"],
   ["antigravity", "Antigravity CLI"], ["opencode", "OpenCode"], ["kimi", "Kimi Code"]];
+const SAVED_TYPOGRAPHY = { fontFamily: "JetBrains Mono", fontSize: 17, activeImportedFont: null, importedFonts: [] };
+const SAVED_WALLPAPER = { fileName: "synthetic-wallpaper.png", mime: "image/png", fit: "cover", opacity: 1,
+  blur: 0, veil: { dark: 0.61, light: 0.87 }, videoPaused: false };
+
+for (const platform of ["macos", "windows"]) {
+  test(`production UI ${platform} Obsidian preserves wallpaper and typography through compact menus and collapse`, { timeout: 90_000 }, async t => {
+    const nativeExtension = `(() => {
+      Object.defineProperty(navigator, 'userAgent', { configurable: true, value: ${JSON.stringify(platform === "macos" ? "Macintosh" : "Windows NT 10.0")} });
+      localStorage.setItem('belfry.typography.v1', ${JSON.stringify(JSON.stringify(SAVED_TYPOGRAPHY))});
+      localStorage.setItem('belfry.background.v1', ${JSON.stringify(JSON.stringify(SAVED_WALLPAPER))});
+      const recent = JSON.parse(localStorage.getItem('belfry.recent-projects.v1'))[0];
+      localStorage.setItem('belfry.recent-projects.v1', JSON.stringify([recent, ...Array.from({length: 20}, (_, index) => ({
+        ...recent, id: 'synthetic-recent-' + index, rootPath: '/qa/recent-project-' + index,
+        name: 'Synthetic long recent project ' + index, rootUri: 'file:///qa/recent-project-' + index
+      }))]));
+      const image = document.createElement('canvas'); image.width = image.height = 8;
+      const ctx = image.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, 8, 8);
+      ctx.fillStyle = '#000'; ctx.fillRect(0, 0, 4, 8);
+      const bytes = Uint8Array.from(atob(image.toDataURL('image/png').split(',')[1]), c => c.charCodeAt(0));
+      const original = window.__TAURI_INTERNALS__.invoke;
+      window.__TAURI_INTERNALS__.invoke = (command, args = {}) => {
+        if (command === 'background_read') { __productionQA.calls.push({command, args}); return Promise.resolve(bytes.buffer); }
+        return original(command, args);
+      };
+    })();`;
+    const { view, baseline } = await uiFixture(t, { nativeExtension });
+    await waitFor(view, "document.documentElement.dataset.background === 'on'");
+    await view.cdp.evaluate(`(async () => {
+      const image = new Image(); image.src = document.documentElement.style.getPropertyValue('--app-bg-image').match(/url\\("([^"]+)"\\)/)[1];
+      await image.decode();
+    })()`);
+    for (const mode of ["dark", "light"]) {
+      await theme(view, mode);
+      for (const [width, height] of [[1440, 960], [720, 480]]) {
+        await resize(view, width, height);
+        await evidence(view, `${platform}-wallpaper-${mode}-${width}x${height}`, ['button[aria-label="Quick Open"]',
+          ...(platform === "windows" ? ['.window-controls button:first-child', '.window-control-close'] : [])]);
+        const surfaces = await view.cdp.evaluate(`(() => {
+          const root = document.documentElement, workbench = document.querySelector('.workbench'), r = workbench.getBoundingClientRect();
+          const paint = selector => { const ctx = document.createElement('canvas').getContext('2d');
+            ctx.fillStyle = getComputedStyle(document.querySelector(selector)).backgroundColor; ctx.fillRect(0, 0, 1, 1);
+            return [...ctx.getImageData(0, 0, 1, 1).data]; };
+          return { platform: root.dataset.platform, right: innerWidth - r.right, bottom: innerHeight - r.bottom, top: r.top,
+            canvas: getComputedStyle(workbench).backgroundColor, shadow: getComputedStyle(workbench).boxShadow,
+            sidebar: paint('.sidebar'), body: paint('.terminal-pane.is-onstage .terminal-pane__body'),
+            active: paint('.session-row.is-active'), fontSize: root.style.getPropertyValue('--app-font-size'),
+            font: getComputedStyle(document.body).fontFamily, image: getComputedStyle(document.querySelector('.app-background'), '::before').backgroundImage };
+        })()`);
+        assert.equal(surfaces.platform, platform);
+        assert.deepEqual([surfaces.right, surfaces.bottom, surfaces.top], [8, 8, platform === "macos" ? 8 : 48]);
+        assert.equal(surfaces.canvas, "rgba(0, 0, 0, 0)", "the new content surface must let the wallpaper through");
+        assert.notEqual(surfaces.shadow, "none");
+        assert.ok(Math.abs(surfaces.sidebar[3] - Math.round(255 * (mode === "dark" ? .9 : .94))) <= 1);
+        assert.ok(Math.abs(surfaces.body[3] - Math.round(255 * SAVED_WALLPAPER.veil[mode])) <= 1, "terminal retains the user's per-theme veil");
+        assert.equal(surfaces.active[3], 255, "current session remains opaque on contrasting wallpapers");
+        assert.equal(surfaces.fontSize, "17px");
+        assert.ok(surfaces.font.includes('"JetBrains Mono"'));
+        assert.ok(surfaces.image.includes("blob:"));
+        await click(view, '.project-trigger');
+        await waitFor(view, "!!document.querySelector('.popover--project')");
+        await view.cdp.evaluate("document.querySelector('.popover--project').scrollTop = document.querySelector('.popover--project').scrollHeight");
+        await evidence(view, `${platform}-project-popup-${mode}-${width}x${height}`, ['.project-picker-actions button:last-child']);
+        assert.ok(await view.cdp.evaluate(`(() => {
+          const a = document.querySelector('.popover--project').getBoundingClientRect(), b = document.querySelector('.workbench').getBoundingClientRect();
+          return a.left >= b.left && a.right <= b.right && a.bottom <= b.bottom;
+        })()`), "project popup fits inside the rounded content surface");
+        await clickText(view, '项目设置', '.popover--project');
+        await waitFor(view, "!!document.querySelector('.project-library')");
+        await press(view, "Escape");
+        await click(view, 'button[title="更多工具"]');
+        await waitFor(view, "!!document.querySelector('.workbench-menu')");
+        await view.cdp.evaluate("document.querySelector('.workbench-menu').scrollTop = document.querySelector('.workbench-menu').scrollHeight");
+        await evidence(view, `${platform}-tools-popup-${mode}-${width}x${height}`, ['.workbench-menu > button:last-child']);
+        await press(view, "Escape");
+        await click(view, '.sidebar-context__collapse');
+        await waitFor(view, "document.querySelector('.app-shell').classList.contains('is-collapsed')");
+        await evidence(view, `${platform}-collapsed-${mode}-${width}x${height}`, ['.workbench-toolbar > button:first-child']);
+        assert.equal(await view.cdp.evaluate("document.querySelector('.workbench').getBoundingClientRect().left"), 8);
+        await click(view, '.workbench-toolbar > button:first-child');
+        await waitFor(view, "!document.querySelector('.app-shell').classList.contains('is-collapsed')");
+        await intact(view, baseline);
+      }
+      await settings(view, "外观");
+      await evidence(view, `${platform}-wallpaper-settings-${mode}`, [SETTINGS_CLOSE]);
+      await click(view, SETTINGS_CLOSE);
+      await waitFor(view, "!document.querySelector('.settings-view')");
+    }
+    assert.deepEqual(await view.cdp.evaluate(`({ font: JSON.parse(localStorage.getItem('belfry.typography.v1')),
+      wallpaper: JSON.parse(localStorage.getItem('belfry.background.v1')) })`), { font: SAVED_TYPOGRAPHY, wallpaper: SAVED_WALLPAPER });
+    await intact(view, baseline);
+  });
+}
 
 test("production UI workbench themes, session selection, real drag split and Quick Open keyboard", { timeout: 90_000 }, async t => {
   const { view, baseline, requests } = await uiFixture(t);
@@ -14,13 +106,38 @@ test("production UI workbench themes, session selection, real drag split and Qui
   assert.ok(!requests.some(request => /docs\/design|@vite|src\/App/.test(request.url)), "only production assets are served");
   for (const mode of ["dark", "light"]) {
     await theme(view, mode);
-    for (const [width, height] of [[1440, 960], [1024, 768], [820, 768]]) {
+    const appearance = await view.cdp.evaluate(`({
+      canvas: getComputedStyle(document.documentElement).getPropertyValue('--backdrop').trim()
+        .replace(/^#([\\da-f])([\\da-f])([\\da-f])$/i, '#$1$1$2$2$3$3'),
+      meta: document.querySelector('meta[name="theme-color"]').content
+    })`);
+    assert.equal(appearance.meta, appearance.canvas, `${mode}: runtime theme metadata matches the painted window backdrop`);
+    for (const [width, height] of [[1440, 960], [1024, 768], [820, 768], [720, 480]]) {
       await resize(view, width, height);
       await evidence(view, `workbench-${mode}-${width}x${height}`, ['button[aria-label="Quick Open"]', 'button[title^="设置"]']);
       assert.equal(await view.cdp.evaluate("getComputedStyle(document.querySelector('.sidebar')).backgroundColor"),
-        mode === "dark" ? "rgb(32, 36, 34)" : "rgb(238, 238, 231)", "Production sidebar uses the settled Graphite theme");
+        mode === "dark" ? "rgb(12, 13, 16)" : "rgb(236, 236, 239)", "Production sidebar uses the settled Obsidian theme");
+      const plane = await view.cdp.evaluate(`(() => {
+        const el = document.querySelector('.workbench'), r = el.getBoundingClientRect(), css = getComputedStyle(el);
+        return { right: innerWidth - r.right, bottom: innerHeight - r.bottom, radius: css.borderTopRightRadius,
+          background: css.backgroundColor, border: getComputedStyle(document.querySelector('.sidebar')).borderRightWidth };
+      })()`);
+      assert.deepEqual(plane, { right: 8, bottom: 8, radius: "12px", background: mode === "dark" ? "rgb(19, 20, 24)" : "rgb(255, 255, 255)", border: "0px" });
       await intact(view, baseline);
     }
+    await click(view, SESSION_B);
+    const selection = await view.cdp.evaluate(`(() => {
+      const el = document.querySelector(${JSON.stringify(SESSION_B)}), row = el.closest('.session-row'), css = getComputedStyle(row, '::before');
+      return { selected: el.getAttribute('aria-current'), width: css.width, height: parseFloat(css.height),
+        rowHeight: row.getBoundingClientRect().height, color: css.backgroundColor, weight: getComputedStyle(el).fontWeight };
+    })()`);
+    assert.equal(selection.selected, "true");
+    assert.equal(selection.width, "2px");
+    // 两行会话（44px）的竖条上下各留 10px，见 workspace/obsidianWorkbench.css。
+    assert.equal(selection.height, selection.rowHeight - 20);
+    assert.equal(selection.color, mode === "dark" ? "rgb(139, 147, 255)" : "rgb(72, 78, 212)");
+    assert.equal(selection.weight, "500");
+    await click(view, SESSION_A);
   }
   await resize(view, 1440, 960);
   await click(view, SESSION_B);
@@ -110,7 +227,7 @@ test("production UI Provider preserves original cards, segment slider and select
       assert.equal(layout.count, "3");
       assert.ok(layout.columns >= 1 && layout.columns <= 3);
       if (width === 1440) assert.equal(layout.columns, 3);
-      assert.deepEqual({ ...layout, columns: 0 }, { count:"3", columns:0, cardColumns:1, radius:"10px", border:"1px", segments:"grid", scopeBadges:0 });
+      assert.deepEqual({ ...layout, columns: 0 }, { count:"3", columns:0, cardColumns:1, radius:"12px", border:"1px", segments:"grid", scopeBadges:0 });
     }
   }
   await resize(view, 1440, 960);
@@ -301,8 +418,20 @@ test("production UI collaboration waiting result, inspector tree diff, history s
 
 test("production UI plugin installed permissions, marketplace detail and explicit source settings", { timeout: 60_000 }, async t => {
   const { view, baseline } = await uiFixture(t);
+  await theme(view, "light");
   await settings(view, '插件');
   await waitFor(view, "!!document.querySelector('.plugins-row-details-toggle')");
+  await waitFor(view, "!!document.querySelector('.plugins-search')");
+  await evidence(view, 'plugins-search-light');
+  assert.equal(await view.cdp.evaluate("getComputedStyle(document.querySelector('.plugins-search')).backgroundColor"),
+    await view.cdp.evaluate("getComputedStyle(document.querySelector('.settings-search')).backgroundColor"),
+    "light plugin search uses the shared field surface");
+  await click(view, '.plugins-search');
+  await waitFor(view, "document.querySelector('.plugins-search').matches(':focus-visible')");
+  await evidence(view, 'plugins-search-light-focus');
+  assert.equal(await view.cdp.evaluate("getComputedStyle(document.querySelector('.plugins-search')).backgroundColor"),
+    await view.cdp.evaluate("getComputedStyle(document.querySelector('.settings-content')).backgroundColor"),
+    "focused plugin search uses the shared canvas");
   await click(view, '.plugins-row-details-toggle');
   await waitFor(view, "!!document.querySelector('.plugins-row-details-body')");
   await evidence(view, 'plugins-installed-permissions');

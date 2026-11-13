@@ -41,5 +41,10 @@
   "HookStatusBar.text_087739b986": "Starting",
   "HookStatusBar.text_41a841de20": "Session error",
   "HookStatusBar.text_ec3770c468": "Enable hooks in Settings → Session status",
-  "HookStatusBar.text_e9cb72a260": "Native session: {{id}}"
+  "HookStatusBar.text_e9cb72a260": "Native session: {{id}}",
+  "HookCards.connected": "Connected",
+  "HookSettingsSection.agentsTitle": "Agent hooks",
+  "HookSettingsSection.agentsMeta": "{{count}} agents · {{connected}} connected",
+  "HookCards.previewEnable": "Preview enabling",
+  "HookCards.previewRemove": "Preview removing"
 }

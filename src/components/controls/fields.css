@@ -8,7 +8,7 @@
   min-height: 38px;
   margin: 0;
   padding: 9px 12px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
   background: var(--ui-fill, var(--canvas));
   box-shadow: none;

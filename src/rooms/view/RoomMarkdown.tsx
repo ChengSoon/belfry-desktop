@@ -100,9 +100,9 @@ export const RoomMarkdown = memo(function RoomMarkdown({ text, projectRoot, onOp
     ol: ({ children }) => <ol className="my-1 list-decimal space-y-0.5 pl-5">{children}</ol>,
     li: ({ children }) => <li className="pl-0.5">{children}</li>,
     blockquote: ({ children }) => <blockquote className="my-1 border-l-2 border-border pl-2.5 text-muted-foreground">{children}</blockquote>,
-    h1: ({ children }) => <p className="mt-2 mb-1 font-semibold first:mt-0">{children}</p>,
-    h2: ({ children }) => <p className="mt-2 mb-1 font-semibold first:mt-0">{children}</p>,
-    h3: ({ children }) => <p className="mt-2 mb-1 font-semibold first:mt-0">{children}</p>,
+    h1: ({ children }) => <p className="mt-2 mb-1 font-medium first:mt-0">{children}</p>,
+    h2: ({ children }) => <p className="mt-2 mb-1 font-medium first:mt-0">{children}</p>,
+    h3: ({ children }) => <p className="mt-2 mb-1 font-medium first:mt-0">{children}</p>,
     hr: () => <hr className="my-2 border-border" />,
     table: ({ children }) => (
       <div className="my-1.5 overflow-x-auto"><table className="border-collapse text-xs">{children}</table></div>

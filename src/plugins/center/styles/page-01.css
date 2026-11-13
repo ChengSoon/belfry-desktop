@@ -216,10 +216,10 @@
   background: color-mix(in oklab, var(--ds-text-primary) 7%, transparent);
   box-shadow: 0 0 0 1px color-mix(in oklab, var(--ds-accent) 45%, transparent);
 }
-.pi-plugins :root[data-theme="light"] .plugins-search {
-  background: #f3f3f3;
+:root[data-theme="light"] .pi-plugins .plugins-search {
+  background: var(--surface);
 }
-.pi-plugins :root[data-theme="light"] .plugins-search:focus-visible {
-  background: #ffffff;
+:root[data-theme="light"] .pi-plugins .plugins-search:focus-visible {
+  background: var(--canvas);
   box-shadow: 0 0 0 1px color-mix(in oklab, var(--ds-accent) 35%, transparent);
 }

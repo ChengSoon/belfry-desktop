@@ -1,3 +1,4 @@
+import { menuAction } from "./production-uiFixture.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { productionFixture, click, waitFor } from "./productionFixture.mjs";
@@ -119,14 +120,14 @@ const nativeSource = `(() => {
   };
 })();`;
 
-const PANEL = 'button[title="会话协作"]';
+const openCollab = view => menuAction(view, "会话协作");
 // 只给 Agent 终端“画屏幕”（模拟 PTY 输出），不经过 terminal_write，不算用户输入。
 function emit(text) { window.__productionQA.output('agent-backend-pty', text); }
 
 test("顶部「协作」面板不再显示收件箱；投递运行时照常接管", { timeout: 60_000 }, async (t) => {
   const { view } = await productionFixture(t, { nativeSource, terminalCount: 2 });
   await waitFor(view, "__inboxQA.activated === true");
-  await click(view, PANEL);
+  await openCollab(view);
   await waitFor(view, "!!document.querySelector('.collab-panel')");
   assert.equal(await view.cdp.evaluate("!!document.querySelector('.collab-panel .inbox, .collab-panel [role=tablist]')"), false, "收件箱只在协作房间里");
   assert.equal(await view.cdp.evaluate("__inboxQA.calls.some(c => c === 'collab_inbox_sessions' || c === 'collab_inbox_messages')"), false, "顶部面板不读取收件箱");

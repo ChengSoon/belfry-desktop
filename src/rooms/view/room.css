@@ -6,21 +6,27 @@
   grid-column: 1 / -1;
   grid-row: 1 / -1;
   padding-top: var(--titlebar-inset);
+  /* 让位条（macOS 交通灯那 28px）属于窗口底，与侧栏同为 --backdrop，横贯整窗不分段；
+     对话列与任务板从让位条下方才开始各自的面。设置页（T12）照同一做法：容器铺 backdrop，
+     各栏自带底色。 */
+  background: var(--backdrop);
 }
+.room-main { background: var(--canvas); }
 
 .room-compact-nav, .room-pane-scrim { display: none; }
-.room-history-controls { display: grid; justify-items: center; gap: 4px; min-height: 32px; margin-bottom: 8px; color: var(--text-muted); font-size: 12px; }
+.room-history-controls { display: grid; justify-items: center; gap: 4px; min-height: 32px; margin-bottom: 8px; color: var(--text-muted); font-size: var(--fs-xs); }
 .room-history-controls p { max-width: 100%; overflow-wrap: anywhere; color: var(--danger); }
 .room-history-entry { margin: 8px 12px; padding: 8px 12px; border-left: 2px solid var(--border); overflow-wrap: anywhere; }
-.room-history-entry header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; font-size: 11px; color: var(--text-muted); }
-.room-history-entry details { margin-top: 6px; font-size: 12px; }
+.room-history-entry header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; font-size: var(--fs-xs); color: var(--text-muted); }
+.room-history-entry details { margin-top: 6px; font-size: var(--fs-sm); }
 .room-history-entry summary { cursor: pointer; color: var(--text-muted); }
-.room-history-entry pre { max-height: 240px; overflow: auto; white-space: pre-wrap; font-size: 11px; }
-.room-history-entry [role="note"] { font-size: 12px; color: var(--warning); }
+.room-history-entry pre { max-height: 240px; overflow: auto; white-space: pre-wrap; font-size: var(--fs-xs); }
+.room-history-entry [role="note"] { font-size: var(--fs-xs); color: var(--warning); }
 
-/* Terminal requests share a bounded area above the conversation. */
+/* 字号一律走 --fs-*（随设置字号缩放），标题/选中 500 字重：中文只打包 400/500，600 不会生效。
+   Terminal requests share a bounded area above the conversation. */
 .room-main > .room-attention { display: flex; flex-direction: column; flex-shrink: 0; min-height: 0; max-height: min(40%, 24rem); overflow: hidden; border-bottom: 1px solid var(--border); background: var(--surface); }
-.room-attention-heading { display: flex; flex-shrink: 0; align-items: center; gap: 6px; padding: 6px 14px; font-size: 0.6875rem; font-weight: 500; color: var(--text-muted); }
+.room-attention-heading { display: flex; flex-shrink: 0; align-items: center; gap: 6px; padding: 6px 14px; font-size: var(--fs-xs); font-weight: 500; color: var(--text-muted); }
 .room-attention-heading > svg { color: var(--warning); }
 .room-attention-open, .room-attention-members, .room-attention-expanded-heading { display: none; }
 .room-attention-body { display: flex; flex-direction: column; min-height: 0; outline: none; }
@@ -28,36 +34,37 @@
 .room-attention-scroll { min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-gutter: stable; outline-offset: -2px; }
 .room-choice-card { min-width: 0; padding: 4px 14px 12px; overflow-wrap: anywhere; }
 .room-choice-card + .room-choice-card { padding-top: 10px; border-top: 1px solid var(--border); }
-.room-choice-heading { display: flex; align-items: center; gap: 7px; min-width: 0; margin-bottom: 6px; }
-.room-choice-member { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: 0.8125rem; }
-.room-choice-state { display: inline-flex; flex-shrink: 0; align-items: center; gap: 4px; color: var(--text-muted); font-size: 0.6875rem; }
+.room-choice-heading { display: flex; align-items: flex-start; gap: 7px; min-width: 0; margin-bottom: 6px; }
+.room-choice-member { min-width: 0; overflow-wrap: anywhere; font-weight: 500; font-size: var(--fs-sm); }
+.room-choice-state { display: inline-flex; flex-shrink: 0; align-items: center; gap: 4px; color: var(--text-muted); font-size: var(--fs-xs); }
 .room-choice-state-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--warning); }
 .room-choice-state[data-state="submitted"] .room-choice-state-dot { background: var(--accent); }
 .room-choice-terminal { margin-left: auto; color: var(--text-muted); }
-.room-choice-question { margin: 0 0 8px; font-size: 0.875rem; line-height: 1.5; font-weight: 600; white-space: pre-wrap; }
-.room-choice-details { margin-bottom: 8px; font-size: 0.75rem; }
-.room-choice-details summary { display: flex; align-items: center; gap: 4px; width: fit-content; max-width: 100%; cursor: pointer; color: var(--text-muted); border-radius: 4px; list-style: none; }
+.room-choice-question { margin: 0 0 8px; font-size: var(--fs-md); line-height: var(--lh-normal); font-weight: 500; white-space: pre-wrap; }
+.room-choice-details { margin-bottom: 8px; font-size: var(--fs-sm); }
+.room-choice-details summary { display: flex; align-items: center; gap: 4px; width: fit-content; max-width: 100%; cursor: pointer; color: var(--text-muted); border-radius: var(--radius-xs); list-style: none; }
 .room-choice-details summary::-webkit-details-marker { display: none; }
 .room-choice-details[open] summary > svg { transform: rotate(180deg); }
-.room-choice-details pre { max-height: min(9rem, 20vh); margin-top: 6px; padding: 8px 10px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; border-radius: 6px; background: var(--canvas); color: var(--text); line-height: 1.5; user-select: text; }
+.room-choice-details pre { max-height: min(9rem, 20vh); margin-top: 6px; padding: 8px 10px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; border-radius: var(--radius-sm); background: var(--canvas); color: var(--text); line-height: 1.5; user-select: text; }
 .room-choice-options { display: grid; gap: 4px; min-width: 0; }
-.room-choice-option { display: flex; width: 100%; min-width: 0; height: auto; align-items: flex-start; justify-content: flex-start; gap: 9px; padding: 8px 10px; border: 1px solid transparent; border-radius: 7px; text-align: left; white-space: normal; cursor: pointer; }
-.room-choice-option[data-current="true"] { background: color-mix(in srgb, var(--accent) 8%, transparent); }
-.room-choice-option:hover { background: var(--surface-hover); }
-.room-choice-option:focus-visible, .room-choice-option:has(:focus-visible) { outline: 2px solid var(--accent); outline-offset: -2px; }
+.room-choice-option { display: flex; width: 100%; min-width: 0; height: auto; align-items: flex-start; justify-content: flex-start; gap: 9px; padding: 8px 10px; border: 1px solid transparent; border-radius: var(--radius-sm); text-align: left; white-space: normal; cursor: pointer; }
+/* A13：键盘候选 = 强调软底 + 2px 侧标；hover 只换底色。 */
+.room-choice-option[data-current="true"] { background: var(--accent-soft); box-shadow: inset 2px 0 var(--accent); }
+.room-choice-option:not([data-current="true"]):hover { background: var(--surface-hover); }
+.room-choice-option:focus-visible, .room-choice-option:has(:focus-visible) { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
 .room-choice-option > [data-slot="kbd"], .room-choice-option > [data-slot="checkbox"] { flex-shrink: 0; margin-top: 2px; }
-.room-choice-option > [data-slot="kbd"] { width: 1.125rem; height: 1.125rem; padding: 0; font-size: 0.6875rem; background: var(--canvas); color: var(--text-muted); box-shadow: none; }
+.room-choice-option > [data-slot="kbd"] { min-width: 1.5em; height: 1.5em; padding: 0 0.25em; font-size: var(--fs-xs); background: var(--canvas); color: var(--text-muted); box-shadow: none; }
 .room-choice-option-copy { display: block; min-width: 0; flex: 1; }
-.room-choice-option-title { display: block; font-size: 0.8125rem; font-weight: 500; line-height: 1.5; overflow-wrap: anywhere; white-space: pre-wrap; }
-.room-choice-option-description { display: block; margin-top: 2px; color: var(--text-muted); font-size: 0.75rem; font-weight: 400; line-height: 1.45; overflow-wrap: anywhere; white-space: pre-wrap; }
+.room-choice-option-title { display: block; font-size: var(--fs-md); font-weight: 500; line-height: 1.5; overflow-wrap: anywhere; white-space: pre-wrap; }
+.room-choice-option-description { display: block; margin-top: 2px; color: var(--text-muted); font-size: var(--fs-sm); font-weight: 400; line-height: var(--lh-normal); overflow-wrap: anywhere; white-space: pre-wrap; }
 .room-choice-current-dot { flex-shrink: 0; width: 5px; height: 5px; margin-top: 8px; border-radius: 50%; background: var(--accent); opacity: 0; }
 .room-choice-option[data-current="true"] .room-choice-current-dot { opacity: 1; }
-.room-choice-help { margin-bottom: 6px; color: var(--text-muted); font-size: 0.75rem; line-height: 1.5; }
+.room-choice-help { margin-bottom: 6px; color: var(--text-muted); font-size: var(--fs-sm); line-height: var(--lh-normal); }
 .room-choice-submit { display: flex; justify-content: flex-end; margin-top: 8px; }
-.room-choice-input { display: grid; gap: 6px; font-size: 0.75rem; }
+.room-choice-input { display: grid; gap: 6px; font-size: var(--fs-sm); }
 .room-choice-optional { color: var(--text-muted); }
-.room-choice-input textarea { min-height: 3.5rem; max-height: 9rem; resize: vertical; font-size: 0.8125rem; }
-.room-choice-feedback { display: flex; align-items: flex-start; gap: 6px; margin-top: 8px; font-size: 0.75rem; line-height: 1.5; color: var(--text-muted); }
+.room-choice-input textarea { min-height: 3.5rem; max-height: 9rem; resize: vertical; font-size: var(--fs-md); }
+.room-choice-feedback { display: flex; align-items: flex-start; gap: 6px; margin-top: 8px; font-size: var(--fs-sm); line-height: var(--lh-normal); color: var(--text-muted); }
 .room-choice-feedback > svg { flex-shrink: 0; margin-top: 2px; }
 .room-choice-feedback[data-error="true"] { color: var(--warning); }
 .room-attention-paused { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 14px; border-top: 1px solid var(--border); }
@@ -70,7 +77,7 @@
   .room-taskboard { right: 0; }
   .room-view[data-room-panel="members"] > .room-sidebar,
   .room-view[data-room-panel="tasks"] > .room-taskboard { display: flex; }
-  .room-pane-scrim { display: block; position: absolute; inset: 0; z-index: 30; border: 0; background: rgb(0 0 0 / 35%); }
+  .room-pane-scrim { display: block; position: absolute; inset: 0; z-index: 30; border: 0; background: var(--scrim); }
   .room-composer { padding: 4px 8px 8px; }
   .room-main > section { max-height: 22vh; overflow: auto; }
   .room-main > header { min-width: 0; gap: 4px; padding-inline: 8px; }
@@ -89,12 +96,12 @@
 .room-attention[data-compact="true"] .room-attention-body { display: none; }
 .room-attention[data-expanded="true"] .room-attention-body {
   display: flex; position: absolute; top: 8px; left: 8px; right: 8px; z-index: 20;
-  overflow: hidden; border: 1px solid var(--border); border-radius: 8px;
-  background: var(--surface); box-shadow: var(--shadow-lg);
+  overflow: hidden; border: 0; border-radius: var(--radius-md);
+  background: var(--surface-raised); box-shadow: var(--shadow-lg);
 }
 .room-attention[data-expanded="true"] .room-attention-expanded-heading {
   display: flex; align-items: center; flex-shrink: 0; gap: 8px; padding: 2px 8px;
-  border-bottom: 1px solid var(--border); color: var(--text-muted); font-size: 0.75rem;
+  border-bottom: 1px solid var(--border); color: var(--text-muted); font-size: var(--fs-xs);
 }
 .room-attention-expanded-heading > svg { color: var(--warning); }
 .room-attention-close { margin-left: auto; }
@@ -105,7 +112,8 @@
   .room-main:has(.room-attention) .room-composer textarea { min-height: 2.25rem; }
 }
 
-/* 成员头像：按成员 id 散列出的色相，亮暗两套色阶。 */
+/* 成员头像：按成员 id 散列出的色相，亮暗两套色阶。字重 500（中文无 600）。 */
+.room-avatar-label { font-weight: 500; }
 [data-slot="avatar-fallback"].room-avatar {
   background-color: hsl(var(--avatar-hue) 32% 30%);
   color: hsl(var(--avatar-hue) 60% 88%);
@@ -118,7 +126,7 @@
 /* 协作流程图（React Flow）。颜色接应用主题；连接点不给看也不给连。 */
 .room-flow {
   --xy-background-color: var(--canvas);
-  --xy-node-border-radius: 12px;
+  --xy-node-border-radius: var(--radius-lg);
   --xy-controls-button-background-color: var(--surface-raised);
   --xy-controls-button-background-color-hover: var(--surface-hover);
   --xy-controls-button-color: var(--text-muted);
@@ -173,3 +181,28 @@
   .room-flow-node--busy::after { opacity: 0.3; }
   .room-flow-pulse { display: none; }
 }
+
+/* ───────────── T22：对齐曜石规则（UI设计工程走查） ───────────── */
+/* 1）当前房间：圆头短竖条，上下各留 10px，和工作台会话行、设置导航同一规格。 */
+.room-nav-current::before {
+  content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 2px; border-radius: 2px;
+  background: var(--accent); pointer-events: none;
+}
+/* 2）任务：一组一个 group 外框，行之间 border-soft 分隔，和成员列表、设置分区的 group 一致。 */
+.room-task-group { overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--panel); }
+.room-task-row { transition: background var(--motion-standard) var(--motion-ease); }
+.room-task-row + .room-task-row { border-top: 1px solid var(--border-soft); }
+.room-task-row > button:hover { background: var(--surface-hover); }
+.room-task-row[data-open="true"] > button { background: var(--sidebar-active); }
+/* 3）「+ 新建任务」：次要按钮（32 高 · r6 · surface 底 + 内描边），和 os-btn / 弹窗按钮一致。 */
+.room-task-add {
+  display: inline-flex; align-items: center; gap: 6px; margin-left: auto; min-height: var(--control-height-sm); padding: 0 12px;
+  border: 0; border-radius: var(--radius-sm); background: var(--surface); box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--text); font: inherit; font-size: var(--fs-sm); font-weight: 500; white-space: nowrap; cursor: pointer;
+  transition: background var(--motion-standard) var(--motion-ease), box-shadow var(--motion-standard) var(--motion-ease);
+}
+.room-task-add > svg { width: 14px; height: 14px; flex: none; }
+.room-task-add:hover { background: var(--surface-hover); box-shadow: inset 0 0 0 1px var(--border-strong); }
+.room-task-add[aria-pressed="true"] { background: var(--sidebar-active); box-shadow: inset 0 0 0 1px var(--border-strong); }
+.room-task-add:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .room-task-row, .room-task-add { transition: none; } }

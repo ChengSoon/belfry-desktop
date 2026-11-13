@@ -87,7 +87,7 @@
   align-items: center;
   gap: 2px;
   padding: 3px 4px 3px 8px;
-  border: 1px solid var(--border-strong);
+  border: 0;
   border-radius: var(--radius-md);
   color: var(--text-muted);
   background: var(--surface-raised);

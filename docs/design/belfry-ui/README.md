@@ -1,10 +1,20 @@
 # Belfry 全局 UI 重设计 · UI study 01
 
+> 生产落地更新（2026-11-13）：默认主题已按 B 曜石实施。剩余 T23 / T25 / T26 由 T27 接续完成，最终设置外壳、分区设计对照及验收入口见 [接续交付说明](settings-shell/README.md) 和 [并排截图](settings-shell/index.html)。下文的 Graphite / Paper / Compact 描述与「尚未替换生产」属于最初原型阶段的记录。
+
+> T28 最新调整：按用户「右侧不允许留白」要求，正文铺满、Provider 不留空轨道。[最新截图](settings-shell/full-width/index.html) · [验证说明](settings-shell/full-width/README.md)。
+
+> T29 最新补齐：工作台右上按 B 稿收为三个入口，统计并入同一状态行。[设计稿 / 修前 / 修后](workbench-tools/index.html) · [验证说明](workbench-tools/README.md)。
+
+> T30 功能修复：文本预览支持 Unicode BOM 和传统编码识别，避免 UTF-16 / GBK 等被误判二进制。[根因、实现与验证](file-preview-fix/README.md)。
+
 ## 打开入口
 
 - [可交互原型](index.html)：完整应用外壳、页面导航与模拟操作。
 - [方案对比](showcase.html)：Graphite / Paper / Compact 三种桌面截图，可一键切换。
 - [设计规范](design-spec.md) 与 [品牌资产说明](brand-spec.md)。
+- [原生窗口审计与生产 UI 截图基线](native-window-baseline.md)：包含截图脚本运行方式，以及工作台、设置、房间在两种平台样式、亮暗主题和三种尺寸下的改前图。
+- [截图对比工具](compare-ui-baseline.md)：按 manifest 生成并排预览、差异高亮和像素差异摘要，供后续改造批次复核。
 
 直接在仓库原位置打开 HTML，或用工作面板预览；图片和字体是本地相对路径，不依赖 CDN。若移出此目录，需要同时保留 `assets/`、`previews/`、JS/CSS 以及仓库 `public/fonts/` 的相对位置。本轮交付为设计原型，**尚未替换生产 React/Tauri UI**。
 

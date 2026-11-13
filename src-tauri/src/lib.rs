@@ -22,6 +22,7 @@ mod ssh;
 mod terminal;
 mod typography;
 mod usage;
+mod window_reveal;
 
 use terminal::{TerminalRuntime, commands};
 
@@ -80,6 +81,7 @@ pub fn run() {
             app.manage(inbox);
             app.manage(rooms);
             if let Err(error) = i18n::refresh_menu(app.handle()) { log::warn!("Cannot initialize native menu language: {error}"); }
+            window_reveal::prepare(app.handle());
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -103,6 +105,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             logging::app_log_write,
             i18n::app_set_locale,
+            window_reveal::app_window_backdrop,
             logging::diagnostics_export,
             agent::commands::agent_detect,
             agent::commands::agent_descriptors,
@@ -175,6 +178,7 @@ pub fn run() {
             project::commands::project_list_directory,
             project::commands::project_read_file,
             git::commands::git_status,
+            git::commands::git_branch,
             git::commands::git_diff,
             git::worktrees::commands::worktree_list,
             git::worktrees::commands::worktree_preview_create,

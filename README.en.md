@@ -286,6 +286,10 @@ See the [CLI feature backlog](docs/cli-manager-feature-backlog.md) and [implemen
 - **Internationalization**: support Simplified Chinese, English, and the system language, with localized dates and numbers; provide bilingual CLI help, native notifications and menus, Agent collaboration instructions, and the Windows installer.
 - **Release checksums**: publish `SHA256SUMS.txt`, verify assets before making the release public, and document verification on Windows and macOS.
 
+### v1.0.4 · Obsidian interface and text previews
+
+A unified light and dark Obsidian interface across the workbench, settings, providers and collaboration rooms. Settings fill the available width, the toolbar has three compact tools, and UTF-16 / GBK text files no longer appear as binary solely because of their encoding.
+
 ### v1.0.3 · Inbox delivery fix
 
 - Fixes the collaboration inbox blocking every later message for a session after one delivery was interrupted. Batches interrupted before the full text reached the terminal return to pending and are redelivered automatically without duplicates; switching windows no longer interrupts delivery; unverifiable records left by the old dispatcher no longer block delivery.

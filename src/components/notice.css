@@ -1,0 +1,42 @@
+.ui-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--notice-gap);
+  margin: 0;
+  padding: var(--notice-inset);
+  border: 0;
+  border-radius: var(--notice-radius);
+  color: var(--text-muted);
+  background: var(--notice-background);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-normal);
+  overflow-wrap: anywhere;
+}
+
+.ui-notice--danger { --notice-color: var(--danger); --notice-background: var(--danger-soft); }
+.ui-notice--warning { --notice-color: var(--warning); --notice-background: var(--warning-soft); }
+.ui-notice--neutral { --notice-color: var(--text-muted); --notice-background: var(--surface); }
+.ui-notice > svg { flex: none; margin-top: var(--space-hair); color: var(--notice-color); }
+.ui-notice__message { flex: 1 1 12em; min-width: 0; }
+.ui-notice__message > strong { color: var(--text); font-weight: 500; }
+.ui-notice__message > p { margin: var(--space-1) 0 0; }
+/* 窄面板里动作组整组折到正文下方：正文至少保住 12em，不被两个按钮挤成一列。
+   折行后靠右（margin-left: auto），和不折行时的位置一致。 */
+.ui-notice__actions { display: flex; flex: 0 1 auto; flex-wrap: wrap; align-items: center; gap: var(--space-1); max-width: 100%; margin-left: auto; }
+.ui-notice__actions > button {
+  min-height: var(--control-height-sm);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--accent);
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+  transition: background var(--motion-standard) var(--motion-ease);
+}
+.ui-notice__actions > button:hover:not(:disabled) { background: var(--surface-hover); }
+.ui-notice__actions > button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.ui-notice__actions > button:disabled { opacity: .45; cursor: default; }
+/* 中性说明（设置分区页头下的介绍等）：accent-soft 底 + info 图标；正文用 muted（faint 落在 accent-soft 上暗色不足 4.5）。 */
+.ui-notice--info { --notice-color: var(--info); --notice-background: var(--accent-soft); }

@@ -5,7 +5,11 @@ import { ICON } from "../../theme/sizing";
 import type { WorkspaceTab } from "../../workspace/contracts";
 import { AGENT_ICONS } from "../../workspace/components/AgentIcons";
 import { isAgentKind } from "../../agent/contracts";
+import { shortPath } from "../../workspace/path";
 import type { Rect } from "../contracts";
+import { HookStatusBar } from "../../agent/hooks/HookStatusBar";
+import { SessionStatisticsControl } from "../../usage/session/SessionStatisticsControl";
+import { statisticsTarget } from "../../usage/session/target";
 
 interface TerminalPaneProps {
   tab: WorkspaceTab;
@@ -59,8 +63,16 @@ export function TerminalPane({
     >
       {onStage ? (
         <div className="terminal-pane__bar" onPointerDown={(event) => onDragStart(tab.id, event)}>
-          <Icon aria-hidden="true" size={ICON.xs} />
-          <span className="terminal-pane__title">{tab.title}</span>
+          {split ? <><Icon aria-hidden="true" size={ICON.xs} />
+            <span className="terminal-pane__title">{tab.title}</span></> : null}
+          <span className={`terminal-pane__state terminal-pane__state--${paneState(tab)}`}>
+            <i aria-hidden="true" />{t(`layout.TerminalPane.${paneState(tab)}`)}
+          </span>
+          {!split && tab.project.rootPath && tab.kind !== "ssh" ? <span className="terminal-pane__path" title={tab.project.rootPath}>{shortPath(tab.project.rootPath)}</span> : null}
+          {isAgentKind(tab.kind) ? <div className="terminal-pane__session" onPointerDown={event => event.stopPropagation()}>
+            <HookStatusBar snapshot={tab.agentState ?? null} activity={tab.activity} phase={tab.phase} recovering={!!tab.restoreSessionId || !!tab.resumeSessionId} />
+            <SessionStatisticsControl {...statisticsTarget(tab, tab.agentState ?? null)} visible={onStage} />
+          </div> : null}
           {split ? (
             <button
               className="terminal-pane__close"
@@ -78,4 +90,15 @@ export function TerminalPane({
       <div className="terminal-pane__body">{children}</div>
     </div>
   );
+}
+
+/** 状态条上的一个词：进程不在跑时报进程，在跑时报它在干什么。和侧栏副标题同一套口径。 */
+function paneState(tab: WorkspaceTab): "running" | "starting" | "exited" | "error" | "talking" | "awaiting" | "idle" {
+  if (tab.phase === "creating") return "starting";
+  if (tab.phase === "exited") return "exited";
+  if (tab.phase === "error") return "error";
+  if (tab.phase !== "running") return "idle";
+  if (tab.activity === "awaiting-choice") return "awaiting";
+  if (tab.activity === "talking") return "talking";
+  return "running";
 }

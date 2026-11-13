@@ -1,3 +1,4 @@
+import { Notice } from "../../components/Notice";
 import { t, useTranslation } from "../../i18n";
 import "../configEditor.css";
 import { RefreshCcw } from "lucide-react";
@@ -96,8 +97,8 @@ export function ProviderConfigEditor({
       {!revealSecrets ? (
         <button className="provider-config__copy" type="button" onClick={onRevealSecrets}>{t("provider.ProviderConfigEditor.text_df893a06ba")}</button>
       ) : <>
-      {failure ? <p className="provider-error" role="alert">{failure}</p> : null}
-      {saveFailure ? <p className="provider-error" role="alert">{saveFailure}</p> : null}
+      {failure ? <Notice className="provider-error" role="alert">{failure}</Notice> : null}
+      {saveFailure ? <Notice className="provider-error" role="alert">{saveFailure}</Notice> : null}
       {loading && files === null ? <p className="provider-config__hint">{t("provider.ProviderConfigEditor.text_86b6d0d630")}</p> : null}
       {files && files.length === 0 ? <p className="provider-config__hint">{t("provider.ProviderConfigEditor.text_16b0c4444d")}</p> : null}
 

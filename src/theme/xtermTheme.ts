@@ -1,5 +1,6 @@
 import type { ITheme } from "@xterm/xterm";
 import type { ThemeMode } from "./contracts";
+import canvas from "./canvas.json";
 
 /**
  * background / foreground 收窄成必填：PTY 层要拿它们去应答子进程的 OSC 10/11 颜色查询，
@@ -12,63 +13,63 @@ export type TerminalTheme = ITheme & { background: string; foreground: string };
  * background 必须与 --canvas 完全一致：终端直接铺在画布上，差一档就会看到色缝。
  */
 const DARK: TerminalTheme = {
-  background: "#171a19",
-  foreground: "#edf0eb",
-  // Cursor follows readable foreground; selection carries the Graphite accent.
-  cursor: "#edf0eb",
-  cursorAccent: "#171a19",
-  selectionBackground: "rgba(178, 213, 182, 0.24)",
+  background: canvas.dark,
+  foreground: "#ecedf0",
+  // Cursor follows readable foreground; selection carries the indigo accent.
+  cursor: "#ecedf0",
+  cursorAccent: canvas.dark,
+  selectionBackground: "rgba(139, 147, 255, 0.28)",
   // 滚动条滑块走 --scrollbar 同款灰阶（xterm 读不到 CSS 变量，色值写死）：
   // hover / 拖动时提亮一档，与全局原生滚动条观感一致。
   // 走主题而不是 CSS —— xterm 在运行时把这三个值注入自己的样式表，位置排在我们的 CSS 之后，
   // 且 :hover / .active 两条变体特异度更高，从 CSS 那边压只能靠 !important。
   // 必须写成不透明的颜色，不能用 transparent 关键字：xterm 的颜色解析器不认它，
   // 会静默退回内置默认色（前景色 20% 透明度），看起来就像改动没生效。
-  scrollbarSliderBackground: "#56635a",
-  scrollbarSliderHoverBackground: "#6a7a6f",
-  scrollbarSliderActiveBackground: "#84968a",
+  scrollbarSliderBackground: "#3a3d45",
+  scrollbarSliderHoverBackground: "#4a4d56",
+  scrollbarSliderActiveBackground: "#60646f",
   // overview ruler 即使没有标记也会画一条默认白色分隔线；保留滚动条宽度，只隐藏这条边。
   overviewRulerBorder: "rgba(0, 0, 0, 0)",
-  black: "#26272b",
-  red: "#f0796f",
-  green: "#57c99a",
-  yellow: "#e5b45b",
-  blue: "#6e8bff",
-  magenta: "#c08ce0",
-  cyan: "#5cc0c4",
-  white: "#d6d7db",
-  brightBlack: "#5a5b63",
-  brightRed: "#ff9a91",
-  brightGreen: "#7bddb5",
-  brightYellow: "#f5ce84",
-  brightBlue: "#93a9ff",
-  brightMagenta: "#d6a9f0",
-  brightCyan: "#7fd6d9",
-  brightWhite: "#f4f4f6",
+  black: "#2a2c33",
+  red: "#ff7b72",
+  green: "#5fd4a0",
+  yellow: "#f2c46b",
+  blue: "#5aa9f0",
+  magenta: "#d08be8",
+  cyan: "#5cc8d0",
+  white: "#c9cbd2",
+  brightBlack: "#6e717c",
+  brightRed: "#ffa198",
+  brightGreen: "#85e3b9",
+  brightYellow: "#f7d58f",
+  brightBlue: "#86c3f7",
+  brightMagenta: "#e0aaf2",
+  brightCyan: "#85dce2",
+  brightWhite: "#f5f6f8",
 };
 
 const LIGHT: TerminalTheme = {
-  background: "#fcfbf7",
-  foreground: "#252d28",
-  cursor: "#252d28",
-  cursorAccent: "#fcfbf7",
-  selectionBackground: "rgba(40, 93, 55, 0.18)",
+  background: canvas.light,
+  foreground: "#16171c",
+  cursor: "#16171c",
+  cursorAccent: canvas.light,
+  selectionBackground: "rgba(72, 78, 212, 0.16)",
   // 同 DARK：滑块走 --scrollbar 同款灰阶，理由见上面那段注释。
-  scrollbarSliderBackground: "#8d9c8e",
-  scrollbarSliderHoverBackground: "#788a7b",
-  scrollbarSliderActiveBackground: "#627467",
+  scrollbarSliderBackground: "#b4b6bf",
+  scrollbarSliderHoverBackground: "#9c9ea8",
+  scrollbarSliderActiveBackground: "#8e909a",
   overviewRulerBorder: "rgba(0, 0, 0, 0)",
   black: "#26272b",
   red: "#c4342a",
   green: "#12875a",
   yellow: "#9a6b0f",
-  blue: "#3b5bdb",
-  magenta: "#8b3fbf",
+  blue: "#1d6fb8",
+  magenta: "#a23aa8",
   cyan: "#0e7490",
   // 亮色下 white/brightWhite 不能真给白：程序常用色号 37 输出正文，浅灰在白底会隐形。
   // 这里按亮色终端惯例压暗，bright 一档留给强调。
   //
-  // white 从 #5f6169（5.9:1）压到 8.2:1，越过 minimumContrastRatio 的 7 之后
+  // white 保持 8.57:1，越过 minimumContrastRatio 的 7 之后
   // xterm 不再改写它，程序原本的配色意图能完整留下。
   //
   // brightBlack 反过来**刻意留在 3.2:1**，不跟着压深——它必须停在 dim 的兜底窗口里。
@@ -78,12 +79,12 @@ const LIGHT: TerminalTheme = {
   // 压到 4.9:1 后 dim+90 掉到 2.0:1。非 dim 那侧两种取值都会被兜底拉到 7.6~7.9:1，
   // 没有区别——所以压深它是纯亏。statusline 大量用 dim + 灰，这一档不能让。
   white: "#4a4c53",
-  brightBlack: "#8a8c94",
+  brightBlack: "#8e909a",
   brightRed: "#d94334",
   brightGreen: "#16a06c",
   brightYellow: "#b8811a",
-  brightBlue: "#4f6fe8",
-  brightMagenta: "#a455d6",
+  brightBlue: "#2f86d6",
+  brightMagenta: "#bf52c4",
   brightCyan: "#128aa8",
   brightWhite: "#17181b",
 };
@@ -123,12 +124,12 @@ export function isLightTheme(theme: TerminalTheme): boolean {
  *    而 `DIM_OPACITY = 0.5` 照样乘下去。取 7 把这条线放到 3.5，
  *    才装得下 brightBlack 这类真正常用于 dim 的灰（见 LIGHT 里那段说明）；
  *    取 4.5 时线只有 2.25，几乎所有灰都会漏出兜底、被砍半。
- * 2. 开背景图时 xterm 拿来算对比度的背景是 `rgba(250, 250, 250, 0)`——RGB 分量被
+ * 2. 开背景图时 xterm 拿来算对比度的背景是 `rgba(255, 255, 255, 0)`——RGB 分量被
  *    `withTransparentBackground` 刻意保留了，所以计算不会退化，但偏乐观：
- *    真实底色是画布色与背景图的混合，比 `#fafafa` 更脏（这一段由 veil 的亮色默认值补，
+ *    真实底色是画布色与背景图的混合，比纯白更脏（这一段由 veil 的亮色默认值补，
  *    见 background/contracts.ts）。
  *
- * 代价是 7:1 对彩色色号很苛刻，亮色调色板里除 black/brightWhite/foreground 外
+ * 代价是 7:1 对彩色色号很苛刻，亮色调色板里除 black/white/brightWhite/foreground 外
  * 全都会被 xterm 往深处改写一档，bright 与常规两档的差别会被压缩。
  * 亮色下可读性优先，这个取舍是有意的。
  */

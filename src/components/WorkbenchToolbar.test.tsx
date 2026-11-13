@@ -14,16 +14,32 @@ function props(): WorkbenchProps {
     onResize: vi.fn(), onRevealSidebar: vi.fn(), onSnapshot: vi.fn(), onToggleCollab: vi.fn(), onTogglePreview: vi.fn(), onToggleQuickOpen: vi.fn() };
 }
 
-it("常态保留项目、搜索、文件、协作、主题和更多入口，待确认可直接进入", () => {
+it("按稿保留分屏、文件和更多三个工具入口，待确认提示并入更多", () => {
   const html = renderToStaticMarkup(<WorkbenchToolbar {...props()} />);
-  expect((html.match(/<button/g) ?? []).length).toBe(6);
-  for (const label of ["很长的项目名称", "Quick Open", "快速打开", "文件预览", "更多工具，2 条协作待确认", "2 待确认", "切换到亮色主题"]) expect(html).toContain(label);
-  for (const label of ["插件启动器", "快捷指令"]) expect(html).not.toContain(label);
+  expect((html.match(/<button/g) ?? []).length).toBe(4);
+  for (const label of ["很长的项目名称", "分屏", "文件预览", "更多工具，2 条协作待确认"]) expect(html).toContain(label);
+  for (const label of ["Quick Open", "workbench-collab", "切换到亮色主题", "插件启动器", "快捷指令"]) expect(html).not.toContain(label);
 });
 
-it("更多面板保留原工具和主题入口，窄舞台仍有搜索与文件入口", () => {
+it("更多面板在所有尺寸下保留原工具、主题、搜索与文件入口", () => {
   const html = renderToStaticMarkup(<WorkbenchMenuItems {...props()} onSelect={vi.fn()} />);
   for (const label of ["会话协作", "2 条待确认", "插件启动器", "插件工作面板", "快捷指令", "切换到亮色主题", "Quick Open", "文件与 Git 改动"]) {
     expect(html).toContain(label);
   }
+});
+
+it("顶栏标签只列与当前会话同项目的会话，点击走同一个切换入口", () => {
+  const project = props().activeProject!;
+  const other = { ...project, id: "q", name: "另一个项目", rootPath: "/other", rootUri: "file:///other" };
+  const tab = (id: string, title: string, owner = project) => ({ id, title, project: owner, kind: "shell", phase: "running", activity: "idle",
+    agentName: null, customTitle: null, titleHint: null, profileId: "shell:default", collaborationMode: false, sshTarget: null, resumeSessionId: null, error: null });
+  const tabs = [tab("a", "Alpha"), tab("b", "Beta"), tab("c", "Gamma", other)] as unknown as WorkbenchProps["tabs"];
+  const html = renderToStaticMarkup(<WorkbenchToolbar {...props()} tabs={tabs} activeTabId="a" onActivateTab={vi.fn()} />);
+  expect(html).toContain("Alpha");
+  expect(html).toContain("Beta");
+  expect(html).not.toContain("Gamma");
+  expect(html).toContain('role="group" aria-label="同项目会话"');
+  expect(html).toMatch(/aria-current="page"[^>]*title="Alpha"/);
+  expect(html).not.toContain('role="tab');
+  expect(html.match(/aria-current="page"/g)).toHaveLength(1);
 });

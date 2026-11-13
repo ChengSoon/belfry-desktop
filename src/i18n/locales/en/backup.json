@@ -61,5 +61,7 @@
   "workspace.text_057495a88b": "The backup focuses a session that does not exist",
   "workspace.text_012e906ae5": "Invalid identifier in backup",
   "workspace.text_c3a5c1917b": "Invalid name or path in backup",
-  "workspace.text_ffe9f388f6": "A name or path contains credentials. Remove them before backing up."
+  "workspace.text_ffe9f388f6": "A name or path contains credentials. Remove them before backing up.",
+  "BackupSection.restoreTitle": "Restore from backup",
+  "BackupSection.restoreHint": "Preview the backup first and choose which data to restore. It replaces the current data on next launch, after an automatic snapshot."
 }

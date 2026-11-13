@@ -93,7 +93,7 @@
   min-width: 0;
   width: 100%;
   padding: 6px 9px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
   color: var(--text);
   background: var(--canvas);

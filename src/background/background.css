@@ -86,17 +86,19 @@
 
 /* 侧栏。:not() 是必需的——拖会话到侧栏上方时 .is-eject-target 要把整条染成
    强调色，而那条规则的优先级(0,2,0)低于这里的(0,2,1)，不排除掉就会被这层盖住，
-   拖拽反馈直接消失。78% 沿用初版实测值：小字仍清晰、图案又明显透得出来。 */
+   拖拽反馈直接消失。曜石暗 90% / 亮 94% 的衬底守住反向壁纸上的小字对比度。 */
 :root[data-background="on"] .sidebar:not(.is-eject-target) {
-  border-right-color: var(--app-bg-divider);
-  background: color-mix(in srgb, var(--sidebar) 78%, transparent);
+  background: color-mix(in srgb, var(--sidebar) var(--sidebar-translucency), transparent);
 }
 
 /* Windows 的自绘标题栏与侧栏同色同源，同一档浓度，否则顶上横一条色阶。
    macOS 走 Overlay 标题栏，这个节点是 display: none，规则自然落空。 */
 :root[data-background="on"] .window-titlebar {
-  background: color-mix(in srgb, var(--sidebar) 78%, transparent);
+  background: color-mix(in srgb, var(--sidebar) var(--sidebar-translucency), transparent);
 }
+
+/* 图片在 app-shell 的背景层上。主区只保留轮廓，终端 body 继续承担用户设定的 veil。 */
+:root[data-background="on"] .workbench { background: transparent; }
 
 :root[data-background="on"] .usage-panel {
   border-left-color: var(--app-bg-divider);
@@ -149,11 +151,11 @@
   border-color: var(--app-bg-divider-strong);
 }
 
-/* 活动会话仍要能扫出来，但不再是一整块纯白/纯黑卡片。 */
+/* 当前行保持不透明，2px 竖条在任意壁纸上都清晰。 */
 :root[data-background="on"] .session-row.is-active,
 :root[data-background="on"] .session-row.is-active:hover {
-  background: color-mix(in srgb, var(--sidebar-active) 72%, transparent);
-  box-shadow: 0 0 0 1px var(--app-bg-divider);
+  background: var(--sidebar-active);
+  box-shadow: none;
 }
 
 /* 舞台标题行悬在图案正上方，没有任何面可以依靠，给触发器自己垫一粒玻璃胶囊。

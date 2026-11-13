@@ -1,30 +1,23 @@
-.hook-settings { display: grid; gap: 24px; }
-.hook-settings p { margin: 0; color: var(--text-muted); font-size: var(--fs-sm); line-height: 1.7; }
-.hook-settings__intro, .hook-settings__footnote { padding: 2px 0; }
-.hook-agent-card, .hook-preview { display: grid; gap: 12px; padding: 18px; border: 1px solid var(--border); border-radius: var(--radius-md); }
-.hook-agent-card { padding: 4px 0 20px; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; }
-.hook-config-details, .hook-settings__footnote { color: var(--text-muted); font-size: var(--fs-xs); line-height: 1.7; }
-.hook-settings .ui-disclosure__trigger { padding: 3px 0; }
-.hook-settings .ui-disclosure[data-open="true"] > .ui-disclosure__trigger { margin-bottom: 8px; }
-.hook-agent-card header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; font-size: var(--fs-md); }
-.hook-agent-card header > span { color: var(--text-muted); }
-.hook-agent-card__summary { display: flex; flex-wrap: wrap; gap: 12px; color: var(--text-muted); font-size: var(--fs-xs); }
-.hook-agent-card__summary > span:first-child { color: var(--accent); }
-.hook-config-path { overflow-wrap: anywhere; color: var(--text-muted); font-size: var(--fs-xs); line-height: 1.7; }
-.hook-settings footer { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 3px; }
-.hook-settings footer button { min-height: 38px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; color: var(--text); background: var(--surface); font-size: var(--fs-sm); cursor: pointer; }
-.hook-settings footer button:hover:not(:disabled) { background: var(--surface-hover); }
-.hook-settings footer button:disabled { opacity: .45; cursor: default; }
-.hook-settings footer .hook-primary { color: var(--accent-contrast); border-color: transparent; background: var(--accent); }
-.hook-preview { border: 0; border-left: 2px solid var(--accent); border-radius: 0; background: var(--surface); }
-.hook-preview pre { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; padding: 12px; border-radius: var(--radius-sm); background: var(--canvas); color: var(--text); font-size: var(--fs-xs); line-height: 1.6; }
+/* 会话状态（曜石 T19）：Agent 行与骨架走 settings/obsidianSections.css，这里只留 Hook 特有部分。 */
+.hook-settings__footnote { margin: 0; color: var(--text-faint); font-size: var(--fs-xs); line-height: var(--lh-normal); overflow-wrap: anywhere; }
+.hook-config-details { margin-top: 6px; color: var(--text-muted); font-size: var(--fs-xs); }
+.hook-config-details .ui-disclosure__trigger { padding: 2px 0; font-size: var(--fs-xs); }
+.hook-config-path { display: block; }
+.hook-settings .hook-error { margin: var(--space-1) 0 0; color: var(--danger); font-size: var(--fs-sm); overflow-wrap: anywhere; }
+/* 变更预览：沿用 modal 的面板语言（panel + r12 + 描边），内嵌在页内。 */
+.hook-preview {
+  display: grid; gap: var(--space-3); padding: var(--space-5); border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg); background: var(--panel); box-shadow: var(--shadow-md);
+}
+.hook-preview > strong { font-size: var(--fs-lg); font-weight: 500; }
+.hook-preview p { margin: 0; color: var(--text-muted); font-size: var(--fs-sm); line-height: 1.6; }
+.hook-preview .os-paths { margin: 0; }
+.hook-preview pre { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; padding: var(--space-3); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font: 400 var(--fs-xs)/1.6 var(--font-mono); }
 .hook-event-list { display: flex; flex-wrap: wrap; gap: 6px; }
-.hook-event-list code { padding: 3px 6px; border-radius: var(--radius-xs); background: var(--surface); color: var(--text-muted); font-size: var(--fs-xs); }
-.hook-settings .hook-error { color: var(--danger); }
-.terminal-workspace--agent { display: grid; grid-template-rows: 24px minmax(0, 1fr); }
+.hook-event-list code { padding: 2px 6px; border-radius: var(--radius-xs); background: var(--surface-hover); color: var(--text-muted); font-size: var(--fs-xs); }
+
+/* 终端上方的 Hook 状态条（不在设置内）。 */
 .hook-status-bar { display: flex; min-width: 0; align-items: center; gap: 8px; padding: 0 14px; color: var(--text-muted); font-size: var(--fs-xs); overflow: hidden; white-space: nowrap; }
 .hook-status-bar > span:last-child { overflow: hidden; text-overflow: ellipsis; }
 .hook-status-bar__source { flex-shrink: 0; color: var(--text-muted); opacity: .8; }
 .hook-status-bar[data-source="hook"] .hook-status-bar__source { color: var(--accent); opacity: 1; }
-.hook-config-path { font-family: var(--font-mono); }
-.hook-settings footer .hook-primary:hover:not(:disabled) { background: var(--accent-hover); }

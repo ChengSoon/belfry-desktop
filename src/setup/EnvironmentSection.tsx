@@ -18,6 +18,8 @@ import {
   type CheckState,
   type EnvironmentReport,
 } from "./contracts";
+import { Notice } from "../components/Notice";
+import "../settings/obsidianSections.css";
 import "./environment.css";
 
 type BusyAction = "diagnose" | "install" | null;
@@ -32,7 +34,7 @@ export function EnvironmentSection() {
   useTranslation();
   const setup = useEnvironmentSetup();
   return (
-    <section className="environment-section">
+    <section className="environment-section os-page">
       <EnvironmentHeader
         busy={setup.busy}
         onDiagnose={setup.diagnose}
@@ -98,30 +100,22 @@ function EnvironmentHeader({ busy, onDiagnose, onInstall }: HeaderProps) {
     <SettingsHeader
       actions={<>
         <button
-          className="environment-action environment-action--primary"
-          disabled={busy !== null}
-          onClick={() => void onInstall()}
-          type="button"
-        >
-          {busy === "install" ? (
-            <LoaderCircle aria-hidden="true" className="environment-spin" size={ICON.sm} />
-          ) : <Download aria-hidden="true" size={ICON.sm} />}
-          <span>{t("setup.EnvironmentSection.text_bfc960b0ec")}</span>
-        </button>
-        <button
-          className="environment-action environment-action--icon"
+          aria-label={t("setup.EnvironmentSection.text_69611f40d2")}
+          className="os-btn icon environment-action--icon"
           disabled={busy !== null}
           onClick={() => void onDiagnose()}
           title={t("setup.EnvironmentSection.text_69611f40d2")}
           type="button"
         >
-          <RefreshCcw
-            aria-hidden="true"
-            className={busy === "diagnose" ? "environment-spin" : undefined}
-            size={ICON.sm}
-          />
+          <RefreshCcw aria-hidden="true" className={busy === "diagnose" ? "environment-spin" : undefined} size={ICON.sm} />
+        </button>
+        <button className="os-btn primary environment-action--primary" disabled={busy !== null} onClick={() => void onInstall()} type="button">
+          {busy === "install" ? <LoaderCircle aria-hidden="true" className="environment-spin" size={ICON.sm} />
+            : <Download aria-hidden="true" size={ICON.sm} />}
+          <span>{t("setup.EnvironmentSection.text_bfc960b0ec")}</span>
         </button>
       </>}
+      description={t("setup.EnvironmentSection.description")}
       title={t("setup.EnvironmentSection.text_821f9ff1ad")}
     />
   );
@@ -131,8 +125,8 @@ function EnvironmentFeedback({ failure, notice }: { failure: string | null; noti
   useTranslation();
   return (
     <>
-      {notice ? <p className="environment-notice" role="status">{notice}</p> : null}
-      {failure ? <p className="environment-failure" role="alert">{failure}</p> : null}
+      {notice ? <Notice className="environment-notice" tone="neutral" role="status">{notice}</Notice> : null}
+      {failure ? <Notice className="environment-failure" role="alert">{failure}</Notice> : null}
     </>
   );
 }
@@ -153,22 +147,29 @@ function EnvironmentResults({ report }: { report: EnvironmentReport }) {
   const counts = countChecks(report);
   return (
     <>
-      <div className="environment-summary" data-state={report.overall}>
-        <StatusIcon state={report.overall} />
-        <strong>{OVERALL_LABEL[report.overall]}</strong>
-        <span>{t("setup.EnvironmentSection.text_e41906d038", { ok: counts.ok, warning: counts.warning, error: counts.error })}</span>
+      <div className="os-group">
+        <div className="environment-summary" data-state={report.overall}>
+          <span className="environment-summary__icon"><StatusIcon state={report.overall} /></span>
+          <span className="environment-summary__body">
+            <strong>{OVERALL_LABEL[report.overall]}</strong>
+            <span>{t("setup.EnvironmentSection.text_e41906d038", { ok: counts.ok, warning: counts.warning, error: counts.error })}</span>
+          </span>
+        </div>
       </div>
-      <ul className="environment-checks">
-        {report.checks.map((check) => (
-          <li data-state={check.state} key={check.id}>
-            <span className="environment-checks__icon"><StatusIcon state={check.state} /></span>
-            <span className="environment-checks__text">
-              <strong>{check.label}</strong>
-              <small>{check.summary}</small>
-            </span>
-          </li>
-        ))}
-      </ul>
+      <section className="os-section">
+        <div className="os-group-head"><h3>{t("setup.EnvironmentSection.checks")}</h3></div>
+        <ul className="os-group environment-checks">
+          {report.checks.map((check) => (
+            <li data-state={check.state} key={check.id}>
+              <span className="environment-checks__icon"><StatusIcon state={check.state} /></span>
+              <span className="environment-checks__text">
+                <strong>{check.label}</strong>
+                <small>{check.summary}</small>
+              </span>
+            </li>
+          ))}
+        </ul>
+      </section>
     </>
   );
 }

@@ -16,7 +16,8 @@ it("尚未安装时提供预览入口，不把已支持接口说成已连接", (
 
 it("未知版本不能启用，但允许移除旧的托管 Hook", () => {
   const html = renderToStaticMarkup(<HookAgentCard report={{ ...report, supported: false, installed: 1 }} busy={false} onPreview={() => {}} />);
-  expect(html).toMatch(/disabled=""[^>]*>预览启用 Codex Hook/);
+  // 按钮可见文案是「预览启用」（T19 稿），完整的「预览启用 Codex Hook」放在 aria-label。
+  expect(html).toMatch(/aria-label="预览启用 Codex Hook"[^>]*disabled=""[^>]*>预览启用</);
   expect(html).toContain("预览移除 Codex Hook");
 });
 

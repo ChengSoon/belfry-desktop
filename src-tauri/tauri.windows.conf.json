@@ -10,6 +10,10 @@
         "height": 700,
         "minWidth": 720,
         "minHeight": 480,
+        "center": true,
+        "preventOverflow": true,
+        "shadow": true,
+        "visible": false,
         "resizable": true
       }
     ]

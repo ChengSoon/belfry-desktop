@@ -154,5 +154,6 @@
   "ProjectProviderSection.shellVariable": "{{name}} (login shell)",
   "ProjectProviderSection.processVariable": "{{name}} (host process)",
   "ProjectProviderSection.selectedWithKey": "Selected for this project · Separate key configured",
-  "ProjectProviderSection.selectedWithoutKey": "Selected for this project · No separate key configured"
+  "ProjectProviderSection.selectedWithoutKey": "Selected for this project · No separate key configured",
+  "ProjectProviderSection.agentsTitle": "Agent routes"
 }

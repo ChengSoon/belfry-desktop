@@ -1,5 +1,6 @@
 import { t, useTranslation } from "../../i18n";
-import { AlertTriangle, Gauge, RefreshCcw, X } from "lucide-react";
+import { Gauge, RefreshCcw, X } from "lucide-react";
+import { Notice } from "../../components/Notice";
 import type { CSSProperties } from "react";
 import { PanelResizeHandle } from "../../panel/PanelResizeHandle";
 import { usePanelWidth } from "../../panel/usePanelWidth";
@@ -43,8 +44,8 @@ export function UsagePanel({ project, onClose }: UsagePanelProps) {
           <span>{t("usage.UsagePanel.text_537a4bdb13", { name: project?.name })}</span>
         </label> : null}
       </div>
-      {usage.error ? <div className="usage-error" role="alert"><AlertTriangle aria-hidden="true" size={ICON.sm} />
-        <span>{usage.error}</span><button type="button" disabled={usage.loading} onClick={() => void usage.reload()}>{t("usage.UsagePanel.text_b8784c8dd5")}</button></div> : null}
+      {usage.error ? <Notice className="usage-error" action={<button type="button" disabled={usage.loading}
+        onClick={() => void usage.reload()}>{t("usage.UsagePanel.text_b8784c8dd5")}</button>}>{usage.error}</Notice> : null}
       <div className="usage-body" aria-busy={usage.loading}>
         {usage.report ? <UsageInsights report={usage.report} project={project} /> : null}
         {usage.loading ? <p className="usage-hint" role="status">{t("usage.UsagePanel.text_a0253c8eaf")}</p> : null}

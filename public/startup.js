@@ -8,7 +8,10 @@
       ? saved : window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
   } catch (_) { /* Use dark mode if storage is unavailable. */ }
   document.documentElement.dataset.theme = mode;
-  document.querySelector('meta[name="theme-color"]').content = mode === "light" ? "#fafafa" : "#0a0a0b";
+  // 平台标记先写：下面的 meta 即使缺失，也不能连带丢掉标题栏让位。
   if (navigator.userAgent.indexOf("Mac") !== -1) document.documentElement.dataset.platform = "macos";
   else if (navigator.userAgent.indexOf("Windows") !== -1) document.documentElement.dataset.platform = "windows";
+  var themeColor = document.querySelector('meta[name="theme-color"]');
+  var backdrop = document.querySelector('meta[name="belfry-backdrop-' + mode + '"]');
+  if (themeColor && backdrop) themeColor.content = backdrop.content;
 })();

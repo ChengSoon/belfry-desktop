@@ -38,5 +38,10 @@
   "HookStatusBar.text_e9cb72a260": "原生会话：{{id}}",
   "HookCards.enableTitle": "启用 {{agent}} Hook",
   "HookCards.removeTitle": "移除 {{agent}} Hook",
-  "HookCards.codexTrust": "启用后请重开会话，在 Codex 的 {{command}} 中审阅并信任。Belfry 不改写信任记录。"
+  "HookCards.codexTrust": "启用后请重开会话，在 Codex 的 {{command}} 中审阅并信任。Belfry 不改写信任记录。",
+  "HookCards.connected": "已连接",
+  "HookSettingsSection.agentsTitle": "Agent Hook",
+  "HookSettingsSection.agentsMeta": "{{count}} 个 Agent · {{connected}} 个已连接",
+  "HookCards.previewEnable": "预览启用",
+  "HookCards.previewRemove": "预览移除"
 }

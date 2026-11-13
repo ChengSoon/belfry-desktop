@@ -7,5 +7,5 @@
 
 .file-preview-trigger[aria-expanded="true"] {
   color: var(--accent);
-  background: var(--accent-soft);
+  background: var(--sidebar-active);
 }

@@ -10,7 +10,7 @@
   min-height: 0;
   grid-template-rows: minmax(0, 1fr) auto;
   padding-top: var(--titlebar-inset);
-  border-right: 1px solid var(--border);
+  border-right: 0;
   background: var(--sidebar);
   transition: background var(--duration) var(--ease), border-color var(--duration) var(--ease);
 }
@@ -157,6 +157,7 @@
 }
 
 .session-row {
+  position: relative;
   display: grid;
   height: 32px;
   align-items: center;
@@ -172,17 +173,27 @@
 
 .session-row:hover { background: var(--sidebar-hover); }
 
-/* 活动态是"浮起的卡片"而不是一块填充色：底色已经沉过一档，这里给纯白 + 一圈描边，
-   对比来自明度差。描边走 box-shadow 而非 border——border 会把 36px 的行撑到 38px，
-   activate 时整列往下跳。 */
+/* 当前位置靠底色和 2px 竖条共同标记。伪元素不占布局，切换时行高和列宽都不变。 */
 .session-row.is-active {
   background: var(--sidebar-active);
-  box-shadow: var(--sidebar-active-shadow);
+  box-shadow: none;
+}
+
+.session-row.is-active::before {
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 0;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+  content: "";
+  pointer-events: none;
 }
 
 .session-row.is-active:hover { background: var(--sidebar-active); }
 
-/* 会话名使用正文档位；活动态靠颜色和卡片层次强调，不额外加粗。 */
+/* 会话名使用正文档位；当前行用已分发的 500 字重强调。 */
 .session-row__main {
   display: flex;
   min-width: 0;
@@ -211,7 +222,7 @@
   white-space: nowrap;
 }
 
-.session-row.is-active .session-row__main { color: var(--text); font-weight: 400; }
+.session-row.is-active .session-row__main { color: var(--text); font-weight: 500; }
 .session-row.is-active .session-row__main > svg { color: var(--text-muted); }
 
 /* 进程没了的会话整行褪一档：一个 6px 的灰点撑不住"这条已经死了"，
@@ -361,7 +372,7 @@
 .popover {
   position: absolute;
   z-index: 20;
-  border: 1px solid var(--border);
+  border: 0;
   border-radius: var(--radius-md);
   background: var(--surface-raised);
   box-shadow: var(--shadow-md);

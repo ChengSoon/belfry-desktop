@@ -1,0 +1,49 @@
+<!doctype html><html lang="zh-CN"><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>T29 · 工作台右上角对照</title><style>
+*{box-sizing:border-box}body{margin:0;padding:32px;background:#101115;color:#e7e8ed;font:14px/1.65 system-ui,sans-serif}main{max-width:1480px;margin:auto}h1{font-size:23px;font-weight:600}h2{font-size:17px;font-weight:500;margin:32px 0 12px}p{color:#acafbc}a{color:#a6afff}figure{margin:0;min-width:0}figcaption{padding:8px 0;color:#acafbc}img{display:block;width:100%;height:auto;border:1px solid #30323a;border-radius:8px}.compare{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.crop img{image-rendering:auto}.gallery{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}details{margin-top:24px}summary{cursor:pointer;font-size:16px;padding:8px 0}code{font-size:12px}@media(max-width:800px){body{padding:16px}.compare,.gallery{grid-template-columns:1fr}} </style><main>
+<h1>T29 · 补齐工作台右上工具区</h1><p>根据用户指出的截图，对照已选定的曜石 B 稿完成实装。全部工作由资深全栈工程师2独立完成。</p>
+<p>右上保留分屏、文件与 Git、更多三个图标入口；协作、主题、Quick Open 和 Worktree 放入更多。统计并入 34px 状态行，移除原先额外的 24px 工具条。分屏使用已有会话与布局，不重建终端。</p>
+<p><a href="README.md">实现与验证说明</a> · <a href="../directions/workbench.html?dir=b&theme=dark">批准的设计稿</a></p>
+<h2>暗色 · 用户指出区域的同尺度裁切</h2><div class="compare crop">
+<figure><figcaption>曜石 B 设计稿</figcaption><img src="crops/design-dark.png" alt="暗色 曜石 B 设计稿"></figure>
+<figure><figcaption>修前：旧工具与单独统计条</figcaption><img src="crops/before-dark.png" alt="暗色 修前：旧工具与单独统计条"></figure>
+<figure><figcaption>修后：三个入口与同一状态行</figcaption><img src="crops/after-dark.png" alt="暗色 修后：三个入口与同一状态行"></figure>
+</div>
+<h2>亮色 · 用户指出区域的同尺度裁切</h2><div class="compare crop">
+<figure><figcaption>曜石 B 设计稿</figcaption><img src="crops/design-light.png" alt="亮色 曜石 B 设计稿"></figure>
+<figure><figcaption>修前：旧工具与单独统计条</figcaption><img src="crops/before-light.png" alt="亮色 修前：旧工具与单独统计条"></figure>
+<figure><figcaption>修后：三个入口与同一状态行</figcaption><img src="crops/after-light.png" alt="亮色 修后：三个入口与同一状态行"></figure>
+</div>
+<p>设计稿中的模型和上下文为示意数据；实装保留真实会话统计。macOS 截图裁掉 20px 原生标题栏让位，使两版工具栏顶部对齐。</p>
+<details open><summary>macOS · 实装全图、窄窗、更多、统计、分屏与 Worktree</summary><div class="gallery">
+<figure><figcaption>暗色 · 1440px · 工作台</figcaption><a href="after/macos-dark-1440.png"><img loading="lazy" src="after/macos-dark-1440.png" alt="macOS 暗色 1440px 工作台"></a></figure>
+<figure><figcaption>暗色 · 1440px · 更多菜单</figcaption><a href="after/macos-dark-1440-menu.png"><img loading="lazy" src="after/macos-dark-1440-menu.png" alt="macOS 暗色 1440px 更多菜单"></a></figure>
+<figure><figcaption>暗色 · 1440px · 统计弹层</figcaption><a href="after/macos-dark-1440-stats.png"><img loading="lazy" src="after/macos-dark-1440-stats.png" alt="macOS 暗色 1440px 统计弹层"></a></figure>
+<figure><figcaption>暗色 · 720px · 工作台</figcaption><a href="after/macos-dark-720.png"><img loading="lazy" src="after/macos-dark-720.png" alt="macOS 暗色 720px 工作台"></a></figure>
+<figure><figcaption>暗色 · 720px · 更多菜单</figcaption><a href="after/macos-dark-720-menu.png"><img loading="lazy" src="after/macos-dark-720-menu.png" alt="macOS 暗色 720px 更多菜单"></a></figure>
+<figure><figcaption>暗色 · 720px · 统计弹层</figcaption><a href="after/macos-dark-720-stats.png"><img loading="lazy" src="after/macos-dark-720-stats.png" alt="macOS 暗色 720px 统计弹层"></a></figure>
+<figure><figcaption>亮色 · 1440px · 工作台</figcaption><a href="after/macos-light-1440.png"><img loading="lazy" src="after/macos-light-1440.png" alt="macOS 亮色 1440px 工作台"></a></figure>
+<figure><figcaption>亮色 · 1440px · 更多菜单</figcaption><a href="after/macos-light-1440-menu.png"><img loading="lazy" src="after/macos-light-1440-menu.png" alt="macOS 亮色 1440px 更多菜单"></a></figure>
+<figure><figcaption>亮色 · 1440px · 统计弹层</figcaption><a href="after/macos-light-1440-stats.png"><img loading="lazy" src="after/macos-light-1440-stats.png" alt="macOS 亮色 1440px 统计弹层"></a></figure>
+<figure><figcaption>亮色 · 720px · 工作台</figcaption><a href="after/macos-light-720.png"><img loading="lazy" src="after/macos-light-720.png" alt="macOS 亮色 720px 工作台"></a></figure>
+<figure><figcaption>亮色 · 720px · 更多菜单</figcaption><a href="after/macos-light-720-menu.png"><img loading="lazy" src="after/macos-light-720-menu.png" alt="macOS 亮色 720px 更多菜单"></a></figure>
+<figure><figcaption>亮色 · 720px · 统计弹层</figcaption><a href="after/macos-light-720-stats.png"><img loading="lazy" src="after/macos-light-720-stats.png" alt="macOS 亮色 720px 统计弹层"></a></figure>
+<figure><figcaption>真实分屏</figcaption><a href="after/macos-split.png"><img loading="lazy" src="after/macos-split.png" alt="macOS 真实分屏"></a></figure>
+<figure><figcaption>独立任务目录</figcaption><a href="after/macos-worktree.png"><img loading="lazy" src="after/macos-worktree.png" alt="macOS 独立任务目录"></a></figure>
+</div></details>
+<details open><summary>Windows · 实装全图、窄窗、更多、统计、分屏与 Worktree</summary><div class="gallery">
+<figure><figcaption>暗色 · 1440px · 工作台</figcaption><a href="after/windows-dark-1440.png"><img loading="lazy" src="after/windows-dark-1440.png" alt="Windows 暗色 1440px 工作台"></a></figure>
+<figure><figcaption>暗色 · 1440px · 更多菜单</figcaption><a href="after/windows-dark-1440-menu.png"><img loading="lazy" src="after/windows-dark-1440-menu.png" alt="Windows 暗色 1440px 更多菜单"></a></figure>
+<figure><figcaption>暗色 · 1440px · 统计弹层</figcaption><a href="after/windows-dark-1440-stats.png"><img loading="lazy" src="after/windows-dark-1440-stats.png" alt="Windows 暗色 1440px 统计弹层"></a></figure>
+<figure><figcaption>暗色 · 720px · 工作台</figcaption><a href="after/windows-dark-720.png"><img loading="lazy" src="after/windows-dark-720.png" alt="Windows 暗色 720px 工作台"></a></figure>
+<figure><figcaption>暗色 · 720px · 更多菜单</figcaption><a href="after/windows-dark-720-menu.png"><img loading="lazy" src="after/windows-dark-720-menu.png" alt="Windows 暗色 720px 更多菜单"></a></figure>
+<figure><figcaption>暗色 · 720px · 统计弹层</figcaption><a href="after/windows-dark-720-stats.png"><img loading="lazy" src="after/windows-dark-720-stats.png" alt="Windows 暗色 720px 统计弹层"></a></figure>
+<figure><figcaption>亮色 · 1440px · 工作台</figcaption><a href="after/windows-light-1440.png"><img loading="lazy" src="after/windows-light-1440.png" alt="Windows 亮色 1440px 工作台"></a></figure>
+<figure><figcaption>亮色 · 1440px · 更多菜单</figcaption><a href="after/windows-light-1440-menu.png"><img loading="lazy" src="after/windows-light-1440-menu.png" alt="Windows 亮色 1440px 更多菜单"></a></figure>
+<figure><figcaption>亮色 · 1440px · 统计弹层</figcaption><a href="after/windows-light-1440-stats.png"><img loading="lazy" src="after/windows-light-1440-stats.png" alt="Windows 亮色 1440px 统计弹层"></a></figure>
+<figure><figcaption>亮色 · 720px · 工作台</figcaption><a href="after/windows-light-720.png"><img loading="lazy" src="after/windows-light-720.png" alt="Windows 亮色 720px 工作台"></a></figure>
+<figure><figcaption>亮色 · 720px · 更多菜单</figcaption><a href="after/windows-light-720-menu.png"><img loading="lazy" src="after/windows-light-720-menu.png" alt="Windows 亮色 720px 更多菜单"></a></figure>
+<figure><figcaption>亮色 · 720px · 统计弹层</figcaption><a href="after/windows-light-720-stats.png"><img loading="lazy" src="after/windows-light-720-stats.png" alt="Windows 亮色 720px 统计弹层"></a></figure>
+<figure><figcaption>真实分屏</figcaption><a href="after/windows-split.png"><img loading="lazy" src="after/windows-split.png" alt="Windows 真实分屏"></a></figure>
+<figure><figcaption>独立任务目录</figcaption><a href="after/windows-worktree.png"><img loading="lazy" src="after/windows-worktree.png" alt="Windows 独立任务目录"></a></figure>
+</div></details>
+</main></html>

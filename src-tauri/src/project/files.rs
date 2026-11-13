@@ -6,6 +6,7 @@ use std::time::UNIX_EPOCH;
 use crate::terminal::AppError;
 
 use super::contracts::{ProjectDirectory, ProjectEntry, ProjectEntryKind, ProjectFilePreview};
+use super::preview_text;
 use super::resource_path::{self, ResourcePathError};
 
 const MAX_DIRECTORY_ENTRIES: usize = 1_000;
@@ -76,13 +77,9 @@ pub fn read_file(root_path: &str, relative_path: &str) -> Result<ProjectFilePrev
         .take(MAX_PREVIEW_BYTES)
         .read_to_end(&mut bytes)
         .map_err(|error| map_io_error("read project file", &path, error))?;
-    let binary = looks_binary(&bytes);
-    let content = if binary {
-        String::new()
-    } else {
-        decode_text(bytes, truncated).unwrap_or_default()
-    };
-    let binary = binary || (content.is_empty() && size > 0 && !truncated);
+    let decoded = preview_text::decode(&bytes, truncated);
+    let binary = decoded.is_none();
+    let content = decoded.unwrap_or_default();
 
     Ok(ProjectFilePreview {
         name: path
@@ -171,29 +168,6 @@ fn modified_at(metadata: &fs::Metadata) -> Option<u64> {
         .duration_since(UNIX_EPOCH)
         .ok()
         .and_then(|value| u64::try_from(value.as_millis()).ok())
-}
-
-fn looks_binary(bytes: &[u8]) -> bool {
-    let sample = &bytes[..bytes.len().min(8_192)];
-    if sample.contains(&0) {
-        return true;
-    }
-    let controls = sample
-        .iter()
-        .filter(|byte| **byte < 0x20 && !matches!(**byte, b'\n' | b'\r' | b'\t'))
-        .count();
-    !sample.is_empty() && controls * 10 > sample.len()
-}
-
-fn decode_text(bytes: Vec<u8>, truncated: bool) -> Option<String> {
-    match String::from_utf8(bytes) {
-        Ok(value) => Some(value),
-        Err(error) if truncated && error.utf8_error().error_len().is_none() => {
-            let valid = error.utf8_error().valid_up_to();
-            String::from_utf8(error.into_bytes()[..valid].to_vec()).ok()
-        }
-        Err(_) => None,
-    }
 }
 
 fn language_for(path: &Path) -> Option<&'static str> {

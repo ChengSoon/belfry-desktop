@@ -69,6 +69,7 @@
     collab_reject: ({ id }) => { qa.tasks.find(task => task.id === id).state = "abandoned"; return null; },
     project_list_directory: ({ relativePath }) => ({ relativePath: relativePath ?? "", entries: [{ name: filename, relativePath: filename, kind: "file", size: 41, modifiedAt: 1 }], truncated: false }),
     project_read_file: ({ relativePath }) => ({ name: filename, relativePath, content: "export const syntheticGraphite = true;\n", size: 41, modifiedAt: 1, language: "typescript", binary: false, truncated: false }),
+    git_branch: () => ({ repository: true, branch: "qa/long-synthetic-graphite-branch-name", detached: null }),
     git_status: () => ({ repository: true, rootPath, branch: "qa/long-synthetic-graphite-branch-name", head: "abcdef", upstream: null, ahead: 0, behind: 0, entries: [{ path: filename, originalPath: null, indexStatus: " ", worktreeStatus: "M", untracked: false, conflicted: false, submodule: false }], truncated: false }),
     git_diff: () => ({ text: `diff --git a/${filename} b/${filename}\n--- a/${filename}\n+++ b/${filename}\n@@ -1 +1 @@\n-export const syntheticGraphite = false;\n+export const syntheticGraphite = true;\n`, binary: false, truncated: false }),
     history_search: ({ request }) => {

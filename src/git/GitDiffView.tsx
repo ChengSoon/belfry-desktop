@@ -1,3 +1,4 @@
+import { Notice } from "../components/Notice";
 import { getLocale, t, useTranslation } from "../i18n";
 import { FileCode2, MessageSquare, RefreshCcw } from "lucide-react";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -36,8 +37,8 @@ export function GitDiffView(props: Props) {
       <button type="button" className="icon-button icon-button--sm" title={t("git.GitDiffView.text_583116b492")} aria-label={t("git.GitDiffView.text_583116b492")}
         disabled={!props.file || !canPreview(props.file)} onClick={props.onOpen}><FileCode2 size={ICON.sm} aria-hidden="true" /></button>
     </header>
-    {props.file?.conflicted ? <p className="git-warning">{t("git.GitDiffView.text_697efcdf39")}</p> : null}
-    {props.failure ? <p className="git-error" role="alert">{props.failure}</p> : null}
+    {props.file?.conflicted ? <Notice className="git-warning" tone="warning">{t("git.GitDiffView.text_697efcdf39")}</Notice> : null}
+    {props.failure ? <Notice className="git-error" action={<button type="button" disabled={props.loading} onClick={props.onRefresh}>{t("git.GitDiffView.text_e01d757f2b")}</button>}>{props.failure}</Notice> : null}
     {props.loading ? <p className="git-hint" role="status">{t("git.GitDiffView.text_970ec71a68")}</p> : null}
     {!props.loading && props.diff ? <GitDiffContent key={JSON.stringify(props.request)} diff={props.diff}
       selectedLine={isReviewAnchorCurrent(props.diff, draft.anchor) ? draft.anchor?.index : null}
@@ -87,6 +88,6 @@ export function GitDiffContent({ diff, onReviewLine, selectedLine, reviewDisable
       </tr>)}</tbody>
     </table></div>
     {parsed.more ? <button type="button" className="git-more" onClick={() => setLimit(visibleLimit + DIFF_PAGE_LINES)}>{t("git.GitDiffView.text_086d8baadb", { count: parsed.lines.length, total: parsed.total })}</button> : null}
-    {diff.truncated ? <p className="git-warning" role="status">{t("git.GitDiffView.text_23996f5cfb")}</p> : null}
+    {diff.truncated ? <Notice className="git-warning" tone="warning" role="status">{t("git.GitDiffView.text_23996f5cfb")}</Notice> : null}
   </>;
 }

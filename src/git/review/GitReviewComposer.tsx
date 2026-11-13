@@ -1,3 +1,4 @@
+import { Notice } from "../../components/Notice";
 import { t, useTranslation } from "../../i18n";
 import { useEffect, useId, useRef } from "react";
 import { MessageSquare, Send } from "lucide-react";
@@ -41,9 +42,9 @@ export function GitReviewComposer({ context, diff, onRefresh }: {
       onKeyDown={(event) => { if (!composingKey(event.nativeEvent) && (event.metaKey || event.ctrlKey) && event.key === "Enter") {
         event.preventDefault(); event.stopPropagation(); send();
       } }} />
-    {stale && !locked ? <p className="git-review__warning" role="status">{t("git.GitReviewComposer.text_5e5992b38c")}</p> : null}
-    {draft.error ? <div className="git-review__error" role="alert">{draft.error}
-      <button type="button" onClick={onRefresh}>{t("git.GitReviewComposer.text_e01d757f2b")}</button></div> : null}
+    {stale && !locked ? <Notice className="git-review__warning" tone="warning" role="status">{t("git.GitReviewComposer.text_5e5992b38c")}</Notice> : null}
+    {draft.error ? <Notice className="git-review__error" action={<button type="button" onClick={onRefresh}>{t("git.GitReviewComposer.text_e01d757f2b")}</button>}>
+      {draft.error}</Notice> : null}
     {!receipt || receipt.state === "cancelled" ? <>
       <div className="git-review__actions"><Select ariaLabel={t("git.GitReviewComposer.text_fb7c6dff32")} value={target?.id ?? ""} options={options}
         placeholder={targets.length ? t("git.GitReviewComposer.text_1fc363c800") : t("git.GitReviewComposer.text_a200f3f17e")}

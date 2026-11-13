@@ -1,6 +1,7 @@
 use super::contracts::{DiffRequest, DiffStage};
 use super::fixtures::Repository;
-use super::{diff, status};
+use super::contracts::GitBranch;
+use super::{branch, diff, status};
 
 #[test]
 fn reports_unmerged_files_and_keeps_the_combined_diff_readable() {
@@ -134,4 +135,24 @@ fn reads_new_text_and_binary_files_and_rejects_path_escape() {
     assert!(!patch.binary);
     assert!(diff::read(request("image.bin")).unwrap().binary);
     assert!(diff::read(request("../outside.txt")).is_err());
+}
+
+#[test]
+fn branch_reads_named_detached_and_non_repository_without_scanning() {
+    let repo = Repository::new();
+    // 尚无提交（unborn HEAD）时 symbolic-ref 仍能给出分支名。
+    assert_eq!(branch::read(repo.path()).unwrap(), GitBranch { repository: true, branch: Some("main".into()), detached: None });
+    repo.write("a.txt", "a\n");
+    repo.commit();
+    repo.git(&["checkout", "-b", "feature/面包屑"]);
+    assert_eq!(branch::read(repo.path()).unwrap().branch.as_deref(), Some("feature/面包屑"));
+    let head = String::from_utf8(repo.git(&["rev-parse", "--short", "HEAD"])).unwrap();
+    repo.git(&["checkout", "--detach"]);
+    let detached = branch::read(repo.path()).unwrap();
+    assert_eq!(detached, GitBranch { repository: true, branch: None, detached: Some(head.trim().into()) });
+
+    let plain = std::env::temp_dir().join(format!("belfry-not-git-{}", ulid::Ulid::generate()));
+    std::fs::create_dir_all(&plain).unwrap();
+    assert_eq!(branch::read(plain.to_str().unwrap()).unwrap(), GitBranch::default());
+    let _ = std::fs::remove_dir_all(&plain);
 }

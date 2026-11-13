@@ -7,7 +7,7 @@
 .named-workspaces__notice { display: block; margin: 0 0 2px 27px; padding: 0; border: 0; color: var(--warning); background: transparent; font-size: var(--fs-xs); cursor: pointer; }
 .named-workspaces__trigger[aria-expanded="true"] { background: var(--sidebar-hover); }
 .named-workspaces__trigger[aria-expanded="true"] > svg:last-child:not(.named-workspaces__issue) { transform: rotate(180deg); }
-.named-workspaces__popover { position: absolute; top: calc(100% + 8px); left: 0; z-index: 40; width: 300px; max-width: calc(100vw - 32px); max-height: calc(100dvh - 110px); overflow-y: auto; padding: 8px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface-raised); box-shadow: var(--shadow-lg); scrollbar-width: thin; }
+.named-workspaces__popover { position: absolute; top: calc(100% + 8px); left: 0; z-index: 40; width: 300px; max-width: calc(100vw - 32px); max-height: calc(100dvh - 110px); overflow-y: auto; padding: 8px; border: 0; border-radius: var(--radius-lg); background: var(--surface-raised); box-shadow: var(--shadow-md); scrollbar-width: thin; }
 .named-workspaces__heading { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px 12px; color: var(--text-muted); font-size: var(--fs-xs); font-weight: 500; }
 .named-workspaces__heading small { color: var(--text-faint); font-size: inherit; font-weight: 400; font-variant-numeric: tabular-nums; }
 .named-workspaces__list { display: grid; gap: 4px; }
@@ -30,7 +30,7 @@
 .named-workspaces form, .named-workspaces__repair { display: grid; gap: 8px; }
 .named-workspaces__form { padding: 8px; }
 .named-workspaces label { display: grid; gap: 5px; color: var(--text-muted); font-size: var(--fs-xs); }
-.named-workspaces label > input { width: 100%; min-width: 0; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--canvas); color: var(--text); font: inherit; font-size: var(--fs-sm); }
+.named-workspaces label > input { width: 100%; min-width: 0; padding: 6px 8px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--canvas); color: var(--text); font: inherit; font-size: var(--fs-sm); }
 .named-workspaces footer { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
 .named-workspaces :is(form, .named-workspaces__status, .named-workspaces__repair, .named-workspaces__actions) button:not(.ui-field) { padding: 6px 8px; border: 0; border-radius: var(--radius-sm); color: var(--text-muted); background: transparent; font-size: var(--fs-xs); cursor: pointer; }
 .named-workspaces :is(form, .named-workspaces__status, .named-workspaces__repair, .named-workspaces__actions) button:hover:not(:disabled) { color: var(--text); background: var(--surface-hover); }

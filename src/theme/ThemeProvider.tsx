@@ -10,9 +10,8 @@ import {
 } from "react";
 import type { ThemeController, ThemeMode } from "./contracts";
 import { loadThemeMode, saveThemeMode, THEME_MODE_KEY } from "./storage";
-
-/** 与 styles.css 中两套 --canvas 令牌保持一致，用于同步系统标题栏配色。 */
-const CANVAS_COLOR: Record<ThemeMode, string> = { dark: "#0a0a0b", light: "#fafafa" };
+import BACKDROP_COLOR from "./backdrop.json";
+import { syncNativeBackdrop } from "./nativeBackdrop";
 
 const LIGHT_QUERY = "(prefers-color-scheme: light)";
 
@@ -25,7 +24,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     document.documentElement.dataset.theme = mode;
-    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", CANVAS_COLOR[mode]);
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", BACKDROP_COLOR[mode]);
+    syncNativeBackdrop(mode);
   }, [mode]);
 
   useEffect(() => {

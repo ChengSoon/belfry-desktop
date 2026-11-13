@@ -1,48 +1,57 @@
-.shortcut-settings { display: grid; gap: 24px; }
-.shortcut-settings h3 { margin: 0; font-size: var(--fs-md); font-weight: 500; }
-.shortcut-settings p { margin: 0; color: var(--text-muted); font-size: var(--fs-sm); line-height: 1.7; }
-.shortcut-settings button { min-height: 36px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; color: var(--text); background: var(--surface); font-size: var(--fs-sm); cursor: pointer; }
-.shortcut-settings button:hover:not(:disabled) { background: var(--surface-hover); }
-.shortcut-settings button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-.shortcut-settings button:disabled { opacity: .45; cursor: default; }
-.shortcut-settings__scope { padding-bottom: 4px; }
-
-/* 分组切换键。压在组标签右端，做成无边框的小字——它是「这一组怎么显示」，
-   不是一条设置，长得跟下面的「更改」按钮一样会被当成操作项。 */
-.shortcut-settings button.shortcut-settings__toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 6px;
-  border: 0;
-  color: var(--text-muted);
-  background: transparent;
-  font-size: var(--fs-xs);
-  font-weight: 400;
-}
-.shortcut-settings button.shortcut-settings__toggle:hover:not(:disabled) { color: var(--text); background: var(--surface-hover); }
-
-/* Shortcut rows share the flat settings list; editing stays inline. */
-.shortcut-settings__rows { display: grid; margin: 0; padding: 0; list-style: none; }
+/* 快捷键（曜石 T19）：分组 / 行 / 按钮走 settings/obsidianSections.css，这里只留键帽、录制态和整体恢复。 */
+.shortcut-settings p { margin: 0; }
+.shortcut-settings__rows { margin: 0; padding: 0; list-style: none; }
 .shortcut-settings__rows[hidden] { display: none; }
-.shortcut-settings__keys { flex-wrap: wrap; }
-.shortcut-settings .settings-row__label .shortcut-settings__error { width: 100%; }
-.shortcut-settings kbd { padding: 4px 7px; border: 1px solid var(--border); border-radius: 4px; background: var(--canvas); color: var(--text-muted); font-family: var(--font-mono); font-size: var(--fs-xs); white-space: nowrap; }
-.shortcut-editor, .shortcut-reset { display: grid; gap: 16px; padding: 16px; border: 0; border-left: 2px solid var(--accent); border-radius: 0; background: var(--surface); }
-.shortcut-editor { grid-column: 1 / -1; margin-top: 14px; }
-.shortcut-settings .shortcut-editor__recorder { min-height: 42px; border-style: dashed; color: var(--accent); background: var(--canvas); }
-.shortcut-settings .shortcut-editor__recorder[data-shortcut-recorder="true"] { border-style: solid; border-color: var(--accent); }
-.shortcut-editor__preview strong { color: var(--text); font-weight: 500; }
-.shortcut-settings footer { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.shortcut-editor__spacer { flex: 1; }
-.shortcut-settings button.shortcut-settings__primary { border-color: transparent; color: var(--accent-contrast); background: var(--accent); }
-.shortcut-settings .shortcut-settings__error { color: var(--danger); }
-.shortcut-settings .shortcut-settings__saved { color: var(--accent); }
-.shortcut-reset ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; color: var(--text-muted); font-size: var(--fs-xs); }
-.shortcut-reset li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
+.shortcut-settings .os-row__label .os-tag { margin-left: 2px; }
 
-/* 窄窗口：键位挪到标题下面一行，不再和说明挤在同一格。 */
-@media (max-width: 780px) {
-  .shortcut-settings .settings-row { grid-template-columns: minmax(0, 1fr); gap: 10px; }
-  .shortcut-settings__keys { justify-content: flex-start; }
+/* 键帽 24 高，按键拆开。 */
+.shortcut-keys { display: inline-flex; gap: 4px; }
+.shortcut-keys kbd {
+  display: inline-grid; min-width: 24px; height: 24px; place-items: center; padding: 0 6px; border-radius: var(--radius-xs);
+  background: var(--surface); box-shadow: inset 0 0 0 1px var(--border-strong), 0 1px 0 var(--border-strong);
+  color: var(--text); font: 500 var(--fs-xs)/1 var(--font-mono); white-space: nowrap;
+}
+.shortcut-settings__unset { color: var(--text-faint); font-size: var(--fs-sm); }
+.shortcut-settings__error { margin-top: var(--space-1) !important; color: var(--danger); font-size: var(--fs-xs); }
+.shortcut-settings .shortcut-settings__saved { color: var(--success); font-size: var(--fs-sm); }
+
+/* 组头里的「n 项 · 收起」与折叠后的整行。 */
+.shortcut-settings__toggle, .shortcut-settings__collapsed {
+  display: inline-flex; align-items: center; gap: 4px; border: 0; background: transparent; color: var(--text-muted);
+  font: inherit; font-size: var(--fs-xs); cursor: pointer;
+}
+.shortcut-settings__toggle { padding: 2px 4px; border-radius: var(--radius-xs); }
+.shortcut-settings__toggle > span, .shortcut-settings__collapsed > span:last-child { display: inline-flex; align-items: center; gap: 4px; }
+.shortcut-settings__collapsed {
+  display: flex; width: 100%; justify-content: space-between; padding: var(--space-3) var(--space-5); font-size: var(--fs-sm);
+  transition: background var(--motion-standard) var(--motion-ease);
+}
+.shortcut-settings__collapsed > span:first-child { color: var(--text); font-weight: 500; }
+.shortcut-settings__toggle:hover:not(:disabled), .shortcut-settings__collapsed:hover:not(:disabled) { background: var(--surface-hover); color: var(--text); }
+.shortcut-settings__toggle:focus-visible, .shortcut-settings__collapsed:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+
+/* 录制态：整行 accent-soft，键帽加 2px accent 环；不另起卡片。 */
+.shortcut-row.is-recording { background: var(--accent-soft); grid-template-columns: minmax(0, 1fr); }
+.shortcut-editor { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-2) var(--space-6); align-items: center; }
+.shortcut-editor__body { display: grid; gap: 2px; min-width: 0; }
+.shortcut-editor__recorder {
+  justify-self: start; padding: 0; border: 0; background: transparent; color: var(--accent); font: inherit; font-size: var(--fs-sm); cursor: pointer;
+}
+.shortcut-editor__recorder:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: 2px; }
+.shortcut-editor__body > p { color: var(--text-muted); font-size: var(--fs-xs); line-height: var(--lh-normal); }
+.shortcut-editor__body > .shortcut-editor__conflict { color: var(--danger); }
+.shortcut-editor__actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--space-2); }
+.shortcut-editor__actions .shortcut-keys kbd { box-shadow: 0 0 0 2px var(--accent); }
+.shortcut-row.is-recording .shortcut-editor { margin-top: calc(-1 * var(--space-1)); }
+
+/* 整体恢复默认的预览（group）。 */
+.shortcut-reset { display: grid; gap: var(--space-3); padding: var(--space-4) var(--space-5); }
+.shortcut-reset h3 { margin: 0; font-size: var(--fs-md); font-weight: 500; }
+.shortcut-reset ul { display: grid; gap: var(--space-2); margin: 0; padding: 0; list-style: none; color: var(--text-muted); font-size: var(--fs-sm); }
+.shortcut-reset li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-2); }
+.shortcut-reset li > span:last-child { font-family: var(--font-mono); font-size: var(--fs-xs); }
+
+@container settings (max-width: 560px) {
+  .shortcut-editor { grid-template-columns: minmax(0, 1fr); }
+  .shortcut-editor__actions { justify-content: flex-start; }
 }

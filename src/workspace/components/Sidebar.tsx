@@ -1,7 +1,7 @@
 import { formatNumber } from "../../i18n";
 import { getLocale, t, useTranslation } from "../../i18n";
 import appIconUrl from "../../../src-tauri/icons/32x32.png";
-import { ChevronRight, DoorOpen, Download, Gauge, History, PanelLeftClose, Pencil, Server, Settings, Settings2, SquareTerminal, X } from "lucide-react";
+import { ChevronRight, DoorOpen, Download, Gauge, History, PanelLeftClose, Pencil, Search, Server, Settings, Settings2, SquareTerminal, X } from "lucide-react";
 import { useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode, type Ref } from "react";
 import { PanelResizeHandle } from "../../panel/PanelResizeHandle";
 import { usePanelWidth } from "../../panel/usePanelWidth";
@@ -18,7 +18,7 @@ import {
   type ShellProfileId,
   type SshLaunch,
 } from "../../terminal/contracts";
-import { isAgentKind } from "../../agent/contracts";
+import { AGENT_METADATA, isAgentKind } from "../../agent/contracts";
 import type { AgentAvailability, WorkspaceTab, WorkspaceTabKind } from "../contracts";
 import { shortPath } from "../path";
 import { SIDEBAR_WIDTH } from "../sidebarWidth";
@@ -56,6 +56,9 @@ interface SidebarProps {
   onToggleUsage: () => void;
   onToggleHistory: () => void;
   onToggleRooms: () => void;
+  /** 侧栏顶部的常驻搜索条：点开就是 Quick Open，和 ⌘K 是同一个入口。 */
+  onOpenQuickOpen: () => void;
+  quickOpenOpen: boolean;
   onOpenUpdater: () => void;
   onOpenSettings: () => void;
   settingsOpen: boolean;
@@ -96,6 +99,8 @@ export function Sidebar({
   onToggleUsage,
   onToggleHistory,
   onToggleRooms,
+  onOpenQuickOpen,
+  quickOpenOpen,
   onOpenUpdater,
   onOpenSettings,
   ref,
@@ -122,18 +127,22 @@ export function Sidebar({
     >
       <div className="sidebar-sessions">
         <div>
-          <div className="sidebar-brand"><img src={appIconUrl} alt="" aria-hidden="true" />
-            <div><strong>Belfry</strong><span>{t("workspace.Sidebar.text_45f2d72cba")}</span></div>
-          </div>
           <div className="sidebar-context">
+            <img className="sidebar-context__logo" src={appIconUrl} alt="Belfry" title={t("workspace.Sidebar.text_45f2d72cba")} />
             {workspaceControls}
             <button className="icon-button icon-button--sm sidebar-context__collapse" onClick={onCollapse}
               aria-label={t("workspace.Sidebar.text_bb0b6e36b3")} title={t("workspace.Sidebar.text_78a77f7d72", { shortcut: formatShortcutChord(appShortcutChord(platform, "B")) })} type="button">
               <PanelLeftClose aria-hidden="true" size={ICON.sm} />
             </button>
           </div>
+          <button className="sidebar-search" type="button" aria-label="Quick Open" aria-expanded={quickOpenOpen} onClick={onOpenQuickOpen}
+            title={t("components.WorkbenchToolbar.text_8e31750772", { shortcut: formatShortcutChord(appShortcutChord(platform, "K")) })}>
+            <Search aria-hidden="true" size={ICON.sm} />
+            <span>{t("workspace.Sidebar.searchPlaceholder")}</span>
+            <kbd>{formatShortcutChord(appShortcutChord(platform, "K"))}</kbd>
+          </button>
           <div className="sessions-head">
-            <span>{t("workspace.Sidebar.sessionCount", { count: tabs.length })}</span>
+            <span aria-label={t("workspace.Sidebar.sessionCount", { count: tabs.length })}>{t("workspace.Sidebar.sessionsLabel")}</span>
             <NewSessionMenu
               agents={agents}
               shellProfiles={shellProfiles}
@@ -150,7 +159,7 @@ export function Sidebar({
               activeId={activeId}
               draggingId={draggingId}
               folded={groups.length > 1 && foldedProjects.has(group.project.id)}
-              showHeading={groups.length > 1}
+              foldable={groups.length > 1}
               group={group}
               key={group.project.id}
               onActivate={onActivate}
@@ -167,8 +176,7 @@ export function Sidebar({
       </div>
 
       <div className="sidebar-foot">
-        <span className="sidebar-foot__label">{t("workspace.Sidebar.text_5ca6730d44")}</span>
-        <div className="sidebar-foot__actions">
+        <div className="sidebar-foot__actions" role="group" aria-label={t("workspace.Sidebar.text_5ca6730d44")}>
           {showUpdaterTrigger(updaterState, updaterOpen) ? (
             <button
               aria-label={updateButtonLabel(updaterState)}
@@ -191,7 +199,7 @@ export function Sidebar({
             type="button"
           >
             <DoorOpen aria-hidden="true" size={ICON.md} />
-            <span>{t("workspace.Sidebar.text_63235691ff")}</span>
+            <span className="sidebar-foot__text">{t("workspace.Sidebar.text_63235691ff")}</span>
             {roomAttention ? <b className="room-trigger__count">{roomAttention}</b> : null}
           </button>
           <button
@@ -202,7 +210,7 @@ export function Sidebar({
             type="button"
           >
             <Settings aria-hidden="true" size={ICON.md} />
-            <span>{t("workspace.Sidebar.text_df3d58c7d8")}</span>
+            <span className="sidebar-foot__text">{t("workspace.Sidebar.text_df3d58c7d8")}</span>
           </button>
           <button
             aria-pressed={usageOpen}
@@ -212,7 +220,7 @@ export function Sidebar({
             type="button"
           >
             <Gauge aria-hidden="true" size={ICON.md} />
-            <span>{t("workspace.Sidebar.text_42723e8b49")}</span>
+            <span className="sidebar-foot__text">{t("workspace.Sidebar.text_42723e8b49")}</span>
           </button>
           <button
             aria-pressed={historyOpen}
@@ -222,8 +230,9 @@ export function Sidebar({
             type="button"
           >
             <History aria-hidden="true" size={ICON.md} />
-            <span>{t("workspace.Sidebar.text_0eccd0db7b")}</span>
+            <span className="sidebar-foot__text">{t("workspace.Sidebar.text_0eccd0db7b")}</span>
           </button>
+          <span className="sidebar-foot__meta">{t("workspace.Sidebar.footSummary", { count: tabs.length })}</span>
         </div>
       </div>
       <PanelResizeHandle
@@ -259,7 +268,7 @@ function updateButtonLabel(state: UpdaterState) {
 function SessionGroup({
   group,
   folded,
-  showHeading,
+  foldable,
   activeId,
   draggingId,
   onActivate,
@@ -273,7 +282,8 @@ function SessionGroup({
 }: {
   group: ProjectGroup;
   folded: boolean;
-  showHeading: boolean;
+  /** 只有一个项目时组头仍然显示（项目名 + 计数），但不能折叠——折起来就什么都看不见了。 */
+  foldable: boolean;
   activeId: string | null;
   draggingId: string | null;
   onActivate: (id: string) => void;
@@ -293,21 +303,22 @@ function SessionGroup({
 
   return (
     <div className={`session-group${folded ? " is-folded" : ""}`}>
-      {showHeading ? <button
-        aria-expanded={!folded}
-        aria-controls={rowsId}
+      <button
+        aria-expanded={foldable ? !folded : undefined}
+        aria-controls={foldable ? rowsId : undefined}
+        disabled={!foldable}
         aria-label={t(dot === "awaiting" ? "workspace.Sidebar.sessionGroupWaiting" : "workspace.Sidebar.sessionGroup", { name: group.project.name, count: group.tabs.length })}
         className="session-group__head"
-        onClick={() => onToggleFold(group.project.id)}
+        onClick={foldable ? () => onToggleFold(group.project.id) : undefined}
         title={group.project.rootPath ? shortPath(group.project.rootPath) : t("workspace.Sidebar.text_b07b857f21")}
         type="button"
       >
         <ChevronRight aria-hidden="true" className="session-group__chevron" size={ICON.xs} />
         {group.project.id === "ssh" ? <Server aria-hidden="true" size={ICON.xs} /> : null}
         <span>{group.project.name}</span>
-        {folded ? <i className="session-group__count" aria-hidden="true">{formatNumber(group.tabs.length)}</i> : null}
         {dot ? <i className={`session-group__dot session-group__dot--${dot}`} aria-hidden="true" /> : null}
-      </button> : null}
+        <i className="session-group__count" aria-hidden="true">{formatNumber(group.tabs.length)}</i>
+      </button>
       <div className="session-group__collapse" inert={folded} aria-hidden={folded} id={rowsId}>
         <div className="session-group__rows">
       {group.tabs.map((tab) => (
@@ -473,8 +484,12 @@ function SessionRow({
           title={rowTitle(tab)}
           type="button"
         >
-          <Icon aria-hidden="true" size={ICON.sm} />
-          <span>{sessionLabel(tab)}</span>
+          <span className={`session-row__tile session-row__tile--${tab.kind}`} aria-hidden="true"><Icon size={ICON.sm} /></span>
+          <span className="session-row__text">
+            <span className="session-row__name">{sessionLabel(tab)}</span>
+            <span className="session-row__sub">{sessionSubtitle(tab)}</span>
+          </span>
+          {awaiting(tab) ? <span className="session-row__badge" aria-hidden="true">{t("workspace.Sidebar.awaitingBadge")}</span> : null}
         </button>
       )}
       <div className={`session-row__tail${tab.kind === "ssh" ? " session-row__tail--wide" : renamesAgent ? " session-row__tail--rename" : ""}`}>
@@ -540,6 +555,19 @@ function SessionRow({
  */
 function sessionLabel(tab: WorkspaceTab) {
   return tab.agentName ?? tab.title;
+}
+
+/** 第二行：谁在跑 · 现在什么状态。名字一行只放名字，种类和状态都挪到这里，扫列表时两行各管一件事。 */
+function sessionSubtitle(tab: WorkspaceTab) {
+  const kind = isAgentKind(tab.kind) ? AGENT_METADATA[tab.kind].name
+    : tab.kind === "shell" ? shellProfileLabel(tab.profileId as ShellProfileId)
+    : "SSH";
+  return `${kind} · ${statusText(tab)}`;
+}
+
+/** 「等你按键」要在行上用文字说出来，只靠一个琥珀点太容易漏。 */
+function awaiting(tab: WorkspaceTab) {
+  return tab.phase === "running" && tab.activity === "awaiting-choice";
 }
 
 function rowTitle(tab: WorkspaceTab) {

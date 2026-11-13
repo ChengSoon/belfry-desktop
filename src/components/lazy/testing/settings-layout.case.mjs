@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { productionFixture, click, waitFor } from "./productionFixture.mjs";
 
-test("settings content fills the available width without horizontal overflow", async (t) => {
+test("settings page fills the available width without horizontal overflow", async (t) => {
   const { view } = await productionFixture(t);
   await click(view, 'button[title^="设置"]');
   await waitFor(view, "!!document.querySelector('.settings-content > .appearance')");
@@ -24,7 +24,7 @@ test("settings content fills the available width without horizontal overflow", a
       };
     })()`);
     assert.ok(Math.abs(layout.actual - layout.available) <= 1,
-      `${width}px: settings should fill available width: ${JSON.stringify(layout)}`);
+      `${width}px: settings should fill the available width: ${JSON.stringify(layout)}`);
     assert.ok(layout.scrollWidth <= layout.clientWidth + 1,
       `${width}px: settings should not overflow horizontally: ${JSON.stringify(layout)}`);
   }

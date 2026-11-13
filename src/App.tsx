@@ -41,6 +41,10 @@ import { awaitingApproval } from "./collab/taskTone";
 import { PluginRuntimeBridge } from "./plugins/PluginRuntimeBridge";
 import { PluginDock } from "./plugins/workspace/PluginDock";
 import { usePluginWorkspace } from "./plugins/workspace/usePluginWorkspace";
+// 曜石 B 稿的工作台结构，必须最后加载以覆盖各模块里旧的 Graphite 尺寸（见文件头注释）。
+import "./workspace/obsidianWorkbench.css";
+// 曜石二级界面（设置 / 控件 / Quick Open / 弹窗 / Toast），同样最后加载。
+import "./components/obsidianSurfaces.css";
 
 interface PreviewRequest {
   path: string;
@@ -370,6 +374,8 @@ export default function App() {
           roomsOpen={roomsOpen}
           roomAttention={roomAttention}
           onToggleRooms={toggleRooms}
+          onOpenQuickOpen={toggleQuickOpen}
+          quickOpenOpen={quickOpen.open}
           historyOpen={historyOpen}
           onOpenUpdater={updater.openPanel}
           onOpenSettings={() => { setSettingsSection(undefined); setSettingsOpen(true); }}
@@ -405,6 +411,9 @@ export default function App() {
         onToggleCollab={toggleCollab}
         onTogglePreview={togglePreview}
         onToggleQuickOpen={toggleQuickOpen}
+        onActivateTab={layout.activateTab}
+        onSplitTab={id => { if (workspace.activeTabId) layout.dropTab(id, workspace.activeTabId, "right"); }}
+        splitTabIds={workspace.visibleTabs.map(tab => tab.id)}
         opening={workspace.opening}
         previewOpen={previewOpen}
         pluginDockOpen={pluginDockOpen}

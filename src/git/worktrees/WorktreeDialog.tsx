@@ -1,6 +1,7 @@
 import { useFeedback, t, useTranslation } from "../../i18n";
 import { GitBranch, Plus, RefreshCcw, X } from "lucide-react";
 import { useState } from "react";
+import { Notice } from "../../components/Notice";
 import { createPortal } from "react-dom";
 import { useDialog } from "../../components/controls/useDialog";
 import { Disclosure } from "../../components/controls/Disclosure";
@@ -36,10 +37,13 @@ export function WorktreeDialog({ rootPath, onClose, onOpen }: Props) {
       <div className="worktree-body"><aside><button className="worktree-new" type="button" disabled={busy} onClick={() => select(null)}><Plus size={15} />{t("git.WorktreeDialog.text_6bee237280")}</button>
         <nav aria-label={t("git.WorktreeDialog.text_7e92bf96d4")}>{model.report?.managed.map((tree) => <button type="button" key={tree.id} disabled={busy} aria-current={tree.id === id} onClick={() => select(tree.id)}>
           <GitBranch size={14} /><span><strong>{tree.name}</strong><small>{tree.branch}</small></span></button>)}</nav>
-      </aside><main>{model.error || openError ? <p className="worktree-error" role="alert">{model.error ?? openError}</p> : null}
-        {model.result ? <div className="worktree-result" role="status"><p>{model.result.message}</p>
-          {model.result.conflicts.length ? <ul>{model.result.conflicts.map((path) => <li key={path}>{path}</li>)}</ul> : null}
-          {model.result.worktree?.state === "ready" ? <button type="button" disabled={busy} onClick={() => select(model.result!.worktree!.id)}>{t("git.WorktreeDialog.text_36550b9c57")}</button> : null}</div> : null}
+      </aside><main>{model.error || openError ? <Notice className="worktree-error"
+        action={model.error ? <button type="button" disabled={busy} onClick={() => { model.clearPreview(); void model.refresh(); }}>{t("git.WorktreeDialog.text_174eb30f57")}</button> : undefined}>
+        {model.error ?? openError}</Notice> : null}
+        {model.result ? <Notice className="worktree-result" tone={model.result.conflicts.length ? "warning" : "neutral"}
+          action={model.result.worktree?.state === "ready" ? <button type="button" disabled={busy} onClick={() => select(model.result!.worktree!.id)}>{t("git.WorktreeDialog.text_36550b9c57")}</button> : undefined}>
+          <p>{model.result.message}</p>
+          {model.result.conflicts.length ? <ul>{model.result.conflicts.map((path) => <li key={path}>{path}</li>)}</ul> : null}</Notice> : null}
         {model.preview ? <Preview preview={model.preview} busy={busy} onBack={model.clearPreview} onExecute={model.execute} />
           : model.report ? selected ? <WorktreeTask key={selected.id} tree={selected} report={model.report} busy={busy} onOpen={open} onPreview={model.action} />
             : <CreateWorktree report={model.report} busy={busy} onPreview={model.create} />

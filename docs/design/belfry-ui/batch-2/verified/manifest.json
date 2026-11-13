@@ -1,0 +1,137 @@
+{
+  "task": "T7",
+  "batch": 2,
+  "generatedAt": "2026-11-12",
+  "nativeAdapter": "synthetic IPC; platform CSS only, not native OS captures",
+  "userData": "synthetic only",
+  "canvas": {
+    "dark": "#131418",
+    "light": "#ffffff"
+  },
+  "assetHashes": {
+    "index-C1gJpsbW.js": "824fcf89fd1b71f83817cdc91dfc4f8c729c7fdf91a77a4b96c320e8a2b1fb2f",
+    "index-Diatt1Dn.css": "9851adef6afe0d236273c0505cb875f60894a94fa07314be6932a5cb21ac5611"
+  },
+  "checks": {
+    "vitestFiles": 193,
+    "vitestTests": 1252,
+    "browserGroups": 11,
+    "browserFailures": 0,
+    "approvedPaletteValues": 76,
+    "contrastExitCode": 0
+  },
+  "screenshots": [
+    {
+      "platform": "macos",
+      "scene": "workbench-dark-1440x960",
+      "file": "macos/workbench-dark-1440x960.png",
+      "width": 1440,
+      "height": 960,
+      "sha256": "9a3f05b58506498058062300f2b7336240fcc87b515b6e8f69c9aed7549311b9"
+    },
+    {
+      "platform": "macos",
+      "scene": "workbench-light-1440x960",
+      "file": "macos/workbench-light-1440x960.png",
+      "width": 1440,
+      "height": 960,
+      "sha256": "155bec6d71ed5214735f40316ec110aa930e9c8609ff29b9b1be72a565397773"
+    },
+    {
+      "platform": "macos",
+      "scene": "wallpaper-dark-720x480",
+      "file": "macos/wallpaper-dark-720x480.png",
+      "width": 720,
+      "height": 480,
+      "sha256": "2e53f754f5a1621821d5a09746a68f1e6b87405a3eff2e93c3ca345e24583734"
+    },
+    {
+      "platform": "macos",
+      "scene": "wallpaper-light-720x480",
+      "file": "macos/wallpaper-light-720x480.png",
+      "width": 720,
+      "height": 480,
+      "sha256": "cea13c0cafb59d4634f5a9b07d9744a59de3631856dace4390ce67c62fd81d12"
+    },
+    {
+      "platform": "macos",
+      "scene": "tools-light-720x480",
+      "file": "macos/tools-light-720x480.png",
+      "width": 720,
+      "height": 480,
+      "sha256": "95a70181fc3657218cfe2d102343ef57f31bd7d03cc2d968d68059ce1679f579"
+    },
+    {
+      "platform": "macos",
+      "scene": "projects-dark-720x480",
+      "file": "macos/projects-dark-720x480.png",
+      "width": 720,
+      "height": 480,
+      "sha256": "c39a1f688c851cc904e407bc33f7900a24b3d7d8c26bde08cefbb3999c312368"
+    },
+    {
+      "platform": "macos",
+      "scene": "collapsed-light-720x480",
+      "file": "macos/collapsed-light-720x480.png",
+      "width": 720,
+      "height": 480,
+      "sha256": "1e91c9e8d46c9000cdd6d9f42f24f1b5b2b58d3f071260497727ee21933c4b06"
+    },
+    {
+      "platform": "macos",
+      "scene": "wallpaper-settings-light",
+      "file": "macos/wallpaper-settings-light.png",
+      "width": 720,
+      "height": 480,
+      "sha256": "28d04dcfa14278d162089bbc867d904df804b315db9a5ead7217fa3792081933"
+    },
+    {
+      "platform": "windows",
+      "scene": "wallpaper-dark-720x480",
+      "file": "windows/wallpaper-dark-720x480.png",
+      "width": 720,
+      "height": 480,
+      "sha256": "9425ad2bd425fb6c90a7d7ef546fce8559e1d0ac8e812eb4e9dade4943ac8edb"
+    },
+    {
+      "platform": "windows",
+      "scene": "wallpaper-light-720x480",
+      "file": "windows/wallpaper-light-720x480.png",
+      "width": 720,
+      "height": 480,
+      "sha256": "2f0ce86cc7c298c41f4ffc8a9fdda02b4f11469aa6d6158a464a153b9c3cc444"
+    },
+    {
+      "platform": "windows",
+      "scene": "tools-light-720x480",
+      "file": "windows/tools-light-720x480.png",
+      "width": 720,
+      "height": 480,
+      "sha256": "74e693ad5a2715135683e019c5f8ba982eb404093ca0c676b2fe0c81ec5ab3c7"
+    },
+    {
+      "platform": "windows",
+      "scene": "projects-dark-720x480",
+      "file": "windows/projects-dark-720x480.png",
+      "width": 720,
+      "height": 480,
+      "sha256": "5b0b93b4f6948af692003674e248f3a12117f0ab0e7a25a649a9a544105f0e72"
+    },
+    {
+      "platform": "windows",
+      "scene": "collapsed-light-720x480",
+      "file": "windows/collapsed-light-720x480.png",
+      "width": 720,
+      "height": 480,
+      "sha256": "8902761defa7c27e333f9849613fe912a8d90684495524836c64ee12a6d090ca"
+    },
+    {
+      "platform": "windows",
+      "scene": "wallpaper-settings-light",
+      "file": "windows/wallpaper-settings-light.png",
+      "width": 720,
+      "height": 480,
+      "sha256": "0d8b0d96cdf8287a32eddce5ca5d7ffd297aaf49f76930ef49f0cc439110bea3"
+    }
+  ]
+}

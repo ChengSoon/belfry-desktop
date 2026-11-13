@@ -36,7 +36,7 @@ test('English environment, hooks and background sessions remain usable at 720x48
   await clickText(view,'Session status','.settings-nav');
   await waitFor(view,"!!document.querySelector('.hook-agent-card')");
   await englishPanel(view,'.hook-settings');
-  await clickText(view,'Preview enabling Codex hooks','.hook-settings');
+  await click(view,'.hook-settings button[aria-label="Preview enabling Codex hooks"]');
   await waitFor(view,"!!document.querySelector('.hook-preview')");
   await englishPanel(view,'.hook-preview');
   await switchLanguage(view,'zh-CN');
@@ -45,7 +45,6 @@ test('English environment, hooks and background sessions remain usable at 720x48
   await clickText(view,'Confirm and enable','.hook-preview');
   await waitFor(view,"!document.querySelector('.hook-preview')");
   assert.equal(await view.cdp.evaluate("__productionQA.calls.filter(call => call.command === 'agent_hooks_apply').length"),1);
-  await click(view,'.background-sessions__toggle');
   await waitFor(view,"!!document.querySelector('.background-sessions__list li')");
   await englishPanel(view,'.background-sessions');
   await clickText(view,'End','.background-sessions__list');

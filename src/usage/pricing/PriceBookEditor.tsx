@@ -1,5 +1,6 @@
 import { formatDateTime, t, useTranslation } from "../../i18n";
 import { Disclosure } from "../../components/controls/Disclosure";
+import { Notice } from "../../components/Notice";
 import { useState } from "react";
 import type { ProjectWorkspace } from "../../workspace/contracts";
 import { agentLabel } from "../format";
@@ -29,8 +30,8 @@ export function PriceBookEditor({ prices, rows, project }: {
   const projects = groupProjects(rows).filter((item) => item.root !== null).map((item) => ({ root: item.root!, name: item.name }));
   if (project && !projects.some((item) => sameProject(item.root, project.rootPath))) projects.unshift({ root: project.rootPath, name: project.name });
   return <Disclosure className="usage-disclosure usage-pricing" title={<>{t("usage.PriceBookEditor.text_83c6fec6df")}<small>{prices.error ? t("usage.PriceBookEditor.text_b7e3e715f1") : t("usage.PriceBookEditor.text_b9828bc6d8", { count: prices.book.rules.length })}</small></>}>
-    {prices.error ? <><p className="usage-price-error" role="alert">{prices.error}</p>
-      <button type="button" onClick={prices.reload}>{t("usage.PriceBookEditor.text_df7392cc96")}</button></> : editing ?
+    {prices.error ? <Notice className="usage-price-error" action={<button type="button" onClick={prices.reload}>{t("usage.PriceBookEditor.text_df7392cc96")}</button>}>
+      {prices.error}</Notice> : editing ?
       <PriceRuleForm key={editing.draft.id} initial={editing.draft} rows={rows} projects={projects}
         onCancel={() => setEditing(null)}
         onSave={(rule) => save([...editing.book.rules.filter((item) => item.id !== rule.id), rule])}

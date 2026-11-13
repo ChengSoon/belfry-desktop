@@ -74,14 +74,50 @@
   --lh-normal: 1.5;
   --lh-relaxed: 1.6;
 
-  /* 圆角三档。xs 给 16–22px 的微控件（复选框、行尾小按钮、代码内联块）——
-     它们用 sm(6px) 会圆得看不出是方的；badge/kbd 这类胶囊仍用 999px 现写。 */
+  /* 布局用 4px 基础、8px 主节奏；hair 仅用于文字/图标的光学校正。 */
+  --space-0: 0px;
+  --space-hair: 2px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* 尺寸按角色命名，保留现有密度。标题栏 inset 另加，字号放大时控件可增高。 */
+  --control-height-sm: 32px;
+  --control-height-md: 38px;
+  --row-height-nav: 40px;
+  --toolbar-height: 44px;
+  --panel-header-height: 44px;
+  --pane-header-height: 36px;
+
+  /* xs 给微控件，sm 给输入/按钮，md 给分组/浮层，lg 给对话框/Provider 卡片。 */
   --radius-xs: 4px;
   --radius-sm: 6px;
   --radius-md: 8px;
-  --radius-lg: 10px;
-  --ease: cubic-bezier(0.2, 0, 0, 1);
-  --duration: 140ms;
+  --radius-lg: 12px;
+  --radius-full: 999px;
+  --content-inset: 8px;
+
+  /* 统一动效入口；exit 与 Presence.EXIT_MS 配套，不能只改 CSS 时长。 */
+  --motion-fast: 120ms;
+  --motion-standard: 140ms;
+  --motion-enter: 220ms;
+  --motion-exit: 180ms;
+  --motion-ease: cubic-bezier(.2, .8, .2, 1);
+  --ease: var(--motion-ease);
+  --duration: var(--motion-standard);
+
+  /* Feedback keeps the same density across reading panels and settings. */
+  --notice-inset: var(--space-3);
+  --notice-gap: var(--space-2);
+  --notice-radius: var(--radius-sm);
+  --empty-inset: var(--space-6);
+  --empty-gap: var(--space-3);
 
   /* 窗口顶部让给系统窗控按钮的高度。Windows/Linux 是原生标题栏，webview 从它下面开始，
      不用让；只有 macOS 的 Overlay 模式把 webview 铺到窗口顶边（见 tauri.conf.json）。
@@ -99,73 +135,97 @@
   font-synthesis: none;
 }
 
-/* Graphite: calm parallel-session rails; warmth in light mode, not a new mode.
-   Keep --canvas in sync with xtermTheme: wallpaper/OSC colors depend on it. */
+/* Obsidian: one cool neutral backdrop, a raised content plane and indigo actions.
+   Canvas comes from canvas.json through Vite; wallpaper/OSC colors share that source. */
 :root,
 [data-theme="dark"] {
   color-scheme: dark;
-  --canvas: #171a19;
-  --surface: #202422;
-  --surface-raised: #242927;
-  --surface-hover: #2c322f;
-  --border: #38413b;
-  --border-strong: #56635a;
-  --text: #edf0eb;
-  --text-muted: #a7b1aa;
-  --text-faint: #a0aaa3;
-  --text-icon: #a7b1aa;
-  --accent: #b2d5b6;
-  --accent-hover: #c7e4ca;
-  --accent-contrast: #18271c;
-  --accent-soft: #314b38;
-  --success: #b2d5b6;
-  --warning: #e7c182;
-  --danger: #f2a39b;
-  --danger-hover: #ffc0b9;
-  --shadow-md: 0 8px 24px rgb(0 0 0 / 22%);
-  --shadow-lg: 0 24px 64px rgb(0 0 0 / 36%);
-  --scrollbar: #56635a;
-  --scrim: rgb(8 12 10 / 64%);
-  --panel: #191c1b;
-  --card: #242927;
-  --card-border: #38413b;
-  --sidebar: #202422;
-  --sidebar-active: #2c322f;
+  --backdrop: #0c0d10;
+  --canvas: var(--theme-canvas-dark);
+  --surface: #1a1c21;
+  --surface-raised: #1d1f24;
+  --surface-hover: #212328;
+  --border: rgb(255 255 255 / 8%);
+  --border-soft: rgb(255 255 255 / 5%);
+  --border-strong: #60646f;
+  --text: #ecedf0;
+  --text-muted: #b0b2ba;
+  --text-faint: #8c8f99;
+  --text-icon: var(--text-muted);
+  --accent: #8b93ff;
+  --accent-hover: #a5abff;
+  --accent-contrast: #0c0d10;
+  --accent-soft: #25284a;
+  /* Claude 品牌橙（图标块，非文本）：暗色沿用原值，在各表面 ≥5.4:1。 */
+  --brand-claude: #d9825b;
+  --focus-ring: var(--accent);
+  --success: #5fd4a0;
+  --success-soft: rgb(95 212 160 / 14%);
+  --warning: #f2c46b;
+  --warning-soft: rgb(242 196 107 / 13%);
+  --danger: #ff8a80;
+  --danger-hover: #ffaaa2;
+  --danger-soft: rgb(255 138 128 / 12%);
+  --info: #7ab8f0;
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 30%);
+  --shadow-md: 0 0 0 1px rgb(255 255 255 / 6%), 0 8px 24px rgb(0 0 0 / 40%);
+  --shadow-lg: 0 0 0 1px rgb(255 255 255 / 7%), 0 24px 64px rgb(0 0 0 / 55%);
+  --shadow-content: 0 0 0 1px rgb(255 255 255 / 6%), inset 0 1px 0 rgb(255 255 255 / 5%), 0 12px 40px rgb(0 0 0 / 45%);
+  --scrollbar: #3a3d45;
+  --scrim: rgb(6 7 10 / 64%);
+  --panel: #16171b;
+  --card: #1d1f24;
+  --card-border: var(--border);
+  --sidebar: #0c0d10;
+  --sidebar-active: #1c1e23;
   --sidebar-active-shadow: none;
-  --sidebar-hover: rgb(237 240 235 / 6%);
+  --sidebar-hover: rgb(255 255 255 / 4%);
+  --sidebar-translucency: 90%;
 }
 
 [data-theme="light"] {
   color-scheme: light;
-  --canvas: #fcfbf7;
-  --surface: #f1f1eb;
-  --surface-raised: #f8f7f2;
-  --surface-hover: #e4e7de;
-  --border: #d1d7cc;
-  --border-strong: #8d9c8e;
-  --text: #252d28;
-  --text-muted: #59645b;
-  --text-faint: #5e695f;
-  --text-icon: #59645b;
-  --accent: #285d37;
-  --accent-hover: #1e4b2b;
-  --accent-contrast: #fff;
-  --accent-soft: #e0ecdf;
-  --success: #285d37;
-  --warning: #805713;
-  --danger: #a42f27;
-  --danger-hover: #84251f;
-  --shadow-md: 0 8px 24px rgb(41 54 37 / 10%);
-  --shadow-lg: 0 24px 64px rgb(41 54 37 / 16%);
-  --scrollbar: #8d9c8e;
-  --scrim: rgb(25 35 28 / 28%);
-  --panel: #f8f7f2;
-  --card: #fcfbf7;
-  --card-border: #d1d7cc;
-  --sidebar: #eeeee7;
-  --sidebar-active: #e4e7de;
+  --backdrop: #ececef;
+  --canvas: var(--theme-canvas-light);
+  --surface: #f4f4f6;
+  --surface-raised: #ffffff;
+  --surface-hover: #e9e9ed;
+  --border: rgb(20 22 30 / 9%);
+  --border-soft: rgb(20 22 30 / 6%);
+  --border-strong: #8e909a;
+  --text: #16171c;
+  --text-muted: #474a54;
+  --text-faint: #5b5e68;
+  --text-icon: var(--text-muted);
+  --accent: #484ed4;
+  --accent-hover: #3a40bd;
+  --accent-contrast: #ffffff;
+  --accent-soft: #ebecfc;
+  /* 亮色压深一档：原 #d9825b 在亮色表面只有 2.3–2.9:1，这里各表面 ≥3.3:1（code-review L9）。 */
+  --brand-claude: #b8653f;
+  --focus-ring: var(--accent);
+  --success: #0f6c48;
+  --success-soft: rgb(15 108 72 / 10%);
+  --warning: #835500;
+  --warning-soft: rgb(214 150 20 / 13%);
+  --danger: #b02c25;
+  --danger-hover: #8f231d;
+  --danger-soft: rgb(176 44 37 / 8%);
+  --info: #195f9c;
+  --shadow-sm: 0 1px 2px rgb(20 22 30 / 6%);
+  --shadow-md: 0 0 0 1px rgb(20 22 30 / 7%), 0 8px 24px rgb(20 22 30 / 10%);
+  --shadow-lg: 0 0 0 1px rgb(20 22 30 / 8%), 0 24px 64px rgb(20 22 30 / 16%);
+  --shadow-content: 0 0 0 1px rgb(20 22 30 / 7%), 0 1px 2px rgb(20 22 30 / 6%), 0 8px 28px rgb(20 22 30 / 7%);
+  --scrollbar: #b4b6bf;
+  --scrim: rgb(20 22 30 / 28%);
+  --panel: #fafafb;
+  --card: #ffffff;
+  --card-border: var(--border);
+  --sidebar: #ececef;
+  --sidebar-active: #e4e4ea;
   --sidebar-active-shadow: none;
-  --sidebar-hover: rgb(37 45 40 / 5%);
+  --sidebar-hover: rgb(20 22 30 / 4.5%);
+  --sidebar-translucency: 94%;
 }
 
 /* 平台标记由 index.html 的首帧脚本写在 <html> 上，和 data-theme 同一处。 */
@@ -189,7 +249,7 @@ body,
 
 body {
   color: var(--text);
-  background: var(--canvas);
+  background: var(--backdrop);
 }
 
 button,
@@ -209,7 +269,7 @@ select:focus-visible,
 textarea:focus-visible,
 a:focus-visible,
 summary:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 

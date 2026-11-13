@@ -4,7 +4,7 @@ import type { TerminalLaunch } from "../../terminal/contracts";
 import type { AgentKind, AgentSessionRef } from "../../agent/contracts";
 import { agentKindFromProfile } from "../../agent/contracts";
 
-export function statisticsTarget(launch: TerminalLaunch, snapshot: HookSnapshot | null) {
+export function statisticsTarget(launch: Pick<TerminalLaunch, "profileId" | "resumeSessionId">, snapshot: HookSnapshot | null) {
   const agent = agentKindFromProfile(launch.profileId);
   const bound = snapshot?.session?.agent === agent ? snapshot.session : null;
   const session: AgentSessionRef | null = bound ?? (agent && launch.resumeSessionId ? { agent, id: launch.resumeSessionId } : null);

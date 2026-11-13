@@ -163,16 +163,16 @@ export function RoomView(props: RoomViewProps) {
     <RoomActions.Provider value={actions}>
     <TooltipProvider delayDuration={300}>
       <section aria-label={t("rooms.RoomView.text_63235691ff")} data-room-panel={compactPanel ?? ""}
-        className="room-view grid min-h-0 min-w-0 grid-cols-[256px_minmax(0,1fr)_320px] bg-background text-foreground text-sm max-[1080px]:grid-cols-[232px_minmax(0,1fr)_280px]">
+        className="room-view grid min-h-0 min-w-0 grid-cols-[256px_minmax(0,1fr)_320px] text-foreground text-sm max-[1080px]:grid-cols-[232px_minmax(0,1fr)_280px]">
         <div className="room-compact-nav">
           <Button aria-expanded={compactPanel === "members"} onClick={() => setCompactPanel(compactPanel === "members" ? null : "members")} size="sm" variant="ghost"><Users />{t("rooms.RoomView.text_39e2b2a360")}</Button>
           <Button aria-expanded={compactPanel === "tasks"} disabled={!room} onClick={() => setCompactPanel(compactPanel === "tasks" ? null : "tasks")} size="sm" variant="ghost"><ListTodo />{t("rooms.RoomView.text_0f45344baf")}</Button>
           <IconButton className="ml-auto" label={t("rooms.RoomView.text_a072161fe7")} onClick={props.onClose}><X /></IconButton>
         </div>
         {compactPanel ? <button aria-label={t("rooms.RoomView.text_e5461f24cd")} className="room-pane-scrim" onClick={() => setCompactPanel(null)} type="button" /> : null}
-        <aside className="room-sidebar flex min-h-0 flex-col border-r border-border bg-(--sidebar)">
+        <aside className="room-sidebar flex min-h-0 flex-col border-r border-(--border-soft) bg-(--sidebar)">
           <header className="flex h-12 shrink-0 items-center gap-1 px-3">
-            <span className="flex-1 text-[15px] font-semibold tracking-tight">{t("rooms.RoomView.text_63235691ff")}</span>
+            <span className="flex-1 text-base font-medium">{t("rooms.RoomView.text_63235691ff")}</span>
             <IconButton disabled={!canCreate} label={t("rooms.RoomView.text_b88f06080b")}
               onClick={() => setDialog({ kind: "new-room" })}>
               <Plus />
@@ -201,12 +201,13 @@ export function RoomView(props: RoomViewProps) {
                 <button aria-current={active} key={summary.id} onClick={() => { rooms.select(summary.id); setCompactPanel(null); }}
                   title={summary.projectRoot} type="button"
                   className={cn(
-                    "group flex flex-col gap-1 rounded-md px-2.5 py-2 text-left transition-colors outline-none",
+                    "group relative flex flex-col gap-1 rounded-md px-2.5 py-2 text-left transition-colors outline-none",
                     "hover:bg-(--sidebar-hover) focus-visible:ring-2 focus-visible:ring-ring/50",
-                    active && "bg-(--sidebar-active) shadow-(--sidebar-active-shadow)",
+                    // A13：当前位置 = 中性填充 + 2px 竖条（伪元素不占布局）。
+                    active && "room-nav-current bg-(--sidebar-active)",
                   )}>
-                  <span className="flex items-center gap-1.5">
-                    <span className={cn("truncate font-medium", unread && "font-semibold")}>{summary.name}</span>
+                  <span className="flex items-start gap-1.5">
+                    <span className="min-w-0 font-medium [overflow-wrap:anywhere]">{summary.name}</span>
                     {summary.paused ? <Pause aria-label={t("rooms.RoomView.text_eb0c326b60")} className="size-3 shrink-0 text-warning" /> : null}
                     {unread ? (
                       <span className="ml-auto size-2 shrink-0 rounded-full bg-primary" title={`${summary.lastToUser?.from}: ${summary.lastToUser?.text}`}>
@@ -341,7 +342,7 @@ function MemberAvatar({ room, id, size = "default", status }: {
     <span className="relative inline-flex shrink-0">
       <Avatar size={size}>
         <AvatarFallback style={style}
-          className={cn("font-semibold", id === "user" ? "bg-primary text-primary-foreground" : "room-avatar")}>
+          className={cn("room-avatar-label", id === "user" ? "bg-primary text-primary-foreground" : "room-avatar")}>
           {label}
         </AvatarFallback>
       </Avatar>
@@ -379,7 +380,7 @@ function SectionHeader({ title, count, children }: { title: string; count?: numb
   useTranslation();
   return (
     <header className="flex h-9 shrink-0 items-center gap-2 px-3">
-      <span className="text-xs font-semibold tracking-wide text-muted-foreground">{title}</span>
+      <span className="text-xs font-medium text-muted-foreground">{title}</span>
       {count !== undefined ? <span className="text-xs text-muted-foreground/70">{formatNumber(count)}</span> : null}
       <span className="ml-auto flex items-center gap-0.5">{children}</span>
     </header>
@@ -424,8 +425,8 @@ function MemberList(props: {
               )}>
               <MemberAvatar id={member.id} room={room} status={status} />
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1">
-                  <span className="truncate font-medium">{member.title}</span>
+                <div className="flex items-start gap-1">
+                  <span className="min-w-0 font-medium [overflow-wrap:anywhere]">{member.title}</span>
                   {member.role === "foreman" ? (
                     <Tooltip>
                       <TooltipTrigger asChild><Crown aria-label={t("rooms.RoomView.text_8153348240")} className="size-3.5 shrink-0 text-warning" /></TooltipTrigger>
@@ -433,14 +434,14 @@ function MemberList(props: {
                     </Tooltip>
                   ) : null}
                 </div>
-                <div className="truncate text-xs text-muted-foreground" title={current ? `${current.id} ${current.title}` : member.duty || undefined}>
+                <div className="text-xs text-muted-foreground [overflow-wrap:anywhere]" title={current ? `${current.id} ${current.title}` : member.duty || undefined}>
                   <span className={cn(status === "waiting" && "font-medium text-warning")}>{cleared === member.id ? t("rooms.RoomView.text_1fa489c596") : STATUS_TEXT[status]}</span>
                   {current ? <> · <span className="text-foreground/80">{current.id} {current.title}</span></> : member.duty ? <> · {member.duty}</> : null}
                 </div>
-                {member.modelOverride ? <div className="truncate text-xs text-muted-foreground" title={member.modelOverride}>{t("rooms.roleModel.summary", { model: member.modelOverride })}</div> : null}
+                {member.modelOverride ? <div className="text-xs text-muted-foreground [overflow-wrap:anywhere]" title={member.modelOverride}>{t("rooms.roleModel.summary", { model: member.modelOverride })}</div> : null}
               </div>
               {load ? (
-                <span className="flex items-center gap-0.5 text-[11px] text-muted-foreground tabular-nums" title={t("rooms.RoomView.text_1d08cac920", { count: load })}>
+                <span className="flex items-center gap-0.5 text-xs text-muted-foreground tabular-nums" title={t("rooms.RoomView.text_1d08cac920", { count: load })}>
                   <ListTodo className="size-3" />{load}
                 </span>
               ) : null}
@@ -502,7 +503,7 @@ function RoomHeader({ room, rooms, onDelete }: { room: Room; rooms: RoomsState; 
   return (
     <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border px-4">
       {editing ? (
-        <Input aria-label={t("rooms.RoomView.text_9d9f6a08cf")} autoFocus className="h-8 max-w-xs text-[15px] font-semibold" maxLength={40}
+        <Input aria-label={t("rooms.RoomView.text_9d9f6a08cf")} autoFocus className="h-8 max-w-xs text-base font-medium" maxLength={40}
           onBlur={() => void save()} onChange={(event) => setName(event.target.value)} value={name}
           onKeyDown={(event) => {
             if (composingKey(event)) return;
@@ -510,7 +511,7 @@ function RoomHeader({ room, rooms, onDelete }: { room: Room; rooms: RoomsState; 
             if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); setName(room.name); setEditing(false); }
           }} />
       ) : (
-        <button className="group flex min-w-0 items-center gap-1.5 rounded-md px-1 py-0.5 text-[15px] font-semibold tracking-tight hover:bg-accent"
+        <button className="group flex min-w-0 items-center gap-1.5 rounded-md px-1 py-0.5 text-base font-medium hover:bg-accent"
           onClick={() => setEditing(true)} title={t("rooms.RoomView.text_b620c44beb")} type="button">
           <span className="truncate">{room.name}</span>
           <Pencil className="size-3.5 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100" />
@@ -686,7 +687,11 @@ function BriefSummary({ brief, onEdit }: { brief: Room["brief"]; onEdit: () => v
   useLayoutEffect(() => {
     const node = content.current;
     if (!node) return;
-    if (!expanded) node.scrollTop = 0;
+    // 收起后只露两行，任何残留滚动（展开时按 End 触发的平滑滚动动画仍在进行）都要拉回顶部，
+    // 否则动画会覆盖这里一次性的归零。
+    const pin = () => { if (!expanded && node.scrollTop !== 0) node.scrollTop = 0; };
+    pin();
+    if (!expanded) node.addEventListener("scroll", pin);
     let frame = 0;
     const measure = () => {
       const longText = [...node.querySelectorAll<HTMLElement>("[data-brief-text]")].some(text =>
@@ -700,7 +705,10 @@ function BriefSummary({ brief, onEdit }: { brief: Room["brief"]; onEdit: () => v
     observer.observe(node);
     document.fonts.addEventListener("loadingdone", schedule);
     measure();
-    return () => { cancelAnimationFrame(frame); observer.disconnect(); document.fonts.removeEventListener("loadingdone", schedule); };
+    return () => {
+      cancelAnimationFrame(frame); observer.disconnect(); node.removeEventListener("scroll", pin);
+      document.fonts.removeEventListener("loadingdone", schedule);
+    };
   }, [brief, expanded]);
   const badge = "min-w-0 max-w-full shrink whitespace-normal text-left [overflow-wrap:anywhere]";
   const text = cn("min-w-0 leading-snug whitespace-pre-wrap", !expanded && "line-clamp-2");
@@ -710,7 +718,7 @@ function BriefSummary({ brief, onEdit }: { brief: Room["brief"]; onEdit: () => v
         role={expanded ? "region" : undefined} tabIndex={expanded ? 0 : undefined}
         className={cn("min-h-0 min-w-0 flex-1 self-stretch overflow-x-hidden select-text", expanded ? "overflow-y-auto" : "overflow-y-hidden")}>
         <p data-brief-text className={cn("leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere]", !expanded && "line-clamp-2", !brief.objective && "text-muted-foreground")}>
-          <span className="mr-2 text-xs font-semibold tracking-wide text-muted-foreground">{t("rooms.RoomView.text_128a7a0366")}</span>
+          <span className="mr-2 text-xs font-medium text-muted-foreground">{t("rooms.RoomView.text_128a7a0366")}</span>
           {brief.objective || t("rooms.RoomView.text_48a319e483")}
         </p>
         {brief.currentFocus || brief.constraints.length ? (
@@ -774,11 +782,11 @@ function CenterTabs({ room, rooms, tabs, onOpenSession, inboxEnabled }: {
         <TabsList className="h-8" variant="line">
           <TabsTrigger className="gap-1.5 px-2.5 text-xs" value="chat"><MessagesSquare />{t("rooms.RoomView.text_6bf6d3f3d6")}</TabsTrigger>
           <TabsTrigger className="gap-1.5 px-2.5 text-xs" value="flow">
-            <Network />{t("rooms.RoomView.text_bdd207e8c6")}{active ? <span className="rounded-full bg-primary/15 px-1.5 text-[10px] font-semibold text-primary tabular-nums">{active}</span> : null}
+            <Network />{t("rooms.RoomView.text_bdd207e8c6")}{active ? <span className="rounded-full bg-primary/15 px-1.5 text-xs font-medium text-primary tabular-nums">{active}</span> : null}
           </TabsTrigger>
           {inboxEnabled ? (
             <TabsTrigger className="gap-1.5 px-2.5 text-xs" data-room-inbox-tab value="inbox">
-              <Inbox />{t("inbox.panel.title")}{inboxAttention ? <span className="rounded-full bg-primary/15 px-1.5 text-[10px] font-semibold text-primary tabular-nums">{formatNumber(inboxAttention)}</span> : null}
+              <Inbox />{t("inbox.panel.title")}{inboxAttention ? <span className="rounded-full bg-primary/15 px-1.5 text-xs font-medium text-primary tabular-nums">{formatNumber(inboxAttention)}</span> : null}
             </TabsTrigger>
           ) : null}
         </TabsList>
@@ -939,7 +947,7 @@ function Timeline({ room, rooms, active }: { room: Room; rooms: RoomsState; acti
               {message.id === dividerId ? (
                 <div className="my-2 flex items-center gap-3 px-3" role="separator">
                   <Separator className="flex-1 bg-primary/50" />
-                  <span className="text-xs font-semibold text-primary">{t("rooms.RoomView.text_3fc957bf0f")}</span>
+                  <span className="text-xs font-medium text-primary">{t("rooms.RoomView.text_3fc957bf0f")}</span>
                   <Separator className="flex-1 bg-primary/50" />
                 </div>
               ) : null}
@@ -1020,7 +1028,7 @@ function MessageItemView({ room, rooms, message, continued, onReply }: MessageIt
       id={`room-message-${message.id}`}>
       <div className="w-8 shrink-0">
         {continued ? (
-          <span className="block pt-0.5 text-right text-[10px] text-muted-foreground opacity-0 tabular-nums group-hover:opacity-100">
+          <span className="block pt-0.5 text-right text-xs text-muted-foreground opacity-0 tabular-nums group-hover:opacity-100">
             {formatTime(message.at)}
           </span>
         ) : <MemberAvatar id={message.by} room={room} />}
@@ -1028,13 +1036,13 @@ function MessageItemView({ room, rooms, message, continued, onReply }: MessageIt
       <div className="min-w-0 flex-1">
         {!continued ? (
           <header className="flex flex-wrap items-baseline gap-x-2">
-            <span className="flex items-center gap-1 font-semibold">
+            <span className="flex items-center gap-1 font-medium">
               {labelOf(room, message.by)}
               {author?.role === "foreman" ? <Crown aria-label={t("rooms.RoomView.text_8153348240")} className="size-3.5 text-warning" /> : null}
             </span>
             {recipients ? <span className="text-xs text-muted-foreground">→ {recipients}</span> : null}
             {time}
-            <span className="font-mono text-[11px] text-muted-foreground/60 opacity-0 transition-opacity group-hover:opacity-100"
+            <span className="font-mono text-xs text-muted-foreground/60 opacity-0 transition-opacity group-hover:opacity-100"
               title={t("rooms.RoomView.text_1025763c19")}>#{shortId(message.id)}</span>
           </header>
         ) : null}
@@ -1263,10 +1271,10 @@ function Composer(props: { room: Room; rooms: RoomsState; replyTo: RoomMessage |
           }} />
         {mention && mentionList.length ? (
           <div aria-label={t("rooms.RoomView.text_855f3f1677")} className="absolute bottom-full left-2 z-30 mb-1.5 w-80 overflow-hidden rounded-lg border border-border bg-popover p-1 shadow-lg" role="listbox">
-            <div className="px-2 pt-1 pb-1.5 text-[11px] text-muted-foreground">{t("rooms.RoomView.text_5a36033acb")}</div>
+            <div className="px-2 pt-1 pb-1.5 text-xs text-muted-foreground">{t("rooms.RoomView.text_5a36033acb")}</div>
             {mentionList.map((option, index) => (
               <button aria-selected={index === mention.index} key={`${option.kind}-${option.title}`} role="option" type="button"
-                className={cn("flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm", index === mention.index ? "bg-accent" : "hover:bg-accent/60")}
+                className={cn("flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm", index === mention.index ? "bg-(--accent-soft) shadow-[inset_2px_0_var(--accent)]" : "hover:bg-accent")}
                 onMouseDown={(event) => { event.preventDefault(); chooseMention(option); }}
                 onMouseEnter={() => setMention({ ...mention, index })}>
                 {option.kind === "member" ? (
@@ -1334,7 +1342,7 @@ function Composer(props: { room: Room; rooms: RoomsState; replyTo: RoomMessage |
                 : ask ? t("rooms.RoomView.text_5c81fb6c44") : t("rooms.RoomView.text_6555bb6b5c")}
             </TooltipContent>
           </Tooltip>
-          <span className="ml-auto hidden items-center gap-1 text-[11px] text-muted-foreground/70 min-[1200px]:group-focus-within/composer:flex">
+          <span className="ml-auto hidden items-center gap-1 text-xs text-muted-foreground/70 min-[1200px]:group-focus-within/composer:flex">
             {attachments.items.length ? t("rooms.composer.attachmentCount", { count: attachments.items.length, limit: MAX_ATTACHMENTS }) : null}
             <Kbd>Enter</Kbd>{t("rooms.RoomView.text_edecf0ae6e")} · <Kbd>Shift</Kbd>+<Kbd>Enter</Kbd>{t("rooms.RoomView.text_bd609a8e2d")}</span>
           <Button aria-label={t("rooms.RoomView.text_edecf0ae6e")} className="ml-auto min-[1200px]:group-focus-within/composer:ml-0" disabled={!canSend} onClick={() => void send()} size="icon-sm">
@@ -1373,13 +1381,13 @@ function TaskBoard({ room, rooms, tabs, onOpenSession }: { room: Room; rooms: Ro
   const busyMembers = activeMembers(room).filter((member) => memberStatus(tabs.find((tab) => tab.id === member.tabId)) === "busy").length;
   useEffect(() => setAdding(false), [room.id]);
   return (
-    <aside aria-label={t("rooms.RoomView.text_0f45344baf")} className="room-taskboard flex min-h-0 flex-col border-l border-border bg-(--panel)">
+    <aside aria-label={t("rooms.RoomView.text_0f45344baf")} className="room-taskboard flex min-h-0 flex-col border-l border-(--border-soft) bg-(--panel)">
       <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-3">
         <ListTodo className="size-4 text-muted-foreground" />
-        <span className="font-semibold">{t("rooms.RoomView.text_0f45344baf")}</span>
+        <span className="font-medium">{t("rooms.RoomView.text_0f45344baf")}</span>
         <span className="text-xs text-muted-foreground">{live}</span>
-        <Button className="ml-auto" onClick={() => setAdding((value) => !value)} size="xs" variant={adding ? "secondary" : "outline"}>
-          <Plus />{t("rooms.RoomView.text_6bee237280")}</Button>
+        <button aria-pressed={adding} className="room-task-add" onClick={() => setAdding((value) => !value)} type="button">
+          <Plus aria-hidden="true" />{t("rooms.RoomView.text_6bee237280")}</button>
       </header>
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-3">
         {adding ? <TaskForm onDone={() => setAdding(false)} room={room} rooms={rooms} /> : null}
@@ -1400,12 +1408,14 @@ function TaskBoard({ room, rooms, tabs, onOpenSession }: { room: Room; rooms: Ro
         ) : null}
         {(["active", "planned", "done"] as const).map((status) => columns[status].length ? (
           <section className="flex flex-col gap-1.5" key={status}>
-            <h3 className="flex items-center gap-2 px-0.5 text-xs font-semibold text-muted-foreground">
+            <h3 className="flex items-center gap-2 px-0.5 text-xs font-medium text-muted-foreground">
               <TaskStatusIcon status={status} />
               {STATUS_LABEL[status]}
               <span className="font-normal opacity-70">{columns[status].length}</span>
             </h3>
-            {columns[status].map((task) => <TaskCard key={task.id} room={room} rooms={rooms} task={task} />)}
+            <div className="room-task-group">
+              {columns[status].map((task) => <TaskCard key={task.id} room={room} rooms={rooms} task={task} />)}
+            </div>
           </section>
         ) : null)}
         {archived ? <p className="px-0.5 text-xs text-muted-foreground"><Archive className="mr-1 inline size-3" />{t("rooms.RoomView.text_8670481957", { count: archived })}</p> : null}
@@ -1421,28 +1431,24 @@ function TaskCard({ room, rooms, task }: { room: Room; rooms: RoomsState; task: 
   const run = (op: Parameters<typeof api.roomTask>[1]) => void rooms.run(() => api.roomTask(room.id, op));
   const assignee = task.assignee ? room.members.find((member) => member.id === task.assignee) : undefined;
   return (
-    <article className={cn(
-      "overflow-hidden rounded-lg border border-border bg-card shadow-xs transition-shadow hover:shadow-sm",
-      task.status === "done" && "opacity-75",
-      open && "ring-1 ring-ring/30",
-    )}>
+    <article className={cn("room-task-row", task.status === "done" && "opacity-75")} data-open={open}>
       <button aria-expanded={open} className="flex w-full flex-col gap-1.5 px-3 py-2.5 text-left outline-none focus-visible:bg-accent/50"
         onClick={() => setOpen((value) => !value)} type="button">
         <span className="flex items-start gap-2">
           <TaskStatusIcon status={task.status} />
-          <span className="mt-px font-mono text-[11px] text-muted-foreground">{task.id}</span>
+          <span className="mt-px font-mono text-xs text-muted-foreground">{task.id}</span>
           <span className={cn("min-w-0 flex-1 leading-snug font-medium", task.status === "done" && "line-through decoration-muted-foreground/50")}>
             {task.title}
           </span>
         </span>
-        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          {assignee ? <><MemberAvatar id={assignee.id} room={room} size="sm" /><span className="truncate">{assignee.title}</span></>
+        <span className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+          {assignee ? <><MemberAvatar id={assignee.id} room={room} size="sm" /><span className="min-w-0 [overflow-wrap:anywhere]">{assignee.title}</span></>
             : <span className="italic">{t("rooms.RoomView.text_59b6aaf112")}</span>}
-          {blockers.length ? <Badge className="ml-auto h-5 border-warning/50 px-1.5 text-[11px] text-warning" variant="outline">{t("rooms.RoomView.text_c61526db52", { names: formatList(blockers) })}</Badge> : null}
+          {blockers.length ? <Badge className="ml-auto h-auto min-h-5 max-w-full border-warning/50 px-1.5 text-xs whitespace-normal text-warning [overflow-wrap:anywhere]" variant="outline">{t("rooms.RoomView.text_c61526db52", { names: formatList(blockers) })}</Badge> : null}
         </span>
       </button>
       {open ? (
-        <div className="flex flex-col gap-2.5 border-t border-border bg-background/40 px-3 py-2.5 text-xs">
+        <div className="flex flex-col gap-2.5 border-t border-(--border-soft) bg-background/40 px-3 py-2.5 text-xs">
           {task.outcome ? <Detail label={t("rooms.RoomView.text_fa4aa984fe")}>{task.outcome}</Detail> : null}
           {task.result ? <Detail label={t("rooms.RoomView.text_bb7ef73495")}>{task.result}</Detail> : null}
           {task.notes ? (

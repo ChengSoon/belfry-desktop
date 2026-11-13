@@ -1,8 +1,9 @@
 import { formatNumber } from "../../i18n";
 import { t, useTranslation } from "../../i18n";
-import { AlertTriangle, Check, History, ListChecks, Play, RefreshCcw, Trash2, X } from "lucide-react";
+import { Check, History, ListChecks, Play, RefreshCcw, Trash2, X } from "lucide-react";
 import { useState, type CSSProperties } from "react";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
+import { Notice } from "../../components/Notice";
 import { Presence } from "../../components/motion/Presence";
 import { PanelResizeHandle } from "../../panel/PanelResizeHandle";
 import { usePanelWidth } from "../../panel/usePanelWidth";
@@ -74,17 +75,21 @@ function HistoryHeader({ model, onClose }: { model: Model; onClose: () => void }
 function HistoryStatus({ model }: { model: Model }) {
   useTranslation();
   const { history, metadata, query } = model;
-  const errors = [query.error, metadata.error, history.failure ? failureLabel(history.failure) : null].filter(Boolean);
+  const errors = [
+    { source: "query", message: query.error },
+    { source: "metadata", message: metadata.error },
+    { source: "history", message: history.failure ? failureLabel(history.failure) : null },
+  ].filter((error) => error.message);
   return <>
-    {errors.map((error) => <div key={error} className="history-error" role="alert"><AlertTriangle size={ICON.sm} aria-hidden="true" />
-      <span>{error}</span></div>)}
-    {history.failure ? <button className="history-retry" type="button" disabled={history.loading}
-      onClick={() => void history.reload()}>{t("history.HistoryPanel.text_13be69053d")}</button> : null}
+    {errors.map((error) => <Notice key={error.source} className="history-error"
+      action={error.source === "history" ? <button className="history-retry" type="button" disabled={history.loading}
+        onClick={() => void history.reload()}>{t("history.HistoryPanel.text_13be69053d")}</button> : undefined}>
+      {error.message}</Notice>)}
     <div className="history-search-summary" aria-live="polite">
       <span>{history.loading ? t("history.HistoryPanel.text_6ab16c7181") : t("history.HistoryPanel.text_edfea22045", { count: model.hits.length, scannedFiles: history.report.scannedFiles })}</span>
       <button type="button" onClick={model.reset}>{t("history.HistoryPanel.text_657d9cbf45")}</button>
     </div>
-    {history.report.skippedFiles || history.report.skippedLines ? <p className="history-search-warning" role="status">{t("history.HistoryPanel.text_ee729619b1", { skippedFiles: history.report.skippedFiles, skippedLines: history.report.skippedLines })}</p> : null}
+    {history.report.skippedFiles || history.report.skippedLines ? <Notice className="history-search-warning" tone="warning">{t("history.HistoryPanel.text_ee729619b1", { skippedFiles: history.report.skippedFiles, skippedLines: history.report.skippedLines })}</Notice> : null}
   </>;
 }
 

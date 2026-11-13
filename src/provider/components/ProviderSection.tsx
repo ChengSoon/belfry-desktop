@@ -1,7 +1,8 @@
+import { Notice } from "../../components/Notice";
 import { formatList, formatNumber, t, useTranslation } from "../../i18n";
 import { useCallback, useLayoutEffect, useRef, type CSSProperties } from "react";
 import { AGENT_KINDS, type AgentKind } from "../../agent/contracts";
-import { AlertTriangle, ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { ICON } from "../../theme/sizing";
 import { failureLabel } from "../../workspace/errors";
 import { AGENT_LABEL, EMPTY_DRAFT, toDraft } from "../contracts";
@@ -13,6 +14,7 @@ import { ProviderSettingsHeader } from "./ProviderSettingsHeader";
 import { RemoveConfirm } from "./RemoveConfirm";
 import { shatterCard } from "./shatterCard";
 import { useProviderEditor } from "./useProviderEditor";
+import "../../settings/obsidianSections.css";
 import "../provider.css";
 
 // 保留原有服务商页的排列顺序，其余 Agent 来自统一注册表。
@@ -76,7 +78,7 @@ export function ProviderSection({ onGuardChange }: { onGuardChange: (guarded: bo
   const { nodes: nodeById, register: registerCardNode } = useProviderCardNodes();
   const segmentsRef = useProviderSegments(kind);
   return (
-    <section aria-label={t("provider.ProviderSection.text_8b472fc10b")} className="provider-section">
+    <section aria-label={t("provider.ProviderSection.text_8b472fc10b")} className="provider-section os-page">
       <ProviderSettingsHeader busy={providers.loading} editing={draft !== null}
         onAdd={() => openDraft({ ...EMPTY_DRAFT })} onReload={() => void providers.reload()} />
       <div className="provider-segments" ref={segmentsRef} data-active={kind} role="tablist" aria-label="Agent CLI">
@@ -99,11 +101,10 @@ export function ProviderSection({ onGuardChange }: { onGuardChange: (guarded: bo
       </div>
 
       {conflicts.length > 0 ? (
-        <p className="provider-warning" role="alert">
-          <AlertTriangle aria-hidden="true" size={ICON.sm} />
+        <Notice className="provider-warning" tone="warning" role="alert">
           <span>{t(conflicts.some((item) => item.source === "shell") ? "provider.ProviderSection.shellOverride" : "provider.ProviderSection.processOverride", { names: formatList(conflicts.map((item) => item.name)) })}
           </span>
-        </p>
+        </Notice>
       ) : null}
 
       {draft ? (
@@ -144,7 +145,7 @@ export function ProviderSection({ onGuardChange }: { onGuardChange: (guarded: bo
                 }}
                 onSubmit={submit}
               />
-              {formNotice ? <p className="provider-notice">{formNotice}</p> : null}
+              {formNotice ? <Notice className="provider-notice" tone="warning">{formNotice}</Notice> : null}
             </div>
             <details className="provider-advanced">
               <summary>{t("provider.ProviderSection.text_36a045ebcc")}<span>{t("provider.ProviderSection.text_68f4c7b0f6")}</span></summary>
@@ -180,14 +181,16 @@ export function ProviderSection({ onGuardChange }: { onGuardChange: (guarded: bo
             <p className="provider-hint">{t("provider.ProviderSection.text_3b0002eb6a")}</p>
           ) : (
             <>
-              <div className="provider-routing-summary">
-                <span>{t("provider.ProviderSection.text_8d30e0eb42")}</span>
-                <strong>{group ? (group.currentId === null ? t("provider.ProviderSection.text_726c9ae341") : list.find((item) => item.id === group.currentId)?.name || t("provider.ProviderSection.text_6534bf83b0")) : t("provider.ProviderSection.text_c4cf69f358")}</strong>
-                <p>{t("provider.ProviderSection.text_cc40fd24b5")}</p>
-              </div>
-              <ProviderOfficial active={group !== undefined && group.currentId === null}
-                busy={providers.loading || group === undefined} onSelect={() => void providers.select(kind, null)} />
-              <div className="provider-library-heading"><h3>{t("provider.ProviderSection.text_a438204251")}<span>{formatNumber(list.length)}</span></h3><span>{t("provider.ProviderSection.text_43612817e9")}</span></div>
+              {/* 曜石稿（T19 provider）：「当前选择」放进 group，单行；右侧 accent 徽标「已选用」或切回官方。 */}
+              <section className="os-section">
+                <div className="os-group-head"><h3>{t("provider.ProviderSection.text_8d30e0eb42")}</h3><span className="os-meta">{t("provider.ProviderSection.text_cc40fd24b5")}</span></div>
+                <div className="os-group">
+                  <ProviderOfficial active={group !== undefined && group.currentId === null}
+                    current={group ? (group.currentId === null ? null : list.find((item) => item.id === group.currentId)?.name || t("provider.ProviderSection.text_6534bf83b0")) : t("provider.ProviderSection.text_c4cf69f358")}
+                    busy={providers.loading || group === undefined} onSelect={() => void providers.select(kind, null)} />
+                </div>
+              </section>
+              <div className="os-group-head provider-library-heading"><h3>{t("provider.ProviderSection.text_a438204251")}<span className="os-tag">{formatNumber(list.length)}</span></h3><span className="os-meta">{t("provider.ProviderSection.text_43612817e9")}</span></div>
               <div
                 className="provider-list"
                 // 列数上限交给 CSS：按实际服务商数等分，宽屏下不会 auto-fill 出空列。
@@ -221,10 +224,10 @@ export function ProviderSection({ onGuardChange }: { onGuardChange: (guarded: bo
       )}
 
       {providers.failure ? (
-        <p className="provider-error" role="alert">{failureLabel(providers.failure)}</p>
+        <Notice className="provider-error" role="alert">{failureLabel(providers.failure)}</Notice>
       ) : null}
       {providers.notice && !providers.failure ? (
-        <p className="provider-notice">{providers.notice}</p>
+        <Notice className="provider-notice" tone="neutral">{providers.notice}</Notice>
       ) : null}
 
       {pendingRemove ? (

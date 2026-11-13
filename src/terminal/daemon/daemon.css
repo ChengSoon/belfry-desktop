@@ -10,12 +10,27 @@
 .daemon-button--primary { color: var(--surface); background: var(--text); border-color: transparent; }
 .daemon-button--primary:not(:disabled):hover { background: var(--text-muted); }
 .daemon-button:disabled { opacity: .5; cursor: default; }
-.daemon-button:focus-visible, .terminal-exit__cancel:focus-visible, .background-sessions__toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.daemon-button:focus-visible, .terminal-exit__cancel:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .terminal-exit p.terminal-exit__error { color: var(--danger); overflow-wrap: anywhere; margin-top: 16px; }
 .terminal-exit__cancel { border: 0; background: transparent; color: var(--text-muted); display: block; padding: 12px 16px 0; margin: 6px auto 0; cursor: pointer; }
-.background-sessions { border-top: 1px solid var(--border); margin-top: 28px; padding-top: 20px; }
-.background-sessions__toggle { display: flex; align-items: center; gap: 8px; color: var(--text); background: none; border: 0; padding: 6px 0; cursor: pointer; font-weight: 500; }
-.background-sessions__list { list-style: none; padding: 0; margin: 12px 0; }
-.background-sessions__list li { display: flex; align-items: center; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--border); }
-.background-sessions__list li > div { flex: 1; min-width: 0; }
-.background-sessions__list small { display: block; color: var(--text-muted); overflow-wrap: anywhere; margin-top: 5px; }
+/* 设置 → 会话状态 → 后台任务（曜石 T19）：行 56 · 状态点 + 名称/等宽路径 + 徽标 + 动作。 */
+.settings-content > .background-sessions { max-width: 880px; }
+.background-sessions__refresh { min-height: 28px; padding: 0 10px; }
+.background-sessions__refresh > svg { width: 14px; height: 14px; }
+.background-sessions__desc { margin: -4px 0 0; color: var(--text-muted); font-size: var(--fs-sm); }
+.background-sessions__list { margin: 0; padding: 0; list-style: none; }
+.background-sessions__list li {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: var(--space-3);
+  min-height: 56px; padding: var(--space-3) var(--space-5);
+}
+.background-sessions__list li + li { border-top: 1px solid var(--border-soft); }
+.background-sessions__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-faint); }
+.background-sessions__dot.is-running { background: var(--success); }
+.background-sessions__copy { display: grid; min-width: 0; }
+.background-sessions__copy strong { font-weight: 500; overflow-wrap: anywhere; }
+.background-sessions__list li[data-state="exited"] .background-sessions__copy strong { color: var(--text-muted); }
+.background-sessions__copy small { color: var(--text-faint); font: 400 var(--fs-xs)/1.6 var(--font-mono); overflow-wrap: anywhere; }
+@container settings (max-width: 420px) {
+  .background-sessions__list li { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .background-sessions__list li > .os-btn { grid-column: 2 / -1; justify-self: start; }
+}

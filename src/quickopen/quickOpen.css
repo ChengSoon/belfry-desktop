@@ -24,9 +24,9 @@
   max-height: min(620px, calc(100vh - var(--titlebar-inset) - 88px));
   grid-template-rows: auto auto minmax(0, 1fr) auto;
   overflow: hidden;
-  border: 1px solid var(--border-strong);
+  border: 0;
   border-radius: var(--radius-md);
-  background: var(--panel);
+  background: var(--surface-raised);
   box-shadow: var(--shadow-lg);
   animation: quick-open-in 160ms var(--ease) both;
 }
@@ -60,7 +60,7 @@
   width: 100%;
   height: 36px;
   padding: 0 10px 0 32px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
   color: var(--text);
   background: var(--surface);

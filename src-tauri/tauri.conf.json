@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Belfry",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "identifier": "io.appmakes.belfry.desktop",
   "build": {
     "beforeDevCommand": "node scripts/bundle-cli.mjs && pnpm dev",
@@ -20,13 +20,19 @@
         "height": 700,
         "minWidth": 720,
         "minHeight": 480,
+        "center": true,
+        "preventOverflow": true,
+        "shadow": true,
+        "visible": false,
         "resizable": true
       }
     ],
     "security": {
       "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: asset: http://asset.localhost https://asset.localhost data: blob:; media-src 'self' blob:; font-src 'self' data: blob:; connect-src 'self' ipc: http://ipc.localhost https://ipc.localhost; frame-src http://127.0.0.1:*; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'",
       "devCsp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' https: asset: http://asset.localhost https://asset.localhost data: blob:; media-src 'self' blob:; font-src 'self' data: blob:; connect-src 'self' ipc: http://ipc.localhost https://ipc.localhost ws://127.0.0.1:1420; frame-src http://127.0.0.1:*; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'",
-      "capabilities": ["default"]
+      "capabilities": [
+        "default"
+      ]
     }
   },
   "bundle": {

@@ -1,3 +1,4 @@
+import { Notice } from "../../components/Notice";
 import { t, useTranslation } from "../../i18n";
 import { Disclosure } from "../../components/controls/Disclosure";
 import type { HistoryEntry } from "./contracts";
@@ -16,7 +17,7 @@ export function HistoryMessages({ entries, selectedId, query }: { entries: Histo
         <pre>{tool.text || t("history.HistoryMessages.text_0f1f634eda")}</pre>
       </Disclosure>)}
       {entry.omittedBlocks ? <p className="history-detail__note">{t("history.HistoryMessages.text_0fc60b2994", { count: entry.omittedBlocks })}</p> : null}
-      {entry.truncated ? <p className="history-detail__warning" role="status">{t("history.HistoryMessages.text_257f3b8b45")}</p> : null}
+      {entry.truncated ? <Notice className="history-detail__warning" tone="warning" role="status">{t("history.HistoryMessages.text_257f3b8b45")}</Notice> : null}
     </article>
   </li>)}</ol>;
 }

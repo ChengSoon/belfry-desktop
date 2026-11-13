@@ -4,7 +4,7 @@
   overflow: auto;
   overscroll-behavior: contain;
   padding: 5px;
-  border: 1px solid var(--border-strong);
+  border: 0;
   border-radius: var(--radius-md);
   background: var(--surface-raised);
   box-shadow: var(--shadow-md);

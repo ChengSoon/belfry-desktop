@@ -1,170 +1,31 @@
-.environment-section {
-  display: grid;
-  gap: 24px;
-}
+/* 协作环境（曜石 T19）：总状态 group + 检查项行；页面骨架走 settings/obsidianSections.css。 */
+.environment-loading { display: flex; align-items: center; gap: var(--space-2); color: var(--text-muted); font-size: var(--fs-sm); }
 
-/* 页头（标题 + 右侧动作）走 settings/settingsShell.css 的 .settings-head，
-   原先的 .environment-section__header / __actions 两条已随之作废。
-   动作区间距改由骨架统一给，这一页不再自己定。 */
+.environment-summary { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-4) var(--space-5); }
+.environment-summary__icon { display: grid; flex: none; width: 32px; height: 32px; place-items: center; border-radius: 50%; }
+.environment-summary__icon > svg { width: 16px; height: 16px; }
+.environment-summary[data-state="ok"] .environment-summary__icon { color: var(--success); background: var(--success-soft); }
+.environment-summary[data-state="warning"] .environment-summary__icon { color: var(--warning); background: var(--warning-soft); }
+.environment-summary[data-state="error"] .environment-summary__icon { color: var(--danger); background: var(--danger-soft); }
+.environment-summary__body { display: grid; flex: 1; min-width: 0; }
+.environment-summary__body strong { font-weight: 500; }
+.environment-summary__body span { color: var(--text-muted); font-size: var(--fs-sm); }
 
-.environment-action {
-  display: inline-flex;
-  min-height: 38px;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 8px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text-muted);
-  background: var(--surface);
-  font-size: var(--fs-sm);
-  cursor: pointer;
-  transition: color var(--duration) var(--ease), border-color var(--duration) var(--ease), background var(--duration) var(--ease);
-}
-
-.environment-action:hover:not(:disabled) {
-  border-color: var(--border-strong);
-  color: var(--text);
-  background: var(--surface-hover);
-}
-
-.environment-action:disabled { opacity: 0.45; cursor: default; }
-
-.environment-action--primary {
-  border-color: transparent;
-  color: var(--accent-contrast);
-  background: var(--accent);
-  font-weight: 500;
-}
-
-.environment-action--primary:hover:not(:disabled) {
-  border-color: transparent;
-  color: var(--accent-contrast);
-  background: var(--accent-hover);
-}
-
-.environment-action--icon {
-  width: 30px;
-  padding: 0;
-}
-
-.environment-summary {
-  display: grid;
-  grid-template-columns: 24px minmax(0, 1fr) auto;
-  min-height: 64px;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 4px;
-  border-block: 1px solid var(--border);
-}
-
-.environment-summary strong {
-  color: var(--text);
-  font-size: var(--fs-md);
-  font-weight: 500;
-}
-
-.environment-summary span:last-child {
-  color: var(--text-muted);
-  font-size: var(--fs-xs);
-  white-space: nowrap;
-}
-
-.environment-summary[data-state="ok"] > svg { color: var(--success); }
-.environment-summary[data-state="warning"] > svg { color: var(--warning); }
-.environment-summary[data-state="error"] > svg { color: var(--danger); }
-
-.environment-checks {
-  display: grid;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
+.environment-checks { margin: 0; padding: 0; list-style: none; }
 .environment-checks li {
-  display: grid;
-  grid-template-columns: 32px minmax(0, 1fr);
-  min-height: 64px;
-  align-items: center;
-  gap: 8px;
-  padding: 16px 4px;
-  border-bottom: 1px solid var(--border);
+  display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-3); align-items: center;
+  min-height: 56px; padding: var(--space-3) var(--space-5);
 }
-
-.environment-checks__icon {
-  display: grid;
-  width: 28px;
-  height: 28px;
-  place-items: center;
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-}
-
+.environment-checks li + li { border-top: 1px solid var(--border-soft); }
+.environment-checks__icon { display: grid; width: 20px; height: 20px; place-items: center; }
+.environment-checks__icon > svg { width: 16px; height: 16px; }
 .environment-checks li[data-state="ok"] .environment-checks__icon { color: var(--success); }
 .environment-checks li[data-state="warning"] .environment-checks__icon { color: var(--warning); }
 .environment-checks li[data-state="error"] .environment-checks__icon { color: var(--danger); }
-
-.environment-checks__text {
-  display: grid;
-  min-width: 0;
-  gap: 2px;
-}
-
-.environment-checks__text strong {
-  color: var(--text);
-  font-size: var(--fs-sm);
-  font-weight: 500;
-}
-
-.environment-checks__text small {
-  color: var(--text-faint);
-  color: var(--text-muted);
-  font-size: var(--fs-xs);
-  line-height: var(--lh-relaxed);
-  overflow-wrap: anywhere;
-}
-
-.environment-notice,
-.environment-failure,
-.environment-loading {
-  display: flex;
-  min-height: 36px;
-  align-items: center;
-  gap: 7px;
-  margin: 0;
-  padding: 7px 9px;
-  border-radius: var(--radius-sm);
-  font-size: var(--fs-sm);
-}
-
-.environment-notice {
-  color: var(--success);
-  background: color-mix(in srgb, var(--success) 10%, transparent);
-}
-
-.environment-failure {
-  color: var(--danger);
-  background: color-mix(in srgb, var(--danger) 10%, transparent);
-}
-
-.environment-loading {
-  color: var(--text-muted);
-  background: var(--surface);
-}
+.environment-checks__text { display: grid; min-width: 0; }
+.environment-checks__text strong { font-weight: 500; overflow-wrap: anywhere; }
+.environment-checks__text small { color: var(--text-muted); font-size: var(--fs-sm); line-height: var(--lh-normal); overflow-wrap: anywhere; }
 
 .environment-spin { animation: environment-spin 0.8s linear infinite; }
-
-@keyframes environment-spin {
-  to { transform: rotate(360deg); }
-}
-
-@media (max-width: 680px) {
-  .environment-summary { grid-template-columns: 24px minmax(0, 1fr); }
-  .environment-summary span:last-child { grid-column: 2; white-space: normal; }
-}
-@container settings (max-width: 520px) {
-  .environment-summary { grid-template-columns: 24px minmax(0, 1fr); }
-  .environment-summary span:last-child { grid-column: 2; white-space: normal; }
-}
+@keyframes environment-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .environment-spin { animation: none; } }

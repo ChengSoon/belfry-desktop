@@ -1,0 +1,115 @@
+/* 设置各分区的曜石原语（T20）。规格逐条取自 docs/design/belfry-ui/obsidian-screens/obsidian.css 与
+   sections.css（T19 稿），类名加 os- 前缀，只给设置分区内容用：设置外壳、导航、外观页和
+   components/controls 归 T12（obsidianSurfaces.css），这里不覆盖它们。颜色、尺寸全部走令牌。 */
+
+/* 页面填满设置内容面；左右留白由外壳提供，不另设固定最大宽度。 */
+.os-page { display: grid; gap: var(--space-8); width: 100%; min-width: 0; }
+.os-section { display: grid; gap: var(--space-3); min-width: 0; }
+.os-group-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); min-width: 0; }
+.os-group-head h3 { margin: 0; font-size: var(--fs-lg); font-weight: 500; }
+.os-group-head .os-meta { color: var(--text-faint); font-size: var(--fs-xs); overflow-wrap: anywhere; text-align: right; }
+
+/* group：r8 + panel 底 + 1px 边；行间用 border-soft。 */
+.os-group { min-width: 0; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--panel); }
+.os-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-3) var(--space-6); align-items: center;
+  min-width: 0; min-height: 64px; padding: var(--space-4) var(--space-5);
+}
+.os-row + .os-row, .os-group > * + .os-row { border-top: 1px solid var(--border-soft); }
+.os-row.with-agent { grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; }
+.os-row.with-agent > .os-agent { margin-top: 1px; }
+.os-row.with-agent > .os-trail { align-self: center; }
+.os-row__body { min-width: 0; }
+.os-row__label { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); font-weight: 500; overflow-wrap: anywhere; }
+.os-row__hint { margin: 2px 0 0; color: var(--text-muted); font-size: var(--fs-sm); line-height: var(--lh-normal); overflow-wrap: anywhere; }
+.os-row__sub { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: var(--space-1); color: var(--text-muted); font-size: var(--fs-sm); }
+.os-mono { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-faint); overflow-wrap: anywhere; }
+.os-trail { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--space-2); min-width: 0; }
+/* 窄设置面板：动作折到正文下方，不把标签挤成一列。 */
+@container settings (max-width: 560px) {
+  .os-row, .os-row.with-agent { grid-template-columns: minmax(0, 1fr); }
+  .os-row.with-agent { grid-template-columns: auto minmax(0, 1fr); }
+  .os-row.with-agent > .os-trail { grid-column: 2; }
+  .os-trail { justify-content: flex-start; }
+}
+
+/* 按钮：32 高，主 / 次 / 幽灵 / 危险；一个区域只有一个主按钮。 */
+.os-btn {
+  display: inline-flex; min-height: var(--control-height-sm); align-items: center; justify-content: center; gap: 6px;
+  padding: 0 14px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-muted);
+  font: inherit; font-size: var(--fs-sm); font-weight: 500; white-space: nowrap; cursor: pointer;
+  transition: background var(--motion-standard) var(--motion-ease), box-shadow var(--motion-standard) var(--motion-ease), color var(--motion-standard) var(--motion-ease);
+}
+.os-btn > svg { flex: none; width: 15px; height: 15px; }
+.os-btn:hover:not(:disabled) { background: var(--surface-hover); color: var(--text); }
+.os-btn:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.os-btn:disabled { opacity: .45; cursor: not-allowed; }
+.os-btn.primary { background: var(--accent); color: var(--accent-contrast); }
+.os-btn.primary:hover:not(:disabled) { background: var(--accent-hover); color: var(--accent-contrast); }
+.os-btn.secondary { background: var(--surface); color: var(--text); box-shadow: inset 0 0 0 1px var(--border); }
+.os-btn.secondary:hover:not(:disabled) { background: var(--surface-hover); box-shadow: inset 0 0 0 1px var(--border-strong); }
+.os-btn.danger { background: var(--danger); color: var(--accent-contrast); }
+.os-btn.danger:hover:not(:disabled) { background: var(--danger-hover); color: var(--accent-contrast); }
+.os-btn.danger-ghost { color: var(--danger); }
+.os-btn.danger-ghost:hover:not(:disabled) { background: var(--danger-soft); color: var(--danger); }
+.os-btn.icon { width: var(--control-height-sm); padding: 0; }
+
+/* 徽标：状态不只靠颜色，带底色。 */
+.os-tag {
+  display: inline-flex; min-height: 20px; align-items: center; gap: 4px; padding: 0 6px; border-radius: var(--radius-xs);
+  background: var(--surface-hover); color: var(--text-muted); font-size: var(--fs-xs); font-weight: 500; line-height: 1.4; white-space: nowrap;
+}
+.os-tag > svg { width: 12px; height: 12px; }
+.os-tag.ok { background: var(--success-soft); color: var(--success); }
+.os-tag.warn { background: var(--warning-soft); color: var(--warning); }
+.os-tag.err { background: var(--danger-soft); color: var(--danger); }
+.os-tag.accent { background: var(--accent-soft); color: var(--accent); }
+
+/* Agent 图标块：28px r6 surface 底 + 内描边，与工作台会话图标同语言。 */
+.os-agent {
+  display: grid; flex: none; width: 28px; height: 28px; place-items: center; border-radius: var(--radius-sm);
+  background: var(--surface); box-shadow: inset 0 0 0 1px var(--border); color: var(--text-muted);
+  font-family: var(--font-mono); font-size: var(--fs-xs); font-weight: 500;
+}
+.os-agent.claude { color: var(--brand-claude); }
+.os-agent > svg { width: 15px; height: 15px; }
+
+/* 动作卡（备份）与通用卡片网格。 */
+.os-split { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--space-3); }
+.os-action-card {
+  display: flex; min-width: 0; flex-direction: column; gap: var(--space-2); padding: var(--space-5);
+  border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--panel);
+}
+.os-action-card > b { font-weight: 500; }
+.os-action-card > p { flex: 1; margin: 0; color: var(--text-muted); font-size: var(--fs-sm); line-height: 1.6; }
+.os-action-card > .os-btn { align-self: flex-start; margin-top: var(--space-2); }
+.os-ico {
+  display: grid; flex: none; width: 32px; height: 32px; place-items: center; border-radius: var(--radius-md);
+  background: var(--surface); box-shadow: inset 0 0 0 1px var(--border); color: var(--text-muted);
+}
+.os-ico > svg { width: 16px; height: 16px; }
+
+/* 复选行（备份恢复预览）。 */
+.os-choice { display: grid; gap: 2px; min-width: 0; padding: var(--space-3) var(--space-5); }
+.os-choice + .os-choice { border-top: 1px solid var(--border-soft); }
+.os-choice > small { padding-left: 26px; color: var(--text-muted); font-size: var(--fs-sm); line-height: var(--lh-normal); overflow-wrap: anywhere; }
+.os-choice .ui-checkbox { font-weight: 500; }
+
+.os-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-2); }
+
+/* 空状态。 */
+.os-empty {
+  display: grid; place-items: center; gap: var(--space-2); padding: var(--space-8) var(--space-5);
+  color: var(--text-muted); font-size: var(--fs-sm); text-align: center;
+}
+.os-empty > svg { width: 20px; height: 20px; color: var(--text-faint); }
+
+/* 等宽路径框（Hook 配置位置等）。 */
+.os-paths {
+  margin: var(--space-2) 0 0; padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); background: var(--surface);
+  color: var(--text-muted); font: 400 var(--fs-xs)/1.7 var(--font-mono); overflow-wrap: anywhere; white-space: pre-wrap;
+}
+
+/* notice 在分区内：标题行 + 说明行，按钮 28 高。 */
+.os-page .ui-notice__message > strong { display: block; }
+.os-page .ui-notice__actions > button { min-height: 28px; }
