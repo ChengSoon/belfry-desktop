@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Condvar, Mutex, MutexGuard};
+use std::sync::{Arc, Condvar, Mutex, MutexGuard, OnceLock};
 use std::time::{Duration, Instant};
 
 use super::backend::{PtyBackend, TerminalEventSink};
@@ -329,16 +329,15 @@ pub(super) fn lock_native_test() -> MutexGuard<'static, ()> {
 /// 终端模拟器，必须补上同样的最小握手，否则 PowerShell 会等查询超时后才处理测试输入。
 #[cfg(target_os = "windows")]
 fn complete_startup_handshake(backend: &NativePtyBackend, session_id: &str, sink: &RecordingSink) {
-    // 等待窗口按 CI 冷启动留余量：PowerShell 要先打完横幅才出提示符，原先 3s/5s 会把
-    // 「启动慢」误判成「握手坏了」——失败日志里横幅齐全、只差提示符就是这种情形。
-    assert!(wait_for_text(sink, "\x1b[6n", Duration::from_secs(15)));
-    backend.write(session_id, b"\x1b[1;1R").unwrap();
-    // DA 查询可能晚于光标查询到达；提前合并回复可能被上一阶段的读取丢弃。
-    assert!(wait_for_text(sink, "\x1b[c", Duration::from_secs(15)));
-    backend.write(session_id, b"\x1b[?1;2c").unwrap();
-    // 等到提示符出现再发测试命令，避免响应与命令被 ConPTY 合并为同一输入块，
-    // 被 PowerShell 的终端查询读取逻辑一并消费掉。
-    assert!(wait_for_text(sink, "PS ", Duration::from_secs(30)));
+    // 不同 PowerShell / PSReadLine 版本不一定发送 DA 查询。只应答实际收到的查询，
+    // 等到提示符再输入命令，避免命令被查询的读取逻辑消费掉。
+    assert!(wait_for_terminal(
+        backend,
+        session_id,
+        sink,
+        Duration::from_secs(30),
+        |events| String::from_utf8_lossy(&output_bytes(events)).contains("PS "),
+    ));
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -347,6 +346,99 @@ fn complete_startup_handshake(
     _session_id: &str,
     _sink: &RecordingSink,
 ) {
+}
+
+/// RecordingSink 没有 xterm.js 的查询应答；非交互式 ConPTY 进程同样需要它。
+fn wait_for_terminal(
+    backend: &NativePtyBackend,
+    session_id: &str,
+    sink: &RecordingSink,
+    timeout: Duration,
+    predicate: impl Fn(&[TerminalEvent]) -> bool,
+) -> bool {
+    let deadline = Instant::now() + timeout;
+    let mut replied_through = 0;
+    let mut events = sink.events.lock().unwrap();
+    loop {
+        let event_count = events.len();
+        let complete = predicate(&events);
+        let bytes = output_bytes(&events);
+        let responses = terminal_query_responses(&bytes, &mut replied_through);
+        if !responses.is_empty() {
+            // 写 PTY 时不能持有 sink 锁；reader 可能同时投递下一段查询或提示符。
+            drop(events);
+            for response in responses {
+                if let Err(error) = backend.write(session_id, response) {
+                    assert!(complete, "terminal query response failed: {error:?}");
+                }
+            }
+            events = sink.events.lock().unwrap();
+        }
+        if complete {
+            return true;
+        }
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            eprintln!(
+                "terminal output before timeout: {:?}",
+                String::from_utf8_lossy(&bytes)
+            );
+            return false;
+        }
+        // Recheck after writing: output may have arrived while the sink lock was released.
+        if events.len() != event_count {
+            continue;
+        }
+        events = sink.changed.wait_timeout(events, remaining).unwrap().0;
+    }
+}
+
+fn terminal_query_responses(bytes: &[u8], replied_through: &mut usize) -> Vec<&'static [u8]> {
+    static QUERIES: OnceLock<regex::bytes::Regex> = OnceLock::new();
+    let queries = QUERIES.get_or_init(|| regex::bytes::Regex::new(r"\x1b\[(6n|0?c)").unwrap());
+    let mut responses = Vec::new();
+    let start = *replied_through;
+    for query in queries.find_iter(&bytes[start..]) {
+        responses.push(if query.as_bytes().ends_with(b"6n") {
+            b"\x1b[1;1R".as_slice()
+        } else {
+            b"\x1b[?1;2c".as_slice()
+        });
+        // Retain an incomplete trailing query for the next output event.
+        *replied_through = start + query.end();
+    }
+    responses
+}
+
+#[test]
+fn terminal_queries_do_not_require_a_device_attributes_request() {
+    let mut replied_through = 0;
+    let output = b"\x1b[6n\x1b[?9001hWindows PowerShell\r\nPS C:\\> ";
+    assert_eq!(
+        terminal_query_responses(output, &mut replied_through),
+        [b"\x1b[1;1R".as_slice()]
+    );
+    assert!(terminal_query_responses(output, &mut replied_through).is_empty());
+}
+
+#[test]
+fn terminal_queries_respond_once_to_each_complete_request_across_reads() {
+    let mut replied_through = 0;
+    let first = b"\x1b[6n\x1b[";
+    assert_eq!(
+        terminal_query_responses(first, &mut replied_through),
+        [b"\x1b[1;1R".as_slice()]
+    );
+    let second = b"\x1b[6n\x1b[c\x1b[0c\x1b[6n\x1b[?25h";
+    assert_eq!(
+        terminal_query_responses(second, &mut replied_through),
+        [
+            b"\x1b[?1;2c".as_slice(),
+            b"\x1b[?1;2c".as_slice(),
+            b"\x1b[1;1R".as_slice(),
+        ]
+    );
+    assert!(terminal_query_responses(second, &mut replied_through).is_empty());
 }
 
 fn output_bytes(events: &[TerminalEvent]) -> Vec<u8> {

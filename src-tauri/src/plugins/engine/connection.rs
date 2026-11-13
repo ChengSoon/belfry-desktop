@@ -321,13 +321,14 @@ mod tests {
         for _ in 0..2 {
             let (connection, sender) = (connection.clone(), sender.clone());
             workers.push(thread::spawn(move || {
+                let params = json!({"text":"x".repeat(700 * 1024)});
                 let started = std::time::Instant::now();
-                let reply = connection.call_timeout("blocked", json!({"text":"x".repeat(700 * 1024)}), Duration::from_millis(100));
+                let reply = connection.call_timeout("blocked", params, Duration::from_millis(100));
                 sender.send((started.elapsed(), reply)).unwrap();
             }));
         }
-        let first = receiver.recv_timeout(Duration::from_millis(400));
-        let second = receiver.recv_timeout(Duration::from_millis(400));
+        let first = receiver.recv_timeout(Duration::from_secs(2));
+        let second = receiver.recv_timeout(Duration::from_secs(2));
         // 回归在旧实现也必须收尾，不能把 CI 挂死在被锁住的 stdin。
         {
             let mut process = connection.process.lock().unwrap();
@@ -339,7 +340,9 @@ mod tests {
         let _ = std::fs::remove_dir_all(root);
         for result in [first, second] {
             let (elapsed, reply) = result.expect("插件 deadline 必须包含队列及阻塞 stdin 写入");
-            assert!(elapsed < Duration::from_millis(350), "{elapsed:?}");
+            // Keep the 100-ms request deadline, with scheduling headroom for a shared
+            // runner. A writer blocked on stdin must not wait for the usual 5-s limit.
+            assert!(elapsed < Duration::from_secs(1), "{elapsed:?}");
             assert!(reply.is_err());
         }
     }

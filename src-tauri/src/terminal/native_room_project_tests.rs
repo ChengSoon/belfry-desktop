@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
 
-use super::{RecordingSink, default_request, lock_native_test, output_bytes, wait_for_exit};
+use super::{RecordingSink, default_request, lock_native_test, output_bytes, wait_for_terminal};
 use crate::project::commands::project_open;
 use crate::resource::{canonicalize, path_to_file_uri};
 use crate::rooms::{RoomStore, test_support};
@@ -99,7 +99,17 @@ impl Fixture {
         let session = self.backend.spawn(request, sink.clone()).unwrap();
         assert_eq!(session.cwd, path_to_file_uri(Path::new(project_root)));
         assert!(
-            wait_for_exit(&sink, Duration::from_secs(20)),
+            wait_for_terminal(
+                &self.backend,
+                &session.id,
+                &sink,
+                Duration::from_secs(20),
+                |events| {
+                    events
+                        .iter()
+                        .any(|event| matches!(event, TerminalEvent::Exit { .. }))
+                }
+            ),
             "member {member} did not exit"
         );
         let events = sink.events.lock().unwrap();

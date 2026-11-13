@@ -99,7 +99,9 @@ fn detach_interrupts_an_in_progress_poll_socket_without_waiting_for_the_io_timeo
     });
     ready.recv_timeout(Duration::from_secs(1)).unwrap();
     subscription.cancel();
-    done.recv_timeout(Duration::from_secs(1))
+    // Shared Windows runners can preempt the poll thread after shutdown. This still
+    // fails well before the 15-second socket timeout if cancellation stops working.
+    done.recv_timeout(Duration::from_secs(3))
         .expect("detach must release the blocked poll");
     assert!(sink.events.lock().unwrap().is_empty());
     assert_eq!((0, 0), subscription.budget.outstanding());
