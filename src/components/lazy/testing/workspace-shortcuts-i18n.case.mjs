@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { uiFixture, click, clickText, fill, intact, resize, waitFor } from "./production-uiFixture.mjs";
+import { uiFixture, click, clickText, fill, intact, press, resize, waitFor } from "./production-uiFixture.mjs";
 import { englishPanel, openAction, switchLanguage } from "./i18n-browser-support.mjs";
 
 const nativeExtension = "localStorage.setItem('belfry.locale.v1', 'en');";
@@ -12,6 +12,9 @@ test('English project and SSH forms keep drafts and primary actions usable at 72
   await clickText(view,'Project settings','.popover--project');
   await waitFor(view,"!!document.querySelector('.project-profile')");
   await fill(view,'input[aria-label="Project group"]','Production projects');
+  // The group combobox owns an open suggestions layer above the launch control.
+  await press(view,'Escape');
+  await waitFor(view,"document.querySelector('input[aria-label=\"Project group\"]')?.getAttribute('aria-expanded') === 'false'");
   await clickText(view,'Launch settings','.project-profile');
   await fill(view,'input[aria-label="Project startup command"]','pnpm dev');
   await view.cdp.evaluate("void (window.qaProjectCommand = document.querySelector('input[aria-label=\"Project startup command\"]'))");

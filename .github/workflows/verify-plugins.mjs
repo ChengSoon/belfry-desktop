@@ -24,10 +24,9 @@ for (const directory of ["src/components/lazy/testing", "src/workspace/testing",
 }
 suites.push("scripts/test-command-library.mjs");
 const budget = suiteBudget(), { testTimeoutMs, suiteTimeoutMs, concurrency } = budget;
-// macOS CI shares limited renderer resources: concurrent Chrome instances have
-// timed out during Runtime.enable/screenshot and missed pointer/animation frames.
-// Keep every test mandatory; serialize suites there instead of retrying assertions
-// or increasing the production browser request timeout. Other platforms retain 2.
+// macOS/Windows CI shares limited renderer resources: concurrent Chrome fixtures
+// have missed startup, pointer and animation frames. Keep every test mandatory;
+// serialize there without retrying assertions or raising browser request timeouts.
 console.log(`Plugin/browser suite concurrency: ${concurrency} (${process.platform})`);
 console.log(`Plugin/browser budget: ${suiteTimeoutMs / 60_000} minutes total, ${testTimeoutMs / 60_000} minutes per test; ${suites.length} discovered files.`);
 const outputPath = process.env.GITHUB_ACTIONS ? "plugin-tests.tap"

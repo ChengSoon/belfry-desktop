@@ -22,7 +22,7 @@ jobs:
       matrix:
         platform: [macos-latest, windows-latest]
     runs-on: ${{ matrix.platform }}
-    timeout-minutes: 45
+    timeout-minutes: 50
     defaults:
       run:
         # Explicit bash uses -e -o pipefail on both runners. PowerShell otherwise

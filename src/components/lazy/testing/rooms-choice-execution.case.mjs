@@ -36,6 +36,19 @@ async function clickFocused(view) {
   }
 }
 
+async function clickDisabled(view, selector) {
+  const target = await view.cdp.evaluate(`(() => {
+    const element = document.querySelector(${JSON.stringify(selector)}), r = element.getBoundingClientRect();
+    return { disabled: element.matches(':disabled'), x: r.left + r.width / 2, y: r.top + r.height / 2,
+      visible: r.width > 0 && r.height > 0 && r.top >= 0 && r.bottom <= innerHeight };
+  })()`);
+  assert.equal(target.disabled, true, "in-flight answer disables its option");
+  assert.equal(target.visible, true, "disabled option remains visible for the repeated pointer attempt");
+  for (const type of ["mousePressed", "mouseReleased"]) {
+    await view.send("Input.dispatchMouseEvent", { type, x: target.x, y: target.y, button: "left", clickCount: 1 });
+  }
+}
+
 for (const [width, height, font] of [[1440, 900, 14], [720, 480, 20]]) {
   test(`room controls deliver confirmation, multiple and text answers to a real terminal consumer (${width}x${height})`, async t => {
     const consumer = await roomChoiceProcess(t);
@@ -54,7 +67,7 @@ for (const [width, height, font] of [[1440, 900, 14], [720, 480, 20]]) {
     await waitFor(view, `document.querySelector('${CARD}')?.dataset.requestState === 'submitting'`);
     await enter(view);
     await enter(view);
-    await click(view, `${CARD} [data-option-index="2"]`);
+    await clickDisabled(view, `${CARD} [data-option-index="2"]`);
     assert.equal(consumer.writes.length, 1, "repeated keyboard and pointer input cannot duplicate the in-flight answer");
     assert.deepEqual(consumer.read().answers, [], "holding navigation cannot confirm the request");
     gate.release();

@@ -7,6 +7,7 @@ import { cleanupScope, temporary } from "./support.mjs";
 import { PluginBrowser } from "../../src-tauri/src/plugins/node/browser.mjs";
 import { BrowserPreview } from "../../src-tauri/src/plugins/node/browser-preview.mjs";
 import { terminate } from "../../src-tauri/src/plugins/node/process-tree.mjs";
+import { click } from "./market-ui-support.mjs";
 
 test("PI browser APIs operate a real isolated guest and keep workspace sessions separate", async (t) => {
   const lifetime = cleanupScope(t);
@@ -41,6 +42,31 @@ test("workspace-relative browser URLs resolve files and keep the preview inside 
   assert.match(url, /^http:\/\/127\.0\.0\.1:/);
   assert.equal(await (await fetch(url)).text(), "<title>Local</title>");
   assert.equal(await preview.target({ url: "https://example.com" }), "https://example.com/");
+});
+
+test("fixture click reaches its target after a delayed focus restoration scrolls the page", async t => {
+  const lifetime = cleanupScope(t), root = await temporary(lifetime);
+  await writeFile(join(root, "index.html"), `<!doctype html><style>
+    body { margin:0; height:2200px } button { position:absolute; left:16px; width:100px; height:40px }
+    #reset { top:16px } #editor { top:1600px }
+    </style><button id="reset">Reset</button><button id="editor">Editor</button><script>
+    window.clicked=[]; window.restored=false;
+    document.addEventListener('click', event => clicked.push(event.target.id));
+    window.addEventListener('scroll', () => {
+      if (!restored && scrollY === 0) { restored=true; requestAnimationFrame(() => document.querySelector('#editor').focus()); }
+    });
+    window.scrollTo(0,900);
+    </script>`);
+  const context = { workspace:root, sessionId:"focus-scroll" };
+  const browser = new PluginBrowser({ base:root, context:() => context, platform:async () => null });
+  lifetime.after(() => browser.close());
+  const entry = { manifest:{ id:"mine.focus-scroll", permissions:["browser.cdp"] }, abort:new AbortController() };
+  await browser.call(entry, { api:"browser.navigate", input:{path:"index.html"} }, context);
+  const view = await browser.target(entry, context);
+  await view.bounds({x:0,y:0,width:720,height:480});
+  await view.cdp.evaluate("window.scrollTo(0,900); true");
+  await click(view, "#reset");
+  assert.deepEqual(await view.cdp.evaluate("({restored,clicked})"), {restored:true,clicked:["reset"]});
 });
 
 test("local preview reloads changed page resources without discarding input for unrelated directory events", async (t) => {

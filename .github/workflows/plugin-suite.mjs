@@ -3,11 +3,14 @@ import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { dirname, join, resolve } from "node:path";
 
 export function suiteBudget(platform = process.platform) {
-  // CI42670683970: macOS exhausted 20min after 282 top-level cases; Windows
-  // completed all 313 tests in 586s. macOS's measured 305s preparation + 30min
-  // leaves 595s of the 45min job for Node20, upload and variation. See the doc.
-  return { suiteTimeoutMs: (platform === "darwin" ? 30 : 20) * 60 * 1000,
-    testTimeoutMs: 5 * 60 * 1000, concurrency: platform === "darwin" ? 1 : 2 };
+  // Shared macOS/Windows runners must serialize Chrome fixtures. Windows runs
+  // 43363109456/43363109517 each had 357/358 passing in 870s with two fixtures,
+  // but timed out at different initialization/click steps. macOS's 30-minute run
+  // stopped after 342/358 assertions; 35 minutes gives the complete serial suite
+  // room while the 50-minute job also covers native checks and Node20/upload.
+  const serialized = platform === "darwin" || platform === "win32";
+  return { suiteTimeoutMs: (serialized ? 35 : 20) * 60 * 1000,
+    testTimeoutMs: 5 * 60 * 1000, concurrency: serialized ? 1 : 2 };
 }
 
 /** Inspect Node's TAP reporter, including nested assertions and its final summary. */

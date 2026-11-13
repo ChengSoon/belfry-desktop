@@ -261,10 +261,19 @@ test('motion: Quick Open and confirmation entry/exit, focus, no duplicate confir
 test('motion: drawer switch/interruptions, terminal resize bounded and reduced-motion removal', {timeout:90_000}, async t => {
   const {view,baseline}=await uiFixture(t);
   const snapshots=[];
+  await settleTerminal(view);
   for (const mode of ['dark','light']) {
     await theme(view,mode);
     for (const [width,height] of [[1888,1070],[1440,960],[820,500]]) {
-      await resize(view,width,height); await settleTerminal(view);
+      // Exclude the viewport setup from the drawer's resize count. On loaded CI,
+      // a quiet queue can precede the ResizeObserver notification for the viewport.
+      await view.cdp.evaluate(`(() => {__productionQA.viewportStart=__productionQA.calls.length;
+        __productionQA.viewportSessionIds=__productionQA.calls.filter(c=>c.command==='terminal_create')
+          .map(c=>c.args.request.tabId+'-pty');})()`);
+      await resize(view,width,height);
+      await waitFor(view, `__productionQA.viewportSessionIds.every(id=>__productionQA.calls.slice(__productionQA.viewportStart)
+        .some(c=>c.command==='terminal_resize' && c.args.sessionId===id))`);
+      await settleTerminal(view);
       await view.cdp.evaluate(`(() => {__productionQA.resizeStart=__productionQA.calls.length;
         __productionQA.sizes=[];__productionQA.layoutSizes=[];
         __productionQA.observer=new ResizeObserver(entries=>{const r=entries[0].contentRect;

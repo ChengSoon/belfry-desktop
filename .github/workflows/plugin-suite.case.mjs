@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import { inspectTap } from "./plugin-suite.mjs";
+import { inspectTap, suiteBudget } from "./plugin-suite.mjs";
 
 const RUNNER = new URL("./plugin-suite.mjs", import.meta.url).href;
 const ENTRY = fileURLToPath(new URL("./verify-plugins.mjs", import.meta.url));
@@ -70,10 +70,24 @@ test("actual entry discovers all mandatory directories and completes a miniature
   assert.deepEqual(report.files.map((file) => file.replaceAll("\\", "/")).sort(), files.sort());
   assert.equal(report.tap.complete, true); assert.equal(report.tap.summary.tests, 5); assert.equal(report.tap.summary.skipped, 0);
   assert.equal(report.budget.testTimeoutMs, 300000);
-  assert.equal(report.budget.concurrency, process.platform === "darwin" ? 1 : 2);
-  assert.equal(report.budget.suiteTimeoutMs, (process.platform === "darwin" ? 30 : 20) * 60_000);
-  assert.ok(report.budget.suiteTimeoutMs + 305_000 < 45 * 60_000);
+  const serialized = process.platform === "darwin" || process.platform === "win32";
+  assert.equal(report.budget.concurrency, serialized ? 1 : 2);
+  assert.equal(report.budget.suiteTimeoutMs, (serialized ? 35 : 20) * 60_000);
+  assert.ok(report.budget.suiteTimeoutMs + 305_000 < 50 * 60_000);
   t.diagnostic(JSON.stringify({ files: report.files, budget: report.budget, actual: report.tap.summary }));
+});
+
+test("shared desktop runners serialize every mandatory browser case within the CI budget", async () => {
+  const workflow = await readFile(new URL('./checks.yml', import.meta.url), 'utf8');
+  const jobTimeoutMs = Number(workflow.match(/timeout-minutes: (\d+)/)?.[1]) * 60_000;
+  assert.ok(Number.isFinite(jobTimeoutMs), "checks workflow must declare its job budget");
+  for (const platform of ["darwin", "win32", "linux"]) {
+    const budget = suiteBudget(platform);
+    assert.equal(budget.concurrency, platform === "linux" ? 2 : 1);
+    assert.equal(budget.suiteTimeoutMs, (platform === "linux" ? 20 : 35) * 60_000);
+    assert.equal(budget.testTimeoutMs, 300_000);
+    assert.ok(budget.suiteTimeoutMs + 600_000 < jobTimeoutMs);
+  }
 });
 
 test("real Node TAP with nested suites is complete, while a real assertion failure remains nonzero", async (t) => {

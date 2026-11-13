@@ -118,9 +118,15 @@ export async function click(view, selector) {
     const deadline=Date.now()+${UI_TIMEOUT_MS};let previous='',stable=0;
     const measure=()=>{
       const rect=element.getBoundingClientRect(),position=[rect.x,rect.y,rect.width,rect.height].join(',');
+      const point={x:rect.x+rect.width/2,y:rect.y+rect.height/2};
+      const inside=point.x>=0&&point.y>=0&&point.x<innerWidth&&point.y<innerHeight;
+      const hit=inside?document.elementFromPoint(point.x,point.y):null;
       stable=position===previous?stable+1:0;previous=position;
-      if(stable>=2){resolve({x:rect.x+rect.width/2,y:rect.y+rect.height/2});return;}
-      if(Date.now()>deadline){reject(new Error('控件位置未稳定'));return;}
+      // A pending focus restoration can scroll after the first scrollIntoView.
+      // Wait for a stable, reachable target instead of sending an off-screen click.
+      if(stable>=2&&rect.width>0&&rect.height>0&&hit&&element.contains(hit)){resolve(point);return;}
+      if(Date.now()>deadline){reject(new Error('控件未稳定或不可点击: '+JSON.stringify({position,element:{tag:element.tagName,id:element.id,class:element.className,disabled:element.disabled,connected:element.isConnected},hit:hit?{tag:hit.tagName,id:hit.id,class:hit.className,text:hit.textContent?.slice(0,100)}:null})));return;}
+      if(!inside){element.scrollIntoView({block:'center'});stable=0;}
       requestAnimationFrame(measure);
     };requestAnimationFrame(measure);
   })`);
