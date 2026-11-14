@@ -8,6 +8,9 @@ import { resize } from "./production-uiFixture.mjs";
 
 const config = JSON.parse(await readFile(new URL("../../../../src-tauri/tauri.conf.json", import.meta.url), "utf8"));
 const policy = config.app.security.csp;
+// A real 16x16 VP8 WebM with 16 alternating-color frames. Recording a detached
+// canvas for a fixed 400ms on CI can finish before any frame is encoded.
+const backgroundVideo = await readFile(new URL("../../../../scripts/plugin-tests/fixtures/background-video.webm", import.meta.url));
 const source = `(() => {
   const invoke = window.__TAURI_INTERNALS__.invoke;
   window.qaLogs = []; window.qaCopied = ''; window.qaRestarted = 0; window.qaLogFails = false;
@@ -92,21 +95,7 @@ test("the production CSP blocks injected scripts while terminal, WebGL and local
 
 test("the production CSP allows a custom blob video background to load without media-src violations", async (t) => {
   const { view } = await fixture(t, { beforeNavigate: async (view) => {
-    // Generate a tiny real video locally; exercise the production background IPC/Blob path.
-    const bytes = await view.cdp.evaluate(`(async () => {
-      const canvas = document.createElement('canvas'); canvas.width = canvas.height = 16;
-      const context = canvas.getContext('2d'), stream = canvas.captureStream(20);
-      const recorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8' }), chunks = [];
-      recorder.ondataavailable = event => chunks.push(event.data);
-      const finished = new Promise(resolve => { recorder.onstop = resolve; });
-      recorder.start();
-      let frame = 0;
-      const draw = setInterval(() => { context.fillStyle = frame++ % 2 ? '#123456' : '#abcdef'; context.fillRect(0, 0, 16, 16); }, 40);
-      await new Promise(resolve => setTimeout(resolve, 400));
-      clearInterval(draw); recorder.stop(); await finished; stream.getTracks().forEach(track => track.stop());
-      return Array.from(new Uint8Array(await new Blob(chunks).arrayBuffer()));
-    })()`);
-    assert.ok(bytes.length > 100, "the video fixture contains encoded frames");
+    // Exercise the production background IPC/Blob path with encoded media.
     await view.send("Page.addScriptToEvaluateOnNewDocument", { source: `(() => {
       localStorage.setItem('belfry.background.v1', JSON.stringify({ fileName: 'qa.webm', mime: 'video/webm', fit: 'cover', opacity: 1, blur: 0, veil: { dark: .55, light: .8 }, videoPaused: false }));
       window.qaVideoLoadStarts = [];
@@ -114,21 +103,25 @@ test("the production CSP allows a custom blob video background to load without m
         if (event.target.matches?.('.app-background__video')) window.qaVideoLoadStarts.push(event.target.src);
       }, true);
       const invoke = window.__TAURI_INTERNALS__.invoke;
-      window.__TAURI_INTERNALS__.invoke = (command, args) => command === 'background_read' ? Promise.resolve(new Uint8Array(${JSON.stringify(bytes)}).buffer) : invoke(command, args);
+      window.__TAURI_INTERNALS__.invoke = (command, args) => command === 'background_read' ? Promise.resolve(new Uint8Array(${JSON.stringify(Array.from(backgroundVideo))}).buffer) : invoke(command, args);
     })();` });
   } });
-  await waitFor(view, "document.querySelector('.app-background__video')?.error || document.querySelector('.app-background__video')?.readyState >= 2");
-  const video = await view.cdp.evaluate(`(() => { const video = document.querySelector('.app-background__video');
+  const readVideo = () => view.cdp.evaluate(`(() => { const video = document.querySelector('.app-background__video');
+    if (!video) return { missing: true, violations: window.qaCspViolations };
     return { url: video.src, currentSrc: video.currentSrc, loadStarts: window.qaVideoLoadStarts,
       error: video.error ? { code: video.error.code, message: video.error.message } : null,
-      readyState: video.readyState, violations: window.qaCspViolations }; })()`);
+      readyState: video.readyState, networkState: video.networkState, paused: video.paused,
+      visibility: document.visibilityState, violations: window.qaCspViolations }; })()`);
+  try {
+    await waitFor(view, "document.querySelector('.app-background__video')?.error || document.querySelector('.app-background__video')?.readyState >= 2");
+  } catch (error) { t.diagnostic(`Blob video load diagnostic: ${JSON.stringify(await readVideo())}`); throw error; }
+  const video = await readVideo();
   assert.deepEqual(video.violations, [], JSON.stringify(video));
   assert.match(video.url, /^blob:/);
   assert.equal(video.currentSrc, video.url, 'the video selected the blob resource');
   assert.ok(video.loadStarts.includes(video.url), 'the video started loading the blob resource');
-  // Headless Chromium may reject its own MediaRecorder WebM (DEMUXER_ERROR).
-  // Decoder support is separate from the shipped CSP allowing the media request.
-  if (video.error) t.diagnostic(`Blob video decode diagnostic: ${JSON.stringify(video)}`);
+  assert.equal(video.error, null, JSON.stringify(video));
+  assert.ok(video.readyState >= 2, 'the committed VP8 fixture decoded a frame');
 });
 
 test("the production CSP allows HTTPS images in the plugin marketplace README", async (t) => {
