@@ -46,7 +46,11 @@ test('English provider editor keeps unsaved fields across locale changes and sav
   const {view,baseline} = await uiFixture(t, {nativeExtension});
   await resize(view,720,480);
   await click(view,'button[title^="Settings"]');
-  await clickText(view,'Global providers','.settings-nav');
+  // 模型服务默认是配线台；服务编辑器在「Manage services」里（T41）。
+  await clickText(view,'Model services','.settings-nav');
+  await waitFor(view,"!!document.querySelector('.patch-bay')");
+  await englishPanel(view,'.model-routing');
+  await clickText(view,'Manage services','.model-routing__bar');
   await waitFor(view,"!!document.querySelector('.provider-card')");
   await englishPanel(view,'.provider-section');
   await click(view,'.provider-card button[aria-label^="Edit "]');
@@ -62,9 +66,12 @@ test('English provider editor keeps unsaved fields across locale changes and sav
   await clickText(view,'Save configuration','.provider-form');
   await waitFor(view,"!document.querySelector('.provider-form')");
   assert.equal(await view.cdp.evaluate("__productionQA.savedProviders.at(-1).draft.name"),'Long provider name kept across a language switch');
-  await clickText(view,'Project providers','.settings-nav');
-  await waitFor(view,"!!document.querySelector('.project-provider__agent')");
-  await englishPanel(view,'.project-provider');
+  // 项目覆盖并入配线台的项目作用域。
+  await click(view,'.settings-crumb__link');
+  await waitFor(view,"!!document.querySelector('.patch-bay')");
+  await clickText(view,'Project','.model-routing__scope');
+  await waitFor(view,"document.querySelector('.patch-bay__services .patch-jack b')?.textContent === 'Follow global'");
+  await englishPanel(view,'.model-routing');
   await click(view,'button[title="Close settings"]');
   await intact(view,baseline);
 });

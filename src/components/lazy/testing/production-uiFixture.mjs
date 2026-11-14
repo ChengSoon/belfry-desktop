@@ -118,5 +118,7 @@ export async function theme(view, mode) {
 export async function settings(view, label) {
   if (!await view.cdp.evaluate("!!document.querySelector('.settings-view')")) await click(view, 'button[title^="设置"]');
   await waitFor(view, "!!document.querySelector('.settings-nav')");
+  // 设置是弹窗，有一次进场动画；等它结束再交给用例测量几何。
+  await view.cdp.evaluate("Promise.all(document.getAnimations().filter(a => a.effect?.target?.closest?.('.settings-scrim')).map(a => a.finished.catch(() => {})))");
   if (label) await clickText(view, label, '.settings-nav');
 }

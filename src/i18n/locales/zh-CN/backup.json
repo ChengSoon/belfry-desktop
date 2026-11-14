@@ -63,5 +63,14 @@
   "workspace.text_c3a5c1917b": "备份中的名称或路径无效",
   "workspace.text_ffe9f388f6": "名称或路径包含凭据内容，请先移除后再备份",
   "BackupSection.restoreTitle": "从备份恢复",
-  "BackupSection.restoreHint": "先预览备份内容，选择要恢复的数据域；在下次启动时替换，恢复前会自动保存快照。"
+  "BackupSection.restoreHint": "先预览备份内容，选择要恢复的数据域；在下次启动时替换，恢复前会自动保存快照。",
+  "BackupSection.groupBackup": "备份",
+  "BackupSection.groupLocal": "本地数据",
+  "BackupSection.exportAction": "导出…",
+  "BackupSection.undoAction": "撤回",
+  "BackupSection.pendingTag": "下次启动执行",
+  "BackupSection.diagnostics": "诊断信息",
+  "BackupSection.diagnosticsHint": "日志与环境摘要，不含密钥",
+  "BackupSection.diagnosticsAction": "导出诊断…",
+  "BackupSection.diagnosticsDone": "已导出到 {{path}}"
 }

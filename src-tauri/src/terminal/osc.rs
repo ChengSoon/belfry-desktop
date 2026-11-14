@@ -1,4 +1,4 @@
-//! 就地应答子进程发出的 OSC 10 / OSC 11 前景、背景色查询。
+//! 就地应答 OSC 10/11 颜色查询及 OSC 7501 程序状态能力探测。
 //!
 //! 为什么不把这件事留给 xterm.js：
 //! - Codex 这类 TUI 启动时发 `ESC ] 10 ; ? ST` + `ESC ] 11 ; ? ST`，只给 100ms 窗口，
@@ -52,27 +52,18 @@ pub(super) struct Filtered {
     pub reply: Vec<u8>,
 }
 
-/// 扫描 PTY 输出，挑出 OSC 10/11 查询。
+/// 扫描 PTY 输出，挑出 OSC 10/11/7501 查询。
 ///
 /// 状态只有一个"待判定缓冲"：见到 `ESC` 就先扣住，逐字节核对是否还是查询的前缀，
-/// 落空就把扣住的字节按原顺序放行。缓冲上限 8 字节，正常输出流不受影响。
+/// 落空就把扣住的字节按原顺序放行。缓冲上限 10 字节，正常输出流不受影响。
 #[derive(Default)]
 pub(super) struct OscColorFilter {
-    /// 上限 8 字节：`ESC ] 1 1 ; ? ESC \` 就是判定一条查询要看的全部。
+    /// 最长查询是 `ESC ] 7 5 0 1 ; ? ESC \`。
     held: Vec<u8>,
 }
 
 impl OscColorFilter {
     pub(super) fn feed(&mut self, chunk: &[u8], palette: Option<Palette>) -> Filtered {
-        let Some(palette) = palette else {
-            // 不知道主题就不能应答——瞎答等于骗子进程。原样放行，退回 xterm.js 自己答。
-            let mut forward = std::mem::take(&mut self.held);
-            forward.extend_from_slice(chunk);
-            return Filtered {
-                forward,
-                reply: Vec::new(),
-            };
-        };
         let mut filtered = Filtered {
             forward: Vec::with_capacity(chunk.len()),
             reply: Vec::new(),
@@ -88,7 +79,7 @@ impl OscColorFilter {
         std::mem::take(&mut self.held)
     }
 
-    fn push(&mut self, byte: u8, palette: Palette, filtered: &mut Filtered) {
+    fn push(&mut self, byte: u8, palette: Option<Palette>, filtered: &mut Filtered) {
         self.held.push(byte);
         // 落空时只放行首字节，剩下的重新起头判定：`ESC ESC ] 11 ; ? BEL` 里
         // 第二个 ESC 仍是一条合法查询的开头，不能跟着一起放掉。
@@ -96,7 +87,13 @@ impl OscColorFilter {
             match classify(&self.held) {
                 Verdict::Partial => return,
                 Verdict::Query(query) => {
-                    filtered.reply.extend_from_slice(&query.response(palette));
+                    if query.slot == Slot::ProgramStatus {
+                        filtered.reply.extend_from_slice(super::program_status::REPLY);
+                    } else if let Some(palette) = palette {
+                        filtered.reply.extend_from_slice(&query.response(palette));
+                    } else {
+                        filtered.forward.extend_from_slice(&self.held);
+                    }
                     self.held.clear();
                     return;
                 }
@@ -115,6 +112,7 @@ impl OscColorFilter {
 enum Slot {
     Foreground,
     Background,
+    ProgramStatus,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -136,6 +134,7 @@ impl Query {
         let (code, Rgb(r, g, b)) = match self.slot {
             Slot::Foreground => (10, palette.foreground),
             Slot::Background => (11, palette.background),
+            Slot::ProgramStatus => return super::program_status::REPLY.to_vec(),
         };
         let wide = |channel: u8| u16::from(channel) * 0x0101;
         let mut response = format!(
@@ -161,36 +160,25 @@ enum Verdict {
     Query(Query),
 }
 
-/// 逐位比对 `ESC ] 1 <0|1> ; ? <BEL | ESC \>`。
+/// 逐位比对已知的查询；状态报告原样转发。
 fn classify(held: &[u8]) -> Verdict {
-    const PREFIX_LEN: usize = 6;
-    for (at, &byte) in held.iter().take(PREFIX_LEN).enumerate() {
-        let expected = match at {
-            0 => byte == ESC,
-            1 => byte == b']',
-            2 => byte == b'1',
-            3 => byte == b'0' || byte == b'1',
-            4 => byte == b';',
-            _ => byte == b'?',
-        };
-        if !expected {
-            return Verdict::Miss;
-        }
-    }
-    if held.len() < PREFIX_LEN {
+    let candidates: &[(&[u8], Slot)] = &[
+        (b"\x1b]10;?", Slot::Foreground), (b"\x1b]11;?", Slot::Background),
+        (b"\x1b]7501;?", Slot::ProgramStatus),
+    ];
+    let Some(&(prefix, slot)) = candidates.iter().find(|(prefix, _)| {
+        prefix.starts_with(held) || held.starts_with(prefix)
+    }) else { return Verdict::Miss; };
+    let prefix_len = prefix.len();
+    if held.len() < prefix_len {
         return Verdict::Partial;
     }
-    let slot = if held[3] == b'0' {
-        Slot::Foreground
-    } else {
-        Slot::Background
-    };
     let query = |terminator| Verdict::Query(Query { slot, terminator });
-    match held.get(PREFIX_LEN) {
+    match held.get(prefix_len) {
         None => Verdict::Partial,
         Some(&BEL) => query(Terminator::Bel),
         // ST 是双字节 `ESC \`，得再看一位。
-        Some(&ESC) => match held.get(PREFIX_LEN + 1) {
+        Some(&ESC) => match held.get(prefix_len + 1) {
             None => Verdict::Partial,
             Some(b'\\') => query(Terminator::St),
             Some(_) => Verdict::Miss,
@@ -281,6 +269,26 @@ mod tests {
         let filtered = filter.feed(b"\x1b]11;?\x1b\\", None);
         assert_eq!(filtered.forward, b"\x1b]11;?\x1b\\".to_vec());
         assert!(filtered.reply.is_empty());
+    }
+
+    #[test]
+    fn status_handshake_needs_no_palette_and_precedes_device_attributes() {
+        for query in [b"\x1b]7501;?\x07".as_slice(), b"\x1b]7501;?\x1b\\"] {
+            for split in 0..=query.len() {
+                let mut filter = OscColorFilter::default();
+                let a = filter.feed(&query[..split], None);
+                let b = filter.feed(&query[split..], None);
+                assert!(a.forward.is_empty() && b.forward.is_empty());
+                assert_eq!([a.reply, b.reply].concat(), super::super::program_status::REPLY);
+                let next = filter.feed(b"\x1b[c", None);
+                assert_eq!(next.forward, b"\x1b[c");
+                assert!(next.reply.is_empty());
+            }
+        }
+        let report = b"\x1b]7501;state=idle:app=claude-code\x07";
+        let (forward, reply) = feed_all(&[report]);
+        assert_eq!(forward, report);
+        assert!(reply.is_empty());
     }
 
     #[test]

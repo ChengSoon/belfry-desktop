@@ -3,6 +3,10 @@ import type { PromptDeliveryOptions, PromptDeliveryResult } from "./contracts";
 import type { InteractionWrite, TerminalInteractionResult } from "./interaction";
 import type { WriteGuard } from "../inbox/contracts";
 
+function inputConflict(error: unknown) {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "CONFLICT";
+}
+
 /**
  * 从 PTY 粘贴写入完成后留出解析窗口。Codex 的非 bracketed paste Enter 抑制为 120ms，
  * 这里取 200ms 余量；PTY 写入完成不是应用解析完成的回执，不据此重复补发 Enter。
@@ -21,6 +25,9 @@ interface PromptInputPorts {
   write: (sessionId: string, data: string, guarded?: { guard: WriteGuard; sequence: number }) => Promise<void>;
   error: (error: unknown) => void;
   settleMs?: number;
+  prepare?: (sessionId: string, text: string) => Promise<WriteGuard>;
+  finish?: (sessionId: string, guard: WriteGuard) => Promise<{ touched: boolean }>;
+  submitting?: () => void;
 }
 
 /** 同步返回是否接管输入；异步失败只报告，不重贴或补发 Enter。 */
@@ -65,18 +72,19 @@ export class PromptInput {
     this.tail = this.lastWrite.catch((error) => {
       if (this.session() !== sessionId) return;
       this.failed = true;
-      this.ports.error(error);
+      if (!guarded || !inputConflict(error)) this.ports.error(error);
     });
   }
 
-  sendText(text: string, options?: PromptDeliveryOptions): boolean {
+  sendText(text: string, options?: PromptDeliveryOptions, valid?: () => boolean): boolean {
     const sessionId = this.session();
     if (!sessionId || !text || this.pending || this.failed) return false;
     if (options?.expectedInputRevision !== undefined && options.expectedInputRevision !== this.revision) return false;
+    if (valid && !valid()) return false;
     this.pending = true;
     const revision = this.revision;
     const guard = options?.inboxGuard ? { guard: options.inboxGuard, sequence: 0 } : null;
-    void this.submit(text, sessionId, revision, guard).then((result) => {
+    void this.submit(text, sessionId, revision, guard, valid).then((result) => {
       this.pending = false;
       options?.onResult?.(result);
     });
@@ -161,7 +169,33 @@ export class PromptInput {
   }
 
   private async submit(text: string, sessionId: string, revision: number,
-    guard: { guard: WriteGuard; sequence: number } | null = null): Promise<PromptDeliveryResult> {
+    guard: { guard: WriteGuard; sequence: number } | null = null, valid?: () => boolean): Promise<PromptDeliveryResult> {
+    let prepared: WriteGuard | null = null;
+    if (!guard && this.ports.prepare) {
+      try {
+        prepared = await this.ports.prepare(sessionId, text);
+        guard = { guard: prepared, sequence: 0 };
+      } catch (error) {
+        if (inputConflict(error)) return "not-written";
+        this.ports.error(error);
+        return "failed";
+      }
+    }
+    let result = await this.submitPrepared(text, sessionId, revision, guard, valid);
+    if (prepared) {
+      try {
+        const evidence = await this.ports.finish?.(sessionId, prepared);
+        if (evidence && !evidence.touched) {
+          if (this.revision === revision) this.failed = false;
+          result = "not-written";
+        }
+      } catch { /* Keep the observed write result; an unconfirmed native write is never retried. */ }
+    }
+    return result;
+  }
+
+  private async submitPrepared(text: string, sessionId: string, revision: number,
+    guard: { guard: WriteGuard; sequence: number } | null, valid?: () => boolean): Promise<PromptDeliveryResult> {
     const attempts = this.writeAttempts;
     const detached = (): PromptDeliveryResult => this.writeAttempts === attempts ? "not-written" : "detached";
     const guarded = (action: () => void) => {
@@ -169,6 +203,8 @@ export class PromptInput {
       try { this.emit(action); } finally { this.guard = null; }
     };
     try {
+      if (this.session() !== sessionId || this.revision !== revision) return "not-written";
+      if (valid && !valid()) return "not-written";
       if (guard) {
         const pasted = this.encoded(() => this.ports.paste(text));
         const normalized = text.replace(/\r\n?/g, "\n");
@@ -185,7 +221,8 @@ export class PromptInput {
       if (this.session() !== sessionId) return detached();
       if (this.failed) return "failed";
       // 用户在等待窗口输入或手动回车后，不再自动提交，以免提交两次或混入其他输入。
-      if (this.revision !== revision) return "cancelled";
+      if (this.revision !== revision || valid && !valid()) return "cancelled";
+      this.ports.submitting?.();
       guarded(() => this.ports.enter());
       await this.lastWrite;
       return "submitted";
@@ -193,7 +230,7 @@ export class PromptInput {
       // write 的失败已由队列报告；paste/input 同步异常也必须可见。
       if (!this.failed && this.session() === sessionId) {
         this.failed = true;
-        this.ports.error(error);
+        if (!guard || !inputConflict(error)) this.ports.error(error);
       }
       return this.session() === sessionId ? "failed" : detached();
     }

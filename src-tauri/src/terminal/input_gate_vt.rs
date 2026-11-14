@@ -3,6 +3,10 @@
 #[derive(Default)]
 pub(super) struct Modes {
     pub bracketed_paste: bool,
+    pub protocol: Option<crate::agent::hooks::HookSnapshot>,
+    pub working_sequence: u64,
+    pub working_agent: Option<crate::agent::AgentKind>,
+    pub blocked_sequence: u64,
     parser: Parser,
     sequence: Option<u64>,
     queries: Vec<(Query, i64)>,
@@ -48,7 +52,7 @@ impl Modes {
                     params.push(byte as char);
                     Parser::Csi(params)
                 }
-                Parser::String(escape) if byte == 7 || escape && byte == b'\\' => Parser::Ground,
+                Parser::String(escape) if matches!(byte, 0x18 | 0x1a) || byte == 7 || escape && byte == b'\\' => Parser::Ground,
                 Parser::String(_) => Parser::String(byte == 0x1b),
                 _ => Parser::Ground,
             };
@@ -56,6 +60,10 @@ impl Modes {
     }
     pub fn reset(&mut self) {
         self.bracketed_paste = false;
+        self.protocol = None;
+        self.working_sequence = 0;
+        self.working_agent = None;
+        self.blocked_sequence = 0;
         self.parser = Parser::Ground;
         self.queries.clear();
     }

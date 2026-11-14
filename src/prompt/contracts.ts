@@ -1,5 +1,6 @@
 import type { WorkspaceTab } from "../workspace/contracts";
-import { isAgentKind } from "../agent/contracts";
+import { isAgentKind, usesTerminalStatus } from "../agent/contracts";
+import { protocolIdle, sessionActivity, terminalStatusFor } from "../agent/programStatus";
 export { isAgentKind } from "../agent/contracts";
 
 export interface PromptQueueItem {
@@ -25,10 +26,16 @@ export interface PromptSubmitOptions {
   beforeSend?: () => Promise<boolean>;
 }
 
-export function isPromptBusy(tab: Pick<WorkspaceTab, "activity">) {
-  return tab.activity === "talking" || tab.activity === "awaiting-choice";
+export function isPromptBusy(tab: Pick<WorkspaceTab, "activity"> & Partial<Pick<WorkspaceTab, "kind" | "agentState">>) {
+  if (usesTerminalStatus(tab.kind)) {
+    const state = terminalStatusFor(tab.kind, tab.agentState)?.programStatus.state;
+    return state === "working" || state === "blocked";
+  }
+  const activity = sessionActivity(tab);
+  return activity === "talking" || activity === "awaiting-choice";
 }
 
-export function canDispatchPrompt(tab: Pick<WorkspaceTab, "kind" | "phase" | "activity">) {
-  return isAgentKind(tab.kind) && tab.phase === "running" && tab.activity === "idle";
+export function canDispatchPrompt(tab: Pick<WorkspaceTab, "kind" | "phase" | "activity" | "agentState">) {
+  return isAgentKind(tab.kind) && tab.phase === "running"
+    && (usesTerminalStatus(tab.kind) ? protocolIdle(tab.kind, tab.agentState) : tab.activity === "idle");
 }

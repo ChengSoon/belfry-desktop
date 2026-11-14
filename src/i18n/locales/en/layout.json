@@ -9,5 +9,6 @@
   "TerminalPane.error": "Error",
   "TerminalPane.talking": "Responding",
   "TerminalPane.awaiting": "Needs you",
-  "TerminalPane.idle": "Idle"
+  "TerminalPane.idle": "Idle",
+  "TerminalPane.unknown": "Waiting for status"
 }

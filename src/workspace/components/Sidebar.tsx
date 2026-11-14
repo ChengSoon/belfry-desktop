@@ -18,7 +18,9 @@ import {
   type ShellProfileId,
   type SshLaunch,
 } from "../../terminal/contracts";
-import { AGENT_METADATA, isAgentKind } from "../../agent/contracts";
+import { AGENT_METADATA, isAgentKind, usesTerminalStatus } from "../../agent/contracts";
+import { sessionActivity, terminalStatusFor } from "../../agent/programStatus";
+import { terminalStatusLabel } from "../../agent/programStatusLabel";
 import type { AgentAvailability, WorkspaceTab, WorkspaceTabKind } from "../contracts";
 import { shortPath } from "../path";
 import { SIDEBAR_WIDTH } from "../sidebarWidth";
@@ -567,7 +569,7 @@ function sessionSubtitle(tab: WorkspaceTab) {
 
 /** 「等你按键」要在行上用文字说出来，只靠一个琥珀点太容易漏。 */
 function awaiting(tab: WorkspaceTab) {
-  return tab.phase === "running" && tab.activity === "awaiting-choice";
+  return tab.phase === "running" && sessionActivity(tab) === "awaiting-choice";
 }
 
 function rowTitle(tab: WorkspaceTab) {
@@ -590,19 +592,29 @@ function SessionDot({ tab }: { tab: WorkspaceTab }) {
   if (tab.phase !== "running") {
     return <i className={`status-dot status-dot--${tab.phase}`} aria-hidden="true" />;
   }
-  if (tab.activity === "idle") return null;
-  return <i className={`activity-dot activity-dot--${tab.activity}`} aria-hidden="true" />;
+  const report = terminalStatusFor(tab.kind, tab.agentState);
+  if (usesTerminalStatus(tab.kind) && (!report || report.programStatus.state === "clear")) {
+    return <i className="status-dot status-dot--idle" aria-hidden="true" />;
+  }
+  if (report?.programStatus.state === "error") {
+    return <i className="status-dot status-dot--error" aria-hidden="true" />;
+  }
+  const activity = sessionActivity(tab);
+  if (activity === "idle") return null;
+  return <i className={`activity-dot activity-dot--${activity}`} aria-hidden="true" />;
 }
 
 /** 点是画给眼睛看的，状态文字挂在会话按钮的 aria-label 上——读屏一次就把名字和状态都念完。 */
 function statusText(tab: WorkspaceTab) {
-  if (tab.phase !== "running" || tab.activity === "idle") return phaseText(tab.phase);
-  return activityText(tab.activity);
+  if (tab.phase === "running" && usesTerminalStatus(tab.kind)) return terminalStatusLabel(tab.kind, tab.agentState);
+  const activity = sessionActivity(tab);
+  if (tab.phase !== "running" || activity === "idle") return phaseText(tab.phase);
+  return activityText(activity);
 }
 
 /** 等你按键的组优先标出来：那是唯一需要立刻动手的状态，盖过"活动会话在这组"。 */
 function foldedDot(tabs: WorkspaceTab[], activeId: string | null) {
-  if (tabs.some((tab) => tab.phase === "running" && tab.activity === "awaiting-choice")) return "awaiting";
+  if (tabs.some((tab) => tab.phase === "running" && sessionActivity(tab) === "awaiting-choice")) return "awaiting";
   if (tabs.some((tab) => tab.id === activeId)) return "active";
   return null;
 }

@@ -4,7 +4,7 @@ import { FINISHED_CONFIRM_MS, type NotifyContent } from "./rules";
 
 function session(overrides: Partial<NotifiableSession> & { id: string }): NotifiableSession {
   return {
-    kind: "claude",
+    kind: "antigravity",
     activity: "idle",
     title: "跑一遍测试",
     project: { name: "belfry" },

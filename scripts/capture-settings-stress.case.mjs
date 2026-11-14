@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { uiFixture, resize, settings, theme, click, waitFor, intact } from "../src/components/lazy/testing/production-uiFixture.mjs";
 
 const OUT = process.env.BELFRY_SETTINGS_STRESS_OUT ?? "docs/design/belfry-ui/settings-shell/stress";
-const sections = [["provider", "全局 Provider", ".provider-card"], ["project", "项目 Provider", ".project-provider"], ["hooks", "会话状态", ".hook-agent-card"], ["shortcuts", "快捷键", ".shortcut-row"], ["backup", "本地备份", ".os-action-card"], ["environment", "协作环境", ".environment-checks li"], ["about", "关于", ".about-card"]];
+const sections = [["models", "模型服务", ".patch-bay"], ["hooks", "会话状态", ".hook-agent-card"], ["shortcuts", "快捷键", ".shortcut-row"], ["backup", "数据与备份", ".os-action-card"], ["environment", "协作环境", ".environment-checks li"], ["about", "关于", ".about-card"]];
 
 for (const platform of ["macos", "windows"]) {
   test(`${platform} settings at 720x480 with maximum font size`, { timeout: 90_000 }, async t => {

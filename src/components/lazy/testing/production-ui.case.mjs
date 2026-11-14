@@ -3,6 +3,13 @@ import test from "node:test";
 import { uiFixture, click, clickText, press, waitFor, fill, setValue, resize, intact, evidence, theme, settings, menuAction, clickOption, imeEnter } from "./production-uiFixture.mjs";
 
 const SETTINGS_CLOSE = 'button[title="关闭设置"]';
+/** 模型服务默认是配线台；原来的服务编辑器（卡片、表单、未保存保护）在「管理服务」里。 */
+async function providerEditor(view) {
+  await settings(view, "模型服务");
+  await waitFor(view, "!!document.querySelector('.model-routing, .provider-section')");
+  if (await view.cdp.evaluate("!!document.querySelector('.model-routing')")) await clickText(view, "管理服务", '.model-routing__bar');
+  await waitFor(view, "!!document.querySelector('.provider-section')");
+}
 const SESSION_A = '.session-row__main[aria-label^="Alpha"]';
 const SESSION_B = '.session-row__main[aria-label^="Beta"]';
 const PROVIDER_AGENTS = [["claude", "Claude Code"], ["codex", "Codex"], ["pi", "Pi"],
@@ -171,7 +178,7 @@ test("production UI workbench themes, session selection, real drag split and Qui
 
 test("production UI all settings categories in both themes and compact layout", { timeout: 120_000 }, async t => {
   const { view, baseline } = await uiFixture(t);
-  const sections = ["外观", "快捷键", "全局 Provider", "项目 Provider", "会话状态", "插件", "本地备份", "协作环境", "关于"];
+  const sections = ["外观", "快捷键", "模型服务", "会话状态", "插件", "数据与备份", "协作环境", "关于"];
   for (const mode of ["dark", "light"]) {
     await theme(view, mode);
     for (const [width, height] of [[1440, 960], [1024, 768], [820, 768]]) {
@@ -192,7 +199,7 @@ test("production UI all settings categories in both themes and compact layout", 
 
 test("production UI Provider preserves original cards, segment slider and selection motion", { timeout: 90_000 }, async t => {
   const { view, baseline } = await uiFixture(t);
-  await settings(view, "全局 Provider");
+  await providerEditor(view);
   await waitFor(view, "!!document.querySelector('.provider-card')");
   assert.equal(await view.cdp.evaluate("document.querySelector('.provider-list').style.getPropertyValue('--provider-columns')"), "1");
   // Synthetic catalogue setup only; refresh through the public UI, not React internals.
@@ -211,7 +218,7 @@ test("production UI Provider preserves original cards, segment slider and select
   for (const mode of ["dark", "light"]) {
     await click(view, SETTINGS_CLOSE);
     await theme(view, mode);
-    await settings(view, "全局 Provider");
+    await providerEditor(view);
     for (const [width, height] of [[1440, 960], [1024, 768], [820, 768]]) {
       await resize(view, width, height);
       await evidence(view, `provider-original-cards-${mode}-${width}x${height}`, [SETTINGS_CLOSE,
@@ -289,7 +296,7 @@ test("production UI new native agents launch, filter and resume their own sessio
 
 test("production UI Provider keep replace clear, explicit raw consent and search preserves guarded editor", { timeout: 90_000 }, async t => {
   const { view, baseline } = await uiFixture(t);
-  await settings(view, "全局 Provider");
+  await providerEditor(view);
   await waitFor(view, "!!document.querySelector('.provider-card')");
   for (const action of ["keep", "replace", "clear"]) {
     await click(view, '.provider-card button[aria-label^="编辑 "]');
@@ -430,7 +437,8 @@ test("production UI plugin installed permissions, marketplace detail and explici
   await waitFor(view, "document.querySelector('.plugins-search').matches(':focus-visible')");
   await evidence(view, 'plugins-search-light-focus');
   assert.equal(await view.cdp.evaluate("getComputedStyle(document.querySelector('.plugins-search')).backgroundColor"),
-    await view.cdp.evaluate("getComputedStyle(document.querySelector('.settings-content')).backgroundColor"),
+    // 设置是弹窗（T41）：内容区透明，可见的画布是弹窗本身。
+    await view.cdp.evaluate("getComputedStyle(document.querySelector('.settings-view')).backgroundColor"),
     "focused plugin search uses the shared canvas");
   await click(view, '.plugins-row-details-toggle');
   await waitFor(view, "!!document.querySelector('.plugins-row-details-body')");
@@ -491,4 +499,47 @@ test("production UI satellite panels remain reachable in both themes at desktop 
       await intact(view, baseline);
     }
   }
+});
+
+test("production UI model routing patch bay rewires global and project routes through the provider IPC", { timeout: 90_000 }, async t => {
+  const { view, baseline } = await uiFixture(t);
+  await resize(view, 1440, 960);
+  await settings(view, "模型服务");
+  await waitFor(view, "document.querySelectorAll('.patch-bay__wire').length === 6");
+  assert.equal(await view.cdp.evaluate("document.querySelector('.settings-crumb strong').textContent"), "模型服务");
+  // 选中 Claude Code：其余 Agent 变暗，只有它保存过的服务是可接的虚线插孔。
+  await click(view, '.patch-bay__agents .patch-jack:nth-of-type(1)');
+  await waitFor(view, "document.querySelectorAll('.patch-bay__agents .patch-jack.is-dim').length === 5");
+  assert.ok(await view.cdp.evaluate("document.querySelectorAll('.patch-bay__services .patch-jack.is-target').length >= 1"));
+  await click(view, '.patch-bay__services .patch-jack.is-target');
+  await waitFor(view, "__productionQA.calls.some(call => call.command === 'provider_switch' && call.args.kind === 'claude' && call.args.id)");
+  await waitFor(view, "!document.querySelector('.patch-jack.is-picked')");
+  await waitFor(view, "[...document.querySelectorAll('.patch-bay__services .patch-jack__count')].slice(1).some(e => e.textContent === '1')");
+  // 接到自定义服务后线仍然画出来：线数 = 已接线的 Agent 数，且有一根落在非「官方」插孔上。
+  await waitFor(view, "document.querySelectorAll('.patch-bay__wire').length === 6");
+  assert.ok(await view.cdp.evaluate(`(() => {
+    const ports = [...document.querySelectorAll('.patch-bay__services [data-service-port]')].map(e => e.getBoundingClientRect());
+    const bay = document.querySelector('.patch-bay').getBoundingClientRect();
+    const ends = [...document.querySelectorAll('.patch-bay__wire')].map(p => p.getPointAtLength(p.getTotalLength()));
+    return ends.some(pt => ports.slice(1).some(r => Math.abs(r.top + r.height / 2 - bay.top - pt.y) < 2));
+  })()`), "a wire reaches a custom service jack");
+  // Esc 只取消选中，不关闭设置。
+  await click(view, '.patch-bay__agents .patch-jack:nth-of-type(2)');
+  await waitFor(view, "!!document.querySelector('.patch-jack.is-picked')");
+  await view.cdp.evaluate("document.querySelector('.patch-jack.is-picked').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))");
+  await waitFor(view, "!document.querySelector('.patch-jack.is-picked')");
+  assert.ok(await view.cdp.evaluate("!!document.querySelector('.settings-view')"));
+  // 项目作用域：接到「跟随全局」以外的服务 = project_provider_select。
+  await clickText(view, "项目", '.model-routing__scope');
+  await waitFor(view, "!!document.querySelector('.patch-bay') && document.querySelector('.patch-bay__services .patch-jack b').textContent === '跟随全局'");
+  await click(view, '.patch-bay__agents .patch-jack:nth-of-type(1)');
+  await click(view, '.patch-bay__services .patch-jack.is-target');
+  await waitFor(view, "__productionQA.calls.some(call => call.command === 'project_provider_select' && call.args.selection.kind === 'claude' && call.args.selection.providerId)");
+  // 管理服务 → 原编辑器，面包屑可返回配线台。
+  await clickText(view, "全局默认", '.model-routing__scope');
+  await clickText(view, "管理服务", '.model-routing__bar');
+  await waitFor(view, "!!document.querySelector('.provider-section .provider-card')");
+  await click(view, '.settings-crumb__link');
+  await waitFor(view, "!!document.querySelector('.patch-bay')");
+  await intact(view, baseline);
 });

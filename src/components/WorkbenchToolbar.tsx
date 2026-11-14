@@ -10,7 +10,9 @@ import type { WorkbenchProps } from "./Workbench";
 import { useFlyout } from "./useFlyout";
 import { useWorktreeReminder } from "../git/worktrees/WorktreeReminder";
 import { branchLabel, useGitBranch } from "../git/useGitBranch";
-import { isAgentKind } from "../agent/contracts";
+import { isAgentKind, usesTerminalStatus } from "../agent/contracts";
+import { sessionActivity, terminalStatusFor } from "../agent/programStatus";
+import { terminalStatusLabel } from "../agent/programStatusLabel";
 import { AGENT_ICONS } from "../workspace/components/AgentIcons";
 import type { WorkspaceTab } from "../workspace/contracts";
 
@@ -108,10 +110,16 @@ function SessionTab({ tab, active, onActivate }: { tab: WorkspaceTab; active: bo
   const Icon = tab.kind === "shell" ? SquareTerminal : isAgentKind(tab.kind) ? AGENT_ICONS[tab.kind] : Server;
   const name = tab.agentName ?? tab.title;
   const live = tab.phase === "running";
+  const activity = sessionActivity(tab);
+  const protocol = usesTerminalStatus(tab.kind);
+  const state = terminalStatusFor(tab.kind, tab.agentState)?.programStatus.state;
+  const dotClass = protocol && (!state || state === "clear") ? " is-unknown" : state === "error" ? " is-error"
+    : activity === "awaiting-choice" ? " is-awaiting" : "";
+  const label = live && protocol ? `${name} · ${terminalStatusLabel(tab.kind, tab.agentState)}` : name;
   return <button type="button" aria-current={active ? "page" : undefined} className={`workbench-tab${active ? " is-active" : ""}`}
-    title={name} onClick={onActivate ? () => onActivate(tab.id) : undefined}>
+    title={label} aria-label={label} onClick={onActivate ? () => onActivate(tab.id) : undefined}>
     <Icon aria-hidden="true" size={ICON.xs} /><span>{name}</span>
-    {live && tab.activity !== "idle" ? <i className={`workbench-tab__dot${tab.activity === "awaiting-choice" ? " is-awaiting" : ""}`} aria-hidden="true" />
+    {live && activity !== "idle" ? <i className={`workbench-tab__dot${dotClass}`} aria-hidden="true" />
       : live && active ? <i className="workbench-tab__dot" aria-hidden="true" /> : null}
   </button>;
 }

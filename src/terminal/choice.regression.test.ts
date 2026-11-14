@@ -13,12 +13,12 @@ it.each([
   expect(parseChoice(screen, "codex")).not.toBeNull();
 });
 
-it("regression: a freeform Codex question is waiting for the user", () => {
-  expect(detectActivity(corpus.fixtures["codex-input-freeform"].screen, "codex")).toBe("awaiting-choice");
+it("regression: freeform question text cannot determine Codex status", () => {
+  expect(detectActivity(corpus.fixtures["codex-input-freeform"].screen, "codex")).toBe("talking");
 });
 
-it("regression: a current non-numbered checkbox picker is waiting for the user", () => {
-  expect(detectActivity(captured.fixtures.statusline.screen, "codex")).toBe("awaiting-choice");
+it("regression: checkbox picker text cannot determine Codex status", () => {
+  expect(detectActivity(captured.fixtures.statusline.screen, "codex")).toBe("talking");
 });
 
 it("regression: long visible command context is never truncated into the question", async () => {

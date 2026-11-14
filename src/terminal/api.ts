@@ -29,6 +29,20 @@ export function acknowledgeTerminalOutput(receipt: OutputReceipt) {
 /** 收件箱批次的原生写入许可：一批的每次程序化写入都带同一 guard，writeSequence 从 1 连续递增。 */
 export interface TerminalWriteGuard { guard: import("../inbox/contracts").WriteGuard; sequence: number }
 
+export interface TerminalWriteEvidence { touched: boolean; pasteComplete: boolean }
+
+export function claimTerminalUserInput(sessionId: string) {
+  return invoke<void>("terminal_claim_user_input", { sessionId });
+}
+
+export function prepareTerminalPrompt(sessionId: string, payload: string) {
+  return invoke<import("../inbox/contracts").WriteGuard>("terminal_prepare_prompt", { sessionId, payload });
+}
+
+export function finishTerminalPrompt(sessionId: string, guard: import("../inbox/contracts").WriteGuard) {
+  return invoke<TerminalWriteEvidence>("terminal_finish_prompt", { sessionId, guard });
+}
+
 export function writeTerminal(sessionId: string, bytes: Uint8Array, guarded?: TerminalWriteGuard) {
   return invoke<void>("terminal_write", {
     sessionId,

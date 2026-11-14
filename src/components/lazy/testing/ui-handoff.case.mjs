@@ -57,7 +57,7 @@ test("busy Provider form gives secondary and primary buttons a disabled appearan
       return original(command, args);
     };
   })();` });
-  await settings(view, "全局 Provider");
+  await settings(view, "模型服务"); await clickText(view, "管理服务", ".model-routing__bar"); await waitFor(view, "!!document.querySelector('.provider-section')");
   await click(view, '.provider-card button[aria-label^="编辑 "]');
   await clickText(view, "保存配置", ".provider-form");
   await waitFor(view, "!!__productionQA.finishSave && document.querySelector('.provider-form .modal__actions button').disabled");
@@ -87,7 +87,7 @@ test("settings Provider rows use the available width with one, two, or three car
         const group = __productionQA.catalog.agents.find(agent => agent.kind === 'claude'), first = group.providers[0];
         group.providers = Array.from({ length: ${count} }, (_, index) => ({ ...first, id: 'claude-width-' + index, name: 'Synthetic service ' + (index+1) }));
       })()`);
-      await settings(view, "全局 Provider");
+      await settings(view, "模型服务"); await clickText(view, "管理服务", ".model-routing__bar"); await waitFor(view, "!!document.querySelector('.provider-section')");
       await waitFor(view, `document.querySelectorAll('.provider-card').length === ${count}`);
       const row = await view.cdp.evaluate(`(() => {
         const list = document.querySelector('.provider-list').getBoundingClientRect(), cards = [...document.querySelectorAll('.provider-card')].map(el=>el.getBoundingClientRect());
@@ -102,7 +102,7 @@ test("settings Provider rows use the available width with one, two, or three car
 });
 
 for (const platform of ["macos", "windows"]) {
-  test(`settings floating surface ${platform} fills the available width without empty Provider tracks`, { timeout: 90_000 }, async t => {
+  test(`settings dialog ${platform} sits above the live workbench and fills its content width`, { timeout: 90_000 }, async t => {
     const { view, baseline } = await uiFixture(t, { nativeExtension: `Object.defineProperty(navigator, 'userAgent', { configurable: true, value: ${JSON.stringify(platform === "macos" ? "Macintosh" : "Windows NT 10.0")} });` });
     const geometry = [];
     for (const mode of ["dark", "light"]) {
@@ -110,42 +110,37 @@ for (const platform of ["macos", "windows"]) {
       await theme(view, mode);
       for (const [width, height] of [[1440, 960], [720, 480], [640, 720]]) {
         await resize(view, width, height);
-        for (const [section, label] of [["appearance", "外观"], ["provider", "全局 Provider"]]) {
+        for (const [section, label] of [["appearance", "外观"], ["provider", "模型服务"]]) {
           await settings(view, label);
-          await waitFor(view, section === "provider" ? "!!document.querySelector('.provider-card')" : "!!document.querySelector('.appearance')");
+          await waitFor(view, section === "provider" ? "!!document.querySelector('.patch-bay')" : "!!document.querySelector('.appearance')");
           const layout = await view.cdp.evaluate(`(() => {
-            const content = document.querySelector('.settings-content'), nav = document.querySelector('.settings-nav');
-            const r = content.getBoundingClientRect(), n = nav.getBoundingClientRect(), s = getComputedStyle(content), root = getComputedStyle(document.documentElement);
-            const list = document.querySelector('.provider-list'), card = list?.querySelector('.provider-card');
-            return { x: r.x, y: r.y, right: innerWidth-r.right, bottom: innerHeight-r.bottom, navWidth: n.width, navBottom: n.bottom,
-              radius: s.borderRadius, shadow: s.boxShadow, inset: parseFloat(root.getPropertyValue('--content-inset')),
-              titlebar: parseFloat(root.getPropertyValue('--titlebar-inset')), background: getComputedStyle(document.querySelector('.settings-view')).backgroundColor,
-              navBackground: getComputedStyle(nav).backgroundColor, padding: s.paddingLeft,
+            const dialog = document.querySelector('.settings-view'), content = document.querySelector('.settings-content'), nav = document.querySelector('.settings-nav');
+            const d = dialog.getBoundingClientRect(), r = content.getBoundingClientRect(), n = nav.getBoundingClientRect(), s = getComputedStyle(content), ds = getComputedStyle(dialog);
+            const root = getComputedStyle(document.documentElement), workbench = document.querySelector('.workbench');
+            return { dx: d.x, dy: d.y, dw: d.width, dh: d.height, right: innerWidth-d.right, bottom: innerHeight-d.bottom,
+              navWidth: n.width, navBottom: n.bottom, y: r.y,
+              radius: ds.borderRadius, shadow: ds.boxShadow, titlebar: parseFloat(root.getPropertyValue('--titlebar-inset')),
+              workbenchVisible: !!workbench && getComputedStyle(workbench).display !== 'none' && workbench.getBoundingClientRect().width > 0,
+              scrim: getComputedStyle(document.querySelector('.settings-scrim')).position,
               available: content.clientWidth - parseFloat(s.paddingLeft) - parseFloat(s.paddingRight),
               page: content.firstElementChild.getBoundingClientRect().width,
-              overflow: content.scrollWidth > content.clientWidth+1 || document.documentElement.scrollWidth > innerWidth,
-              list: list?.getBoundingClientRect().width, card: card?.getBoundingClientRect().width,
-              columns: list ? getComputedStyle(list).gridTemplateColumns.split(' ').length : null };
+              overflow: content.scrollWidth > content.clientWidth+1 || document.documentElement.scrollWidth > innerWidth };
           })()`);
-          assert.equal(layout.radius, "12px");
+          assert.equal(layout.radius, "14px");
           assert.notEqual(layout.shadow, "none");
-          assert.equal(layout.right, 8); assert.equal(layout.bottom, 8);
-          assert.equal(layout.background, layout.navBackground, "rail joins the window background without a color seam");
+          assert.equal(layout.scrim, "fixed");
+          assert.equal(layout.workbenchVisible, true, "the workbench stays mounted and visible behind the dialog");
           assert.equal(layout.overflow, false);
-          assert.ok(Math.abs(layout.page-layout.available) <= 1, "settings page fills the content surface");
-          if (width === 640) {
-            assert.equal(layout.x, 8);
-            assert.ok(layout.y >= layout.navBottom, "narrow layout stacks navigation above content");
-          } else {
-            assert.equal(layout.navWidth, width === 1440 ? 240 : 196);
-            assert.equal(layout.y, platform === "windows" ? layout.titlebar+8 : Math.max(8, layout.titlebar-20));
-          }
+          assert.ok(Math.abs(layout.page-layout.available) <= 1, "settings page fills the dialog content");
+          assert.ok(layout.right >= 0 && layout.bottom >= 0, "dialog stays inside the window");
           if (width === 1440) {
-            assert.equal(layout.padding, "32px");
+            assert.equal(layout.dw, 1080); assert.equal(layout.dh, 720);
+            assert.equal(layout.navWidth, 220);
+            assert.ok(Math.abs(layout.dx - (1440-1080)/2) <= 1, "dialog is horizontally centered");
+          } else if (width === 640) {
+            assert.ok(layout.y >= layout.navBottom, "narrow layout stacks navigation above content");
           }
-          if (section === "provider" && width === 1440) {
-            assert.ok(Math.abs(layout.card-layout.list) <= 1, "single card fills the row without empty tracks");
-          }
+          if (platform === "windows") assert.ok(layout.dy >= layout.titlebar, "Windows title bar stays above the scrim");
           await view.cdp.evaluate("document.querySelector('.settings-content').scrollTop=0");
           await capture(view, `${platform}-${section}-${mode}-${width}x${height}`);
           geometry.push({ mode, section, width, height, ...layout });

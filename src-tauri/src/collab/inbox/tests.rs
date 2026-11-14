@@ -194,6 +194,25 @@ impl Drop for Rig {
 }
 
 #[test]
+fn inbox_availability_preserves_native_done_blocked_and_missing_status_meanings() {
+    let rig = Rig::new();
+    let recipient = Recipient { id: "b".into(), session_key: rig.key("b"), project_root: source::normalize_root(rig.root.to_str().unwrap()),
+        tab_id: "b".into(), room_id: None, member_id: None, name: "worker".into(), agent: "codex".into() };
+    for (state, can_receive, expected) in [
+        ("idle", true, "ready"), ("done", true, "ready"), ("done", false, "unavailable"),
+        ("working", false, "busy"), ("blocked", false, "needs_input"), ("error", false, "unavailable"),
+        ("clear", false, "unavailable"), ("unknown", false, "unavailable"), ("offline", false, "offline"),
+    ] {
+        let mut sessions = rig.service.registry.all();
+        let worker = sessions.iter_mut().find(|session| session.tab_id == "b").unwrap();
+        worker.activity = state.into();
+        worker.can_receive = can_receive;
+        rig.service.registry.replace(sessions);
+        assert_eq!(read::availability(&rig.service.registry, &recipient), expected, "{state}");
+    }
+}
+
+#[test]
 fn busy_arrivals_are_durable_and_only_freeze_at_an_input_opportunity() {
     let rig = Rig::new();
     let mut sessions = rig.service.registry.all();

@@ -346,6 +346,8 @@
   "choice.invalid": "请检查回答后重试。",
   "choice.failed": "回答未发送，可重试。",
   "choice.uncertain": "无法确认是否已发送，请到终端核对后继续。",
+  "model.statusUnknown": "等待状态",
+  "model.statusError": "响应出错",
   "new": {
     "projectLabel": "项目地址",
     "selectProject": "选择房间项目目录",

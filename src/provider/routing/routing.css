@@ -1,0 +1,84 @@
+/* 模型服务 · 配线台（T41）。稿：docs/design/belfry-ui/settings-v3/settings.html?page=models。颜色全走令牌。 */
+.model-routing { gap: var(--space-3); }
+.model-routing__bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.model-routing__bar p { flex: 1 1 260px; margin: 0; color: var(--text-faint); font-size: var(--fs-sm); }
+.model-routing__scope { display: inline-flex; padding: 2px; gap: 2px; border-radius: var(--radius-md); background: var(--surface); box-shadow: inset 0 0 0 1px var(--border); }
+.model-routing__scope button { height: 28px; padding: 0 12px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-muted); font: inherit; font-size: var(--fs-sm); white-space: nowrap; cursor: pointer; }
+.model-routing__scope button[aria-selected="true"] { background: var(--canvas); color: var(--text); font-weight: 500; box-shadow: 0 0 0 1px var(--border), var(--shadow-sm); }
+.model-routing__scope button:disabled { opacity: .45; cursor: not-allowed; }
+.model-routing__loading { padding: var(--space-8); color: var(--text-faint); text-align: center; }
+
+.patch-bay {
+  position: relative; display: grid; grid-template-columns: minmax(200px, 260px) minmax(48px, 1fr) minmax(220px, 300px);
+  gap: 0; padding: var(--space-5) 0; border-radius: var(--radius-lg);
+  background: radial-gradient(circle at 1px 1px, var(--border-soft) 1px, transparent 1.2px) 0 0 / 18px 18px, var(--panel);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+.patch-bay__wires { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.patch-bay__wire { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linecap: round; opacity: .85; transition: opacity var(--motion-standard) var(--motion-ease), stroke-width var(--motion-standard) var(--motion-ease); }
+.patch-bay__wire.is-focus { stroke-width: 3; opacity: 1; }
+.patch-bay__wire.is-faded { opacity: .18; }
+.patch-bay__col { position: relative; z-index: 1; display: flex; flex-direction: column; justify-content: space-around; gap: var(--space-2); padding: 0 var(--space-5); min-width: 0; }
+.patch-bay__agents { grid-column: 1; }
+.patch-bay__services { grid-column: 3; }
+.patch-bay__col h4 { margin: 0 0 2px; color: var(--text-faint); font: 500 11px/16px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; }
+
+.patch-jack {
+  position: relative; display: flex; align-items: center; gap: 10px; min-height: 50px; padding: 6px 14px; min-width: 0;
+  border: 0; border-radius: 11px; background: var(--canvas); color: var(--text); box-shadow: inset 0 0 0 1px var(--border);
+  font: inherit; text-align: left; cursor: pointer;
+  transition: box-shadow var(--motion-standard) var(--motion-ease), opacity var(--motion-standard) var(--motion-ease);
+}
+.patch-jack:hover:not(:disabled) { box-shadow: inset 0 0 0 1px var(--border-strong); }
+.patch-jack:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.patch-jack:disabled { cursor: default; }
+.patch-jack--service { min-height: 60px; }
+.patch-jack__text { display: grid; min-width: 0; flex: 1; }
+.patch-jack__text b { font-size: var(--fs-sm); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.patch-jack__text small { color: var(--text-faint); font-size: var(--fs-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.patch-jack--service .patch-jack__text small { font-family: var(--font-mono); font-size: 11px; }
+.patch-jack__count { flex: none; color: var(--text-muted); font: 500 var(--fs-xs) var(--font-mono); }
+.patch-jack__port { position: absolute; top: 50%; width: 11px; height: 11px; margin-top: -5.5px; border-radius: 50%; background: var(--canvas); box-shadow: 0 0 0 2px var(--border-strong); }
+.patch-bay__agents .patch-jack__port { right: -6px; }
+.patch-bay__services .patch-jack__port { left: -6px; }
+.patch-jack.is-live .patch-jack__port { background: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.patch-jack.is-picked { box-shadow: inset 0 0 0 1.5px var(--accent), 0 0 0 4px var(--accent-soft); }
+.patch-jack.is-target { outline: 1.5px dashed var(--accent); outline-offset: -1.5px; }
+.patch-jack.is-target:hover { background: var(--accent-soft); }
+.patch-jack.is-dim { opacity: .35; }
+.patch-jack.is-off { opacity: .55; }
+.patch-jack.is-off .patch-jack__port { box-shadow: 0 0 0 2px var(--border); }
+.patch-jack.is-error small { color: var(--danger); }
+.patch-jack.is-error .patch-jack__port { background: var(--danger); box-shadow: 0 0 0 2px var(--danger); }
+
+.model-routing__readout { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); padding: 10px 14px; border-radius: var(--radius-lg); background: var(--canvas); box-shadow: inset 0 0 0 1px var(--border); font-size: var(--fs-sm); }
+.model-routing__route { font-family: var(--font-mono); color: var(--text-muted); }
+.model-routing__route b { color: var(--text); font-weight: 500; }
+.model-routing__route i { margin: 0 8px; font-style: normal; color: var(--accent); }
+.model-routing__hint { color: var(--text-faint); }
+.model-routing__notice { color: var(--text-muted); }
+.model-routing__sp { flex: 1; }
+
+/* 窄面板：上下排布，不画线，靠高亮表达当前路由。 */
+@container settings (max-width: 620px) {
+  .patch-bay { grid-template-columns: minmax(0, 1fr); gap: var(--space-4); }
+  .patch-bay__agents, .patch-bay__services { grid-column: 1; }
+  .patch-bay__wires { display: none; }
+  .patch-jack__port { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .patch-bay__wire, .patch-jack { transition: none; } }
+/* 长项目名不撑开分段；两列标题顶端对齐。 */
+.model-routing__scope { max-width: min(420px, 100%); min-width: 0; }
+.model-routing__scope button { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.model-routing__scope button:last-child { max-width: 300px; }
+.patch-bay__col { justify-content: flex-start; }
+.patch-bay__col h4 { height: 16px; margin-bottom: var(--space-2); }
+.patch-bay__col > .patch-jack { margin-block: auto; }
+/* 工具条：说明单独一行，控件一行靠右；不允许撑出横向滚动。 */
+.model-routing { min-width: 0; }
+.model-routing__bar { flex-wrap: wrap; row-gap: var(--space-2); }
+.model-routing__bar p { flex: 1 1 100%; }
+.model-routing__bar .model-routing__scope { margin-right: auto; }
+.model-routing__scope { max-width: min(420px, 100%); }
+.model-routing__scope button:last-child { max-width: 260px; }
+.patch-bay { min-width: 0; }

@@ -284,6 +284,7 @@ name = "belfry-desktop"
 version = "1.0.5"
 dependencies = [
  "aes-gcm",
+ "base64 0.22.1",
  "belfry-i18n",
  "belfry-protocol",
  "chardetng",

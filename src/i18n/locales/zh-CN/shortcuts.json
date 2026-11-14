@@ -144,5 +144,10 @@
   "ShortcutSettingsSection.collapseGroup": "收起{{name}}快捷键",
   "ShortcutSettingsSection.expandGroup": "展开{{name}}快捷键",
   "ShortcutSettingsSection.collapseCount": "{{count}} 项 · 收起",
-  "ShortcutSettingsSection.expandCount": "{{count}} 项 · 展开"
+  "ShortcutSettingsSection.expandCount": "{{count}} 项 · 展开",
+  "ShortcutSettingsSection.groupMeta": "{{count}} 项",
+  "ShortcutSettingsSection.groupMetaCustom": "{{count}} 项 · {{custom}} 项已自定义",
+  "ShortcutSettingsSection.expand": "展开",
+  "ShortcutSettingsSection.collapse": "收起",
+  "ShortcutSettingsSection.collapsedHint": "已收起 {{count}} 项，点开查看"
 }

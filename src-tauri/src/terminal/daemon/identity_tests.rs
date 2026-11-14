@@ -40,6 +40,7 @@ fn hook(id: &str, sequence: u64) -> TerminalEvent {
             occurred_at: sequence as i64,
             reason: "test".into(),
             transcript_path: None,
+            program_status: None,
         },
     }
 }

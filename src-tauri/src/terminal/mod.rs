@@ -17,6 +17,7 @@ mod native_test_commands;
 #[cfg(test)]
 mod native_tests;
 mod osc;
+mod program_status;
 pub mod output_commands;
 pub(crate) mod overlay;
 mod runtime;

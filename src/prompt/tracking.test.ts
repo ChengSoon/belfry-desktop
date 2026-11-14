@@ -3,21 +3,48 @@ import type { PromptDeliveryOptions, TerminalCommandTarget } from "../terminal/c
 import type { WorkspaceTab } from "../workspace/contracts";
 import { PromptQueueRuntime } from "./runtime";
 import type { PromptQueueUpdate } from "./contracts";
+import { statusReport } from "../terminal/fixtures/programStatus";
 
-const agent = { id: "reviewer", kind: "codex", project: { rootPath: "/work" }, phase: "running", activity: "idle" } as WorkspaceTab;
-function fixture() {
+const agent = { id: "reviewer", kind: "codex", project: { rootPath: "/work" }, phase: "running", activity: "idle", agentState: statusReport("codex", "idle") } as WorkspaceTab;
+function fixture(kind: "codex" | "claude" = "codex") {
+  const current = { ...agent, kind, agentState: statusReport(kind, "idle") } as WorkspaceTab;
   const runtime = new PromptQueueRuntime();
   const updates: PromptQueueUpdate[] = [];
   let delivery: PromptDeliveryOptions | undefined;
   const target: TerminalCommandTarget = { focus: vi.fn(), sendText: vi.fn((_text, options) => { delivery = options; return true; }) };
   const targets = new Map([[agent.id, target]]);
-  const send = (tab = agent) => runtime.submit([tab], targets, agent.id, "review feedback", {
+  const send = (tab = current) => runtime.submit([tab], targets, agent.id, "review feedback", {
     id: "feedback", projectRoot: "/work", onUpdate: (update) => updates.push(update),
   });
-  return { runtime, updates, target, targets, send, result: (result: Parameters<NonNullable<PromptDeliveryOptions["onResult"]>>[0]) => delivery?.onResult?.(result) };
+  return { runtime, updates, target, targets, send, current, result: (result: Parameters<NonNullable<PromptDeliveryOptions["onResult"]>>[0]) => delivery?.onResult?.(result) };
 }
 
 describe("tracked review delivery", () => {
+  it.each(["codex", "claude"] as const)("keeps %s in-flight input until its native write result arrives, even if status changes first", (kind) => {
+    for (const state of ["working", "blocked", "error", "clear", null] as const) {
+      const test = fixture(kind);
+      test.send();
+      const changed = { ...test.current, agentState: state ? statusReport(kind, state, 2) : null };
+      test.runtime.sync([changed], test.targets);
+      test.result("not-written");
+      expect(test.runtime.items.map((item) => item.id)).toEqual(["feedback"]);
+      expect(test.updates.at(-1)?.state).toBe("queued");
+      expect(test.target.sendText).toHaveBeenCalledOnce();
+      test.runtime.sync([{ ...test.current, agentState: statusReport(kind, "idle", 3) }], test.targets);
+      expect(test.target.sendText).toHaveBeenCalledTimes(2);
+    }
+  });
+
+  it.each(["codex", "claude"] as const)("does not clear an uncertain %s paste just because an unrelated working report arrives", (kind) => {
+    const test = fixture(kind);
+    test.target.composerEmpty = () => false;
+    test.send(); test.result("cancelled");
+    test.runtime.sync([{ ...test.current, agentState: statusReport(kind, "working", 2) }], test.targets);
+    test.runtime.sync([{ ...test.current, agentState: statusReport(kind, "done", 3) }], test.targets);
+    expect(test.runtime.pausedDeliveries()).toHaveLength(1);
+    expect(test.target.sendText).toHaveBeenCalledOnce();
+  });
+
   it("does not report submitted until the terminal confirms Enter was written", () => {
     const test = fixture();
     expect(test.send()).toBe("sent");
@@ -30,7 +57,7 @@ describe("tracked review delivery", () => {
 
   it("cancels queued feedback without injecting it into an approval prompt or resending on idle", () => {
     const test = fixture();
-    const waiting = { ...agent, activity: "awaiting-choice" } as WorkspaceTab;
+    const waiting = { ...agent, activity: "awaiting-choice", agentState: statusReport("codex", "blocked", 2) } as WorkspaceTab;
     expect(test.send(waiting)).toBe("queued");
     test.runtime.sync([waiting], test.targets);
     expect(test.target.sendText).not.toHaveBeenCalled();
@@ -42,7 +69,7 @@ describe("tracked review delivery", () => {
 
   it("rechecks the project at dispatch and cancels when a queued recipient changes directories", () => {
     const test = fixture();
-    test.send({ ...agent, activity: "talking" });
+    test.send({ ...agent, activity: "talking", agentState: statusReport("codex", "working", 2) });
     const moved = { ...agent, project: { ...agent.project, rootPath: "/different-worktree" } };
     test.runtime.sync([moved], test.targets);
     expect(test.target.sendText).not.toHaveBeenCalled();
@@ -53,7 +80,7 @@ describe("tracked review delivery", () => {
 
   it("distinguishes an exited queued recipient from uncertain delivery after writing began", () => {
     const queued = fixture();
-    queued.send({ ...agent, activity: "talking" });
+    queued.send({ ...agent, activity: "talking", agentState: statusReport("codex", "working", 2) });
     queued.runtime.sync([{ ...agent, phase: "exited" }], queued.targets);
     expect(queued.updates.at(-1)?.state).toBe("cancelled");
     const writing = fixture();

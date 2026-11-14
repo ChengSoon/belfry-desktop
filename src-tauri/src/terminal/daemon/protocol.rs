@@ -54,6 +54,12 @@ pub enum Command {
         id: String,
         bytes: Vec<u8>,
     },
+    /// A distinct command prevents older daemons from ignoring the status fence.
+    WriteChecked {
+        id: String,
+        bytes: Vec<u8>,
+        expected_program_sequence: u64,
+    },
     Resize {
         id: String,
         cols: u16,

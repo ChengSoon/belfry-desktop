@@ -25,6 +25,18 @@ pub trait PtyBackend: Send + Sync {
         sink: Arc<dyn TerminalEventSink>,
     ) -> Result<TerminalSession, AppError>;
     fn write(&self, session_id: &str, bytes: &[u8]) -> Result<(), AppError>;
+    /// Native automatic input must be checked at the PTY, not against a delayed UI event.
+    fn write_checked(
+        &self,
+        session_id: &str,
+        bytes: &[u8],
+        expected_program_sequence: Option<u64>,
+    ) -> Result<(), AppError> {
+        if expected_program_sequence.is_some() {
+            return Err(AppError::conflict("The terminal backend cannot verify native program status"));
+        }
+        self.write(session_id, bytes)
+    }
     fn resize(&self, session_id: &str, size: TerminalSize) -> Result<(), AppError>;
     fn set_palette(&self, session_id: &str, palette: &TerminalPalette) -> Result<(), AppError>;
     fn close(&self, session_id: &str) -> Result<(), AppError>;
@@ -146,6 +158,9 @@ mod tests {
         let session = backend.spawn(request(), sink.clone()).unwrap();
         assert_eq!(sink.0.lock().unwrap().len(), 1);
         backend.write(&session.id, b"echo ok\r").unwrap();
+        assert_eq!(backend.write_checked(&session.id, b"automatic", Some(1)).unwrap_err().code,
+            super::super::contracts::AppErrorCode::Conflict);
+        backend.write_checked(&session.id, b"ordinary", None).unwrap();
         backend
             .resize(&session.id, TerminalSize { cols: 90, rows: 28 })
             .unwrap();

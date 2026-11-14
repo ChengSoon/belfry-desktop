@@ -378,6 +378,8 @@
   "choice.invalid": "Check your answer and try again.",
   "choice.failed": "The reply was not sent. You can try again.",
   "choice.uncertain": "Delivery could not be confirmed. Check the terminal before continuing.",
+  "model.statusUnknown": "Waiting for status",
+  "model.statusError": "Response failed",
   "new": {
     "projectLabel": "Project directory",
     "selectProject": "Choose a project directory for this room",

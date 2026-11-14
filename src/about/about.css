@@ -11,7 +11,7 @@
 .about-cli-heading__actions .os-btn { min-height: 24px; padding: 0 8px; font-size: var(--fs-xs); }
 
 /* CLI 行：图标块 + 名称/当前版本 + 最新版本列 + 状态或动作（行 60 高）。 */
-.about-card {
+.about-card:not(.sk-item) {
   display: grid; grid-template-columns: auto minmax(0, 1fr) 140px auto; align-items: center; gap: var(--space-2) var(--space-3);
   min-height: 60px; padding: var(--space-3) var(--space-5);
 }
@@ -43,3 +43,11 @@
   .about-card { grid-template-columns: auto minmax(0, 1fr); }
   .about-card__actions { grid-column: 2; grid-row: 3; justify-content: flex-start; }
 }
+
+/* T42：按汇总稿的行型。 */
+.about-section .about-app__copy b { display: block; font-size: 16px; font-weight: 500; }
+.about-section .about-link { width: 100%; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; }
+.about-section .about-link + .about-link { border-top: 1px solid var(--border-soft); }
+.about-section .about-link > svg { flex: none; color: var(--text-faint); }
+.about-section .about-card__notice { color: var(--text-faint); }
+.about-section .about-card__log { margin-top: 8px; max-height: 180px; overflow: auto; white-space: pre-wrap; }

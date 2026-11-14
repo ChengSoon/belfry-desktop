@@ -56,7 +56,7 @@ impl Service {
             Command::Ping => Ok(
                 serde_json::json!({ "version": super::protocol::VERSION, "pid": std::process::id(),
                     "appVersion": env!("CARGO_PKG_VERSION"),
-                    "capabilities": ["recover_exited", "session_identity", "collab_passthrough_v1"] }),
+                    "capabilities": ["recover_exited", "session_identity", "collab_passthrough_v1", "terminal_program_status_v1"] }),
             ),
             Command::Create {
                 mut launch,
@@ -88,6 +88,9 @@ impl Service {
     fn mutate(&self, command: Command) -> Result<serde_json::Value, AppError> {
         match command {
             Command::Write { id, bytes } => self.backend.write(&id, &bytes)?,
+            Command::WriteChecked { id, bytes, expected_program_sequence } => {
+                self.backend.write_checked(&id, &bytes, Some(expected_program_sequence))?
+            }
             Command::Resize { id, cols, rows } => {
                 self.backend.resize(&id, TerminalSize { cols, rows })?
             }

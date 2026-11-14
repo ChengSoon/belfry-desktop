@@ -34,3 +34,9 @@
   .background-sessions__list li { grid-template-columns: auto minmax(0, 1fr) auto; }
   .background-sessions__list li > .os-btn { grid-column: 2 / -1; justify-self: start; }
 }
+
+/* T42：后台任务按汇总稿的行型。 */
+.background-sessions .background-sessions__list { margin: 0; padding: 0; list-style: none; }
+.background-sessions .background-sessions__list > .sk-item + .sk-item { border-top: 1px solid var(--border-soft); }
+.background-sessions .background-sessions__refresh { height: 24px; padding: 0 8px; font-size: 12px; }
+.background-sessions .sk-lede { margin-top: 8px; }

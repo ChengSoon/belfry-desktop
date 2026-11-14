@@ -1,7 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PASTE_SETTLE_MS, PromptInput } from "./promptInput";
+import type { WriteGuard } from "../inbox/contracts";
 
-function setup(encodePaste = (text: string) => `\x1b[200~${text}\x1b[201~`) {
+function setup(encodePaste = (text: string) => `\x1b[200~${text}\x1b[201~`, native?: {
+  prepare: (sessionId: string, text: string) => Promise<WriteGuard>;
+  finish: (sessionId: string, guard: WriteGuard) => Promise<{ touched: boolean }>;
+}) {
   let session: string | null = "old";
   const write = vi.fn(async (_id: string, _data: string, _guarded?: { guard: { token: string }; sequence: number }) => {});
   const error = vi.fn();
@@ -11,6 +15,7 @@ function setup(encodePaste = (text: string) => `\x1b[200~${text}\x1b[201~`) {
     enter: () => input.onData("\r"),
     write,
     error,
+    ...native,
   });
   return { input, write, error, replace: (id: string | null) => { session = id; } };
 }
@@ -118,6 +123,116 @@ describe("PromptInput", () => {
     expect(error).toHaveBeenCalledTimes(1);
     expect(write).toHaveBeenCalledTimes(2);
     expect(input.sendText("task")).toBe(false);
+  });
+
+  it("协议位置变化后不再回车，即使没有用户按键", async () => {
+    vi.useFakeTimers();
+    const { input, write } = setup();
+    let valid = false;
+    expect(input.sendText("task", undefined, () => valid)).toBe(false);
+    expect(write).not.toHaveBeenCalled();
+    valid = true;
+    const result = vi.fn();
+    expect(input.sendText("task", { onResult: result }, () => valid)).toBe(true);
+    await vi.advanceTimersByTimeAsync(0);
+    valid = false;
+    await vi.runAllTimersAsync();
+    expect(write.mock.calls.map((call) => call[1])).toEqual(["\x1b[200~task\x1b[201~"]);
+    expect(result).toHaveBeenCalledWith("cancelled");
+  });
+});
+
+describe("PromptInput ordinary native prompts", () => {
+  const guard: WriteGuard = { batchId: "prompt", attemptId: "attempt", token: "token", ownerId: "owner", targetEpoch: "epoch", inputRevision: 0 };
+  function nativeInput() {
+    const prepare = vi.fn(async (_sessionId: string, _text: string) => guard);
+    const finish = vi.fn(async (_sessionId: string, _guard: WriteGuard) => ({ touched: true }));
+    return { ...setup(undefined, { prepare, finish }), prepare, finish };
+  }
+
+  it("automatically reserves the same native guard for paste and Enter", async () => {
+    vi.useFakeTimers();
+    const { input, write, prepare, finish } = nativeInput();
+    const result = vi.fn();
+    expect(input.sendText("task", { onResult: result })).toBe(true);
+    await vi.runAllTimersAsync();
+    expect(prepare).toHaveBeenCalledExactlyOnceWith("old", "task");
+    expect(write.mock.calls.map((call) => call[2])).toEqual([{ guard, sequence: 1 }, { guard, sequence: 2 }]);
+    expect(finish).toHaveBeenCalledExactlyOnceWith("old", guard);
+    expect(result).toHaveBeenCalledWith("submitted");
+  });
+
+  it("keeps an unavailable protocol position queued without writing", async () => {
+    vi.useFakeTimers();
+    const { input, write, prepare, finish, error } = nativeInput();
+    prepare.mockRejectedValueOnce({ code: "CONFLICT", message: "waiting for native report" });
+    const result = vi.fn();
+    input.sendText("task", { onResult: result });
+    await vi.runAllTimersAsync();
+    expect(write).not.toHaveBeenCalled();
+    expect(finish).not.toHaveBeenCalled();
+    expect(error).not.toHaveBeenCalled();
+    expect(result).toHaveBeenCalledWith("not-written");
+  });
+
+  it.each(["user", "report", "detach"])("rechecks %s changes while native preparation is pending", async (change) => {
+    vi.useFakeTimers();
+    const { input, write, prepare, finish, replace } = nativeInput();
+    let resolve!: (value: WriteGuard) => void;
+    prepare.mockImplementationOnce(() => new Promise<WriteGuard>((done) => { resolve = done; }));
+    finish.mockResolvedValueOnce({ touched: false });
+    let valid = true;
+    const result = vi.fn();
+    input.sendText("task", { onResult: result }, () => valid);
+    if (change === "user") input.onUserInput();
+    if (change === "report") valid = false;
+    if (change === "detach") replace(null);
+    resolve(guard);
+    await vi.runAllTimersAsync();
+    expect(write).not.toHaveBeenCalled();
+    expect(finish).toHaveBeenCalledExactlyOnceWith("old", guard);
+    expect(result).toHaveBeenCalledWith("not-written");
+  });
+
+  it("retries only after native evidence confirms that the first rejected paste wrote nothing", async () => {
+    vi.useFakeTimers();
+    const { input, write, finish, error } = nativeInput();
+    write.mockRejectedValueOnce({ code: "CONFLICT", message: "newer PTY report" });
+    finish.mockResolvedValueOnce({ touched: false });
+    const result = vi.fn();
+    input.sendText("task", { onResult: result });
+    await vi.runAllTimersAsync();
+    expect(result).toHaveBeenCalledWith("not-written");
+    expect(write).toHaveBeenCalledTimes(1);
+    expect(error).not.toHaveBeenCalled();
+    expect(input.sendText("task", { onResult: result })).toBe(true);
+    await vi.runAllTimersAsync();
+    expect(result).toHaveBeenLastCalledWith("submitted");
+    expect(write).toHaveBeenCalledTimes(3);
+  });
+
+  it("keeps a pasted payload owned when the backend refuses Enter", async () => {
+    vi.useFakeTimers();
+    const { input, write, finish, error } = nativeInput();
+    write.mockResolvedValueOnce(undefined).mockRejectedValueOnce({ code: "CONFLICT", message: "working before Enter" });
+    const result = vi.fn();
+    input.sendText("task", { onResult: result });
+    await vi.runAllTimersAsync();
+    expect(write).toHaveBeenCalledTimes(2);
+    expect(finish).toHaveBeenCalledExactlyOnceWith("old", guard);
+    expect(result).toHaveBeenCalledWith("failed");
+    expect(error).not.toHaveBeenCalled();
+    expect(input.sendText("task")).toBe(false);
+  });
+
+  it("never downgrades an existing inbox guard to a second prompt reservation", async () => {
+    vi.useFakeTimers();
+    const { input, write, prepare, finish } = nativeInput();
+    input.sendText("task", { inboxGuard: guard });
+    await vi.runAllTimersAsync();
+    expect(prepare).not.toHaveBeenCalled();
+    expect(finish).not.toHaveBeenCalled();
+    expect(write.mock.calls.map((call) => call[2])).toEqual([{ guard, sequence: 1 }, { guard, sequence: 2 }]);
   });
 });
 

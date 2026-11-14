@@ -2,6 +2,7 @@ import type { SessionActivity } from "../terminal/contracts";
 import type { TerminalPhase } from "../terminal/contracts";
 import type { HookSnapshot } from "../agent/hooks/contracts";
 import type { WorkspaceTabKind } from "../workspace/contracts";
+import { sessionActivity, terminalStatusFor } from "../agent/programStatus";
 import { notify as sendNotify, setBadge as applyBadge } from "./api";
 import { notificationTransition, statusChanged } from "./hookRules";
 import {
@@ -74,7 +75,8 @@ export class ActivityNotifier {
       // talking → idle → awaiting-choice：spinner 先没，权限框隔一拍才画出来。
       this.cancel(session.id);
       const reason = notificationTransition(before, session);
-      if (reason === "awaiting-choice" || reason === "failed" || (reason === "finished" && session.agentState?.source === "hook")) {
+      if (reason === "awaiting-choice" || reason === "failed" || (reason === "finished"
+        && (session.agentState?.source === "hook" || session.agentState?.source === "terminal_protocol"))) {
         this.deliver(session.id, reason);
       } else if (reason === "finished") {
         this.pending.set(
@@ -112,7 +114,8 @@ export class ActivityNotifier {
     if (!session) return;
     // 可见性要在发送这一刻才看：决策时用户在别处，等通知真要出去时他可能已经回来了。
     if (shouldSuppress(this.focused, this.visible.has(id))) return;
-    this.sinks.notify(notifyContent(reason, session.project.name, session.title));
+    this.sinks.notify(notifyContent(reason, session.project.name, session.title,
+      terminalStatusFor(session.kind, session.agentState)?.programStatus.kind));
     if (reason === "finished" || reason === "failed") this.unread.add(id);
     this.reconcile();
   }
@@ -126,7 +129,7 @@ export class ActivityNotifier {
     // 等待确认的会话不进 unread：它自带持续状态，直接照着 activity 数，
     // 用户一答完角标自己就掉了。
     const waiting = this.sessions.filter(
-      (session) => session.activity === "awaiting-choice",
+      (session) => sessionActivity(session) === "awaiting-choice",
     ).length;
     this.sinks.setBadge(waiting + this.unread.size);
   }

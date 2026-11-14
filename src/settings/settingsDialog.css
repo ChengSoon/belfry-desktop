@@ -1,0 +1,105 @@
+/* 设置弹窗外壳（T41，对应 docs/design/belfry-ui/settings-v3/settings.html）。
+   设置不再整窗替换工作台：工作台保持可见并挂载（PTY、滚动缓冲不受影响），上面盖一层遮罩，
+   中间是 1080×720 的弹窗，左导航 + 右侧「设置 › 分区」面包屑与内容。
+   本文件在 App 中晚于 obsidianSurfaces.css 加载，统一接管 .settings-view 的外壳规则；
+   分区内部样式不在这里。颜色全部走令牌。 */
+
+/* 工作台照常显示在弹窗背后；只有浮动的插件坞让位（它会压在遮罩上）。 */
+.app-shell.is-settings { grid-template-columns: var(--sidebar-track) minmax(0, 1fr); }
+.app-shell.is-settings > :is(.sidebar, .sidebar-shell, .workbench) { display: revert; }
+.app-shell.is-settings.is-collapsed { grid-template-columns: var(--sidebar-track) minmax(0, 1fr); }
+
+/* 层级：高于工作台（侧栏 / 工具条 ≤ 20），低于确认弹窗（.modal-scrim 30）和浮层菜单 / Toast（40），
+   这样设置里触发的「结束会话？」等确认框会盖在设置之上。 */
+.settings-scrim {
+  position: fixed; inset: 0; z-index: 25;
+  display: grid; place-items: center;
+  padding: calc(var(--titlebar-inset) + 24px) 24px 24px;
+  background: var(--scrim);
+  -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+  animation: settings-scrim-in var(--motion-standard) var(--motion-ease);
+}
+/* Windows 自绘标题栏留在遮罩之上，窗口按钮始终可点。 */
+:root[data-platform="windows"] .settings-scrim { top: var(--titlebar-inset); padding-top: 24px; }
+
+:root .settings-view {
+  position: relative; z-index: auto;
+  grid-column: auto; grid-row: auto;
+  display: grid; grid-template-columns: 220px minmax(0, 1fr);
+  width: min(1080px, 100%); height: min(720px, 100%);
+  min-height: 0; padding: 0; margin: 0;
+  overflow: hidden; isolation: isolate;
+  border-radius: 14px;
+  background: var(--canvas);
+  box-shadow: var(--shadow-lg);
+  container: settings-shell / inline-size;
+  animation: settings-dialog-in var(--motion-standard) var(--motion-ease);
+}
+:root[data-background="on"] .settings-view { background: var(--canvas); }
+
+/* 导航：顶部搜索，分组之间用细线，不再有大标题。 */
+:root .settings-nav {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 12px 8px; overflow-y: auto;
+  border-right: 1px solid var(--border-soft);
+  background: var(--panel);
+}
+:root[data-platform="windows"] .settings-nav { padding-top: 12px; }
+:root .settings-search { min-height: 32px; margin: 0 2px 10px; padding: 0 10px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--border); }
+:root .settings-search input { min-height: 30px; padding: 0; font-size: var(--fs-sm); }
+:root .settings-nav__group { display: grid; gap: 2px; }
+:root .settings-nav__group + .settings-nav__group { margin-top: 6px; padding-top: 8px; border-top: 1px solid var(--border-soft); }
+:root .settings-nav__group h3 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+:root .settings-nav__group button { min-height: 32px; gap: 10px; padding: 0 10px; border-radius: var(--radius-md); font-size: var(--fs-sm); }
+:root .settings-nav__group button.is-active { background: var(--sidebar-active); }
+:root .settings-nav__group button.is-active::before { content: none; }
+:root .settings-nav__group button.is-active svg { color: var(--text); }
+.settings-nav__badge { margin-left: auto; width: 6px; height: 6px; border-radius: 50%; background: var(--warning); flex: none; }
+
+/* 右侧：56 高顶栏（面包屑 + 关闭）+ 可滚动内容。 */
+.settings-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
+.settings-topbar { display: flex; flex: none; align-items: center; gap: 8px; height: 56px; padding: 0 14px 0 24px; }
+.settings-crumb { display: flex; align-items: center; gap: 6px; min-width: 0; color: var(--text-faint); font-size: var(--fs-sm); }
+.settings-crumb strong { color: var(--text); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.settings-crumb svg { flex: none; }
+.settings-topbar .icon-button { margin-left: auto; }
+:root .settings-content {
+  flex: 1; margin: 0; padding: 0 24px 28px;
+  border-radius: 0; background: transparent; box-shadow: none;
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+:root[data-background="on"] .settings-content { background: transparent; }
+
+/* 弹窗里页头由面包屑承担：分区自带的大标题收为一行说明 + 动作。 */
+.settings-content .settings-head { padding-bottom: 12px; border-bottom: 0; flex-wrap: wrap; }
+.settings-content .settings-head h2 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.settings-content .settings-head p { color: var(--text-faint); font-size: var(--fs-sm); }
+
+@keyframes settings-scrim-in { from { opacity: 0; } }
+@keyframes settings-dialog-in { from { opacity: 0; transform: translateY(6px) scale(.985); } }
+
+/* 中等宽度：导航收窄，内容仍在右侧（720×480 这类最小窗口也保留侧栏）。 */
+@media (max-width: 860px) {
+  .settings-scrim { padding: calc(var(--titlebar-inset) + 8px) 8px 8px; }
+  :root .settings-view { grid-template-columns: 168px minmax(0, 1fr); height: 100%; }
+  .settings-topbar { height: 48px; padding-left: 18px; }
+  :root .settings-content { padding: 0 18px 20px; }
+}
+/* 很窄：导航压成横向一条，内容在下。 */
+@media (max-width: 640px) {
+  .settings-scrim { padding: calc(var(--titlebar-inset) + 8px) 8px 8px; }
+  :root .settings-view { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); height: 100%; }
+  :root .settings-nav { flex-direction: row; flex-wrap: wrap; align-items: center; border-right: 0; border-bottom: 1px solid var(--border-soft); }
+  :root .settings-search { flex-basis: 100%; margin-bottom: 4px; }
+  :root .settings-nav__group, :root .settings-nav__group + .settings-nav__group { display: flex; flex-wrap: wrap; margin: 0; padding: 0; border: 0; }
+  :root .settings-nav__group button { width: auto; }
+}
+@media (prefers-reduced-motion: reduce) { .settings-scrim, :root .settings-view { animation: none; } }
+.settings-crumb__link { padding: 0; border: 0; background: none; color: var(--text-faint); font: inherit; cursor: pointer; }
+.settings-crumb__link:hover:not(:disabled) { color: var(--text); }
+.settings-crumb__link:disabled { cursor: default; }
+.settings-content .settings-back { justify-self: start; margin-bottom: 4px; }
+/* 页头只剩说明 + 动作时收紧：隐藏的标题不再占位，与下方内容只留一档间距。 */
+.settings-content .settings-head { align-items: center; padding-bottom: 0; }
+.settings-content .settings-head__copy { gap: 0; }
+.settings-content > .os-page, .settings-content > section { gap: var(--space-5); }

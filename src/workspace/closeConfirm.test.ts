@@ -2,12 +2,14 @@ import { describe, expect, it } from "vitest";
 import type { SessionActivity, TerminalPhase } from "../terminal/contracts";
 import { closeConfirmBody, needsCloseConfirm } from "./closeConfirm";
 import { createWorkspaceTab } from "./tabs";
+import { statusReport } from "../terminal/fixtures/programStatus";
 
 const project = { id: "p1", name: "demo", rootPath: "/demo", rootUri: "file:///demo" };
 const tab = (phase: TerminalPhase, activity: SessionActivity = "idle") => ({
   ...createWorkspaceTab(project, "claude", 1),
   phase,
   activity,
+  agentState: statusReport("claude", activity === "idle" ? "idle" : activity === "talking" ? "working" : "blocked"),
 });
 
 describe("close confirmation", () => {

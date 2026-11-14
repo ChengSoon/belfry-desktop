@@ -5,7 +5,9 @@ import { productionFixture, click, waitFor } from "./productionFixture.mjs";
 test("settings page fills the available width without horizontal overflow", async (t) => {
   const { view } = await productionFixture(t);
   await click(view, 'button[title^="设置"]');
-  await waitFor(view, "!!document.querySelector('.settings-content > .appearance')");
+  await waitFor(view, "!!document.querySelector('.settings-content .appearance')");
+  // 设置是弹窗：等进场动画（缩放）结束再量，否则读到的是 0.985 倍的中间尺寸。
+  await view.cdp.evaluate("Promise.all(document.getAnimations().map(a => a.finished.catch(() => {})))");
 
   for (const width of [1920, 1440, 640]) {
     await view.send("Emulation.setDeviceMetricsOverride", {

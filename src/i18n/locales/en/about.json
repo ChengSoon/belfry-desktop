@@ -32,5 +32,16 @@
     "other": "Upgrade all {{count}} agents"
   },
   "AboutSection.updateAvailable": "Version v{{version}} is available",
-  "AboutSection.updateAvailableHint": "Restart Belfry after the download to apply it."
+  "AboutSection.updateAvailableHint": "Restart Belfry after the download to apply it.",
+  "AboutSection.upToDate": "Up to date",
+  "AboutSection.runtime": "Runtime",
+  "AboutSection.links": "Links",
+  "AboutSection.daemon": "Background terminals",
+  "AboutSection.daemonHint": "Terminals kept running after the window closes",
+  "AboutSection.daemonRunning": "Running · {{count}} sessions",
+  "AboutSection.pluginHost": "Plugin host",
+  "AboutSection.pluginHostHint": "Runs plugin panels and agent tools",
+  "AboutSection.pluginHostOk": "OK · {{count}} plugins",
+  "AboutSection.pluginHostDown": "Unavailable",
+  "AboutSection.checking": "Checking…"
 }

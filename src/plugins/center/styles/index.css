@@ -12,3 +12,24 @@
 @import "./scope-02.css";
 @import "./host.css";
 @import "./graphite.css";
+
+/* T42：已安装插件按汇总稿的行型（外层 .sk-list / .sk-item 来自设置还原件）。 */
+.pi-plugins .plugins-page > .sk-lede { margin: 0 4px 10px; }
+.pi-plugins .plugins-page { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 8px; }
+.pi-plugins .plugins-page > * { grid-column: 1 / -1; }
+.pi-plugins .plugins-page > .plugins-toolbar { grid-column: 1; margin: 0; }
+.pi-plugins .plugins-page > .plugins-header-actions { grid-column: 2; grid-row: 2; display: flex; gap: 8px; margin: 0; }
+.pi-plugins .sk-list > .plugins-row { padding: 12px 16px; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.pi-plugins .sk-list > .plugins-row + .plugins-row { border-top: 1px solid var(--border-soft); }
+/* .sk-list 用 overflow:hidden 裁圆角，会把行内的作用域菜单、更多菜单一起裁掉（末行尤甚）。
+   插件列表改为不裁剪：首末行自带圆角，展开菜单的行抬到兄弟行之上。 */
+.pi-plugins .sk-list:has(> .plugins-row) { overflow: visible; }
+.pi-plugins .sk-list > .plugins-row:first-child { border-top-left-radius: 12px; border-top-right-radius: 12px; }
+.pi-plugins .sk-list > .plugins-row:last-child { border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; }
+.pi-plugins .sk-list > .plugins-row { position: relative; }
+.pi-plugins .sk-list > .plugins-row:is(.menu-open, :has([aria-expanded="true"])) { z-index: 3; }
+.pi-plugins .plugins-row .plugins-glyph { display: grid; width: 34px; height: 34px; flex: none; place-items: center; border-radius: 9px; color: #fff; font: 500 13px var(--font-sans); }
+.pi-plugins .plugins-row.broken .plugins-glyph { background: var(--danger-soft); color: var(--danger); }
+.pi-plugins .plugins-row.off .sk-l > b { color: var(--text-muted); }
+.pi-plugins .plugins-row .plugins-row-details { margin-top: 4px; }
+.pi-plugins .plugins-row .plugins-row-error { color: var(--danger); }

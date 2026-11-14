@@ -9,11 +9,10 @@ import { uiFixture, resize, settings, theme, waitFor } from "../src/components/l
 
 const OUT = process.env.BELFRY_SECTIONS_OUT ?? "docs/design/belfry-ui/settings-sections-fidelity/after";
 const SECTIONS = [
-  ["provider", "全局 Provider", ".provider-card"],
-  ["project", "项目 Provider", ".project-provider"],
+  ["models", "模型服务", ".patch-bay"],
   ["hooks", "会话状态", ".hook-agent-card"],
   ["shortcuts", "快捷键", ".shortcut-row"],
-  ["backup", "本地备份", ".os-action-card"],
+  ["backup", "数据与备份", ".os-action-card"],
   ["environment", "协作环境", ".environment-checks li"],
   ["about", "关于", ".about-card"],
 ];

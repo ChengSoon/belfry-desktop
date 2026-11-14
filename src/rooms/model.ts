@@ -3,6 +3,9 @@ import type { Room, RoomMember, RoomMessage, RoomTask, TaskStatus } from "./cont
 import type { WorkspaceTab } from "../workspace/contracts";
 import recipientProtocol from "./recipientProtocol.json";
 import { formatDateTime, getLocale, formatList } from "../i18n";
+import { sessionActivity, terminalStatusFor } from "../agent/programStatus";
+import { usesTerminalStatus } from "../agent/contracts";
+import { terminalStatusLabel } from "../agent/programStatusLabel";
 
 /** 状态中文名，与 Rust `TaskStatus::label` 同一口径。 */
 export const STATUS_LABEL: Record<TaskStatus, string> = localized(() => ({
@@ -188,16 +191,34 @@ export function initialOf(title: string): string {
   return [...title.trim()][0]?.toUpperCase() ?? "?";
 }
 
-/** 成员此刻的状态，由他会话的活动推出来。 */
-export type MemberStatus = "idle" | "busy" | "waiting" | "offline";
+/** Native agents report their own foreground state; absent reports remain unknown. */
+export type MemberStatus = "idle" | "busy" | "waiting" | "unknown" | "error" | "offline";
 
-export const MEMBER_STATUS_TEXT: Record<MemberStatus, string> = localized(() => ({ idle: t("rooms.model.text_dae661d17c"), busy: t("rooms.model.text_963e4f4abf"), waiting: t("rooms.model.text_1247f5c788"), offline: t("rooms.model.text_be1b4f3c6c") }));
+export const MEMBER_STATUS_TEXT: Record<MemberStatus, string> = localized(() => ({ idle: t("rooms.model.text_dae661d17c"), busy: t("rooms.model.text_963e4f4abf"), waiting: t("rooms.model.text_1247f5c788"),
+  unknown: t("rooms.model.statusUnknown"), error: t("rooms.model.statusError"), offline: t("rooms.model.text_be1b4f3c6c") }));
 
-export function memberStatus(tab: Pick<WorkspaceTab, "phase" | "activity"> | undefined): MemberStatus {
+type MemberStatusTab = Pick<WorkspaceTab, "phase" | "activity"> & Partial<Pick<WorkspaceTab, "kind" | "agentState">>;
+
+export function memberStatus(tab: MemberStatusTab | undefined): MemberStatus {
   if (!tab || tab.phase !== "running") return "offline";
-  if (tab.activity === "awaiting-choice") return "waiting";
-  if (tab.activity === "talking") return "busy";
+  if (usesTerminalStatus(tab.kind)) {
+    switch (terminalStatusFor(tab.kind, tab.agentState)?.programStatus.state) {
+      case "idle": case "done": return "idle";
+      case "working": return "busy";
+      case "blocked": return "waiting";
+      case "error": return "error";
+      default: return "unknown";
+    }
+  }
+  const activity = sessionActivity(tab);
+  if (activity === "awaiting-choice") return "waiting";
+  if (activity === "talking") return "busy";
   return "idle";
+}
+
+export function memberStatusText(tab: MemberStatusTab | undefined): string {
+  return tab?.phase === "running" && usesTerminalStatus(tab.kind)
+    ? terminalStatusLabel(tab.kind, tab.agentState) : MEMBER_STATUS_TEXT[memberStatus(tab)];
 }
 
 // ---- @ 点名补全 ----

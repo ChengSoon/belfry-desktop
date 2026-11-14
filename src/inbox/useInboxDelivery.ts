@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { isAgentKind } from "../agent/contracts";
+import { isAgentKind, usesTerminalStatus } from "../agent/contracts";
+import { terminalStatusFor } from "../agent/programStatus";
 import { canDispatchPrompt } from "../prompt/contracts";
 import { useFeedback } from "../i18n";
 import { toAppFailure } from "../workspace/errors";
@@ -86,13 +87,14 @@ export function useInboxDelivery(options: {
     const target = targetsRef.current.get(tabId);
     const sessionId = target?.getSessionId?.() ?? null;
     if (!tab || !isAgentKind(tab.kind) || !target || !sessionId) return null;
-    const interaction = target.readInteraction?.() ?? null;
+    const interaction = usesTerminalStatus(tab.kind) ? null : target.readInteraction?.() ?? null;
     return {
       tabId, terminalSessionId: sessionId,
       running: tab.phase === "running",
       idle: canDispatchPrompt(tab),
       composerEmpty: target.composerEmpty?.() ?? false,
-      awaitingInput: tab.activity === "awaiting-choice" || interaction !== null,
+      awaitingInput: usesTerminalStatus(tab.kind) ? terminalStatusFor(tab.kind, tab.agentState)?.programStatus.state === "blocked"
+        : tab.activity === "awaiting-choice" || interaction !== null,
       promptQueueEmpty: emptyRef.current(tabId),
       safePaste: target.canPasteMultiline?.() ?? false,
       inputRevision: target.inputRevision?.() ?? -1,

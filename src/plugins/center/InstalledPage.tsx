@@ -5,6 +5,7 @@ import { Disclosure } from "../../components/controls/Disclosure";
 import { usePluginsPage } from "./context";
 import { GROUP_LABEL_KEYS, installedGroups } from "./helpers";
 import { Button, cx } from "./ui";
+import { SButton, SGroupTitle, SItem, SList, STag } from "../../settings/kit";
 import { IconCircleAlert, IconPlug, IconSearch } from "./icons";
 import { t } from "./i18n";
 import { inspectLocal } from "./useCenterActions";
@@ -16,14 +17,28 @@ export function InstalledPage() {
   useTranslation();
   const { data, query } = usePluginsPage();
   const groups = installedGroups(data.plugins, query);
+  const enabled = data.plugins.filter((plugin) => plugin.enabled).length;
   return <div id="plugins-panel-installed" role="tabpanel" aria-labelledby="plugins-tab-installed" className="plugins-panel">
-    {!groups.length ? <InstalledEmpty /> : groups.map((group) => <section key={group.id} className="plugins-group">
-      <header className="plugins-group-head"><h3 className="plugins-group-label">{t(GROUP_LABEL_KEYS[group.id])}</h3><span className="plugins-group-count">{formatNumber(group.rows.length)}</span></header>
-      <div className="plugins-list" role="list" aria-label={t(GROUP_LABEL_KEYS[group.id])}>
-        {group.rows.map((plugin) => <InstalledRow key={plugin.id} plugin={plugin} broken={group.id === "attention"} />)}
-      </div>
-    </section>)}
+    {!groups.length ? <InstalledEmpty /> : <>
+      <SGroupTitle tail={<span>{t("plugins.InstalledPage.summary", { count: formatNumber(data.plugins.length), enabled: formatNumber(enabled) })}</span>}>{t("plugins.tabInstalled")}</SGroupTitle>
+      <SList label={t("plugins.tabInstalled")}>
+        {groups.flatMap((group) => group.rows.map((plugin) => <InstalledRow key={plugin.id} plugin={plugin} broken={group.id === "attention"} />))}
+      </SList>
+    </>}
   </div>;
+}
+
+/** 开发：新建插件 / 加载本地插件（稿里的「开发」组；入口原在「更多」菜单里，功能不变）。 */
+export function DevelopGroup() {
+  useTranslation();
+  const { actions, setTemplate } = usePluginsPage();
+  return <>
+    <SGroupTitle>{t("plugins.InstalledPage.develop")}</SGroupTitle>
+    <SList>
+      <SItem title={t("plugins.newFromTemplate")} hint={t("plugins.InstalledPage.newHint")}><SButton tone="secondary" onClick={() => setTemplate("panel-basic")}>{t("plugins.InstalledPage.create")}</SButton></SItem>
+      <SItem title={t("plugins.loadDev")} hint={t("plugins.InstalledPage.loadDevHint")}><SButton disabled={actions.busy} onClick={() => void inspectLocal(actions, true)}>{t("plugins.InstalledPage.choose")}</SButton></SItem>
+    </SList>
+  </>;
 }
 function InstalledEmpty() {
   useTranslation();
@@ -40,14 +55,20 @@ function InstalledEmpty() {
 }
 function InstalledRow({ plugin, broken }: { plugin: PluginSummary; broken: boolean }) {
   useTranslation();
-  return <div role="listitem" className={cx("plugins-row", !plugin.enabled && "off", broken && "broken")}>
-    <span className="plugins-glyph" aria-hidden>{broken ? <IconCircleAlert size={15} /> : <IconPlug size={15} />}</span>
-    <div className="plugins-row-copy"><div className="plugins-row-title"><span className="plugins-row-name">{plugin.name}</span>
-      <span className={cx("plugins-tag", plugin.enabled && !broken && "is-enabled", broken && "is-error")}>{broken ? t("plugins.InstalledPage.text_bc288c608f") : plugin.enabled ? t("plugins.InstalledPage.text_dfb802238b") : t("plugins.InstalledPage.text_a8c3698b5b")}</span>
-      <span className="plugins-tag">{plugin.source === "dev" ? t("plugins.tagLocal") : t("plugins.InstalledPage.text_3365d02772")}</span></div>
-      <div className="plugins-row-meta"><span className="plugins-row-id">{plugin.id}</span><span className="plugins-dot" aria-hidden>·</span><span>v{plugin.version}</span></div>
-      {plugin.errorMessage ? <p className="plugins-row-error">{plugin.errorMessage}</p> : null}<PluginRowDetails plugin={plugin} />
-    </div><PluginRowControls plugin={plugin} />
+  const { data } = usePluginsPage();
+  const tools = data.runtime.tools.filter((tool) => tool.pluginId === plugin.id).length;
+  const hue = [...plugin.id].reduce((sum, char) => sum + char.charCodeAt(0), 0) % 360;
+  return <div role="listitem" className={cx("sk-item plugins-row", !plugin.enabled && "off", broken && "broken")}>
+    <span className="plugins-glyph" aria-hidden style={{ background: broken ? undefined : `oklch(0.55 0.11 ${hue})` }}>{broken ? <IconCircleAlert size={15} /> : plugin.name.slice(0, 1)}</span>
+    <div className="sk-l">
+      <b>{plugin.name}<span className="sk-pill">v{plugin.version}</span>
+        {broken ? <STag tone="danger">{t("plugins.InstalledPage.text_bc288c608f")}</STag> : null}
+        {plugin.source === "dev" ? <STag>{t("plugins.tagLocal")}</STag> : null}</b>
+      <span>{[plugin.description, tools ? t("plugins.InstalledPage.tools", { count: tools }) : null, plugin.id].filter(Boolean).join(" · ")}</span>
+      {plugin.errorMessage ? <span className="plugins-row-error">{plugin.errorMessage}</span> : null}
+      <PluginRowDetails plugin={plugin} />
+    </div>
+    <PluginRowControls plugin={plugin} />
   </div>;
 }
 function PluginRowDetails({ plugin }: { plugin: PluginSummary }) {

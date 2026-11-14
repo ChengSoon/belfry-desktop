@@ -42,5 +42,11 @@
   "marketCustomUrl": "Catalog URL",
   "marketCustomUrlDesc": "The full URL of catalog.json. Relative package paths are resolved against this URL.",
   "marketCustomUrlPlaceholder": "https://example.com/catalog.json",
-  "saving": "Saving…"
+  "saving": "Saving…",
+  "SettingsPanel.groupGeneral": "General",
+  "SettingsPanel.groupAgent": "Agents",
+  "SettingsPanel.groupSystem": "System",
+  "SettingsPanel.models": "Model services",
+  "SettingsPanel.backup": "Data & backup",
+  "SettingsPanel.manageServices": "Manage services"
 }

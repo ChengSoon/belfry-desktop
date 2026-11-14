@@ -21,6 +21,7 @@ use super::osc::{OscColorFilter, Palette};
 use super::ssh_auth;
 
 const OUTPUT_CHUNK_SIZE: usize = 64 * 1024;
+const MAX_REPLY_BYTES: usize = 64 * 1024;
 /// 交互式关闭：断开 PTY 后给进程自行收尾的时间，等待发生在后台线程。
 const CLOSE_GRACE_PERIOD: Duration = Duration::from_secs(2);
 /// 退出应用时不再礼让太久，避免窗口关掉后进程还挂着。
@@ -30,6 +31,18 @@ const KILL_GRACE_PERIOD: Duration = Duration::from_millis(500);
 #[derive(Default)]
 pub struct NativePtyBackend {
     sessions: Arc<Mutex<HashMap<String, Arc<NativeSession>>>>,
+}
+
+#[derive(Clone, Copy, Default)]
+struct ProgramInputStatus {
+    report: Option<(u64, bool)>,
+    bracketed_paste: bool,
+}
+
+#[derive(Default)]
+struct PendingReplies {
+    bytes: Vec<u8>,
+    running: bool,
 }
 
 pub(super) struct NativeSession {
@@ -47,6 +60,9 @@ pub(super) struct NativeSession {
     palette: RwLock<Option<Palette>>,
     /// SSH 登录密码：首次出现密码提示时自动填入一次，然后停用。非 SSH 会话为 None。
     auto_password: Mutex<Option<AutoPassword>>,
+    /// Updated by the PTY reader before output is forwarded or a device query is answered.
+    program_status: Mutex<ProgramInputStatus>,
+    replies: Mutex<PendingReplies>,
     /// 私有配置快照须活到该 PTY 退出，不能在 spawn 返回时释放。
     _launch_overlay: super::overlay::LaunchOverlay,
 }
@@ -109,13 +125,16 @@ impl PtyBackend for NativePtyBackend {
             // 颜色坏了不该拦下会话：解析失败就当没给，退回让 xterm.js 自己答。
             palette: RwLock::new(request.palette.as_ref().and_then(to_palette)),
             auto_password: Mutex::new(auto_password),
+            program_status: Mutex::new(ProgramInputStatus::default()),
+            replies: Mutex::new(PendingReplies::default()),
             _launch_overlay: request.launch_overlay,
         });
         self.sessions
             .lock()
             .unwrap()
             .insert(id.clone(), session.clone());
-        spawn_reader(id.clone(), reader, session.clone());
+        let status_agent = crate::agent::AgentKind::from_profile_id(&request.profile_id).filter(|agent| agent.terminal_status_app().is_some());
+        spawn_reader(id.clone(), reader, session.clone(), status_agent);
         spawn_exit_monitor(id.clone(), child, session, self.sessions.clone());
 
         Ok(TerminalSession {
@@ -133,9 +152,16 @@ impl PtyBackend for NativePtyBackend {
     }
 
     fn write(&self, session_id: &str, bytes: &[u8]) -> Result<(), AppError> {
+        self.write_checked(session_id, bytes, None)
+    }
+
+    fn write_checked(&self, session_id: &str, bytes: &[u8], expected_program_sequence: Option<u64>) -> Result<(), AppError> {
         let session = self.session(session_id)?;
         let mut writer = session.writer.lock().unwrap();
         let writer = writer.as_mut().ok_or_else(AppError::process_exited)?;
+        if let Some(expected) = expected_program_sequence {
+            session.check_program_status(expected)?;
+        }
         writer
             .write_all(bytes)
             .map_err(|error| AppError::io(error.to_string()))?;
@@ -219,22 +245,64 @@ impl NativePtyBackend {
 }
 
 impl NativeSession {
+    fn observe_program_status(&self, snapshot: Option<&crate::agent::hooks::HookSnapshot>, bracketed_paste: bool) {
+        let mut status = self.program_status.lock().unwrap();
+        status.bracketed_paste = bracketed_paste;
+        if let Some(snapshot) = snapshot && let Some(report) = snapshot.terminal_status_for(snapshot.agent) {
+            status.report = Some((snapshot.sequence, report.state.allows_input()));
+        }
+    }
+
+    fn check_program_status(&self, expected: u64) -> Result<(), AppError> {
+        let status = *self.program_status.lock().map_err(|_| AppError::conflict("Native program status is unavailable"))?;
+        if status.report != Some((expected, true)) || !status.bracketed_paste {
+            return Err(AppError::conflict("Agent terminal status or paste mode changed before PTY input"));
+        }
+        // Do not hold the status lock through write_all: the reader must keep draining
+        // output while the child consumes a large paste.
+        Ok(())
+    }
+
     /// reader 线程回写 OSC 应答。会话已经断开就悄悄丢掉：这条路径上没有能上报错误的对端，
     /// 而且丢掉一条查不到答案的应答，后果只是子进程回落到它自己的默认色。
-    fn reply(&self, bytes: &[u8]) {
-        let mut writer = self.writer.lock().unwrap();
-        let Some(writer) = writer.as_mut() else {
-            return;
-        };
-        let _ = writer.write_all(bytes);
-        let _ = writer.flush();
+    fn reply(self: &Arc<Self>, bytes: &[u8]) {
+        if bytes.is_empty() { return; }
+        let mut replies = self.replies.lock().unwrap();
+        if replies.bytes.len().saturating_add(bytes.len()) > MAX_REPLY_BYTES { return; }
+        replies.bytes.extend_from_slice(bytes);
+        if replies.running { return; }
+        replies.running = true;
+        drop(replies);
+        // The child may print queries before consuming a large input frame. Waiting
+        // for its writer here would prevent the reader from draining that output.
+        let session = self.clone();
+        thread::spawn(move || {
+            loop {
+                let bytes = {
+                    let mut replies = session.replies.lock().unwrap();
+                    if replies.bytes.is_empty() {
+                        replies.running = false;
+                        return;
+                    }
+                    std::mem::take(&mut replies.bytes)
+                };
+                let mut writer = session.writer.lock().unwrap();
+                if let Some(writer) = writer.as_mut() {
+                    let _ = writer.write_all(&bytes);
+                    let _ = writer.flush();
+                }
+            }
+        });
     }
 }
 
-fn spawn_reader(session_id: String, mut reader: Box<dyn Read + Send>, session: Arc<NativeSession>) {
+fn spawn_reader(session_id: String, mut reader: Box<dyn Read + Send>, session: Arc<NativeSession>, status_agent: Option<crate::agent::AgentKind>) {
     thread::spawn(move || {
         let mut buffer = vec![0_u8; OUTPUT_CHUNK_SIZE];
         let mut filter = OscColorFilter::default();
+        let mut status = status_agent.map(super::program_status::ProgramStatus::new);
+        let mut modes = super::input_gate_vt::Modes::default();
+        let mut read_sequence = 0;
         loop {
             match reader.read(&mut buffer) {
                 Ok(0) => {
@@ -247,6 +315,10 @@ fn spawn_reader(session_id: String, mut reader: Box<dyn Read + Send>, session: A
                     break;
                 }
                 Ok(count) => {
+                    let updates = status.as_mut().map(|status| status.feed(&buffer[..count])).unwrap_or_default();
+                    read_sequence += 1;
+                    modes.observe(read_sequence, &buffer[..count], crate::rooms::model::now_millis());
+                    session.observe_program_status(updates.last(), modes.bracketed_paste);
                     let palette = *session.palette.read().unwrap();
                     let filtered = filter.feed(&buffer[..count], palette);
                     if !filtered.reply.is_empty() {
@@ -263,13 +335,13 @@ fn spawn_reader(session_id: String, mut reader: Box<dyn Read + Send>, session: A
                         session.reply(&reply);
                     }
                     // 整块都是查询时跳过：前端按 sequence 严格校验，少发一次比发个空事件干净。
-                    if filtered.forward.is_empty() {
-                        continue;
-                    }
-                    if send_output(&session_id, &session, filtered.forward, false).is_err() {
+                    if !filtered.forward.is_empty() && send_output(&session_id, &session, filtered.forward, false).is_err() {
                         *session.exit_reason.lock().unwrap() = TerminalExitReason::IoFailed;
                         let _ = session.killer.lock().unwrap().kill();
                         break;
+                    }
+                    for snapshot in updates {
+                        let _ = session.sink.send(TerminalEvent::AgentState { session_id: session_id.clone(), snapshot });
                     }
                 }
                 Err(_) => {
@@ -280,6 +352,12 @@ fn spawn_reader(session_id: String, mut reader: Box<dyn Read + Send>, session: A
                 }
             }
         }
+        if let Some(snapshot) = status.as_mut().and_then(super::program_status::ProgramStatus::exited) {
+            session.observe_program_status(Some(&snapshot), false);
+            let _ = session.sink.send(TerminalEvent::AgentState { session_id, snapshot });
+        }
+        // A retained done/error report remains useful to the UI, but EOF closes input.
+        *session.program_status.lock().unwrap() = ProgramInputStatus::default();
         let mut done = session.reader_done.0.lock().unwrap();
         *done = true;
         session.reader_done.1.notify_all();
@@ -313,3 +391,7 @@ fn to_pty_size(cols: u16, rows: u16) -> PtySize {
         pixel_height: 0,
     }
 }
+
+#[cfg(test)]
+#[path = "native_status_tests.rs"]
+mod status_tests;

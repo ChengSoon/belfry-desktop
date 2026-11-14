@@ -1,9 +1,9 @@
 import { localized, t, useTranslation } from "../i18n";
-import { Activity, Archive, Boxes, FolderGit2, HeartPulse, Image, Info, Keyboard, Search, Waypoints, X } from "lucide-react";
+import { Activity, Archive, Boxes, ChevronRight, FolderGit2, HeartPulse, Image, Info, Keyboard, Search, Waypoints, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { AppearanceSection } from "../background/components/AppearanceSection";
 import { ProviderSection } from "../provider/components/ProviderSection";
-import { ProjectProviderSection } from "../provider/project/ProjectProviderSection";
+import { ModelRouting } from "../provider/routing/ModelRouting";
 import type { ProjectWorkspace } from "../workspace/contracts";
 import type { UpdaterState } from "../updater/contracts";
 import { EnvironmentSection } from "../setup/EnvironmentSection";
@@ -16,20 +16,20 @@ import { BackupSection } from "../backup/BackupSection";
 import { BackgroundSessions } from "../terminal/daemon/BackgroundSessions";
 import { composingKey } from "../utils/keyboard";
 import "./settings.css";
+import { SPage } from "./kit";
 
 const SECTIONS = localized(() => ([
-  { icon: Image, key: "appearance", label: t("settings.SettingsPanel.text_86a63f23a0"), group: t("settings.SettingsPanel.text_7958d84e9a"), keywords: t("settings.SettingsPanel.text_d27d4b755c") },
-  { icon: Keyboard, key: "shortcuts", label: t("settings.SettingsPanel.text_ee2638183d"), group: t("settings.SettingsPanel.text_7958d84e9a"), keywords: t("settings.SettingsPanel.text_3556d0b987") },
-  { icon: Waypoints, key: "provider", label: t("settings.SettingsPanel.text_c5ecb59fd4"), group: t("settings.SettingsPanel.text_db94a5b8e2"), keywords: t("settings.SettingsPanel.text_f008673667") },
-  { icon: FolderGit2, key: "project-provider", label: t("settings.SettingsPanel.text_784caf2b25"), group: t("settings.SettingsPanel.text_db94a5b8e2"), keywords: t("settings.SettingsPanel.text_16e5b1c831") },
-  { icon: Activity, key: "agent-hooks", label: t("settings.SettingsPanel.text_ea5e729632"), group: t("settings.SettingsPanel.text_db94a5b8e2"), keywords: t("settings.SettingsPanel.text_fead0c3b1d") },
+  { icon: Image, key: "appearance", label: t("settings.SettingsPanel.text_86a63f23a0"), group: t("settings.SettingsPanel.groupGeneral"), keywords: t("settings.SettingsPanel.text_d27d4b755c") },
+  { icon: Keyboard, key: "shortcuts", label: t("settings.SettingsPanel.text_ee2638183d"), group: t("settings.SettingsPanel.groupGeneral"), keywords: t("settings.SettingsPanel.text_3556d0b987") },
+  { icon: Waypoints, key: "provider", label: t("settings.SettingsPanel.models"), group: t("settings.SettingsPanel.groupAgent"), keywords: `${t("settings.SettingsPanel.text_f008673667")} ${t("settings.SettingsPanel.text_16e5b1c831")} provider` },
+  { icon: Activity, key: "agent-hooks", label: t("settings.SettingsPanel.text_ea5e729632"), group: t("settings.SettingsPanel.groupAgent"), keywords: t("settings.SettingsPanel.text_fead0c3b1d") },
   { icon: Boxes, key: "plugins", label: t("settings.SettingsPanel.text_e806fbbe8e"), group: t("settings.SettingsPanel.text_99a4e1e597"), keywords: t("settings.SettingsPanel.text_70fc2aa517") },
-  { icon: Archive, key: "backup", label: t("settings.SettingsPanel.text_daa0a5cd5b"), group: t("settings.SettingsPanel.text_14b627f5a0"), keywords: t("settings.SettingsPanel.text_090bc38028") },
-  { icon: HeartPulse, key: "environment", label: t("settings.SettingsPanel.text_821f9ff1ad"), group: t("settings.SettingsPanel.text_bcb3eed213"), keywords: t("settings.SettingsPanel.text_74c727449a") },
-  { icon: Info, key: "about", label: t("settings.SettingsPanel.text_52d25a9e30"), group: t("settings.SettingsPanel.text_bcb3eed213"), keywords: t("settings.SettingsPanel.text_254b2d7fcb") },
+  { icon: Archive, key: "backup", label: t("settings.SettingsPanel.backup"), group: t("settings.SettingsPanel.groupSystem"), keywords: t("settings.SettingsPanel.text_090bc38028") },
+  { icon: HeartPulse, key: "environment", label: t("settings.SettingsPanel.text_821f9ff1ad"), group: t("settings.SettingsPanel.groupSystem"), keywords: t("settings.SettingsPanel.text_74c727449a") },
+  { icon: Info, key: "about", label: t("settings.SettingsPanel.text_52d25a9e30"), group: t("settings.SettingsPanel.groupSystem"), keywords: t("settings.SettingsPanel.text_254b2d7fcb") },
 ] as const));
 
-export const settingsGroups = localized(() => ([t("settings.SettingsPanel.text_7958d84e9a"), t("settings.SettingsPanel.text_db94a5b8e2"), t("settings.SettingsPanel.text_99a4e1e597"), t("settings.SettingsPanel.text_14b627f5a0"), t("settings.SettingsPanel.text_bcb3eed213")] as const));
+export const settingsGroups = localized(() => ([t("settings.SettingsPanel.groupGeneral"), t("settings.SettingsPanel.groupAgent"), t("settings.SettingsPanel.text_99a4e1e597"), t("settings.SettingsPanel.groupSystem")] as const));
 export function filterSettingsNavigation(query: string) {
   const words = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
   return settingsGroups.map((label) => ({ label, sections: SECTIONS.filter((section) =>
@@ -41,6 +41,8 @@ export function filterSettingsNavigation(query: string) {
 type SectionKey = (typeof SECTIONS)[number]["key"];
 export const settingsSectionKeys = SECTIONS.map((section) => section.key);
 export function normalizeSettingsSection(value: string | undefined): SectionKey {
+  // 旧的「项目 Provider」深链并入模型服务（配线台的项目作用域）。
+  if (value === "project-provider") return "provider";
   return value && settingsSectionKeys.includes(value as SectionKey) ? (value as SectionKey) : "appearance";
 }
 
@@ -58,6 +60,8 @@ export function SettingsPanel({ onClose, initialSection, project = null, updater
   const [active, setActive] = useState<SectionKey>(() => normalizeSettingsSection(initialSection));
   const [guarded, setGuarded] = useState(false);
   const [query, setQuery] = useState("");
+  // 模型服务：默认显示配线台；「管理服务」进入原来的服务编辑器（新增 / 编辑 / 删除都在那里）。
+  const [managing, setManaging] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -73,11 +77,26 @@ export function SettingsPanel({ onClose, initialSection, project = null, updater
     closeRef.current?.focus();
   }, []);
 
+  const current = SECTIONS.find((section) => section.key === active);
   return (
-    <section aria-label={t("settings.SettingsPanel.text_df3d58c7d8")} className="settings-view">
+    <div className="settings-scrim" onMouseDown={(event) => { if (event.target === event.currentTarget && !guarded) onClose(); }}>
+    <section aria-labelledby="settings-title" aria-modal="true" className="settings-view" role="dialog">
       <nav aria-label={t("settings.SettingsPanel.text_dfb699c543")} className="settings-nav">
-        <div className="settings-nav__head">
-          <strong id="settings-title">{t("settings.SettingsPanel.text_df3d58c7d8")}</strong>
+        <SettingsNavigation active={active} guarded={guarded} query={query} onQuery={setQuery}
+          onSelect={(key) => { if (!guarded) { setActive(key); setManaging(false); } }} />
+      </nav>
+
+      <div className="settings-main">
+        <header className="settings-topbar">
+          <nav aria-label={t("settings.SettingsPanel.text_df3d58c7d8")} className="settings-crumb">
+            <span id="settings-title">{t("settings.SettingsPanel.text_df3d58c7d8")}</span>
+            <ChevronRight aria-hidden="true" size={ICON.sm} />
+            {active === "provider" && managing ? <>
+              <button className="settings-crumb__link" disabled={guarded} onClick={() => setManaging(false)} type="button">{current?.label}</button>
+              <ChevronRight aria-hidden="true" size={ICON.sm} />
+              <strong aria-current="page">{t("settings.SettingsPanel.manageServices")}</strong>
+            </> : <strong aria-current="page">{current?.label}</strong>}
+          </nav>
           <button
             className="icon-button icon-button--sm"
             disabled={guarded}
@@ -88,17 +107,12 @@ export function SettingsPanel({ onClose, initialSection, project = null, updater
           >
             <X aria-hidden="true" size={ICON.md} />
           </button>
-        </div>
-
-        <SettingsNavigation active={active} guarded={guarded} query={query} onQuery={setQuery}
-          onSelect={(key) => { if (!guarded) setActive(key); }} />
-      </nav>
-
+        </header>
       <div className="settings-content">
         {active === "appearance" ? <AppearanceSection /> : null}
-        {active === "provider" ? <ProviderSection onGuardChange={setGuarded} /> : null}
-        {active === "project-provider" ? <ProjectProviderSection project={project} /> : null}
-        {active === "agent-hooks" ? <><HookSettingsSection onGuardChange={setGuarded} /><BackgroundSessions /></> : null}
+        {active === "provider" && !managing ? <ModelRouting project={project} onManage={() => setManaging(true)} /> : null}
+        {active === "provider" && managing ? <ProviderSection onGuardChange={setGuarded} onBack={() => setManaging(false)} /> : null}
+        {active === "agent-hooks" ? <SPage label={t("settings.SettingsPanel.text_ea5e729632")}><HookSettingsSection onGuardChange={setGuarded} /><BackgroundSessions /></SPage> : null}
         {active === "shortcuts" ? <ShortcutSettingsSection onGuardChange={setGuarded} /> : null}
         {active === "backup" ? <BackupSection onGuardChange={setGuarded} /> : null}
         {active === "environment" ? <EnvironmentSection /> : null}
@@ -112,7 +126,9 @@ export function SettingsPanel({ onClose, initialSection, project = null, updater
           />
         ) : null}
       </div>
+      </div>
     </section>
+    </div>
   );
 }
 

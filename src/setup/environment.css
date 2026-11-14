@@ -12,7 +12,7 @@
 .environment-summary__body span { color: var(--text-muted); font-size: var(--fs-sm); }
 
 .environment-checks { margin: 0; padding: 0; list-style: none; }
-.environment-checks li {
+.environment-checks li:not(.sk-item) {
   display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-3); align-items: center;
   min-height: 56px; padding: var(--space-3) var(--space-5);
 }
@@ -29,3 +29,9 @@
 .environment-spin { animation: environment-spin 0.8s linear infinite; }
 @keyframes environment-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .environment-spin { animation: none; } }
+
+/* T42：按汇总稿的状态卡 + 检查项行型。 */
+.environment-section .environment-checks { margin: 0; padding: 0; list-style: none; }
+.environment-section .environment-checks > .sk-item + .sk-item { border-top: 1px solid var(--border-soft); }
+.environment-section .sk-hero-badge svg { width: 20px; height: 20px; }
+.environment-section .sk-note { margin-top: 10px; }

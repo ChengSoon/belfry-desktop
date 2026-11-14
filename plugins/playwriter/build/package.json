@@ -1,0 +1,8 @@
+{
+  "name": "belfry-playwriter-engine",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "playwriter": "0.11.0"
+  }
+}

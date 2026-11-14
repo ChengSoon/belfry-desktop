@@ -78,7 +78,7 @@ test('sidebar fills tall and short windows, tools stay at bottom, menus escape t
   await intact(view, baseline);
 });
 
-test('sidebar collapse works with every right panel and settings takes the whole window', { timeout: 90_000 }, async t => {
+test('sidebar collapse works with every right panel and settings opens as a dialog over the live workbench', { timeout: 90_000 }, async t => {
   const { view, baseline } = await uiFixture(t);
   const panels = [
     { trigger:'button[title^="额度用量"]', panel:'.usage-panel', close:'button[aria-label="关闭用量"]' },
@@ -98,11 +98,13 @@ test('sidebar collapse works with every right panel and settings takes the whole
     await fill(view, '.quick-open input', '设置');
     await press(view, 'Enter');
     await waitFor(view, `!!document.querySelector('button[title="关闭设置"]')`);
-    assert.equal(await view.cdp.evaluate("getComputedStyle(document.querySelector('.sidebar-shell')).display"), 'none');
+    // 设置是弹窗（T41）：工作台保持可见，弹窗居中且留在窗口内。先等进场动画（缩放）结束。
+    await view.cdp.evaluate("Promise.all(document.getAnimations().map(a => a.finished.catch(() => {})))");
+    assert.notEqual(await view.cdp.evaluate("getComputedStyle(document.querySelector('.workbench')).display"), 'none');
     assert.deepEqual(await view.cdp.evaluate(`(() => {
       const r = document.querySelector('.settings-view').getBoundingClientRect();
-      return {x:r.x,y:r.y,width:r.width,height:r.height,expectedWidth:innerWidth,expectedHeight:innerHeight};
-    })()`), { x:0,y:0,width:1440,height:960,expectedWidth:1440,expectedHeight:960 });
+      return { width: r.width, height: r.height, centered: Math.abs(r.x + r.width / 2 - innerWidth / 2) <= 1, inside: r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight };
+    })()`), { width: 1080, height: 720, centered: true, inside: true });
     await click(view, 'button[title="关闭设置"]');
     await waitFor(view, "!document.querySelector('.settings-view')");
     await assertLayout(view, true);
@@ -112,7 +114,7 @@ test('sidebar collapse works with every right panel and settings takes the whole
     await intact(view, baseline);
   }
   await settings(view);
-  assert.equal(await view.cdp.evaluate("getComputedStyle(document.querySelector('.sidebar-shell')).display"), 'none');
+  assert.notEqual(await view.cdp.evaluate("getComputedStyle(document.querySelector('.workbench')).display"), 'none');
   await click(view, 'button[title="关闭设置"]');
   await waitFor(view, "!document.querySelector('.settings-view')");
   await assertLayout(view);

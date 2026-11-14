@@ -143,7 +143,7 @@ export function flowGraph(room: Room, statusOf: (member: RoomMember) => MemberSt
       if (existing && (existing.tone === "waiting" || existing.tone === "active")) continue;
       const source = existing && existing.source !== message.by ? existing.target : message.by;
       const to = existing && existing.source !== message.by ? existing.source : target;
-      const canAnimate = [message.by, target].every((id) => !["offline", "waiting"].includes(statuses.get(id) ?? "user"));
+      const canAnimate = [message.by, target].every((id) => ["user", "idle", "busy"].includes(statuses.get(id) ?? "user"));
       connect(existing ? existing.source : source, existing ? existing.target : to, "message", existing?.label ?? t("rooms.flow.text_2012a8942f"), canAnimate);
     }
   }

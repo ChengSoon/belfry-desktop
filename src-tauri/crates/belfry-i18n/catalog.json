@@ -5500,6 +5500,21 @@
     "en": "Response completed"
   },
   {
+    "code": "TERMINAL_PROGRAM_IDLE",
+    "zh": "空闲，等待新指令",
+    "en": "Idle, waiting for a new instruction"
+  },
+  {
+    "code": "TERMINAL_PROGRAM_STATUS_PENDING",
+    "zh": "等待原生状态报告",
+    "en": "Waiting for native status reports"
+  },
+  {
+    "code": "TERMINAL_PROGRAM_STATUS_INTEGRATION",
+    "zh": "Codex 和 Claude 使用原生终端状态报告，无需安装状态 Hook",
+    "en": "Codex and Claude use native terminal status reports and do not need status hooks."
+  },
+  {
     "code": "HOOK_RESPONSE_FAILED",
     "zh": "本轮响应失败",
     "en": "Response failed"

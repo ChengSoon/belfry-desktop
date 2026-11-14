@@ -1,5 +1,7 @@
 import type { IDisposable, Terminal } from "@xterm/xterm";
-import type { AgentKind } from "../../agent/contracts";
+import { usesTerminalStatus, type AgentKind } from "../../agent/contracts";
+import type { HookSnapshot } from "../../agent/hooks/contracts";
+import { terminalStatusFor } from "../../agent/programStatus";
 import { choiceKeys, type TerminalChoice } from "../choice";
 import { unknownInteraction } from "../choiceParser";
 import type { InteractionWrite, ParsedInteraction, TerminalInteraction, TerminalInteractionAnswer, TerminalInteractionResult } from "../interaction";
@@ -12,6 +14,7 @@ interface Ports {
   scope?: () => string | null;
   outputSettled: () => boolean;
   waitingReason: () => string | null;
+  programStatus?: () => HookSnapshot | null;
   write: (request: InteractionWrite) => Promise<TerminalInteractionResult>;
 }
 
@@ -118,7 +121,11 @@ export class TerminalInteractions {
   private observe(): Request | null {
     const sessionId = this.disposed ? null : this.ports.session();
     if (!sessionId) { this.current = null; return null; }
-    const scope = JSON.stringify([this.ports.scope?.() ?? null, this.ports.terminal.buffer.active.type]);
+    const report = terminalStatusFor(this.ports.agent, this.ports.programStatus?.());
+    if (usesTerminalStatus(this.ports.agent) && report?.programStatus.state !== "blocked") {
+      this.current = null; return null;
+    }
+    const scope = JSON.stringify([this.ports.scope?.() ?? null, this.ports.terminal.buffer.active.type, report?.sequence ?? null]);
     let parsed = readInteractionScreen(this.ports.terminal, this.ports.agent);
     const waiting = this.ports.waitingReason();
     if (!parsed && waiting !== null) parsed = unknownInteraction("", waiting);

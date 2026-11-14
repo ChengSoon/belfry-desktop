@@ -12,6 +12,7 @@ import { TemplateDialog } from "./center/TemplateDialog";
 import { PluginSettingsSheet } from "./center/PluginSettingsSheet";
 import { PublishDialog } from "./center/PublishDialog";
 import "./center/styles/index.css";
+import { DevelopGroup } from "./center/InstalledPage";
 
 export function PluginPanel({ onGuardChange }: { onGuardChange?: (value: boolean) => void }) {
   useTranslation();
@@ -21,9 +22,10 @@ export function PluginPanel({ onGuardChange }: { onGuardChange?: (value: boolean
   const error = model.actions.error || model.data.error;
   return <PageContext.Provider value={model}><section className="pi-plugins" aria-label={t("plugins.PluginPanel.text_b1e1262a12")} aria-busy={model.actions.busy}>
     <div className="thread-scroll"><div className="page-frame plugins-page">
+      {/* 稿（settings-v3/settings.html?page=plugins，T42）：说明 + 搜索 + 从市场安装一行，然后「已安装」「开发」两组。 */}
       <PageHeader /><PageToolbar />
-      {error ? <p className="plugins-inline-error" role="alert">{error}</p> : null}
-      {model.tab === "installed" ? <InstalledPage /> : <MarketPage />}
+      {error ? <p className="sk-note is-danger plugins-inline-error" role="alert">{error}</p> : null}
+      {model.tab === "installed" ? <><InstalledPage /><DevelopGroup /></> : <MarketPage />}
     </div>
       {model.detail.selectedId ? <MarketDetail /> : null}
       {model.actions.pending ? <InstallDialog /> : null}

@@ -11,7 +11,8 @@ const terminalGrid = vi.hoisted(() => ({ cols: 80, rows: 24 }));
 
 vi.mock("@tauri-apps/api/core", () => ({ Channel: class { onmessage = (_: unknown) => {}; } }));
 vi.mock("@tauri-apps/api/webview", () => ({ getCurrentWebview: () => ({ onDragDropEvent: async () => () => {} }) }));
-vi.mock("./api", () => ({ acknowledgeTerminalOutput: vi.fn(), createTerminal: vi.fn(), detachTerminal: vi.fn(), writeTerminal: vi.fn(), resizeTerminal: vi.fn(), setTerminalPalette: vi.fn() }));
+vi.mock("./api", () => ({ acknowledgeTerminalOutput: vi.fn(), createTerminal: vi.fn(), detachTerminal: vi.fn(), writeTerminal: vi.fn(),
+  claimTerminalUserInput: vi.fn(), prepareTerminalPrompt: vi.fn(), finishTerminalPrompt: vi.fn(), resizeTerminal: vi.fn(), setTerminalPalette: vi.fn() }));
 vi.mock("@xterm/addon-fit", () => ({ FitAddon: class { fit() {} } }));
 vi.mock("@xterm/addon-webgl", () => ({ WebglAddon: class { onContextLoss() {} dispose() {} } }));
 vi.mock("@xterm/xterm", () => ({ Terminal: class {

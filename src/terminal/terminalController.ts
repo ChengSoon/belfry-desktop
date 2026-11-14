@@ -8,6 +8,7 @@ import { TerminalLifecycle } from "./controller/lifecycle";
 import { TerminalView } from "./controller/view";
 import type { MountCallbacks, TerminalHandle } from "./controller/types";
 import { TerminalInteractions } from "./controller/interaction";
+import { usesTerminalStatus } from "../agent/contracts";
 
 export type { MountCallbacks, TerminalHandle } from "./controller/types";
 export { diagnoseTerminalExit, errorMessage } from "./controller/diagnostics";
@@ -39,6 +40,7 @@ function createHandle({ view, lifecycle, layout }: {
     session: () => lifecycle.alive ? lifecycle.current?.id ?? null : null,
     scope: () => lifecycle.interactionScope,
     outputSettled: () => lifecycle.outputSettled, waitingReason: () => lifecycle.waitingReason,
+    programStatus: () => lifecycle.programStatus,
     write: (request) => lifecycle.sendInteraction(request) });
   return {
     applyTheme: (theme, transparent) => {
@@ -56,7 +58,8 @@ function createHandle({ view, lifecycle, layout }: {
     focus: () => { if (lifecycle.alive) view.terminal.focus(); },
     sendText: (text, options) => lifecycle.sendText(text, options),
     inputRevision: () => lifecycle.inputRevision,
-    composerEmpty: () => lifecycle.alive && composerLooksEmpty(readScreenTail(view.terminal, CHOICE_TAIL_LINES), lifecycle.agentKind),
+    composerEmpty: () => lifecycle.alive && (usesTerminalStatus(lifecycle.agentKind) ? lifecycle.composerEmpty
+      : composerLooksEmpty(readScreenTail(view.terminal, CHOICE_TAIL_LINES), lifecycle.agentKind)),
     canPasteMultiline: () => lifecycle.alive && view.terminal.modes.bracketedPasteMode,
     readChoice: () => interactions.readChoice(),
     answerChoice: (signature, index) => interactions.answerChoice(signature, index),

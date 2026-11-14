@@ -38,5 +38,19 @@
   "FontImportCard.imported": {
     "one": "{{count}} font imported",
     "other": "{{count}} fonts imported"
-  }
+  },
+  "AppearanceSection.interface": "Interface",
+  "AppearanceSection.reduceMotion": "Reduce motion",
+  "AppearanceSection.reduceMotionHint": "Turn off decorative animations such as card flips and dialog transitions.",
+  "AppearanceSection.compactSidebar": "Compact sidebar",
+  "AppearanceSection.compactSidebarHint": "Shorter session rows without subtitles, for long session lists.",
+  "AppearanceSection.theme": "Theme",
+  "AppearanceSection.terminalType": "Terminal typography",
+  "AppearanceSection.pluginThemeHint": "Provided by installed plugins; replaces the Obsidian palette",
+  "AppearanceSection.fontHint": "Used by the terminal and code views",
+  "AppearanceSection.previewLine": "Updated 3 files · aligned columns 0Oo1lI",
+  "AppearanceSection.wallpaperTitle": "Background image or video",
+  "AppearanceSection.wallpaperHint": "The sidebar and title bar become translucent once set",
+  "AppearanceSection.pluginTheme": "Plugin theme",
+  "AppearanceSection.pluginThemeNone": "None"
 }

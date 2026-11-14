@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import type { BatchView, BeginResult, Binding, Offer, PendingView, PrepareResult, ReceiptRequest } from "./contracts";
 import { InboxRuntime, type GuardedResult, type InboxRuntimePorts, type InputSlot } from "./runtime";
-import { composerLooksEmpty } from "../terminal/activity";
+import { ProtocolInputOwnership } from "../terminal/controller/protocolInputOwnership";
+import { canDispatchPrompt } from "../prompt/contracts";
+import { statusReport } from "../terminal/fixtures/programStatus";
 
 const slot = (over: Partial<InputSlot> = {}): InputSlot => ({
   tabId: "tab-b", terminalSessionId: "pty-1", running: true, idle: true, composerEmpty: true,
@@ -45,20 +47,25 @@ function harness(over: Partial<InboxRuntimePorts> = {}, pending: PendingView = {
 }
 
 describe("InboxRuntime", () => {
-  it("delivers to Claude's empty bypass-mode composer while preserving a draft", async () => {
+  it.each(["codex", "claude"] as const)("delivers from %s protocol status without footer text and preserves the user's draft", async agent => {
     const h = harness();
     const runtime = new InboxRuntime(h.ports);
-    const screen = (draft: string) => [
-      "────────────────────────────────────────",
-      `❯ ${draft}`,
-      "────────────────────────────────────────",
-      "⏵⏵ bypass permissions on (shift+tab to cycle) · ← 1 agent",
-    ].join("\n");
-    h.state.slot = slot({ composerEmpty: composerLooksEmpty(screen("unsent draft"), "claude") });
+    const input = new ProtocolInputOwnership(agent);
+    input.attach(true);
+    const tab = { kind: agent, phase: "running" as const, activity: "idle" as const };
+    h.state.slot = slot({ idle: canDispatchPrompt(tab), composerEmpty: input.empty });
+    expect(await runtime.tick()).toBe(0); // No protocol report yet, regardless of the footer.
+    const agentState = statusReport(agent, "idle", 1);
+    input.userInput("draft");
+    input.accept(agentState);
+    h.state.slot = slot({ idle: canDispatchPrompt({ ...tab, agentState }), composerEmpty: input.empty });
     expect(await runtime.tick()).toBe(0);
-    expect(h.calls).toEqual(["pending"]);
+    expect(h.calls).toEqual(["pending", "pending"]);
 
-    h.state.slot = slot({ composerEmpty: composerLooksEmpty(screen(""), "claude"), inputRevision: 4 });
+    input.userInput("\r");
+    input.accept(statusReport(agent, "working", 2));
+    input.accept(statusReport(agent, "idle", 3));
+    h.state.slot = slot({ idle: canDispatchPrompt({ ...tab, agentState }), composerEmpty: input.empty, inputRevision: 4 });
     expect(await runtime.tick()).toBe(1);
     expect(h.writes).toHaveLength(1);
     expect(h.receipts).toHaveLength(1);

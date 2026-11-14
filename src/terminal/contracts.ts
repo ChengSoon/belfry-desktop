@@ -170,7 +170,7 @@ export interface TerminalCommandTarget {
   getSessionId?: () => string | null;
   /** 本地输入代次：用户每次键入/粘贴都会推进；程序化写入不推进。 */
   inputRevision?: () => number;
-  /** 根据各 Agent 的输入框布局确认输入区为空，投递队列据此等待输入位置就绪。 */
+  /** 原生协议会话使用输入所有权；其他 Agent 使用已验证的输入框布局。 */
   composerEmpty?: () => boolean;
   /** Whether xterm will encode a complete bracketed paste frame. */
   canPasteMultiline?: () => boolean;

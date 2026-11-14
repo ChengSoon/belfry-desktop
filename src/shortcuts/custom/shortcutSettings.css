@@ -55,3 +55,21 @@
   .shortcut-editor { grid-template-columns: minmax(0, 1fr); }
   .shortcut-editor__actions { justify-content: flex-start; }
 }
+
+/* T42：按汇总稿的行型。列表里的 ul 不带样式，行由 .sk-item 提供。 */
+.shortcut-settings .shortcut-settings__rows { margin: 0; padding: 0; list-style: none; }
+.shortcut-settings .shortcut-settings__rows[hidden] { display: none; }
+.shortcut-settings .shortcut-settings__rows > .sk-item + .sk-item { border-top: 1px solid var(--border-soft); }
+.shortcut-settings .shortcut-row { min-height: 48px; padding-block: 8px; }
+.shortcut-settings .shortcut-keys { display: inline-flex; gap: 4px; }
+.shortcut-settings .shortcut-settings__collapsed { width: 100%; border: 0; background: transparent; color: var(--text-faint); font: inherit; text-align: left; }
+.shortcut-settings .shortcut-settings__toggle { height: 24px; padding: 0 8px; font-size: 12px; }
+.shortcut-settings .shortcut-settings__error { color: var(--danger); }
+.shortcut-settings .shortcut-row.is-recording { align-items: flex-start; }
+.shortcut-settings .shortcut-editor { display: flex; flex: 1 1 60%; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; max-width: none; }
+.shortcut-settings .shortcut-editor__body { flex: 1 1 220px; min-width: 0; font-size: 12.5px; color: var(--text-muted); }
+.shortcut-settings .shortcut-editor__body p { margin: 2px 0 0; }
+.shortcut-settings .shortcut-editor__conflict { color: var(--danger); }
+.shortcut-settings .shortcut-editor__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.shortcut-settings .shortcut-editor__recorder { padding: 0; border: 0; background: none; color: var(--text); font: inherit; font-weight: 500; cursor: pointer; }
+.shortcut-settings .shortcut-row.is-recording .sk-kbd { box-shadow: 0 0 0 2px var(--accent); color: var(--text); }

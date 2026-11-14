@@ -114,6 +114,8 @@
 .workbench-tab.is-active > svg { color: var(--text-muted); }
 .workbench-tab__dot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--success); box-shadow: 0 0 0 3px var(--success-soft); }
 .workbench-tab__dot.is-awaiting { background: var(--warning); box-shadow: 0 0 0 3px var(--warning-soft); }
+.workbench-tab__dot.is-unknown { background: var(--text-faint); box-shadow: none; }
+.workbench-tab__dot.is-error { background: var(--danger); box-shadow: none; }
 .workbench-toolbar__tools { gap: 2px; }
 .workbench-toolbar .icon-button--sm { width: 30px; height: 30px; border-radius: var(--radius-sm); }
 .workbench-toolbar .icon-button--sm:disabled { opacity: .45; cursor: default; }

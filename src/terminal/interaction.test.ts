@@ -8,6 +8,8 @@ import type { AgentKind } from "../agent/contracts";
 import type { TerminalInteractionAnswer } from "./interaction";
 import corpus from "./fixtures/codex-0.167.0.json";
 import captured from "./fixtures/codex-current-menus.json";
+import { statusReport } from "./fixtures/programStatus";
+import { usesTerminalStatus, type TerminalProgramStatus } from "../agent/contracts";
 
 const cleanup: (() => void)[] = [];
 afterEach(() => { cleanup.splice(0).reverse().forEach(dispose => dispose()); });
@@ -25,6 +27,7 @@ function fixture(agent: AgentKind | null = "codex", dimensions = { cols: 120, ro
   const terminal = new Terminal({ ...dimensions, allowProposedApi: true, scrollback: 100 });
   configureUnicode(terminal);
   let session: string | null = "pty-a", scope: string | null = "native-a", settled = true, waiting: string | null = null;
+  let report = usesTerminalStatus(agent) ? statusReport(agent, "blocked") : null;
   const writes: Array<{ sessionId: string; data: string }> = [];
   const errors: unknown[] = [];
   let onWrite: ((data: string) => Promise<void>) | null = null;
@@ -56,9 +59,13 @@ function fixture(agent: AgentKind | null = "codex", dimensions = { cols: 120, ro
   const data = terminal.onData(text => prompt.onData(text));
   const interactions = new TerminalInteractions({ terminal, agent, session: () => session,
     scope: () => scope,
+    programStatus: () => report,
     outputSettled: () => settled, waitingReason: () => waiting, write: request => prompt.sendInteraction(request) });
   cleanup.push(() => { interactions.dispose(); data.dispose(); prompt.dispose(); terminal.dispose(); });
   return { terminal, interactions, prompt, writes, errors, raw, paint,
+    status: (state: TerminalProgramStatus["state"] | null) => {
+      report = state && usesTerminalStatus(agent) ? statusReport(agent, state, (report?.sequence ?? 0) + 1) : null;
+    },
     session: (value: string | null) => { session = value; },
     scope: (value: string | null) => { scope = value; },
     settled: (value: boolean) => { settled = value; },
@@ -233,8 +240,10 @@ describe("request lifetime and write outcomes", () => {
     const f = fixture();
     await f.paint(question);
     const id = f.interactions.read()!.requestId;
+    f.status("working");
     await f.paint("Working (Esc to interrupt)");
     await tick(); // no UI read while the dialog is absent
+    f.status("blocked");
     await f.paint(question);
     expect(f.interactions.read()?.requestId).not.toBe(id);
     expect(await f.interactions.answer(id, { kind: "single", index: 1 })).toEqual({ status: "changed" });

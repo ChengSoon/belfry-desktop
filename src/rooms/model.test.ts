@@ -3,8 +3,9 @@ import type { Room, RoomMember, RoomMessage, RoomTask } from "./contracts";
 import {
   allRoomMessages, applyMention, findRoomMessage, FILE_PATH, mentionOptions, mentionQuery, projectFile,
   awaitingReply, continues, CONTINUED_MS, dayLabel, deliveryNote, hueOf, initialOf, foremanOf, labelOf, openBlockers, progress, recipientOptions, shortId, taskColumns,
-  titleError, workload,
+  titleError, workload, memberStatus, memberStatusText,
 } from "./model";
+import { statusReport } from "../terminal/fixtures/programStatus";
 
 function member(id: string, title: string, role: RoomMember["role"] = "peer", leftAt: number | null = null): RoomMember {
   return { id, tabId: `tab-${id}`, agent: "claude", title, duty: "", role, joinedAt: 0, leftAt };
@@ -34,6 +35,18 @@ function room(patch: Partial<Room> = {}): Room {
 }
 
 describe("rooms model", () => {
+  it.each(["codex", "claude"] as const)("uses %s reports for member status without counting missing reports or errors as busy", (kind) => {
+    const tab = { kind, phase: "running" as const, activity: "talking" as const, agentState: null };
+    expect(memberStatus(tab)).toBe("unknown");
+    for (const [state, expected] of [["idle", "idle"], ["done", "idle"], ["working", "busy"], ["blocked", "waiting"], ["error", "error"], ["clear", "unknown"]] as const) {
+      expect(memberStatus({ ...tab, activity: "idle", agentState: statusReport(kind, state) })).toBe(expected);
+    }
+    expect(memberStatus({ ...tab, agentState: { ...statusReport(kind, "idle"), source: "hook" } })).toBe("unknown");
+    const blocked = statusReport(kind, "blocked", 1, "permission");
+    expect(memberStatusText({ ...tab, agentState: blocked })).toContain("权限");
+    expect(memberStatus({ ...tab, phase: "exited" })).toBe("offline");
+  });
+
   it("keeps retained requests replyable by full or short id and deduplicates newer projections", () => {
     const older = message({ id: "old-message-abcdefgh", mode: "request_reply", by: "m1", to: ["m2"], text: "older request" });
     const recent = { ...older, repliedBy: ["m2"] };

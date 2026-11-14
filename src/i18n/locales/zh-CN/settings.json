@@ -39,5 +39,11 @@
   "marketCustomUrl": "目录地址",
   "marketCustomUrlDesc": "catalog.json 的完整地址。目录内的安装包相对路径会基于该地址解析。",
   "marketCustomUrlPlaceholder": "https://example.com/catalog.json",
-  "saving": "保存中…"
+  "saving": "保存中…",
+  "SettingsPanel.groupGeneral": "通用",
+  "SettingsPanel.groupAgent": "Agent",
+  "SettingsPanel.groupSystem": "系统",
+  "SettingsPanel.models": "模型服务",
+  "SettingsPanel.backup": "数据与备份",
+  "SettingsPanel.manageServices": "管理服务"
 }

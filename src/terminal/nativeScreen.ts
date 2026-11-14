@@ -5,19 +5,9 @@ function lastLine(lines: string[], matches: (line: string) => boolean): number {
   return -1;
 }
 
-/** Verified against Claude Code 2.1, OpenCode 2.2 and Kimi Code 2.5. Unknown layouts stay unconfirmed. */
+/** Verified against OpenCode 2.2 and Kimi Code 2.5. Unknown layouts stay unconfirmed. */
 export function nativeComposerEmpty(tail: string, agent: AgentKind): boolean {
   const lines = tail.split("\n").map(line => line.trim());
-  if (agent === "claude") {
-    const rule = (line: string) => /^[─━]{3,}$/.test(line);
-    const bottom = lastLine(lines, rule);
-    if (bottom < 2 || !/\?\s+for shortcuts|\bshift\+tab to cycle\b/i.test(lines.slice(bottom + 1).join(" "))) return false;
-    const top = lastLine(lines.slice(0, bottom), rule);
-    const content = lines.slice(top + 1, bottom);
-    // Permission modes replace the shortcut hint; inspect every row inside the editor instead.
-    return top >= 0 && content.length > 0 && /^[❯›>]$/.test(content[0])
-      && content.slice(1).every(line => line === "");
-  }
   if (agent === "kimi") {
     const bottom = lastLine(lines, line => /^╰─+╯$/.test(line));
     if (bottom < 2 || !lines.slice(bottom + 1).some(line => /^context:\s*\d+%/.test(line))) return false;

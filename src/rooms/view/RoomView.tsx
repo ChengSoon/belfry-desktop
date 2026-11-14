@@ -55,7 +55,7 @@ import { firstUnread, isUnread, latestToUser, markSeen, readSeen, useSeenVersion
 import type { Room, RoomMember, RoomMessage, RoomTask, TaskStatus } from "../contracts";
 import {
   activeMembers, awaitingReply, continues, dayKey, dayLabel, DEFAULT_ROSTER, excerpt, findRoomMessage, foremanOf,
-  formatTime, hueOf, initialOf, labelOf, MEMBER_STATUS_TEXT as STATUS_TEXT, memberStatus, type MemberStatus, openBlockers, progress, recipientOptions, shortId, STATUS_LABEL, taskColumns,
+  formatTime, hueOf, initialOf, labelOf, memberStatus, memberStatusText, type MemberStatus, openBlockers, progress, recipientOptions, shortId, STATUS_LABEL, taskColumns,
   titleError, workload, type RosterRow, applyMention, mentionOptions, mentionQuery, type MentionOption,
 } from "../model";
 import { useRoomAttachments } from "../useRoomAttachments";
@@ -449,6 +449,8 @@ const STATUS_DOT: Record<MemberStatus, string> = {
   idle: "bg-success",
   busy: "bg-primary animate-pulse",
   waiting: "bg-warning",
+  unknown: "bg-muted-foreground/40",
+  error: "bg-destructive",
   offline: "bg-muted-foreground/40",
 };
 
@@ -491,7 +493,7 @@ function MemberList(props: {
                   ) : null}
                 </div>
                 <div className="text-xs text-muted-foreground [overflow-wrap:anywhere]" title={current ? `${current.id} ${current.title}` : member.duty || undefined}>
-                  <span className={cn(status === "waiting" && "font-medium text-warning")}>{cleared === member.id ? t("rooms.RoomView.text_1fa489c596") : STATUS_TEXT[status]}</span>
+                  <span className={cn(status === "waiting" && "font-medium text-warning", status === "error" && "text-destructive")}>{cleared === member.id ? t("rooms.RoomView.text_1fa489c596") : memberStatusText(tab)}</span>
                   {current ? <> · <span className="text-foreground/80">{current.id} {current.title}</span></> : member.duty ? <> · {member.duty}</> : null}
                 </div>
                 {member.modelOverride ? <div className="text-xs text-muted-foreground [overflow-wrap:anywhere]" title={member.modelOverride}>{t("rooms.roleModel.summary", { model: member.modelOverride })}</div> : null}

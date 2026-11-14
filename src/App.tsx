@@ -16,6 +16,7 @@ import { appShortcutChord, formatShortcutChord } from "./shortcuts/resolveShortc
 import { useAppShortcuts } from "./shortcuts/useAppShortcuts";
 import { useAppUpdater } from "./updater/useAppUpdater";
 import { agentResetCommand, isAgentKind, type AgentKind } from "./agent/contracts";
+import { sessionActivity } from "./agent/programStatus";
 import type { HistorySession } from "./history/contracts";
 import type { QuickOpenItem } from "./quickopen/model";
 import { useQuickOpen } from "./quickopen/useQuickOpen";
@@ -45,6 +46,13 @@ import { usePluginWorkspace } from "./plugins/workspace/usePluginWorkspace";
 import "./workspace/obsidianWorkbench.css";
 // 曜石二级界面（设置 / 控件 / Quick Open / 弹窗 / Toast），同样最后加载。
 import "./components/obsidianSurfaces.css";
+// 设置弹窗外壳（T41），接管 .settings-view 的外壳规则，必须在 obsidianSurfaces 之后。
+import "./settings/settingsDialog.css";
+import "./preferences/interface.css";
+import { initInterface } from "./preferences/interface";
+
+// 界面偏好在首帧前生效，避免先动画再关。
+initInterface();
 
 interface PreviewRequest {
   path: string;
@@ -159,7 +167,7 @@ export default function App() {
   // 房间成员在等你选择、或者发给他的消息卡住了：侧栏「协作房间」按钮亮起，房间藏着也看得见。
   const roomAttention = useMemo(() => {
     const waiting = workspace.tabs.filter((tab) => roomBound.boundIds.has(tab.id)
-      && tab.phase === "running" && tab.activity === "awaiting-choice").length;
+      && tab.phase === "running" && sessionActivity(tab) === "awaiting-choice").length;
     const stuck = promptQueue.paused.filter((item) => roomBound.boundIds.has(item.tabId)).length;
     return waiting + stuck + roomUnread;
   }, [workspace.tabs, roomBound.boundIds, promptQueue.paused, roomUnread]);

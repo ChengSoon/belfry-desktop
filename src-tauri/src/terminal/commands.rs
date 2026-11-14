@@ -141,6 +141,21 @@ pub fn terminal_write(
 }
 
 #[tauri::command]
+pub fn terminal_claim_user_input(runtime: State<'_, TerminalRuntime>, session_id: String) -> Result<(), AppError> {
+    runtime.claim_user_input(&session_id)
+}
+
+#[tauri::command]
+pub fn terminal_prepare_prompt(runtime: State<'_, TerminalRuntime>, session_id: String, payload: String) -> Result<belfry_protocol::inbox::WriteGuard, AppError> {
+    runtime.prepare_prompt(&session_id, &payload)
+}
+
+#[tauri::command]
+pub fn terminal_finish_prompt(runtime: State<'_, TerminalRuntime>, session_id: String, guard: belfry_protocol::inbox::WriteGuard) -> Result<super::input_gate::WriteEvidence, AppError> {
+    runtime.finish_prompt(&session_id, &guard)
+}
+
+#[tauri::command]
 pub fn terminal_resize(
     runtime: State<'_, TerminalRuntime>,
     session_id: String,
@@ -318,7 +333,7 @@ mod tests {
         );
         assert!(req.launch_overlay.hook.is_none());
         assert!(req.launch_overlay.environment.is_empty());
-        assert!(req.launch_overlay.unset.is_empty());
+        assert_eq!(req.launch_overlay.unset, vec![belfry_protocol::hooks::ENV_PORT, belfry_protocol::hooks::ENV_TOKEN]);
         assert_eq!(req.env, original_env);
     }
 }

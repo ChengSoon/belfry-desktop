@@ -23,7 +23,8 @@ pub(crate) struct AgentHookReport {
 
 impl AgentHookReport {
     pub fn enabled(&self) -> bool {
-        self.supported
+        self.kind.terminal_status_app().is_none()
+            && self.supported
             && !self.disabled
             && self.error.is_none()
             && self.stale == 0
@@ -131,6 +132,9 @@ fn codex_hooks_disabled(text: &str) -> bool {
 }
 
 fn status_note(report: &AgentHookReport) -> &'static str {
+    if report.kind.terminal_status_app().is_some() {
+        return belfry_i18n::text("Codex 和 Claude 使用原生终端状态报告，无需安装状态 Hook");
+    }
     if report.kind == AgentKind::Pi {
         return belfry_i18n::text("Pi 尚未提供 Hook 接口，会话状态保持屏幕推断");
     }
@@ -187,7 +191,7 @@ mod tests {
     #[test]
     fn a_report_that_points_at_a_removed_build_does_not_advertise_hooks() {
         let mut report = AgentHookReport {
-            kind: AgentKind::Claude,
+            kind: AgentKind::Antigravity,
             version: None,
             supported: true,
             config_path: None,

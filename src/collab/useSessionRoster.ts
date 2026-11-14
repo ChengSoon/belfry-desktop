@@ -6,9 +6,8 @@ import { toSessionRoster } from "./contracts";
 /**
  * 把会话名册同步给 Rust，让控制 CLI 能回答「现在有谁在」。
  *
- * 按内容去重而不是跟着 `tabs` 引用走：Agent 会话的 activity 每 200ms 扫一次屏幕，
- * 终端一刷屏 `tabs` 就是个新数组，但名册内容常常一个字都没变。不去重就是每秒
- * 好几趟无用的 IPC。
+ * 按内容去重：Codex / Claude 同步原始协议状态，其他 Agent 使用各自的活动来源。
+ * 终端刷新时 tabs 会改变引用，名册内容经常没变，避免重复 IPC。
  */
 export function useSessionRoster(tabs: readonly WorkspaceTab[]) {
   const pushed = useRef("");
