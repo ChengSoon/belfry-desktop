@@ -379,3 +379,47 @@ fn an_exit_during_resize_can_be_recovered_and_a_workspace_lease_does_not_retire_
     assert_ne!(old.id, fresh.id);
     assert_eq!(2, fixture.spawn_count());
 }
+
+#[test]
+fn retiring_keeps_live_ptys_and_exited_scrollback_until_the_last_session_is_closed() {
+    let fixture = Fixture::new();
+    let old = fixture.create();
+    assert!(fixture.service.handle(Command::Retire).error.is_none());
+    fixture.service.retire_if_unused();
+    assert!(fixture.service.running.load(Ordering::Acquire));
+    let mut new_tab = fixture.request();
+    new_tab.tab_id = Some("new-tab".into());
+    assert!(
+        fixture
+            .service
+            .create(new_tab, WireOverlay::default(), None)
+            .is_err()
+    );
+    let attached = fixture
+        .service
+        .create(
+            fixture.request(),
+            WireOverlay::default(),
+            Some(old.id.clone()),
+        )
+        .unwrap();
+    assert_eq!(attached.id, old.id);
+    assert_eq!(fixture.spawn_count(), 1);
+    fixture.end(&old.id);
+    fixture.service.retire_if_unused();
+    assert!(
+        fixture.service.running.load(Ordering::Acquire),
+        "unclosed scrollback must survive"
+    );
+    assert!(fixture.recover(&old, fixture.request()).is_err());
+    assert!(!fixture.service.slot(&old.id).unwrap().is_closed());
+    assert!(
+        fixture
+            .service
+            .handle(Command::Close { id: old.id })
+            .error
+            .is_none()
+    );
+    fixture.service.retire_if_unused();
+    assert!(!fixture.service.running.load(Ordering::Acquire));
+}

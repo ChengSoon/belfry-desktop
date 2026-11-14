@@ -46,15 +46,19 @@ pub fn run(root: &Path) -> Result<(), String> {
     };
     let service = Service::new(root.to_owned()).map_err(|error| error.message)?;
     endpoint::save(root, &endpoint)?;
-    accept(listener, service, endpoint.token);
+    accept(listener, service, endpoint.token.clone());
     // 只清理持锁期间由本实例发布的端点，不触碰任何其他应用实例。
-    let _ = std::fs::remove_file(root.join("endpoint.json"));
+    endpoint::remove_if_owner(root, &endpoint.instance);
     Ok(())
 }
 
 fn accept(listener: TcpListener, service: Arc<Service>, token: String) {
     let connections = Arc::new(AtomicUsize::new(0));
     while service.running.load(Ordering::Acquire) {
+        service.retire_if_unused();
+        if !service.running.load(Ordering::Acquire) {
+            break;
+        }
         let stream = match listener.accept() {
             Ok((stream, _)) => stream,
             Err(_) => {
@@ -182,5 +186,29 @@ mod tests {
             assert_eq!(success, reply.error.is_none());
         }
         worker.join().unwrap();
+    }
+
+    #[test]
+    fn an_unused_retired_daemon_exits_and_removes_only_its_own_endpoint() {
+        let root =
+            std::env::temp_dir().join(format!("belfry-daemon-retire-{}", ulid::Ulid::generate()));
+        let directory = root.clone();
+        let worker = thread::spawn(move || run(&directory));
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        let endpoint = loop {
+            if let Ok(endpoint) = endpoint::read(&root) {
+                break endpoint;
+            }
+            assert!(std::time::Instant::now() < deadline);
+            thread::sleep(Duration::from_millis(5));
+        };
+        transport::call::<()>(&endpoint, super::super::protocol::Command::Retire).unwrap();
+        while !worker.is_finished() {
+            assert!(std::time::Instant::now() < deadline);
+            thread::sleep(Duration::from_millis(5));
+        }
+        worker.join().unwrap().unwrap();
+        assert!(!root.join("endpoint.json").exists());
+        std::fs::remove_dir_all(root).unwrap();
     }
 }

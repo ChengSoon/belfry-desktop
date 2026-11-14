@@ -14,6 +14,8 @@ use std::{
         Condvar,
         atomic::{AtomicBool, Ordering},
     },
+    thread,
+    time::Duration,
 };
 
 struct Peer {
@@ -31,8 +33,8 @@ impl Peer {
         let endpoint = Endpoint {
             version: 1,
             port: listener.local_addr().unwrap().port(),
-            token: "test".into(),
-            instance: "isolated-test".into(),
+            token: "test".repeat(13),
+            instance: ulid::Ulid::generate().to_string(),
             pid: std::process::id(),
         };
         let client = DaemonClient::new(PathBuf::new());
@@ -124,8 +126,14 @@ impl Drop for Peer {
 
 #[test]
 fn legacy_daemon_cannot_silently_downgrade_checked_input_to_ordinary_write() {
-    let peer = Peer::new(vec![("ping", Some(Reply::ok(serde_json::json!({"capabilities": []}))))]);
-    let error = peer.client.write_checked("old", b"automatic", Some(7)).unwrap_err();
+    let peer = Peer::new(vec![(
+        "ping",
+        Some(Reply::ok(serde_json::json!({"capabilities": []}))),
+    )]);
+    let error = peer
+        .client
+        .write_checked("old", b"automatic", Some(7))
+        .unwrap_err();
     assert_eq!(error.code, AppErrorCode::Conflict);
     assert_eq!(peer.commands().len(), 1);
     assert_eq!(peer.commands()[0]["kind"], "ping");
@@ -134,16 +142,368 @@ fn legacy_daemon_cannot_silently_downgrade_checked_input_to_ordinary_write() {
 #[test]
 fn checked_input_keeps_the_status_fence_and_structured_zero_write_rejection() {
     let peer = Peer::new(vec![
-        ("ping", Some(Reply::ok(serde_json::json!({"capabilities": ["terminal_program_status_v1"]})))),
-        ("write_checked", Some(Reply::failure(AppError::conflict("status changed")))),
+        (
+            "ping",
+            Some(Reply::ok(
+                serde_json::json!({"capabilities": ["terminal_program_status_v1"]}),
+            )),
+        ),
+        (
+            "write_checked",
+            Some(Reply::failure(AppError::conflict("status changed"))),
+        ),
         ("write_checked", Some(Reply::ok(()))),
     ]);
-    assert_eq!(peer.client.write_checked("pty", b"payload", Some(7)).unwrap_err().code, AppErrorCode::Conflict);
-    peer.client.write_checked("pty", b"payload", Some(8)).unwrap();
+    assert_eq!(
+        peer.client
+            .write_checked("pty", b"payload", Some(7))
+            .unwrap_err()
+            .code,
+        AppErrorCode::Conflict
+    );
+    peer.client
+        .write_checked("pty", b"payload", Some(8))
+        .unwrap();
     let calls = peer.commands();
     assert_eq!(calls[1]["expected_program_sequence"], 7);
     assert_eq!(calls[2]["expected_program_sequence"], 8);
     assert!(calls.iter().all(|command| command["kind"] != "write"));
+}
+
+fn retain(primary: &Peer, previous: &Peer) {
+    let endpoint = previous.client.endpoint.lock().unwrap().clone().unwrap();
+    primary
+        .client
+        .previous
+        .lock()
+        .unwrap()
+        .push(endpoint.clone());
+    primary
+        .client
+        .routes
+        .lock()
+        .unwrap()
+        .insert("old".into(), endpoint);
+}
+
+#[test]
+fn a_rolling_upgrade_keeps_live_sessions_and_writes_with_their_original_owner() {
+    let primary = Peer::new(vec![]);
+    let previous = Peer::new(vec![
+        reply("create", session("old", TerminalStatus::Running, true)),
+        reply("write", ()),
+        reply("ping", serde_json::json!({"capabilities":[]})),
+    ]);
+    retain(&primary, &previous);
+    let sink = Arc::new(Sink::default());
+    let running = primary
+        .client
+        .spawn_prepared(request(), sink.clone(), |_| {
+            panic!("must keep running task")
+        })
+        .unwrap();
+    assert_eq!(running.id, "old");
+    primary.client.write("old", b"manual input").unwrap();
+    assert_eq!(
+        primary
+            .client
+            .write_checked("old", b"automatic input", Some(7))
+            .unwrap_err()
+            .code,
+        AppErrorCode::Conflict
+    );
+    sink.wait_exit();
+    assert!(primary.commands().is_empty());
+    assert_eq!(
+        previous
+            .commands()
+            .iter()
+            .map(|c| c["kind"].as_str().unwrap())
+            .collect::<Vec<_>>(),
+        ["create", "write", "ping"]
+    );
+}
+
+#[test]
+fn new_tabs_use_the_new_daemon_and_its_own_status_capabilities() {
+    let primary = Peer::new(vec![
+        reply("lookup", Option::<SessionInfo>::None),
+        reply("create", session("fresh", TerminalStatus::Running, false)),
+        reply(
+            "ping",
+            serde_json::json!({"capabilities":["terminal_program_status_v1"]}),
+        ),
+        reply("write_checked", ()),
+    ]);
+    let previous = Peer::new(vec![reply("lookup", Option::<SessionInfo>::None)]);
+    retain(&primary, &previous);
+    let mut launch = request();
+    launch.tab_id = Some("new-tab".into());
+    launch.launch_overlay.attachment = None;
+    let sink = Arc::new(Sink::default());
+    let fresh = primary
+        .client
+        .spawn_prepared(launch, sink.clone(), |_| Ok(()))
+        .unwrap();
+    primary
+        .client
+        .write_checked(&fresh.id, b"prompt", Some(5))
+        .unwrap();
+    sink.wait_exit();
+    assert_eq!(fresh.id, "fresh");
+    assert!(
+        previous
+            .commands()
+            .iter()
+            .all(|call| call["kind"] == "lookup")
+    );
+    assert_eq!(
+        primary.commands().last().unwrap()["expected_program_sequence"],
+        5
+    );
+}
+
+#[test]
+fn an_exited_old_session_resumes_history_on_the_new_daemon_without_replaying_input() {
+    let primary = Peer::new(vec![reply(
+        "create",
+        session("fresh", TerminalStatus::Running, false),
+    )]);
+    let mut old_info = info();
+    old_info.native_session = Some(AgentSessionRef {
+        agent: AgentKind::Codex,
+        id: "exact-history".into(),
+    });
+    let previous = Peer::new(vec![
+        reply("create", session("old", TerminalStatus::Exited, true)),
+        reply("info", old_info),
+        reply("close", ()),
+    ]);
+    retain(&primary, &previous);
+    let sink = Arc::new(Sink::default());
+    let fresh = primary
+        .client
+        .spawn_prepared(request(), sink.clone(), |request| {
+            assert_eq!(request.resume.as_deref(), Some("exact-history"));
+            Ok(())
+        })
+        .unwrap();
+    sink.wait_exit();
+    assert_eq!(fresh.id, "fresh");
+    let calls = primary.commands();
+    assert_eq!(calls.len(), 1);
+    assert!(calls[0]["attachment"].is_null());
+    assert_eq!(calls[0]["launch"]["resume"], "exact-history");
+    assert!(
+        previous
+            .calls
+            .lock()
+            .unwrap()
+            .iter()
+            .all(|c| c["kind"] != "poll")
+    );
+}
+
+#[test]
+fn a_failed_upgrade_preserves_the_old_exited_session_and_scrollback() {
+    let primary = Peer::new(vec![(
+        "create",
+        Some(Reply::failure(AppError::not_found("launch failed"))),
+    )]);
+    let previous = Peer::new(vec![
+        reply("create", session("old", TerminalStatus::Exited, true)),
+        reply("info", info()),
+    ]);
+    retain(&primary, &previous);
+    assert!(
+        primary
+            .client
+            .spawn_prepared(request(), Arc::new(Sink::default()), |_| Ok(()))
+            .is_err()
+    );
+    assert!(
+        previous
+            .commands()
+            .iter()
+            .all(|call| call["kind"] != "close" && call["kind"] != "shutdown")
+    );
+}
+
+#[test]
+fn session_lists_and_close_tab_cover_both_daemon_generations() {
+    let mut fresh_info = info();
+    fresh_info.session = session("fresh", TerminalStatus::Running, false);
+    let primary = Peer::new(vec![
+        reply("list", vec![fresh_info]),
+        reply("close_tab", ()),
+    ]);
+    let previous = Peer::new(vec![
+        reply("list", vec![info()]),
+        reply("list", vec![info()]),
+        reply("ping", serde_json::json!({})),
+        reply("close_tab", ()),
+    ]);
+    retain(&primary, &previous);
+    assert_eq!(primary.client.list().unwrap().len(), 2);
+    primary.client.close_tab("tab").unwrap();
+    assert_eq!(primary.commands().last().unwrap()["kind"], "close_tab");
+    assert_eq!(previous.commands().last().unwrap()["kind"], "close_tab");
+}
+
+#[test]
+fn a_worktree_lease_locks_every_generation_and_releases_all_after_a_failed_acquisition() {
+    let primary = Peer::new(vec![]);
+    let previous = Peer::new(vec![]);
+    let mut endpoints = [
+        primary.client.endpoint.lock().unwrap().clone().unwrap(),
+        previous.client.endpoint.lock().unwrap().clone().unwrap(),
+    ];
+    endpoints.sort_by(|a, b| a.instance.cmp(&b.instance));
+    let (first, second) = if endpoints[0].instance
+        == primary
+            .client
+            .endpoint
+            .lock()
+            .unwrap()
+            .as_ref()
+            .unwrap()
+            .instance
+    {
+        (&primary, &previous)
+    } else {
+        (&previous, &primary)
+    };
+    *first.remaining.lock().unwrap() = VecDeque::from(vec![
+        reply("acquire_workspace", "first-lease"),
+        reply("release_workspace", ()),
+        reply("acquire_workspace", "next-first-lease"),
+        reply("release_workspace", ()),
+    ]);
+    *second.remaining.lock().unwrap() = VecDeque::from(vec![
+        (
+            "acquire_workspace",
+            Some(Reply::failure(AppError::io("busy"))),
+        ),
+        reply("acquire_workspace", "second-lease"),
+        reply("release_workspace", ()),
+    ]);
+    assert!(super::super::leases::LeaseGuard::acquire_all(endpoints.to_vec()).is_err());
+    let lease = super::super::leases::LeaseGuard::acquire_all(endpoints.to_vec()).unwrap();
+    drop(lease);
+    assert_eq!(
+        first
+            .commands()
+            .iter()
+            .filter(|c| c["kind"] == "release_workspace")
+            .count(),
+        2
+    );
+    assert_eq!(
+        second
+            .commands()
+            .iter()
+            .filter(|c| c["kind"] == "release_workspace")
+            .count(),
+        1
+    );
+}
+
+#[test]
+fn startup_selects_the_matching_release_and_retains_discovered_old_session_routes() {
+    let version = env!("CARGO_PKG_VERSION");
+    let ping = serde_json::json!({"appVersion": version,
+        "capabilities":["terminal_program_status_v1", "rolling_upgrade_v1"]});
+    let mut fresh_info = info();
+    fresh_info.session = session("fresh", TerminalStatus::Running, false);
+    let primary = Peer::new(vec![
+        reply("ping", ping.clone()),
+        reply("ping", ping),
+        reply("list", vec![fresh_info]),
+    ]);
+    let mut old_info = info();
+    old_info.session.status = TerminalStatus::Running;
+    let previous = Peer::new(vec![
+        reply(
+            "ping",
+            serde_json::json!({"appVersion":"0.1.0", "capabilities":["rolling_upgrade_v1"]}),
+        ),
+        reply("retire", ()),
+        reply("list", vec![old_info.clone()]),
+        reply("list", vec![old_info]),
+        reply("write", ()),
+    ]);
+    let root =
+        std::env::temp_dir().join(format!("belfry-client-upgrade-{}", ulid::Ulid::generate()));
+    let release = root.join("versions").join(version);
+    super::super::endpoint::private_directory(&root).unwrap();
+    super::super::endpoint::private_directory(&release).unwrap();
+    super::super::endpoint::save(
+        &root,
+        previous.client.endpoint.lock().unwrap().as_ref().unwrap(),
+    )
+    .unwrap();
+    super::super::endpoint::save(
+        &release,
+        primary.client.endpoint.lock().unwrap().as_ref().unwrap(),
+    )
+    .unwrap();
+    let client = DaemonClient::new(root.clone());
+    let sessions = client.list().unwrap();
+    assert_eq!(sessions.len(), 2);
+    client.write("old", b"old-process-input").unwrap();
+    assert_eq!(
+        client.session_endpoint("fresh").unwrap().instance,
+        primary
+            .client
+            .endpoint
+            .lock()
+            .unwrap()
+            .as_ref()
+            .unwrap()
+            .instance
+    );
+    assert!(previous.commands().iter().any(|c| c["kind"] == "retire"));
+    assert!(
+        previous
+            .commands()
+            .iter()
+            .all(|c| c["kind"] != "shutdown" && c["kind"] != "close")
+    );
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn a_second_view_reconnects_to_a_tab_already_migrated_by_the_first_view() {
+    let mut fresh_info = info();
+    fresh_info.session = session("fresh", TerminalStatus::Running, true);
+    let primary = Peer::new(vec![
+        reply("lookup", Some(fresh_info)),
+        reply("create", session("fresh", TerminalStatus::Running, true)),
+    ]);
+    let previous = Peer::new(vec![(
+        "create",
+        Some(Reply::failure(AppError::session_missing())),
+    )]);
+    retain(&primary, &previous);
+    let sink = Arc::new(Sink::default());
+    let fresh = primary
+        .client
+        .spawn_prepared(request(), sink.clone(), |_| {
+            panic!("must not duplicate a live tab")
+        })
+        .unwrap();
+    assert_eq!(fresh.id, "fresh");
+    assert!(fresh.reconnected);
+    sink.wait_exit();
+    assert_eq!(primary.commands()[1]["attachment"], "fresh");
+    assert!(
+        previous
+            .calls
+            .lock()
+            .unwrap()
+            .iter()
+            .all(|c| c["kind"] != "poll")
+    );
 }
 
 #[derive(Default)]

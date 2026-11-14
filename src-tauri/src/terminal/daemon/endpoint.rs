@@ -102,6 +102,12 @@ pub fn save(root: &Path, endpoint: &Endpoint) -> Result<(), String> {
     Ok(())
 }
 
+pub fn remove_if_owner(root: &Path, instance: &str) {
+    if read(root).is_ok_and(|endpoint| endpoint.instance == instance) {
+        let _ = fs::remove_file(root.join("endpoint.json"));
+    }
+}
+
 fn io(error: impl std::fmt::Display) -> String {
     format!("后台存储不可用：{error}")
 }
@@ -117,6 +123,19 @@ mod tests {
         assert!(Owner::acquire(&root).is_err());
         drop(owner);
         drop(Owner::acquire(&root).unwrap());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn an_old_daemon_cannot_remove_its_successors_endpoint() {
+        let root = std::env::temp_dir().join(format!("belfry-daemon-owner-{}", ulid::Ulid::generate()));
+        private_directory(&root).unwrap();
+        let endpoint = Endpoint { version: VERSION, port: 12345, token: "a".repeat(52), instance: "new".into(), pid: 1 };
+        save(&root, &endpoint).unwrap();
+        remove_if_owner(&root, "old");
+        assert_eq!(read(&root).unwrap().instance, "new");
+        remove_if_owner(&root, "new");
+        assert!(!root.join("endpoint.json").exists());
         fs::remove_dir_all(root).unwrap();
     }
 }

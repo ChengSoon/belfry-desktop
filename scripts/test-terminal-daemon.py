@@ -180,6 +180,53 @@ def verify_bounds(endpoint, root):
             "workspaceLease": "blocked concurrent create", "collaborationRelay": "collab_passthrough_v1"}
 
 
+def verify_rolling_upgrade(binary, previous, root, worker):
+    generation = root / "daemon" / "versions" / "process-upgrade"
+    current = subprocess.Popen([str(Path(binary).resolve()), FLAG, str(generation)],
+                               stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                               stderr=subprocess.DEVNULL, start_new_session=True)
+    endpoint = None
+    try:
+        endpoint = wait_for(lambda: json.loads((generation / "endpoint.json").read_text()))
+        assert endpoint["pid"] == current.pid and endpoint["pid"] != previous["pid"]
+        ping = success(endpoint, {"kind": "ping"})
+        assert {"terminal_program_status_v1", "rolling_upgrade_v1"}.issubset(ping["capabilities"])
+        count = int((root / "ticks").read_text())
+        success(previous, {"kind": "retire"})
+        assert success(previous, {"kind": "ping"})["retiring"]
+        rejected = call(previous, {"kind": "create", "launch": launch_request(root, "new-after-upgrade"),
+                                  "overlay": {"arguments": [], "environment": {}, "unset": [], "files": []}})
+        assert rejected["error"], "superseded daemon accepted a new session"
+        original = create(previous, root)
+        assert original["reconnected"] and running(worker)
+        assert int((root / "worker.pid").read_text()) == worker
+        wait_for(lambda: int((root / "ticks").read_text()) >= count + 3)
+        fresh = create(endpoint, root, "new-after-upgrade")
+        assert fresh["id"] != original["id"] and not fresh["reconnected"]
+        write(endpoint, fresh, "stty -echo; printf 'new-backend' > upgrade-input\r")
+        wait_for(lambda: (root / "upgrade-input").read_text() == "new-backend")
+        assert success(previous, {"kind": "info", "id": original["id"]})["session"]["status"] == "running"
+        success(endpoint, {"kind": "close", "id": fresh["id"]})
+        wait_for(lambda: success(endpoint, {"kind": "info", "id": fresh["id"]})["session"]["status"] == "exited")
+        success(endpoint, {"kind": "retire"})
+        current.wait(timeout=8)
+        assert current.returncode == 0 and not (generation / "endpoint.json").exists()
+        assert running(worker) and running(previous["pid"])
+        return {"rollingUpgrade": {"oldWorkerPidPreserved": worker, "newDaemonPid": current.pid,
+                                   "newSessionsUseNewDaemon": True, "oldDaemonRejectsNewSessions": True,
+                                   "unusedGenerationRetiredAutomatically": True}}
+    finally:
+        if current.poll() is None:
+            if endpoint:
+                try:
+                    success(endpoint, {"kind": "shutdown"})
+                except (AssertionError, OSError, RuntimeError):
+                    current.terminate()
+            else:
+                current.terminate()
+            current.wait(timeout=8)
+
+
 def main(binary):
     with tempfile.TemporaryDirectory(prefix="belfry-cm06-process-") as temporary:
         root = Path(temporary).resolve()
@@ -203,6 +250,7 @@ print(json.dumps({"launcher": os.getpid(), "daemon": child.pid}))
             worker, result = verify_reconnect(endpoint, root)
             result.update(verify_bounds(endpoint, root))
             result.update(verify_forced_exit(endpoint, root))
+            result.update(verify_rolling_upgrade(binary, endpoint, root, worker))
             success(endpoint, {"kind": "shutdown"})
             wait_for(lambda: not running(worker) and not running(identities["daemon"]))
             result.update({"launcherExited": True, "explicitShutdown": "daemon and worker exited", "ok": True})

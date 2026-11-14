@@ -66,13 +66,31 @@ fn busy() -> AppError {
 }
 
 pub struct LeaseGuard {
+    _leases: Vec<Lease>,
+}
+
+impl LeaseGuard {
+    pub fn acquire_all(mut endpoints: Vec<Endpoint>) -> Result<Self, AppError> {
+        endpoints.sort_by(|a, b| a.instance.cmp(&b.instance));
+        endpoints.dedup_by(|a, b| a.instance == b.instance);
+        // On any failure, dropping the already acquired leases releases every generation.
+        Ok(Self {
+            _leases: endpoints
+                .into_iter()
+                .map(Lease::acquire)
+                .collect::<Result<_, _>>()?,
+        })
+    }
+}
+
+struct Lease {
     endpoint: Endpoint,
     token: String,
     active: Arc<AtomicBool>,
     worker: Option<JoinHandle<()>>,
 }
-impl LeaseGuard {
-    pub fn acquire(endpoint: Endpoint) -> Result<Self, AppError> {
+impl Lease {
+    fn acquire(endpoint: Endpoint) -> Result<Self, AppError> {
         let token: String =
             transport::call(&endpoint, Command::AcquireWorkspace).map_err(AppError::io)?;
         let active = Arc::new(AtomicBool::new(true));
@@ -99,7 +117,7 @@ impl LeaseGuard {
         })
     }
 }
-impl Drop for LeaseGuard {
+impl Drop for Lease {
     fn drop(&mut self) {
         self.active.store(false, Ordering::Release);
         if let Some(worker) = self.worker.take() {

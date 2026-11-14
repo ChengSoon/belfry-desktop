@@ -1,6 +1,7 @@
 mod client;
 mod endpoint;
 mod files;
+mod generations;
 mod identity;
 mod leases;
 pub(crate) mod lifecycle;

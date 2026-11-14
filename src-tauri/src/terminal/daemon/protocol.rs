@@ -76,6 +76,8 @@ pub enum Command {
         tab_id: String,
     },
     List,
+    /// Stop accepting new sessions; retain every live or unclosed session until its owner closes it.
+    Retire,
     Shutdown,
     AcquireWorkspace,
     RenewWorkspace {

@@ -21,6 +21,7 @@ use std::{
 
 pub struct Service {
     pub running: AtomicBool,
+    retiring: AtomicBool,
     root: PathBuf,
     backend: Arc<dyn PtyBackend>,
     hooks: HookRuntime,
@@ -34,6 +35,7 @@ impl Service {
     pub fn new(root: PathBuf) -> Result<Arc<Self>, AppError> {
         Ok(Arc::new(Self {
             running: AtomicBool::new(true),
+            retiring: AtomicBool::new(false),
             root,
             backend: Arc::new(NativePtyBackend::default()),
             hooks: HookRuntime::default(),
@@ -56,7 +58,8 @@ impl Service {
             Command::Ping => Ok(
                 serde_json::json!({ "version": super::protocol::VERSION, "pid": std::process::id(),
                     "appVersion": env!("CARGO_PKG_VERSION"),
-                    "capabilities": ["recover_exited", "session_identity", "collab_passthrough_v1", "terminal_program_status_v1"] }),
+                    "retiring": self.retiring.load(Ordering::Acquire),
+                    "capabilities": ["recover_exited", "session_identity", "collab_passthrough_v1", "terminal_program_status_v1", "rolling_upgrade_v1"] }),
             ),
             Command::Create {
                 mut launch,
@@ -88,15 +91,23 @@ impl Service {
     fn mutate(&self, command: Command) -> Result<serde_json::Value, AppError> {
         match command {
             Command::Write { id, bytes } => self.backend.write(&id, &bytes)?,
-            Command::WriteChecked { id, bytes, expected_program_sequence } => {
-                self.backend.write_checked(&id, &bytes, Some(expected_program_sequence))?
-            }
+            Command::WriteChecked {
+                id,
+                bytes,
+                expected_program_sequence,
+            } => self
+                .backend
+                .write_checked(&id, &bytes, Some(expected_program_sequence))?,
             Command::Resize { id, cols, rows } => {
                 self.backend.resize(&id, TerminalSize { cols, rows })?
             }
             Command::Palette { id, palette } => self.backend.set_palette(&id, &palette)?,
             Command::Close { id } => self.close(&id)?,
             Command::CloseTab { tab_id } => self.close_tab(&tab_id)?,
+            Command::Retire => {
+                let _operation = self.operation.lock().unwrap();
+                self.retiring.store(true, Ordering::Release);
+            }
             Command::BindIdentity { id, session } => {
                 let _operation = self.operation.lock().unwrap();
                 self.slot(&id)?.bind_native_session(&id, session)?
@@ -193,6 +204,9 @@ impl Service {
         mut request: CreateTerminalRequest,
         overlay: WireOverlay,
     ) -> Result<TerminalSession, AppError> {
+        if self.retiring.load(Ordering::Acquire) {
+            return Err(AppError::io("后台正在退出，请稍后重试"));
+        }
         self.make_room()?;
         self.leases.allow_spawn()?;
         request.launch_overlay = files::decode(overlay, &self.root)?;
@@ -326,6 +340,17 @@ impl Service {
         let _operation = self.operation.lock().unwrap();
         self.backend.close_all();
         self.running.store(false, Ordering::Release);
+    }
+
+    pub fn retire_if_unused(&self) {
+        if !self.retiring.load(Ordering::Acquire) {
+            return;
+        }
+        let _operation = self.operation.lock().unwrap();
+        // Exited but unclosed sessions still own scrollback. Never discard that during an upgrade.
+        if self.list().is_empty() {
+            self.running.store(false, Ordering::Release);
+        }
     }
 }
 

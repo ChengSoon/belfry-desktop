@@ -4,24 +4,24 @@ use super::super::{
     contracts::{AppErrorCode, TerminalPalette, TerminalSession, TerminalSize, TerminalStatus},
 };
 use super::{
-    endpoint, files,
-    protocol::{Command, Endpoint, FLAG, SessionInfo},
+    files, generations,
+    protocol::{Command, Endpoint, SessionInfo},
     subscriptions::Subscriptions,
     transport,
 };
 use std::{
-    path::{Path, PathBuf},
-    process::{Command as Process, Stdio},
+    collections::HashMap,
+    path::PathBuf,
     sync::{Arc, Mutex},
-    thread,
-    time::{Duration, Instant},
 };
 
 pub struct DaemonClient {
     root: PathBuf,
     endpoint: Mutex<Option<Endpoint>>,
+    previous: Mutex<Vec<Endpoint>>,
+    routes: Mutex<HashMap<String, Endpoint>>,
     polls: Subscriptions,
-    capabilities: Mutex<Option<(String, Vec<String>)>>,
+    capabilities: Mutex<HashMap<String, Vec<String>>>,
     identities: Arc<super::identity::NativeIdentities>,
 }
 
@@ -30,8 +30,10 @@ impl DaemonClient {
         Self {
             root,
             endpoint: Mutex::new(None),
+            previous: Mutex::new(Vec::new()),
+            routes: Mutex::new(HashMap::new()),
             polls: Subscriptions::default(),
-            capabilities: Mutex::new(None),
+            capabilities: Mutex::new(HashMap::new()),
             identities: Arc::new(super::identity::NativeIdentities::default()),
         }
     }
@@ -39,51 +41,141 @@ impl DaemonClient {
     fn endpoint(&self) -> Result<Endpoint, AppError> {
         let mut endpoint = self.endpoint.lock().unwrap();
         if endpoint.is_none() {
-            *endpoint = Some(connect_or_start(&self.root).map_err(AppError::io)?);
+            let current = generations::connect_or_start(&self.root).map_err(AppError::io)?;
+            self.discover_previous(&current);
+            *endpoint = Some(current);
         }
         Ok(endpoint.as_ref().unwrap().clone())
     }
 
     pub fn call<T: serde::de::DeserializeOwned>(&self, command: Command) -> Result<T, AppError> {
-        transport::call_app(&self.endpoint()?, command)
+        let endpoint = match &command {
+            Command::Info { id }
+            | Command::Poll { id, .. }
+            | Command::Write { id, .. }
+            | Command::WriteChecked { id, .. }
+            | Command::Resize { id, .. }
+            | Command::Palette { id, .. }
+            | Command::Close { id }
+            | Command::BindIdentity { id, .. } => self.session_endpoint(id)?,
+            _ => self.endpoint()?,
+        };
+        transport::call_app(&endpoint, command)
     }
 
     pub fn refresh(&self) -> Result<(), AppError> {
         let mut current = self.endpoint.lock().unwrap();
         let online = current.as_ref().is_some_and(|endpoint| {
-            transport::call::<serde_json::Value>(endpoint, Command::Ping).is_ok()
+            transport::call::<serde_json::Value>(endpoint, Command::Ping)
+                .is_ok_and(|reply| generations::compatible(&reply, env!("CARGO_PKG_VERSION")))
         });
         if !online {
-            *current = Some(connect_or_start(&self.root).map_err(AppError::io)?);
+            let endpoint = generations::connect_or_start(&self.root).map_err(AppError::io)?;
+            self.discover_previous(&endpoint);
+            *current = Some(endpoint);
         }
         Ok(())
     }
 
     pub fn list(&self) -> Result<Vec<SessionInfo>, AppError> {
-        let sessions: Vec<SessionInfo> = self.call(Command::List)?;
+        let current = self.endpoint()?;
+        let mut sessions: Vec<SessionInfo> = transport::call_app(&current, Command::List)?;
+        self.remember(&current, &sessions);
+        for endpoint in self.previous.lock().unwrap().clone() {
+            match transport::call_app::<Vec<SessionInfo>>(&endpoint, Command::List) {
+                Ok(previous) => {
+                    self.remember(&endpoint, &previous);
+                    sessions.extend(previous);
+                }
+                Err(_)
+                    if transport::call::<serde_json::Value>(&endpoint, Command::Ping).is_err() => {}
+                Err(error) => return Err(error),
+            }
+        }
         Ok(sessions
             .into_iter()
             .map(|info| self.with_native_session(info))
             .collect())
     }
     pub fn workspace_lease(&self) -> Result<super::LeaseGuard, AppError> {
-        super::LeaseGuard::acquire(self.endpoint()?)
+        let mut endpoints = vec![self.endpoint()?];
+        for endpoint in self.previous.lock().unwrap().clone() {
+            if transport::call::<serde_json::Value>(&endpoint, Command::Ping).is_ok() {
+                endpoints.push(endpoint);
+            }
+        }
+        super::LeaseGuard::acquire_all(endpoints)
     }
 
     pub fn attachment(&self, id: &str) -> Result<SessionInfo, AppError> {
-        let info = self.call(Command::Info { id: id.into() })?;
-        Ok(self.with_native_session(info))
+        match self.call(Command::Info { id: id.into() }) {
+            Ok(info) => Ok(self.with_native_session(info)),
+            Err(error) if error.code == AppErrorCode::SessionMissing => {
+                for endpoint in self.previous.lock().unwrap().clone() {
+                    if let Ok(info) = transport::call_app::<SessionInfo>(
+                        &endpoint,
+                        Command::Info { id: id.into() },
+                    ) {
+                        self.remember(&endpoint, std::slice::from_ref(&info));
+                        return Ok(self.with_native_session(info));
+                    }
+                }
+                Err(error)
+            }
+            Err(error) => Err(error),
+        }
     }
     pub fn lookup(&self, tab_id: &str) -> Result<Option<SessionInfo>, AppError> {
         let info: Option<SessionInfo> = self.call(Command::Lookup {
             tab_id: tab_id.into(),
         })?;
-        Ok(info.map(|info| self.with_native_session(info)))
+        if info.is_some() {
+            return Ok(info.map(|info| self.with_native_session(info)));
+        }
+        for endpoint in self.previous.lock().unwrap().clone() {
+            if let Ok(Some(info)) = transport::call_app::<Option<SessionInfo>>(
+                &endpoint,
+                Command::Lookup {
+                    tab_id: tab_id.into(),
+                },
+            ) {
+                self.remember(&endpoint, std::slice::from_ref(&info));
+                return Ok(Some(self.with_native_session(info)));
+            }
+        }
+        Ok(None)
     }
     pub fn close_tab(&self, tab_id: &str) -> Result<(), AppError> {
-        self.call(Command::CloseTab {
+        self.call::<()>(Command::CloseTab {
             tab_id: tab_id.into(),
-        })
+        })?;
+        for endpoint in self.previous.lock().unwrap().clone() {
+            let sessions = match transport::call_app::<Vec<SessionInfo>>(&endpoint, Command::List) {
+                Ok(sessions) => sessions,
+                Err(_)
+                    if transport::call::<serde_json::Value>(&endpoint, Command::Ping).is_err() =>
+                {
+                    continue;
+                }
+                Err(error) => return Err(error),
+            };
+            if !sessions
+                .iter()
+                .any(|info| info.tab_id.as_deref() == Some(tab_id))
+            {
+                continue;
+            }
+            // Closed generations can already have retired; do not revive them.
+            if transport::call::<serde_json::Value>(&endpoint, Command::Ping).is_ok() {
+                transport::call_app::<()>(
+                    &endpoint,
+                    Command::CloseTab {
+                        tab_id: tab_id.into(),
+                    },
+                )?;
+            }
+        }
+        Ok(())
     }
 
     pub fn detach(&self, id: &str, connection: &str) {
@@ -101,16 +193,17 @@ impl DaemonClient {
     }
 
     pub fn shutdown(&self) -> Result<(), AppError> {
+        for endpoint in self.previous.lock().unwrap().clone() {
+            if transport::call::<serde_json::Value>(&endpoint, Command::Ping).is_ok() {
+                transport::call_app::<()>(&endpoint, Command::Shutdown)?;
+            }
+        }
         self.call(Command::Shutdown)
     }
 
-    fn supports(&self, capability: &str) -> Result<bool, AppError> {
-        let endpoint = self.endpoint()?;
+    fn supports_on(&self, endpoint: &Endpoint, capability: &str) -> Result<bool, AppError> {
         let mut cached = self.capabilities.lock().unwrap();
-        if cached
-            .as_ref()
-            .is_none_or(|(instance, _)| instance != &endpoint.instance)
-        {
+        if !cached.contains_key(&endpoint.instance) {
             let reply: serde_json::Value = transport::call_app(&endpoint, Command::Ping)?;
             let capabilities = reply["capabilities"]
                 .as_array()
@@ -118,14 +211,52 @@ impl DaemonClient {
                 .flatten()
                 .filter_map(|value| value.as_str().map(String::from))
                 .collect();
-            *cached = Some((endpoint.instance, capabilities));
+            cached.insert(endpoint.instance.clone(), capabilities);
         }
-        Ok(cached
-            .as_ref()
-            .unwrap()
-            .1
+        Ok(cached[&endpoint.instance]
             .iter()
             .any(|value| value == capability))
+    }
+
+    fn session_endpoint(&self, id: &str) -> Result<Endpoint, AppError> {
+        let current = self.endpoint()?;
+        Ok(self
+            .routes
+            .lock()
+            .unwrap()
+            .get(id)
+            .cloned()
+            .unwrap_or(current))
+    }
+
+    fn remember(&self, endpoint: &Endpoint, sessions: &[SessionInfo]) {
+        let mut routes = self.routes.lock().unwrap();
+        for info in sessions {
+            routes.insert(info.session.id.clone(), endpoint.clone());
+        }
+    }
+
+    fn discover_previous(&self, current: &Endpoint) {
+        let mut previous = Vec::new();
+        for (endpoint, reply) in generations::online(&self.root) {
+            if endpoint.instance == current.instance {
+                continue;
+            }
+            // New generations can atomically stop accepting new sessions, without killing PTYs.
+            if generations::supersedes(&reply, env!("CARGO_PKG_VERSION"))
+                && reply["capabilities"]
+                    .as_array()
+                    .is_some_and(|items| items.iter().any(|item| item == "rolling_upgrade_v1"))
+            {
+                let _ = transport::call_app::<()>(&endpoint, Command::Retire);
+            }
+            if let Ok(sessions) = transport::call_app::<Vec<SessionInfo>>(&endpoint, Command::List)
+            {
+                self.remember(&endpoint, &sessions);
+                previous.push(endpoint);
+            }
+        }
+        *self.previous.lock().unwrap() = previous;
     }
 
     fn with_native_session(&self, info: SessionInfo) -> SessionInfo {
@@ -145,7 +276,7 @@ impl DaemonClient {
             ));
         }
         // 旧 daemon 不认识新命令：保留宿主缓存并通知 UI，不能为了升级停止用户任务。
-        if self.supports("session_identity")? {
+        if self.supports_on(&self.session_endpoint(id)?, "session_identity")? {
             self.call::<()>(Command::BindIdentity {
                 id: id.into(),
                 session: self
@@ -163,12 +294,24 @@ impl DaemonClient {
         request: &CreateTerminalRequest,
         recover_exited: bool,
     ) -> Result<TerminalSession, AppError> {
-        self.call(Command::Create {
-            launch: request.clone(),
-            overlay: files::encode(&request.launch_overlay)?,
-            attachment: request.launch_overlay.attachment.clone(),
-            recover_exited,
-        })
+        let endpoint = match request.launch_overlay.attachment.as_deref() {
+            Some(id) => self.session_endpoint(id)?,
+            None => self.endpoint()?,
+        };
+        let session: TerminalSession = transport::call_app(
+            &endpoint,
+            Command::Create {
+                launch: request.clone(),
+                overlay: files::encode(&request.launch_overlay)?,
+                attachment: request.launch_overlay.attachment.clone(),
+                recover_exited,
+            },
+        )?;
+        self.routes
+            .lock()
+            .unwrap()
+            .insert(session.id.clone(), endpoint);
+        Ok(session)
     }
 
     pub fn spawn_prepared(
@@ -177,13 +320,50 @@ impl DaemonClient {
         sink: Arc<dyn TerminalEventSink>,
         prepare_new: impl FnOnce(&mut CreateTerminalRequest) -> Result<(), AppError>,
     ) -> Result<TerminalSession, AppError> {
+        self.endpoint()?;
+        if let Some(id) = request.launch_overlay.attachment.as_deref() {
+            if !self.routes.lock().unwrap().contains_key(id)
+                && !self.previous.lock().unwrap().is_empty()
+            {
+                self.attachment(id)?;
+            }
+        }
+        // A saved ID, or a tab opened in another window, can belong to a retained generation.
+        if request.launch_overlay.attachment.is_none() && !self.previous.lock().unwrap().is_empty()
+        {
+            if let Some(tab) = request.tab_id.as_deref() {
+                if let Some(info) = self.lookup(tab)? {
+                    request.launch_overlay.attachment = Some(info.session.id);
+                }
+            }
+        }
         let recover_exited = request.launch_overlay.recover_exited;
         let mut prepare_new = Some(prepare_new);
         if request.launch_overlay.attachment.is_none() {
             prepare_new.take().unwrap()(&mut request)?;
         }
         // 先让 daemon 校验目标。未订阅旧输出前区分回放和恢复，避免旧 Exit 关闭新输入。
-        let mut session = self.create_session(&request, false)?;
+        let mut session = match self.create_session(&request, false) {
+            Ok(session) => session,
+            Err(error)
+                if error.code == AppErrorCode::SessionMissing
+                    && !self.previous.lock().unwrap().is_empty() =>
+            {
+                // Another view can have moved this tab to the new daemon while this view still
+                // holds the old terminal ID. Resolve only the same tab; Create validates its target.
+                let info = request
+                    .tab_id
+                    .as_deref()
+                    .map(|tab| self.lookup(tab))
+                    .transpose()?
+                    .flatten()
+                    .ok_or(error)?;
+                request.merge_native_session(info.native_session.as_ref());
+                request.launch_overlay.attachment = Some(info.session.id);
+                self.create_session(&request, false)?
+            }
+            Err(error) => return Err(error),
+        };
         if recover_exited && session.reconnected && session.status == TerminalStatus::Exited {
             let info = self.attachment(&session.id)?;
             request.merge_native_session(info.native_session.as_ref());
@@ -194,7 +374,27 @@ impl DaemonClient {
                 prepare(&mut request)?;
             }
             request.cwd = original_cwd;
-            if self.supports("recover_exited")? {
+            let owner = self.session_endpoint(&session.id)?;
+            if owner.instance != self.endpoint()?.instance {
+                // Prepare and start the resumed process before retiring the old record. A failed
+                // upgrade must leave its history available, and must never replay the last prompt.
+                request.launch_overlay.attachment = None;
+                request.cwd.get_or_insert(session.cwd.clone());
+                let fresh = self.create_session(&request, false)?;
+                if let Err(error) = transport::call_app::<()>(
+                    &owner,
+                    Command::Close {
+                        id: session.id.clone(),
+                    },
+                ) {
+                    log::warn!(
+                        "Could not retire an exited terminal after upgrade: {}",
+                        error.message
+                    );
+                }
+                self.identities.forget(&session.id);
+                session = fresh;
+            } else if self.supports_on(&owner, "recover_exited")? {
                 session = self.create_session(&request, true)?;
             } else {
                 // Create 已验证标签/项目/类型，而且该 ID 明确已退出。只关闭这一条，
@@ -236,7 +436,7 @@ impl DaemonClient {
         initial_identity: Option<&crate::agent::AgentSessionRef>,
         watch_identity: bool,
     ) -> Result<(), AppError> {
-        let endpoint = self.endpoint()?;
+        let endpoint = self.session_endpoint(&session.id)?;
         let stream = if watch_identity {
             self.identities.observe(sink.clone())
         } else {
@@ -266,12 +466,25 @@ impl PtyBackend for DaemonClient {
             bytes: bytes.into(),
         })
     }
-    fn write_checked(&self, id: &str, bytes: &[u8], expected_program_sequence: Option<u64>) -> Result<(), AppError> {
-        let Some(expected_program_sequence) = expected_program_sequence else { return self.write(id, bytes); };
-        if !self.supports("terminal_program_status_v1")? {
-            return Err(AppError::conflict("Waiting for a terminal daemon that supports native program status"));
+    fn write_checked(
+        &self,
+        id: &str,
+        bytes: &[u8],
+        expected_program_sequence: Option<u64>,
+    ) -> Result<(), AppError> {
+        let Some(expected_program_sequence) = expected_program_sequence else {
+            return self.write(id, bytes);
+        };
+        if !self.supports_on(&self.session_endpoint(id)?, "terminal_program_status_v1")? {
+            return Err(AppError::conflict(
+                "Waiting for a terminal daemon that supports native program status",
+            ));
         }
-        self.call(Command::WriteChecked { id: id.into(), bytes: bytes.into(), expected_program_sequence })
+        self.call(Command::WriteChecked {
+            id: id.into(),
+            bytes: bytes.into(),
+            expected_program_sequence,
+        })
     }
     fn resize(&self, id: &str, size: TerminalSize) -> Result<(), AppError> {
         self.call(Command::Resize {
@@ -300,68 +513,6 @@ impl PtyBackend for DaemonClient {
 impl Drop for DaemonClient {
     fn drop(&mut self) {
         self.detach_all();
-    }
-}
-
-fn connect_or_start(root: &Path) -> Result<Endpoint, String> {
-    if let Ok(endpoint) = endpoint::read(root) {
-        if transport::call::<serde_json::Value>(&endpoint, Command::Ping).is_ok() {
-            return Ok(endpoint);
-        }
-    }
-    endpoint::private_directory(root)?;
-    let mut command = Process::new(std::env::current_exe().map_err(|error| error.to_string())?);
-    command
-        .arg(FLAG)
-        .arg(root)
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null());
-    detach_process(&mut command);
-    let mut child = command
-        .spawn()
-        .map_err(|error| format!("无法启动终端后台：{error}"))?;
-    let deadline = Instant::now() + Duration::from_secs(8);
-    loop {
-        if let Ok(endpoint) = endpoint::read(root) {
-            if transport::call::<serde_json::Value>(&endpoint, Command::Ping).is_ok() {
-                thread::spawn(move || {
-                    let _ = child.wait();
-                });
-                return Ok(endpoint);
-            }
-        }
-        if Instant::now() >= deadline {
-            break;
-        }
-        let _ = child.try_wait();
-        thread::sleep(Duration::from_millis(40));
-    }
-    Err("终端后台未就绪，可能有不兼容的旧后台仍在运行。原任务已保留。".into())
-}
-
-fn detach_process(command: &mut Process) {
-    #[cfg(unix)]
-    {
-        use std::os::unix::process::CommandExt;
-        unsafe extern "C" {
-            fn setsid() -> i32;
-        }
-        unsafe {
-            command.pre_exec(|| {
-                if setsid() < 0 {
-                    return Err(std::io::Error::last_os_error());
-                }
-                Ok(())
-            });
-        }
-    }
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        const DETACHED_PROCESS: u32 = 0x0000_0008;
-        const NEW_PROCESS_GROUP: u32 = 0x0000_0200;
-        command.creation_flags(DETACHED_PROCESS | NEW_PROCESS_GROUP);
     }
 }
 
