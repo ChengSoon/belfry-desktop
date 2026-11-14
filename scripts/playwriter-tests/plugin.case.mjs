@@ -2,13 +2,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile, writeFile, mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { runtimeZip, extractRuntime } from "../../plugins/playwriter/runtime-archive.mjs";
 import { prepareRuntime } from "../../plugins/playwriter/runtime.mjs";
 import { createController } from "../../plugins/playwriter/controller.mjs";
-import { readDirectory } from "../../src-tauri/src/plugins/node/directory.mjs";
 import { host, temporary, waitFor } from "../plugin-tests/support.mjs";
+import { isolatedPlugin } from "./support.mjs";
 
 async function directory(t) {
   const path = await mkdtemp(join(tmpdir(), "playwriter-test-"));
@@ -89,7 +89,7 @@ test("missing extension and unrelated port holder produce actionable errors", as
 
 test("packaged plugin loads in the real Belfry host, registers tools and unloads cleanly", async t => {
   const root = await temporary(t), runtime = await host(t, root);
-  const snapshot = await readDirectory(resolve("plugins/playwriter"));
+  const { plugin: snapshot } = await isolatedPlugin(root);
   await runtime.call("context", { workspace: root, sessionId: "plugin-test" });
   await runtime.call("load", { path: snapshot.root, manifest: snapshot.manifest, development: false });
   const tools = (await runtime.call("catalog")).tools.filter(tool => tool.pluginId === snapshot.manifest.id);

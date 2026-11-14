@@ -50,7 +50,7 @@ console.log(await snapshot({ page: state.page }));
 
 ```sh
 node scripts/build-playwriter-plugin.mjs
-node --test scripts/playwriter-tests/plugin.test.mjs
+node --test scripts/playwriter-tests/plugin.case.mjs
 node --test scripts/playwriter-tests/browser.e2e.mjs
 node scripts/plugin-devkit.mjs check plugins/playwriter
 node scripts/plugin-devkit.mjs pack plugins/playwriter

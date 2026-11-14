@@ -56,6 +56,10 @@ jobs:
         run: pnpm test
       - name: Type check and production chunks
         run: pnpm build
+      - name: Playwriter plugin build and native host regression
+        run: |
+          node scripts/build-playwriter-plugin.mjs
+          node --test --test-concurrency=1 scripts/playwriter-tests/plugin.case.mjs
       # cargo test 也执行 tauri-build，必须先准备 externalBin；这里用真实 debug CLI。
       - name: Prepare host CLI sidecar
         run: node scripts/bundle-cli.mjs

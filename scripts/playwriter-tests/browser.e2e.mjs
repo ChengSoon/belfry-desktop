@@ -8,13 +8,14 @@ import { homedir } from "node:os";
 import { prepareRuntime } from "../../plugins/playwriter/runtime.mjs";
 import { readDirectory } from "../../src-tauri/src/plugins/node/directory.mjs";
 import { cleanupScope, host, temporary, waitFor } from "../plugin-tests/support.mjs";
+import { isolatedPlugin, isolatedExtension } from "./support.mjs";
 
 test("real Playwriter extension drives browser through Belfry tools and panel", { timeout: 90_000 }, async t => {
   const cleanup = cleanupScope(t), root = await temporary(cleanup);
   const engine = await prepareRuntime(join(root, "engine"));
   const { chromium } = createRequire(join(engine, "node_modules/playwriter/package.json"))("@xmorse/playwright-core");
   const runtime = await host(cleanup, root, { platform: request => request.api === "ui.openPanel" ? request : null });
-  const plugin = await readDirectory(resolve(process.env.BELFRY_PLAYWRITER_PLUGIN_DIR ?? "plugins/playwriter"));
+  const { plugin, port } = await isolatedPlugin(root);
   await runtime.call("context", { workspace: root, sessionId: "browser-e2e", theme: "light" });
   await runtime.call("load", { path: plugin.root, manifest: plugin.manifest, development: false });
   const tool = (name, args = {}, sessionId = "browser-e2e") => runtime.call("tool", { pluginId: plugin.manifest.id,
@@ -33,7 +34,7 @@ test("real Playwriter extension drives browser through Belfry tools and panel", 
   let executablePath = process.env.BELFRY_PLAYWRITER_TEST_CHROME;
   if (!executablePath && process.platform === "darwin") executablePath = join(homedir(), "Library/Caches/ms-playwright/chromium-1243/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing");
   if (executablePath) await access(executablePath);
-  const extensionPath = join(engine, "node_modules/playwriter/dist/extension");
+  const extensionPath = await isolatedExtension(engine, root, port);
   const browser = await chromium.launchPersistentContext(join(root, "profile"), { executablePath, channel: executablePath ? undefined : "chromium",
     headless: true, viewport: { width: 900, height: 760 }, ignoreDefaultArgs: ["--disable-extensions"],
     args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`] });
