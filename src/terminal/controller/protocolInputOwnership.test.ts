@@ -7,6 +7,43 @@ describe.each(["codex", "claude"] as const)("%s protocol input ownership", agent
 
 const status = (state: TerminalProgramStatus["state"], sequence: number) => statusReport(agent, state, sequence);
 
+it("keeps one input permission through done to idle, but not through a busy interval", () => {
+  const input = new ProtocolInputOwnership(agent);
+  input.attach(true);
+  input.accept(status("done", 1));
+  const valid = input.validatePosition();
+  input.reserve();
+  input.accept(status("idle", 2));
+  expect(valid()).toBe(true);
+  input.accept(status("idle", 3));
+  expect(valid()).toBe(true);
+  input.accept(status("blocked", 4));
+  input.accept(status("idle", 5));
+  expect(valid()).toBe(false);
+});
+
+it.each(["\r", "\n", "\r\n", "\x1b[13u", "\x1b[13;1u"])("does not wait forever for a working report after empty Enter %j", key => {
+  const input = new ProtocolInputOwnership(agent);
+  input.attach(true);
+  input.accept(status("done", 1));
+  input.userInput(key);
+  input.accept(status("idle", 2));
+  expect(input.ready).toBe(true);
+  input.userInput("draft");
+  input.userInput(key);
+  input.accept(status("idle", 3));
+  expect(input.ready).toBe(false);
+});
+
+it("does not carry a permission over missing protocol reports", () => {
+  const input = new ProtocolInputOwnership(agent);
+  input.attach(true);
+  input.accept(status("done", 1));
+  const valid = input.validatePosition();
+  input.accept(status("idle", 3));
+  expect(valid()).toBe(false);
+});
+
 it("keeps drafts through idle reports and only releases an acknowledged submission", () => {
   const input = new ProtocolInputOwnership(agent);
   input.attach(true);

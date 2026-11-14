@@ -59,7 +59,7 @@ impl Service {
                 serde_json::json!({ "version": super::protocol::VERSION, "pid": std::process::id(),
                     "appVersion": env!("CARGO_PKG_VERSION"),
                     "retiring": self.retiring.load(Ordering::Acquire),
-                    "capabilities": ["recover_exited", "session_identity", "collab_passthrough_v1", "terminal_program_status_v1", "rolling_upgrade_v1"] }),
+                    "capabilities": ["recover_exited", "session_identity", "collab_passthrough_v1", "terminal_program_status_v1", "terminal_input_continuity_v1", "rolling_upgrade_v1"] }),
             ),
             Command::Create {
                 mut launch,

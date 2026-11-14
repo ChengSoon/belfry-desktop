@@ -183,6 +183,37 @@ describe.each(["codex", "claude"] as const)("%s automatic input ownership", (kin
     expect(view.commandTarget.composerEmpty?.()).toBe(true);
   });
 
+  it("submits exactly once when a paste changes done to idle during its settle window", async () => {
+    await start({ profileId: `agent:${kind}`, projectLaunch: undefined });
+    const id = view.daemonSessionId!;
+    await emit({ kind: "agent_state", sessionId: id, snapshot: statusReport(kind, "done", 1) });
+    const result = vi.fn();
+    expect(view.commandTarget.sendText("automatic", { onResult: result })).toBe(true);
+    await flush();
+    expect(writeTerminal).toHaveBeenCalledTimes(1);
+    await emit({ kind: "agent_state", sessionId: id, snapshot: statusReport(kind, "idle", 2) });
+    await advance(250);
+    expect(result).toHaveBeenCalledExactlyOnceWith("submitted");
+    expect(writeTerminal).toHaveBeenCalledTimes(2);
+    expect([...vi.mocked(writeTerminal).mock.calls[1][1]]).toEqual([13]);
+    await emit({ kind: "agent_state", sessionId: id, snapshot: statusReport(kind, "working", 3) });
+    await emit({ kind: "agent_state", sessionId: id, snapshot: statusReport(kind, "done", 4) });
+    expect(view.commandTarget.composerEmpty?.()).toBe(true);
+  });
+
+  it("keeps an empty Enter from claiming a draft and blocking inbox delivery", async () => {
+    await start({ profileId: `agent:${kind}`, projectLaunch: undefined });
+    const id = view.daemonSessionId!;
+    await emit({ kind: "agent_state", sessionId: id, snapshot: statusReport(kind, "done", 1) });
+    for (const listener of userInputs.listeners) listener("\r");
+    await emit({ kind: "agent_state", sessionId: id, snapshot: statusReport(kind, "idle", 2) });
+    expect(claimTerminalUserInput).not.toHaveBeenCalled();
+    expect(view.commandTarget.composerEmpty?.()).toBe(true);
+    expect(view.commandTarget.sendText("next message")).toBe(true);
+    await advance(250);
+    expect(writeTerminal).toHaveBeenCalledTimes(2);
+  });
+
   it("keeps a successful paste owned if working is reported before Enter", async () => {
     await start({ profileId: `agent:${kind}`, projectLaunch: undefined });
     const id = view.daemonSessionId!;

@@ -90,6 +90,8 @@ fn editor_empty(channel: &Channel, mode: Option<&super::input_gate_vt::Modes>) -
 }
 fn protocol_ready(channel: &Channel, mode: Option<&super::input_gate_vt::Modes>) -> bool {
     protocol_idle(channel, mode) && editor_empty(channel, mode)
+        && channel.protocol_agent.is_none_or(|_| mode.is_some_and(|mode| mode.protocol.as_ref()
+            .is_some_and(|snapshot| mode.readiness.allows(snapshot.sequence))))
 }
 fn protocol_idle(channel: &Channel, mode: Option<&super::input_gate_vt::Modes>) -> bool {
     channel.protocol_agent.is_none_or(|agent| mode.and_then(|mode| mode.protocol.as_ref()).is_some_and(|snapshot| {
@@ -240,6 +242,7 @@ impl InputGate {
                     mode.working_sequence = snapshot.sequence;
                     mode.working_agent = Some(snapshot.agent);
                 }
+                mode.readiness.observe(snapshot);
                 mode.protocol = Some(snapshot.clone());
                 self.revision.fetch_add(1, Ordering::Release);
             }
@@ -329,8 +332,9 @@ impl InputGate {
         if let Ok(mut modes) = self.modes.lock() {
             let mode = modes.entry(session.into()).or_default();
             let before = mode.bracketed_paste;
+            let paste_generation = mode.paste_generation;
             mode.observe(sequence, bytes, crate::rooms::model::now_millis());
-            if before != mode.bracketed_paste {
+            if before != mode.bracketed_paste || paste_generation != mode.paste_generation {
                 self.revision.fetch_add(1, Ordering::Release);
             }
         }
@@ -353,19 +357,28 @@ impl InputGate {
             }
         }
     }
+    #[cfg(test)]
     pub fn ready_tab(&self, tab: &str) -> bool {
+        self.tab_blocker(tab).is_none()
+    }
+
+    /// Preserve the actual gate reason instead of labelling every refusal as terminal startup.
+    pub fn tab_blocker(&self, tab: &str) -> Option<&'static str> {
         let Ok(channels) = self.inner.lock() else {
-            return false;
+            return Some("runtime_not_ready");
         };
         let Ok(modes) = self.modes.lock() else {
-            return false;
+            return Some("runtime_not_ready");
         };
-        channels.iter().any(|(id, channel)| {
-            channel.live
-                && channel.tab_id.as_deref() == Some(tab)
-                && modes.get(id).is_some_and(|mode| mode.bracketed_paste)
-                && protocol_ready(channel, modes.get(id))
-        })
+        let mut blocker = "runtime_not_ready";
+        for (id, channel) in channels.iter().filter(|(_, channel)| channel.live && channel.tab_id.as_deref() == Some(tab)) {
+            let mode = modes.get(id);
+            if protocol_ready(channel, mode) && mode.is_some_and(|mode| mode.bracketed_paste) { return None; }
+            blocker = if !editor_empty(channel, mode) { "composer_not_empty" }
+                else if !mode.is_some_and(|mode| mode.bracketed_paste) { "paste_not_ready" }
+                else { "runtime_not_ready" };
+        }
+        Some(blocker)
     }
     pub fn safe_paste(&self, session: &str) -> bool {
         self.modes.lock().ok().is_some_and(|modes| modes.get(session).is_some_and(|mode| mode.bracketed_paste))
@@ -522,6 +535,10 @@ impl InputGate {
             let report = mode.protocol.as_ref()?.terminal_status_for(channel.protocol_agent?)?;
             (report.state == crate::agent::ProgramState::Blocked).then_some((mode.blocked_sequence, editor_empty(channel, Some(mode))))
         });
+        let empty_submission = submit_key(bytes) && channels.get(session).is_some_and(|channel| {
+            channel.protocol_agent.is_some() && status_agent == channel.protocol_agent
+                && protocol_idle(channel, modes.get(session)) && editor_empty(channel, modes.get(session))
+        });
         // Keep input ownership through the write, but let the output reader drain
         // the PTY while its child is still reading a large input frame.
         drop(modes);
@@ -535,9 +552,9 @@ impl InputGate {
             }
             channel.revision = channel.revision.checked_add(1).ok_or_else(|| conflict("Input revision overflow"))?;
             if channel.protocol_agent.is_some() {
-                channel.input_dirty = true;
+                channel.input_dirty = !empty_submission;
                 let dialog_empty = dialog.is_some_and(|(sequence, _)| channel.blocked_input == Some((sequence, true)));
-                channel.submission_revision = (submit_key(bytes) && (status_idle || dialog_empty) && status_agent == channel.protocol_agent)
+                channel.submission_revision = (!empty_submission && submit_key(bytes) && (status_idle || dialog_empty) && status_agent == channel.protocol_agent)
                     .then_some((channel.revision, status_sequence));
             }
             self.revision.fetch_add(1, Ordering::Release);
@@ -598,7 +615,7 @@ impl InputGate {
             return previous.error.as_ref().map_or(Ok(()), |error| Err(error.clone()));
         }
         if !ready || attempt.protocol_sequence.is_some_and(|expected| {
-            modes.get(session).and_then(|mode| mode.protocol.as_ref()).is_none_or(|snapshot| snapshot.sequence != expected)
+            modes.get(session).is_none_or(|mode| !mode.readiness.allows(expected))
         }) {
             return Err(conflict("Agent terminal status changed before automatic input"));
         }
@@ -641,7 +658,9 @@ impl InputGate {
             .insert(sequence, Written { hash, error: Some(AppError::io("Automatic write result is uncertain")), touched: true, submit_key });
         let status_sequence = modes.get(session).and_then(|mode| mode.protocol.as_ref()).map_or(0, |s| s.sequence);
         drop(modes);
-        let result = write(attempt.protocol_sequence);
+        // The permission spans one uninterrupted idle position; older daemons still
+        // require the freshest exact report sequence at their writer boundary.
+        let result = write(attempt.protocol_sequence.map(|_| status_sequence));
         // These backend errors are explicit rejections before any PTY write. Network/IO
         // errors may be partial and must keep both the payload and editor reserved.
         let rejected = result.as_ref().err().is_some_and(|error| error.code == super::contracts::AppErrorCode::Conflict
@@ -824,6 +843,77 @@ mod tests {
             reason: String::new(), transcript_path: None,
             program_status: Some(crate::agent::TerminalProgramStatus { state, kind: None, progress: None, title: None, message: None }),
         });
+    }
+
+    #[test]
+    fn native_blockers_distinguish_input_ownership_from_paste_readiness() {
+        use crate::agent::{AgentKind, ProgramState as State};
+        let (gate, _) = ready();
+        gate.require_protocol("pty", AgentKind::Codex, false);
+        protocol(&gate, AgentKind::Codex, State::Idle, 1);
+        assert_eq!(gate.tab_blocker("tab"), None);
+        gate.claim_user_input("pty").unwrap();
+        assert_eq!(gate.tab_blocker("tab"), Some("composer_not_empty"));
+        gate.user_write("pty", b"\r", || Ok(())).unwrap();
+        protocol(&gate, AgentKind::Codex, State::Working, 2);
+        protocol(&gate, AgentKind::Codex, State::Done, 3);
+        assert_eq!(gate.tab_blocker("tab"), None);
+        gate.observe_output("pty", 2, b"\x1b[?2004l");
+        assert_eq!(gate.tab_blocker("tab"), Some("paste_not_ready"));
+    }
+
+    #[test]
+    fn done_to_idle_after_paste_preserves_the_guard_for_one_enter() {
+        use crate::agent::{AgentKind, ProgramState as State};
+        for agent in [AgentKind::Codex, AgentKind::Claude] {
+            let (gate, offer) = ready();
+            gate.require_protocol("pty", agent, false);
+            protocol(&gate, agent, State::Done, 1);
+            let guard = gate.authorize(&offer, "batch", "attempt", "payload", 1).unwrap();
+            gate.guarded_write("pty", &guard, 1, b"\x1b[200~payload\x1b[201~", || Ok(())).unwrap();
+            protocol(&gate, agent, State::Idle, 2);
+            gate.guarded_write_checked("pty", &guard, 2, b"\r", |expected| {
+                assert_eq!(expected, Some(2));
+                Ok(())
+            }).unwrap();
+            assert!(!gate.ready_tab("tab"));
+            protocol(&gate, agent, State::Working, 3);
+            protocol(&gate, agent, State::Done, 4);
+            assert!(gate.ready_tab("tab"));
+        }
+    }
+
+    #[test]
+    fn a_paste_mode_reset_requires_a_fresh_ready_report_and_revokes_the_old_guard() {
+        use crate::agent::{AgentKind, ProgramState as State};
+        let (gate, offer) = ready();
+        gate.require_protocol("pty", AgentKind::Codex, false);
+        protocol(&gate, AgentKind::Codex, State::Done, 1);
+        let guard = gate.authorize(&offer, "batch", "attempt", "payload", 1).unwrap();
+        gate.observe_output("pty", 2, b"\x1b[?2004l\x1b[?2004h");
+        assert!(!gate.ready_tab("tab"));
+        protocol(&gate, AgentKind::Codex, State::Idle, 2);
+        assert!(gate.ready_tab("tab"));
+        assert!(gate.guarded_write("pty", &guard, 1, b"\x1b[200~payload\x1b[201~", || panic!("stale paste reached PTY")).is_err());
+    }
+
+    #[test]
+    fn empty_enter_does_not_require_a_working_acknowledgement() {
+        use crate::agent::{AgentKind, ProgramState as State};
+        for agent in [AgentKind::Codex, AgentKind::Claude] {
+            for key in [b"\r".as_slice(), b"\x1b[13u", b"\x1b[13;1u"] {
+                let (gate, _) = ready();
+                gate.require_protocol("pty", agent, false);
+                protocol(&gate, agent, State::Done, 1);
+                gate.user_write("pty", key, || Ok(())).unwrap();
+                protocol(&gate, agent, State::Idle, 2);
+                assert!(gate.ready_tab("tab"));
+                gate.user_write("pty", b"draft", || Ok(())).unwrap();
+                gate.user_write("pty", key, || Ok(())).unwrap();
+                protocol(&gate, agent, State::Idle, 3);
+                assert!(!gate.ready_tab("tab"));
+            }
+        }
     }
 
     #[test]

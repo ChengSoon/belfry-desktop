@@ -5,6 +5,7 @@ mod contracts;
 pub(crate) mod daemon;
 pub(crate) mod input_gate;
 mod input_gate_vt;
+mod input_readiness;
 #[cfg(test)]
 mod inbox_concurrency_test;
 #[cfg(all(test, target_os = "macos"))]

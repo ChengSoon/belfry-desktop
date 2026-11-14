@@ -62,6 +62,7 @@
     "target_changed": "The recipient changed; the message is kept",
     "awaiting_input": "Waiting for the member to finish the current choice",
     "composer_not_empty": "The terminal has unsent input",
+    "paste_not_ready": "Waiting for safe terminal paste mode",
     "source_sync_pending": "Saved, waiting to be queued",
     "runtime_not_ready": "Waiting for the terminal to be ready",
     "approval_required": "Waiting for approval",

@@ -194,6 +194,20 @@ impl Drop for Rig {
 }
 
 #[test]
+fn pending_messages_report_the_native_input_blocker_instead_of_generic_startup() {
+    let rig = Rig::new();
+    let id = rig.post("hello", "input-diagnostic");
+    rig.service.sync().unwrap();
+    let (data, mut sources, _) = rig.service.read_context().unwrap();
+    let entry = data.entries.values().find(|e| e.view.message_id == id && e.view.recipient.tab_id == "b").unwrap();
+    for reason in ["composer_not_empty", "paste_not_ready", "runtime_not_ready"] {
+        sources.native_unready.insert("b".into(), reason.into());
+        let message = read::message(entry, &data, &sources, &rig.service.registry, now(), true);
+        assert_eq!(message.waiting_reason.unwrap().code, reason);
+    }
+}
+
+#[test]
 fn inbox_availability_preserves_native_done_blocked_and_missing_status_meanings() {
     let rig = Rig::new();
     let recipient = Recipient { id: "b".into(), session_key: rig.key("b"), project_root: source::normalize_root(rig.root.to_str().unwrap()),

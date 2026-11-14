@@ -37,6 +37,7 @@ pub struct NativePtyBackend {
 struct ProgramInputStatus {
     report: Option<(u64, bool)>,
     bracketed_paste: bool,
+    readiness: super::input_readiness::InputReadiness,
 }
 
 #[derive(Default)]
@@ -245,17 +246,21 @@ impl NativePtyBackend {
 }
 
 impl NativeSession {
-    fn observe_program_status(&self, snapshot: Option<&crate::agent::hooks::HookSnapshot>, bracketed_paste: bool) {
+    fn observe_program_status(&self, snapshots: &[crate::agent::hooks::HookSnapshot], bracketed_paste: bool, paste_reset: bool) {
         let mut status = self.program_status.lock().unwrap();
         status.bracketed_paste = bracketed_paste;
-        if let Some(snapshot) = snapshot && let Some(report) = snapshot.terminal_status_for(snapshot.agent) {
-            status.report = Some((snapshot.sequence, report.state.allows_input()));
+        if paste_reset || !bracketed_paste { status.readiness.interrupt(); }
+        for snapshot in snapshots {
+            if let Some(report) = snapshot.terminal_status_for(snapshot.agent) {
+                status.readiness.observe(snapshot);
+                status.report = Some((snapshot.sequence, report.state.allows_input()));
+            }
         }
     }
 
     fn check_program_status(&self, expected: u64) -> Result<(), AppError> {
         let status = *self.program_status.lock().map_err(|_| AppError::conflict("Native program status is unavailable"))?;
-        if status.report != Some((expected, true)) || !status.bracketed_paste {
+        if !status.readiness.allows(expected) || !status.report.is_some_and(|(_, ready)| ready) || !status.bracketed_paste {
             return Err(AppError::conflict("Agent terminal status or paste mode changed before PTY input"));
         }
         // Do not hold the status lock through write_all: the reader must keep draining
@@ -317,8 +322,11 @@ fn spawn_reader(session_id: String, mut reader: Box<dyn Read + Send>, session: A
                 Ok(count) => {
                     let updates = status.as_mut().map(|status| status.feed(&buffer[..count])).unwrap_or_default();
                     read_sequence += 1;
+                    let paste_generation = modes.paste_generation;
                     modes.observe(read_sequence, &buffer[..count], crate::rooms::model::now_millis());
-                    session.observe_program_status(updates.last(), modes.bracketed_paste);
+                    // Apply every report: blocked -> idle in one read still revokes an older permission.
+                    // One lock also keeps writers from observing a transient state within this read.
+                    session.observe_program_status(&updates, modes.bracketed_paste, paste_generation != modes.paste_generation);
                     let palette = *session.palette.read().unwrap();
                     let filtered = filter.feed(&buffer[..count], palette);
                     if !filtered.reply.is_empty() {
@@ -353,7 +361,7 @@ fn spawn_reader(session_id: String, mut reader: Box<dyn Read + Send>, session: A
             }
         }
         if let Some(snapshot) = status.as_mut().and_then(super::program_status::ProgramStatus::exited) {
-            session.observe_program_status(Some(&snapshot), false);
+            session.observe_program_status(std::slice::from_ref(&snapshot), false, false);
             let _ = session.sink.send(TerminalEvent::AgentState { session_id, snapshot });
         }
         // A retained done/error report remains useful to the UI, but EOF closes input.

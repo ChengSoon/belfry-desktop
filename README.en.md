@@ -286,6 +286,14 @@ See the [changelog](CHANGELOG.md) for released changes. The version entries belo
 - **Internationalization**: support Simplified Chinese, English, and the system language, with localized dates and numbers; provide bilingual CLI help, native notifications and menus, Agent collaboration instructions, and the Windows installer.
 - **Release checksums**: publish `SHA256SUMS.txt`, verify assets before making the release public, and document verification on Windows and macOS.
 
+### v1.0.8 · Automatic delivery and terminal readiness fixes
+
+Fixes automatic Enter being cancelled by a normal done-to-idle transition after paste, leaving text in the terminal editor. Pressing Enter in a confirmed empty editor no longer blocks later messages indefinitely. The inbox distinguishes draft ownership, unavailable safe paste mode and missing ready status while preserving real drafts and uncertain deliveries. New terminals use the fixed daemon; restart affected old sessions after their tasks finish and verify uncertain old messages before recovery.
+
+### v1.0.7 · Automatic daemon upgrades
+
+The app checks daemon versions and status capabilities on startup and selects a matching daemon for new sessions without a computer restart. Existing sessions retain their processes and output; exited sessions can resume native history in the new daemon without replaying their last instruction. Older daemons that support rolling upgrades exit after their last session closes.
+
 ### v1.0.6 · Native session status and delivery
 
 Codex and Claude Code now use native terminal status reports (OSC 7501) for message delivery, room status and notifications, without status hooks. User drafts are preserved and status is checked again before writing to prevent stalled or duplicate delivery. After upgrading, restart background Agent sessions once their tasks finish; see the [terminal status protocol](docs/agent-terminal-status.md).

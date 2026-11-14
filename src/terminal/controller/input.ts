@@ -72,10 +72,11 @@ export class TerminalInput {
   get composerEmpty() { return this.protocolInput.empty; }
 
   private userInput(key?: string) {
+    const emptySubmission = this.protocolInput.isEmptySubmission(key);
     this.prompt.onUserInput();
     this.protocolInput.userInput(key);
     const session = this.session();
-    if (session && usesTerminalStatus(agentKindFromProfile(this.ports.launch.profileId))) {
+    if (session && !emptySubmission && usesTerminalStatus(agentKindFromProfile(this.ports.launch.profileId))) {
       void claimTerminalUserInput(session.id).catch((error) => {
         if (this.session()?.id === session.id) this.ports.callbacks.onError(errorMessage(error));
       });

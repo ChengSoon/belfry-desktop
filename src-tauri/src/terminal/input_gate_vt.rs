@@ -3,10 +3,12 @@
 #[derive(Default)]
 pub(super) struct Modes {
     pub bracketed_paste: bool,
+    pub paste_generation: u64,
     pub protocol: Option<crate::agent::hooks::HookSnapshot>,
     pub working_sequence: u64,
     pub working_agent: Option<crate::agent::AgentKind>,
     pub blocked_sequence: u64,
+    pub readiness: super::input_readiness::InputReadiness,
     parser: Parser,
     sequence: Option<u64>,
     queries: Vec<(Query, i64)>,
@@ -40,7 +42,7 @@ impl Modes {
                 Parser::Escape if byte == b'[' => Parser::Csi(String::new()),
                 Parser::Escape if matches!(byte, b']' | b'P' | b'_' | b'^') => Parser::String(false),
                 Parser::Escape if byte == b'c' => {
-                    self.bracketed_paste = false;
+                    self.disable_paste();
                     self.queries.clear();
                     Parser::Ground
                 }
@@ -59,19 +61,26 @@ impl Modes {
         }
     }
     pub fn reset(&mut self) {
-        self.bracketed_paste = false;
+        self.disable_paste();
         self.protocol = None;
         self.working_sequence = 0;
         self.working_agent = None;
         self.blocked_sequence = 0;
+        self.readiness = Default::default();
         self.parser = Parser::Ground;
         self.queries.clear();
+    }
+    fn disable_paste(&mut self) {
+        self.bracketed_paste = false;
+        self.paste_generation = self.paste_generation.saturating_add(1);
+        self.readiness.interrupt();
     }
     fn csi(&mut self, params: &str, final_byte: u8, now: i64) {
         if matches!(final_byte, b'h' | b'l')
             && params.strip_prefix('?').is_some_and(|values| values.split(';').any(|value| value == "2004"))
         {
-            self.bracketed_paste = final_byte == b'h';
+            if final_byte == b'h' { self.bracketed_paste = true; }
+            else { self.disable_paste(); }
         }
         let query = match (params, final_byte) {
             ("6", b'n') => Some(Query::Cursor(false)),

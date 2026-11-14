@@ -25,7 +25,7 @@ pub(super) struct Snapshot {
     pub revision: u64,
     pub members: BTreeMap<String, BTreeMap<String, bool>>,
     pub member_ids: BTreeMap<String, BTreeMap<String, String>>,
-    pub native_unready: BTreeSet<String>,
+    pub native_unready: BTreeMap<String, String>,
 }
 
 pub(crate) fn normalize_root(raw: &str) -> String {
@@ -107,7 +107,7 @@ pub(super) fn snapshot(
         revision,
         members: BTreeMap::new(),
         member_ids: BTreeMap::new(),
-        native_unready: BTreeSet::new(),
+        native_unready: BTreeMap::new(),
     };
     for room in rooms {
         out.member_ids.insert(

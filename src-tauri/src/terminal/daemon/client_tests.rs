@@ -412,7 +412,7 @@ fn a_worktree_lease_locks_every_generation_and_releases_all_after_a_failed_acqui
 fn startup_selects_the_matching_release_and_retains_discovered_old_session_routes() {
     let version = env!("CARGO_PKG_VERSION");
     let ping = serde_json::json!({"appVersion": version,
-        "capabilities":["terminal_program_status_v1", "rolling_upgrade_v1"]});
+        "capabilities":["terminal_program_status_v1", "terminal_input_continuity_v1", "rolling_upgrade_v1"]});
     let mut fresh_info = info();
     fresh_info.session = session("fresh", TerminalStatus::Running, false);
     let primary = Peer::new(vec![

@@ -42,7 +42,26 @@ fn session(sink: Arc<dyn TerminalEventSink>, writer: Box<dyn Write + Send>) -> A
 fn report(session: &NativeSession, parser: &mut super::super::program_status::ProgramStatus, agent: AgentKind, state: &str) {
     let wire = format!("\x1b]7501;app={}:state={state}\x1b\\", agent.terminal_status_app().unwrap());
     let snapshot = parser.feed(wire.as_bytes()).pop().unwrap();
-    session.observe_program_status(Some(&snapshot), true);
+    session.observe_program_status(&[snapshot], true, false);
+}
+
+#[test]
+fn checked_write_accepts_done_to_idle_but_rejects_an_intervening_dialog() {
+    for agent in [AgentKind::Codex, AgentKind::Claude] {
+        let bytes = Arc::new(Mutex::new(Vec::new()));
+        let session = session(Arc::new(Sink::default()), Box::new(RecordingWriter(bytes.clone())));
+        let backend = NativePtyBackend::default();
+        backend.sessions.lock().unwrap().insert("pty".into(), session.clone());
+        let mut parser = super::super::program_status::ProgramStatus::new(agent);
+        report(&session, &mut parser, agent, "done");
+        backend.write_checked("pty", b"payload", Some(1)).unwrap();
+        report(&session, &mut parser, agent, "idle");
+        backend.write_checked("pty", b"\r", Some(1)).unwrap();
+        report(&session, &mut parser, agent, "blocked");
+        report(&session, &mut parser, agent, "idle");
+        assert_eq!(backend.write_checked("pty", b"duplicate", Some(1)).unwrap_err().code, AppErrorCode::Conflict);
+        assert_eq!(*bytes.lock().unwrap(), b"payload\r");
+    }
 }
 
 #[test]
@@ -116,6 +135,42 @@ fn reader_applies_the_latest_root_report_before_delayed_frontend_delivery() {
     }
 }
 
+#[test]
+fn reader_preserves_intermediate_blockers_and_paste_resets_within_one_read() {
+    for agent in [AgentKind::Codex, AgentKind::Claude] {
+        for paste_reset in [false, true] {
+            let (started, received) = mpsc::channel();
+            let (release, released) = mpsc::channel();
+            let sink = Arc::new(DelayedSink { started, release: Mutex::new(released), output_seen: AtomicBool::new(false), states: Mutex::new(Vec::new()) });
+            let bytes = Arc::new(Mutex::new(Vec::new()));
+            let session = session(sink, Box::new(RecordingWriter(bytes.clone())));
+            let backend = NativePtyBackend::default();
+            backend.sessions.lock().unwrap().insert("pty".into(), session.clone());
+            let app = agent.terminal_status_app().unwrap();
+            let wire = if paste_reset {
+                let mut parser = super::super::program_status::ProgramStatus::new(agent);
+                report(&session, &mut parser, agent, "idle");
+                // The final enabled mode alone must not conceal its intervening reset.
+                "\x1b[?2004h\x1b[?2004l\x1b[?2004h".into()
+            } else {
+                format!("\x1b[?2004h\x1b]7501;app={app}:state=done\x1b\\\x1b]7501;app={app}:state=blocked\x1b\\\x1b]7501;app={app}:state=idle\x1b\\")
+            };
+            spawn_reader("pty".into(), Box::new(std::io::Cursor::new(wire.into_bytes())), session.clone(), Some(agent));
+            received.recv_timeout(Duration::from_secs(2)).unwrap();
+            assert!(session.program_status.lock().unwrap().bracketed_paste);
+            assert_eq!(backend.write_checked("pty", b"stale", Some(1)).unwrap_err().code, AppErrorCode::Conflict);
+            assert!(bytes.lock().unwrap().is_empty());
+            if !paste_reset {
+                backend.write_checked("pty", b"fresh", Some(3)).unwrap();
+                assert_eq!(*bytes.lock().unwrap(), b"fresh");
+            }
+            release.send(()).unwrap();
+            let (done, _) = session.reader_done.1.wait_timeout_while(session.reader_done.0.lock().unwrap(), Duration::from_secs(2), |done| !*done).unwrap();
+            assert!(*done);
+        }
+    }
+}
+
 struct ReaderDuringWrite(std::sync::Weak<NativeSession>);
 impl Write for ReaderDuringWrite {
     fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
@@ -130,7 +185,8 @@ impl Write for ReaderDuringWrite {
 #[test]
 fn status_reader_can_progress_during_a_write_and_stop_the_later_enter() {
     let session = session(Arc::new(Sink::default()), Box::new(std::io::sink()));
-    *session.program_status.lock().unwrap() = ProgramInputStatus { report: Some((1, true)), bracketed_paste: true };
+    let mut parser = super::super::program_status::ProgramStatus::new(AgentKind::Codex);
+    report(&session, &mut parser, AgentKind::Codex, "idle");
     *session.writer.lock().unwrap() = Some(Box::new(ReaderDuringWrite(Arc::downgrade(&session))));
     let backend = NativePtyBackend::default();
     backend.sessions.lock().unwrap().insert("pty".into(), session);

@@ -5,7 +5,7 @@ export type StatusTone = "waiting" | "reply" | "attention" | "done" | "quiet";
 
 const STATUS_CODES = new Set([
   "turn_busy", "previous_task", "task_dependency", "room_paused", "topic_held", "target_offline", "target_changed",
-  "awaiting_input", "composer_not_empty", "source_sync_pending", "runtime_not_ready", "approval_required", "queue_turn",
+  "awaiting_input", "composer_not_empty", "paste_not_ready", "source_sync_pending", "runtime_not_ready", "approval_required", "queue_turn",
   "collecting", "capacity_exceeded", "mixed_waiting", "prepared", "submitting", "submitted", "waiting_reply", "uncertain",
   "reference", "processing", "processed", "abandoned", "withdrawn", "fyi", "unknown_handling", "ready", "empty",
 ]);

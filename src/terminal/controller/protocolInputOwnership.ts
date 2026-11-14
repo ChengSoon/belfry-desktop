@@ -8,6 +8,7 @@ export class ProtocolInputOwnership {
   private revision = 0;
   private submitted: number | null = null;
   private sequence = -1;
+  private position = 0;
   private idle = false;
   private blocked = false;
   private dialogEmpty = false;
@@ -18,9 +19,9 @@ export class ProtocolInputOwnership {
   get ready() { return this.idle && this.empty; }
 
   validatePosition() {
-    const sequence = this.sequence;
+    const position = this.position;
     const revision = this.revision;
-    return () => this.idle && this.sequence === sequence && this.revision === revision;
+    return () => this.idle && this.position === position && this.revision === revision;
   }
 
   attach(fresh: boolean) {
@@ -28,11 +29,13 @@ export class ProtocolInputOwnership {
     if (fresh && this.revision === 0) this.dirty = false;
   }
 
+  isEmptySubmission(key?: string) { return this.ready && submitKey(key); }
+
   userInput(key?: string) {
-    this.dirty = true;
+    const emptySubmission = this.isEmptySubmission(key);
+    this.dirty = !emptySubmission;
     this.revision += 1;
-    this.submitted = (this.idle || this.blocked && this.dialogEmpty) && (key === "\r" || key === "\n" || key === "\r\n"
-      || key === "\x1b[13u" || key === "\x1b[13;1u") ? this.revision : null;
+    this.submitted = !emptySubmission && (this.idle || this.blocked && this.dialogEmpty) && submitKey(key) ? this.revision : null;
   }
 
   reserve() {
@@ -55,10 +58,12 @@ export class ProtocolInputOwnership {
   accept(snapshot: HookSnapshot) {
     const report = terminalStatusFor(this.agent, snapshot);
     if (!report || snapshot.sequence <= this.sequence) return;
+    const idle = report.programStatus.state === "idle" || report.programStatus.state === "done";
+    if (!idle || !this.idle || snapshot.sequence !== this.sequence + 1) this.position += 1;
     this.sequence = snapshot.sequence;
     if (report.programStatus.state === "blocked" && !this.blocked) this.dialogEmpty = !this.dirty;
     this.blocked = report.programStatus.state === "blocked";
-    this.idle = report.programStatus.state === "idle" || report.programStatus.state === "done";
+    this.idle = idle;
     // Enter alone may insert a newline or answer a dialog. Only the agent's subsequent
     // foreground working report acknowledges it; later edits continue to own the editor.
     if (report.programStatus.state === "working" && this.submitted === this.revision) {
@@ -68,4 +73,8 @@ export class ProtocolInputOwnership {
   }
 
   gap() { this.revision += 1; this.dirty = true; this.submitted = null; this.idle = false; this.blocked = false; this.dialogEmpty = false; }
+}
+
+function submitKey(key?: string) {
+  return key === "\r" || key === "\n" || key === "\r\n" || key === "\x1b[13u" || key === "\x1b[13;1u";
 }

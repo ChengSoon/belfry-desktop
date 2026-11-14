@@ -101,8 +101,7 @@ impl InboxService {
                     .registry
                     .all()
                     .iter()
-                    .filter(|s| !self.gate.ready_tab(&s.tab_id))
-                    .map(|s| s.tab_id.clone())
+                    .filter_map(|s| self.gate.tab_blocker(&s.tab_id).map(|reason| (s.tab_id.clone(), reason.into())))
                     .collect();
                 action(&snapshot)
             })
@@ -230,7 +229,8 @@ impl InboxService {
                 .saturating_add(self.gate.revision()),
         );
         snapshot.native_unready =
-            self.registry.all().iter().filter(|s| !self.gate.ready_tab(&s.tab_id)).map(|s| s.tab_id.clone()).collect();
+            self.registry.all().iter().filter_map(|s| self.gate.tab_blocker(&s.tab_id)
+                .map(|reason| (s.tab_id.clone(), reason.into()))).collect();
         Ok((data, snapshot, error))
     }
     pub(crate) fn sessions(&self, project_root: &str, room_id: Option<&str>) -> Result<SessionsView, AppError> {

@@ -15,7 +15,7 @@ pub(super) fn compatible(reply: &serde_json::Value, version: &str) -> bool {
     reply["appVersion"].as_str() == Some(version)
         && reply["retiring"] != true
         && reply["capabilities"].as_array().is_some_and(|items| {
-            ["terminal_program_status_v1", "rolling_upgrade_v1"]
+            ["terminal_program_status_v1", "terminal_input_continuity_v1", "rolling_upgrade_v1"]
                 .iter()
                 .all(|required| items.iter().any(|item| item == required))
         })

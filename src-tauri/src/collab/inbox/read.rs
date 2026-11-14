@@ -70,8 +70,8 @@ pub(super) fn blocker(
             "needs_input" => return Some(Status::new("awaiting_input")),
             _ => {}
         }
-        if sources.native_unready.contains(&entry.view.recipient.tab_id) {
-            return Some(Status::new("runtime_not_ready"));
+        if let Some(reason) = sources.native_unready.get(&entry.view.recipient.tab_id) {
+            return Some(Status::new(reason));
         }
     }
     None
@@ -215,7 +215,7 @@ pub(super) fn sessions(
             agent: active.map(|s| s.agent).unwrap_or_else(|| recipient.agent.clone()),
             project_root: root.clone(),
             runtime_availability: if availability(registry, &recipient) == "ready"
-                && sources.native_unready.contains(&recipient.tab_id)
+                && sources.native_unready.contains_key(&recipient.tab_id)
             {
                 "unavailable"
             } else {
