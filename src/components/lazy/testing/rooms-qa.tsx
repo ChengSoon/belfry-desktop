@@ -11,7 +11,9 @@ import type { TerminalChoice } from "../../../terminal/choice";
 import { createChoiceQaState } from "./roomsChoiceQa";
 import type { TerminalCommandTarget } from "../../../terminal/contracts";
 import type { WorkspaceTab } from "../../../workspace/contracts";
-import { activityReport } from "../../../terminal/fixtures/programStatus";
+import { activityReport, statusReport } from "../../../terminal/fixtures/programStatus";
+import { protocolActivity } from "../../../agent/programStatus";
+import type { HookSnapshot } from "../../../agent/hooks/contracts";
 
 performance.mark("rooms-qa:initializing");
 const now = new Date(2026, 10, 7, 15, 30).getTime();
@@ -270,10 +272,13 @@ const theme = params.get("theme") ?? "dark";
 document.documentElement.dataset.theme = theme;
 localStorage.setItem(THEME_MODE_KEY, theme);
 const attention = params.get("attention") !== "0";
-const choiceQa = params.get("choices") === "terminal"
+const choiceQa: { targets: Map<string, TerminalCommandTarget>; snapshot?: () => HookSnapshot;
+  subscribeReport?: (listener: (report: HookSnapshot, tabId: string) => void) => () => void } | null = params.get("choices") === "terminal"
   ? await (await import("./roomsChoiceTerminalQa")).createRoomTerminalQa()
   : params.has("choices") ? createChoiceQaState(params.get("choices")!) : null;
 const tabs = [tab("t1", untracked ? "talking" : "idle"), tab("t2", attention ? "awaiting-choice" : "talking"), tab("t3", "talking"), tab("t4", "idle")];
+if (choiceQa) tabs[1] = { ...tabs[1], activity: "awaiting-choice",
+  agentState: choiceQa.snapshot?.() ?? statusReport("codex", "blocked", 1, "permission") };
 
 performance.mark("rooms-qa:importing-view");
 const { RoomView } = await import("../../../rooms/view/RoomView");
@@ -287,6 +292,10 @@ function QaRoom() {
       setTabs((current) => current.map((tab) => tab.id === id ? { ...tab, activity,
         agentState: activityReport(tab.kind, activity, (tab.agentState?.sequence ?? 0) + 1) } : tab));
     } });
+    if (choiceQa?.subscribeReport) return choiceQa.subscribeReport((snapshot, tabId) => {
+      setTabs(current => current.map(tab => tab.id === tabId ? { ...tab,
+        activity: protocolActivity(snapshot), agentState: snapshot } : tab));
+    });
   }, []);
   return (
   <ThemeProvider>

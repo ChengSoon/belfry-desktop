@@ -5,6 +5,15 @@ const project = { id: "production-qa", name: "panel-qa", rootPath: "/qa/panel-pr
 const qa = window.__productionQA = { calls: [], creates: 0, writes: [], preloadErrors: [], errors: [], token: crypto.randomUUID() };
 // 用例可直接驱动某个 PTY 的输出（模拟 Agent 屏幕变化），不经过输入通道。
 qa.output = (sessionId, text) => output(sessionId, text);
+qa.agentState = (sessionId, snapshot) => {
+  const channel = channels.get(sessionId);
+  if (!channel) return;
+  for (const subscriber of channel.subscribers) {
+    callbacks.get(subscriber.id)?.({ index: subscriber.index++, message: {
+      kind: "agent_state", sessionId, snapshot,
+    } });
+  }
+};
 if (!localStorage.getItem("belfry.locale.v1")) localStorage.setItem("belfry.locale.v1", "zh-CN");
 window.addEventListener("vite:preloadError", (event) => qa.preloadErrors.push(String(event.payload?.message ?? event.payload)));
 window.addEventListener("error", (event) => { if (event.error) qa.errors.push(String(event.error)); });
@@ -38,6 +47,7 @@ const runtime = { available: true, errors: {}, commands: [], tools: [], skills: 
   themes: [], services: [], plugins: [], shortcuts: [] };
 const handlers = {
   terminal_create: terminalCreate,
+  terminal_claim_user_input: () => null,
   terminal_write: ({ sessionId, bytes }) => { qa.writes.push({ sessionId, bytes }); output(sessionId, new TextDecoder().decode(new Uint8Array(bytes))); },
   terminal_shell_profiles: () => [{ id: "system-default", available: true, executable: "/bin/sh", isDefault: true, reason: null }],
   terminal_background_sessions: () => [],

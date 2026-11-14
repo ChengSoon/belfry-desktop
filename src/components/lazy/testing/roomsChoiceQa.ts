@@ -1,6 +1,8 @@
 import type { TerminalChoice } from "../../../terminal/choice";
 import type { TerminalCommandTarget } from "../../../terminal/contracts";
 import type { TerminalInteraction, TerminalInteractionAnswer, TerminalInteractionResult } from "../../../terminal/interaction";
+import type { HookSnapshot } from "../../../agent/hooks/contracts";
+import { statusReport } from "../../../terminal/fixtures/programStatus";
 
 // Representative strings from the user's Codex new-conversation menu. Replies
 // here exercise the room UI contract; T35 tests the actual xterm/PTY execution.
@@ -15,6 +17,15 @@ export const worktreeInteraction: TerminalInteraction = {
 
 export function createChoiceQaState(scenario: string) {
   const requests = new Map<string, TerminalInteraction | null>([["t2", structuredClone(worktreeInteraction)]]);
+  const reports = new Map<string, HookSnapshot>([["t2", statusReport("codex", "blocked", 1, "question")]]);
+  const listeners = new Set<(report: HookSnapshot, tabId: string) => void>();
+  const reportRequest = (tabId: string) => {
+    const request = requests.get(tabId);
+    const report = statusReport("codex", request ? "blocked" : "idle", (reports.get(tabId)?.sequence ?? 0) + 1,
+      request ? request.kind === "confirmation" ? "permission" : "question" : null);
+    reports.set(tabId, report);
+    for (const listener of listeners) listener(report, tabId);
+  };
   const calls: Array<{ tabId: string; requestId: string; sessionId: string; answer: TerminalInteractionAnswer }> = [];
   const held = new Set<string>();
   const pending = new Map<string, (result: TerminalInteractionResult) => void>();
@@ -57,9 +68,12 @@ export function createChoiceQaState(scenario: string) {
   Object.assign(window, {
     qaChoiceCalls: calls,
     qaReadInteraction: (tabId: string) => structuredClone(requests.get(tabId)),
-    qaSetInteraction: (tabId: string, request: TerminalInteraction | null) => requests.set(tabId, structuredClone(request)),
+    qaSetInteraction: (tabId: string, request: TerminalInteraction | null) => {
+      requests.set(tabId, structuredClone(request)); reportRequest(tabId);
+    },
     qaPatchInteraction: (tabId: string, patch: Partial<TerminalInteraction>) => {
       const request = requests.get(tabId); if (request) requests.set(tabId, { ...request, ...structuredClone(patch) });
+      reportRequest(tabId);
     },
     qaHoldChoice: (tabId: string) => held.add(tabId),
     qaResolveChoice: (tabId: string, result: TerminalInteractionResult) => { pending.get(tabId)?.(result); pending.delete(tabId); },
@@ -67,5 +81,11 @@ export function createChoiceQaState(scenario: string) {
     qaDropChoiceTarget: (tabId: string) => targets.delete(tabId),
     qaChoiceSession: (tabId: string, sessionId: string | null) => sessionIds.set(tabId, sessionId),
   });
-  return { targets };
+  return { targets, snapshot: () => reports.get("t2")!,
+    subscribeReport(listener: (report: HookSnapshot, tabId: string) => void) {
+      listeners.add(listener);
+      for (const [tabId, report] of reports) listener(report, tabId);
+      return () => { listeners.delete(listener); };
+    },
+  };
 }

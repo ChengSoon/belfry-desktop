@@ -9,7 +9,8 @@ export type TerminalPhase = "idle" | "creating" | "running" | "exited" | "error"
  * 会话在干什么，和 TerminalPhase（进程生命周期）正交：phase 一直是 running 的会话，
  * activity 会在生成 / 等按键 / 闲着之间来回翻。
  *
- * 由 Hook 状态映射；Hook 未连接时由屏幕推断。来源和原生会话身份保存在独立快照中。
+ * Codex / Claude 由原生终端报告映射；缺少报告时等待。其他 Agent 使用各自支持的
+ * 状态接口。来源、原始协议状态和原生会话身份保存在独立快照中。
  */
 export type SessionActivity = "idle" | "talking" | "awaiting-choice";
 export type ShellProfileId =

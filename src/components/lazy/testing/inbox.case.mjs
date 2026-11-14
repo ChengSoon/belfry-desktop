@@ -6,7 +6,7 @@ import { productionFixture, click, waitFor } from "./productionFixture.mjs";
 /*
  * 协作收件箱真实页面验证：未经改写的生产构建 + 可控原生 IPC。
  * 模拟后台只按 T62 implementation-contract.md 的命令/字段返回，验证前端运行时与只读界面：
- * - 忙时多条来信只形成一个提醒；终端就绪（idle + 输入区空）后整批一次写入，带 guard 且序号连续。
+ * - 状态由原生报告决定；报告允许输入、没有用户草稿时整批一次写入，带 guard 且序号连续。
  * - 用户在 prepare 后抢先输入：abort，不写入。
  * - 顶部「协作」面板不显示也不读取收件箱；只读界面在协作房间里，见 rooms-inbox.case.mjs。
  */
@@ -40,6 +40,16 @@ const nativeSource = `(() => {
       }),
     ],
   };
+  inbox.report = state => {
+    const sequence = inbox.reportSequence = (inbox.reportSequence ?? 0) + 1;
+    inbox.reportState = state;
+    window.__productionQA.agentState('agent-backend-pty', {
+      sequence, agent: 'codex', session: null, source: 'terminal_protocol', occurredAt: sequence,
+      state: state === 'working' ? 'processing' : state === 'blocked' ? 'awaiting_input' : 'completed',
+      reason: '', transcriptPath: null,
+      programStatus: { state, kind: null, progress: null, title: null, message: null },
+    });
+  };
   const sessions = () => {
     const pending = inbox.messages.filter(m => m.deliveryPhase === 'pending' && m.class !== 'fyi');
     const awaiting = inbox.messages.filter(m => m.deliveryPhase === 'submitted').reduce((n, m) => n + m.questions.filter(q => q.state === 'open').length, 0);
@@ -66,6 +76,7 @@ const nativeSource = `(() => {
       case 'collab_inbox_pending': return { revision: 1, recipients: take().length ? [{ sessionKey: 'sk-be', tabId: 'agent-backend', projectRoot: '${ROOT}', pendingCount: take().length }] : [] };
       case 'collab_inbox_bind_target': return { ...req, targetEpoch: 'e1', inputRevision: inbox.inputRevision };
       case 'collab_inbox_offer': {
+        if (!['idle', 'done'].includes(inbox.reportState)) throw { code: 'NOT_READY', message: 'native status is not ready' };
         if (req.binding.inputRevision !== inbox.inputRevision) throw { code: 'STALE_OFFER', message: 'input changed' };
         if (!(req.running && req.idle && req.composerEmpty && !req.awaitingInput && req.promptQueueEmpty)) throw { code: 'NOT_READY', message: 'not ready' };
         inbox.offers.add(req.offerId); return { binding: req.binding, offerId: req.offerId, expiresAt: Date.now() + 5000 };
@@ -101,6 +112,10 @@ const nativeSource = `(() => {
         });
         return { ...b, phase: req.phase };
       }
+      case 'terminal_claim_user_input': {
+        if (args.sessionId === 'agent-backend-pty') { inbox.inputRevision++; inbox.offers.clear(); }
+        return null;
+      }
       case 'terminal_write': {
         const text = new TextDecoder().decode(new Uint8Array(args.bytes));
         if (args.inboxGuard) {
@@ -122,7 +137,10 @@ const nativeSource = `(() => {
 
 const openCollab = view => menuAction(view, "会话协作");
 // 只给 Agent 终端“画屏幕”（模拟 PTY 输出），不经过 terminal_write，不算用户输入。
-function emit(text) { window.__productionQA.output('agent-backend-pty', text); }
+function emit(text, state) {
+  window.__productionQA.output('agent-backend-pty', text);
+  if (state) window.__inboxQA.report(state);
+}
 
 test("顶部「协作」面板不再显示收件箱；投递运行时照常接管", { timeout: 60_000 }, async (t) => {
   const { view } = await productionFixture(t, { nativeSource, terminalCount: 2 });
@@ -138,7 +156,7 @@ test("收件箱运行时：就绪后整批一次带 guard 写入；用户抢先�
   const { view } = await productionFixture(t, { nativeSource, terminalCount: 2 });
   await waitFor(view, "__inboxQA.activated === true");
   // Agent 正在工作：不应 offer。
-  await view.cdp.evaluate(`(${emit.toString()})('\\x1b[2J\\x1b[H• Working (Esc to interrupt)\\r\\n')`);
+  await view.cdp.evaluate(`(${emit.toString()})('\\x1b[2J\\x1b[H• Working (Esc to interrupt)\\r\\n', 'working')`);
   await new Promise((done) => setTimeout(done, 2_000));
   assert.equal(await view.cdp.evaluate("__inboxQA.calls.includes('collab_inbox_offer')"), false, "忙时不 offer");
   assert.equal(await view.cdp.evaluate("__inboxQA.batches.length"), 0);
@@ -149,13 +167,26 @@ test("收件箱运行时：就绪后整批一次带 guard 写入；用户抢先�
     const host = document.querySelectorAll('.xterm')[1].querySelector('.xterm-helper-textarea');
     host.dispatchEvent(new InputEvent('beforeinput', { bubbles: true, data: 'x', inputType: 'insertText' }));
     window.__TAURI_INTERNALS__.invoke('terminal_write', { sessionId: 'agent-backend-pty', bytes: [120], inboxGuard: null, writeSequence: null }); };`);
-  await view.cdp.evaluate(`(${emit.toString()})('\\x1b[?2004h\\x1b[2J\\x1b[H› \\r\\n  ? for shortcuts\\r\\n')`);
+  await view.cdp.evaluate(`(${emit.toString()})('\\x1b[?2004h\\x1b[2J\\x1b[H› \\r\\n  ? for shortcuts\\r\\n', 'idle')`);
   await waitFor(view, "__inboxQA.aborts >= 1 || __inboxQA.guarded.length > 0", 15_000);
   assert.equal(await view.cdp.evaluate("__inboxQA.guarded.length"), 0, "抢先输入后不得写入");
   assert.ok(await view.cdp.evaluate("__inboxQA.aborts") >= 1);
 
+  // 相同的空闲报告与空白屏幕不能清除用户草稿，也不能触发下一批。
+  await view.cdp.evaluate(`(${emit.toString()})('\\x1b[?2004h\\x1b[2J\\x1b[H› \\r\\n', 'idle')`);
+  await new Promise(done => setTimeout(done, 300));
+  assert.equal(await view.cdp.evaluate("__inboxQA.guarded.length"), 0, "空闲报告保留用户草稿");
+  // 实际 Enter 和后续 working 报告确认消费了草稿，才释放输入占用。
+  await view.cdp.evaluate(`(() => {
+    const host = document.querySelectorAll('.xterm')[1].querySelector('.xterm-helper-textarea');
+    host.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+    host.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+  })()`);
+  await waitFor(view, "__inboxQA.userWrites >= 2");
+  await view.cdp.evaluate(`(${emit.toString()})('\\x1b[2J\\x1b[HProcessing draft\\r\\n', 'working')`);
+
   // 再次就绪：整批一次写入，粘贴与回车都带同一 guard，序号 1、2 连续；回执 submitted，sequence = batch.sequence + 1。
-  await view.cdp.evaluate(`(${emit.toString()})('\\x1b[?2004h\\x1b[2J\\x1b[H› \\r\\n  ? for shortcuts\\r\\n')`);
+  await view.cdp.evaluate(`(${emit.toString()})('\\x1b[?2004h\\x1b[2J\\x1b[H› \\r\\n  ? for shortcuts\\r\\n', 'idle')`);
   await waitFor(view, "__inboxQA.receipts.length === 1", 20_000);
   const guarded = await view.cdp.evaluate("__inboxQA.guarded");
   assert.deepEqual(guarded.map((w) => w.sequence), [1, 2]);
@@ -176,11 +207,11 @@ test("收件箱运行时：就绪后整批一次带 guard 写入；用户抢先�
 test("收件箱运行时：原生侧先收到用户写入（前端没看到）时，begin 被拒，不写入", { timeout: 60_000 }, async (t) => {
   const { view } = await productionFixture(t, { nativeSource, terminalCount: 2 });
   await waitFor(view, "__inboxQA.activated === true");
-  await view.cdp.evaluate(`(${emit.toString()})('\\x1b[2J\\x1b[H• Working (Esc to interrupt)\\r\\n')`);
+  await view.cdp.evaluate(`(${emit.toString()})('\\x1b[2J\\x1b[H• Working (Esc to interrupt)\\r\\n', 'working')`);
   // 只推进原生输入代次并撤销 offer（模拟另一窗口/外部输入），不触发前端输入事件。
   await view.cdp.evaluate(`__inboxQA.prepareHook = () => { __inboxQA.prepareHook = null;
     window.__TAURI_INTERNALS__.invoke('terminal_write', { sessionId: 'agent-backend-pty', bytes: [120], inboxGuard: null, writeSequence: null }); };`);
-  await view.cdp.evaluate(`(${emit.toString()})('\\x1b[?2004h\\x1b[2J\\x1b[H› \\r\\n  ? for shortcuts\\r\\n')`);
+  await view.cdp.evaluate(`(${emit.toString()})('\\x1b[?2004h\\x1b[2J\\x1b[H› \\r\\n  ? for shortcuts\\r\\n', 'idle')`);
   await waitFor(view, "__inboxQA.calls.includes('collab_inbox_begin_submit')", 15_000);
   await new Promise((done) => setTimeout(done, 1_000));
   assert.equal(await view.cdp.evaluate("__inboxQA.guarded.length"), 0, "begin 被拒后不得写入");
@@ -191,12 +222,12 @@ test("收件箱运行时：原生侧先收到用户写入（前端没看到）�
 test("真实 xterm：安全粘贴未开启时不 begin，开启后的 DSR 应答不打断批次", { timeout: 60_000 }, async (t) => {
   const { view } = await productionFixture(t, { nativeSource, terminalCount: 2 });
   await waitFor(view, "__inboxQA.activated === true");
-  await view.cdp.evaluate(`(${emit.toString()})('\\x1b[?2004l\\x1b[2J\\x1b[H› \\r\\n  ? for shortcuts\\r\\n')`);
+  await view.cdp.evaluate(`(${emit.toString()})('\\x1b[?2004l\\x1b[2J\\x1b[H› \\r\\n  ? for shortcuts\\r\\n', 'idle')`);
   await new Promise((done) => setTimeout(done, 2_000));
   assert.equal(await view.cdp.evaluate("__inboxQA.batches.length"), 0);
   assert.equal(await view.cdp.evaluate("__inboxQA.calls.includes('collab_inbox_begin_submit')"), false);
   await view.cdp.evaluate("__inboxQA.queryDuringPaste = true");
-  await view.cdp.evaluate(`(${emit.toString()})('\\x1b[?2004h\\x1b[2J\\x1b[H› \\r\\n  ? for shortcuts\\r\\n')`);
+  await view.cdp.evaluate(`(${emit.toString()})('\\x1b[?2004h\\x1b[2J\\x1b[H› \\r\\n  ? for shortcuts\\r\\n', 'idle')`);
   await waitFor(view, "__inboxQA.receipts.length === 1", 20_000);
   const result = await view.cdp.evaluate("({ guarded: __inboxQA.guarded, dsr: __inboxQA.dsr, inputRevision: __inboxQA.inputRevision, receipts: __inboxQA.receipts })");
   assert.ok(result.guarded[0].text.startsWith("\x1b[200~"));

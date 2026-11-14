@@ -13,7 +13,13 @@ function screen() {
   return "Answer received.";
 }
 
-function publish() { process.send({ sequence: ++sequence, screen: screen(), answers }); }
+function publish() {
+  process.send({ sequence: ++sequence, screen: screen(), answers,
+    programStatus: { state: stage < 3 ? "blocked" : "done",
+      kind: stage === 0 ? "permission" : stage < 3 ? "question" : null,
+      progress: null, title: null, message: null },
+  });
+}
 function enter() {
   if (stage === 0) { answers.push({ kind: "confirmation", index: selected }); selected = 2; }
   else if (stage === 1) answers.push({ kind: "multiple", indices: [...checked].sort() });
