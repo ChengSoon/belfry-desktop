@@ -11,6 +11,7 @@ import type { TerminalChoice } from "../../../terminal/choice";
 import { createChoiceQaState } from "./roomsChoiceQa";
 import type { TerminalCommandTarget } from "../../../terminal/contracts";
 import type { WorkspaceTab } from "../../../workspace/contracts";
+import { activityReport } from "../../../terminal/fixtures/programStatus";
 
 performance.mark("rooms-qa:initializing");
 const now = new Date(2026, 10, 7, 15, 30).getTime();
@@ -262,6 +263,7 @@ const choice: TerminalChoice = {
 const target = (tabId: string): TerminalCommandTarget => ({ focus: () => {}, sendText: () => true,
   readChoice: () => (tabId === "t2" ? choice : null), answerChoice: () => "sent" });
 const tab = (id: string, activity: WorkspaceTab["activity"]) => ({ id, kind: "codex", phase: "running", activity, title: id,
+  agentState: activityReport("codex", activity),
   project: { id: "p", name: "belfry-win", rootPath: room.projectRoot, rootUri: room.projectRoot } }) as unknown as WorkspaceTab;
 Object.assign(window, { qaClosed: 0, qaFiles: [], qaOpened: [] });
 const theme = params.get("theme") ?? "dark";
@@ -282,7 +284,8 @@ function QaRoom() {
   useEffect(() => {
     performance.mark("rooms-qa:mounted");
     Object.assign(window, { qaShowRoom: setOpen, qaSetActivity: (id: string, activity: WorkspaceTab["activity"]) => {
-      setTabs((current) => current.map((tab) => tab.id === id ? { ...tab, activity } : tab));
+      setTabs((current) => current.map((tab) => tab.id === id ? { ...tab, activity,
+        agentState: activityReport(tab.kind, activity, (tab.agentState?.sequence ?? 0) + 1) } : tab));
     } });
   }, []);
   return (

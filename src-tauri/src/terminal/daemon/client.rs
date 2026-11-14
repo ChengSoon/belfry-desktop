@@ -266,6 +266,13 @@ impl PtyBackend for DaemonClient {
             bytes: bytes.into(),
         })
     }
+    fn write_checked(&self, id: &str, bytes: &[u8], expected_program_sequence: Option<u64>) -> Result<(), AppError> {
+        let Some(expected_program_sequence) = expected_program_sequence else { return self.write(id, bytes); };
+        if !self.supports("terminal_program_status_v1")? {
+            return Err(AppError::conflict("Waiting for a terminal daemon that supports native program status"));
+        }
+        self.call(Command::WriteChecked { id: id.into(), bytes: bytes.into(), expected_program_sequence })
+    }
     fn resize(&self, id: &str, size: TerminalSize) -> Result<(), AppError> {
         self.call(Command::Resize {
             id: id.into(),

@@ -243,6 +243,25 @@ fn native_backend_answers_color_queries_from_the_reader_thread() {
     backend.close(&session.id).unwrap();
 }
 
+#[cfg(target_os = "macos")]
+#[test]
+fn native_backend_answers_status_capability_query_without_a_frontend_or_hooks() {
+    let _guard = lock_native_test();
+    let backend = NativePtyBackend::default();
+    let sink = Arc::new(RecordingSink::default());
+    let session = backend.spawn(default_request(), sink.clone()).unwrap();
+    let len = super::program_status::REPLY.len();
+    let command = format!("stty -echo -icanon min {len} time 10; printf '\\033]7501;?\\033\\\\'; \
+        reply=$(dd bs={len} count=1 2>/dev/null); stty sane; \
+        printf '__BELFRY_STATUS__%s__BELFRY_END__\\n' \"${{reply#*states=}}\"\r");
+    backend.write(&session.id, command.as_bytes()).unwrap();
+    assert!(wait_for_text(&sink, "__BELFRY_STATUS__idle,working,done,blocked,error:kinds=permission,question,auth", Duration::from_secs(5)));
+    let events = sink.events.lock().unwrap();
+    assert_eq!(marker_position(&output_bytes(&events), b"\x1b]7501;?"), None);
+    drop(events);
+    backend.close(&session.id).unwrap();
+}
+
 fn default_request() -> CreateTerminalRequest {
     CreateTerminalRequest {
         platform: Platform::current(),

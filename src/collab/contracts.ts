@@ -1,5 +1,7 @@
-import { isAgentKind } from "../prompt/contracts";
+import { canDispatchPrompt, isAgentKind } from "../prompt/contracts";
 import type { WorkspaceTab } from "../workspace/contracts";
+import { sessionActivity, terminalStatusFor } from "../agent/programStatus";
+import { usesTerminalStatus } from "../agent/contracts";
 
 /**
  * 一条会话在名册里的样子。字段与 Rust 侧 `collab::registry::SessionSnapshot` 一一对应。
@@ -35,7 +37,7 @@ export interface SessionSnapshot {
  * - `exited` / `error` 进程没了——投了也没人看。
  */
 export function canReceiveWork(tab: WorkspaceTab) {
-  return isAgentKind(tab.kind) && tab.phase === "running" && tab.activity === "idle";
+  return canDispatchPrompt(tab);
 }
 
 /**
@@ -51,7 +53,8 @@ export function toSessionRoster(tabs: readonly WorkspaceTab[]): SessionSnapshot[
     name: tab.agentName,
     title: tab.title,
     agent: tab.kind,
-    activity: tab.activity,
+    activity: usesTerminalStatus(tab.kind) ? tab.phase !== "running" ? "offline"
+      : terminalStatusFor(tab.kind, tab.agentState)?.programStatus.state ?? "unknown" : sessionActivity(tab),
     canReceive: canReceiveWork(tab),
     projectRoot: tab.project.rootPath,
   }));

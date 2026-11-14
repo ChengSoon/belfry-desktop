@@ -4,9 +4,9 @@ import { ActivityNotifier, type NotifiableSession } from "./scheduler";
 import type { NotifyContent } from "./rules";
 
 const session = (state: HookSnapshot["state"], sequence: number): NotifiableSession => ({
-  id: "tab", kind: "codex", activity: state === "processing" ? "talking" : state === "awaiting_input" ? "awaiting-choice" : "idle",
+  id: "tab", kind: "antigravity", activity: state === "processing" ? "talking" : state === "awaiting_input" ? "awaiting-choice" : "idle",
   phase: "running", title: "任务", project: { name: "项目" },
-  agentState: { state, sequence, agent: "codex", session: { agent: "codex", id: "native" }, source: "hook",
+  agentState: { state, sequence, agent: "antigravity", session: { agent: "antigravity", id: "native" }, source: "hook",
     occurredAt: sequence, reason: "状态", transcriptPath: null },
 });
 

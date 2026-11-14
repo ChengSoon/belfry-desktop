@@ -13,7 +13,7 @@ ulid = { version = "3.0.0", features = ["serde"] }
 
 [package]
 name = "belfry-desktop"
-version = "1.0.5"
+version = "1.0.6"
 description = "Cross-platform AI terminal workspace"
 authors = ["appmakes"]
 edition = "2024"
@@ -35,6 +35,7 @@ log = { version = "0.4", features = ["std"] }
 dirs = "6"
 time = "0.3.45"
 regex = "1"
+base64 = "0.22"
 # Read-only file previews must recognize text from Windows and non-UTF-8 projects.
 encoding_rs = "0.8"
 chardetng = "0.1"

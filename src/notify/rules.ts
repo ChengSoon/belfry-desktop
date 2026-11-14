@@ -1,6 +1,7 @@
 import { localized, t } from "../i18n";
 import type { SessionActivity } from "../terminal/contracts";
 import type { WorkspaceTabKind } from "../workspace/contracts";
+import { usesTerminalStatus, type TerminalProgramStatus } from "../agent/contracts";
 
 /**
  * 只有两件事值得打断用户：Agent 把活干完了，或者它卡在一个非你点头不可的问题上。
@@ -31,7 +32,7 @@ export function classifyTransition(
   kind: WorkspaceTabKind,
 ): NotifyReason | null {
   // Shell / SSH 会话的 activity 恒为 idle，跃迁本不该发生；真发生了也没有 Agent 可等。
-  if (kind === "shell" || kind === "ssh") return null;
+  if (kind === "shell" || kind === "ssh" || usesTerminalStatus(kind)) return null;
   if (from === to) return null;
   // 进入等待选择：最该打扰的一种，不去点它就一直卡着。
   if (to === "awaiting-choice") return "awaiting-choice";
@@ -64,9 +65,11 @@ export function notifyContent(
   reason: NotifyReason,
   projectName: string,
   sessionTitle: string,
+  waitingKind?: TerminalProgramStatus["kind"],
 ): NotifyContent {
   return {
-    title: REASON_TITLE[reason],
+    title: reason === "awaiting-choice" && waitingKind === "question" ? t("notify.rules.question")
+      : reason === "awaiting-choice" && waitingKind === "auth" ? t("notify.rules.auth") : REASON_TITLE[reason],
     body: `${projectName} · ${sessionTitle}`,
   };
 }

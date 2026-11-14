@@ -4,7 +4,8 @@ import type { CSSProperties, PointerEvent, ReactNode } from "react";
 import { ICON } from "../../theme/sizing";
 import type { WorkspaceTab } from "../../workspace/contracts";
 import { AGENT_ICONS } from "../../workspace/components/AgentIcons";
-import { isAgentKind } from "../../agent/contracts";
+import { isAgentKind, usesTerminalStatus } from "../../agent/contracts";
+import { sessionActivity, terminalStatusFor } from "../../agent/programStatus";
 import { shortPath } from "../../workspace/path";
 import type { Rect } from "../contracts";
 import { HookStatusBar } from "../../agent/hooks/HookStatusBar";
@@ -70,7 +71,7 @@ export function TerminalPane({
           </span>
           {!split && tab.project.rootPath && tab.kind !== "ssh" ? <span className="terminal-pane__path" title={tab.project.rootPath}>{shortPath(tab.project.rootPath)}</span> : null}
           {isAgentKind(tab.kind) ? <div className="terminal-pane__session" onPointerDown={event => event.stopPropagation()}>
-            <HookStatusBar snapshot={tab.agentState ?? null} activity={tab.activity} phase={tab.phase} recovering={!!tab.restoreSessionId || !!tab.resumeSessionId} />
+            <HookStatusBar agent={tab.kind} snapshot={tab.agentState ?? null} activity={tab.activity} phase={tab.phase} recovering={!!tab.restoreSessionId || !!tab.resumeSessionId} />
             <SessionStatisticsControl {...statisticsTarget(tab, tab.agentState ?? null)} visible={onStage} />
           </div> : null}
           {split ? (
@@ -93,12 +94,16 @@ export function TerminalPane({
 }
 
 /** 状态条上的一个词：进程不在跑时报进程，在跑时报它在干什么。和侧栏副标题同一套口径。 */
-function paneState(tab: WorkspaceTab): "running" | "starting" | "exited" | "error" | "talking" | "awaiting" | "idle" {
+function paneState(tab: WorkspaceTab): "running" | "starting" | "exited" | "error" | "talking" | "awaiting" | "idle" | "unknown" {
   if (tab.phase === "creating") return "starting";
   if (tab.phase === "exited") return "exited";
   if (tab.phase === "error") return "error";
   if (tab.phase !== "running") return "idle";
-  if (tab.activity === "awaiting-choice") return "awaiting";
-  if (tab.activity === "talking") return "talking";
+  const report = terminalStatusFor(tab.kind, tab.agentState);
+  if (usesTerminalStatus(tab.kind) && (!report || report.programStatus.state === "clear")) return "unknown";
+  if (report?.programStatus.state === "error") return "error";
+  const activity = sessionActivity(tab);
+  if (activity === "awaiting-choice") return "awaiting";
+  if (activity === "talking") return "talking";
   return "running";
 }

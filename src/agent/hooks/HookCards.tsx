@@ -2,7 +2,7 @@ import { t, useTranslation } from "../../i18n";
 import { Disclosure } from "../../components/controls/Disclosure";
 import { AGENT_ICONS } from "../../workspace/components/AgentIcons";
 import { ICON } from "../../theme/sizing";
-import { AGENT_METADATA, type AgentKind } from "../contracts";
+import { AGENT_METADATA, usesTerminalStatus, type AgentKind } from "../contracts";
 import type { AgentHookReport, HookInstallPreview } from "./contracts";
 
 interface AgentProps {
@@ -26,6 +26,22 @@ export function HookAgentCard({ report, busy, onPreview }: AgentProps) {
   useTranslation();
   const name = label(report.kind);
   const Icon = AGENT_ICONS[report.kind];
+  if (usesTerminalStatus(report.kind)) return (
+    <article className="os-row with-agent hook-agent-card" aria-label={t("agent.HookCards.protocolLabel", { name })}>
+      <span className={`os-agent${report.kind === "claude" ? " claude" : ""}`}><Icon aria-hidden="true" size={ICON.sm} /></span>
+      <div className="os-row__body">
+        <div className="os-row__label">{name}<span className="os-tag">{t("agent.HookCards.protocolStatus")}</span></div>
+        {report.version ? <div className="os-row__sub os-mono">{report.version}</div> : null}
+        <p className="os-row__hint">{t(report.version ? "agent.HookCards.protocolHint" : "agent.HookCards.hintMissing")}</p>
+        {report.installed > 0 ? <p className="os-row__hint">{t("agent.HookCards.legacyHooksHint")}</p> : null}
+        {report.configPath ? <Disclosure className="hook-config-details" title={<>{t("agent.HookCards.text_cec9ecbbac")}</>}><code className="os-paths hook-config-path">{report.configPath}</code></Disclosure> : null}
+        {report.error ? <p className="hook-error" role="alert">{report.error}</p> : null}
+      </div>
+      <div className="os-trail">
+        {report.installed > 0 ? <button aria-label={t("agent.HookCards.text_c493b52c8b", { name })} className="os-btn danger-ghost" disabled={busy} onClick={() => onPreview(report.kind, false)} type="button">{t("agent.HookCards.previewRemove")}</button> : null}
+      </div>
+    </article>
+  );
   const status = hookStatus(report);
   // 已全部连接且无过期事件时只给「预览移除」（稿）；检测到 CLI 但不支持 / 出错时保留禁用的「预览启用」，说明此处不能启用。
   const complete = report.installed >= report.expected && report.stale === 0;
@@ -33,7 +49,7 @@ export function HookAgentCard({ report, busy, onPreview }: AgentProps) {
   const canEnable = report.supported && !report.error;
   return (
     <article className="os-row with-agent hook-agent-card" aria-label={t("agent.HookCards.text_03343237f2", { name })}>
-      <span className={`os-agent${report.kind === "claude" ? " claude" : ""}`}><Icon aria-hidden="true" size={ICON.sm} /></span>
+      <span className="os-agent"><Icon aria-hidden="true" size={ICON.sm} /></span>
       <div className="os-row__body">
         <div className="os-row__label">{name}<span className={`os-tag ${status.tone}`.trim()}>{status.text}</span></div>
         <div className="os-row__sub hook-agent-card__summary">

@@ -1,4 +1,4 @@
-import type { AgentKind, AgentLifecycleState, AgentSessionRef, AgentStateSource } from "../contracts";
+import type { AgentKind, AgentLifecycleState, AgentSessionRef, AgentStateSource, TerminalProgramStatus } from "../contracts";
 
 export interface HookSnapshot {
   sequence: number;
@@ -9,6 +9,7 @@ export interface HookSnapshot {
   occurredAt: number;
   reason: string;
   transcriptPath: string | null;
+  programStatus?: TerminalProgramStatus | null;
 }
 
 export interface AgentHookReport {

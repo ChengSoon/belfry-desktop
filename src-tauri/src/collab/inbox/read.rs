@@ -17,9 +17,9 @@ pub(super) fn availability(registry: &SessionRegistry, recipient: &Recipient) ->
         return "offline";
     }
     match session.activity.as_str() {
-        "idle" if session.can_receive => "ready",
-        "idle" | "error" => "unavailable",
-        "needs_input" | "needs-input" | "awaiting-choice" | "awaiting_input" | "waiting" => "needs_input",
+        "idle" | "done" if session.can_receive => "ready",
+        "idle" | "done" | "error" | "clear" | "unknown" => "unavailable",
+        "blocked" | "needs_input" | "needs-input" | "awaiting-choice" | "awaiting_input" | "waiting" => "needs_input",
         _ => "busy",
     }
 }

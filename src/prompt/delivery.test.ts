@@ -4,7 +4,7 @@ import type { WorkspaceTab } from "../workspace/contracts";
 import { pasteSettleMs, PromptInput, WINDOWS_PASTE_SETTLE_MS } from "../terminal/promptInput";
 import { PROMPT_CONFIRM_TIMEOUT_MS, PromptQueueRuntime } from "./runtime";
 
-const idle = { id: "agent", kind: "codex", phase: "running", activity: "idle" } as WorkspaceTab;
+const idle = { id: "agent", kind: "pi", phase: "running", activity: "idle", agentState: null } as WorkspaceTab;
 const busy = { ...idle, activity: "talking" } as WorkspaceTab;
 
 function fixture(bracketed = true) {
@@ -29,7 +29,7 @@ function fixture(bracketed = true) {
 
 afterEach(() => vi.useRealTimers());
 
-describe("collaboration prompt delivery", () => {
+describe("legacy collaboration prompt delivery", () => {
   it.each([true, false])("Windows paste mode %s waits for the parser and writes Enter exactly once", async (bracketed) => {
     vi.useFakeTimers();
     const test = fixture(bracketed);

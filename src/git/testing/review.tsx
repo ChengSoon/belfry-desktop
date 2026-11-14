@@ -7,13 +7,17 @@ import { GitPanel } from "../GitPanel";
 import { GitReviewProvider } from "../review/GitReviewProvider";
 import "../../styles.css";
 import "../../components/controls/controls.css";
+import { activityReport } from "../../terminal/fixtures/programStatus";
 
 const project = { id: "review-project", name: "Review fixture", rootPath: "/qa/worktree", rootUri: "file:///qa/worktree" };
 const filename = "src/示例 文件.ts";
 const patch = "diff --git a/example.ts b/example.ts\n--- a/example.ts\n+++ b/example.ts\n@@ -3,2 +3,2 @@\n-const result = items[0];\n+const result = items.at(0);\n return result;\n";
-const makeTab = (id: string, fields: Partial<WorkspaceTab> = {}): WorkspaceTab => ({ id, project, kind: "codex", title: id,
+const makeTab = (id: string, fields: Partial<WorkspaceTab> = {}): WorkspaceTab => {
+  const tab: WorkspaceTab = { id, project, kind: "codex", title: id,
   titleHint: null, customTitle: null, agentName: id, profileId: "agent:codex", collaborationMode: false,
-  sshTarget: null, resumeSessionId: null, phase: "running", activity: "idle", error: null, ...fields });
+  sshTarget: null, resumeSessionId: null, phase: "running", activity: "idle", error: null, ...fields };
+  return { ...tab, agentState: activityReport(tab.kind, tab.activity) };
+};
 const initialTabs = [makeTab("reviewer"), makeTab("builder", { kind: "claude", profileId: "agent:claude", activity: "talking" }),
   makeTab("other-worktree", { project: { ...project, rootPath: "/qa/other-worktree" } }),
   makeTab("shell", { kind: "shell", profileId: "system-default" })];
@@ -51,7 +55,8 @@ function Fixture() {
   const [tabs, setTabs] = useState(initialTabs);
   const [open, setOpen] = useState(true);
   qa.tabs = tabs;
-  qa.setActivity = (id, activity) => setTabs((current) => current.map((tab) => tab.id === id ? { ...tab, activity } : tab));
+  qa.setActivity = (id, activity) => setTabs((current) => current.map((tab) => tab.id === id ? { ...tab, activity,
+    agentState: activityReport(tab.kind, activity, (tab.agentState?.sequence ?? 0) + 1) } : tab));
   qa.remove = (id) => setTabs((current) => current.filter((tab) => tab.id !== id));
   const queue = usePromptQueue({ tabs, targets });
   return <main style={{ padding: 16, display: "grid", gap: 12 }}>

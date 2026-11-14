@@ -68,7 +68,8 @@ pub(crate) fn detect_agent(kind: AgentKind) -> AgentAvailability {
         },
     };
     availability.descriptor.capabilities.structured_state =
-        super::hooks::features::supported(kind, availability.version.as_deref());
+        kind.terminal_status_app().is_some()
+            || super::hooks::features::supported(kind, availability.version.as_deref());
     availability
 }
 

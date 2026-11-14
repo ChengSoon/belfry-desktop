@@ -28,7 +28,19 @@ export type AgentLifecycleState =
   | "interrupted"
   | "unknown";
 
-export type AgentStateSource = "hook" | "screen_heuristic" | "process";
+export type AgentStateSource = "hook" | "terminal_protocol" | "screen_heuristic" | "process";
+
+export interface TerminalProgramStatus {
+  state: "idle" | "working" | "blocked" | "done" | "error" | "clear";
+  kind: "permission" | "question" | "auth" | null;
+  progress: number | null;
+  title: string | null;
+  message: string | null;
+}
+
+export function usesTerminalStatus(kind: unknown): kind is "codex" | "claude" {
+  return kind === "codex" || kind === "claude";
+}
 
 export interface AgentCapabilities {
   launch: boolean;
@@ -123,7 +135,7 @@ export function agentDescriptor(kind: AgentKind): AgentDescriptor {
       resume: true,
       history: true,
       prompt: true,
-      structuredState: false,
+      structuredState: usesTerminalStatus(kind),
     },
   };
 }

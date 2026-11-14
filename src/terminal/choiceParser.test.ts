@@ -16,7 +16,7 @@ describe("Codex 0.167.0 rendered requests", () => {
       { index: 1, label: "A suggested answer that is\nlong enough to wrap across\nmultiple rows" },
       { index: 2, label: "Other" },
     ]);
-    expect(detectActivity(screen("codex-async-wrapped"), "codex")).toBe("awaiting-choice");
+    expect(detectActivity(screen("codex-async-wrapped"), "codex")).toBe("talking");
   });
 
   it("separates option descriptions, including two columns wrapping on the same rows", () => {
@@ -41,7 +41,7 @@ describe("Codex 0.167.0 rendered requests", () => {
       expect(parse(name).kind, name).toBe("input");
       expect(parse(name).control, name).toBe("text");
       expect(parse(name).inputValue, name).toBe("");
-      expect(detectActivity(screen(name), "codex"), name).toBe("awaiting-choice");
+      expect(detectActivity(screen(name), "codex"), name).toBe("talking");
     }
     const async = parse("codex-async-input");
     expect(async.detail).toContain("printf '診 断 '");
@@ -76,7 +76,7 @@ describe("Codex 0.167.0 rendered requests", () => {
     for (const name of ["codex-async-remapped", "codex-input-remapped"] as const) {
       expect(parse(name).kind, name).toBe("unknown");
       expect(parse(name).control, name).toBe("none");
-      expect(detectActivity(screen(name), "codex"), name).toBe("awaiting-choice");
+      expect(detectActivity(screen(name), "codex"), name).toBe("talking");
     }
   });
 
@@ -148,7 +148,7 @@ describe("interaction evidence and native compatibility", () => {
     "The answer is final.\nPress enter to confirm or esc to cancel",
   ])("does not treat prose or a completed menu as a request: %s", text => {
     expect(parseInteractionText(text, "codex")).toBeNull();
-    expect(detectActivity(text, "codex")).toBe("idle");
+    expect(detectActivity(text, "codex")).toBe("talking");
   });
 
   it("does not reuse a finished menu below resumed work", () => {

@@ -77,6 +77,7 @@ fn hook(id: &str, session: AgentSessionRef) -> TerminalEvent {
             occurred_at: 1,
             reason: "test hook".into(),
             transcript_path: None,
+            program_status: None,
         },
     }
 }
@@ -319,6 +320,40 @@ fn failed_replacement_keeps_the_old_record_available_for_replay() {
     assert!(!slot.is_closed());
     assert_eq!(TerminalStatus::Exited, slot.info().session.status);
     assert_eq!(old.id, fixture.service.list()[0].session.id);
+}
+
+#[test]
+fn reattachment_replays_terminal_protocol_independently_of_a_later_hook() {
+    use crate::agent::{AgentLifecycleState, AgentStateSource};
+    let fixture = Fixture::new();
+    let mut request = fixture.request();
+    request.profile_id = "agent:claude".into();
+    let session = fixture.service.create(request, WireOverlay::default(), None).unwrap();
+    let slot = fixture.service.slot(&session.id).unwrap();
+    slot.push(TerminalEvent::AgentState { session_id: session.id.clone(), snapshot: crate::agent::hooks::HookSnapshot {
+        sequence: 3, agent: AgentKind::Claude, session: None, state: AgentLifecycleState::AwaitingInput,
+        source: AgentStateSource::TerminalProtocol, occurred_at: 0, reason: String::new(), transcript_path: None,
+        program_status: Some(crate::agent::TerminalProgramStatus { state: crate::agent::ProgramState::Blocked,
+            kind: Some(crate::agent::ProgramBlockKind::Permission), progress: Some(42), title: None, message: None }),
+    } });
+    slot.push(hook(&session.id, AgentSessionRef { agent: AgentKind::Claude, id: "native-claude".into() }));
+    let cursor = slot.poll(&session.id, 0).unwrap().cursor;
+    slot.announce_hook(&session.id);
+    let replay = slot.poll(&session.id, cursor).unwrap();
+    let states: Vec<_> = replay.frames.iter().filter_map(|frame| match &frame.event {
+        TerminalEvent::AgentState { snapshot, .. } => Some(snapshot),
+        _ => None,
+    }).collect();
+    assert_eq!(states.len(), 2);
+    assert_eq!(states[0].source, AgentStateSource::Hook);
+    assert_eq!(states[1].source, AgentStateSource::TerminalProtocol);
+    assert_eq!(states[1].state, AgentLifecycleState::AwaitingInput);
+    assert_eq!(states[1].sequence, 3);
+    let status = states[1].program_status.as_ref().unwrap();
+    assert_eq!(status.state, crate::agent::ProgramState::Blocked);
+    assert_eq!(status.kind, Some(crate::agent::ProgramBlockKind::Permission));
+    assert_eq!(status.progress, Some(42));
+    assert_eq!(slot.info().native_session.unwrap().id, "native-claude");
 }
 
 #[test]

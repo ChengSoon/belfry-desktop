@@ -5,9 +5,10 @@ it("键盘、原生粘贴和输入法通知人工介入，卸载后移除监听"
   const host = new EventTarget();
   const onInput = vi.fn();
   const dispose = vi.fn();
-  const onKey = vi.fn((_listener: () => void) => ({ dispose }));
+  const onKey = vi.fn((_listener: (event: { key: string }) => void) => ({ dispose }));
   const remove = listenForPromptUserInput({ terminal: { onKey }, host, onInput });
-  onKey.mock.calls[0][0]();
+  onKey.mock.calls[0][0]({ key: "\r" });
+  expect(onInput).toHaveBeenLastCalledWith("\r");
   for (const event of ["beforeinput", "compositionstart", "paste"]) host.dispatchEvent(new Event(event));
   expect(onInput).toHaveBeenCalledTimes(4);
   remove();

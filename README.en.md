@@ -286,6 +286,10 @@ See the [CLI feature backlog](docs/cli-manager-feature-backlog.md) and [implemen
 - **Internationalization**: support Simplified Chinese, English, and the system language, with localized dates and numbers; provide bilingual CLI help, native notifications and menus, Agent collaboration instructions, and the Windows installer.
 - **Release checksums**: publish `SHA256SUMS.txt`, verify assets before making the release public, and document verification on Windows and macOS.
 
+### v1.0.6 · Native session status and delivery
+
+Codex and Claude Code now use native terminal status reports (OSC 7501) for message delivery, room status and notifications, without status hooks. User drafts are preserved and status is checked again before writing to prevent stalled or duplicate delivery. After upgrading, restart background Agent sessions once their tasks finish; see the [terminal status protocol](docs/agent-terminal-status.md).
+
 ### v1.0.5 · Room recipient selector
 
 Room recipients are grouped by routing mode and member, with avatars, responsibilities, coordinator and default labels. The selector supports light and dark themes, long names, compact windows, larger fonts and keyboard navigation.

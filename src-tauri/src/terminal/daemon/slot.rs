@@ -34,6 +34,7 @@ struct Data {
     exit_code: Option<i32>,
     native_session: Option<AgentSessionRef>,
     latest_hook: Option<HookSnapshot>,
+    latest_protocol: Option<HookSnapshot>,
 }
 
 impl Slot {
@@ -71,6 +72,7 @@ impl Slot {
                 exit_code: None,
                 native_session,
                 latest_hook: None,
+                latest_protocol: None,
             }),
             changed: Condvar::new(),
         })
@@ -156,7 +158,11 @@ impl Slot {
                 if snapshot.session.is_some() {
                     data.native_session = snapshot.session.clone();
                 }
-                data.latest_hook = Some(snapshot.clone());
+                if snapshot.source == crate::agent::AgentStateSource::TerminalProtocol {
+                    data.latest_protocol = Some(snapshot.clone());
+                } else {
+                    data.latest_hook = Some(snapshot.clone());
+                }
             }
             TerminalEvent::SessionIdentity { session, .. } => {
                 data.native_session = Some(session.clone());
@@ -193,6 +199,9 @@ impl Slot {
                 session_id: id.into(),
                 snapshot,
             });
+        }
+        if let Some(snapshot) = data.latest_protocol.clone() {
+            data.replay.push(TerminalEvent::AgentState { session_id: id.into(), snapshot });
         }
         if let Some(session) = data.native_session.clone() {
             data.replay.push(TerminalEvent::SessionIdentity {

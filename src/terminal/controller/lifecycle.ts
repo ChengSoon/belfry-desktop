@@ -51,7 +51,11 @@ export class TerminalLifecycle {
     this.output = new TerminalOutput({ terminal: ports.terminal, themeSync: ports.themeSync,
       onOutput: (text) => ports.callbacks.onOutput?.(text),
       onPasswordPrompt: () => this.input.mute(),
-      onGap: () => ports.callbacks.onError(t("terminal.lifecycle.text_6f9801c626")),
+      onGap: () => {
+        this.input.gap();
+        this.activity.gap();
+        ports.callbacks.onError(t("terminal.lifecycle.text_6f9801c626"));
+      },
       onExit: (code, tail) => this.finishExit(code, tail),
       onAgentState: (snapshot) => {
         if (snapshot.session) {
@@ -59,6 +63,7 @@ export class TerminalLifecycle {
           ports.callbacks.onSessionIdentity?.(snapshot.session);
         }
         this.activity.accept(snapshot);
+        this.input.acceptState(snapshot);
       },
       onSessionIdentity: (session) => {
         this.nativeIdentity = `${session.agent}:${session.id}`;
@@ -74,6 +79,7 @@ export class TerminalLifecycle {
   get agentKind() { return agentKindFromProfile(this.ports.launch.profileId); }
   get outputSettled() { return this.queue.settled; }
   get waitingReason() { return this.activity.waitingReason; }
+  get programStatus() { return this.activity.programStatus; }
   get interactionScope() { return this.nativeIdentity ?? this.resumeSessionId; }
 
   async start() {
@@ -114,6 +120,7 @@ export class TerminalLifecycle {
   sendText(text: string, options?: PromptDeliveryOptions) { return this.input.sendText(text, options); }
 
   get inputRevision() { return this.input.inputRevision; }
+  get composerEmpty() { return this.input.composerEmpty; }
 
   sendInteraction(request: InteractionWrite) { return this.input.sendInteraction(request); }
 
@@ -155,7 +162,7 @@ export class TerminalLifecycle {
     }
     const events = event.kind === "output_batch" ? event.events : [event];
     // 创建命令的响应可能晚于退出事件，先关闭输入，避免迟到响应再次发启动命令。
-    if (events.some((item) => item.kind === "exit")) { this.exited = true; this.stopSession(); }
+    if (events.some((item) => item.kind === "exit")) { this.exited = true; this.stopInput(); }
     this.queue.push(event);
   }
 
@@ -167,11 +174,12 @@ export class TerminalLifecycle {
     if (this.failed) { this.detach(session); return; }
     if (this.exited || session.status === "exited") {
       this.exited = true;
-      this.stopSession();
+      this.stopInput();
       this.ports.callbacks.onPhase("exited");
       return;
     }
     this.current = session;
+    this.input.attach(!session.reconnected);
     this.ports.callbacks.onPhase("running");
     this.ports.onReady();
     if ((this.restoredMissingAttachment || this.ports.launch.recoverExited) && !session.reconnected) {
@@ -202,15 +210,20 @@ export class TerminalLifecycle {
     this.ports.callbacks.onConnectionFailure?.(error, attachmentId);
   }
 
-  private stopSession() {
+  private stopInput() {
     this.current = null;
     this.input.stop();
-    this.activity.stop();
     this.ports.onStopped();
+  }
+
+  private stopSession() {
+    this.stopInput();
+    this.activity.stop();
   }
 
   private finishExit(code: number, tail: string) {
     if (this.disposed || this.failed) return;
+    this.stopSession();
     this.ports.callbacks.onPhase("exited");
     this.ports.callbacks.onError(diagnoseTerminalExit(code, tail));
   }

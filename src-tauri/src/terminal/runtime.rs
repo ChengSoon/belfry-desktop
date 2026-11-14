@@ -64,6 +64,7 @@ impl TerminalRuntime {
         self.validate_launch(&request)?;
         let cwd = super::launch::resolve_cwd(request.cwd.as_deref())?;
         let tab_id = request.tab_id.clone();
+        let protocol_agent = crate::agent::AgentKind::from_profile_id(&request.profile_id).filter(|agent| agent.terminal_status_app().is_some());
         let launch_epoch = request.launch_overlay.launch_epoch;
         let exited = Arc::new(AtomicBool::new(false));
         let hook = request.launch_overlay.hook.clone();
@@ -91,6 +92,7 @@ impl TerminalRuntime {
             if !exited.load(Ordering::Acquire) && tab_id.as_ref().is_none_or(|tab| self.launch_epoch(tab) == launch_epoch) {
                 let cwd = crate::resource::file_uri_to_path(&session.cwd).unwrap_or(cwd);
                 self.input_gate.register(&session.id, tab_id, cwd.clone());
+                if let Some(agent) = protocol_agent { self.input_gate.require_protocol(&session.id, agent, session.reconnected); }
                 sessions.insert(session.id.clone(), cwd);
             }
         }
@@ -268,8 +270,20 @@ impl TerminalRuntime {
         self.input_gate.user_write(session_id, bytes, || self.backend.write(session_id, bytes))
     }
 
+    pub fn claim_user_input(&self, session_id: &str) -> Result<(), AppError> {
+        self.input_gate.claim_user_input(session_id)
+    }
+
+    pub fn prepare_prompt(&self, session_id: &str, payload: &str) -> Result<belfry_protocol::inbox::WriteGuard, AppError> {
+        self.input_gate.prepare_prompt(session_id, payload)
+    }
+
+    pub fn finish_prompt(&self, session_id: &str, guard: &belfry_protocol::inbox::WriteGuard) -> Result<super::input_gate::WriteEvidence, AppError> {
+        self.input_gate.finish_prompt(session_id, guard)
+    }
+
     pub(crate) fn write_inbox(&self, session_id: &str, bytes: &[u8], guard: &belfry_protocol::inbox::WriteGuard, sequence: u64) -> Result<(), AppError> {
-        self.input_gate.guarded_write(session_id, guard, sequence, bytes, || self.backend.write(session_id, bytes))
+        self.input_gate.guarded_write_checked(session_id, guard, sequence, bytes, |expected| self.backend.write_checked(session_id, bytes, expected))
     }
 
     pub fn resize(&self, session_id: &str, size: TerminalSize) -> Result<(), AppError> {
@@ -320,6 +334,7 @@ impl TerminalEventSink for TauriSink {
 impl TauriSink {
     fn observe_exit(&self, event: &TerminalEvent) {
         match event {
+            TerminalEvent::AgentState { session_id, snapshot } => self.input_gate.observe_agent_state(session_id, snapshot),
             TerminalEvent::Output { session_id, sequence, bytes, .. } => self.input_gate.observe_output(session_id, *sequence, bytes),
             TerminalEvent::ReplayGap { session_id, .. } | TerminalEvent::Disconnected { session_id, .. } => self.input_gate.output_gap(session_id),
             _ => {}

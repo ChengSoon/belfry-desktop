@@ -19,7 +19,7 @@ describe("agent adapter contracts", () => {
         resume: true,
         history: true,
         prompt: true,
-        structuredState: false,
+        structuredState: true,
       },
     });
   });

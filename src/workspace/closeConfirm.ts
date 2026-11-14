@@ -1,5 +1,7 @@
 import { t } from "../i18n";
 import type { WorkspaceTab } from "./contracts";
+import { terminalStatusFor } from "../agent/programStatus";
+import { usesTerminalStatus } from "../agent/contracts";
 
 /**
  * 关会话前要不要拦一下。判据是"这一下会不会杀掉还活着的东西"——
@@ -17,6 +19,9 @@ export function needsCloseConfirm(tab: WorkspaceTab) {
  * 前半句只在会话正忙时补一句它在忙什么——那才是真正让手停下来的信息。
  */
 export function closeConfirmBody(tab: WorkspaceTab) {
-  const state = tab.phase === "creating" ? "starting" : tab.phase === "running" ? tab.activity : "idle";
+  const report = terminalStatusFor(tab.kind, tab.agentState)?.programStatus;
+  const activity = usesTerminalStatus(tab.kind) ? report?.state === "working" ? "talking"
+    : report?.state === "blocked" ? "awaiting-choice" : "idle" : tab.activity;
+  const state = tab.phase === "creating" ? "starting" : tab.phase === "running" ? activity : "idle";
   return t(`workspace.closeConfirm.${state}`);
 }

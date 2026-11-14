@@ -7244,6 +7244,24 @@
       "zhCN": "本轮响应结束"
     },
     {
+      "code": "TERMINAL_PROGRAM_IDLE",
+      "params": [],
+      "en": "Idle, waiting for a new instruction",
+      "zhCN": "空闲，等待新指令"
+    },
+    {
+      "code": "TERMINAL_PROGRAM_STATUS_PENDING",
+      "params": [],
+      "en": "Waiting for native status reports",
+      "zhCN": "等待原生状态报告"
+    },
+    {
+      "code": "TERMINAL_PROGRAM_STATUS_INTEGRATION",
+      "params": [],
+      "en": "Codex and Claude use native terminal status reports and do not need status hooks.",
+      "zhCN": "Codex 和 Claude 使用原生终端状态报告，无需安装状态 Hook"
+    },
+    {
       "code": "HOOK_RESPONSE_FAILED",
       "params": [],
       "en": "Response failed",

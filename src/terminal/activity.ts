@@ -1,6 +1,6 @@
 import type { IDisposable, Terminal } from "@xterm/xterm";
 import type { SessionActivity } from "./contracts";
-import type { AgentKind } from "../agent/contracts";
+import { usesTerminalStatus, type AgentKind } from "../agent/contracts";
 import { nativeComposerEmpty, nativeTalking } from "./nativeScreen";
 import { parseInteractionText } from "./choiceParser";
 import { readScreenTail } from "./screen";
@@ -10,39 +10,35 @@ export type { ScreenLine } from "./screen";
 export { CHOICE_QUESTION } from "./choiceSignals";
 
 /**
- * 从渲染后的屏幕文本猜 Agent 眼下在干什么。信号全部来自 Claude Code / Codex 的界面
- * 文案，会随它们的版本漂移，所以只集中在下面这张表里，别散到别处去。
+ * 仅为没有原生状态协议的 Agent 提供屏幕推断。Codex / Claude 不走这里。
  *
  * 认不出一律 idle：侧栏漏报一次没人受伤，误报几次用户就再也不信这个点了。
  */
 
 /**
- * 生成中。Claude 的 `✻ Thinking… (esc to interrupt)` 和 Codex 的 `Working (Esc to interrupt)` 共用这句。
- * Codex 0.16x 起按键名单独着色、可能画成 `⎋` 之类的符号，只剩 ` to interrupt)` 是稳定的文本；
- * 排队消息的提示 `(press esc to interrupt and send immediately)` 也只在生成中出现。
+ * 没有原生状态协议的终端 Agent 使用的中断提示模式。
+ * Codex / Claude 在调用这些屏幕判断前直接返回，状态只由协议报告控制。
  */
 const TALKING = /esc to interrupt|\bto interrupt(?: and send immediately)?\)/i;
 
-/**
- * 权限框首句。完整一句话，偶然落进扫描窗口的概率低。Claude 用 `Do you want to …`；
- * Codex 0.16x 用 `Would you like to run the following command?` 这一组。
- */
-/** 往上取几行。Claude 的 spinner 距底 6-8 行、权限框 8-10 行，12 有余量又不至于把正文摊进来。 */
+/** 其他 Agent 的活动扫描范围；选择内容解析使用自己的屏幕读取接口。 */
 export const ACTIVITY_TAIL_LINES = 12;
 
 /**
- * Codex 的空输入提示。Claude 的权限模式会替换这句提示，需要检查输入框本身。
+ * 其他 Agent 的输入区提示。原生协议会话独立跟踪用户对编辑器的占用。
  */
 const COMPOSER_EMPTY = /\?\s+for shortcuts/i;
 
 export function composerLooksEmpty(tail: string, agent?: AgentKind | null): boolean {
-  if (agent === "claude" || agent === "opencode" || agent === "kimi") return nativeComposerEmpty(tail, agent);
+  if (usesTerminalStatus(agent)) return false;
+  if (agent === "opencode" || agent === "kimi") return nativeComposerEmpty(tail, agent);
   return COMPOSER_EMPTY.test(tail);
 }
 
 /** 屏幕行的最小投影。剥掉 xterm 依赖，判定逻辑才测得动（仓库没装 jsdom）。 */
 /** 等待选择优先于正在对话：权限框弹出来时 spinner 那行已经被擦掉了，实践中两者互斥。 */
 export function detectActivity(tail: string, agent?: AgentKind | null): SessionActivity {
+  if (usesTerminalStatus(agent)) return "talking";
   if (parseInteractionText(tail, agent)) return "awaiting-choice";
   return detectTalking(tail, agent);
 }
@@ -52,7 +48,7 @@ function detectTalking(tail: string, agent?: AgentKind | null): SessionActivity 
   return "idle";
 }
 
-/** 扫描节流窗口。Claude 的 spinner 约 10Hz，低于 150ms 就是在陪它空转。 */
+/** 其他 Agent 的屏幕扫描节流窗口。 */
 const SCAN_INTERVAL_MS = 200;
 
 /**
@@ -70,6 +66,10 @@ export function watchActivity(
   onChange: (activity: SessionActivity) => void,
   agent?: AgentKind | null,
 ): IDisposable {
+  if (usesTerminalStatus(agent)) {
+    onChange("talking");
+    return { dispose() {} };
+  }
   let current: SessionActivity = "idle";
   let scannedAt = 0;
   let pending = 0;

@@ -16,6 +16,7 @@ import { appShortcutChord, formatShortcutChord } from "./shortcuts/resolveShortc
 import { useAppShortcuts } from "./shortcuts/useAppShortcuts";
 import { useAppUpdater } from "./updater/useAppUpdater";
 import { agentResetCommand, isAgentKind, type AgentKind } from "./agent/contracts";
+import { sessionActivity } from "./agent/programStatus";
 import type { HistorySession } from "./history/contracts";
 import type { QuickOpenItem } from "./quickopen/model";
 import { useQuickOpen } from "./quickopen/useQuickOpen";
@@ -159,7 +160,7 @@ export default function App() {
   // 房间成员在等你选择、或者发给他的消息卡住了：侧栏「协作房间」按钮亮起，房间藏着也看得见。
   const roomAttention = useMemo(() => {
     const waiting = workspace.tabs.filter((tab) => roomBound.boundIds.has(tab.id)
-      && tab.phase === "running" && tab.activity === "awaiting-choice").length;
+      && tab.phase === "running" && sessionActivity(tab) === "awaiting-choice").length;
     const stuck = promptQueue.paused.filter((item) => roomBound.boundIds.has(item.tabId)).length;
     return waiting + stuck + roomUnread;
   }, [workspace.tabs, roomBound.boundIds, promptQueue.paused, roomUnread]);

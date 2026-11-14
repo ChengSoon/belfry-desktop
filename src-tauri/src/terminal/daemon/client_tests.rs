@@ -122,6 +122,30 @@ impl Drop for Peer {
     }
 }
 
+#[test]
+fn legacy_daemon_cannot_silently_downgrade_checked_input_to_ordinary_write() {
+    let peer = Peer::new(vec![("ping", Some(Reply::ok(serde_json::json!({"capabilities": []}))))]);
+    let error = peer.client.write_checked("old", b"automatic", Some(7)).unwrap_err();
+    assert_eq!(error.code, AppErrorCode::Conflict);
+    assert_eq!(peer.commands().len(), 1);
+    assert_eq!(peer.commands()[0]["kind"], "ping");
+}
+
+#[test]
+fn checked_input_keeps_the_status_fence_and_structured_zero_write_rejection() {
+    let peer = Peer::new(vec![
+        ("ping", Some(Reply::ok(serde_json::json!({"capabilities": ["terminal_program_status_v1"]})))),
+        ("write_checked", Some(Reply::failure(AppError::conflict("status changed")))),
+        ("write_checked", Some(Reply::ok(()))),
+    ]);
+    assert_eq!(peer.client.write_checked("pty", b"payload", Some(7)).unwrap_err().code, AppErrorCode::Conflict);
+    peer.client.write_checked("pty", b"payload", Some(8)).unwrap();
+    let calls = peer.commands();
+    assert_eq!(calls[1]["expected_program_sequence"], 7);
+    assert_eq!(calls[2]["expected_program_sequence"], 8);
+    assert!(calls.iter().all(|command| command["kind"] != "write"));
+}
+
 #[derive(Default)]
 struct Sink {
     events: Mutex<Vec<TerminalEvent>>,
@@ -391,6 +415,7 @@ fn initial_resume_precedes_hook_replay_and_late_mcp_cannot_replace_the_newer_hoo
                         occurred_at: 2,
                         reason: "test".into(),
                         transcript_path: None,
+                        program_status: None,
                     },
                 },
             },

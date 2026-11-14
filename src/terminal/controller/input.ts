@@ -1,7 +1,7 @@
 import { t } from "../../i18n";
 import { getCurrentWebview, type DragDropEvent } from "@tauri-apps/api/webview";
 import type { Terminal } from "@xterm/xterm";
-import { writeTerminal } from "../api";
+import { claimTerminalUserInput, finishTerminalPrompt, prepareTerminalPrompt, writeTerminal } from "../api";
 import { consumeWebClipboardPaste, listenForClipboardImagePaste, usesWebClipboardFallback } from "../clipboardPaste";
 import type { CodexThemeSync } from "../codexThemeSync";
 import type { PromptDeliveryOptions, TerminalLaunch, TerminalSession } from "../contracts";
@@ -13,6 +13,9 @@ import { listenForPromptUserInput } from "../promptUserInput";
 import { errorMessage } from "./diagnostics";
 import type { MountCallbacks } from "./types";
 import { composingKey } from "../../utils/keyboard";
+import type { HookSnapshot } from "../../agent/hooks/contracts";
+import { ProtocolInputOwnership } from "./protocolInputOwnership";
+import { agentKindFromProfile, usesTerminalStatus } from "../../agent/contracts";
 
 interface InputPorts {
   terminal: Terminal;
@@ -33,9 +36,11 @@ export class TerminalInput {
   private inputLine = emptyInputLine();
   private disposed = false;
   private stopped = false;
+  private readonly protocolInput: ProtocolInputOwnership;
 
   constructor(private readonly ports: InputPorts) {
     const { terminal, host, callbacks, launch } = ports;
+    this.protocolInput = new ProtocolInputOwnership(agentKindFromProfile(launch.profileId));
     this.prompt = new PromptInput({
       session: () => this.session()?.id ?? null,
       paste: (text) => terminal.paste(text),
@@ -43,13 +48,16 @@ export class TerminalInput {
       write: (id, data, guarded) => writeTerminal(id, new TextEncoder().encode(data), guarded),
       error: (error) => callbacks.onError(t("terminal.input.text_48ac6518d5", { error: errorMessage(error) })),
       settleMs: pasteSettleMs(navigator.userAgent),
+      ...(usesTerminalStatus(agentKindFromProfile(launch.profileId)) ? {
+        prepare: prepareTerminalPrompt, finish: finishTerminalPrompt, submitting: () => this.protocolInput.beginSubmission(),
+      } : {}),
     });
     this.input = terminal.onData((data) => this.onData(data));
-    this.removeUserInput = listenForPromptUserInput({ terminal, host, onInput: () => this.prompt.onUserInput() });
+    this.removeUserInput = listenForPromptUserInput({ terminal, host, onInput: (key) => this.userInput(key) });
     this.removeImagePaste = !this.webClipboard && launch.profileId.startsWith("agent:")
       ? listenForClipboardImagePaste(host, (sequence) => {
         if (!this.session()) return;
-        this.prompt.onUserInput(); terminal.input(sequence, true);
+        this.userInput(); terminal.input(sequence, true);
       }) : null;
     terminal.attachCustomKeyEventHandler((event) => this.onKey(event));
     void getCurrentWebview().onDragDropEvent((event) => this.fileDrop(event.payload)).then((unlisten) => {
@@ -58,11 +66,36 @@ export class TerminalInput {
   }
 
   mute() { this.inputLine = muteInputLine(this.inputLine); }
+  attach(fresh: boolean) { this.protocolInput.attach(fresh); }
+  acceptState(snapshot: HookSnapshot) { this.protocolInput.accept(snapshot); }
+  gap() { this.protocolInput.gap(); }
+  get composerEmpty() { return this.protocolInput.empty; }
+
+  private userInput(key?: string) {
+    this.prompt.onUserInput();
+    this.protocolInput.userInput(key);
+    const session = this.session();
+    if (session && usesTerminalStatus(agentKindFromProfile(this.ports.launch.profileId))) {
+      void claimTerminalUserInput(session.id).catch((error) => {
+        if (this.session()?.id === session.id) this.ports.callbacks.onError(errorMessage(error));
+      });
+    }
+  }
 
   sendText(text: string, options?: PromptDeliveryOptions) {
     if (!this.session() || !text) return false;
     if (!options?.background) this.ports.terminal.focus();
-    return this.prompt.sendText(text, options);
+    if (!usesTerminalStatus(agentKindFromProfile(this.ports.launch.profileId))) return this.prompt.sendText(text, options);
+    if (!this.protocolInput.ready) return false;
+    const valid = this.protocolInput.validatePosition();
+    const restore = this.protocolInput.reserve();
+    const accepted = this.prompt.sendText(text, { ...options, onResult: (result) => {
+      if (result === "not-written") restore();
+      else if (result !== "submitted") restore(true);
+      options?.onResult?.(result);
+    } }, valid);
+    if (!accepted) restore();
+    return accepted;
   }
 
   sendInteraction(request: InteractionWrite) { return this.prompt.sendInteraction(request); }
@@ -119,7 +152,7 @@ export class TerminalInput {
     try {
       const text = await navigator.clipboard.readText();
       if (!text || !this.session()) return;
-      this.prompt.onUserInput();
+      this.userInput();
       this.ports.terminal.paste(text);
     } catch { /* 权限不可用时保留原生粘贴。 */ }
   }
@@ -150,7 +183,7 @@ export class TerminalInput {
     const text = formatDroppedPaths(event.paths, session);
     if (!text) return;
     terminal.focus();
-    this.prompt.onUserInput();
+    this.userInput();
     terminal.paste(text);
   }
 }

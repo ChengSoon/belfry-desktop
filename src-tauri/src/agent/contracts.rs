@@ -57,6 +57,14 @@ impl AgentKind {
             Self::Kimi => "Kimi Code",
         }
     }
+
+    pub fn terminal_status_app(self) -> Option<&'static str> {
+        match self {
+            Self::Codex => Some("codex"),
+            Self::Claude => Some("claude-code"),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -76,7 +84,7 @@ impl AgentCapabilities {
             resume: true,
             history: true,
             prompt: true,
-            // 仅在 CLI 版本探测通过后声明 Hook 能力；连接前仍采用屏幕推断。
+            // The descriptor selects OSC status for supported adapters; a missing report stays unknown.
             structured_state: false,
         }
     }
@@ -99,7 +107,7 @@ impl AgentDescriptor {
             kind,
             display_name: kind.display_name().to_string(),
             command: kind.command_name().to_string(),
-            capabilities: AgentCapabilities::cli_foundation(),
+            capabilities: AgentCapabilities { structured_state: kind.terminal_status_app().is_some(), ..AgentCapabilities::cli_foundation() },
         }
     }
 }
@@ -149,8 +157,43 @@ pub enum AgentLifecycleState {
 #[serde(rename_all = "snake_case")]
 pub enum AgentStateSource {
     Hook,
+    TerminalProtocol,
     ScreenHeuristic,
     Process,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ProgramState { Idle, Working, Blocked, Done, Error, Clear }
+
+impl ProgramState {
+    pub fn allows_input(self) -> bool {
+        matches!(self, Self::Idle | Self::Done)
+    }
+
+    pub fn lifecycle(self) -> AgentLifecycleState {
+        match self {
+            Self::Idle | Self::Done => AgentLifecycleState::Completed,
+            Self::Working => AgentLifecycleState::Processing,
+            Self::Blocked => AgentLifecycleState::AwaitingInput,
+            Self::Error => AgentLifecycleState::Failed,
+            Self::Clear => AgentLifecycleState::Unknown,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ProgramBlockKind { Permission, Question, Auth }
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TerminalProgramStatus {
+    pub state: ProgramState,
+    pub kind: Option<ProgramBlockKind>,
+    pub progress: Option<u8>,
+    pub title: Option<String>,
+    pub message: Option<String>,
 }
 
 #[allow(dead_code)]
@@ -206,7 +249,7 @@ mod tests {
         let value = serde_json::to_value(AgentDescriptor::for_kind(AgentKind::Claude)).unwrap();
         assert_eq!(value["id"], "agent:claude");
         assert_eq!(value["displayName"], "Claude Code");
-        assert_eq!(value["capabilities"]["structuredState"], false);
+        assert_eq!(value["capabilities"]["structuredState"], true);
     }
 
     #[test]

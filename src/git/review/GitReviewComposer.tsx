@@ -9,6 +9,9 @@ import { useGitReview } from "./GitReviewProvider";
 import { EMPTY_REVIEW, isReviewAnchorCurrent, MAX_REVIEW_COMMENT, reviewKey, reviewLineLabel,
   reviewLocked, reviewTargetLabel, reviewTargets, type ReviewContext, type ReviewReceipt } from "./model";
 import { composingKey } from "../../utils/keyboard";
+import { sessionActivity } from "../../agent/programStatus";
+import { usesTerminalStatus } from "../../agent/contracts";
+import { terminalStatusLabel } from "../../agent/programStatusLabel";
 import "./review.css";
 
 export function GitReviewComposer({ context, diff, onRefresh }: {
@@ -27,8 +30,9 @@ export function GitReviewComposer({ context, diff, onRefresh }: {
   const targets = reviewTargets(review.tabs, context.projectRoot);
   const target = targets.find((tab) => tab.id === draft.targetId);
   const options = targets.map((tab) => ({ value: tab.id, label: reviewTargetLabel(tab),
-    description: tab.phase !== "running" ? t("git.GitReviewComposer.text_9d22ec829e") : tab.activity === "idle" ? t("git.GitReviewComposer.text_c6faf8deb8")
-      : tab.activity === "awaiting-choice" ? t("git.GitReviewComposer.text_2695597fe9") : t("git.GitReviewComposer.text_5433e54611") }));
+    description: tab.phase !== "running" ? t("git.GitReviewComposer.text_9d22ec829e") : usesTerminalStatus(tab.kind) ? terminalStatusLabel(tab.kind, tab.agentState)
+      : sessionActivity(tab) === "idle" ? t("git.GitReviewComposer.text_c6faf8deb8")
+      : sessionActivity(tab) === "awaiting-choice" ? t("git.GitReviewComposer.text_2695597fe9") : t("git.GitReviewComposer.text_5433e54611") }));
   const send = () => { if (diff && current && !locked) void review.send(context, diff); };
   const stale = diff !== null && !current;
   const receipt = draft.receipt;
@@ -53,7 +57,7 @@ export function GitReviewComposer({ context, diff, onRefresh }: {
           <Send size={ICON.sm} aria-hidden="true" />{t("git.GitReviewComposer.text_5146ae493c")}</button></div>
       <p className="git-review__note">{!targets.length ? t("git.GitReviewComposer.text_3286dd6124")
         : draft.targetId && !target ? t("git.GitReviewComposer.text_6fa6c2485b")
-          : target && target.activity !== "idle" ? t("git.GitReviewComposer.text_724c337a0f")
+          : target && sessionActivity(target) !== "idle" ? t("git.GitReviewComposer.text_724c337a0f")
             : t("git.GitReviewComposer.text_b7aff9da22")}</p>
     </> : null}
     {receipt ? <div className={`git-review__receipt is-${receipt.state}`} role="status" aria-live="polite">

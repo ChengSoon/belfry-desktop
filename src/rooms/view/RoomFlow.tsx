@@ -14,7 +14,8 @@ import { useTheme } from "../../theme/ThemeProvider";
 import type { WorkspaceTab } from "../../workspace/contracts";
 import type { Room } from "../contracts";
 import { flowGraph, type FlowEdge, type FlowNode, type FlowSide, type FlowTone } from "../flow";
-import { hueOf, initialOf, MEMBER_STATUS_TEXT, memberStatus } from "../model";
+import { hueOf, initialOf, MEMBER_STATUS_TEXT, memberStatus, memberStatusText } from "../model";
+import { usesTerminalStatus } from "../../agent/contracts";
 
 /**
  * 协作流程图：你 → 统筹 → 各位成员。连线上写着谁手上有什么活，正在做的、刚有消息的、在等你的会动起来。
@@ -28,7 +29,7 @@ const NODE_HEIGHT = 64;
 const TICK_MS = 15_000;
 
 // React Flow 要求 data 是普通对象（带字符串索引）。
-type MemberNodeData = FlowNode & { onOpenSession?: (tabId: string) => void } & Record<string, unknown>;
+type MemberNodeData = FlowNode & { onOpenSession?: (tabId: string) => void; statusText?: string } & Record<string, unknown>;
 type FlowEdgeData = Pick<FlowEdge, "tone" | "label" | "animated"> & Record<string, unknown>;
 
 const POSITION: Record<FlowSide, Position> = {
@@ -41,13 +42,15 @@ const STATUS_DOT = {
   idle: "bg-success",
   busy: "bg-primary",
   waiting: "bg-warning",
+  unknown: "bg-muted-foreground/40",
+  error: "bg-destructive",
   offline: "bg-muted-foreground/40",
 } as const;
 
 const MemberNode = memo(function MemberNode({ data }: NodeProps<Node<MemberNodeData>>) {
   useTranslation();
   const node = data;
-  const statusText = node.status === "user" ? null : node.status === "busy" ? t("rooms.RoomFlow.text_694b71bc80") : MEMBER_STATUS_TEXT[node.status];
+  const statusText = node.status === "user" ? null : node.statusText ?? (node.status === "busy" ? t("rooms.RoomFlow.text_694b71bc80") : MEMBER_STATUS_TEXT[node.status]);
   return (
     <div
       className={cn(
@@ -55,10 +58,11 @@ const MemberNode = memo(function MemberNode({ data }: NodeProps<Node<MemberNodeD
         node.kind === "foreman" ? "border-primary/60" : "border-border",
         node.status === "busy" && "room-flow-node--busy border-primary/70",
         node.status === "waiting" && "room-flow-node--waiting border-warning",
+        node.status === "error" && "border-destructive",
         node.status === "offline" && "opacity-60",
       )}
       style={{ width: NODE_WIDTH, height: NODE_HEIGHT }}
-      title={node.subtitle}>
+      title={[statusText, node.subtitle].filter(Boolean).join(" · ")}>
       {SIDES.map((side) => (
         <Handle className="room-flow-handle" id={`s-${side}`} isConnectable={false} key={`s-${side}`} position={POSITION[side]} type="source" />
       ))}
@@ -87,7 +91,7 @@ const MemberNode = memo(function MemberNode({ data }: NodeProps<Node<MemberNodeD
           ) : null}
         </span>
         <span className="block truncate text-xs text-muted-foreground">
-          {statusText ? <span className={cn(node.status === "waiting" && "font-medium text-warning", node.status === "busy" && "text-primary")}>
+          {statusText ? <span className={cn(node.status === "waiting" && "font-medium text-warning", node.status === "busy" && "text-primary", node.status === "error" && "text-destructive")}>
             {node.status === "busy" ? <span aria-hidden="true" className="room-flow-activity"><i /><i /><i /></span> : null}
             {statusText}
           </span> : null}
@@ -190,11 +194,12 @@ function FlowCanvas({ room, tabs, onOpenSession }: { room: Room; tabs: Workspace
     id: node.id,
     type: "member",
     position: { x: node.x - NODE_WIDTH / 2, y: node.y - NODE_HEIGHT / 2 },
-    data: { ...node, onOpenSession },
+    data: { ...node, onOpenSession, statusText: usesTerminalStatus(tabs.find((tab) => tab.id === node.tabId)?.kind)
+      ? memberStatusText(tabs.find((tab) => tab.id === node.tabId)) : undefined },
     measured: measured.get(node.id),
     draggable: false,
     selectable: false,
-  })), [graph.nodes, measured, onOpenSession, getLocale()]);
+  })), [graph.nodes, tabs, measured, onOpenSession, getLocale()]);
   const edges = useMemo<Edge<FlowEdgeData>[]>(() => graph.edges.map((edge) => ({
     id: edge.id,
     type: "flow",

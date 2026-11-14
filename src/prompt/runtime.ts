@@ -4,11 +4,12 @@ import type { WorkspaceTab } from "../workspace/contracts";
 import { pathKey } from "../workspace/path";
 import { canDispatchPrompt, isAgentKind, isPromptBusy, type PromptQueueItem, type PromptQueueUpdate, type PromptSubmitOptions, type PromptSubmitResult } from "./contracts";
 import { createPromptQueueItem, nextPrompt, removePrompt } from "./queue";
+import { usesTerminalStatus } from "../agent/contracts";
 
 export const PROMPT_CONFIRM_TIMEOUT_MS = 15_000;
 /**
- * 回车之后输入区空了、又过了这么久，就算提交成功。短消息 Agent 一两秒就处理完，
- * 读屏可能一帧都没看到「正在工作」——只等那个信号会把它误判成没提交。
+ * 没有原生状态协议的 Agent 保留输入区稳定为空的确认窗口。
+ * Codex / Claude 的输入位置必须由提交后的 working 报告确认。
  */
 export const PROMPT_EMPTY_CONFIRM_MS = 1_500;
 
@@ -113,23 +114,32 @@ export class PromptQueueRuntime {
 
   private syncTab(tab: WorkspaceTab, targets: ReadonlyMap<string, TerminalCommandTarget>) {
     if (!isAgentKind(tab.kind) || tab.phase !== "running") return;
+    const native = usesTerminalStatus(tab.kind);
     if (isPromptBusy(tab)) {
-      // 包括用户手动确认当前输入；后续任务等它回到 idle 再发送。
       const pending = this.inFlight.get(tab.id);
-      if (pending && !pending.submitted) this.update(pending.item.id, {
-        state: "attention", message: t("prompt.runtime.text_0e00f89a3c"),
-      });
-      this.inFlight.delete(tab.id);
-      this.paused.delete(tab.id);
-      return;
+      if (native) {
+        // A report can arrive before the guarded write result. Keep an unconfirmed
+        // attempt until that result proves whether any payload reached the PTY.
+        if (pending?.submitted) this.inFlight.delete(tab.id);
+        const paused = this.paused.get(tab.id);
+        if (paused && (paused.submitted || paused.target.composerEmpty?.())) this.paused.delete(tab.id);
+      } else {
+        if (pending && !pending.submitted) this.update(pending.item.id, {
+          state: "attention", message: t("prompt.runtime.text_0e00f89a3c"),
+        });
+        this.inFlight.delete(tab.id);
+        this.paused.delete(tab.id);
+        return;
+      }
     }
     this.reconcileTarget(tab.id, targets.get(tab.id));
     const paused = this.paused.get(tab.id);
     if (paused?.resolved && paused.target.composerEmpty?.()) this.paused.delete(tab.id);
     const pending = this.inFlight.get(tab.id);
     const elapsed = pending ? Date.now() - pending.startedAt : 0;
-    if ((pending?.submitted || pending?.resolved) && elapsed >= PROMPT_EMPTY_CONFIRM_MS && pending.target.composerEmpty?.()) {
-      // 回车已经写进去、输入区也空了：任务被提交走了，Agent 只是处理得太快没被看到在工作。
+    if ((pending?.submitted || pending?.resolved) && (native || elapsed >= PROMPT_EMPTY_CONFIRM_MS) && pending.target.composerEmpty?.()) {
+      // Native editor ownership is released by a working report after Enter.
+      // Other agents retain their settled-empty confirmation path.
       this.inFlight.delete(tab.id);
       this.dispatch(tab, targets);
       return;

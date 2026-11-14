@@ -4,6 +4,7 @@ import type { TerminalInteraction, TerminalInteractionAnswer, TerminalInteractio
 import type { WorkspaceTab } from "../workspace/contracts";
 import type { Room, RoomMember } from "./contracts";
 import { activeMembers, memberStatus } from "./model";
+import { usesTerminalStatus } from "../agent/contracts";
 
 export interface RoomInteractionRequest {
   key: string;
@@ -30,6 +31,7 @@ function readRequests({ room, tabs, targets }: Sources): RoomInteractionRequest[
     const tab = tabs.find(tab => tab.id === member.tabId);
     const status = memberStatus(tab);
     if (!tab || status === "offline") continue;
+    if (usesTerminalStatus(tab.kind) && status !== "waiting") continue;
     const target = targets?.get(member.tabId);
     let interaction: TerminalInteraction | null = null;
     let legacySignature: string | undefined;

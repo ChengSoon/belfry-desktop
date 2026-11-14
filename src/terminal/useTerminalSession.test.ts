@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 import type { AgentKind } from "../agent/contracts";
 import type { HookSnapshot } from "../agent/hooks/contracts";
-import { acknowledgeTerminalOutput, closeTerminal, closeTerminalTab, createTerminal, detachTerminal, writeTerminal } from "./api";
+import { acknowledgeTerminalOutput, claimTerminalUserInput, closeTerminal, closeTerminalTab, createTerminal, detachTerminal,
+  finishTerminalPrompt, prepareTerminalPrompt, writeTerminal } from "./api";
 import type { TerminalEvent, TerminalLaunch, TerminalSession } from "./contracts";
 import * as controller from "./terminalController";
 import { useTerminalSession } from "./useTerminalSession";
+import { statusReport } from "./fixtures/programStatus";
 
 // 仓库的 Node hook 宿主：保留 state/ref、比较 effect 依赖并执行 cleanup。
 // useTerminalSession、mountTerminal、Lifecycle 和请求构造全部运行生产代码；只替换 React 调度与设备边界。
@@ -42,13 +44,15 @@ vi.mock("react", async (original) => {
   };
 });
 const appearance = vi.hoisted(() => ({ mode: "light", runtime: { fontFamily: "", fontSize: 14 } }));
+const userInputs = vi.hoisted(() => ({ listeners: new Set<(key?: string) => void>() }));
 vi.mock("../theme/ThemeProvider", () => ({ useTheme: () => appearance }));
 vi.mock("../typography/TypographyProvider", () => ({ useTypography: () => appearance }));
 vi.mock("../background/BackgroundProvider", () => ({ useBackground: () => ({ url: null }) }));
 vi.mock("@tauri-apps/api/core", () => ({ Channel: class { onmessage = (_: unknown) => {}; } }));
 vi.mock("@tauri-apps/api/webview", () => ({ getCurrentWebview: () => ({ onDragDropEvent: async () => () => {} }) }));
 vi.mock("./api", () => ({ createTerminal: vi.fn(), closeTerminal: vi.fn(), closeTerminalTab: vi.fn(), detachTerminal: vi.fn(),
-  writeTerminal: vi.fn(), acknowledgeTerminalOutput: vi.fn(), resizeTerminal: vi.fn(), setTerminalPalette: vi.fn() }));
+  writeTerminal: vi.fn(), claimTerminalUserInput: vi.fn(), prepareTerminalPrompt: vi.fn(), finishTerminalPrompt: vi.fn(),
+  acknowledgeTerminalOutput: vi.fn(), resizeTerminal: vi.fn(), setTerminalPalette: vi.fn() }));
 vi.mock("@xterm/addon-fit", () => ({ FitAddon: class { fit() {} } }));
 vi.mock("@xterm/addon-webgl", () => ({ WebglAddon: class { onContextLoss() {} dispose() {} } }));
 vi.mock("@xterm/xterm", () => ({ Terminal: class {
@@ -66,7 +70,10 @@ vi.mock("./unicode", () => ({ configureUnicode() {} }));
 vi.mock("./links", () => ({ registerHttpLinkProvider: () => ({ dispose() {} }), registerFileLinkProvider: () => ({ dispose() {} }) }));
 vi.mock("./fontRendering", () => ({ loadTerminalFonts: async () => {}, terminalFontWeights: () => ({ fontWeight: 400, fontWeightBold: 600 }) }));
 vi.mock("./clipboardPaste", () => ({ usesWebClipboardFallback: () => true, consumeWebClipboardPaste() {}, listenForClipboardImagePaste() {} }));
-vi.mock("./promptUserInput", () => ({ listenForPromptUserInput: () => () => {} }));
+vi.mock("./promptUserInput", () => ({ listenForPromptUserInput: ({ onInput }: { onInput: (key?: string) => void }) => {
+  userInputs.listeners.add(onInput);
+  return () => userInputs.listeners.delete(onInput);
+} }));
 
 let launch: TerminalLaunch;
 let container: { current: HTMLDivElement };
@@ -122,6 +129,7 @@ async function hook(id: string, sequence = 1) {
 
 beforeEach(() => {
   hooks.cursor = 0; hooks.slots = []; hooks.pending = []; hooks.dirty = false; mounted = false;
+  userInputs.listeners.clear();
   vi.resetAllMocks(); vi.useFakeTimers();
   vi.stubGlobal("window", globalThis);
   vi.stubGlobal("navigator", { userAgent: "Mac" });
@@ -135,10 +143,63 @@ beforeEach(() => {
   vi.mocked(closeTerminalTab).mockResolvedValue(undefined);
   vi.mocked(detachTerminal).mockResolvedValue(undefined);
   vi.mocked(writeTerminal).mockResolvedValue(undefined);
+  vi.mocked(claimTerminalUserInput).mockResolvedValue(undefined);
+  vi.mocked(prepareTerminalPrompt).mockResolvedValue({ batchId: "prompt", attemptId: "attempt", token: "token",
+    ownerId: "owner", targetEpoch: "epoch", inputRevision: 0 });
+  vi.mocked(finishTerminalPrompt).mockResolvedValue({ touched: true, pasteComplete: true });
   vi.mocked(acknowledgeTerminalOutput).mockResolvedValue(true);
   mounts = vi.spyOn(controller, "mountTerminal");
 });
 afterEach(() => { unmount(); vi.restoreAllMocks(); vi.useRealTimers(); vi.unstubAllGlobals(); });
+
+describe.each(["codex", "claude"] as const)("%s automatic input ownership", (kind) => {
+  it("claims the native editor for IME before there are any terminal bytes", async () => {
+    await start({ profileId: `agent:${kind}`, projectLaunch: undefined });
+    const id = view.daemonSessionId!;
+    await emit({ kind: "agent_state", sessionId: id, snapshot: statusReport(kind, "idle", 1) });
+    expect(view.commandTarget.composerEmpty?.()).toBe(true);
+    for (const listener of userInputs.listeners) listener();
+    expect(claimTerminalUserInput).toHaveBeenCalledExactlyOnceWith(id);
+    expect(writeTerminal).not.toHaveBeenCalled();
+    expect(view.commandTarget.composerEmpty?.()).toBe(false);
+    expect(view.commandTarget.sendText("automatic")).toBe(false);
+    await emit({ kind: "agent_state", sessionId: id, snapshot: statusReport(kind, "idle", 2) });
+    expect(view.commandTarget.composerEmpty?.()).toBe(false);
+    expect(prepareTerminalPrompt).not.toHaveBeenCalled();
+  });
+
+  it("restores the local empty editor only after native zero-write evidence", async () => {
+    await start({ profileId: `agent:${kind}`, projectLaunch: undefined });
+    const id = view.daemonSessionId!;
+    await emit({ kind: "agent_state", sessionId: id, snapshot: statusReport(kind, "idle", 1) });
+    vi.mocked(writeTerminal).mockRejectedValueOnce({ code: "CONFLICT", message: "newer PTY report" });
+    vi.mocked(finishTerminalPrompt).mockResolvedValueOnce({ touched: false, pasteComplete: false });
+    const result = vi.fn();
+    expect(view.commandTarget.sendText("automatic", { onResult: result })).toBe(true);
+    await advance(250);
+    expect(prepareTerminalPrompt).toHaveBeenCalledExactlyOnceWith(id, "automatic");
+    expect(writeTerminal).toHaveBeenCalledTimes(1);
+    expect(result).toHaveBeenCalledExactlyOnceWith("not-written");
+    expect(view.commandTarget.composerEmpty?.()).toBe(true);
+  });
+
+  it("keeps a successful paste owned if working is reported before Enter", async () => {
+    await start({ profileId: `agent:${kind}`, projectLaunch: undefined });
+    const id = view.daemonSessionId!;
+    await emit({ kind: "agent_state", sessionId: id, snapshot: statusReport(kind, "idle", 1) });
+    const result = vi.fn();
+    expect(view.commandTarget.sendText("automatic", { onResult: result })).toBe(true);
+    await flush();
+    expect(writeTerminal).toHaveBeenCalledTimes(1);
+    await emit({ kind: "agent_state", sessionId: id, snapshot: statusReport(kind, "working", 2) });
+    await advance(250);
+    await emit({ kind: "agent_state", sessionId: id, snapshot: statusReport(kind, "done", 3) });
+    expect(result).toHaveBeenCalledExactlyOnceWith("cancelled");
+    expect(writeTerminal).toHaveBeenCalledTimes(1);
+    expect(view.commandTarget.composerEmpty?.()).toBe(false);
+    expect(view.commandTarget.sendText("duplicate")).toBe(false);
+  });
+});
 
 describe("native identity during restart and recovery", () => {
   it("accepts a batched native identity without fabricating Hook state, and preserves it on restart", async () => {
@@ -170,6 +231,18 @@ describe("native identity during restart and recovery", () => {
     view.restart(); await flush();
     expect(request()[0].resume).toBe("exited-history");
     expect(writeTerminal).not.toHaveBeenCalled();
+  });
+
+  it("keeps the final protocol result when done and exit arrive in the same output batch", async () => {
+    await start();
+    const id = view.daemonSessionId!;
+    await emit({ kind: "output_batch", sessionId: id, connectionId: "connection-1", deliveryId: 1,
+      events: [
+        { kind: "agent_state", sessionId: id, snapshot: statusReport("codex", "done", 2) },
+        { kind: "exit", sessionId: id, exitCode: 0, reason: "normal" },
+      ] });
+    expect(view.phase).toBe("exited");
+    expect(view.agentState?.programStatus?.state).toBe("done");
   });
 
   it("updates the workspace identity without remounting, then restarts with that identity", async () => {
@@ -207,11 +280,13 @@ describe("native identity during restart and recovery", () => {
     expect(writeTerminal).toHaveBeenCalledTimes(1);
   });
 
-  it("does not let a delayed activity snapshot overwrite the newest raw Hook identity", async () => {
+  it("keeps native identity independent from Hook status and protocol reports", async () => {
     await start(); await hook("old");
     await emit({ kind: "agent_state", sessionId: view.daemonSessionId!, snapshot: { ...snapshot("new", 2), state: "completed" } });
-    // 完成状态等待界面稳定，期间 HookActivity 仍展示前一条状态。
-    expect(view.agentState?.session?.id).toBe("old");
+    expect(view.agentState).toBeNull();
+    expect(view.agentSessionRef?.id).toBe("new");
+    await emit({ kind: "agent_state", sessionId: view.daemonSessionId!, snapshot: statusReport("codex", "idle") });
+    expect(view.agentState?.source).toBe("terminal_protocol");
     expect(view.agentSessionRef?.id).toBe("new");
     view.restart(); await flush();
     expect(request()[0].resume).toBe("new");

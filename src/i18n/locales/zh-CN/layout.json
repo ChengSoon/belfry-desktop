@@ -9,5 +9,6 @@
   "TerminalPane.error": "出错",
   "TerminalPane.talking": "正在对话",
   "TerminalPane.awaiting": "等你确认",
-  "TerminalPane.idle": "空闲"
+  "TerminalPane.idle": "空闲",
+  "TerminalPane.unknown": "等待状态报告"
 }

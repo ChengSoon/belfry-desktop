@@ -9,14 +9,14 @@ const claudeRule = "────────────────────
 const claudeFooter = "  ⏵⏵ bypass permissions on (shift+tab to cycle) · ← 1 agent";
 const claudeEditor = (content = "❯ ", footer = claudeFooter) => [claudeRule, content, claudeRule, footer].join("\n");
 
-describe("Claude composer", () => {
+describe("Claude text never establishes status or input ownership", () => {
   it.each([
     claudeFooter,
     "  ⏵⏵ accept edits on (shift+tab to cycle)",
     "  ⏸ plan mode on (shift+tab to cycle)",
     "  ? for shortcuts",
-  ])("recognizes an empty framed input with footer %s", footer => {
-    expect(composerLooksEmpty(claudeEditor("❯ ", footer), "claude")).toBe(true);
+  ])("does not infer an empty input from footer %s", footer => {
+    expect(composerLooksEmpty(claudeEditor("❯ ", footer), "claude")).toBe(false);
   });
 
   it.each([
@@ -43,7 +43,7 @@ describe("Claude composer", () => {
   it("does not treat a permission or selection prompt as an empty composer", () => {
     const choice = claudeEditor("Do you want to proceed?\n❯ 1. Yes\n  2. No");
     expect(composerLooksEmpty(choice, "claude")).toBe(false);
-    expect(detectActivity(choice, "claude")).toBe("awaiting-choice");
+    expect(detectActivity(choice, "claude")).toBe("talking");
   });
 });
 

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { WorkspaceTab, WorkspaceTabKind } from "../workspace/contracts";
 import { canReceiveWork, toSessionRoster } from "./contracts";
+import { usesTerminalStatus } from "../agent/contracts";
+import { statusReport } from "../terminal/fixtures/programStatus";
 
 function tab(overrides: Partial<WorkspaceTab> & { kind: WorkspaceTabKind }): WorkspaceTab {
   return {
@@ -21,6 +23,8 @@ function tab(overrides: Partial<WorkspaceTab> & { kind: WorkspaceTabKind }): Wor
     resumeSessionId: null,
     phase: "running",
     activity: "idle",
+    agentState: usesTerminalStatus(overrides.kind) ? statusReport(overrides.kind,
+      overrides.activity === "talking" ? "working" : overrides.activity === "awaiting-choice" ? "blocked" : "idle") : null,
     error: null,
     ...overrides,
   };
@@ -49,10 +53,20 @@ describe("toSessionRoster", () => {
       name: "worker",
       title: "改路由",
       agent: "codex",
-      activity: "talking",
+      activity: "working",
       canReceive: false,
       projectRoot: "/tmp/demo",
     });
+  });
+
+  it.each(["codex", "claude"] as const)("preserves all %s native states in the roster", (kind) => {
+    for (const state of ["idle", "working", "blocked", "done", "error", "clear"] as const) {
+      const [entry] = toSessionRoster([tab({ kind, agentState: statusReport(kind, state), activity: "idle" })]);
+      expect(entry.activity).toBe(state);
+      expect(entry.canReceive).toBe(state === "idle" || state === "done");
+    }
+    expect(toSessionRoster([tab({ kind, agentState: null })])[0].activity).toBe("unknown");
+    expect(toSessionRoster([tab({ kind, phase: "exited" })])[0].activity).toBe("offline");
   });
 
   it("没起名字的会话照样进名册，只是寻址不到", () => {
@@ -67,6 +81,10 @@ describe("toSessionRoster", () => {
 describe("canReceiveWork", () => {
   it("空闲的 Agent 可以接活", () => {
     expect(canReceiveWork(tab({ kind: "claude" }))).toBe(true);
+  });
+
+  it("Claude 缺少协议状态时不能根据 idle 名册接活", () => {
+    expect(canReceiveWork(tab({ kind: "claude", agentState: null }))).toBe(false);
   });
 
   it("正在说话时不能接活", () => {

@@ -59,7 +59,7 @@ pub fn room_list(
     registry: State<'_, Arc<SessionRegistry>>,
 ) -> Result<RoomsView, AppError> {
     store.reconcile(&board)?;
-    let idle = |tab_id: &str| registry.find(tab_id).is_some_and(|session| session.activity == "idle");
+    let idle = |tab_id: &str| registry.find(tab_id).is_some_and(|session| matches!(session.activity.as_str(), "idle" | "done"));
     let posts = store.nudge_idle(&idle, now_millis())?;
     enqueue(&store, &board, &registry, posts);
     store.list()

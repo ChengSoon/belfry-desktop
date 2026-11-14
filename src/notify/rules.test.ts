@@ -4,12 +4,12 @@ import { classifyTransition, notifyContent, shouldSuppress } from "./rules";
 describe("classifyTransition", () => {
   it("announces a pending choice from either direction", () => {
     // 权限框可以直接从生成中弹出来，也可以在闲置时弹（Agent 刚接到指令就先问权限）。
-    expect(classifyTransition("talking", "awaiting-choice", "claude")).toBe("awaiting-choice");
-    expect(classifyTransition("idle", "awaiting-choice", "codex")).toBe("awaiting-choice");
+    expect(classifyTransition("talking", "awaiting-choice", "antigravity")).toBe("awaiting-choice");
+    expect(classifyTransition("idle", "awaiting-choice", "antigravity")).toBe("awaiting-choice");
   });
 
   it("treats talking → idle as finished", () => {
-    expect(classifyTransition("talking", "idle", "claude")).toBe("finished");
+    expect(classifyTransition("talking", "idle", "antigravity")).toBe("finished");
   });
 
   it("stays silent when the user just answered the prompt", () => {
@@ -33,6 +33,11 @@ describe("classifyTransition", () => {
   it("ignores no-op transitions", () => {
     expect(classifyTransition("talking", "talking", "claude")).toBeNull();
     expect(classifyTransition("awaiting-choice", "awaiting-choice", "claude")).toBeNull();
+  });
+
+  it.each(["codex", "claude"] as const)("never derives %s notifications from activity alone", agent => {
+    expect(classifyTransition("talking", "idle", agent)).toBeNull();
+    expect(classifyTransition("idle", "awaiting-choice", agent)).toBeNull();
   });
 });
 

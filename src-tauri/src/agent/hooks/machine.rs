@@ -25,6 +25,7 @@ impl Machine {
                 occurred_at: 0,
                 reason: belfry_i18n::text("Hook 尚未连接，当前使用屏幕推断").into(),
                 transcript_path: None,
+                program_status: None,
             },
             waiting: HashSet::new(),
             active_tools: HashMap::new(),

@@ -387,5 +387,7 @@
     "projectHint": "Choose the project directory where room members will start their sessions.",
     "projectError": "Could not open this project directory: {{reason}}",
     "teamWithoutProject": "Team (sessions start in the selected project)"
-  }
+  },
+  "model.statusUnknown": "Waiting for status",
+  "model.statusError": "Response failed"
 }
