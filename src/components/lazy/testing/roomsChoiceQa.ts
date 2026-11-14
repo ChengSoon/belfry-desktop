@@ -17,7 +17,7 @@ export const worktreeInteraction: TerminalInteraction = {
 
 export function createChoiceQaState(scenario: string) {
   const requests = new Map<string, TerminalInteraction | null>([["t2", structuredClone(worktreeInteraction)]]);
-  const reports = new Map<string, HookSnapshot>([["t2", statusReport("codex", "blocked", 1, "question")]]);
+  const reports = new Map<string, HookSnapshot>([["t2", statusReport("codex", scenario === "working" ? "working" : "blocked", 1, "question")]]);
   const listeners = new Set<(report: HookSnapshot, tabId: string) => void>();
   const reportRequest = (tabId: string) => {
     const request = requests.get(tabId);

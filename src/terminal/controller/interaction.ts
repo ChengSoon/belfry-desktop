@@ -4,7 +4,7 @@ import type { HookSnapshot } from "../../agent/hooks/contracts";
 import { terminalStatusFor } from "../../agent/programStatus";
 import { choiceKeys, type TerminalChoice } from "../choice";
 import { unknownInteraction } from "../choiceParser";
-import type { InteractionWrite, ParsedInteraction, TerminalInteraction, TerminalInteractionAnswer, TerminalInteractionResult } from "../interaction";
+import type { InteractionWrite, InteractionWriteGuard, ParsedInteraction, TerminalInteraction, TerminalInteractionAnswer, TerminalInteractionResult } from "../interaction";
 import { readInteractionScreen } from "../interactionScreen";
 
 interface Ports {
@@ -16,14 +16,23 @@ interface Ports {
   waitingReason: () => string | null;
   programStatus?: () => HookSnapshot | null;
   write: (request: InteractionWrite) => Promise<TerminalInteractionResult>;
+  finishInteraction?: (sessionId: string, guard: InteractionWriteGuard, readySequence: number) => Promise<boolean>;
 }
 
 interface Request {
   id: string;
   sessionId: string;
   scope: string;
+  identity: string;
   parsed: ParsedInteraction;
   state: TerminalInteraction["state"];
+}
+
+interface Completion {
+  sessionId: string;
+  identity: string;
+  guard: InteractionWriteGuard;
+  lastReadySequence?: number;
 }
 
 /** Owns request generations and consumed answers for a single mounted terminal. */
@@ -33,6 +42,7 @@ export class TerminalInteractions {
   private generation = 0;
   private current: Request | null = null;
   private inFlight: Request | null = null;
+  private completion: Completion | null = null;
   private disposed = false;
 
   constructor(private readonly ports: Ports) {
@@ -60,6 +70,9 @@ export class TerminalInteractions {
     return { question, detail, selected, axis, options: options.map(option => ({ ...option })), signature: request.id };
   }
 
+  /** Also called after protocol-only output settles, including while the room is hidden. */
+  refresh() { if (this.current || this.completion || this.inFlight) this.observe(); }
+
   answerChoice(signature: string, index: number): "sent" | "changed" | "unavailable" {
     const request = this.observe();
     if (!this.ports.session()) return "unavailable";
@@ -76,6 +89,9 @@ export class TerminalInteractions {
     if (this.inFlight || request.state !== "pending") return { status: "busy" };
     if (!this.ports.outputSettled()) return { status: "busy" };
     const initial = request.parsed;
+    const report = terminalStatusFor(this.ports.agent, this.ports.programStatus?.());
+    const nativeGuard = this.ports.agent === "codex" && report
+      ? { requestId: request.id, protocolSequence: report.sequence } : undefined;
     const input = interactionInput(initial, answer, this.ports.terminal.modes.applicationCursorKeysMode);
     if (!input) return { status: "invalid" };
     request.state = "submitting";
@@ -85,7 +101,7 @@ export class TerminalInteractions {
     const atTarget = () => current() && request.parsed.selected === input.selected
       && sameIndices(request.parsed.selectedIndices, input.indices ?? initial.selectedIndices);
     try {
-      const result = await this.ports.write({ keys: input.keys, text: input.text, navigation: input.navigation,
+      const result = await this.ports.write({ keys: input.keys, text: input.text, navigation: input.navigation, nativeGuard,
         valid: () => current() && request.parsed.signature === initial.signature
           && request.parsed.selected === initial.selected
           && sameIndices(request.parsed.selectedIndices, initial.selectedIndices),
@@ -94,16 +110,20 @@ export class TerminalInteractions {
         validAfterPaste: () => current() && request.parsed.contextSignature === initial.contextSignature,
       });
       request.state = result.status === "sent" ? "submitted" : result.status === "uncertain" ? "uncertain" : "pending";
+      if (result.status === "sent" && nativeGuard) {
+        this.completion = { sessionId: request.sessionId, identity: request.identity, guard: nativeGuard };
+      }
       return result;
     } catch {
       request.state = "uncertain";
       return { status: "uncertain" };
-    } finally { this.inFlight = null; }
+    } finally { this.inFlight = null; this.observe(); }
   }
 
   dispose() {
     this.disposed = true;
     this.current = null;
+    this.completion = null;
     this.output.dispose();
   }
 
@@ -120,23 +140,44 @@ export class TerminalInteractions {
 
   private observe(): Request | null {
     const sessionId = this.disposed ? null : this.ports.session();
-    if (!sessionId) { this.current = null; return null; }
+    if (!sessionId) { this.current = null; this.completion = null; return null; }
     const report = terminalStatusFor(this.ports.agent, this.ports.programStatus?.());
-    if (usesTerminalStatus(this.ports.agent) && report?.programStatus.state !== "blocked") {
+    const identity = JSON.stringify([this.ports.scope?.() ?? null, this.ports.terminal.buffer.active.type]);
+    let parsed = readInteractionScreen(this.ports.terminal, this.ports.agent);
+    this.finishCompleted(sessionId, identity, report, parsed);
+    const blocked = report?.programStatus.state === "blocked";
+    const working = this.ports.agent === "codex" && report?.programStatus.state === "working";
+    if (usesTerminalStatus(this.ports.agent) && !blocked && !working) {
       this.current = null; return null;
     }
-    const scope = JSON.stringify([this.ports.scope?.() ?? null, this.ports.terminal.buffer.active.type, report?.sequence ?? null]);
-    let parsed = readInteractionScreen(this.ports.terminal, this.ports.agent);
+    const scope = JSON.stringify([identity, report?.sequence ?? null]);
+    // Async questions are independent of foreground status; ordinary menus still need blocked.
+    if (working && !parsed?.allowsWhileWorking) { this.current = null; return null; }
     const waiting = this.ports.waitingReason();
     if (!parsed && waiting !== null) parsed = unknownInteraction("", waiting);
     if (!parsed) { this.current = null; return null; }
     const current = this.current;
-    const same = current?.sessionId === sessionId && current.scope === scope && (current.parsed.signature === parsed.signature
+    const sameScope = current?.scope === scope || (current?.identity === identity && current.parsed.allowsWhileWorking && parsed.allowsWhileWorking);
+    const same = current?.sessionId === sessionId && sameScope && (current.parsed.signature === parsed.signature
       || (!!parsed.inputValue && (current.state === "submitting" || current.state === "submitted") && current.parsed.control === "text"
         && current.parsed.contextSignature === parsed.contextSignature));
     if (same) { current.parsed = parsed; return current; }
-    this.current = { id: `${this.instance}:${++this.generation}`, sessionId, scope, parsed, state: "pending" };
+    this.current = { id: `${this.instance}:${++this.generation}`, sessionId, scope, identity, parsed, state: "pending" };
     return this.current;
+  }
+
+  private finishCompleted(sessionId: string, identity: string,
+    report: ReturnType<typeof terminalStatusFor>, parsed: ParsedInteraction | null) {
+    const completion = this.completion;
+    if (!completion) return;
+    if (completion.sessionId !== sessionId || completion.identity !== identity) { this.completion = null; return; }
+    if (this.inFlight || !report || parsed || !this.ports.outputSettled() || !this.ports.finishInteraction
+      || (report.programStatus.state !== "idle" && report.programStatus.state !== "done")
+      || report.sequence <= completion.guard.protocolSequence || completion.lastReadySequence === report.sequence) return;
+    completion.lastReadySequence = report.sequence;
+    void this.ports.finishInteraction(sessionId, completion.guard, report.sequence).then(released => {
+      if (released && this.completion === completion) this.completion = null;
+    }).catch(() => { /* Retain ownership when native completion cannot be confirmed. */ });
   }
 }
 

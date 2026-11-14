@@ -6,6 +6,36 @@ import { roomChoiceProcess } from "./roomsChoiceProcess.mjs";
 
 const CARD = '.room-choice-card[data-member-id="fe"]';
 
+test("a Codex question appears and can be answered in the room while its root status stays working", async t => {
+  const consumer = await roomChoiceProcess(t, { asyncQuestion: true });
+  assert.equal(consumer.read().programStatus.state, "working");
+  const { view } = await browserFixture(t, "src/components/lazy/testing/rooms-qa.html?attention=0&choices=terminal", { handle: consumer.handle });
+  await view.bounds({ x: 0, y: 0, width: 1440, height: 900 });
+  await waitFor(view, `document.querySelector('${CARD}')?.dataset.requestKind === 'single'`);
+  const question = await view.cdp.evaluate(`document.querySelector('${CARD} h3')?.textContent`);
+  assert.ok(question.includes("这轮你更希望优先增强哪类能力"));
+  assert.deepEqual(consumer.writes, [], "displaying the async question does not answer it");
+  await capturePanel(view, "room-choice-working-question");
+  await click(view, `${CARD} [data-option-index="3"]`);
+  await waitFor(view, `document.querySelector('${CARD}')?.dataset.requestKind === 'multiple'`);
+  assert.deepEqual(consumer.read().answers, [{ kind: "single", index: 3 }]);
+  assert.deepEqual(consumer.writes, [{ sessionId: "room-qa-pty", data: "\x1b[B\x1b[B" }, { sessionId: "room-qa-pty", data: "\r" }]);
+  assert.deepEqual(consumer.nativeWrites.map(write => ({ protocolSequence: write.guard.protocolSequence, writeSequence: write.writeSequence })),
+    [{ protocolSequence: 1, writeSequence: 1 }, { protocolSequence: 1, writeSequence: 2 }]);
+  assert.equal(consumer.completions.length, 0, "a later question keeps the input reserved");
+  await click(view, `${CARD} button[type=submit]`);
+  await waitFor(view, `document.querySelector('${CARD}')?.dataset.requestKind === 'input'`);
+  await click(view, `${CARD} textarea`);
+  await view.send("Input.insertText", { text: "继续实现第三项" });
+  await click(view, `${CARD} button[type=submit]`);
+  await waitFor(view, "qaRoomTerminal.read() === null && !document.querySelector('.room-attention')");
+  assert.equal(consumer.nativeWrites.length, 5);
+  assert.equal(consumer.completions.length, 1);
+  assert.equal(consumer.completions[0].guard.requestId, consumer.nativeWrites.at(-1).guard.requestId);
+  assert.equal(consumer.completions[0].readySequence, 4);
+  assert.deepEqual(await view.cdp.evaluate("qaRoomTerminal.errors"), []);
+});
+
 async function tabTo(view, selector) {
   for (let step = 0; step < 45; step++) {
     await press(view, "Tab");

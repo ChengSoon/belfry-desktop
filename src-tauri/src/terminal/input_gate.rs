@@ -17,6 +17,10 @@ const MAX_WRITES: usize = 64;
 const MAX_WRITE_BYTES: usize = belfry_protocol::inbox::MAX_BATCH_BYTES * 2 + 64;
 const WRITE_LEASE: Duration = Duration::from_secs(30);
 
+#[path = "input_gate_interaction.rs"]
+mod interaction;
+pub(crate) use interaction::InteractionGuard;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct WriteEvidence {
@@ -47,6 +51,7 @@ struct Channel {
     input_dirty: bool,
     submission_revision: Option<(u64, u64)>,
     blocked_input: Option<(u64, bool)>,
+    interaction: Option<interaction::InteractionAttempt>,
 }
 struct Attempt {
     direct_prompt: bool,
@@ -144,6 +149,7 @@ impl InputGate {
                     input_dirty: false,
                     submission_revision: None,
                     blocked_input: None,
+                    interaction: None,
                 },
             );
         }
@@ -176,6 +182,7 @@ impl InputGate {
         channel.revision = channel.revision.checked_add(1).ok_or_else(|| conflict("Input revision overflow"))?;
         channel.input_dirty |= channel.protocol_agent.is_some();
         channel.submission_revision = None;
+        channel.interaction = None;
         channel.offer = None;
         if let Some(attempt) = &mut channel.attempt { attempt.revoked = true; }
         self.revision.fetch_add(1, Ordering::Release);
@@ -261,6 +268,7 @@ impl InputGate {
         {
             self.revision.fetch_add(1, Ordering::Release);
             channel.live = false;
+            channel.interaction = None;
             channel.offer = None;
             channel.revision = channel.revision.saturating_add(1);
             if let Some(attempt) = &mut channel.attempt {
@@ -351,6 +359,7 @@ impl InputGate {
             channel.input_dirty |= channel.protocol_agent.is_some();
             channel.submission_revision = None;
             channel.blocked_input = None;
+            channel.interaction = None;
             channel.offer = None;
             if let Some(attempt) = &mut channel.attempt {
                 attempt.revoked = true;
@@ -546,6 +555,7 @@ impl InputGate {
             && !protocol_response
             && let Some(channel) = channels.get_mut(session)
         {
+            channel.interaction = None;
             if let Some((sequence, empty)) = dialog && channel.blocked_input.is_none_or(|(old, _)| old != sequence) {
                 // Dialog input may be released after an answer, but an earlier composer draft stays owned.
                 channel.blocked_input = Some((sequence, empty));

@@ -146,6 +146,16 @@ pub fn terminal_claim_user_input(runtime: State<'_, TerminalRuntime>, session_id
 }
 
 #[tauri::command]
+pub fn terminal_write_interaction(runtime: State<'_, TerminalRuntime>, session_id: String, bytes: Vec<u8>, guard: super::input_gate::InteractionGuard, write_sequence: u64) -> Result<(), AppError> {
+    runtime.write_interaction(&session_id, &bytes, &guard, write_sequence)
+}
+
+#[tauri::command]
+pub fn terminal_finish_interaction(runtime: State<'_, TerminalRuntime>, session_id: String, guard: super::input_gate::InteractionGuard, ready_sequence: u64) -> Result<bool, AppError> {
+    runtime.finish_interaction(&session_id, &guard, ready_sequence)
+}
+
+#[tauri::command]
 pub fn terminal_prepare_prompt(runtime: State<'_, TerminalRuntime>, session_id: String, payload: String) -> Result<belfry_protocol::inbox::WriteGuard, AppError> {
     runtime.prepare_prompt(&session_id, &payload)
 }

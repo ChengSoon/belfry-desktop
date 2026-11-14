@@ -31,6 +31,7 @@ interface LifecyclePorts {
 
 export class TerminalLifecycle {
   current: TerminalSession | null = null;
+  onOutputSettled: (() => void) | null = null;
   private attachment: TerminalSession | null = null;
   private earlyConnection: Pick<TerminalSession, "id" | "connectionId"> | null = null;
   private disposed = false;
@@ -71,7 +72,7 @@ export class TerminalLifecycle {
       },
     });
     this.queue = new OutputQueue({ render: (events) => this.output.render(events),
-      acknowledge: acknowledgeTerminalOutput, fail: (error) => this.fail(error) });
+      acknowledge: acknowledgeTerminalOutput, fail: (error) => this.fail(error), onSettled: () => this.onOutputSettled?.() });
     this.channel.onmessage = (event) => this.receive(event);
   }
 
@@ -142,6 +143,7 @@ export class TerminalLifecycle {
   dispose() {
     if (this.disposed) return;
     this.disposed = true;
+    this.onOutputSettled = null;
     this.current = null;
     this.queue.dispose();
     this.output.dispose();

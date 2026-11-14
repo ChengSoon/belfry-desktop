@@ -214,6 +214,8 @@ pub fn run() {
             commands::terminal_create,
             commands::terminal_write,
             terminal::commands::terminal_claim_user_input,
+            terminal::commands::terminal_write_interaction,
+            terminal::commands::terminal_finish_interaction,
             terminal::commands::terminal_prepare_prompt,
             terminal::commands::terminal_finish_prompt,
             terminal::output_commands::terminal_ack_output,

@@ -7,6 +7,7 @@ import { configureUnicode } from "../../../terminal/unicode";
 import { statusReport } from "../../../terminal/fixtures/programStatus";
 import type { HookSnapshot } from "../../../agent/hooks/contracts";
 import type { TerminalProgramStatus } from "../../../agent/contracts";
+import type { InteractionWriteGuard } from "../../../terminal/interaction";
 
 /** Real xterm and input handling connected only to the isolated QA consumer. */
 export async function createRoomTerminalQa() {
@@ -30,19 +31,26 @@ export async function createRoomTerminalQa() {
     currentReport = { ...statusReport("codex", frame.programStatus.state, frame.programStatusSequence, frame.programStatus.kind),
       programStatus: frame.programStatus };
     for (const listener of listeners) listener(currentReport, "t2");
+    interactions.refresh();
+  };
+  const write = async (sessionId: string, data: string, guard?: InteractionWriteGuard, writeSequence?: number) => {
+    const response = await fetch("/qa-choice-write", { method: "POST", body: JSON.stringify({ sessionId, data, guard, writeSequence }) });
+    if (!response.ok) throw new Error("Controlled room terminal transport failed");
+    const frame = await response.json();
+    await acceptFrame(frame);
   };
   const prompt = new PromptInput({ session: () => sessionId, paste: text => terminal.paste(text),
     enter: () => terminal.input("\r", true), error: error => errors.push(String(error)), settleMs: 25,
-    write: async (sessionId, data) => {
-      const response = await fetch("/qa-choice-write", { method: "POST", body: JSON.stringify({ sessionId, data }) });
-      if (!response.ok) throw new Error("Controlled room terminal transport failed");
-      const frame = await response.json();
-      await acceptFrame(frame);
-    } });
+    write: (sessionId, data) => write(sessionId, data), writeInteraction: write });
   terminal.onData(data => prompt.onData(data));
   const interactions = new TerminalInteractions({ terminal, agent: "codex", session: () => sessionId,
     programStatus: () => currentReport,
-    waitingReason: () => null, outputSettled: () => true, write: request => prompt.sendInteraction(request) });
+    waitingReason: () => null, outputSettled: () => true, write: request => prompt.sendInteraction(request),
+    finishInteraction: async (sessionId, guard, readySequence) => {
+      const response = await fetch("/qa-choice-finish", { method: "POST", body: JSON.stringify({ sessionId, guard, readySequence }) });
+      if (!response.ok) throw new Error("Controlled room completion transport failed");
+      return response.json();
+    } });
   const initial = await (await fetch("/qa-choice-state")).json();
   await acceptFrame(initial);
   const target: TerminalCommandTarget = {

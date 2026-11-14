@@ -9,6 +9,7 @@ import { TerminalView } from "./controller/view";
 import type { MountCallbacks, TerminalHandle } from "./controller/types";
 import { TerminalInteractions } from "./controller/interaction";
 import { usesTerminalStatus } from "../agent/contracts";
+import { finishTerminalInteraction } from "./api";
 
 export type { MountCallbacks, TerminalHandle } from "./controller/types";
 export { diagnoseTerminalExit, errorMessage } from "./controller/diagnostics";
@@ -41,7 +42,8 @@ function createHandle({ view, lifecycle, layout }: {
     scope: () => lifecycle.interactionScope,
     outputSettled: () => lifecycle.outputSettled, waitingReason: () => lifecycle.waitingReason,
     programStatus: () => lifecycle.programStatus,
-    write: (request) => lifecycle.sendInteraction(request) });
+    write: (request) => lifecycle.sendInteraction(request), finishInteraction: finishTerminalInteraction });
+  lifecycle.onOutputSettled = () => interactions.refresh();
   return {
     applyTheme: (theme, transparent) => {
       if (!lifecycle.alive) return;

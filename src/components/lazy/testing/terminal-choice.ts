@@ -30,21 +30,22 @@ const acceptFrame = async (frame: { screen: string; programStatusSequence: numbe
   activity = protocolActivity(report);
   await paint(frame.screen);
 };
+const write = async (sessionId: string, data: string) => {
+  writes.push({ sessionId, data });
+  if (failure) throw new Error("controlled write failure");
+  const response = await fetch("/qa-choice-write", { method: "POST", body: JSON.stringify({ sessionId, data }) });
+  if (!response.ok) throw new Error("Fixture transport failed");
+  if (remote) { const frame = await response.json(); await acceptFrame(frame); return; }
+  if (data.startsWith("\u001b[200~")) {
+    if (afterPaste === "changed") await paint(source.replace("Share details.", "A different request."));
+    if (afterPaste === "disconnected") session = null;
+    if (afterPaste === "user") prompt.onUserInput();
+    if (afterPaste === "echo") await paint(source.replace(/Type your answer(?: \(optional\))?|Add notes/, data.slice(6, -6).replace(/\r/g, "\n  ")));
+  }
+};
 const prompt = new PromptInput({ session: () => session, paste: text => terminal.paste(text),
   enter: () => terminal.input("\r", true), error: error => errors.push(String(error)), settleMs: 25,
-  write: async (sessionId, data) => {
-    writes.push({ sessionId, data });
-    if (failure) throw new Error("controlled write failure");
-    const response = await fetch("/qa-choice-write", { method: "POST", body: JSON.stringify({ sessionId, data }) });
-    if (!response.ok) throw new Error("Fixture transport failed");
-    if (remote) { const frame = await response.json(); await acceptFrame(frame); return; }
-    if (data.startsWith("\u001b[200~")) {
-      if (afterPaste === "changed") await paint(source.replace("Share details.", "A different request."));
-      if (afterPaste === "disconnected") session = null;
-      if (afterPaste === "user") prompt.onUserInput();
-      if (afterPaste === "echo") await paint(source.replace(/Type your answer(?: \(optional\))?|Add notes/, data.slice(6, -6).replace(/\r/g, "\n  ")));
-    }
-  } });
+  write, writeInteraction: write });
 terminal.onData(data => prompt.onData(data));
 const interactions = new TerminalInteractions({ terminal, agent: "codex", session: () => session,
   programStatus: () => report,

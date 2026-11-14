@@ -277,8 +277,10 @@ const choiceQa: { targets: Map<string, TerminalCommandTarget>; snapshot?: () => 
   ? await (await import("./roomsChoiceTerminalQa")).createRoomTerminalQa()
   : params.has("choices") ? createChoiceQaState(params.get("choices")!) : null;
 const tabs = [tab("t1", untracked ? "talking" : "idle"), tab("t2", attention ? "awaiting-choice" : "talking"), tab("t3", "talking"), tab("t4", "idle")];
-if (choiceQa) tabs[1] = { ...tabs[1], activity: "awaiting-choice",
-  agentState: choiceQa.snapshot?.() ?? statusReport("codex", "blocked", 1, "permission") };
+if (choiceQa) {
+  const snapshot = choiceQa.snapshot?.() ?? statusReport("codex", "blocked", 1, "permission");
+  tabs[1] = { ...tabs[1], activity: protocolActivity(snapshot), agentState: snapshot };
+}
 
 performance.mark("rooms-qa:importing-view");
 const { RoomView } = await import("../../../rooms/view/RoomView");

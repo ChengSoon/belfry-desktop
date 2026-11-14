@@ -51,7 +51,8 @@ vi.mock("../background/BackgroundProvider", () => ({ useBackground: () => ({ url
 vi.mock("@tauri-apps/api/core", () => ({ Channel: class { onmessage = (_: unknown) => {}; } }));
 vi.mock("@tauri-apps/api/webview", () => ({ getCurrentWebview: () => ({ onDragDropEvent: async () => () => {} }) }));
 vi.mock("./api", () => ({ createTerminal: vi.fn(), closeTerminal: vi.fn(), closeTerminalTab: vi.fn(), detachTerminal: vi.fn(),
-  writeTerminal: vi.fn(), claimTerminalUserInput: vi.fn(), prepareTerminalPrompt: vi.fn(), finishTerminalPrompt: vi.fn(),
+  writeTerminal: vi.fn(), writeTerminalInteraction: vi.fn(), finishTerminalInteraction: vi.fn(),
+  claimTerminalUserInput: vi.fn(), prepareTerminalPrompt: vi.fn(), finishTerminalPrompt: vi.fn(),
   acknowledgeTerminalOutput: vi.fn(), resizeTerminal: vi.fn(), setTerminalPalette: vi.fn() }));
 vi.mock("@xterm/addon-fit", () => ({ FitAddon: class { fit() {} } }));
 vi.mock("@xterm/addon-webgl", () => ({ WebglAddon: class { onContextLoss() {} dispose() {} } }));

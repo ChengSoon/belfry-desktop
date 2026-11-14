@@ -1,7 +1,7 @@
 import { t } from "../../i18n";
 import { getCurrentWebview, type DragDropEvent } from "@tauri-apps/api/webview";
 import type { Terminal } from "@xterm/xterm";
-import { claimTerminalUserInput, finishTerminalPrompt, prepareTerminalPrompt, writeTerminal } from "../api";
+import { claimTerminalUserInput, finishTerminalPrompt, prepareTerminalPrompt, writeTerminal, writeTerminalInteraction } from "../api";
 import { consumeWebClipboardPaste, listenForClipboardImagePaste, usesWebClipboardFallback } from "../clipboardPaste";
 import type { CodexThemeSync } from "../codexThemeSync";
 import type { PromptDeliveryOptions, TerminalLaunch, TerminalSession } from "../contracts";
@@ -46,6 +46,7 @@ export class TerminalInput {
       paste: (text) => terminal.paste(text),
       enter: () => terminal.input("\r", true),
       write: (id, data, guarded) => writeTerminal(id, new TextEncoder().encode(data), guarded),
+      writeInteraction: writeTerminalInteraction,
       error: (error) => callbacks.onError(t("terminal.input.text_48ac6518d5", { error: errorMessage(error) })),
       settleMs: pasteSettleMs(navigator.userAgent),
       ...(usesTerminalStatus(agentKindFromProfile(launch.profileId)) ? {

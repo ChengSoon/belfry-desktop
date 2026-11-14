@@ -14,6 +14,7 @@ interface OutputQueuePorts {
   render: (events: TerminalStreamEvent[]) => Promise<void>;
   acknowledge: (receipt: OutputReceipt) => Promise<boolean>;
   fail: (error: unknown) => void;
+  onSettled?: () => void;
 }
 
 interface PendingOutput {
@@ -128,7 +129,10 @@ export class OutputQueue {
         if (!this.disposed && !accepted) throw new TranslationError("terminal.outputQueue.text_37d39b2df4");
       }
     } catch (error) { this.fail(error); }
-    finally { this.busy = false; }
+    finally {
+      this.busy = false;
+      if (this.settled) this.ports.onSettled?.();
+    }
   }
 
   private fail(error: unknown) {

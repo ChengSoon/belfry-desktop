@@ -274,6 +274,14 @@ impl TerminalRuntime {
         self.input_gate.claim_user_input(session_id)
     }
 
+    pub fn write_interaction(&self, session_id: &str, bytes: &[u8], guard: &super::input_gate::InteractionGuard, sequence: u64) -> Result<(), AppError> {
+        self.input_gate.write_interaction(session_id, guard, sequence, bytes, || self.backend.write(session_id, bytes))
+    }
+
+    pub fn finish_interaction(&self, session_id: &str, guard: &super::input_gate::InteractionGuard, ready_sequence: u64) -> Result<bool, AppError> {
+        self.input_gate.finish_interaction(session_id, guard, ready_sequence)
+    }
+
     pub fn prepare_prompt(&self, session_id: &str, payload: &str) -> Result<belfry_protocol::inbox::WriteGuard, AppError> {
         self.input_gate.prepare_prompt(session_id, payload)
     }

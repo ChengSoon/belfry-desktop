@@ -1,11 +1,12 @@
 import { fork } from "node:child_process";
 
 /** Reuse T35's executable input consumer without sending keys to a user session. */
-export async function roomChoiceProcess(t) {
-  const child = fork(new URL("./terminal-choice-process.mjs", import.meta.url), [], { silent: true });
+export async function roomChoiceProcess(t, { asyncQuestion = false } = {}) {
+  const child = fork(new URL("./terminal-choice-process.mjs", import.meta.url), asyncQuestion ? ["--async-question"] : [], { silent: true });
   t.after(() => child.kill());
   let latest, stderr = "", nextGate;
-  const waiting = new Set(), writes = [], externalWrites = [];
+  const waiting = new Set(), writes = [], externalWrites = [], nativeWrites = [], completions = [];
+  let lastNativeWrite;
   child.stderr.setEncoding("utf8"); child.stderr.on("data", chunk => { stderr += chunk; });
   child.stdout.resume();
   child.on("message", frame => { latest = frame; for (const waiter of waiting) waiter.resolve(frame); });
@@ -23,7 +24,7 @@ export async function roomChoiceProcess(t) {
   };
   await next();
   return {
-    writes, externalWrites, read: () => latest,
+    writes, externalWrites, nativeWrites, completions, read: () => latest,
     async externalInput(data) { externalWrites.push(data); return input(data); },
     holdNextWrite() {
       if (nextGate) throw new Error("A room terminal write is already held");
@@ -41,12 +42,25 @@ export async function roomChoiceProcess(t) {
       if (request.url === "/qa-choice-state") {
         response.setHeader("Content-Type", "application/json"); response.end(JSON.stringify(latest)); return true;
       }
+      if (request.url === "/qa-choice-finish") {
+        let body = "";
+        request.on("data", chunk => { body += chunk; });
+        request.on("end", () => {
+          const completion = JSON.parse(body); completions.push(completion);
+          const released = lastNativeWrite?.data === "\r" && lastNativeWrite.guard.requestId === completion.guard.requestId
+            && lastNativeWrite.guard.protocolSequence === completion.guard.protocolSequence
+            && completion.readySequence <= latest.programStatusSequence && ["idle", "done"].includes(latest.programStatus.state);
+          response.setHeader("Content-Type", "application/json"); response.end(JSON.stringify(!!released));
+        });
+        return true;
+      }
       if (request.url !== "/qa-choice-write") return false;
       let body = "";
       request.on("data", chunk => { body += chunk; });
       request.on("end", async () => {
         try {
-          const write = JSON.parse(body); writes.push(write);
+          const { guard, writeSequence, ...write } = JSON.parse(body); writes.push(write);
+          if (guard) { lastNativeWrite = { ...write, guard, writeSequence }; nativeWrites.push(lastNativeWrite); }
           const gate = nextGate; nextGate = null;
           if (gate) { gate.arrive(write); await gate.held; }
           const frame = await input(write.data);

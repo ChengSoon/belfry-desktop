@@ -12,12 +12,26 @@ function fixture() {
   const render = vi.fn(() => new Promise<void>((resolve) => parsed.push(resolve)));
   const acknowledge = vi.fn(async () => true);
   const fail = vi.fn();
-  const queue = new OutputQueue({ render, acknowledge, fail });
+  const onSettled = vi.fn();
+  const queue = new OutputQueue({ render, acknowledge, fail, onSettled });
   const finish = async () => { parsed.shift()!(); await vi.waitFor(() => expect(acknowledge).toHaveBeenCalled()); };
-  return { queue, parsed, render, acknowledge, fail, finish };
+  return { queue, parsed, render, acknowledge, fail, finish, onSettled };
 }
 
 describe("terminal output consumption", () => {
+  it("notifies screen observers only after every pending batch has been parsed and acknowledged", async () => {
+    const test = fixture();
+    test.queue.push(batch(1));
+    test.queue.push(batch(2));
+    expect(test.onSettled).not.toHaveBeenCalled();
+    await test.finish();
+    expect(test.onSettled).not.toHaveBeenCalled();
+    test.parsed.shift()!();
+    await vi.waitFor(() => expect(test.onSettled).toHaveBeenCalledOnce());
+    expect(test.queue.settled).toBe(true);
+    expect(test.acknowledge).toHaveBeenCalledTimes(2);
+  });
+
   it("does not acknowledge a queued write until parsing completes", async () => {
     const test = fixture();
     test.queue.push(batch(1));

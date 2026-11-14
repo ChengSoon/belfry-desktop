@@ -1,4 +1,5 @@
 import { invoke, type Channel } from "@tauri-apps/api/core";
+import type { InteractionWriteGuard } from "./interaction";
 import type {
   CreateTerminalRequest,
   ShellProfile,
@@ -50,6 +51,14 @@ export function writeTerminal(sessionId: string, bytes: Uint8Array, guarded?: Te
     // 用户输入不带 guard：Rust 在仲裁锁下推进 inputRevision 并撤销旧 offer。
     ...(guarded ? { inboxGuard: guarded.guard, writeSequence: guarded.sequence } : {}),
   });
+}
+
+export function writeTerminalInteraction(sessionId: string, data: string, guard: InteractionWriteGuard, writeSequence: number) {
+  return invoke<void>("terminal_write_interaction", { sessionId, bytes: Array.from(new TextEncoder().encode(data)), guard, writeSequence });
+}
+
+export function finishTerminalInteraction(sessionId: string, guard: InteractionWriteGuard, readySequence: number) {
+  return invoke<boolean>("terminal_finish_interaction", { sessionId, guard, readySequence });
 }
 
 export function resizeTerminal(sessionId: string, cols: number, rows: number) {

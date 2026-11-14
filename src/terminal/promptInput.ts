@@ -1,6 +1,6 @@
 import { TranslationError } from "../i18n";
 import type { PromptDeliveryOptions, PromptDeliveryResult } from "./contracts";
-import type { InteractionWrite, TerminalInteractionResult } from "./interaction";
+import type { InteractionWrite, InteractionWriteGuard, TerminalInteractionResult } from "./interaction";
 import type { WriteGuard } from "../inbox/contracts";
 
 function inputConflict(error: unknown) {
@@ -23,6 +23,7 @@ interface PromptInputPorts {
   paste: (text: string) => void;
   enter: () => void;
   write: (sessionId: string, data: string, guarded?: { guard: WriteGuard; sequence: number }) => Promise<void>;
+  writeInteraction?: (sessionId: string, data: string, guard: InteractionWriteGuard, sequence: number) => Promise<void>;
   error: (error: unknown) => void;
   settleMs?: number;
   prepare?: (sessionId: string, text: string) => Promise<WriteGuard>;
@@ -95,6 +96,7 @@ export class PromptInput {
   sendInteraction(request: InteractionWrite): Promise<TerminalInteractionResult> {
     const sessionId = this.session();
     if (!sessionId) return Promise.resolve({ status: "unavailable" });
+    if (request.nativeGuard && !this.ports.writeInteraction) return Promise.resolve({ status: "unavailable" });
     if (this.pending) return Promise.resolve({ status: "busy" });
     if (this.failed) return Promise.resolve({ status: "failed" });
     this.pending = true;
@@ -133,13 +135,18 @@ export class PromptInput {
 
   private async submitInteraction(request: InteractionWrite, sessionId: string, revision: number): Promise<TerminalInteractionResult> {
     let attempted = false;
+    let sequence = 0;
+    let completedWrites = 0;
     const attached = () => this.session() === sessionId;
     const untouched = () => this.revision === revision && !this.failed;
     const write = async (data: string) => {
       if (!data) throw new Error("The terminal did not encode the requested input.");
       attempted = true;
       this.writeAttempts += 1;
-      await this.ports.write(sessionId, data);
+      if (request.nativeGuard && this.ports.writeInteraction) {
+        await this.ports.writeInteraction(sessionId, data, request.nativeGuard, ++sequence);
+      } else await this.ports.write(sessionId, data);
+      completedWrites += 1;
     };
     try {
       if (!attached()) return { status: "unavailable" };
@@ -163,6 +170,7 @@ export class PromptInput {
       }
       return { status: attached() ? "sent" : "uncertain" };
     } catch (error) {
+      if (request.nativeGuard && inputConflict(error) && completedWrites === 0) return { status: "changed" };
       if (attached()) { this.failed = true; this.ports.error(error); }
       return { status: attempted ? "uncertain" : "failed" };
     }

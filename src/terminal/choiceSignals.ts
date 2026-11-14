@@ -22,6 +22,10 @@ export function hasDefaultSubmit(footer: string): boolean {
   return /\benter\s+(?:to\s+)?(?:submit(?: answer)?|confirm|select|save)\b|↵\s*confirm|回车\s*(?:确认|提交|选择)/iu.test(footer);
 }
 
+export function isCodexAsyncFooter(footer: string): boolean {
+  return /\bsubmit(?: answer)?\b/iu.test(footer) && /(?:⌃\]|ctrl\+\])\s+skip/iu.test(footer);
+}
+
 export function isNormalComposer(line: string): boolean {
   return /\?\s+for shortcuts|^[❯›>]\s*(?:$|Ask Codex to do anything\s*$)/iu.test(line.trim());
 }

@@ -37,9 +37,13 @@ export interface ParsedInteraction extends Omit<TerminalInteraction, "requestId"
   /** Prefix required before pasting into a verified input surface. */
   inputPrefix?: string;
   inputValue?: string;
+  /** Codex's async question widget remains active while its foreground job is working. */
+  allowsWhileWorking?: boolean;
 }
 
 export interface InteractionWrite {
+  /** Frozen native status for a verified Codex request. */
+  nativeGuard?: InteractionWriteGuard;
   navigation?: string;
   keys?: string;
   text?: string;
@@ -49,4 +53,9 @@ export interface InteractionWrite {
   validAfterNavigation?: () => boolean;
   /** Pasting may repaint the input, but the enclosing question must still match. */
   validAfterPaste?: () => boolean;
+}
+
+export interface InteractionWriteGuard {
+  requestId: string;
+  protocolSequence: number;
 }

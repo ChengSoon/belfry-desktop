@@ -2,7 +2,7 @@ import type { AgentKind } from "../agent/contracts";
 import type { TerminalChoiceOption } from "./choice";
 import type { ParsedInteraction } from "./interaction";
 import { CHECKBOX_OPTION, CHOICE_QUESTION, CONFIRM_TAIL, NUMBERED_OPTION, QUESTION_PAGE, RULE,
-  cleanChoiceLine, hasDefaultSubmit, isChoiceFooter, isNormalComposer } from "./choiceSignals";
+  cleanChoiceLine, hasDefaultSubmit, isChoiceFooter, isCodexAsyncFooter, isNormalComposer } from "./choiceSignals";
 import { unicodeStringWidth } from "./unicode";
 
 type Evidence = Omit<ParsedInteraction, "signature" | "contextSignature">;
@@ -35,8 +35,9 @@ export function parseInteractionText(tail: string, agent?: AgentKind | null): Pa
   }
   // A historical menu followed by an ordinary composer is not a live request.
   if (lines.slice(Math.max(lastOption + 1, footerAt + 1)).some(isNormalComposer)) return null;
-  if (footerAt >= 0 && !/\bsubmit\b/.test(footer)
-    && lines.slice(footerAt + 1).some(line => /\bto interrupt\)/i.test(line))) return null;
+  if (footerAt >= 0 && lines.slice(footerAt + 1).some(line => /\bto interrupt\)/i.test(line))) return null;
+  const active = (parsed: ParsedInteraction): ParsedInteraction => agent === "codex" && isCodexAsyncFooter(footer)
+    ? { ...parsed, allowsWhileWorking: true } : parsed;
 
   const confirm = CONFIRM_TAIL.exec(lines.at(-1) ?? "");
   if (confirm) return finish({ kind: "confirmation", question: confirm[1].trim(), detail: "",
@@ -46,13 +47,13 @@ export function parseInteractionText(tail: string, agent?: AgentKind | null): Pa
   const selection = readSelection(lines, footerAt, footer, agent);
   // Codex question input can coexist with its numbered options (notes / Other).
   const input = agent === "codex" ? readCodexInput(lines, footerAt, footer, selection) : null;
-  if (input) return input;
-  if (selection) return selection;
+  if (input) return active(input);
+  if (selection) return active(selection);
 
   if (explicitWaiting(lines, footer, agent)) {
     const content = lines.slice(0, footerAt < 0 ? lines.length : footerAt);
     const { question, detail } = questionContext(content, content.length);
-    return unknownInteraction(question, detail || content.map(line => line.trim()).filter(Boolean).join("\n"));
+    return active(unknownInteraction(question, detail || content.map(line => line.trim()).filter(Boolean).join("\n")));
   }
   return null;
 }

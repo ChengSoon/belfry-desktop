@@ -1,8 +1,16 @@
 // Controlled terminal consumer for execution-level tests. No commands are executed.
+import { readFileSync } from "node:fs";
+const asyncQuestion = process.argv.includes("--async-question")
+  ? JSON.parse(readFileSync(new URL("../../../terminal/fixtures/codex-async-room-question.json", import.meta.url), "utf8")) : null;
 let stage = 0, selected = 1, text = "", pending = "", sequence = 0;
 const checked = new Set([1, 3]), answers = [];
 
 function screen() {
+  if (stage === 0 && asyncQuestion) return asyncQuestion.screen.split("\n").map(line => {
+    const row = /^\s*(?:›\s*)?(\d+)\.\s+(.+)$/.exec(line);
+    if (!row) return line;
+    return `${selected === Number(row[1]) ? "›" : " "} ${row[1]}. ${row[1] === "4" ? "Other" : row[2]}`;
+  }).join("\n");
   if (stage === 0) return ["Would you like to run the following command?", "", "$ printf controlled-fixture", "",
     `${selected === 1 ? "›" : " "} 1. Yes, proceed`, `${selected === 2 ? "›" : " "} 2. No, cancel`, "", "Press enter to confirm or esc to cancel"].join("\n");
   if (stage === 1) return ["Status line", "", "Type to search", "",
@@ -15,13 +23,13 @@ function screen() {
 
 function publish() {
   process.send({ sequence: ++sequence, screen: screen(), answers, programStatusSequence: stage + 1,
-    programStatus: { state: stage < 3 ? "blocked" : "done",
-      kind: stage === 0 ? "permission" : stage < 3 ? "question" : null,
+    programStatus: { state: stage === 0 && asyncQuestion ? "working" : stage < 3 ? "blocked" : "done",
+      kind: stage === 0 ? asyncQuestion ? null : "permission" : stage < 3 ? "question" : null,
       progress: null, title: null, message: null },
   });
 }
 function enter() {
-  if (stage === 0) { answers.push({ kind: "confirmation", index: selected }); selected = 2; }
+  if (stage === 0) { answers.push({ kind: asyncQuestion ? "single" : "confirmation", index: selected }); selected = 2; }
   else if (stage === 1) answers.push({ kind: "multiple", indices: [...checked].sort() });
   else if (stage === 2) answers.push({ kind: "input", text });
   stage += 1;
@@ -42,7 +50,7 @@ process.stdin.on("data", data => {
       if (pending.length < 3) break;
       const arrow = /^\x1b(?:\[|O)([AB])/.exec(pending);
       if (!arrow) throw new Error("Unexpected fixture control sequence");
-      selected = Math.max(1, Math.min(stage === 0 ? 2 : 3, selected + (arrow[1] === "B" ? 1 : -1)));
+      selected = Math.max(1, Math.min(stage === 0 ? asyncQuestion ? 4 : 2 : 3, selected + (arrow[1] === "B" ? 1 : -1)));
       pending = pending.slice(arrow[0].length);
       continue;
     }

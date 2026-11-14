@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PASTE_SETTLE_MS, PromptInput } from "./promptInput";
 import type { WriteGuard } from "../inbox/contracts";
+import type { InteractionWriteGuard } from "./interaction";
 
 function setup(encodePaste = (text: string) => `\x1b[200~${text}\x1b[201~`, native?: {
   prepare: (sessionId: string, text: string) => Promise<WriteGuard>;
@@ -21,6 +22,47 @@ function setup(encodePaste = (text: string) => `\x1b[200~${text}\x1b[201~`, nati
 }
 
 afterEach(() => vi.useRealTimers());
+
+describe("PromptInput native terminal answers", () => {
+  const nativeGuard: InteractionWriteGuard = { requestId: "live-question", protocolSequence: 4 };
+  function answerInput() {
+    const write = vi.fn(async () => {});
+    const writeInteraction = vi.fn(async (_id: string, _data: string, _guard: InteractionWriteGuard, _sequence: number) => {});
+    const error = vi.fn();
+    const input = new PromptInput({ session: () => "pty", paste: text => input.onData(`\x1b[200~${text}\x1b[201~`),
+      enter: () => input.onData("\r"), settleMs: 1, write, writeInteraction, error });
+    return { input, write, writeInteraction, error };
+  }
+
+  it("uses one native request and consecutive sequences for navigation and Enter, while ordinary input keeps its own path", async () => {
+    const { input, write, writeInteraction } = answerInput();
+    expect(await input.sendInteraction({ nativeGuard, navigation: "\x1b[B", keys: "\r", valid: () => true,
+      navigationReady: async () => true, validAfterNavigation: () => true })).toEqual({ status: "sent" });
+    expect(writeInteraction.mock.calls).toEqual([["pty", "\x1b[B", nativeGuard, 1], ["pty", "\r", nativeGuard, 2]]);
+    expect(write).not.toHaveBeenCalled();
+    input.onUserInput();
+    input.onData("later draft");
+    await vi.waitFor(() => expect(write).toHaveBeenCalledExactlyOnceWith("pty", "later draft"));
+    expect(writeInteraction).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not append Enter when a user starts editing during an answer paste", async () => {
+    const { input, writeInteraction } = answerInput();
+    writeInteraction.mockImplementationOnce(async () => { input.onUserInput(); });
+    expect(await input.sendInteraction({ nativeGuard, text: "answer", valid: () => true })).toEqual({ status: "uncertain" });
+    expect(writeInteraction.mock.calls).toEqual([["pty", "\x1b[200~answer\x1b[201~", nativeGuard, 1]]);
+  });
+
+  it("treats native rejection before any write as changed and allows the newly validated request", async () => {
+    const { input, writeInteraction, error } = answerInput();
+    writeInteraction.mockRejectedValueOnce({ code: "CONFLICT" });
+    const request = { nativeGuard, keys: "\r", valid: () => true };
+    expect(await input.sendInteraction(request)).toEqual({ status: "changed" });
+    expect(error).not.toHaveBeenCalled();
+    expect(await input.sendInteraction({ ...request, nativeGuard: { requestId: "new-question", protocolSequence: 5 } })).toEqual({ status: "sent" });
+    expect(writeInteraction).toHaveBeenCalledTimes(2);
+  });
+});
 
 describe("PromptInput", () => {
   it("dispose 立即清除解析窗口计时器且不再自动回车", async () => {

@@ -156,4 +156,9 @@ describe("interaction evidence and native compatibility", () => {
     expect(parseInteractionText(text, "codex")).toBeNull();
     expect(detectActivity(text, "codex")).toBe("talking");
   });
+
+  it("does not reuse an async question followed by resumed work", () => {
+    const text = `${screen("codex-async-wrapped")}\n• Working (Esc to interrupt)`;
+    expect(parseInteractionText(text, "codex")).toBeNull();
+  });
 });

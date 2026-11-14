@@ -5,9 +5,10 @@ import { PromptInput } from "./promptInput";
 import { configureUnicode } from "./unicode";
 import { readInteractionScreen } from "./interactionScreen";
 import type { AgentKind } from "../agent/contracts";
-import type { TerminalInteractionAnswer } from "./interaction";
+import type { InteractionWriteGuard, TerminalInteractionAnswer } from "./interaction";
 import corpus from "./fixtures/codex-0.167.0.json";
 import captured from "./fixtures/codex-current-menus.json";
+import asyncRoomQuestion from "./fixtures/codex-async-room-question.json";
 import { statusReport } from "./fixtures/programStatus";
 import { usesTerminalStatus, type TerminalProgramStatus } from "../agent/contracts";
 
@@ -30,6 +31,8 @@ function fixture(agent: AgentKind | null = "codex", dimensions = { cols: 120, ro
   let report = usesTerminalStatus(agent) ? statusReport(agent, "blocked") : null;
   const writes: Array<{ sessionId: string; data: string }> = [];
   const errors: unknown[] = [];
+  const nativeWrites: Array<{ guard: InteractionWriteGuard; sequence: number }> = [];
+  const finishes: Array<{ sessionId: string; guard: InteractionWriteGuard; readySequence: number }> = [];
   let onWrite: ((data: string) => Promise<void>) | null = null;
   let source = "";
   const raw = (text: string) => new Promise<void>(resolve => terminal.write(text, resolve));
@@ -52,17 +55,19 @@ function fixture(agent: AgentKind | null = "codex", dimensions = { cols: 120, ro
   };
   // Headless xterm has no textarea. Browser regression below exercises native paste;
   // these queue tests provide its onData event while retaining the real parser/modes.
+  const write = async (sessionId: string, data: string) => { writes.push({ sessionId, data }); await (onWrite ? onWrite(data) : navigate(data)); };
   const prompt = new PromptInput({ session: () => session, paste: text => terminal.input(
     `${terminal.modes.bracketedPasteMode ? "\u001b[200~" : ""}${text.replace(/\r?\n/g, "\r")}${terminal.modes.bracketedPasteMode ? "\u001b[201~" : ""}`, true),
     enter: () => terminal.input("\r", true), settleMs: 5, error: error => errors.push(error),
-    write: async (sessionId, data) => { writes.push({ sessionId, data }); await (onWrite ? onWrite(data) : navigate(data)); } });
+    write, writeInteraction: async (sessionId, data, guard, sequence) => { nativeWrites.push({ guard, sequence }); await write(sessionId, data); } });
   const data = terminal.onData(text => prompt.onData(text));
   const interactions = new TerminalInteractions({ terminal, agent, session: () => session,
     scope: () => scope,
     programStatus: () => report,
-    outputSettled: () => settled, waitingReason: () => waiting, write: request => prompt.sendInteraction(request) });
+    outputSettled: () => settled, waitingReason: () => waiting, write: request => prompt.sendInteraction(request),
+    finishInteraction: async (sessionId, guard, readySequence) => { finishes.push({ sessionId, guard, readySequence }); return true; } });
   cleanup.push(() => { interactions.dispose(); data.dispose(); prompt.dispose(); terminal.dispose(); });
-  return { terminal, interactions, prompt, writes, errors, raw, paint,
+  return { terminal, interactions, prompt, writes, errors, raw, paint, nativeWrites, finishes,
     status: (state: TerminalProgramStatus["state"] | null) => {
       report = state && usesTerminalStatus(agent) ? statusReport(agent, state, (report?.sequence ?? 0) + 1) : null;
     },
@@ -75,6 +80,46 @@ function fixture(agent: AgentKind | null = "codex", dimensions = { cols: 120, ro
 }
 
 describe("real xterm screens through request tracking and serialized input", () => {
+  it("reads a Codex async question while its foreground report stays working and submits once", async () => {
+    const f = fixture();
+    f.status("working");
+    await f.paint(corpus.fixtures["codex-async-wrapped"].screen);
+    const request = f.interactions.read();
+    expect(request?.kind).toBe("single");
+    expect(request?.question).toBe("Second");
+    expect(await f.interactions.answer(request!.requestId, { kind: "single", index: 1 })).toEqual({ status: "sent" });
+    expect(await f.interactions.answer(request!.requestId, { kind: "single", index: 1 })).toEqual({ status: "busy" });
+    expect(f.writes).toEqual([{ sessionId: "pty-a", data: "\r" }]);
+  });
+
+  it("keeps the screenshot question visible while protecting its existing custom answer", async () => {
+    const f = fixture();
+    f.status("working");
+    await f.paint(asyncRoomQuestion.screen);
+    const request = f.interactions.read();
+    expect(request?.kind).toBe("unknown");
+    expect(request?.question).toBe(asyncRoomQuestion.question);
+    expect(request?.detail).toContain("å");
+    expect(await f.interactions.answer(request!.requestId, { kind: "input", text: "replace draft" })).toEqual({ status: "invalid" });
+    expect(f.writes).toEqual([]);
+  });
+
+  it.each(["idle", "done", "error", "clear", null] as const)("does not resurrect an async question without a live working or blocked report: %s", async state => {
+    const f = fixture();
+    f.status(state);
+    await f.paint(corpus.fixtures["codex-async-wrapped"].screen);
+    expect(f.interactions.read()).toBeNull();
+    expect(f.writes).toEqual([]);
+  });
+
+  it("does not enable a historical permission menu while Codex is working", async () => {
+    const f = fixture();
+    f.status("working");
+    await f.paint(captured.fixtures.permissions.screen);
+    expect(f.interactions.read()).toBeNull();
+    expect(f.writes).toEqual([]);
+  });
+
   it("reads the current CLI permission menu and submits to its exact PTY", async () => {
     const f = fixture();
     await f.paint(captured.fixtures.permissions.screen);
@@ -220,6 +265,71 @@ describe("real xterm screens through request tracking and serialized input", () 
 });
 
 describe("request lifetime and write outcomes", () => {
+  it("keeps a submitted async question consumed when Working reports advance", async () => {
+    const f = fixture();
+    f.status("working");
+    await f.paint(corpus.fixtures["codex-async-wrapped"].screen);
+    const id = f.interactions.read()!.requestId;
+    expect(await f.answer({ kind: "single", index: 1 })).toEqual({ status: "sent" });
+    f.status("working");
+    f.interactions.refresh();
+    expect(f.interactions.read()?.requestId).toBe(id);
+    expect(f.interactions.read()?.state).toBe("submitted");
+    expect(await f.interactions.answer(id, { kind: "single", index: 1 })).toEqual({ status: "busy" });
+    expect(f.writes).toHaveLength(1);
+  });
+
+  it("releases an async answer only after the widget disappears and ready output is fully parsed", async () => {
+    const f = fixture();
+    f.status("working");
+    await f.paint(corpus.fixtures["codex-async-wrapped"].screen);
+    const id = f.interactions.read()!.requestId;
+    expect(await f.answer({ kind: "single", index: 1 })).toEqual({ status: "sent" });
+    expect(f.nativeWrites).toEqual([{ guard: { requestId: id, protocolSequence: 2 }, sequence: 1 }]);
+    f.status("done");
+    f.interactions.refresh();
+    expect(f.finishes).toEqual([]); // Status alone cannot dismiss a still-visible widget.
+    f.settled(false);
+    await f.paint("Answer received.");
+    f.interactions.refresh();
+    expect(f.finishes).toEqual([]);
+    f.settled(true);
+    f.interactions.refresh();
+    await tick();
+    expect(f.finishes).toEqual([{ sessionId: "pty-a", guard: { requestId: id, protocolSequence: 2 }, readySequence: 3 }]);
+    f.status("idle");
+    f.interactions.refresh();
+    expect(f.finishes).toHaveLength(1);
+  });
+
+  it("does not finish an answer while the root remains Working after the widget closes", async () => {
+    const f = fixture();
+    f.status("working");
+    await f.paint(corpus.fixtures["codex-async-wrapped"].screen);
+    expect(await f.answer({ kind: "single", index: 1 })).toEqual({ status: "sent" });
+    await f.paint("Working (Esc to interrupt)");
+    f.interactions.refresh();
+    expect(f.finishes).toEqual([]);
+    f.status("idle");
+    f.interactions.refresh();
+    await tick();
+    expect(f.finishes).toHaveLength(1);
+  });
+
+  it.each(["session", "identity", "uncertain"])("does not finish an async answer after %s changes", async change => {
+    const f = fixture();
+    f.status("working");
+    await f.paint(corpus.fixtures["codex-async-wrapped"].screen);
+    if (change === "uncertain") f.write(async () => { throw new Error("reply lost"); });
+    expect((await f.answer({ kind: "single", index: 1 })).status).toBe(change === "uncertain" ? "uncertain" : "sent");
+    if (change === "session") f.session("pty-b");
+    if (change === "identity") f.scope("native-b");
+    f.status("done");
+    await f.paint("Answer received.");
+    f.interactions.refresh();
+    expect(f.finishes).toEqual([]);
+  });
+
   it("blocks duplicate clicks during a write and after it was submitted", async () => {
     const f = fixture(), write = deferred();
     await f.paint(question);

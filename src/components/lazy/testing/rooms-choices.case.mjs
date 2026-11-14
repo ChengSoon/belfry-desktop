@@ -82,7 +82,7 @@ function readAttentionLayout() {
 }
 
 test("available interactions appear before the activity changes to waiting", async t => {
-  const { view } = await browserFixture(t, `${PAGE}?attention=0&choices=worktree`);
+  const { view } = await browserFixture(t, `${PAGE}?attention=0&choices=working`);
   await view.bounds({ x: 0, y: 0, width: 1440, height: 900 });
   await waitFor(view, "typeof qaReadInteraction === 'function' && !!document.querySelector('[aria-label=房间对话] article')");
   await capturePanel(view, "room-choice-active-member");
