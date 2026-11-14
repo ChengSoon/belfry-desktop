@@ -25,9 +25,9 @@ export async function createRoomTerminalQa() {
   const paint = (screen: string) => new Promise<void>(resolve => {
     terminal.write(`\u001b[?2004h\u001b[2J\u001b[H${screen.replace(/\n/g, "\r\n")}`, resolve);
   });
-  const acceptFrame = async (frame: { screen: string; sequence: number; programStatus: TerminalProgramStatus }) => {
+  const acceptFrame = async (frame: { screen: string; programStatusSequence: number; programStatus: TerminalProgramStatus }) => {
     await paint(frame.screen);
-    currentReport = { ...statusReport("codex", frame.programStatus.state, frame.sequence, frame.programStatus.kind),
+    currentReport = { ...statusReport("codex", frame.programStatus.state, frame.programStatusSequence, frame.programStatus.kind),
       programStatus: frame.programStatus };
     for (const listener of listeners) listener(currentReport, "t2");
   };
@@ -41,6 +41,7 @@ export async function createRoomTerminalQa() {
     } });
   terminal.onData(data => prompt.onData(data));
   const interactions = new TerminalInteractions({ terminal, agent: "codex", session: () => sessionId,
+    programStatus: () => currentReport,
     waitingReason: () => null, outputSettled: () => true, write: request => prompt.sendInteraction(request) });
   const initial = await (await fetch("/qa-choice-state")).json();
   await acceptFrame(initial);

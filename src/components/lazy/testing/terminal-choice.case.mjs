@@ -83,7 +83,7 @@ for (const outcome of ["changed", "user", "disconnected"]) {
   });
 }
 
-test("terminal requests: actual activity sees async questions and single answers are not replayed", async t => {
+test("terminal requests: native blocked reports expose async questions and single answers are not replayed", async t => {
   const { view, writes } = await fixture(t);
   await view.cdp.evaluate("qaChoice.show('codex-async-wrapped')");
   await waitFor(view, "qaChoice.snapshot().activity === 'awaiting-choice'");

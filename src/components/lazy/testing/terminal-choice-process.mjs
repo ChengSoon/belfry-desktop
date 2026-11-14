@@ -14,7 +14,7 @@ function screen() {
 }
 
 function publish() {
-  process.send({ sequence: ++sequence, screen: screen(), answers,
+  process.send({ sequence: ++sequence, screen: screen(), answers, programStatusSequence: stage + 1,
     programStatus: { state: stage < 3 ? "blocked" : "done",
       kind: stage === 0 ? "permission" : stage < 3 ? "question" : null,
       progress: null, title: null, message: null },
