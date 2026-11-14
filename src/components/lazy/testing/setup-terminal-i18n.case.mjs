@@ -36,12 +36,15 @@ test('English environment, hooks and background sessions remain usable at 720x48
   await clickText(view,'Session status','.settings-nav');
   await waitFor(view,"!!document.querySelector('.hook-agent-card')");
   await englishPanel(view,'.hook-settings');
-  await click(view,'.hook-settings button[aria-label="Preview enabling Codex hooks"]');
+  assert.equal(await view.cdp.evaluate("!!document.querySelector('.hook-settings button[aria-label=\"Preview enabling Codex hooks\"]')"),false);
+  assert.equal(await view.cdp.evaluate("!!document.querySelector('.hook-settings button[aria-label=\"Preview enabling Claude Code hooks\"]')"),false);
+  assert.match(await englishPanel(view,'.hook-settings'),/Native terminal status/);
+  await click(view,'.hook-settings button[aria-label="Preview enabling Antigravity CLI hooks"]');
   await waitFor(view,"!!document.querySelector('.hook-preview')");
   await englishPanel(view,'.hook-preview');
   await switchLanguage(view,'zh-CN');
   await switchLanguage(view,'en');
-  assert.match(await englishPanel(view,'.hook-preview'),/Enable Codex hooks/);
+  assert.match(await englishPanel(view,'.hook-preview'),/Enable Antigravity CLI hooks/);
   await clickText(view,'Confirm and enable','.hook-preview');
   await waitFor(view,"!document.querySelector('.hook-preview')");
   assert.equal(await view.cdp.evaluate("__productionQA.calls.filter(call => call.command === 'agent_hooks_apply').length"),1);

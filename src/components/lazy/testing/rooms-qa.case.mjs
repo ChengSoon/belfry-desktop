@@ -243,7 +243,21 @@ for (const theme of ["dark", "light"]) {
     assert.equal(reduced.bar, "none");
     assert.equal(reduced.halo, "none");
     assert.equal(reduced.particle, "none");
-    assert.ok(reduced.text.includes("处理中"), "减少动态效果时仍然明确显示工作状态");
+    assert.ok(reduced.text.includes("正在处理"), "减少动态效果时仍然明确显示原生工作状态");
+
+    await view.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "no-preference" }] });
+    await view.cdp.evaluate("document.documentElement.dataset.motion = 'reduced'");
+    await waitFor(view, "getComputedStyle(document.querySelector('.room-flow-edge--animated')).animationName === 'none'");
+    const preference = await view.cdp.evaluate(`({
+      bar: getComputedStyle(document.querySelector('.room-flow-activity i')).animationName,
+      halo: getComputedStyle(document.querySelector('.room-flow-node--busy'), '::after').animationName,
+      particle: getComputedStyle(document.querySelector('.room-flow-pulse')).display,
+      text: document.querySelector('.room-flow-node--busy').textContent,
+    })`);
+    assert.equal(preference.bar, "none");
+    assert.equal(preference.halo, "none");
+    assert.equal(preference.particle, "none");
+    assert.ok(preference.text.includes("正在处理"), "界面偏好关闭动效时仍然保留原生工作状态");
   });
 }
 

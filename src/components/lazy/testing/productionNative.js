@@ -2,10 +2,11 @@
 const callbacks = new Map(), channels = new Map();
 let nextCallback = 0;
 const project = { id: "production-qa", name: "panel-qa", rootPath: "/qa/panel-project", rootUri: "file:///qa/panel-project" };
-const qa = window.__productionQA = { calls: [], creates: 0, writes: [], preloadErrors: [], errors: [], token: crypto.randomUUID() };
+const qa = window.__productionQA = { calls: [], creates: 0, writes: [], states: {}, preloadErrors: [], errors: [], token: crypto.randomUUID() };
 // 用例可直接驱动某个 PTY 的输出（模拟 Agent 屏幕变化），不经过输入通道。
 qa.output = (sessionId, text) => output(sessionId, text);
 qa.agentState = (sessionId, snapshot) => {
+  qa.states[sessionId] = snapshot;
   const channel = channels.get(sessionId);
   if (!channel) return;
   for (const subscriber of channel.subscribers) {

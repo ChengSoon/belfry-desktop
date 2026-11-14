@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { mkdir, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { enter } from '../../../../scripts/plugin-tests/market-ui-support.mjs';
 import { uiFixture, click, clickText, press, waitFor, resize, intact, evidence, theme, menuAction } from './production-uiFixture.mjs';
 
-const OUT = process.env.BELFRY_TOOLS_OUT ?? 'docs/design/belfry-ui/workbench-tools/after';
+const OUT = process.env.BELFRY_TOOLS_OUT ?? join(process.env.BELFRY_PANEL_ARTIFACTS ?? tmpdir(), 'belfry-workbench-tools');
 const agents = `(() => {
   const w=JSON.parse(localStorage.getItem('belfry.workspace.v1'));
   w.tabs=w.tabs.map(tab=>({...tab,kind:'codex',profileId:'agent:codex',resumeSessionId:'synthetic-'+tab.id}));

@@ -132,6 +132,26 @@ test('production App sends review feedback through its real prompt queue and xte
     const saved=JSON.parse(localStorage.getItem('belfry.workspace.v1'));
     Object.assign(saved.tabs[0],{kind:'codex',profileId:'agent:codex',agentName:'reviewer'});
     localStorage.setItem('belfry.workspace.v1',JSON.stringify(saved));
+    const qa=__productionQA, invoke=__TAURI_INTERNALS__.invoke;
+    const ready=sessionId=>['idle','done'].includes(qa.states[sessionId]?.programStatus?.state);
+    __TAURI_INTERNALS__.invoke=async(command,args={})=>{
+      if(command==='terminal_prepare_prompt'){
+        if(!ready(args.sessionId)) throw new Error('Synthetic native report does not permit input');
+        qa.calls.push({command,args});
+        const guard={batchId:'qa-prompt',attemptId:'qa-attempt',token:'qa-guard',ownerId:'qa-owner',targetEpoch:'qa-epoch',inputRevision:0};
+        qa.prompt={guard,payload:args.payload,writes:[]}; return guard;
+      }
+      if(command==='terminal_write' && args.inboxGuard){
+        if(!ready(args.sessionId) || args.inboxGuard.token!==qa.prompt?.guard.token || args.writeSequence!==qa.prompt.writes.length+1)
+          throw new Error('Synthetic native prompt guard rejected the write');
+        qa.prompt.writes.push({sequence:args.writeSequence,text:new TextDecoder().decode(new Uint8Array(args.bytes))});
+      }
+      if(command==='terminal_finish_prompt'){
+        qa.calls.push({command,args});
+        return {touched:qa.prompt.writes.length>0,pasteComplete:qa.prompt.writes.some(write=>write.text.startsWith('\u001b[200~') && write.text.endsWith('\u001b[201~'))};
+      }
+      return invoke(command,args);
+    };
   })();`;
   const { view, baseline } = await uiFixture(t, { nativeExtension });
   await menuAction(view, '文件与 Git 改动', 'button[aria-label="文件预览"]');
@@ -140,10 +160,18 @@ test('production App sends review feedback through its real prompt queue and xte
   await waitFor(view, `!!document.querySelector('${line}')`);
   await click(view, line); await setValue(view, comment, 'production-review-feedback');
   await click(view, send);
+  await waitFor(view, "!!document.querySelector('.git-review__receipt.is-queued')");
+  assert.equal(await view.cdp.evaluate("__productionQA.calls.filter(call=>call.command==='terminal_prepare_prompt').length"),0,
+    'missing native reports must keep the real prompt queue waiting');
+  await view.cdp.evaluate(`__productionQA.output('ui-terminal-0-pty','\u001b[?2004h');
+    __productionQA.agentState('ui-terminal-0-pty',{agent:'codex',source:'terminal_protocol',sequence:1,session:null,occurredAt:1,
+      state:'completed',reason:'',transcriptPath:null,programStatus:{state:'idle',kind:null,progress:null,title:null,message:null}})`);
   await waitFor(view, "!!document.querySelector('.git-review__receipt.is-submitted')");
   const writes = await view.cdp.evaluate("__productionQA.writes.map(call=>({id:call.sessionId,text:new TextDecoder().decode(new Uint8Array(call.bytes))}))");
   assert.ok(writes.some(call=>call.id==='ui-terminal-0-pty' && call.text.includes('production-review-feedback')));
   assert.ok(!writes.some(call=>call.id==='ui-terminal-1-pty'));
+  assert.deepEqual(await view.cdp.evaluate("__productionQA.prompt.writes.map(write=>write.sequence)"),[1,2]);
+  assert.equal(await view.cdp.evaluate("__productionQA.prompt.writes[1].text"),'\r');
   await evidence(view, 'git-review-production-sent', ['button[aria-label="关闭 Git 面板"]']);
   await intact(view, baseline);
 });

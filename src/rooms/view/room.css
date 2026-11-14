@@ -252,6 +252,9 @@
   .room-flow-node--busy::after { opacity: 0.3; }
   .room-flow-pulse { display: none; }
 }
+:root[data-motion="reduced"] :is(.room-flow-node--waiting, .room-flow-activity i, .room-flow-edge--animated) { animation: none !important; }
+:root[data-motion="reduced"] .room-flow-node--busy::after { animation: none !important; opacity: 0.3; }
+:root[data-motion="reduced"] .room-flow-pulse { display: none; }
 
 /* ───────────── T22：对齐曜石规则（UI设计工程走查） ───────────── */
 /* 1）当前房间：圆头短竖条，上下各留 10px，和工作台会话行、设置导航同一规格。 */
