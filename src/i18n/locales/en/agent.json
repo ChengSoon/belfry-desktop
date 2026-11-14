@@ -42,11 +42,6 @@
   "HookStatusBar.text_41a841de20": "Session error",
   "HookStatusBar.text_ec3770c468": "Enable hooks in Settings → Session status",
   "HookStatusBar.text_e9cb72a260": "Native session: {{id}}",
-  "HookCards.connected": "Connected",
-  "HookSettingsSection.agentsTitle": "Agent hooks",
-  "HookSettingsSection.agentsMeta": "{{count}} agents · {{connected}} connected",
-  "HookCards.previewEnable": "Preview enabling",
-  "HookCards.previewRemove": "Preview removing",
   "HookStatusBar.protocolWaiting": "Waiting for {{agent}} session status",
   "HookStatusBar.protocolDone": "Turn completed",
   "HookStatusBar.protocolError": "Turn failed",
@@ -59,5 +54,13 @@
   "HookCards.legacyHooksHint": "Belfry's old status hooks are no longer used. You can preview their removal.",
   "HookSettingsSection.statusTitle": "Agent session status",
   "HookSettingsSection.protocolNote": "Codex and Claude report session status automatically and do not need hooks. Other agents can use the available status integrations.",
-  "HookCards.hintMissing": "Detectable once installed"
+  "HookCards.connected": "Connected",
+  "HookSettingsSection.agentsTitle": "Agent hooks",
+  "HookSettingsSection.agentsMeta": "{{count}} agents · {{connected}} connected",
+  "HookCards.previewEnable": "Preview enabling",
+  "HookCards.previewRemove": "Preview removing",
+  "HookCards.hintMissing": "Detectable once installed",
+  "HookCards.hintScreen": "This CLI has no hooks; status is inferred from the screen",
+  "HookCards.hintConnected": "Receives CLI events directly · {{installed}}/{{expected}} events installed",
+  "HookCards.hintAvailable": "Enable for more accurate waiting, done and failed states"
 }

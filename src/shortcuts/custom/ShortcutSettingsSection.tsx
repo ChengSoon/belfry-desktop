@@ -1,10 +1,9 @@
-import { Notice } from "../../components/Notice";
 import { t, useTranslation } from "../../i18n";
 import { useEffect, useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { usePluginRuntime } from "../../plugins/usePluginRuntime";
 import type { RuntimeCatalog } from "../../plugins/runtimeContracts";
-import { SettingsHeader } from "../../settings/SettingsHeader";
+import { SButton, SList, SPage, STag } from "../../settings/kit";
 import { ICON } from "../../theme/sizing";
 import { shortcutPlatform } from "../resolveShortcut";
 import { bindingIssues, effectiveBindings } from "./bindings";
@@ -18,7 +17,6 @@ import { useShortcutSettings } from "./useShortcutSettings";
 import type { EditContext } from "./changes";
 import type { ShortcutAction } from "./actions";
 import type { ShortcutBinding, ShortcutOverrides } from "./contracts";
-import "../../settings/obsidianSections.css";
 import "./shortcutSettings.css";
 
 export function ShortcutSettingsSection({ onGuardChange }: { onGuardChange: (guarded: boolean) => void }) {
@@ -31,22 +29,21 @@ export function ShortcutSettingsSection({ onGuardChange }: { onGuardChange: (gua
     onGuardChange(Boolean(editor.edit));
     return () => onGuardChange(false);
   }, [Boolean(editor.edit), onGuardChange]);
-  return <section className="shortcut-settings os-page" aria-label={t("shortcuts.ShortcutSettingsSection.text_9bc299a8d5")}>
-    <SettingsHeader
-      actions={<button className="os-btn secondary" id="shortcut-reset-all" type="button" disabled={Boolean(editor.edit) || Object.keys(overrides).length === 0} onClick={() => editor.begin()}>{t("shortcuts.ShortcutSettingsSection.text_3b6c48ce49")}</button>}
-      description={t("shortcuts.ShortcutSettingsSection.text_d07bd1df66")}
-      title={t("shortcuts.ShortcutSettingsSection.text_ee2638183d")}
-    />
-    <Notice className="shortcut-settings__scope" tone="info">
-      <strong>{platform === "macos" ? t("shortcuts.ShortcutSettingsSection.text_91acc07999") : t("shortcuts.ShortcutSettingsSection.text_4c4ae4e2bc")}</strong>
-      {t("shortcuts.ShortcutSettingsSection.text_60f7e4945e")}
-    </Notice>
-    {loaded.warning ? <Notice className="shortcut-settings__error" tone="warning" role="alert">{loaded.warning}</Notice> : null}
-    {runtime.error ? <Notice className="shortcut-settings__error" role="status">{t("shortcuts.ShortcutSettingsSection.text_3add8718a5", { error: runtime.error })}</Notice> : null}
-    {editor.message ? <p className="shortcut-settings__saved" role="status">{editor.message}</p> : null}
-    {editor.edit?.kind === "defaults" ? <ShortcutResetPreview expected={editor.edit.expected} context={context} error={editor.error} onCancel={editor.cancel} onSave={editor.save} /> : null}
-    <ShortcutRows context={context} overrides={overrides} editor={editor} />
-  </section>;
+  // 布局按 docs/design/belfry-ui/settings-v3/settings.html?page=shortcuts（T42）：
+  // 说明一行 → 各分组「标题 + 列表」→ 底部「全部恢复默认」。
+  return <SPage label={t("shortcuts.ShortcutSettingsSection.text_9bc299a8d5")}>
+    <div className="shortcut-settings">
+      <p className="sk-lede">{t("shortcuts.ShortcutSettingsSection.text_d07bd1df66")} {platform === "macos" ? t("shortcuts.ShortcutSettingsSection.text_91acc07999") : t("shortcuts.ShortcutSettingsSection.text_4c4ae4e2bc")}</p>
+      {loaded.warning ? <p className="sk-note is-warn" role="alert">{loaded.warning}</p> : null}
+      {runtime.error ? <p className="sk-note is-danger" role="status">{t("shortcuts.ShortcutSettingsSection.text_3add8718a5", { error: runtime.error })}</p> : null}
+      {editor.message ? <p className="sk-note shortcut-settings__saved" role="status">{editor.message}</p> : null}
+      {editor.edit?.kind === "defaults" ? <ShortcutResetPreview expected={editor.edit.expected} context={context} error={editor.error} onCancel={editor.cancel} onSave={editor.save} /> : null}
+      <ShortcutRows context={context} overrides={overrides} editor={editor} />
+      <div className="sk-foot">
+        <SButton tone="secondary" id="shortcut-reset-all" disabled={Boolean(editor.edit) || Object.keys(overrides).length === 0} onClick={() => editor.begin()}>{t("shortcuts.ShortcutSettingsSection.text_3b6c48ce49")}</SButton>
+      </div>
+    </div>
+  </SPage>;
 }
 
 interface RowsProps {
@@ -73,31 +70,26 @@ export function ShortcutRows({ context, overrides, editor, expanded }: RowsProps
   return <>{groups.map((group) => {
     const visible = shown(group);
     const locked = group.actions.some((action) => action.id === editing);
-    const toggleProps = {
-      "aria-expanded": visible,
-      "aria-controls": `shortcut-rows-${group.id}`,
-      "aria-label": t(visible ? "shortcuts.ShortcutSettingsSection.collapseGroup" : "shortcuts.ShortcutSettingsSection.expandGroup", { name: group.label }),
-      disabled: locked,
-      onClick: () => toggle(group.id),
-      type: "button" as const,
-    };
-    const count = <span>{t(visible ? "shortcuts.ShortcutSettingsSection.collapseCount" : "shortcuts.ShortcutSettingsSection.expandCount", { count: group.actions.length })}
-      {visible ? <ChevronDown aria-hidden="true" size={ICON.xs} /> : <ChevronRight aria-hidden="true" size={ICON.xs} />}</span>;
-    return <section className="os-section" key={group.id} aria-labelledby={`shortcut-group-${group.id}`}>
-      {visible ? <div className="os-group-head">
-        <h3 id={`shortcut-group-${group.id}`}>{group.label}</h3>
-        {group.collapsed ? <button className="shortcut-settings__toggle" {...toggleProps}>{count}</button> : null}
-      </div> : null}
-      <div className="os-group">
-        {/* 折叠组整组收成一行：名称 +「9 项 · 展开」（T19 稿）。 */}
-        {!visible ? <button className="shortcut-settings__collapsed" {...toggleProps}>
-          <span id={`shortcut-group-${group.id}`}>{group.label}</span>{count}
-        </button> : null}
+    const custom = group.actions.filter((action) => Object.hasOwn(overrides, action.id)).length;
+    const meta = custom
+      ? t("shortcuts.ShortcutSettingsSection.groupMetaCustom", { count: group.actions.length, custom })
+      : t("shortcuts.ShortcutSettingsSection.groupMeta", { count: group.actions.length });
+    const toggle_ = group.collapsed ? <SButton aria-controls={`shortcut-rows-${group.id}`} aria-expanded={visible} className="shortcut-settings__toggle" disabled={locked}
+      aria-label={t(visible ? "shortcuts.ShortcutSettingsSection.collapseGroup" : "shortcuts.ShortcutSettingsSection.expandGroup", { name: group.label })} onClick={() => toggle(group.id)}>
+      {visible ? t("shortcuts.ShortcutSettingsSection.collapse") : t("shortcuts.ShortcutSettingsSection.expand")}
+      {visible ? <ChevronDown aria-hidden="true" size={ICON.xs} /> : <ChevronRight aria-hidden="true" size={ICON.xs} />}</SButton> : null;
+    return <section key={group.id} aria-labelledby={`shortcut-group-${group.id}`}>
+      <div className="sk-gt-row"><h3 className="sk-gt" id={`shortcut-group-${group.id}`}>{group.label}</h3>
+        <div className="sk-gt-tail"><span>{meta}</span>{toggle_}</div></div>
+      <SList>
         <ul className="shortcut-settings__rows" id={`shortcut-rows-${group.id}`} hidden={!visible}>
           {visible ? group.actions.map((action) => <ShortcutRow key={action.id} action={action}
             context={context} overrides={overrides} editor={editor} keys={chords.get(action.id) ?? []} />) : null}
         </ul>
-      </div>
+        {!visible ? <button className="sk-item is-link shortcut-settings__collapsed" aria-controls={`shortcut-rows-${group.id}`} aria-expanded={false} disabled={locked}
+          onClick={() => toggle(group.id)} type="button"><span className="sk-l"><span>{t("shortcuts.ShortcutSettingsSection.collapsedHint", { count: group.actions.length })}</span></span>
+          <ChevronRight aria-hidden="true" size={ICON.sm} /></button> : null}
+      </SList>
     </section>;
   })}</>;
 }
@@ -110,18 +102,19 @@ function ShortcutRow({ action, keys, context, overrides, editor }: RowsProps & {
   const state = keys.length === 0 ? { tone: "", text: t("shortcuts.ShortcutSettingsSection.text_a8c3698b5b") }
     : Object.hasOwn(overrides, action.id) ? { tone: " accent", text: t("shortcuts.ShortcutSettingsSection.text_4eafa9e925") }
       : { tone: "", text: t("shortcuts.ShortcutSettingsSection.text_844b8cc8df") };
-  return <li className={`os-row shortcut-row${recording ? " is-recording" : ""}`}>
-    <div className="os-row__body">
-      <div className="os-row__label"><span>{action.label}</span><span className={`os-tag${state.tone}`}>{state.text}</span></div>
-      {issues.length ? <p className="shortcut-settings__error">{issues.join("; ")}</p> : null}
+  // 行：名称（自定义 / 已停用标记）… 键帽 + 更改；录制态整行 accent-soft，冲突就地提示。
+  return <li className={`sk-item shortcut-row${recording ? " is-accent is-recording" : ""}`}>
+    <div className="sk-l">
+      <b>{action.label}{state.tone ? <STag tone="accent">{state.text}</STag> : keys.length === 0 ? <STag>{state.text}</STag> : null}</b>
+      {issues.length ? <span className="shortcut-settings__error">{issues.join("; ")}</span> : null}
     </div>
-    {recording ? null : <div className="os-trail shortcut-settings__keys">
-      {keys.length ? keys.map((binding, index) => <ShortcutKeys key={index} chord={bindingChord(binding, context.platform)} />)
-        : <span className="shortcut-settings__unset">{bindingChord(null, context.platform).join("+")}</span>}
-      <button className="os-btn" id={`shortcut-edit-${action.id}`} type="button" aria-label={t("shortcuts.ShortcutSettingsSection.text_1a458cb92b", { label: action.label })} disabled={Boolean(editor.edit)} onClick={() => editor.begin(action.id)}>{t("shortcuts.ShortcutSettingsSection.text_6b01fce4db")}</button>
-    </div>}
     {draft
-      ? <ShortcutEditor draft={draft} context={context} overrides={overrides} error={editor.error} onChange={editor.change} onCancel={editor.cancel} onSave={editor.save} /> : null}
+      ? <ShortcutEditor draft={draft} context={context} overrides={overrides} error={editor.error} onChange={editor.change} onCancel={editor.cancel} onSave={editor.save} />
+      : <div className="sk-r shortcut-settings__keys">
+        {keys.length ? keys.map((binding, index) => <ShortcutKeys key={index} chord={bindingChord(binding, context.platform)} />)
+          : <span className="shortcut-settings__unset">{bindingChord(null, context.platform).join("+")}</span>}
+        <SButton id={`shortcut-edit-${action.id}`} aria-label={t("shortcuts.ShortcutSettingsSection.text_1a458cb92b", { label: action.label })} disabled={Boolean(editor.edit)} onClick={() => editor.begin(action.id)}>{t("shortcuts.ShortcutSettingsSection.text_6b01fce4db")}</SButton>
+      </div>}
   </li>;
 }
 

@@ -72,11 +72,11 @@ claude --version
 **Agent 托管**
 
 - 自动检测六种 Agent 的可执行文件路径和版本，不可用时给出原因；支持安装与更新
-- Antigravity CLI、OpenCode、Kimi Code 接入历史、统计、Provider、插件、队列与协作，版本要求和原生差异见[集成说明](docs/native-agent-integration.md)
+- Antigravity CLI、OpenCode、Kimi Code 接入历史、统计、Provider、插件、队列与协作，版本要求和原生差异见[集成说明](website/docs/agent.md)
 - 会话状态区分进程生命周期（创建中/运行/已退出/出错）与当下行为（闲着/正在输出/等你选）
 - 标签标题从你的第一句输入里提取，完整原文留在 tooltip
-- 协作任务、协商消息与回复集中到每个 Agent 的[收件箱](docs/collaboration-inbox.md)，可查看消息原文与等待原因；空闲时按议题投递，新任务等上一任务交差
-- 房间成员可[单独设置模型](docs/room-role-models.md)，下次启动时生效，也可随时清除覆盖、沿用默认
+- 协作任务、协商消息与回复集中到每个 Agent 的[收件箱](website/docs/collab.md)，可查看消息原文与等待原因；空闲时按议题投递，新任务等上一任务交差
+- 房间成员可[单独设置模型](website/docs/collab.md)，下次启动时生效，也可随时清除覆盖、沿用默认
 
 **活动通知**
 
@@ -247,11 +247,11 @@ src-tauri/src/        Rust 后端
   usage/              解析 Codex / Claude 会话日志
   plugins/            插件管理、Node 宿主与 MCP 接入
 scripts/              CLI 打包与原生/插件回归脚本
-docs/                 设计、实施与验收记录
+docs/                 状态协议、错误目录与界面截图
 .github/workflows/    PR 检查与草稿发布流水线
 ```
 
-面向用户的文档位于 `website/`（中英双语 Docusaurus 站点，见下文「文档站点」）。设计、评审与实施记录位于 `docs/`。
+面向用户的文档位于 `website/`（中英双语 Docusaurus 站点，见下文「文档站点」）。状态协议、生成的错误目录与界面截图位于 `docs/`。
 
 ### 文档站点
 

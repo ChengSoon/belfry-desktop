@@ -156,5 +156,10 @@
   "ShortcutSettingsSection.expandCount": {
     "one": "Expand {{count}} shortcut",
     "other": "Expand {{count}} shortcuts"
-  }
+  },
+  "ShortcutSettingsSection.groupMeta": "{{count}} items",
+  "ShortcutSettingsSection.groupMetaCustom": "{{count}} items · {{custom}} customized",
+  "ShortcutSettingsSection.expand": "Expand",
+  "ShortcutSettingsSection.collapse": "Collapse",
+  "ShortcutSettingsSection.collapsedHint": "{{count}} items hidden — click to show"
 }

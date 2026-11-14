@@ -12,5 +12,9 @@
     "other": "Synced {{count}} clients (installed or updated: {{changed}}; already current: {{unchanged}})"
   },
   "EnvironmentSection.description": "Check whether Agent CLIs, the belfry command and skills are ready.",
-  "EnvironmentSection.checks": "Checks"
+  "EnvironmentSection.checks": "Checks",
+  "EnvironmentSection.recheck": "Check again",
+  "EnvironmentSection.stateOk": "OK",
+  "EnvironmentSection.stateWarning": "Needs attention",
+  "EnvironmentSection.stateError": "Failed"
 }

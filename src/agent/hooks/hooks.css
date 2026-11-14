@@ -21,3 +21,9 @@
 .hook-status-bar > span:last-child { overflow: hidden; text-overflow: ellipsis; }
 .hook-status-bar__source { flex-shrink: 0; color: var(--text-muted); opacity: .8; }
 .hook-status-bar[data-source="hook"] .hook-status-bar__source { color: var(--accent); opacity: 1; }
+
+/* T42：按汇总稿的行型。 */
+.hook-settings .hook-config-details { margin-top: 4px; font-size: 12px; }
+.hook-settings .hook-error { color: var(--danger); }
+.hook-preview .hook-event-list { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; padding: 0; list-style: none; }
+.hook-preview .hook-event-list li { padding: 0 8px; border-radius: 5px; background: var(--success-soft); color: var(--success); font: 12px/22px var(--font-mono); }

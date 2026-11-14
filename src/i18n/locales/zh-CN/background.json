@@ -37,5 +37,19 @@
   "FontImportCard.text_a92228dfb4": "删除当前字体 {{displayName}}",
   "FontImportCard.imported": {
     "other": "已导入 {{count}} 个字体"
-  }
+  },
+  "AppearanceSection.interface": "界面",
+  "AppearanceSection.reduceMotion": "减少动效",
+  "AppearanceSection.reduceMotionHint": "关闭卡片翻转、弹窗进出场等装饰动画。",
+  "AppearanceSection.compactSidebar": "紧凑侧栏",
+  "AppearanceSection.compactSidebarHint": "会话行更矮、隐藏副标题，适合会话很多时。",
+  "AppearanceSection.theme": "主题",
+  "AppearanceSection.terminalType": "终端排版",
+  "AppearanceSection.pluginThemeHint": "由已安装插件提供，会替换曜石配色",
+  "AppearanceSection.fontHint": "终端与代码区使用",
+  "AppearanceSection.previewLine": "已更新 3 个文件 · 中英对齐 Settings 0Oo1lI",
+  "AppearanceSection.wallpaperTitle": "背景图片或视频",
+  "AppearanceSection.wallpaperHint": "设置后侧栏与标题栏自动半透明",
+  "AppearanceSection.pluginTheme": "插件主题",
+  "AppearanceSection.pluginThemeNone": "未使用"
 }

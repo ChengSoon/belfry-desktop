@@ -10,7 +10,7 @@ test("optional imports begin on open and every panel closes without unmounting t
   await waitFor(view, "!!document.querySelector('#terminal-input')");
   assert.deepEqual([], requests.filter((url) => entry.test(url)));
   const cases = [
-    ["settings", ".settings-nav", ".settings-nav__head button", "SettingsPanel"],
+    ["settings", ".settings-nav", ".settings-topbar button", "SettingsPanel"],
     ["history", ".history-head", '.history-head button[title="关闭历史会话"]', "HistoryPanel"],
     ["usage", ".usage-head", '.usage-head button[aria-label="关闭用量"]', "UsagePanel"],
     ["quickOpen", ".quick-open", null, "QuickOpen"],

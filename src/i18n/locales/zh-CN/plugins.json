@@ -479,5 +479,12 @@
   "PluginDetails.count.views": "{{count}} 个视图",
   "PluginDetails.count.themes": "{{count}} 个主题",
   "PluginDetails.count.services": "{{count}} 个服务",
-  "PluginDetails.count.mcp": "{{count}} 个MCP 服务"
+  "PluginDetails.count.mcp": "{{count}} 个MCP 服务",
+  "InstalledPage.summary": "已安装 {{count}} 个 · {{enabled}} 个启用",
+  "InstalledPage.develop": "开发",
+  "InstalledPage.newHint": "从模板生成 manifest、main.js 与资源",
+  "InstalledPage.create": "新建…",
+  "InstalledPage.loadDevHint": "加载本地目录里的插件，便于调试",
+  "InstalledPage.choose": "选择目录…",
+  "InstalledPage.tools": "{{count}} 个 Agent 工具"
 }

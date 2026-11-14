@@ -64,7 +64,7 @@ function useProviderCardNodes() {
   return { nodes: nodes.current, register };
 }
 
-export function ProviderSection({ onGuardChange }: { onGuardChange: (guarded: boolean) => void }) {
+export function ProviderSection({ onGuardChange, onBack }: { onGuardChange: (guarded: boolean) => void; onBack?: () => void }) {
   useTranslation();
   const {
     providers, kind, setKind, draft, issue, setIssue, pendingRemove, setPendingRemove,
@@ -79,6 +79,8 @@ export function ProviderSection({ onGuardChange }: { onGuardChange: (guarded: bo
   const segmentsRef = useProviderSegments(kind);
   return (
     <section aria-label={t("provider.ProviderSection.text_8b472fc10b")} className="provider-section os-page">
+      {onBack && draft === null ? <button className="provider-editor__back settings-back" onClick={onBack} type="button">
+        <ArrowLeft aria-hidden="true" size={ICON.sm} /><span>{t("provider.ModelRouting.backToRouting")}</span></button> : null}
       <ProviderSettingsHeader busy={providers.loading} editing={draft !== null}
         onAdd={() => openDraft({ ...EMPTY_DRAFT })} onReload={() => void providers.reload()} />
       <div className="provider-segments" ref={segmentsRef} data-active={kind} role="tablist" aria-label="Agent CLI">

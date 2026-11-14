@@ -266,3 +266,11 @@
 }
 .provider-card__selection > .provider-card__status > svg { width: 12px; height: 12px; }
 @media (prefers-reduced-motion: reduce) { .provider-card::before { transition: none; } }
+/* 列数按实际服务数封顶（--provider-columns 由组件写入），窄到放不下时再自动换行，
+   不会出现空的右侧轨道（T41：设置改弹窗后内容区变窄）。 */
+.provider-list {
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(max(min(100%, 240px), calc((100% - (min(var(--provider-columns, 3), 3) - 1) * var(--provider-gap)) / min(var(--provider-columns, 3), 3))), 1fr)
+  );
+}

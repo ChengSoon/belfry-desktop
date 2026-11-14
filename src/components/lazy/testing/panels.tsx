@@ -12,6 +12,8 @@ import "../../../styles.css";
 import "../../../workspace/workspace.css";
 import "../../../panel/panelShell.css";
 import "../../../settings/settingsShell.css";
+// 与 App 一致：设置弹窗外壳（T41）。
+import "../../../settings/settingsDialog.css";
 
 const qa = { mounted: 0, unmounted: 0, ticks: 0, loadCalls: 0,
   release: () => {}, reject: () => {}, open: (_name: string) => {} };

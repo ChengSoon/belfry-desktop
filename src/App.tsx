@@ -46,6 +46,13 @@ import { usePluginWorkspace } from "./plugins/workspace/usePluginWorkspace";
 import "./workspace/obsidianWorkbench.css";
 // 曜石二级界面（设置 / 控件 / Quick Open / 弹窗 / Toast），同样最后加载。
 import "./components/obsidianSurfaces.css";
+// 设置弹窗外壳（T41），接管 .settings-view 的外壳规则，必须在 obsidianSurfaces 之后。
+import "./settings/settingsDialog.css";
+import "./preferences/interface.css";
+import { initInterface } from "./preferences/interface";
+
+// 界面偏好在首帧前生效，避免先动画再关。
+initInterface();
 
 interface PreviewRequest {
   path: string;

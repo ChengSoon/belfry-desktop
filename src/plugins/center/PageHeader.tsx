@@ -3,7 +3,6 @@ import { useTranslation } from "../../i18n";
 import { usePluginsPage } from "./context";
 import { Button } from "./ui";
 import { IconCloudDown, IconDownload, IconMore } from "./icons";
-import { SettingsHeader } from "../../settings/SettingsHeader";
 import { t } from "./i18n";
 import { usePopover } from "./usePopover";
 import { centerApi } from "./api";
@@ -16,12 +15,13 @@ export function PageHeader() {
   const { tab, setTab, market, actions, data } = usePluginsPage();
   const updates = data.plugins.filter((plugin) => plugin.updateAvailable).length;
   return <>
-    <SettingsHeader title={t("plugins.PageHeader.text_e806fbbe8e")} description={t("plugins.PageHeader.text_3b4a0d889a")} actions={<div className="plugins-header-actions">
-        {tab === "market" ? <Button variant="primary" size="sm" disabled={market.loading} onClick={() => void market.refresh(true)}>
-          <IconCloudDown size={14} />{t("plugins.refreshMarket")}</Button> :
-          <Button variant="primary" size="sm" onClick={() => setTab("market")}><IconDownload size={14} />{t("plugins.browseMarket")}</Button>}
-        <HeaderMenu />
-      </div>} />
+    <p className="sk-lede">{t("plugins.PageHeader.text_3b4a0d889a")}</p>
+    <div className="plugins-header-actions">
+      {tab === "market" ? <Button variant="primary" size="sm" disabled={market.loading} onClick={() => void market.refresh(true)}>
+        <IconCloudDown size={14} />{t("plugins.refreshMarket")}</Button> :
+        <Button variant="primary" size="sm" onClick={() => setTab("market")}><IconDownload size={14} />{t("plugins.browseMarket")}</Button>}
+      <HeaderMenu />
+    </div>
     {updates > 0 ? <div className="plugins-alert" role="status">
       <span className="plugins-alert-icon" aria-hidden><IconCloudDown size={15} /></span>
       <div className="plugins-alert-copy"><span className="plugins-alert-title">{t("plugins.updatesReady", { count: updates })}</span></div>

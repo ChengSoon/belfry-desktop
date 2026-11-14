@@ -536,5 +536,12 @@
   "PluginDetails.count.mcp": {
     "one": "{{count}} MCP server",
     "other": "{{count}} MCP servers"
-  }
+  },
+  "InstalledPage.summary": "{{count}} installed · {{enabled}} enabled",
+  "InstalledPage.develop": "Develop",
+  "InstalledPage.newHint": "Generate manifest, main.js and resources from a template",
+  "InstalledPage.create": "Create…",
+  "InstalledPage.loadDevHint": "Load a plugin from a local folder for debugging",
+  "InstalledPage.choose": "Choose folder…",
+  "InstalledPage.tools": "{{count}} agent tools"
 }

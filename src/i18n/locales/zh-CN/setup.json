@@ -9,5 +9,9 @@
   "EnvironmentSection.text_e41906d038": "{{ok}} 正常 · {{warning}} 警告 · {{error}} 异常",
   "contracts.text_69dc809232": "已同步 {{count}} 个客户端（安装/更新 {{changed}}，已是最新 {{unchanged}}）",
   "EnvironmentSection.description": "检查 Agent CLI、belfry 命令与 skill 是否就绪。",
-  "EnvironmentSection.checks": "检查项"
+  "EnvironmentSection.checks": "检查项",
+  "EnvironmentSection.recheck": "重新检查",
+  "EnvironmentSection.stateOk": "正常",
+  "EnvironmentSection.stateWarning": "需处理",
+  "EnvironmentSection.stateError": "失败"
 }

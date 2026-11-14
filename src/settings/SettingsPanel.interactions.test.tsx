@@ -2,6 +2,7 @@ import { Children, isValidElement, type ReactElement, type ReactNode } from "rea
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { SettingsNavigation, SettingsPanel } from "./SettingsPanel";
 import { ProviderSection } from "../provider/components/ProviderSection";
+import { ModelRouting } from "../provider/routing/ModelRouting";
 import type { UpdaterState } from "../updater/contracts";
 
 // Node-only component harness: exercise production callbacks/effects without native IPC.
@@ -51,6 +52,9 @@ function render() {
 function navigation() {
   return find(tree, (element) => element.type === SettingsNavigation)! as ReactElement<Parameters<typeof SettingsNavigation>[0]>;
 }
+function routing() { return find(tree, (element) => element.type === ModelRouting) as ReactElement<{ onManage: () => void }> | undefined; }
+/** 模型服务默认是配线台；需要编辑器（带未保存保护）时先点「管理服务」。 */
+function manage() { routing()!.props.onManage(); render(); }
 function provider() { return find(tree, (element) => element.type === ProviderSection)!; }
 function escape(prevented = false) { keydown.forEach((callback) => callback({ key: "Escape", defaultPrevented: prevented })); }
 beforeEach(() => {
@@ -63,7 +67,16 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
+it("deep link opens the patch bay; manage swaps in the service editor in the same content slot", () => {
+  expect(routing()).toBeDefined();
+  expect(find(tree, (element) => element.type === ProviderSection)).toBeUndefined();
+  manage();
+  expect(routing()).toBeUndefined();
+  expect(provider()).toBeDefined();
+});
+
 it("search leaves the deep-linked editor in the same reconciliation slot, even with no results", () => {
+  manage();
   const before = provider();
   const contentBefore = find(tree, (element) => element.props.className === "settings-content")!;
   navigation().props.onQuery("no-such-section"); render();
@@ -78,6 +91,7 @@ it("search leaves the deep-linked editor in the same reconciliation slot, even w
 });
 
 it("an editing guard survives search and blocks section switching, close and Escape until released", () => {
+  manage();
   provider().props.onGuardChange!(true); render();
   navigation().props.onQuery("外观"); render();
   expect(navigation().props.guarded).toBe(true);
@@ -90,6 +104,9 @@ it("an editing guard survives search and blocks section switching, close and Esc
   escape(true); expect(close).not.toHaveBeenCalled();
   escape(); expect(close).toHaveBeenCalledTimes(1);
   navigation().props.onSelect("appearance"); render();
-  expect(provider()).toBeUndefined();
+  expect(find(tree, (element) => element.type === ProviderSection)).toBeUndefined();
   expect(navigation().props.active).toBe("appearance");
+  // 回到模型服务时重新从配线台开始，不停留在编辑器里。
+  navigation().props.onSelect("provider"); render();
+  expect(routing()).toBeDefined();
 });

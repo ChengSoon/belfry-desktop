@@ -73,14 +73,20 @@ interface FontFamilyFieldProps {
 
 export function FontFamilyField(props: FontFamilyFieldProps) {
   useTranslation();
+  return <label className="appearance__row appearance__row--wide"><span className="appearance__label">{t("background.FontFamilyField.text_078838da42")}</span>
+    <FontFamilyInput {...props} />
+  </label>;
+}
+
+/** 只有输入控件本身（T42 行型：标题在行左侧，控件在右侧）。 */
+export function FontFamilyInput(props: FontFamilyFieldProps) {
+  useTranslation();
   const options = fontOptions(props.importedFonts);
   const selectedValue = props.activeImportedFileName ?? (props.value ? `system-${props.value}` : "default");
-  return <label className="appearance__row appearance__row--wide"><span className="appearance__label">{t("background.FontFamilyField.text_078838da42")}</span>
-    <Combobox ariaLabel={t("background.FontFamilyField.text_078838da42")} value={props.value} selectedValue={selectedValue} placeholder={t("background.FontFamilyField.text_04b7708368")}
+  return <Combobox ariaLabel={t("background.FontFamilyField.text_078838da42")} value={props.value} selectedValue={selectedValue} placeholder={t("background.FontFamilyField.text_04b7708368")}
       maxLength={MAX_FONT_FAMILY_LENGTH} onChange={props.onChange} onCommit={props.onCommit}
       onSelect={(key) => selectFontOption(options.find((option) => option.key === key), props)}
-      options={options.map((option) => ({ value: option.key, label: option.label, description: option.detail }))} />
-  </label>;
+      options={options.map((option) => ({ value: option.key, label: option.label, description: option.detail }))} />;
 }
 
 function selectFontOption(option: FontOption | undefined, props: FontFamilyFieldProps) {

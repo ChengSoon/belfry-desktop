@@ -29,7 +29,7 @@ Run Codex, Claude Code, Pi, Antigravity CLI, OpenCode, and Kimi Code through one
 </div>
 
 > [!WARNING]
-> **Under active development.** The app includes local workspaces, background terminals, session collaboration, history and usage, and an optional PI plugin system. See the [implementation record](docs/cli-manager-implementation.md) for outstanding native and Windows acceptance work. Interfaces and data formats may still change.
+> **Under active development.** The app includes local workspaces, background terminals, session collaboration, history and usage, and an optional PI plugin system. Interfaces and data formats may still change.
 
 ## Download
 
@@ -75,11 +75,11 @@ Neither agent detected? Doesn't matter. Shell sessions don't depend on them, and
 **Agent hosting**
 
 - Detects all six agents automatically: executable path, version, and a reason when unavailable; supports installation and updates
-- Antigravity CLI, OpenCode, and Kimi Code support native history, usage, providers, plugins, queues, and collaboration. See the [integration notes](docs/native-agent-integration.md) for tested versions and native differences
+- Antigravity CLI, OpenCode, and Kimi Code support native history, usage, providers, plugins, queues, and collaboration. See the [integration notes](website/docs/agent.md) for tested versions and native differences
 - Session state separates process lifecycle (creating / running / exited / error) from current behavior (idle / talking / awaiting choice)
 - Tab titles are extracted from your first prompt; the untruncated original stays in the tooltip
-- Tasks, discussions, and replies share each Agent's [collaboration inbox](docs/collaboration-inbox.md), with original messages and waiting reasons visible; messages dispatch by topic when idle, while new tasks wait for the previous task to finish
-- Room members can [choose a model per role](docs/room-role-models.md) for the next launch, or clear the override to use the default
+- Tasks, discussions, and replies share each Agent's [collaboration inbox](website/docs/collab.md), with original messages and waiting reasons visible; messages dispatch by topic when idle, while new tasks wait for the previous task to finish
+- Room members can [choose a model per role](website/docs/collab.md) for the next launch, or clear the override to use the default
 
 **Activity notifications**
 
@@ -119,7 +119,7 @@ Neither agent detected? Doesn't matter. Shell sessions don't depend on them, and
 - Install `.piplug` packages, load development directories, or choose plugins from a marketplace
 - Panels, commands, Agent tools, Skills, settings and themes; executable plugins require local Node.js 20 or newer
 - Templates, validation, packaging and a local personal marketplace, with independent online catalogs also supported
-- See the [PI plugin guide](docs/plugins/pi-runtime-guide.md) and [personal marketplace guide](docs/plugins/own-market-guide.md) for capabilities and permissions
+- See the [PI plugin guide](website/docs/plugins.md) and [personal marketplace guide](website/docs/plugins.md) for capabilities and permissions
 
 **Appearance**
 
@@ -249,15 +249,15 @@ src-tauri/src/        Rust backend
   usage/              Codex / Claude session log parsing
   plugins/            plugin management, Node host and MCP integration
 scripts/              CLI bundling and native/plugin regression scripts
-docs/                 design, implementation and acceptance records
+docs/                 status protocol, error catalog and UI screenshots
 .github/workflows/    PR checks and draft release pipeline
 ```
 
-Start with the [CLI implementation record](docs/cli-manager-implementation.md) and [PI plugin guide](docs/plugins/pi-runtime-guide.md). Step-by-step plans live in `docs/superpowers/plans/`.
+User documentation lives in `website/`. Start with the [Agent guide](website/docs/agent.md), [plugin guide](website/docs/plugins.md), and [terminal status protocol](docs/agent-terminal-status.md).
 
 ## Roadmap
 
-See the [CLI feature backlog](docs/cli-manager-feature-backlog.md) and [implementation record](docs/cli-manager-implementation.md) for planned work and acceptance status. The version entries below retain their historical context:
+See the [changelog](CHANGELOG.md) for released changes. The version entries below retain their historical context:
 
 ### Shipped versions
 

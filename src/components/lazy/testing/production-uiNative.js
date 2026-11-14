@@ -2,6 +2,11 @@
 // Loaded before the unchanged production dist entry, after productionNative.js.
 (() => {
   const qa = window.__productionQA;
+  qa.projectReport = () => ({ rootPath, envConflicts: [], agents: kinds.map(kind => {
+    const choices = qa.catalog.agents.find(item => item.kind === kind).providers.map(item => ({ ...item, configured: item.hasApiKey }));
+    const override = qa.projectOverrides?.[kind] ?? null, choice = choices.find(item => item.id === override);
+    return { kind, providerId: override, source: override ? "project" : "global", effectiveName: choice?.name ?? "官方登录", missing: !!override && !choice, choices };
+  }) });
   const original = window.__TAURI_INTERNALS__.invoke;
   const kinds = ["claude", "codex", "pi", "antigravity", "opencode", "kimi"];
   const labels = { claude: "Claude Code", codex: "Codex", pi: "Pi", antigravity: "Antigravity CLI", opencode: "OpenCode", kimi: "Kimi Code" };
@@ -59,7 +64,9 @@
       return [{ path: "/qa/synthetic-home/long-directory/cli/settings.json", format: "json", content: '{"synthetic":true,"apiKey":"synthetic-test-secret-not-a-real-key"}' }];
     },
     provider_config_save: () => null,
-    project_provider_report: () => ({ rootPath, envConflicts: [], agents: kinds.map(kind => ({ kind, providerId: null, source: "global", effectiveName: "官方登录", missing: false, choices: qa.catalog.agents.find(item => item.kind === kind).providers.map(item => ({ ...item, configured: item.hasApiKey })) })) }),
+    project_provider_report: () => qa.projectReport(),
+    // 合成：记录项目覆盖，回读时按覆盖出报告（真实命令写 .belfry 项目配置）。
+    project_provider_select: ({ selection }) => { qa.projectOverrides ??= {}; if (selection.providerId === null) delete qa.projectOverrides[selection.kind]; else qa.projectOverrides[selection.kind] = selection.providerId; return qa.projectReport(); },
     agent_hooks_report: () => kinds.map(kind => ({ kind, version: "synthetic-1", supported: true, configPath: `/qa/${kind}/config`, installed: 0, expected: 1, stale: 0, disabled: false, note: "Synthetic fixture", error: null })),
     setup_diagnose: () => ({ overall: "ok", checkedAt: Date.now(), checks: [{ id: "synthetic", label: "Synthetic CLI environment", state: "ok", summary: "Fixture only; no real CLI was launched" }] }),
     agent_release_report: () => kinds.map(kind => ({ kind, displayName: labels[kind], command: commands[kind], executable: `/qa/bin/${commands[kind]}`, currentVersion: "1.0.0", latestVersion: "1.0.0", package: "synthetic", state: "ready", notice: "Synthetic fixture", installCommand: null })),

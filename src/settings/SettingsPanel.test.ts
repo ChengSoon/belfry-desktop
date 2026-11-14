@@ -15,6 +15,8 @@ describe("SettingsPanel navigation", () => {
     expect(normalizeSettingsSection("shortcuts")).toBe("shortcuts");
     expect(normalizeSettingsSection("removed-plugin-route")).toBe("appearance");
     expect(normalizeSettingsSection("harness")).toBe("appearance");
+    // 「项目 Provider」并入模型服务，旧深链落到配线台。
+    expect(normalizeSettingsSection("project-provider")).toBe("provider");
   });
 });
 
@@ -24,8 +26,9 @@ describe("Graphite settings directory", () => {
     expect(groups.map((group) => group.label)).toEqual(settingsGroups);
     expect(groups.flatMap((group) => group.sections.map((section) => section.key))).toEqual(settingsSectionKeys);
     expect(groups[0].sections.map((section) => section.key)).toEqual(["appearance", "shortcuts"]);
-    expect(groups[1].sections.map((section) => section.key)).toEqual(["provider", "project-provider", "agent-hooks"]);
-    expect(settingsSectionKeys).toHaveLength(9);
+    expect(groups[1].sections.map((section) => section.key)).toEqual(["provider", "agent-hooks"]);
+    expect(groups[3].sections.map((section) => section.key)).toEqual(["backup", "environment", "about"]);
+    expect(settingsSectionKeys).toHaveLength(8);
     for (const key of settingsSectionKeys) expect(normalizeSettingsSection(key)).toBe(key);
   });
 
@@ -34,17 +37,18 @@ describe("Graphite settings directory", () => {
     expect(keys("  FONT ")).toEqual(["appearance"]);
     expect(keys("壁纸")).toEqual(["appearance"]);
     expect(keys("后台会话")).toEqual(["agent-hooks"]);
-    expect(keys("provider API")).toEqual(["provider", "project-provider"]);
-    expect(keys("帮助与诊断")).toEqual(["environment", "about"]);
+    expect(keys("provider API")).toEqual(["provider"]);
+    expect(keys("项目覆盖")).toEqual(["provider"]);
+    expect(keys("系统")).toEqual(["backup", "environment", "about"]);
     expect(keys("no-such-section")).toEqual([]);
   });
 
   it("renders current-page semantics, guarded navigation and an explicit no-results state", () => {
     const props = { active: "provider" as const, guarded: true, query: "", onQuery: () => {}, onSelect: () => {} };
     const html = renderToStaticMarkup(createElement(SettingsNavigation, props));
-    expect(html.match(/role="group"/g)).toHaveLength(5);
+    expect(html.match(/role="group"/g)).toHaveLength(4);
     expect(html).toContain('aria-current="page"');
-    expect(html.match(/disabled=""/g)).toHaveLength(8);
+    expect(html.match(/disabled=""/g)).toHaveLength(7);
     expect(html).toContain("保存或取消后离开");
     const empty = renderToStaticMarkup(createElement(SettingsNavigation, { ...props, query: "no-such-section" }));
     expect(empty).toContain("没有匹配的设置分类");

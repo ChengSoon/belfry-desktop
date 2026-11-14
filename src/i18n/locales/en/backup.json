@@ -63,5 +63,14 @@
   "workspace.text_c3a5c1917b": "Invalid name or path in backup",
   "workspace.text_ffe9f388f6": "A name or path contains credentials. Remove them before backing up.",
   "BackupSection.restoreTitle": "Restore from backup",
-  "BackupSection.restoreHint": "Preview the backup first and choose which data to restore. It replaces the current data on next launch, after an automatic snapshot."
+  "BackupSection.restoreHint": "Preview the backup first and choose which data to restore. It replaces the current data on next launch, after an automatic snapshot.",
+  "BackupSection.groupBackup": "Backup",
+  "BackupSection.groupLocal": "Local data",
+  "BackupSection.exportAction": "Export…",
+  "BackupSection.undoAction": "Undo",
+  "BackupSection.pendingTag": "On next launch",
+  "BackupSection.diagnostics": "Diagnostics",
+  "BackupSection.diagnosticsHint": "Logs and an environment summary, without keys",
+  "BackupSection.diagnosticsAction": "Export diagnostics…",
+  "BackupSection.diagnosticsDone": "Exported to {{path}}"
 }

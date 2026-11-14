@@ -29,5 +29,16 @@
   "contracts.text_93e474c68e": "状态未知",
   "AboutSection.upgradeAll": "全部升级（{{count}} 个 Agent）",
   "AboutSection.updateAvailable": "发现新版本 v{{version}}",
-  "AboutSection.updateAvailableHint": "下载完成后重启 Belfry 生效。"
+  "AboutSection.updateAvailableHint": "下载完成后重启 Belfry 生效。",
+  "AboutSection.upToDate": "已是最新",
+  "AboutSection.runtime": "运行状态",
+  "AboutSection.links": "链接",
+  "AboutSection.daemon": "后台终端",
+  "AboutSection.daemonHint": "关闭窗口后保留运行的终端",
+  "AboutSection.daemonRunning": "运行中 · {{count}} 个会话",
+  "AboutSection.pluginHost": "插件宿主",
+  "AboutSection.pluginHostHint": "运行插件面板与 Agent 工具",
+  "AboutSection.pluginHostOk": "正常 · {{count}} 个插件",
+  "AboutSection.pluginHostDown": "不可用",
+  "AboutSection.checking": "检查中…"
 }

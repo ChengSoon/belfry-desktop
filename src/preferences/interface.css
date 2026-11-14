@@ -1,0 +1,16 @@
+/* 界面偏好的样式响应（T41）。 */
+/* 减少动效：与系统「减少动态效果」同等处理——关掉过渡与动画，保留状态变化本身。 */
+:root[data-motion="reduced"] *, :root[data-motion="reduced"] *::before, :root[data-motion="reduced"] *::after {
+  animation-duration: 0.01ms !important; animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important; scroll-behavior: auto !important;
+}
+/* 紧凑侧栏：会话行 32 高，适合会话很多时。 */
+:root[data-sidebar-density="compact"] .sidebar .session-row { min-height: 32px; padding-block: 2px; }
+:root[data-sidebar-density="compact"] .sidebar .session-row__sub { display: none; }
+
+/* 设置里的开关：36×20。 */
+.pref-switch { position: relative; flex: none; width: 36px; height: 20px; padding: 0; border: 0; border-radius: 999px; background: var(--surface-hover); box-shadow: inset 0 0 0 1px var(--border-strong); cursor: pointer; transition: background var(--motion-standard) var(--motion-ease); }
+.pref-switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: var(--text-muted); transition: transform var(--motion-standard) var(--motion-ease); }
+.pref-switch[aria-checked="true"] { background: var(--accent); box-shadow: none; }
+.pref-switch[aria-checked="true"]::after { transform: translateX(16px); background: var(--accent-contrast); }
+.pref-switch:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
