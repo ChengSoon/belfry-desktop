@@ -107,6 +107,46 @@ it("treats reattached editor contents as unknown and ignores Hook acknowledgemen
   expect(input.empty).toBe(false);
 });
 
+it("restores native input ownership on reattach without losing it to historical replay gaps", () => {
+  for (const state of ["empty", "occupied", "unknown"] as const) {
+    const input = new ProtocolInputOwnership(agent);
+    input.attach(false, { status: state, revision: 7, outputSequence: 20 });
+    input.accept(status("done", 10));
+    expect(input.ready).toBe(state === "empty");
+    input.gap(4);
+    input.accept(status("idle", 11));
+    expect(input.ready).toBe(state === "empty");
+    input.gap(21);
+    input.accept(status("idle", 12));
+    expect(input.ready).toBe(false);
+  }
+});
+
+it("never restores a native snapshot over a local edit or lost output", () => {
+  const input = new ProtocolInputOwnership(agent);
+  input.userInput("draft typed before the attachment response");
+  input.attach(false, { status: "empty", revision: 0, outputSequence: 20 });
+  input.accept(status("idle", 1));
+  expect(input.ready).toBe(false);
+  const gap = new ProtocolInputOwnership(agent);
+  gap.gap(21);
+  gap.attach(false, { status: "empty", revision: 0, outputSequence: 20 });
+  gap.accept(status("idle", 1));
+  expect(gap.ready).toBe(false);
+});
+
+it("reconciles a submission from the previous view only after its actual working acknowledgement", () => {
+  const input = new ProtocolInputOwnership(agent);
+  input.attach(false, { status: "occupied", revision: 7, outputSequence: 20, submissionSequence: 10 });
+  input.accept(status("working", 8));
+  input.accept(status("done", 9));
+  expect(input.ready).toBe(false);
+  input.gap(4);
+  input.accept(status("working", 11));
+  input.accept(status("done", 12));
+  expect(input.ready).toBe(true);
+});
+
 it("does not acknowledge a queued draft from repeated working reports", () => {
   const input = new ProtocolInputOwnership(agent);
   input.attach(true);

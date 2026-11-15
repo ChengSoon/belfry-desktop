@@ -11,7 +11,7 @@ export interface TaskTone {
  * 一条任务的状态文案。
  *
  * 最要紧的一条规矩：`dispatched` 只表示「指令已经打进对方终端」，**不表示对方做完了**。
- * 任务完成以对方提交的 `belfry done` 为准；会话状态报告里的 done 只表示本轮响应结束。
+ * 任务完成以受信任接收方的显式报告为准；会话状态报告里的 done 只表示本轮响应结束。
  * 因此派发后的任务完成情况仍然未知，等待任务协议里的结果。
  */
 export function deliveryLabel(phase: DeliveryPhase): string { return t(`collab.delivery.${phase}`); }

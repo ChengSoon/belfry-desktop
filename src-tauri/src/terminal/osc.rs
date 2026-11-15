@@ -88,7 +88,9 @@ impl OscColorFilter {
                 Verdict::Partial => return,
                 Verdict::Query(query) => {
                     if query.slot == Slot::ProgramStatus {
-                        filtered.reply.extend_from_slice(super::program_status::REPLY);
+                        filtered
+                            .reply
+                            .extend_from_slice(super::program_status::REPLY);
                     } else if let Some(palette) = palette {
                         filtered.reply.extend_from_slice(&query.response(palette));
                     } else {
@@ -163,12 +165,16 @@ enum Verdict {
 /// 逐位比对已知的查询；状态报告原样转发。
 fn classify(held: &[u8]) -> Verdict {
     let candidates: &[(&[u8], Slot)] = &[
-        (b"\x1b]10;?", Slot::Foreground), (b"\x1b]11;?", Slot::Background),
+        (b"\x1b]10;?", Slot::Foreground),
+        (b"\x1b]11;?", Slot::Background),
         (b"\x1b]7501;?", Slot::ProgramStatus),
     ];
-    let Some(&(prefix, slot)) = candidates.iter().find(|(prefix, _)| {
-        prefix.starts_with(held) || held.starts_with(prefix)
-    }) else { return Verdict::Miss; };
+    let Some(&(prefix, slot)) = candidates
+        .iter()
+        .find(|(prefix, _)| prefix.starts_with(held) || held.starts_with(prefix))
+    else {
+        return Verdict::Miss;
+    };
     let prefix_len = prefix.len();
     if held.len() < prefix_len {
         return Verdict::Partial;
@@ -279,7 +285,10 @@ mod tests {
                 let a = filter.feed(&query[..split], None);
                 let b = filter.feed(&query[split..], None);
                 assert!(a.forward.is_empty() && b.forward.is_empty());
-                assert_eq!([a.reply, b.reply].concat(), super::super::program_status::REPLY);
+                assert_eq!(
+                    [a.reply, b.reply].concat(),
+                    super::super::program_status::REPLY
+                );
                 let next = filter.feed(b"\x1b[c", None);
                 assert_eq!(next.forward, b"\x1b[c");
                 assert!(next.reply.is_empty());

@@ -44,6 +44,8 @@ export interface RoomTask {
   createdAt: number;
   updatedAt: number;
   rev: number;
+  /** Lifecycle generation is distinct from the projection revision. */
+  generation: number;
 }
 
 /** 随消息发出的文件：房间自己的副本，`path` 是本地绝对路径（成员按路径读取）。 */
@@ -121,6 +123,8 @@ export interface RoomSummary {
 export interface RoomsView {
   rooms: RoomSummary[];
   loadError: string | null;
+  /** Session IDs deleted with a room; absent only on older native hosts. */
+  deletedMemberTabIds?: string[];
 }
 
 /** 任务板上的一步操作，与 CLI 的 `belfry room task …` 同一张表。 */

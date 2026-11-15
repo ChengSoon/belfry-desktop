@@ -9,8 +9,18 @@ fn an_unterminated_frame_is_not_dispatched() {
     let identities = SessionIdentities::default();
     let token = token_of(&identities.issue("t1", None));
     let (mut client, stream) = std::os::unix::net::UnixStream::pair().unwrap();
-    let worker = thread::spawn(move || serve_connection(stream, &identities, &SessionRegistry::default(), &TaskBoard::default(), &RoomAccess::default()));
-    client.write_all(line("t1", &token, Command::Peers).as_bytes()).unwrap();
+    let worker = thread::spawn(move || {
+        serve_connection(
+            stream,
+            &identities,
+            &SessionRegistry::default(),
+            &TaskBoard::default(),
+            &RoomAccess::default(),
+        )
+    });
+    client
+        .write_all(line("t1", &token, Command::Peers).as_bytes())
+        .unwrap();
     client.shutdown(std::net::Shutdown::Write).unwrap();
     let mut reply = String::new();
     client.read_to_string(&mut reply).unwrap();
@@ -24,11 +34,16 @@ fn idle_connections_release_at_their_deadline_and_connection_slots_are_bounded()
     use std::io::Read;
     let (_client, stream) = std::os::unix::net::UnixStream::pair().unwrap();
     let started = Instant::now();
-    let mut stream = DeadlineConnection { stream, deadline: started + Duration::from_millis(75) };
+    let mut stream = DeadlineConnection {
+        stream,
+        deadline: started + Duration::from_millis(75),
+    };
     assert!(stream.read(&mut [0u8; 1]).is_err());
     assert!(started.elapsed() < Duration::from_millis(300));
     let budget = Arc::new(AtomicUsize::new(0));
-    let permits: Vec<_> = (0..MAX_CONNECTIONS).map(|_| ConnectionPermit::acquire(&budget).unwrap()).collect();
+    let permits: Vec<_> = (0..MAX_CONNECTIONS)
+        .map(|_| ConnectionPermit::acquire(&budget).unwrap())
+        .collect();
     assert!(ConnectionPermit::acquire(&budget).is_none());
     drop(permits);
     assert_eq!(budget.load(Ordering::Acquire), 0);
@@ -76,11 +91,19 @@ fn a_valid_request_is_served() {
 
     match response {
         Response::Ok {
-            data: ResponseData::Peers { peers, capabilities },
+            data:
+                ResponseData::Peers {
+                    peers,
+                    capabilities,
+                },
         } => {
             assert_eq!(peers.len(), 2);
             assert!(peers[0].is_self);
-            assert!(capabilities.iter().any(|value| value == belfry_protocol::CAPABILITY_ROOMS_V1));
+            assert!(
+                capabilities
+                    .iter()
+                    .any(|value| value == belfry_protocol::CAPABILITY_ROOMS_V1)
+            );
         }
         other => panic!("应该拿到名册：{other:?}"),
     }
@@ -88,21 +111,67 @@ fn a_valid_request_is_served() {
 
 #[test]
 fn inbox_accepts_known_busy_or_offline_agents_without_crossing_project_scope() {
-    let identities = SessionIdentities::default(); let token = token_of(&identities.issue("sender", None));
-    let registry = SessionRegistry::default(); let board = TaskBoard::default();
+    let identities = SessionIdentities::default();
+    let token = token_of(&identities.issue("sender", None));
+    let registry = SessionRegistry::default();
+    let board = TaskBoard::default();
     board.enable_inbox().unwrap();
     for activity in ["talking", "awaiting-choice", "exited"] {
-        let mut target = snapshot("target", "codex"); target.activity = activity.into(); target.can_receive = false;
+        let mut target = snapshot("target", "codex");
+        target.activity = activity.into();
+        target.can_receive = false;
         registry.replace(vec![snapshot("sender", "codex"), target]);
-        let response = handle_line(&line("sender", &token, Command::Send { to: "target".into(), instruction: format!("queue while {activity}"), parent_task: None }),
-            &identities, &registry, &board, &RoomAccess::default());
-        assert!(matches!(response, Response::Ok { data: ResponseData::Sent { .. } }), "{response:?}");
+        let response = handle_line(
+            &line(
+                "sender",
+                &token,
+                Command::Send {
+                    to: "target".into(),
+                    instruction: format!("queue while {activity}"),
+                    parent_task: None,
+                },
+            ),
+            &identities,
+            &registry,
+            &board,
+            &RoomAccess::default(),
+        );
+        assert!(
+            matches!(
+                response,
+                Response::Ok {
+                    data: ResponseData::Sent { .. }
+                }
+            ),
+            "{response:?}"
+        );
     }
     assert_eq!(board.snapshot().len(), 3);
-    assert!(board.snapshot().iter().all(|task| task.project_root.as_deref() == Some("/tmp/project") && task.delivery.phase == task::DeliveryPhase::Accepted));
-    let mut target = snapshot("target", "codex"); target.project_root = Some("/tmp/other-project".into()); registry.replace(vec![snapshot("sender", "codex"), target]);
-    let send = Command::Send { to: "target".into(), instruction: "must not cross projects".into(), parent_task: None };
-    assert!(matches!(handle_line(&line("sender", &token, send), &identities, &registry, &board, &RoomAccess::default()), Response::Error { .. }));
+    assert!(
+        board
+            .snapshot()
+            .iter()
+            .all(|task| task.project_root.as_deref() == Some("/tmp/project")
+                && task.delivery.phase == task::DeliveryPhase::Accepted)
+    );
+    let mut target = snapshot("target", "codex");
+    target.project_root = Some("/tmp/other-project".into());
+    registry.replace(vec![snapshot("sender", "codex"), target]);
+    let send = Command::Send {
+        to: "target".into(),
+        instruction: "must not cross projects".into(),
+        parent_task: None,
+    };
+    assert!(matches!(
+        handle_line(
+            &line("sender", &token, send),
+            &identities,
+            &registry,
+            &board,
+            &RoomAccess::default()
+        ),
+        Response::Error { .. }
+    ));
 }
 
 #[test]
@@ -192,7 +261,11 @@ fn malformed_input_does_not_panic() {
 fn compatible_room_requests_keep_the_authenticated_identity() {
     struct Directory(std::sync::Mutex<Vec<String>>);
     impl RoomDirectory for Directory {
-        fn handle(&self, tab_id: &str, command: &Command) -> Result<(ResponseData, Vec<RoomPost>), String> {
+        fn handle(
+            &self,
+            tab_id: &str,
+            command: &Command,
+        ) -> Result<(ResponseData, Vec<RoomPost>), String> {
             assert!(matches!(command, Command::Rooms));
             self.0.lock().unwrap().push(tab_id.into());
             Ok((ResponseData::Rooms { rooms: vec![] }, vec![]))
@@ -208,18 +281,41 @@ fn compatible_room_requests_keep_the_authenticated_identity() {
     let wrapped = belfry_protocol::room_compat::wrap_command(&Command::Rooms).unwrap();
 
     for (tab, credential) in [("t1", "wrong"), ("t2", token.as_str())] {
-        let denied = handle_line(&line(tab, credential, wrapped.clone()), &identities, &registry, &board, &rooms);
+        let denied = handle_line(
+            &line(tab, credential, wrapped.clone()),
+            &identities,
+            &registry,
+            &board,
+            &rooms,
+        );
         assert!(matches!(denied, Response::Error { message } if message.contains("身份校验失败")));
     }
     let mut wrong_version = Request::new("t1".into(), token.clone(), wrapped.clone());
     wrong_version.version += 1;
-    let denied = handle_line(&serde_json::to_string(&wrong_version).unwrap(), &identities, &registry, &board, &rooms);
+    let denied = handle_line(
+        &serde_json::to_string(&wrong_version).unwrap(),
+        &identities,
+        &registry,
+        &board,
+        &rooms,
+    );
     assert!(matches!(denied, Response::Error { message } if message.contains("版本")));
     assert!(directory.0.lock().unwrap().is_empty());
 
-    let reply = handle_line(&line("t1", &token, wrapped), &identities, &registry, &board, &rooms);
+    let reply = handle_line(
+        &line("t1", &token, wrapped),
+        &identities,
+        &registry,
+        &board,
+        &rooms,
+    );
     let reply = belfry_protocol::room_compat::unwrap_response(reply).unwrap();
-    assert!(matches!(reply, Response::Ok { data: ResponseData::Rooms { .. } }));
+    assert!(matches!(
+        reply,
+        Response::Ok {
+            data: ResponseData::Rooms { .. }
+        }
+    ));
     assert_eq!(*directory.0.lock().unwrap(), ["t1"]);
     assert!(board.snapshot().is_empty(), "兼容外壳不能创建点对点任务");
 }
@@ -236,8 +332,16 @@ fn compatibility_requests_reject_other_commands_and_nested_envelopes() {
         r#"{"kind":"taskState","task":"belfry:rooms:v1:{\"kind\":\"rooms\"}"}"#,
         r#"{"version":1,"tabId":"other","token":"other","command":{"kind":"rooms"}}"#,
     ] {
-        let command = Command::TaskState { task: format!("belfry:rooms:v1:{payload}") };
-        let reply = handle_line(&line("t1", &token, command), &identities, &registry, &board, &RoomAccess::default());
+        let command = Command::TaskState {
+            task: format!("belfry:rooms:v1:{payload}"),
+        };
+        let reply = handle_line(
+            &line("t1", &token, command),
+            &identities,
+            &registry,
+            &board,
+            &RoomAccess::default(),
+        );
         assert!(matches!(reply, Response::Error { message } if message.contains("房间兼容")));
     }
     assert!(board.snapshot().is_empty());
@@ -376,8 +480,15 @@ struct StubRooms {
 }
 
 impl RoomDirectory for StubRooms {
-    fn handle(&self, tab_id: &str, command: &Command) -> Result<(ResponseData, Vec<RoomPost>), String> {
-        self.seen.lock().unwrap().push(format!("{tab_id}:{command:?}"));
+    fn handle(
+        &self,
+        tab_id: &str,
+        command: &Command,
+    ) -> Result<(ResponseData, Vec<RoomPost>), String> {
+        self.seen
+            .lock()
+            .unwrap()
+            .push(format!("{tab_id}:{command:?}"));
         match command {
             Command::RoomSay { text, .. } if text == "坏" => Err("说不了".to_string()),
             Command::RoomSay { .. } => Ok((
@@ -416,7 +527,14 @@ impl RoomDirectory for StubRooms {
 }
 
 fn say(text: &str) -> Command {
-    Command::RoomSay { inbox: None, room: None, text: text.into(), reply_to: None, to: Vec::new(), ask: false }
+    Command::RoomSay {
+        inbox: None,
+        room: None,
+        text: text.into(),
+        reply_to: None,
+        to: Vec::new(),
+        ask: false,
+    }
 }
 
 #[test]
@@ -430,17 +548,43 @@ fn room_commands_go_to_the_directory_and_posts_reach_live_sessions_only() {
     let stub = std::sync::Arc::new(StubRooms::default());
     rooms.set(stub.clone());
 
-    let response = handle_line(&line("t1", &token, say("接口定了吗")), &identities, &registry, &board, &rooms);
-    assert!(matches!(response, Response::Ok { data: ResponseData::RoomSaid { .. } }), "{response:?}");
+    let response = handle_line(
+        &line("t1", &token, say("接口定了吗")),
+        &identities,
+        &registry,
+        &board,
+        &rooms,
+    );
+    assert!(
+        matches!(
+            response,
+            Response::Ok {
+                data: ResponseData::RoomSaid { .. }
+            }
+        ),
+        "{response:?}"
+    );
     let queued = board.snapshot();
     assert_eq!(queued.len(), 1, "只给还在的会话排投递：{queued:?}");
     assert_eq!(queued[0].to, "t2");
     assert_eq!(queued[0].from, "room:r1");
     assert!(queued[0].chat.is_some());
-    assert!(stub.seen.lock().unwrap()[0].starts_with("t1:"), "房间层要知道是谁在说");
+    assert!(
+        stub.seen.lock().unwrap()[0].starts_with("t1:"),
+        "房间层要知道是谁在说"
+    );
 
-    let refused = handle_line(&line("t1", &token, say("坏")), &identities, &registry, &board, &rooms);
-    assert!(matches!(refused, Response::Error { ref message } if message == "说不了"), "{refused:?}");
+    let refused = handle_line(
+        &line("t1", &token, say("坏")),
+        &identities,
+        &registry,
+        &board,
+        &rooms,
+    );
+    assert!(
+        matches!(refused, Response::Error { ref message } if message == "说不了"),
+        "{refused:?}"
+    );
 }
 
 #[test]
@@ -450,11 +594,26 @@ fn rooms_before_the_store_is_ready_read_as_empty_and_other_commands_say_so() {
     let board = TaskBoard::default();
     let token = token_of(&identities.issue("t1", None));
     let rooms = RoomAccess::default();
-    let listed = handle_line(&line("t1", &token, Command::Rooms), &identities, &registry, &board, &rooms);
+    let listed = handle_line(
+        &line("t1", &token, Command::Rooms),
+        &identities,
+        &registry,
+        &board,
+        &rooms,
+    );
     assert!(
         matches!(&listed, Response::Ok { data: ResponseData::Rooms { rooms } } if rooms.is_empty()),
         "{listed:?}"
     );
-    let said = handle_line(&line("t1", &token, say("在吗")), &identities, &registry, &board, &rooms);
-    assert!(matches!(said, Response::Error { ref message } if message.contains("还没就绪")), "{said:?}");
+    let said = handle_line(
+        &line("t1", &token, say("在吗")),
+        &identities,
+        &registry,
+        &board,
+        &rooms,
+    );
+    assert!(
+        matches!(said, Response::Error { ref message } if message.contains("还没就绪")),
+        "{said:?}"
+    );
 }

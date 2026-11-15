@@ -67,9 +67,8 @@ pub(crate) fn detect_agent(kind: AgentKind) -> AgentAvailability {
             reason: Some(format!("未在用户命令环境中找到 {}", kind.command_name())),
         },
     };
-    availability.descriptor.capabilities.structured_state =
-        kind.terminal_status_app().is_some()
-            || super::hooks::features::supported(kind, availability.version.as_deref());
+    availability.descriptor.capabilities.structured_state = kind.terminal_status_app().is_some()
+        || super::hooks::features::supported(kind, availability.version.as_deref());
     availability
 }
 

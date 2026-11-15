@@ -17,14 +17,16 @@ mod attachments;
 mod clipboard_files;
 pub mod commands;
 mod directory;
-mod ledger;
 mod history;
-pub(crate) mod model;
+mod ledger;
 mod member_model;
+pub(crate) mod model;
 pub(crate) mod ops;
 mod store;
 
+pub(crate) use directory::MemberDirectory;
 pub use store::RoomStore;
+pub(crate) use store::deliveries as store_deliveries;
 
 /// Legacy test directory; production adds authenticated inbox operations below.
 #[cfg(test)]
@@ -38,8 +40,22 @@ pub fn member_directory(
 /// 测试里搭房间用：跳过界面，直接加成员（第一位自动当统筹）。
 #[cfg(test)]
 pub mod test_support {
-    pub fn add(room: &mut super::model::Room, tab_id: &str, title: &str, duty: &str) -> Result<(), String> {
-        super::ops::add_member(room, tab_id, "claude", title, duty, false, super::model::now_millis()).map(|_| ())
+    pub fn add(
+        room: &mut super::model::Room,
+        tab_id: &str,
+        title: &str,
+        duty: &str,
+    ) -> Result<(), String> {
+        super::ops::add_member(
+            room,
+            tab_id,
+            "claude",
+            title,
+            duty,
+            false,
+            super::model::now_millis(),
+        )
+        .map(|_| ())
     }
 }
 
@@ -61,19 +77,42 @@ mod member_model_test;
 pub(crate) mod semantics;
 
 /// Production directory adds authenticated inbox commands without changing legacy test fixtures.
-pub(crate) fn inbox_directory(store: std::sync::Arc<RoomStore>, registry: std::sync::Arc<crate::collab::SessionRegistry>, inbox: std::sync::Arc<crate::collab::inbox::InboxService>) -> std::sync::Arc<dyn crate::collab::RoomDirectory> {
-    struct Directory { member: directory::MemberDirectory, inbox: std::sync::Arc<crate::collab::inbox::InboxService> }
+pub(crate) fn inbox_directory(
+    store: std::sync::Arc<RoomStore>,
+    registry: std::sync::Arc<crate::collab::SessionRegistry>,
+    inbox: std::sync::Arc<crate::collab::inbox::InboxService>,
+) -> std::sync::Arc<dyn crate::collab::RoomDirectory> {
+    struct Directory {
+        member: directory::MemberDirectory,
+        inbox: std::sync::Arc<crate::collab::inbox::InboxService>,
+    }
     impl crate::collab::RoomDirectory for Directory {
-        fn inbox_capable(&self) -> bool { true }
-        fn handle(&self, tab: &str, command: &belfry_protocol::Command) -> Result<(belfry_protocol::ResponseData, Vec<crate::collab::RoomPost>), String> {
+        fn inbox_capable(&self) -> bool {
+            true
+        }
+        fn handle(
+            &self,
+            tab: &str,
+            command: &belfry_protocol::Command,
+        ) -> Result<(belfry_protocol::ResponseData, Vec<crate::collab::RoomPost>), String> {
             match command {
-                belfry_protocol::Command::CollaborationInbox { command } => self.inbox.agent(tab, command).map(|data| (data, vec![])),
+                belfry_protocol::Command::CollaborationInbox { command } => {
+                    self.inbox.agent(tab, command).map(|data| (data, vec![]))
+                }
                 _ => self.member.handle(tab, command),
             }
         }
-        fn enqueue_posts(&self, board: &crate::collab::TaskBoard, registry: &crate::collab::SessionRegistry, posts: &[crate::collab::RoomPost]) -> Result<(), String> {
+        fn enqueue_posts(
+            &self,
+            board: &crate::collab::TaskBoard,
+            registry: &crate::collab::SessionRegistry,
+            posts: &[crate::collab::RoomPost],
+        ) -> Result<(), String> {
             self.member.enqueue_posts(board, registry, posts)
         }
     }
-    std::sync::Arc::new(Directory { member: directory::MemberDirectory { store, registry }, inbox })
+    std::sync::Arc::new(Directory {
+        member: directory::MemberDirectory { store, registry },
+        inbox,
+    })
 }

@@ -81,7 +81,9 @@ pub(super) fn list(
         )?;
         out.push(Source {meta, files:vec![file,path.clone(),data.join("conversation_summaries.db-wal")], extra:json!({"busy":row.get::<_,Option<bool>>(5).map_err(storage::error)?.unwrap_or(false)})});
         if out.len() > 20_000 {
-            return Err(AppError::io(belfry_i18n::text("Antigravity 会话数超过扫描上限")));
+            return Err(AppError::io(belfry_i18n::text(
+                "Antigravity 会话数超过扫描上限",
+            )));
         }
     }
     Ok(out)
@@ -146,8 +148,9 @@ pub(super) fn read(source: &Source, check: Check<'_>) -> Result<Vec<Value>, AppE
                 u,
             );
             if model.is_none() {
-                record["belfryNote"] =
-                    json!(belfry_i18n::text("Antigravity 原生转录未记录模型名称或缓存写入量；未知字段保持为空"));
+                record["belfryNote"] = json!(belfry_i18n::text(
+                    "Antigravity 原生转录未记录模型名称或缓存写入量；未知字段保持为空"
+                ));
             }
             records.push(record);
         } else if kind == "ERROR_MESSAGE" {
@@ -211,9 +214,9 @@ pub(super) fn delete(data: &Path, source: &Source) -> Result<(), AppError> {
         .map_err(storage::error)?;
     drop(statement);
     if ids.iter().any(|(_, busy)| *busy) {
-        return Err(AppError::invalid_argument(
-            belfry_i18n::text("请先停止 Antigravity 会话，再删除历史"),
-        ));
+        return Err(AppError::invalid_argument(belfry_i18n::text(
+            "请先停止 Antigravity 会话，再删除历史",
+        )));
     }
     let has_fts = tx
         .query_row(

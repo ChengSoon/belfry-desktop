@@ -66,7 +66,11 @@ fn text(value: &Value, limit: usize, fallback: &str) -> String {
 fn send(app: &AppHandle, input: &Value) -> Result<(), String> {
     app.notification()
         .builder()
-        .title(text(&input["title"], TITLE_LIMIT, belfry_i18n::text("插件通知")))
+        .title(text(
+            &input["title"],
+            TITLE_LIMIT,
+            belfry_i18n::text("插件通知"),
+        ))
         .body(text(&input["body"], BODY_LIMIT, ""))
         .show()
         .map_err(|error| error.to_string())
@@ -99,7 +103,10 @@ mod tests {
             "字".repeat(TITLE_LIMIT),
             text(&original, TITLE_LIMIT, belfry_i18n::text("插件通知"))
         );
-        assert_eq!(belfry_i18n::text("插件通知"), text(&json!("   "), TITLE_LIMIT, belfry_i18n::text("插件通知")));
+        assert_eq!(
+            belfry_i18n::text("插件通知"),
+            text(&json!("   "), TITLE_LIMIT, belfry_i18n::text("插件通知"))
+        );
         assert_eq!("内容", text(&json!("  内容  "), BODY_LIMIT, ""));
     }
 }

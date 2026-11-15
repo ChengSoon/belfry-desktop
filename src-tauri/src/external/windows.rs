@@ -63,9 +63,15 @@ mod tests {
     #[test]
     fn regression_external_failures_have_stable_codes_and_english_fallbacks() {
         let error = serde_json::to_value(check_status(31).unwrap_err()).unwrap();
-        assert_eq!(error["code"], "EXTERNAL_FAILED_TO_OPEN_THE_DEFAULT_BROWSER_SHELLEXECUTEW");
+        assert_eq!(
+            error["code"],
+            "EXTERNAL_FAILED_TO_OPEN_THE_DEFAULT_BROWSER_SHELLEXECUTEW"
+        );
         assert_eq!(error["params"]["status"], 31);
-        assert_eq!(error["message"], "Failed to open the default browser (ShellExecuteW error 31).");
+        assert_eq!(
+            error["message"],
+            "Failed to open the default browser (ShellExecuteW error 31)."
+        );
     }
 
     #[test]

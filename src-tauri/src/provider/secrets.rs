@@ -1,4 +1,4 @@
-//! Provider-only OS master key and authenticated ciphertext. Never formats native errors.
+//! OS master keys and authenticated ciphertext. Provider's v2 format stays unchanged.
 use aes_gcm::{
     Aes256Gcm, KeyInit, Nonce,
     aead::{Aead, OsRng, Payload, rand_core::RngCore},
@@ -10,7 +10,7 @@ use crate::terminal::AppError;
 
 const SERVICE: &str = "app.belfry.provider-vault.v2";
 const MAGIC: &[u8] = b"BELFRY-PROVIDER-VAULT\x02";
-pub(super) type MasterKey = Zeroizing<[u8; 32]>;
+pub(crate) type MasterKey = Zeroizing<[u8; 32]>;
 
 pub(super) fn unavailable() -> AppError {
     AppError::io(
@@ -18,27 +18,33 @@ pub(super) fn unavailable() -> AppError {
     )
 }
 
-pub(super) trait KeyStore {
+pub(crate) trait KeyStore {
     /// None means a positively identified not-found, never an access error.
     fn read(&self) -> Result<Option<MasterKey>, AppError>;
     fn create(&self, key: &MasterKey) -> Result<(), AppError>;
 }
 
-pub(super) struct NativeKeyStore {
+pub(crate) struct NativeKeyStore {
     account: String,
+    service: &'static str,
 }
 
 impl NativeKeyStore {
     pub(super) fn for_directory(path: &std::path::Path) -> Self {
+        Self::for_namespace(path, SERVICE)
+    }
+
+    pub(crate) fn for_namespace(path: &std::path::Path, service: &'static str) -> Self {
         // A fixed-length account avoids the Windows target-name limit. This is an
         // installation namespace, not a credential, and is never used as key material.
         Self {
             account: format!("{:x}", Sha256::digest(path.to_string_lossy().as_bytes())),
+            service,
         }
     }
 }
 
-pub(super) fn random_id() -> Result<String, AppError> {
+pub(crate) fn random_id() -> Result<String, AppError> {
     let mut bytes = [0u8; 16];
     OsRng
         .try_fill_bytes(&mut bytes)
@@ -46,7 +52,7 @@ pub(super) fn random_id() -> Result<String, AppError> {
     Ok(bytes.iter().map(|b| format!("{b:02x}")).collect())
 }
 
-pub(super) fn master(keys: &dyn KeyStore, allow_create: bool) -> Result<MasterKey, AppError> {
+pub(crate) fn master(keys: &dyn KeyStore, allow_create: bool) -> Result<MasterKey, AppError> {
     if let Some(key) = keys.read()? {
         return Ok(key);
     }
@@ -70,12 +76,22 @@ pub(super) fn encrypt(
     generation: &str,
     plain: &[u8],
 ) -> Result<Vec<u8>, AppError> {
+    encrypt_in(key, SERVICE, MAGIC, generation, plain)
+}
+
+pub(crate) fn encrypt_in(
+    key: &MasterKey,
+    service: &str,
+    magic: &[u8],
+    generation: &str,
+    plain: &[u8],
+) -> Result<Vec<u8>, AppError> {
     let cipher = Aes256Gcm::new_from_slice(key.as_ref()).map_err(|_| unavailable())?;
     let mut nonce = [0u8; 12];
     OsRng
         .try_fill_bytes(&mut nonce)
         .map_err(|_| unavailable())?;
-    let aad = format!("{SERVICE}/{generation}");
+    let aad = format!("{service}/{generation}");
     let encrypted = cipher
         .encrypt(
             Nonce::from_slice(&nonce),
@@ -85,7 +101,7 @@ pub(super) fn encrypt(
             },
         )
         .map_err(|_| unavailable())?;
-    let mut bytes = MAGIC.to_vec();
+    let mut bytes = magic.to_vec();
     bytes.extend_from_slice(&nonce);
     bytes.extend_from_slice(&encrypted);
     Ok(bytes)
@@ -96,16 +112,26 @@ pub(super) fn decrypt(
     generation: &str,
     bytes: &[u8],
 ) -> Result<Zeroizing<Vec<u8>>, AppError> {
-    if !bytes.starts_with(MAGIC) || bytes.len() < MAGIC.len() + 12 + 16 {
+    decrypt_in(key, SERVICE, MAGIC, generation, bytes)
+}
+
+pub(crate) fn decrypt_in(
+    key: &MasterKey,
+    service: &str,
+    magic: &[u8],
+    generation: &str,
+    bytes: &[u8],
+) -> Result<Zeroizing<Vec<u8>>, AppError> {
+    if !bytes.starts_with(magic) || bytes.len() < magic.len() + 12 + 16 {
         return Err(unavailable());
     }
     let cipher = Aes256Gcm::new_from_slice(key.as_ref()).map_err(|_| unavailable())?;
-    let aad = format!("{SERVICE}/{generation}");
+    let aad = format!("{service}/{generation}");
     cipher
         .decrypt(
-            Nonce::from_slice(&bytes[MAGIC.len()..MAGIC.len() + 12]),
+            Nonce::from_slice(&bytes[magic.len()..magic.len() + 12]),
             Payload {
-                msg: &bytes[MAGIC.len() + 12..],
+                msg: &bytes[magic.len() + 12..],
                 aad: aad.as_bytes(),
             },
         )
@@ -121,7 +147,7 @@ fn decode_key(bytes: &[u8]) -> Result<MasterKey, AppError> {
 #[cfg(target_os = "macos")]
 impl KeyStore for NativeKeyStore {
     fn read(&self) -> Result<Option<MasterKey>, AppError> {
-        match security_framework::passwords::get_generic_password(SERVICE, &self.account) {
+        match security_framework::passwords::get_generic_password(self.service, &self.account) {
             Ok(bytes) => decode_key(&Zeroizing::new(bytes)).map(Some),
             // errSecItemNotFound. Denied/locked/cancelled must NOT become None.
             Err(error) if error.code() == -25300 => Ok(None),
@@ -132,15 +158,19 @@ impl KeyStore for NativeKeyStore {
         if self.read()?.is_some() {
             return Err(unavailable());
         }
-        security_framework::passwords::set_generic_password(SERVICE, &self.account, key.as_ref())
-            .map_err(|_| unavailable())
+        security_framework::passwords::set_generic_password(
+            self.service,
+            &self.account,
+            key.as_ref(),
+        )
+        .map_err(|_| unavailable())
     }
 }
 
 #[cfg(target_os = "windows")]
 impl NativeKeyStore {
     fn target(&self) -> Vec<u16> {
-        format!("{SERVICE}/{}", self.account)
+        format!("{}/{}", self.service, self.account)
             .encode_utf16()
             .chain(Some(0))
             .collect()
@@ -224,7 +254,7 @@ mod native_tests {
             #[cfg(target_os = "macos")]
             {
                 let _ = security_framework::passwords::delete_generic_password(
-                    SERVICE,
+                    self.0.service,
                     &self.0.account,
                 );
             }
@@ -242,6 +272,7 @@ mod native_tests {
     fn native_synthetic_master_key_round_trip() {
         let entry = SyntheticEntry(NativeKeyStore {
             account: format!("synthetic-test-{}", random_id().unwrap()),
+            service: SERVICE,
         });
         assert!(entry.0.read().unwrap().is_none());
         let key = master(&entry.0, true).unwrap();
@@ -254,6 +285,14 @@ mod native_tests {
         // Drop removes even on assertion failure. Explicitly verify cleanup on success.
         let account = entry.0.account.clone();
         drop(entry);
-        assert!(NativeKeyStore { account }.read().unwrap().is_none());
+        assert!(
+            NativeKeyStore {
+                account,
+                service: SERVICE
+            }
+            .read()
+            .unwrap()
+            .is_none()
+        );
     }
 }

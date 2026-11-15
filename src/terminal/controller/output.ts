@@ -18,7 +18,7 @@ interface OutputPorts {
   themeSync: CodexThemeSync;
   onOutput: (text: string) => void;
   onPasswordPrompt: () => void;
-  onGap: () => void;
+  onGap: (nextSequence: number) => void;
   onExit: (code: number, tail: string) => void;
   onAgentState: (snapshot: HookSnapshot) => void;
   onSessionIdentity?: (session: AgentSessionRef) => void;
@@ -77,7 +77,7 @@ export class TerminalOutput {
       this.tail = "";
       this.ports.themeSync.flush();
       this.ports.terminal.reset();
-      this.ports.onGap();
+      this.ports.onGap(event.nextSequence);
       await this.writeChunks([encoder.encode(`\r\n${t("terminal.output.text_04f2c441d3")}\r\n`)]);
       return;
     }

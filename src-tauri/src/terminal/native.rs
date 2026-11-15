@@ -134,7 +134,8 @@ impl PtyBackend for NativePtyBackend {
             .lock()
             .unwrap()
             .insert(id.clone(), session.clone());
-        let status_agent = crate::agent::AgentKind::from_profile_id(&request.profile_id).filter(|agent| agent.terminal_status_app().is_some());
+        let status_agent = crate::agent::AgentKind::from_profile_id(&request.profile_id)
+            .filter(|agent| agent.terminal_status_app().is_some());
         spawn_reader(id.clone(), reader, session.clone(), status_agent);
         spawn_exit_monitor(id.clone(), child, session, self.sessions.clone());
 
@@ -156,7 +157,12 @@ impl PtyBackend for NativePtyBackend {
         self.write_checked(session_id, bytes, None)
     }
 
-    fn write_checked(&self, session_id: &str, bytes: &[u8], expected_program_sequence: Option<u64>) -> Result<(), AppError> {
+    fn write_checked(
+        &self,
+        session_id: &str,
+        bytes: &[u8],
+        expected_program_sequence: Option<u64>,
+    ) -> Result<(), AppError> {
         let session = self.session(session_id)?;
         let mut writer = session.writer.lock().unwrap();
         let writer = writer.as_mut().ok_or_else(AppError::process_exited)?;
@@ -246,10 +252,17 @@ impl NativePtyBackend {
 }
 
 impl NativeSession {
-    fn observe_program_status(&self, snapshots: &[crate::agent::hooks::HookSnapshot], bracketed_paste: bool, paste_reset: bool) {
+    fn observe_program_status(
+        &self,
+        snapshots: &[crate::agent::hooks::HookSnapshot],
+        bracketed_paste: bool,
+        paste_reset: bool,
+    ) {
         let mut status = self.program_status.lock().unwrap();
         status.bracketed_paste = bracketed_paste;
-        if paste_reset || !bracketed_paste { status.readiness.interrupt(); }
+        if paste_reset || !bracketed_paste {
+            status.readiness.interrupt();
+        }
         for snapshot in snapshots {
             if let Some(report) = snapshot.terminal_status_for(snapshot.agent) {
                 status.readiness.observe(snapshot);
@@ -259,9 +272,17 @@ impl NativeSession {
     }
 
     fn check_program_status(&self, expected: u64) -> Result<(), AppError> {
-        let status = *self.program_status.lock().map_err(|_| AppError::conflict("Native program status is unavailable"))?;
-        if !status.readiness.allows(expected) || !status.report.is_some_and(|(_, ready)| ready) || !status.bracketed_paste {
-            return Err(AppError::conflict("Agent terminal status or paste mode changed before PTY input"));
+        let status = *self
+            .program_status
+            .lock()
+            .map_err(|_| AppError::conflict("Native program status is unavailable"))?;
+        if !status.readiness.allows(expected)
+            || !status.report.is_some_and(|(_, ready)| ready)
+            || !status.bracketed_paste
+        {
+            return Err(AppError::conflict(
+                "Agent terminal status or paste mode changed before PTY input",
+            ));
         }
         // Do not hold the status lock through write_all: the reader must keep draining
         // output while the child consumes a large paste.
@@ -271,11 +292,17 @@ impl NativeSession {
     /// reader 线程回写 OSC 应答。会话已经断开就悄悄丢掉：这条路径上没有能上报错误的对端，
     /// 而且丢掉一条查不到答案的应答，后果只是子进程回落到它自己的默认色。
     fn reply(self: &Arc<Self>, bytes: &[u8]) {
-        if bytes.is_empty() { return; }
+        if bytes.is_empty() {
+            return;
+        }
         let mut replies = self.replies.lock().unwrap();
-        if replies.bytes.len().saturating_add(bytes.len()) > MAX_REPLY_BYTES { return; }
+        if replies.bytes.len().saturating_add(bytes.len()) > MAX_REPLY_BYTES {
+            return;
+        }
         replies.bytes.extend_from_slice(bytes);
-        if replies.running { return; }
+        if replies.running {
+            return;
+        }
         replies.running = true;
         drop(replies);
         // The child may print queries before consuming a large input frame. Waiting
@@ -301,7 +328,12 @@ impl NativeSession {
     }
 }
 
-fn spawn_reader(session_id: String, mut reader: Box<dyn Read + Send>, session: Arc<NativeSession>, status_agent: Option<crate::agent::AgentKind>) {
+fn spawn_reader(
+    session_id: String,
+    mut reader: Box<dyn Read + Send>,
+    session: Arc<NativeSession>,
+    status_agent: Option<crate::agent::AgentKind>,
+) {
     thread::spawn(move || {
         let mut buffer = vec![0_u8; OUTPUT_CHUNK_SIZE];
         let mut filter = OscColorFilter::default();
@@ -320,13 +352,24 @@ fn spawn_reader(session_id: String, mut reader: Box<dyn Read + Send>, session: A
                     break;
                 }
                 Ok(count) => {
-                    let updates = status.as_mut().map(|status| status.feed(&buffer[..count])).unwrap_or_default();
+                    let updates = status
+                        .as_mut()
+                        .map(|status| status.feed(&buffer[..count]))
+                        .unwrap_or_default();
                     read_sequence += 1;
                     let paste_generation = modes.paste_generation;
-                    modes.observe(read_sequence, &buffer[..count], crate::rooms::model::now_millis());
+                    modes.observe(
+                        read_sequence,
+                        &buffer[..count],
+                        crate::rooms::model::now_millis(),
+                    );
                     // Apply every report: blocked -> idle in one read still revokes an older permission.
                     // One lock also keeps writers from observing a transient state within this read.
-                    session.observe_program_status(&updates, modes.bracketed_paste, paste_generation != modes.paste_generation);
+                    session.observe_program_status(
+                        &updates,
+                        modes.bracketed_paste,
+                        paste_generation != modes.paste_generation,
+                    );
                     let palette = *session.palette.read().unwrap();
                     let filtered = filter.feed(&buffer[..count], palette);
                     if !filtered.reply.is_empty() {
@@ -343,13 +386,18 @@ fn spawn_reader(session_id: String, mut reader: Box<dyn Read + Send>, session: A
                         session.reply(&reply);
                     }
                     // 整块都是查询时跳过：前端按 sequence 严格校验，少发一次比发个空事件干净。
-                    if !filtered.forward.is_empty() && send_output(&session_id, &session, filtered.forward, false).is_err() {
+                    if !filtered.forward.is_empty()
+                        && send_output(&session_id, &session, filtered.forward, false).is_err()
+                    {
                         *session.exit_reason.lock().unwrap() = TerminalExitReason::IoFailed;
                         let _ = session.killer.lock().unwrap().kill();
                         break;
                     }
                     for snapshot in updates {
-                        let _ = session.sink.send(TerminalEvent::AgentState { session_id: session_id.clone(), snapshot });
+                        let _ = session.sink.send(TerminalEvent::AgentState {
+                            session_id: session_id.clone(),
+                            snapshot,
+                        });
                     }
                 }
                 Err(_) => {
@@ -360,9 +408,15 @@ fn spawn_reader(session_id: String, mut reader: Box<dyn Read + Send>, session: A
                 }
             }
         }
-        if let Some(snapshot) = status.as_mut().and_then(super::program_status::ProgramStatus::exited) {
+        if let Some(snapshot) = status
+            .as_mut()
+            .and_then(super::program_status::ProgramStatus::exited)
+        {
             session.observe_program_status(std::slice::from_ref(&snapshot), false, false);
-            let _ = session.sink.send(TerminalEvent::AgentState { session_id, snapshot });
+            let _ = session.sink.send(TerminalEvent::AgentState {
+                session_id,
+                snapshot,
+            });
         }
         // A retained done/error report remains useful to the UI, but EOF closes input.
         *session.program_status.lock().unwrap() = ProgramInputStatus::default();

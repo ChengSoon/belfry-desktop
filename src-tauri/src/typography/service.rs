@@ -82,19 +82,27 @@ fn managed_file_name(format: FontFormat) -> String {
 
 fn managed_path(dir: &Path, file_name: &str) -> Result<PathBuf, AppError> {
     let Some((stem, extension)) = file_name.rsplit_once('.') else {
-        return Err(AppError::invalid_argument(belfry_i18n::text("字体文件名无效")));
+        return Err(AppError::invalid_argument(belfry_i18n::text(
+            "字体文件名无效",
+        )));
     };
     if !FontFormat::extensions().contains(&extension) {
-        return Err(AppError::invalid_argument(belfry_i18n::text("字体文件名无效")));
+        return Err(AppError::invalid_argument(belfry_i18n::text(
+            "字体文件名无效",
+        )));
     }
     if stem == LEGACY_STEM {
         return Ok(dir.join(file_name));
     }
     let Some(id) = stem.strip_prefix(FILE_PREFIX) else {
-        return Err(AppError::invalid_argument(belfry_i18n::text("字体文件名无效")));
+        return Err(AppError::invalid_argument(belfry_i18n::text(
+            "字体文件名无效",
+        )));
     };
     if id.len() != ULID_LENGTH || !id.bytes().all(|byte| byte.is_ascii_alphanumeric()) {
-        return Err(AppError::invalid_argument(belfry_i18n::text("字体文件名无效")));
+        return Err(AppError::invalid_argument(belfry_i18n::text(
+            "字体文件名无效",
+        )));
     }
     Ok(dir.join(file_name))
 }
@@ -111,9 +119,12 @@ fn remove_file(dir: &Path, file_name: &str) -> Result<(), AppError> {
 pub(super) fn import(app: &AppHandle, source: &str) -> Result<ImportedFontAsset, AppError> {
     let path = canonicalize(Path::new(source))
         .map_err(|err| AppError::not_found(belfry_i18n::lformat!("打不开这个文件：{err}")))?;
-    let meta = fs::metadata(&path).map_err(|err| AppError::io(belfry_i18n::lformat!("读不到文件信息：{err}")))?;
+    let meta = fs::metadata(&path)
+        .map_err(|err| AppError::io(belfry_i18n::lformat!("读不到文件信息：{err}")))?;
     if !meta.is_file() {
-        return Err(AppError::invalid_argument(belfry_i18n::text("字体必须是一个文件")));
+        return Err(AppError::invalid_argument(belfry_i18n::text(
+            "字体必须是一个文件",
+        )));
     }
     if meta.len() > MAX_BYTES {
         return Err(AppError::invalid_argument(belfry_i18n::lformat!(
@@ -123,11 +134,14 @@ pub(super) fn import(app: &AppHandle, source: &str) -> Result<ImportedFontAsset,
         )));
     }
 
-    let bytes = fs::read(&path).map_err(|err| AppError::io(belfry_i18n::lformat!("读不了这个文件：{err}")))?;
-    let format = sniff_format(&bytes)
-        .ok_or_else(|| AppError::unsupported(belfry_i18n::text("只支持 TTF / OTF / WOFF / WOFF2 字体")))?;
+    let bytes = fs::read(&path)
+        .map_err(|err| AppError::io(belfry_i18n::lformat!("读不了这个文件：{err}")))?;
+    let format = sniff_format(&bytes).ok_or_else(|| {
+        AppError::unsupported(belfry_i18n::text("只支持 TTF / OTF / WOFF / WOFF2 字体"))
+    })?;
     let dir = storage_dir(app)?;
-    fs::create_dir_all(&dir).map_err(|err| AppError::io(belfry_i18n::lformat!("建不了字体目录：{err}")))?;
+    fs::create_dir_all(&dir)
+        .map_err(|err| AppError::io(belfry_i18n::lformat!("建不了字体目录：{err}")))?;
 
     let file_name = managed_file_name(format);
     fs::write(dir.join(&file_name), &bytes)

@@ -3,10 +3,7 @@
 //! Pi 的每条 assistant 消息都带 provider、model 与 usage，工具调用是 content 里的
 //! `toolCall` 块，和 Claude/Codex 的日志结构都不同。
 
-use super::{
-    contracts::SessionTokens,
-    details::Details,
-};
+use super::{contracts::SessionTokens, details::Details};
 use serde_json::Value;
 use std::collections::HashMap;
 
@@ -20,7 +17,10 @@ impl PiUsage {
         if record["role"].as_str() != Some("assistant") {
             return;
         }
-        if record["model"].as_str().is_none_or(|model| model == "<synthetic>") {
+        if record["model"]
+            .as_str()
+            .is_none_or(|model| model == "<synthetic>")
+        {
             return;
         }
         details.model(&record["model"]);

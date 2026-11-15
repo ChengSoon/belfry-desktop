@@ -1,13 +1,14 @@
 #![cfg_attr(target_os = "windows", allow(linker_messages))]
 #![cfg_attr(belfry_cross_check, allow(dead_code, unused_imports))]
 
+mod a2a;
 mod agent;
 mod atomic;
 mod background;
 mod backup;
-mod external;
 mod collab;
 mod collaboration_protocol;
+mod external;
 mod git;
 mod history;
 mod i18n;
@@ -36,11 +37,15 @@ pub fn run() {
     if agent::hooks::run_if_requested() {
         return;
     }
-    if terminal::daemon::run_if_requested() { return; }
-    setup::install_skill_on_startup();
+    if terminal::daemon::run_if_requested() {
+        return;
+    }
+    setup::migrate_collaboration_on_startup();
     let identities = std::sync::Arc::new(collab::SessionIdentities::default());
     let sessions = std::sync::Arc::new(collab::SessionRegistry::default());
-    let board = std::sync::Arc::new(collab::TaskBoard::load(dirs::data_dir().map(|root| root.join(&context.config().identifier).join("collab"))));
+    let board = std::sync::Arc::new(collab::TaskBoard::load(
+        dirs::data_dir().map(|root| root.join(&context.config().identifier).join("collab")),
+    ));
     // 房间目录先挂空位：服务线程在 setup 之前就要起来，而房间存储要等 app
     // 句柄才拿得到路径；装载完成后挂进去，晚到的请求自动看到真实数据。
     let room_access = std::sync::Arc::new(collab::RoomAccess::default());
@@ -58,6 +63,8 @@ pub fn run() {
 
     let app = tauri::Builder::default()
         .manage(plugins::PluginRuntime::default())
+        .manage(a2a::A2aRuntime::default())
+        .manage(a2a::local::LocalGateway::default())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(plugins::launcher::init())
@@ -65,7 +72,8 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(terminal::daemon::lifecycle::ExitState::default())
         .setup(move |app| {
-            let root = app.path()
+            let root = app
+                .path()
                 .app_local_data_dir()?
                 .join(terminal::daemon::directory_name());
             app.manage(TerminalRuntime::with_daemon(root));
@@ -74,20 +82,35 @@ pub fn run() {
             let rooms_root = app.path().app_data_dir().ok().map(|dir| dir.join("rooms"));
             let rooms = std::sync::Arc::new(rooms::RoomStore::load(rooms_root));
             let inbox = std::sync::Arc::new(collab::inbox::InboxService::load(
-                app.path().app_data_dir().ok().map(|dir| dir.join("collab")), rooms.clone(), board_for_inbox.clone(), sessions_for_rooms.clone(),
-                app.state::<TerminalRuntime>().input_gate.clone()));
-            room_access.set(rooms::inbox_directory(rooms.clone(), sessions_for_rooms.clone(), inbox.clone()));
+                app.path().app_data_dir().ok().map(|dir| dir.join("collab")),
+                rooms.clone(),
+                board_for_inbox.clone(),
+                sessions_for_rooms.clone(),
+                app.state::<TerminalRuntime>().input_gate.clone(),
+            ));
+            room_access.set(rooms::inbox_directory(
+                rooms.clone(),
+                sessions_for_rooms.clone(),
+                inbox.clone(),
+            ));
             collab::inbox::InboxService::start(&inbox);
             app.manage(inbox);
             app.manage(rooms);
-            if let Err(error) = i18n::refresh_menu(app.handle()) { log::warn!("Cannot initialize native menu language: {error}"); }
+            if let Err(_) = app.state::<a2a::local::LocalGateway>().start(app.handle()) {
+                log::warn!("Local A2A gateway could not start");
+            }
+            if let Err(error) = i18n::refresh_menu(app.handle()) {
+                log::warn!("Cannot initialize native menu language: {error}");
+            }
             window_reveal::prepare(app.handle());
             Ok(())
         })
         .on_window_event(|window, event| {
             if window.label() == "main" {
                 if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                    if terminal::daemon::lifecycle::request_exit(window.app_handle()) { api.prevent_close(); }
+                    if terminal::daemon::lifecycle::request_exit(window.app_handle()) {
+                        api.prevent_close();
+                    }
                 }
             }
         })
@@ -185,6 +208,13 @@ pub fn run() {
             git::worktrees::commands::worktree_preview_action,
             git::worktrees::commands::worktree_execute,
             provider::commands::provider_list,
+            a2a::commands::a2a_list_connections,
+            a2a::commands::a2a_save_connection,
+            a2a::commands::a2a_remove_connection,
+            a2a::commands::a2a_probe_connection,
+            a2a::commands::a2a_cancel_request,
+            a2a::commands::a2a_list_local_agents,
+            a2a::commands::a2a_local_task_snapshot,
             provider::commands::provider_models,
             provider::commands::provider_remove,
             provider::commands::provider_config_save,
@@ -208,12 +238,13 @@ pub fn run() {
             usage::analytics::commands::usage_cancel_analytics,
             usage::session::commands::session_statistics,
             setup::commands::setup_diagnose,
-            setup::commands::setup_install_skill,
             external::commands::open_external,
             commands::terminal_shell_profiles,
             commands::terminal_create,
             commands::terminal_write,
+            commands::terminal_write_response,
             terminal::commands::terminal_claim_user_input,
+            terminal::commands::terminal_confirm_empty_input,
             terminal::commands::terminal_write_interaction,
             terminal::commands::terminal_finish_interaction,
             terminal::commands::terminal_prepare_prompt,
@@ -244,9 +275,13 @@ pub fn run() {
     plugins::start(app.handle());
     app.run(|handle, event| {
         if let tauri::RunEvent::ExitRequested { api, .. } = &event {
-            if terminal::daemon::lifecycle::request_exit(handle) { api.prevent_exit(); }
+            if terminal::daemon::lifecycle::request_exit(handle) {
+                api.prevent_exit();
+            }
         }
         if matches!(event, tauri::RunEvent::Exit) {
+            handle.state::<a2a::local::LocalGateway>().stop();
+            handle.state::<a2a::A2aRuntime>().stop();
             let _ = handle.state::<TerminalRuntime>().prepare_exit(false);
             handle.state::<plugins::PluginRuntime>().stop();
         }

@@ -2,7 +2,7 @@
 const callbacks = new Map(), channels = new Map();
 let nextCallback = 0;
 const project = { id: "production-qa", name: "panel-qa", rootPath: "/qa/panel-project", rootUri: "file:///qa/panel-project" };
-const qa = window.__productionQA = { calls: [], creates: 0, writes: [], states: {}, preloadErrors: [], errors: [], token: crypto.randomUUID() };
+const qa = window.__productionQA = { calls: [], creates: 0, writes: [], responses: [], states: {}, preloadErrors: [], errors: [], token: crypto.randomUUID() };
 // 用例可直接驱动某个 PTY 的输出（模拟 Agent 屏幕变化），不经过输入通道。
 qa.output = (sessionId, text) => output(sessionId, text);
 qa.agentState = (sessionId, snapshot) => {
@@ -49,13 +49,16 @@ const runtime = { available: true, errors: {}, commands: [], tools: [], skills: 
 const handlers = {
   terminal_create: terminalCreate,
   terminal_claim_user_input: () => null,
+  terminal_confirm_empty_input: () => null,
   terminal_write: ({ sessionId, bytes }) => { qa.writes.push({ sessionId, bytes }); output(sessionId, new TextDecoder().decode(new Uint8Array(bytes))); },
+  terminal_write_response: ({ sessionId, bytes }) => { qa.responses.push({ sessionId, bytes }); },
   terminal_shell_profiles: () => [{ id: "system-default", available: true, executable: "/bin/sh", isDefault: true, reason: null }],
   terminal_background_sessions: () => [],
   terminal_exit_pending: () => false,
   terminal_ack_output: () => true,
   agent_descriptors: () => [], agent_detect: () => [],
   collab_tasks: () => ({ tasks: [] }), collab_pending_tasks: () => [],
+  a2a_local_task_snapshot: () => ({ tasks: [] }),
   room_pending_reviews: () => [],
     // 主界面每 3 秒轮询房间清单做成员会话隔离；生产用例没有房间，回空表。
     room_list: () => ({ rooms: [], loadError: null }),

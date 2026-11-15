@@ -23,6 +23,7 @@ interface PromptInputPorts {
   paste: (text: string) => void;
   enter: () => void;
   write: (sessionId: string, data: string, guarded?: { guard: WriteGuard; sequence: number }) => Promise<void>;
+  respond?: (sessionId: string, data: string) => Promise<void>;
   writeInteraction?: (sessionId: string, data: string, guard: InteractionWriteGuard, sequence: number) => Promise<void>;
   error: (error: unknown) => void;
   settleMs?: number;
@@ -59,14 +60,15 @@ export class PromptInput {
     }
   }
 
-  onData(data: string) {
-    if (this.captured) { this.captured.push(data); return; }
+  onData(data: string, terminalResponse = false) {
+    if (this.captured && !terminalResponse) { this.captured.push(data); return; }
     const sessionId = this.session();
     if (!sessionId) return;
     // 只有 sendText 自己 emit 的写入才带 guard；序号在入队时确定，保证连续。
-    const guarded = this.emitting && this.guard ? { guard: this.guard.guard, sequence: ++this.guard.sequence } : undefined;
+    const guarded = !terminalResponse && this.emitting && this.guard ? { guard: this.guard.guard, sequence: ++this.guard.sequence } : undefined;
     this.lastWrite = this.tail.then(() => {
       if (this.session() !== sessionId) throw new TranslationError("terminal.promptInput.text_76e5a39b93");
+      if (terminalResponse) return this.ports.respond?.(sessionId, data);
       this.writeAttempts += 1;
       return guarded ? this.ports.write(sessionId, data, guarded) : this.ports.write(sessionId, data);
     });

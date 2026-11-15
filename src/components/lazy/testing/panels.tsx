@@ -45,6 +45,8 @@ const Styled = createOptionalPanel({ title: "样式面板", layout: "usage", wid
   } });
 const noop = () => {};
 const defaults: ComponentProps<typeof AppOverlays> = {
+  a2aProject: null, onCloseA2A: noop,
+  onDeleteRoomSessions: noop,
   agents: [], failure: null, historyOpen: false, pendingClose: null, pendingRemove: null, pendingRemoveTabCount: 0,
   project: null, quickOpenItems: [], quickOpenOpen: false, quickOpenShortcut: "⌘K", roomsOpen: false, settingsOpen: false,
   shortcutGuideOpen: false, shortcutPlatform: "macos", tabs: [], updaterOpen: false,

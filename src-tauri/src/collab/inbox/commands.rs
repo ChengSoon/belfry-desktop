@@ -32,10 +32,18 @@ pub(crate) fn collab_inbox_messages(
     limit: Option<usize>,
     message_id: Option<String>,
 ) -> Result<MessagesView, AppError> {
-    inbox.messages(&session_key, room_id.as_deref(), cursor.as_deref(), limit, message_id.as_deref())
+    inbox.messages(
+        &session_key,
+        room_id.as_deref(),
+        cursor.as_deref(),
+        limit,
+        message_id.as_deref(),
+    )
 }
 #[tauri::command]
-pub(crate) fn collab_inbox_pending(inbox: State<'_, Arc<InboxService>>) -> Result<Pending, AppError> {
+pub(crate) fn collab_inbox_pending(
+    inbox: State<'_, Arc<InboxService>>,
+) -> Result<Pending, AppError> {
     inbox.pending()
 }
 #[tauri::command]

@@ -98,8 +98,8 @@ mod tests {
     use super::*;
     #[test]
     fn translations_reorder_fields_without_inspecting_values() {
-        assert_eq!(translated("[belfry] 来自「{from_label}」的任务 {}\n{}\n完成后执行：belfry done {}").unwrap(),
-            "[belfry] Task {0} from \"{from_label}\"\n{1}\nWhen finished, run: belfry done {2}");
+        assert_eq!(translated("[belfry] 来自「{from_label}」的任务 {}\n{}\n用 A2ALocalTasks 找到此任务并取得 reportHandle 和 generation，先用 A2ALocalTask 读取完整上下文，再用 A2AReportTask 显式报告 working、inputRequired、completed 或 failed，并提供实际结果。终端闲置不是完成信号。").unwrap(),
+            "[belfry] Task {0} from \"{from_label}\"\n{1}\nFind this task through A2ALocalTasks to obtain reportHandle and generation. Read its complete context with A2ALocalTask, then explicitly report working, inputRequired, completed or failed through A2AReportTask with actual results. An idle terminal does not complete a task.");
         assert_eq!(translated("角色名最多 {MAX_TITLE_CHARS} 个字").unwrap(), "Role names may contain at most {MAX_TITLE_CHARS} characters.");
     }
 }

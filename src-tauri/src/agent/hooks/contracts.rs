@@ -17,8 +17,14 @@ pub(crate) struct HookSnapshot {
 }
 
 impl HookSnapshot {
-    pub fn terminal_status_for(&self, agent: AgentKind) -> Option<&crate::agent::TerminalProgramStatus> {
-        if agent.terminal_status_app().is_none() || self.agent != agent || self.source != AgentStateSource::TerminalProtocol {
+    pub fn terminal_status_for(
+        &self,
+        agent: AgentKind,
+    ) -> Option<&crate::agent::TerminalProgramStatus> {
+        if agent.terminal_status_app().is_none()
+            || self.agent != agent
+            || self.source != AgentStateSource::TerminalProtocol
+        {
             return None;
         }
         self.program_status.as_ref()

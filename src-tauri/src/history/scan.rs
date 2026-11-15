@@ -40,7 +40,9 @@ pub fn pi_config_dir() -> Option<PathBuf> {
 }
 
 fn cli_root(variable: &str, directory: &str) -> Option<PathBuf> {
-    std::env::var_os(variable).filter(|value| !value.is_empty()).map(PathBuf::from)
+    std::env::var_os(variable)
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from)
         .or_else(|| home_dir().map(|home| home.join(directory)))
 }
 

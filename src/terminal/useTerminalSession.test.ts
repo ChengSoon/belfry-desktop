@@ -51,8 +51,8 @@ vi.mock("../background/BackgroundProvider", () => ({ useBackground: () => ({ url
 vi.mock("@tauri-apps/api/core", () => ({ Channel: class { onmessage = (_: unknown) => {}; } }));
 vi.mock("@tauri-apps/api/webview", () => ({ getCurrentWebview: () => ({ onDragDropEvent: async () => () => {} }) }));
 vi.mock("./api", () => ({ createTerminal: vi.fn(), closeTerminal: vi.fn(), closeTerminalTab: vi.fn(), detachTerminal: vi.fn(),
-  writeTerminal: vi.fn(), writeTerminalInteraction: vi.fn(), finishTerminalInteraction: vi.fn(),
-  claimTerminalUserInput: vi.fn(), prepareTerminalPrompt: vi.fn(), finishTerminalPrompt: vi.fn(),
+  writeTerminal: vi.fn(), writeTerminalResponse: vi.fn(), writeTerminalInteraction: vi.fn(), finishTerminalInteraction: vi.fn(),
+  claimTerminalUserInput: vi.fn(), confirmTerminalEmptyInput: vi.fn(), prepareTerminalPrompt: vi.fn(), finishTerminalPrompt: vi.fn(),
   acknowledgeTerminalOutput: vi.fn(), resizeTerminal: vi.fn(), setTerminalPalette: vi.fn() }));
 vi.mock("@xterm/addon-fit", () => ({ FitAddon: class { fit() {} } }));
 vi.mock("@xterm/addon-webgl", () => ({ WebglAddon: class { onContextLoss() {} dispose() {} } }));
@@ -136,7 +136,7 @@ beforeEach(() => {
   vi.stubGlobal("navigator", { userAgent: "Mac" });
   vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
   appearance.mode = "light";
-  container = { current: { clientWidth: 0, clientHeight: 0, classList: { remove() {} } } as unknown as HTMLDivElement };
+  container = { current: Object.assign(new EventTarget(), { clientWidth: 0, clientHeight: 0, classList: { remove() {} } }) as unknown as HTMLDivElement };
   launch = { profileId: "agent:codex", cwd: "file:///project", tabId: "tab", collaborationMode: false,
     resumeSessionId: null, ssh: null, projectLaunch: { env: {}, startup: { command: "startup-once" } } };
   vi.mocked(createTerminal).mockImplementation(async (_request, _channel, attachment) => session(attachment ?? `pty-${vi.mocked(createTerminal).mock.calls.length}`, !!attachment));
@@ -154,6 +154,31 @@ beforeEach(() => {
 afterEach(() => { unmount(); vi.restoreAllMocks(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 describe.each(["codex", "claude"] as const)("%s automatic input ownership", (kind) => {
+  it("delivers after remount using native empty ownership despite a historical replay gap", async () => {
+    vi.mocked(createTerminal).mockResolvedValueOnce({ ...session("existing-pty", true),
+      inputState: { status: "empty", revision: 7, outputSequence: 20 } });
+    await start({ profileId: `agent:${kind}`, attachmentId: "existing-pty", projectLaunch: undefined });
+    await emit({ kind: "replay_gap", sessionId: "existing-pty", nextSequence: 4, droppedEvents: 4 });
+    await emit({ kind: "agent_state", sessionId: "existing-pty", snapshot: statusReport(kind, "done", 10) });
+    expect(view.commandTarget.composerEmpty?.()).toBe(true);
+    expect(view.commandTarget.sendText("next room message")).toBe(true);
+    await advance(250);
+    expect(writeTerminal).toHaveBeenCalledTimes(2);
+    expect(prepareTerminalPrompt).toHaveBeenCalledWith("existing-pty", "next room message");
+  });
+
+  it.each(["occupied", "unknown"] as const)("keeps a remounted %s input blocked", async status => {
+    vi.mocked(createTerminal).mockResolvedValueOnce({ ...session("existing-pty", true),
+      inputState: { status, revision: 7, outputSequence: 20 } });
+    await start({ profileId: `agent:${kind}`, attachmentId: "existing-pty", projectLaunch: undefined });
+    await emit({ kind: "replay_gap", sessionId: "existing-pty", nextSequence: 4, droppedEvents: 4 });
+    await emit({ kind: "agent_state", sessionId: "existing-pty", snapshot: statusReport(kind, "done", 10) });
+    expect(view.commandTarget.composerEmpty?.()).toBe(false);
+    expect(view.commandTarget.sendText("must not overwrite a draft")).toBe(false);
+    expect(prepareTerminalPrompt).not.toHaveBeenCalled();
+    expect(writeTerminal).not.toHaveBeenCalled();
+  });
+
   it("claims the native editor for IME before there are any terminal bytes", async () => {
     await start({ profileId: `agent:${kind}`, projectLaunch: undefined });
     const id = view.daemonSessionId!;

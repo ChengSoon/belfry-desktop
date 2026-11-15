@@ -10,15 +10,22 @@ function props(): WorkbenchProps {
     opening: false, previewOpen: false, pluginDockOpen: false, quickOpenOpen: false, recentProjects: [], rects: new Map(),
     shortcutGuideOpen: false, shortcutPlatform: "macos", split: false, stageRef: { current: null }, tabs: [],
     onClosePane: vi.fn(), onDragStart: vi.fn(), onFocus: vi.fn(), onLaunchShell: vi.fn(), onOpenFile: vi.fn(),
-    onOpenProject: vi.fn(), onOpenShortcutGuide: vi.fn(), onRegisterTarget: vi.fn(), onRequestRemove: vi.fn(),
+    onOpenProject: vi.fn(), onOpenA2A: vi.fn(), onOpenShortcutGuide: vi.fn(), onRegisterTarget: vi.fn(), onRequestRemove: vi.fn(),
     onResize: vi.fn(), onRevealSidebar: vi.fn(), onSnapshot: vi.fn(), onToggleCollab: vi.fn(), onTogglePreview: vi.fn(), onToggleQuickOpen: vi.fn() };
 }
 
-it("按稿保留分屏、文件和更多三个工具入口，待确认提示并入更多", () => {
+it("项目顶部保留独立 A2A 入口，以及分屏、文件和更多工具", () => {
   const html = renderToStaticMarkup(<WorkbenchToolbar {...props()} />);
-  expect((html.match(/<button/g) ?? []).length).toBe(4);
-  for (const label of ["很长的项目名称", "分屏", "文件预览", "更多工具，2 条协作待确认"]) expect(html).toContain(label);
+  expect((html.match(/<button/g) ?? []).length).toBe(5);
+  for (const label of ["很长的项目名称", "当前项目的 A2A 连接", "分屏", "文件预览", "更多工具，2 条协作待确认"]) expect(html).toContain(label);
   for (const label of ["Quick Open", "workbench-collab", "切换到亮色主题", "插件启动器", "快捷指令"]) expect(html).not.toContain(label);
+});
+
+it("没有项目时不能打开 A2A，项目连接入口声明对话框状态", () => {
+  const html = renderToStaticMarkup(<WorkbenchToolbar {...props()} activeProject={null} />);
+  expect(html).toMatch(/class="workbench-a2a"[^>]*disabled=""/);
+  const open = renderToStaticMarkup(<WorkbenchToolbar {...props()} a2aOpen />);
+  expect(open).toMatch(/class="workbench-a2a"[^>]*aria-haspopup="dialog" aria-expanded="true"/);
 });
 
 it("更多面板在所有尺寸下保留原工具、主题、搜索与文件入口", () => {

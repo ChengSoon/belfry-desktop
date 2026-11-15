@@ -25,7 +25,9 @@ pub const LEDGER_VERSION: u32 = 1;
 #[cfg(test)]
 thread_local! { static REPLAY_BYTES: std::cell::Cell<u64> = const { std::cell::Cell::new(0) }; }
 #[cfg(test)]
-pub(super) fn take_replay_bytes() -> u64 { REPLAY_BYTES.replace(0) }
+pub(super) fn take_replay_bytes() -> u64 {
+    REPLAY_BYTES.replace(0)
+}
 
 /// 旧版本的破坏性压缩阈值，仅用于兼容回归；原账本现保留到删除房间。
 #[cfg(test)]
@@ -87,7 +89,14 @@ struct WithdrawRecipientData {
     reason: String,
 }
 
-fn event(room_id: &str, id: String, ts: i64, kind: &str, by: &str, data: impl Serialize) -> LedgerEvent {
+fn event(
+    room_id: &str,
+    id: String,
+    ts: i64,
+    kind: &str,
+    by: &str,
+    data: impl Serialize,
+) -> LedgerEvent {
     LedgerEvent {
         v: LEDGER_VERSION,
         id,
@@ -112,7 +121,14 @@ pub fn message_event(room_id: &str, message: &Message) -> LedgerEvent {
         reply_to: message.reply_to.clone(),
         attachments: message.attachments.clone(),
     };
-    event(room_id, message.id.clone(), message.at, kind, &message.by, data)
+    event(
+        room_id,
+        message.id.clone(),
+        message.at,
+        kind,
+        &message.by,
+        data,
+    )
 }
 
 pub fn delivery_event(room_id: &str, message_id: &str, member_id: &str, ts: i64) -> LedgerEvent {
@@ -122,17 +138,50 @@ pub fn delivery_event(room_id: &str, message_id: &str, member_id: &str, ts: i64)
         state: "accepted".to_string(),
         transport: "pty".to_string(),
     };
-    event(room_id, super::model::new_id(), ts, RUNTIME_DELIVERY, "system", data)
+    event(
+        room_id,
+        super::model::new_id(),
+        ts,
+        RUNTIME_DELIVERY,
+        "system",
+        data,
+    )
 }
 
 pub fn cancel_event(room_id: &str, message_id: &str, by: &str, ts: i64) -> LedgerEvent {
-    let data = CancelData { source_event_id: message_id.to_string() };
-    event(room_id, super::model::new_id(), ts, REPLY_CANCELLED, by, data)
+    let data = CancelData {
+        source_event_id: message_id.to_string(),
+    };
+    event(
+        room_id,
+        super::model::new_id(),
+        ts,
+        REPLY_CANCELLED,
+        by,
+        data,
+    )
 }
 
-pub fn withdraw_recipient_event(room_id: &str, message_id: &str, member_id: &str, by: &str, ts: i64) -> LedgerEvent {
-    let data = WithdrawRecipientData { source_event_id: message_id.into(), member_id: member_id.into(), reason: "Inbox recipient withdrawn before submission".into() };
-    event(room_id, super::model::new_id(), ts, RECIPIENT_WITHDRAWN, by, data)
+pub fn withdraw_recipient_event(
+    room_id: &str,
+    message_id: &str,
+    member_id: &str,
+    by: &str,
+    ts: i64,
+) -> LedgerEvent {
+    let data = WithdrawRecipientData {
+        source_event_id: message_id.into(),
+        member_id: member_id.into(),
+        reason: "Inbox recipient withdrawn before submission".into(),
+    };
+    event(
+        room_id,
+        super::model::new_id(),
+        ts,
+        RECIPIENT_WITHDRAWN,
+        by,
+        data,
+    )
 }
 
 /// 把一条事件投影到房间上。幂等：同一批事件重复追加（保存失败后重试）时，
@@ -140,36 +189,87 @@ pub fn withdraw_recipient_event(room_id: &str, message_id: &str, member_id: &str
 pub fn apply(room: &mut Room, event: &LedgerEvent) {
     match event.kind.as_str() {
         CHAT_MESSAGE | SYSTEM_NOTIFY => {
-            let Ok(data) = MessageData::deserialize(&event.data) else { return };
+            let Ok(data) = MessageData::deserialize(&event.data) else {
+                return;
+            };
             if room.all_messages().any(|message| message.id == event.id) {
                 return;
             }
-            let answers = data.inbox.as_ref().map(|s| s.answers.clone()).unwrap_or_default();
-            for original in room.retained_messages.iter_mut().chain(room.messages.iter_mut()) {
+            let answers = data
+                .inbox
+                .as_ref()
+                .map(|s| s.answers.clone())
+                .unwrap_or_default();
+            for original in room
+                .retained_messages
+                .iter_mut()
+                .chain(room.messages.iter_mut())
+            {
                 if let Some(semantics) = &mut original.inbox {
-                    if data.reply_to.as_deref() == Some(&original.id) || semantics.questions.iter().any(|question| answers.contains(&question.id)) { semantics.revision = semantics.revision.max(1).saturating_add(1); }
+                    if data.reply_to.as_deref() == Some(&original.id)
+                        || semantics
+                            .questions
+                            .iter()
+                            .any(|question| answers.contains(&question.id))
+                    {
+                        semantics.revision = semantics.revision.max(1).saturating_add(1);
+                    }
                     for question in &mut semantics.questions {
-                        let legacy_reply = question.legacy && data.reply_to.as_deref() == Some(&original.id);
-                        let same_recipient = if let Some(sender) = &data.inbox { sender.sender_tab.as_ref().is_some_and(|tab| semantics.recipient_tabs.get(&event.by) == Some(tab)) } else { question.legacy };
-                        if (answers.contains(&question.id) || legacy_reply) && question.recipients.contains(&event.by) && same_recipient
-                            && !question.cancelled_for.contains(&event.by) && !original.reply_cancelled {
+                        let legacy_reply =
+                            question.legacy && data.reply_to.as_deref() == Some(&original.id);
+                        let same_recipient = if let Some(sender) = &data.inbox {
+                            sender.sender_tab.as_ref().is_some_and(|tab| {
+                                semantics.recipient_tabs.get(&event.by) == Some(tab)
+                            })
+                        } else {
+                            question.legacy
+                        };
+                        if (answers.contains(&question.id) || legacy_reply)
+                            && question.recipients.contains(&event.by)
+                            && same_recipient
+                            && !question.cancelled_for.contains(&event.by)
+                            && !original.reply_cancelled
+                        {
                             let replies = question.replies.entry(event.by.clone()).or_default();
-                            if !replies.contains(&event.id) { replies.push(event.id.clone()); }
+                            if !replies.contains(&event.id) {
+                                replies.push(event.id.clone());
+                            }
                         }
                     }
-                    let applicable: Vec<_> = semantics.questions.iter().filter(|q| q.recipients.contains(&event.by)).collect();
-                    if !applicable.is_empty() && applicable.iter().all(|q| q.replies.contains_key(&event.by))
-                        && !original.replied_by.contains(&event.by) { original.replied_by.push(event.by.clone()); }
-                } else if data.reply_to.as_deref() == Some(&original.id) && original.to.contains(&event.by) && !original.replied_by.contains(&event.by) {
+                    let applicable: Vec<_> = semantics
+                        .questions
+                        .iter()
+                        .filter(|q| q.recipients.contains(&event.by))
+                        .collect();
+                    if !applicable.is_empty()
+                        && applicable.iter().all(|q| q.replies.contains_key(&event.by))
+                        && !original.replied_by.contains(&event.by)
+                    {
+                        original.replied_by.push(event.by.clone());
+                    }
+                } else if data.reply_to.as_deref() == Some(&original.id)
+                    && original.to.contains(&event.by)
+                    && !original.replied_by.contains(&event.by)
+                {
                     original.replied_by.push(event.by.clone());
                 }
             }
-            super::semantics::remember_operation(room, &event.by, &event.id, &data.to, data.inbox.as_ref());
+            super::semantics::remember_operation(
+                room,
+                &event.by,
+                &event.id,
+                &data.to,
+                data.inbox.as_ref(),
+            );
             room.messages.push(Message {
                 inbox: data.inbox,
                 id: event.id.clone(),
                 at: event.ts,
-                kind: if event.kind == SYSTEM_NOTIFY { MessageKind::Notice } else { MessageKind::Chat },
+                kind: if event.kind == SYSTEM_NOTIFY {
+                    MessageKind::Notice
+                } else {
+                    MessageKind::Chat
+                },
                 by: event.by.clone(),
                 text: data.text,
                 to: data.to,
@@ -182,7 +282,9 @@ pub fn apply(room: &mut Room, event: &LedgerEvent) {
             });
         }
         RUNTIME_DELIVERY => {
-            let Ok(data) = DeliveryData::deserialize(&event.data) else { return };
+            let Ok(data) = DeliveryData::deserialize(&event.data) else {
+                return;
+            };
             if data.state != "accepted" {
                 return;
             }
@@ -193,24 +295,44 @@ pub fn apply(room: &mut Room, event: &LedgerEvent) {
             }
         }
         RECIPIENT_WITHDRAWN => {
-            let Ok(data) = WithdrawRecipientData::deserialize(&event.data) else { return; };
-            if let Some(message) = room.message_mut(&data.source_event_id) && let Some(semantics) = &mut message.inbox {
+            let Ok(data) = WithdrawRecipientData::deserialize(&event.data) else {
+                return;
+            };
+            if let Some(message) = room.message_mut(&data.source_event_id)
+                && let Some(semantics) = &mut message.inbox
+            {
                 let mut changed = false;
                 for question in &mut semantics.questions {
-                    if question.recipients.contains(&data.member_id) && !question.replies.contains_key(&data.member_id) && !question.cancelled_for.contains(&data.member_id) {
-                        question.cancelled_for.push(data.member_id.clone()); changed = true;
+                    if question.recipients.contains(&data.member_id)
+                        && !question.replies.contains_key(&data.member_id)
+                        && !question.cancelled_for.contains(&data.member_id)
+                    {
+                        question.cancelled_for.push(data.member_id.clone());
+                        changed = true;
                     }
                 }
-                if changed { semantics.revision = semantics.revision.max(1).saturating_add(1); }
+                if changed {
+                    semantics.revision = semantics.revision.max(1).saturating_add(1);
+                }
             }
         }
         REPLY_CANCELLED => {
-            let Ok(data) = CancelData::deserialize(&event.data) else { return };
+            let Ok(data) = CancelData::deserialize(&event.data) else {
+                return;
+            };
             if let Some(message) = room.message_mut(&data.source_event_id) {
                 message.reply_cancelled = true;
-                if let Some(semantics) = &mut message.inbox { semantics.revision = semantics.revision.max(1).saturating_add(1); for question in &mut semantics.questions {
-                    question.cancelled_for = question.recipients.iter().filter(|id| !question.replies.contains_key(*id)).cloned().collect();
-                } }
+                if let Some(semantics) = &mut message.inbox {
+                    semantics.revision = semantics.revision.max(1).saturating_add(1);
+                    for question in &mut semantics.questions {
+                        question.cancelled_for = question
+                            .recipients
+                            .iter()
+                            .filter(|id| !question.replies.contains_key(*id))
+                            .cloned()
+                            .collect();
+                    }
+                }
             }
         }
         _ => {}
@@ -220,9 +342,13 @@ pub fn apply(room: &mut Room, event: &LedgerEvent) {
 
 pub fn path(root: &Path, room_id: &str) -> Result<PathBuf, AppError> {
     let valid = room_id.len() == 26
-        && room_id.bytes().all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit());
+        && room_id
+            .bytes()
+            .all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit());
     if !valid {
-        return Err(AppError::invalid_argument("房间编号无效，找不到它的消息账本"));
+        return Err(AppError::invalid_argument(
+            "房间编号无效，找不到它的消息账本",
+        ));
     }
     Ok(root.join("ledgers").join(format!("{room_id}.jsonl")))
 }
@@ -239,16 +365,26 @@ pub fn length(path: &Path) -> Result<u64, AppError> {
 }
 
 /// 旧存储升级时只保留一行与当前投影；日常启动直接使用 rooms.json 的完整投影快照。
-pub fn visit_committed(path: &Path, committed: u64, mut visit: impl FnMut(LedgerEvent)) -> Result<(), AppError> {
-    if committed == 0 { return Ok(()); }
-    if length(path)? < committed { return Err(AppError::io("消息账本短于已提交游标，已保留现场")); }
+pub fn visit_committed(
+    path: &Path,
+    committed: u64,
+    mut visit: impl FnMut(LedgerEvent),
+) -> Result<(), AppError> {
+    if committed == 0 {
+        return Ok(());
+    }
+    if length(path)? < committed {
+        return Err(AppError::io("消息账本短于已提交游标，已保留现场"));
+    }
     let file = fs::File::open(path).map_err(|error| AppError::io(error.to_string()))?;
     let mut reader = BufReader::new(file.take(committed));
     let mut line = Vec::new();
     let mut oversized = false;
     let mut index = 1;
     loop {
-        let buffer = reader.fill_buf().map_err(|error| AppError::io(error.to_string()))?;
+        let buffer = reader
+            .fill_buf()
+            .map_err(|error| AppError::io(error.to_string()))?;
         if buffer.is_empty() {
             visit_line(path, index, &line, oversized, &mut visit);
             break;
@@ -257,8 +393,11 @@ pub fn visit_committed(path: &Path, committed: u64, mut visit: impl FnMut(Ledger
         let count = newline.map_or(buffer.len(), |at| at + 1);
         let bytes = &buffer[..count];
         // 正常房间消息最多 16K 字符；异常超大行仍逐字保留在账本里，只跳过投影。
-        if !oversized && line.len() + bytes.len() <= 4 * 1024 * 1024 { line.extend_from_slice(bytes); }
-        else { oversized = true; }
+        if !oversized && line.len() + bytes.len() <= 4 * 1024 * 1024 {
+            line.extend_from_slice(bytes);
+        } else {
+            oversized = true;
+        }
         reader.consume(count);
         #[cfg(test)]
         REPLAY_BYTES.set(REPLAY_BYTES.get() + count as u64);
@@ -272,14 +411,30 @@ pub fn visit_committed(path: &Path, committed: u64, mut visit: impl FnMut(Ledger
     Ok(())
 }
 
-fn visit_line(path: &Path, index: usize, line: &[u8], oversized: bool, visit: &mut impl FnMut(LedgerEvent)) {
+fn visit_line(
+    path: &Path,
+    index: usize,
+    line: &[u8],
+    oversized: bool,
+    visit: &mut impl FnMut(LedgerEvent),
+) {
     if oversized {
-        log::warn!("Ledger {} line {index} exceeds the projection record limit; raw history retained", path.display());
+        log::warn!(
+            "Ledger {} line {index} exceeds the projection record limit; raw history retained",
+            path.display()
+        );
     } else if !line.iter().all(u8::is_ascii_whitespace) {
         match serde_json::from_slice::<LedgerEvent>(line) {
             Ok(event) if event.v == LEDGER_VERSION => visit(event),
-            Ok(event) => log::warn!("Ledger {} line {index}: unsupported version {}; raw history retained", path.display(), event.v),
-            Err(error) => log::warn!("Ledger {} line {index}: {error}; raw history retained", path.display()),
+            Ok(event) => log::warn!(
+                "Ledger {} line {index}: unsupported version {}; raw history retained",
+                path.display(),
+                event.v
+            ),
+            Err(error) => log::warn!(
+                "Ledger {} line {index}: {error}; raw history retained",
+                path.display()
+            ),
         }
     }
 }
@@ -287,10 +442,17 @@ fn visit_line(path: &Path, index: usize, line: &[u8], oversized: bool, visit: &m
 /// 未提交尾部从来没有成功回执；重试前裁掉，不能把旧失败操作随新提交带进去。
 pub fn discard_uncommitted(path: &Path, committed: u64) -> Result<(), AppError> {
     let actual = length(path)?;
-    if actual < committed { return Err(AppError::io("消息账本短于已提交游标")); }
+    if actual < committed {
+        return Err(AppError::io("消息账本短于已提交游标"));
+    }
     if actual > committed {
-        let file = OpenOptions::new().write(true).open(path).map_err(|error| AppError::io(error.to_string()))?;
-        file.set_len(committed).and_then(|_| file.sync_data()).map_err(|error| AppError::io(error.to_string()))?;
+        let file = OpenOptions::new()
+            .write(true)
+            .open(path)
+            .map_err(|error| AppError::io(error.to_string()))?;
+        file.set_len(committed)
+            .and_then(|_| file.sync_data())
+            .map_err(|error| AppError::io(error.to_string()))?;
     }
     Ok(())
 }
@@ -300,11 +462,17 @@ pub fn append(path: &Path, events: &[LedgerEvent]) -> Result<(), AppError> {
     if events.is_empty() {
         return Ok(());
     }
-    let io = |err: std::io::Error| AppError::io(format!("写不了消息账本 {}：{err}", path.display()));
+    let io =
+        |err: std::io::Error| AppError::io(format!("写不了消息账本 {}：{err}", path.display()));
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(io)?;
     }
-    let mut file = OpenOptions::new().create(true).read(true).append(true).open(path).map_err(io)?;
+    let mut file = OpenOptions::new()
+        .create(true)
+        .read(true)
+        .append(true)
+        .open(path)
+        .map_err(io)?;
     let len = file.metadata().map_err(io)?.len();
     let mut buffer = String::new();
     if len > 0 {

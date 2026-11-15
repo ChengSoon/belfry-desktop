@@ -69,7 +69,10 @@ mod tests {
         .unwrap();
         assert_eq!(value["displayName"], "Claude Code");
         assert_eq!(value["currentVersion"], "2.1.201");
-        assert_eq!(value["installCommand"], "npm install -g @cometix/claude-code@latest");
+        assert_eq!(
+            value["installCommand"],
+            "npm install -g @cometix/claude-code@latest"
+        );
         assert_eq!(value["state"], "upgradable");
         assert!(value["executable"].is_null());
     }

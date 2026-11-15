@@ -201,7 +201,10 @@ impl Slot {
             });
         }
         if let Some(snapshot) = data.latest_protocol.clone() {
-            data.replay.push(TerminalEvent::AgentState { session_id: id.into(), snapshot });
+            data.replay.push(TerminalEvent::AgentState {
+                session_id: id.into(),
+                snapshot,
+            });
         }
         if let Some(session) = data.native_session.clone() {
             data.replay.push(TerminalEvent::SessionIdentity {

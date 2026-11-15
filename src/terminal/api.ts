@@ -36,6 +36,15 @@ export function claimTerminalUserInput(sessionId: string) {
   return invoke<void>("terminal_claim_user_input", { sessionId });
 }
 
+/** 挂载中的视图读到输入框确实为空；仅凭字节历史无法知道用户是不是把字删掉了。 */
+export function confirmTerminalEmptyInput(sessionId: string) {
+  return invoke<void>("terminal_confirm_empty_input", { sessionId });
+}
+
+export function writeTerminalResponse(sessionId: string, bytes: Uint8Array) {
+  return invoke<void>("terminal_write_response", { sessionId, bytes: Array.from(bytes) });
+}
+
 export function prepareTerminalPrompt(sessionId: string, payload: string) {
   return invoke<import("../inbox/contracts").WriteGuard>("terminal_prepare_prompt", { sessionId, payload });
 }

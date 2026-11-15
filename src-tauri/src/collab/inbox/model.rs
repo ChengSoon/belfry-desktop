@@ -117,7 +117,10 @@ pub(super) fn operation_hash(value: &impl Serialize) -> String {
 pub(super) fn pending(phase: &DeliveryPhase) -> bool {
     matches!(
         phase,
-        DeliveryPhase::Pending | DeliveryPhase::Prepared | DeliveryPhase::Submitting | DeliveryPhase::Uncertain
+        DeliveryPhase::Pending
+            | DeliveryPhase::Prepared
+            | DeliveryPhase::Submitting
+            | DeliveryPhase::Uncertain
     )
 }
 
@@ -151,7 +154,10 @@ pub(super) fn requeue(data: &mut Data, id: &str) {
     batch.view.revision += 1;
     for id in &batch.view.entry_ids {
         if let Some(entry) = data.entries.get_mut(id)
-            && matches!(entry.view.delivery_phase, DeliveryPhase::Submitting | DeliveryPhase::Uncertain)
+            && matches!(
+                entry.view.delivery_phase,
+                DeliveryPhase::Submitting | DeliveryPhase::Uncertain
+            )
             && entry.batch_id.as_deref() == Some(&batch.view.id)
         {
             entry.view.delivery_phase = DeliveryPhase::Pending;

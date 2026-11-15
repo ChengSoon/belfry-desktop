@@ -39,7 +39,9 @@ pub(super) fn list(
         out.push(Source {meta, files:vec![path.clone(),PathBuf::from(format!("{}-wal",path.display()))],
             extra:json!({"model":row.get::<_,Option<String>>(5).map_err(storage::error)?,"input":number(6)?,"output":number(7)?.saturating_add(number(8)?),"cache":number(9)?,"write":number(10)?})});
         if out.len() > 20_000 {
-            return Err(AppError::io(belfry_i18n::text("OpenCode 会话数超过扫描上限")));
+            return Err(AppError::io(belfry_i18n::text(
+                "OpenCode 会话数超过扫描上限",
+            )));
         }
     }
     Ok(out)
@@ -183,8 +185,9 @@ pub(super) fn read(
                 json!({"input_tokens":remaining[0],"output_tokens":remaining[1],"cache_read_input_tokens":remaining[2],"cache_creation_input_tokens":remaining[3]}),
             ),
         );
-        record["belfryNote"] =
-            json!(belfry_i18n::text("原生总量包含辅助调用；其模型和逐次时间未记录，按会话最后活跃时间归入未知模型"));
+        record["belfryNote"] = json!(belfry_i18n::text(
+            "原生总量包含辅助调用；其模型和逐次时间未记录，按会话最后活跃时间归入未知模型"
+        ));
         record["belfryAuxiliary"] = json!(true);
         out.push(record);
     }
@@ -216,17 +219,17 @@ pub(super) fn delete(_data: &Path, source: &Source) -> Result<(), AppError> {
             return if status.success() {
                 Ok(())
             } else {
-                Err(AppError::io(
-                    belfry_i18n::text("OpenCode 未能删除原生会话，请关闭该会话后重试"),
-                ))
+                Err(AppError::io(belfry_i18n::text(
+                    "OpenCode 未能删除原生会话，请关闭该会话后重试",
+                )))
             };
         }
         if started.elapsed() > std::time::Duration::from_secs(30) {
             let _ = child.kill();
             let _ = child.wait();
-            return Err(AppError::io(
-                belfry_i18n::text("OpenCode 删除超时，请在 CLI 中确认会话状态后刷新"),
-            ));
+            return Err(AppError::io(belfry_i18n::text(
+                "OpenCode 删除超时，请在 CLI 中确认会话状态后刷新",
+            )));
         }
         std::thread::sleep(std::time::Duration::from_millis(50));
     }

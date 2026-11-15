@@ -59,23 +59,39 @@ fn exercise_cli(mode: ConnectionMode) {
     ) else {
         panic!("server 起不来");
     };
-    let relay = (mode != ConnectionMode::Direct).then(|| crate::terminal::daemon::TestRelay::start().unwrap());
+    let relay = (mode != ConnectionMode::Direct)
+        .then(|| crate::terminal::daemon::TestRelay::start().unwrap());
     let legacy = std::sync::OnceLock::new();
     let connection = |tab_id: &str| {
-        let mut request: crate::terminal::CreateTerminalRequest = serde_json::from_value(serde_json::json!({
-            "platform": "macos", "profileId": "agent:claude", "tabId": tab_id,
-            "cols": 80, "rows": 24, "elevation": "normal"
-        })).unwrap();
-        request.env.extend(identities.issue(tab_id, project.to_str()));
-        request.env.insert(belfry_protocol::ENV_ENDPOINT.into(), server.endpoint().to_string());
+        let mut request: crate::terminal::CreateTerminalRequest =
+            serde_json::from_value(serde_json::json!({
+                "platform": "macos", "profileId": "agent:claude", "tabId": tab_id,
+                "cols": 80, "rows": 24, "elevation": "normal"
+            }))
+            .unwrap();
+        request
+            .env
+            .extend(identities.issue(tab_id, project.to_str()));
+        request.env.insert(
+            belfry_protocol::ENV_ENDPOINT.into(),
+            server.endpoint().to_string(),
+        );
         if let Some(relay) = &relay {
             relay.bind(tab_id, &mut request).unwrap();
         }
         if mode == ConnectionMode::LegacyRelay {
-            let endpoint = legacy.get_or_init(|| legacy_relay::LegacyRelay::start(&request.env[belfry_protocol::ENV_ENDPOINT]));
-            request.env.insert(belfry_protocol::ENV_ENDPOINT.into(), endpoint.endpoint().into());
+            let endpoint = legacy.get_or_init(|| {
+                legacy_relay::LegacyRelay::start(&request.env[belfry_protocol::ENV_ENDPOINT])
+            });
+            request.env.insert(
+                belfry_protocol::ENV_ENDPOINT.into(),
+                endpoint.endpoint().into(),
+            );
         }
-        (request.env[belfry_protocol::ENV_ENDPOINT].clone(), request.env[belfry_protocol::ENV_TOKEN].clone())
+        (
+            request.env[belfry_protocol::ENV_ENDPOINT].clone(),
+            request.env[belfry_protocol::ENV_TOKEN].clone(),
+        )
     };
     let (endpoint, token) = connection("t1");
     registry.replace(vec![
@@ -183,15 +199,16 @@ fn exercise_cli(mode: ConnectionMode) {
         "派活方不能替接收方宣布完成，否则这个信号就没有可信度了"
     );
 
-    // 8. 注入给 Agent 的那行命令必须真的能用：语法对不上的话，
-    //    它照着敲会「成功」地结掉一个不存在的任务号，而真任务永远悬着。
+    // 8. 自动注入改用 A2A 报告工具；人工 CLI 兼容入口仍可显式交差。
+    // 工具到同一任务板的真实 HTTP/Node 路径由 local A2A 测试覆盖。
     let entry = board
         .snapshot()
         .into_iter()
         .find(|task| task.to == "t2")
         .expect("刚派的任务应该在板上");
     let injected = crate::collab::task::injection_text(&entry, "planner");
-    let args = command_from_injection(&injected);
+    assert!(injected.contains("A2ALocalTasks") && injected.contains("A2AReportTask"));
+    assert!(!injected.contains("belfry done"));
     let (receiver_endpoint, receiver_token) = connection("t2");
     assert_eq!(receiver_endpoint, endpoint);
     let settled = run_as(
@@ -199,11 +216,15 @@ fn exercise_cli(mode: ConnectionMode) {
         &endpoint,
         "t2",
         &receiver_token,
-        &args.iter().map(String::as_str).collect::<Vec<_>>(),
+        &[
+            "done",
+            task::short_id(&entry.id),
+            "manual compatibility result",
+        ],
     );
     assert!(
         settled.status.success(),
-        "注入文本里的命令要能原样跑通，实际跑的是 {args:?}：{settled:?}"
+        "人工 CLI 兼容交差要保持可用：{settled:?}"
     );
 
     // 9. 超时要如实说「还没结」——不能把「等烦了」当成「干完了」
@@ -315,56 +336,132 @@ fn exercise_cli(mode: ConnectionMode) {
     // 13. 房间：成员在终端里看得见自己的房间；目录还没装好时如实回答不在
     let before_ready = run(&binary, &endpoint, &token, &["rooms"]);
     let before_text = String::from_utf8_lossy(&before_ready.stdout).to_string();
-    assert!(before_ready.status.success(), "rooms 应该成功：{before_ready:?}");
+    assert!(
+        before_ready.status.success(),
+        "rooms 应该成功：{before_ready:?}"
+    );
     assert!(
         before_text.contains("不在"),
         "目录未就绪要说清不在任何房间：{before_text}"
     );
 
     let store = Arc::new(crate::rooms::RoomStore::load(Some(project.join("rooms"))));
-    let room = store.create("发布检查", project.to_str().unwrap(), "把发布流程跑通").unwrap();
+    let room = store
+        .create("发布检查", project.to_str().unwrap(), "把发布流程跑通")
+        .unwrap();
     let (_, _) = store
         .mutate(&room.id, |room| {
             crate::rooms::test_support::add(room, "t1", "主管", "拆活与验收")?;
             crate::rooms::test_support::add(room, "t2", "后端", "接口")
         })
         .unwrap();
-    room_access.set(crate::rooms::member_directory(store.clone(), registry.clone()));
+    room_access.set(crate::rooms::member_directory(
+        store.clone(),
+        registry.clone(),
+    ));
 
     let listed = run(&binary, &endpoint, &token, &["rooms"]);
     let listed_text = String::from_utf8_lossy(&listed.stdout).to_string();
     assert!(listed.status.success(), "rooms 应该成功：{listed:?}");
-    assert!(listed_text.contains("发布检查") && listed_text.contains("统筹"), "{listed_text}");
+    assert!(
+        listed_text.contains("发布检查") && listed_text.contains("统筹"),
+        "{listed_text}"
+    );
 
-    let brief = run(&binary, &endpoint, &token, &["room", "brief", "--focus", "验证房间协议"]);
+    let brief = run(
+        &binary,
+        &endpoint,
+        &token,
+        &["room", "brief", "--focus", "验证房间协议"],
+    );
     assert!(brief.status.success(), "brief 应该成功：{brief:?}");
-    assert_eq!(store.get(&room.id).unwrap().brief.current_focus, "验证房间协议");
+    assert_eq!(
+        store.get(&room.id).unwrap().brief.current_focus,
+        "验证房间协议"
+    );
 
     // 兼容通道也必须拒绝不在房间中的会话。
     let (_, outsider_token) = connection("t3");
-    let denied = run_as(&binary, &endpoint, "t3", &outsider_token, &["room", "task", "add", "不可创建", "--room", "发布检查"]);
-    assert!(!denied.status.success(), "房间外会话不能创建任务：{denied:?}");
+    let denied = run_as(
+        &binary,
+        &endpoint,
+        "t3",
+        &outsider_token,
+        &["room", "task", "add", "不可创建", "--room", "发布检查"],
+    );
+    assert!(
+        !denied.status.success(),
+        "房间外会话不能创建任务：{denied:?}"
+    );
     assert!(store.get(&room.id).unwrap().tasks.is_empty());
 
     // 13a. 统筹拆活：派给后端，后端终端收到任务注记
-    let added = run(&binary, &endpoint, &token, &["room", "task", "add", "接口签名", "--to", "后端", "--outcome", "返回 token"]);
+    let added = run(
+        &binary,
+        &endpoint,
+        &token,
+        &[
+            "room",
+            "task",
+            "add",
+            "接口签名",
+            "--to",
+            "后端",
+            "--outcome",
+            "返回 token",
+        ],
+    );
     let added_text = String::from_utf8_lossy(&added.stdout).to_string();
     assert!(added.status.success(), "task add 应该成功：{added:?}");
-    assert!(added_text.contains("T1") && added_text.contains("后端"), "{added_text}");
-    assert_eq!(store.get(&room.id).unwrap().tasks.len(), 1, "创建成功必须在共享任务板里可见");
-    let to_backend = board.snapshot().into_iter().find(|task| task.to == "t2" && task.chat.is_some());
+    assert!(
+        added_text.contains("T1") && added_text.contains("后端"),
+        "{added_text}"
+    );
+    assert_eq!(
+        store.get(&room.id).unwrap().tasks.len(),
+        1,
+        "创建成功必须在共享任务板里可见"
+    );
+    let to_backend = board
+        .snapshot()
+        .into_iter()
+        .find(|task| task.to == "t2" && task.chat.is_some());
     let injected = task::injection_text(&to_backend.expect("后端应该收到一条房间消息"), "发布检查");
-    assert!(injected.contains("T1") && injected.contains("接口签名"), "{injected}");
+    assert!(
+        injected.contains("T1") && injected.contains("接口签名"),
+        "{injected}"
+    );
 
     // 13b. 成员不能给别人派活
-    let outsider = run_as(&binary, &endpoint, "t2", &receiver_token, &["room", "task", "add", "顺手", "--to", "主管"]);
+    let outsider = run_as(
+        &binary,
+        &endpoint,
+        "t2",
+        &receiver_token,
+        &["room", "task", "add", "顺手", "--to", "主管"],
+    );
     assert!(outsider.status.success(), "派给统筹可以：{outsider:?}");
 
     // 13c. 后端开工、交付：共享任务板推进，统筹收到完成通知。
-    let started = run_as(&binary, &endpoint, "t2", &receiver_token, &["room", "task", "start", "T1"]);
+    let started = run_as(
+        &binary,
+        &endpoint,
+        "t2",
+        &receiver_token,
+        &["room", "task", "start", "T1"],
+    );
     assert!(started.status.success(), "task start 应该成功：{started:?}");
-    assert_eq!(store.get(&room.id).unwrap().tasks[0].status.label(), "进行中");
-    let done = run_as(&binary, &endpoint, "t2", &receiver_token, &["room", "task", "done", "T1", "已合并"]);
+    assert_eq!(
+        store.get(&room.id).unwrap().tasks[0].status.label(),
+        "进行中"
+    );
+    let done = run_as(
+        &binary,
+        &endpoint,
+        "t2",
+        &receiver_token,
+        &["room", "task", "done", "T1", "已合并"],
+    );
     assert!(done.status.success(), "task done 应该成功：{done:?}");
     let to_foreman: Vec<_> = board
         .snapshot()
@@ -372,29 +469,85 @@ fn exercise_cli(mode: ConnectionMode) {
         .filter(|task| task.to == "t1" && task.chat.is_some())
         .map(|task| task.instruction)
         .collect();
-    assert!(to_foreman.iter().any(|text| text.contains("完成了 T1") && text.contains("已合并")), "{to_foreman:?}");
-    let reloaded = crate::rooms::RoomStore::load(Some(project.join("rooms"))).get(&room.id).unwrap();
-    assert_eq!(reloaded.tasks[0].status.label(), "已完成", "重新加载后任务仍是已完成");
+    assert!(
+        to_foreman
+            .iter()
+            .any(|text| text.contains("完成了 T1") && text.contains("已合并")),
+        "{to_foreman:?}"
+    );
+    let reloaded = crate::rooms::RoomStore::load(Some(project.join("rooms")))
+        .get(&room.id)
+        .unwrap();
+    assert_eq!(
+        reloaded.tasks[0].status.label(),
+        "已完成",
+        "重新加载后任务仍是已完成"
+    );
     assert_eq!(reloaded.tasks[0].result.as_deref(), Some("已合并"));
 
     // 13d. 要求回复：没回之前 status 里挂着「等你回复」
-    let asked = run(&binary, &endpoint, &token, &["room", "say", "--ask", "--to", "后端", "今天能发吗"]);
+    let asked = run(
+        &binary,
+        &endpoint,
+        &token,
+        &["room", "say", "--ask", "--to", "后端", "今天能发吗"],
+    );
     assert!(asked.status.success(), "say --ask 应该成功：{asked:?}");
-    let status = run_as(&binary, &endpoint, "t2", &receiver_token, &["room", "status"]);
+    let status = run_as(
+        &binary,
+        &endpoint,
+        "t2",
+        &receiver_token,
+        &["room", "status"],
+    );
     let status_text = String::from_utf8_lossy(&status.stdout).to_string();
-    assert!(status_text.contains("等你回复") && status_text.contains("今天能发吗"), "{status_text}");
-    let short = store.get(&room.id).unwrap().messages.last().map(|m| m.id[m.id.len() - 8..].to_string()).unwrap();
-    let replied = run_as(&binary, &endpoint, "t2", &receiver_token, &["room", "say", "--reply", &short, "能"]);
+    assert!(
+        status_text.contains("等你回复") && status_text.contains("今天能发吗"),
+        "{status_text}"
+    );
+    let short = store
+        .get(&room.id)
+        .unwrap()
+        .messages
+        .last()
+        .map(|m| m.id[m.id.len() - 8..].to_string())
+        .unwrap();
+    let replied = run_as(
+        &binary,
+        &endpoint,
+        "t2",
+        &receiver_token,
+        &["room", "say", "--reply", &short, "能"],
+    );
     assert!(replied.status.success(), "reply 应该成功：{replied:?}");
     let messages = store.get(&room.id).unwrap().messages;
-    assert_eq!(messages.iter().filter(|m| m.text == "今天能发吗").count(), 1);
-    assert_eq!(messages.iter().filter(|m| m.text == "能").count(), 1, "回复不能重复写入");
+    assert_eq!(
+        messages.iter().filter(|m| m.text == "今天能发吗").count(),
+        1
+    );
+    assert_eq!(
+        messages.iter().filter(|m| m.text == "能").count(),
+        1,
+        "回复不能重复写入"
+    );
     let log = run(&binary, &endpoint, &token, &["room", "log", "--count", "5"]);
     assert!(log.status.success(), "log 应该成功：{log:?}");
     let log_text = String::from_utf8_lossy(&log.stdout);
-    assert!(log_text.contains("今天能发吗") && log_text.contains(&short), "{log_text}");
-    let status = run_as(&binary, &endpoint, "t2", &receiver_token, &["room", "status"]);
-    assert!(!String::from_utf8_lossy(&status.stdout).contains("等你回复"), "回复后不再挂着");
+    assert!(
+        log_text.contains("今天能发吗") && log_text.contains(&short),
+        "{log_text}"
+    );
+    let status = run_as(
+        &binary,
+        &endpoint,
+        "t2",
+        &receiver_token,
+        &["room", "status"],
+    );
+    assert!(
+        !String::from_utf8_lossy(&status.stdout).contains("等你回复"),
+        "回复后不再挂着"
+    );
 
     let _ = std::fs::remove_dir_all(&project);
 }
@@ -460,15 +613,4 @@ fn run_as(
         .env(belfry_protocol::ENV_TOKEN, token)
         .output()
         .expect("跑不起来 belfry")
-}
-
-/// 从注入文本里抠出那行 `belfry …` 命令的实参。
-///
-/// 注入文本是唯一告诉 Agent「怎么交差」的地方，而它和 CLI 的参数语法一旦对不上，
-/// Agent 会照着敲、拿到一个语义完全不同的结果，还以为自己交差了。
-fn command_from_injection(text: &str) -> Vec<String> {
-    text.lines()
-        .find_map(|line| line.split_once("belfry "))
-        .map(|(_, rest)| rest.split_whitespace().map(str::to_string).collect())
-        .expect("注入文本里应该有一行 belfry 命令")
 }

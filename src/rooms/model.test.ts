@@ -14,7 +14,7 @@ function member(id: string, title: string, role: RoomMember["role"] = "peer", le
 function task(id: string, status: RoomTask["status"], patch: Partial<RoomTask> = {}): RoomTask {
   return {
     id, title: id, outcome: "", status, assignee: null, blockedBy: [], notes: "", result: null,
-    createdBy: "user", createdAt: 0, updatedAt: 0, rev: 1, ...patch,
+    createdBy: "user", createdAt: 0, updatedAt: 0, rev: 1, generation: 1, ...patch,
   };
 }
 

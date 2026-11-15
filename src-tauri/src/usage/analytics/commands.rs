@@ -1,7 +1,7 @@
 use super::UsageAnalyticsState;
 use super::contracts::AnalyticsReport;
-use crate::usage::contracts::UsageQuery;
 use crate::terminal::AppError;
+use crate::usage::contracts::UsageQuery;
 
 #[tauri::command]
 pub async fn usage_analytics(
@@ -20,7 +20,11 @@ pub fn usage_cancel_analytics(
     cancel_analytics(&state, &request_id)
 }
 
-async fn query_analytics(state: &UsageAnalyticsState, query: UsageQuery, request_id: Option<String>) -> Result<AnalyticsReport, AppError> {
+async fn query_analytics(
+    state: &UsageAnalyticsState,
+    query: UsageQuery,
+    request_id: Option<String>,
+) -> Result<AnalyticsReport, AppError> {
     state.query(query, request_id).await.map_err(AppError::io)
 }
 
@@ -35,7 +39,12 @@ mod tests {
     #[test]
     fn regression_analytics_command_errors_use_the_shared_wire_contract() {
         let state = UsageAnalyticsState::default();
-        let queried = tauri::async_runtime::block_on(query_analytics(&state, UsageQuery::default(), Some(" ".into()))).unwrap_err();
+        let queried = tauri::async_runtime::block_on(query_analytics(
+            &state,
+            UsageQuery::default(),
+            Some(" ".into()),
+        ))
+        .unwrap_err();
         let cancelled = cancel_analytics(&state, " ").unwrap_err();
         for error in [queried, cancelled] {
             let wire = serde_json::to_value(error).unwrap();

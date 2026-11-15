@@ -6,7 +6,9 @@ use serde_json::json;
 impl InboxService {
     fn agent_room(&self, tab: &str, hint: Option<&str>) -> Result<Option<String>, AppError> {
         hint.map(|hint| {
-            self.rooms.read_as_member(tab, Some(hint), |room, _| room.id.clone()).map_err(AppError::invalid_argument)
+            self.rooms
+                .read_as_member(tab, Some(hint), |room, _| room.id.clone())
+                .map_err(AppError::invalid_argument)
         })
         .transpose()
     }
@@ -14,27 +16,36 @@ impl InboxService {
         if entry.view.recipient.tab_id != tab && entry.view.by.tab_id.as_deref() != Some(tab) {
             return false;
         }
-        entry
-            .view
-            .source
-            .room_id
-            .as_ref()
-            .is_none_or(|id| self.rooms.get(id).is_ok_and(|room| room.member_by_tab(tab).is_some()))
+        entry.view.source.room_id.as_ref().is_none_or(|id| {
+            self.rooms
+                .get(id)
+                .is_ok_and(|room| room.member_by_tab(tab).is_some())
+        })
     }
     pub(crate) fn agent(&self, tab: &str, command: &AgentCommand) -> Result<ResponseData, String> {
         self.agent_inner(tab, command)
             .map(|result| ResponseData::CollaborationInbox { result })
             .map_err(|error| error.message)
     }
-    fn agent_inner(&self, tab: &str, command: &AgentCommand) -> Result<serde_json::Value, AppError> {
+    fn agent_inner(
+        &self,
+        tab: &str,
+        command: &AgentCommand,
+    ) -> Result<serde_json::Value, AppError> {
         if let AgentCommand::BatchGet { batch_id } = command {
             let (data, sources, _) = self.read_context()?;
-            let batch =
-                data.batches.get(batch_id).ok_or_else(|| AppError::not_found("Batch not found in your role scope"))?;
+            let batch = data
+                .batches
+                .get(batch_id)
+                .ok_or_else(|| AppError::not_found("Batch not found in your role scope"))?;
             authorize_batch(tab, &batch.view, &sources)?;
             return Ok(json!({"batch": batch.view}));
         }
-        if let AgentCommand::Resolve { request, operation_id } = command {
+        if let AgentCommand::Resolve {
+            request,
+            operation_id,
+        } = command
+        {
             if operation_id.is_empty() || operation_id.len() > 128 {
                 return Err(AppError::invalid_argument("Provide a stable operation ID"));
             }
@@ -43,25 +54,32 @@ impl InboxService {
             let result = self.with_sources(|sources| {
                 self.store.edit_after(
                     |data| {
-                        let batch = data
-                            .batches
-                            .get(&request.batch.batch_id)
-                            .ok_or_else(|| AppError::not_found("Batch not found in your role scope"))?;
+                        let batch = data.batches.get(&request.batch.batch_id).ok_or_else(|| {
+                            AppError::not_found("Batch not found in your role scope")
+                        })?;
                         authorize_batch(tab, &batch.view, sources)?;
                         if let Some(operation) = data.operations.get(&key) {
                             if operation.hash != signature {
-                                return Err(AppError::conflict("Operation ID was reused with different content"));
+                                return Err(AppError::conflict(
+                                    "Operation ID was reused with different content",
+                                ));
                             }
                             return Ok(operation.result.clone());
                         }
                         let batch = super::scheduler::resolve(data, request)?;
                         let value = json!({"batch": batch});
-                        data.operations.insert(key, Operation { hash: signature, result: value.clone() });
+                        data.operations.insert(
+                            key,
+                            Operation {
+                                hash: signature,
+                                result: value.clone(),
+                            },
+                        );
                         Ok(value)
                     },
                     |value| {
-                        let batch: BatchView =
-                            serde_json::from_value(value["batch"].clone()).map_err(|e| AppError::io(e.to_string()))?;
+                        let batch: BatchView = serde_json::from_value(value["batch"].clone())
+                            .map_err(|e| AppError::io(e.to_string()))?;
                         self.gate.finish(&batch.terminal_session_id, &batch.id);
                         Ok(value)
                     },
@@ -72,7 +90,12 @@ impl InboxService {
             }
             return Ok(result);
         }
-        if let AgentCommand::List { room, cursor, limit } = command {
+        if let AgentCommand::List {
+            room,
+            cursor,
+            limit,
+        } = command
+        {
             let room = self.agent_room(tab, room.as_deref())?;
             let (mut data, sources, error) = self.read_context()?;
             let revision = data.revision.saturating_add(sources.revision);
@@ -84,19 +107,37 @@ impl InboxService {
                 .filter(|entry| {
                     entry.view.recipient.tab_id == tab
                         && self.may_view(tab, entry)
-                        && room.as_ref().is_none_or(|room| entry.view.source.room_id.as_ref() == Some(room))
+                        && room
+                            .as_ref()
+                            .is_none_or(|room| entry.view.source.room_id.as_ref() == Some(room))
                 })
                 .collect();
-            let (entries, next_cursor) =
-                read::page(entries, cursor.as_deref(), &scope, limit.unwrap_or(20).clamp(1, 30))?;
-            let messages: Vec<_> =
-                entries.iter().map(|entry| agent_view(entry, &data, &sources, &self.registry)).collect();
-            let key = self.target_root(tab).ok().map(|root| source::session_key(&root, tab));
-            return Ok(json!({"schemaVersion": SCHEMA_VERSION, "revision": revision, "messages": messages,
+            let (entries, next_cursor) = read::page(
+                entries,
+                cursor.as_deref(),
+                &scope,
+                limit.unwrap_or(20).clamp(1, 30),
+            )?;
+            let messages: Vec<_> = entries
+                .iter()
+                .map(|entry| agent_view(entry, &data, &sources, &self.registry))
+                .collect();
+            let key = self
+                .target_root(tab)
+                .ok()
+                .map(|root| source::session_key(&root, tab));
+            return Ok(
+                json!({"schemaVersion": SCHEMA_VERSION, "revision": revision, "messages": messages,
                 "taskSlots": key.as_ref().and_then(|key| data.slots.get(key)), "waiting": key.as_ref().and_then(|key| data.waits.get(key)),
-                "nextCursor": next_cursor, "loadError": error}));
+                "nextCursor": next_cursor, "loadError": error}),
+            );
         }
-        if let AgentCommand::Read { message_id, cursor, limit } = command {
+        if let AgentCommand::Read {
+            message_id,
+            cursor,
+            limit,
+        } = command
+        {
             let (mut data, sources, error) = self.read_context()?;
             let revision = data.revision.saturating_add(sources.revision);
             let scope = operation_hash(&(tab, message_id, "agent-read"));
@@ -112,13 +153,24 @@ impl InboxService {
                 })
                 .collect();
             if entries.is_empty() {
-                return Err(AppError::not_found("Message not found in your authorized inbox"));
+                return Err(AppError::not_found(
+                    "Message not found in your authorized inbox",
+                ));
             }
-            if entries.iter().any(|entry| entry.view.message_id != entries[0].view.message_id) {
-                return Err(AppError::invalid_argument("Ambiguous message ID; use the full ID"));
+            if entries
+                .iter()
+                .any(|entry| entry.view.message_id != entries[0].view.message_id)
+            {
+                return Err(AppError::invalid_argument(
+                    "Ambiguous message ID; use the full ID",
+                ));
             }
-            let (entries, next_cursor) =
-                read::page(entries, cursor.as_deref(), &scope, limit.unwrap_or(20).clamp(1, 30))?;
+            let (entries, next_cursor) = read::page(
+                entries,
+                cursor.as_deref(),
+                &scope,
+                limit.unwrap_or(20).clamp(1, 30),
+            )?;
             return Ok(
                 json!({"schemaVersion": SCHEMA_VERSION, "revision": revision, "messages": entries.iter().map(|entry| agent_view(entry, &data, &sources, &self.registry)).collect::<Vec<_>>(),
                 "nextCursor": next_cursor, "loadError": error}),
@@ -138,8 +190,11 @@ impl InboxService {
         let op_hash = operation_hash(command);
         let root = self.target_root(tab)?;
         let key = source::session_key(&root, tab);
-        let room_scope =
-            if let AgentCommand::Policy { room, .. } = command { self.agent_room(tab, room.as_deref())? } else { None };
+        let room_scope = if let AgentCommand::Policy { room, .. } = command {
+            self.agent_room(tab, room.as_deref())?
+        } else {
+            None
+        };
         let result = self.with_sources(|sources| self.store.edit(|data| {
             if !data.enabled { return Err(AppError::conflict("The inbox must be activated before changing Agent handling state")); }
             if let Some(previous) = data.operations.get(&op_key) {
@@ -224,14 +279,24 @@ fn agent_view(
     registry: &crate::collab::SessionRegistry,
 ) -> serde_json::Value {
     let mut value =
-        serde_json::to_value(read::message(entry, data, sources, registry, now(), true)).expect("message DTO");
+        serde_json::to_value(read::message(entry, data, sources, registry, now(), true))
+            .expect("message DTO");
     value["taskRef"] = json!(entry.task);
     value["answers"] = json!(entry.answers);
-    value["policy"] = json!(data.policies.get(&policy_key(entry)).cloned().unwrap_or_default());
+    value["policy"] = json!(
+        data.policies
+            .get(&policy_key(entry))
+            .cloned()
+            .unwrap_or_default()
+    );
     value
 }
 
-fn authorize_batch(tab: &str, batch: &BatchView, sources: &source::Snapshot) -> Result<(), AppError> {
+fn authorize_batch(
+    tab: &str,
+    batch: &BatchView,
+    sources: &source::Snapshot,
+) -> Result<(), AppError> {
     let allowed = match &batch.recipient.room_id {
         // Deleted sources cannot strand a session-wide uncertain intent. Only the
         // original authenticated tab keeps the right to inspect and settle it;
@@ -240,12 +305,19 @@ fn authorize_batch(tab: &str, batch: &BatchView, sources: &source::Snapshot) -> 
             Some(members) => members.get(tab).is_some_and(|coordinator| {
                 *coordinator
                     || batch.recipient.tab_id == tab
-                        && sources.member_ids.get(room).and_then(|members| members.get(tab))
+                        && sources
+                            .member_ids
+                            .get(room)
+                            .and_then(|members| members.get(tab))
                             == batch.recipient.member_id.as_ref()
             }),
             None => batch.recipient.tab_id == tab,
         },
         None => batch.recipient.tab_id == tab,
     };
-    if allowed { Ok(()) } else { Err(AppError::not_found("Batch not found in your role scope")) }
+    if allowed {
+        Ok(())
+    } else {
+        Err(AppError::not_found("Batch not found in your role scope"))
+    }
 }

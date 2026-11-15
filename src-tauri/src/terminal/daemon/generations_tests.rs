@@ -107,7 +107,10 @@ fn a_live_older_or_unversioned_daemon_never_prevents_starting_the_new_release() 
 
 #[test]
 fn matching_versions_must_also_offer_required_status_capabilities() {
-    for capabilities in [vec![], vec!["terminal_program_status_v1", "rolling_upgrade_v1"]] {
+    for capabilities in [
+        vec![],
+        vec!["terminal_program_status_v1", "rolling_upgrade_v1"],
+    ] {
         let root = Root::new();
         let _old = Peer::new(&root.0, Some("1.0.7"), &capabilities);
         let result = connect(&root.0, "1.0.7", |_| Err("launch failed".into()));
@@ -125,7 +128,11 @@ fn a_matching_daemon_is_reused_and_the_release_directory_takes_precedence() {
     let old = Peer::new(
         &root.0,
         Some("1.0.7"),
-        &["terminal_program_status_v1", "terminal_input_continuity_v1", "rolling_upgrade_v1"],
+        &[
+            "terminal_program_status_v1",
+            "terminal_input_continuity_v1",
+            "rolling_upgrade_v1",
+        ],
     );
     assert_eq!(
         connect(&root.0, "1.0.7", |_| panic!("must reuse"))
@@ -136,7 +143,11 @@ fn a_matching_daemon_is_reused_and_the_release_directory_takes_precedence() {
     let current = Peer::new(
         &root.0.join("versions/1.0.7"),
         Some("1.0.7"),
-        &["terminal_program_status_v1", "terminal_input_continuity_v1", "rolling_upgrade_v1"],
+        &[
+            "terminal_program_status_v1",
+            "terminal_input_continuity_v1",
+            "rolling_upgrade_v1",
+        ],
     );
     assert_eq!(
         connect(&root.0, "1.0.7", |_| panic!("must reuse"))
@@ -153,7 +164,11 @@ fn discovery_retains_multiple_generations_but_never_follows_directory_symlinks()
     let current = Peer::new(
         &root.0.join("versions/1.0.7"),
         Some("1.0.7"),
-        &["terminal_program_status_v1", "terminal_input_continuity_v1", "rolling_upgrade_v1"],
+        &[
+            "terminal_program_status_v1",
+            "terminal_input_continuity_v1",
+            "rolling_upgrade_v1",
+        ],
     );
     #[cfg(unix)]
     std::os::unix::fs::symlink(&root.0, root.0.join("versions/loop")).unwrap();

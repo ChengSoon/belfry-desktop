@@ -28,9 +28,11 @@ fn codex_reads_event_messages_and_tool_arguments() {
         "type":"function_call", "name":"exec_command",
         "arguments":"{\"cmd\":\"cargo test 历史\"}"
     }});
-    assert!(record_text(AgentKind::Codex, &tool)
-        .iter()
-        .any(|text| text == "cargo test 历史"));
+    assert!(
+        record_text(AgentKind::Codex, &tool)
+            .iter()
+            .any(|text| text == "cargo test 历史")
+    );
 }
 
 #[test]

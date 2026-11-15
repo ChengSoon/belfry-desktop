@@ -6,7 +6,7 @@ use crate::agent::AgentKind;
 use crate::history::line_reader::LineReader;
 use crate::terminal::AppError;
 
-use super::{query, text, SearchCancellation};
+use super::{SearchCancellation, query, text};
 
 const MAX_FILE_TEXT_BYTES: usize = 8 * 1024 * 1024;
 

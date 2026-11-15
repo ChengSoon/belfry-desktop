@@ -74,7 +74,10 @@ fn record_timestamp(record: &Value) -> Option<i64> {
 
 fn session_from_meta(path: &Path, meta: Meta, last_active_at: i64) -> Option<HistorySession> {
     let id = session_id_from_path(path)?;
-    let session_ref = AgentSessionRef { agent: AgentKind::Pi, id };
+    let session_ref = AgentSessionRef {
+        agent: AgentKind::Pi,
+        id,
+    };
     session_ref.validate().ok()?;
     Some(HistorySession {
         agent: AgentKind::Pi,
@@ -132,7 +135,8 @@ mod tests {
     use super::*;
 
     fn temp_root(tag: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("belfry-history-pi-{tag}-{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("belfry-history-pi-{tag}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         dir
@@ -172,7 +176,9 @@ mod tests {
         let path = write_session(
             &root,
             "2026-09-17-10-30_019ff0d5-dbaf-7893-96db-4fbbbfee03a7.jsonl",
-            &[r#"{"role":"user","content":[{"type":"text","text":"第一行"},{"type":"text","text":"第二行"}],"timestamp":1758107410000}"#],
+            &[
+                r#"{"role":"user","content":[{"type":"text","text":"第一行"},{"type":"text","text":"第二行"}],"timestamp":1758107410000}"#,
+            ],
         );
         let session = scan_file(&path).unwrap();
         assert_eq!(session.title, "第一行 第二行");

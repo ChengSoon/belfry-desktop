@@ -1,5 +1,5 @@
 import { t, useTranslation } from "../i18n";
-import { Columns2, Ellipsis, File, FileSearch, GitBranch, Keyboard, Moon, PanelLeftOpen, PanelRight, Plug, Search, Server, SquareTerminal, Sun, Users } from "lucide-react";
+import { Columns2, Ellipsis, File, FileSearch, GitBranch, Keyboard, Moon, PanelLeftOpen, PanelRight, Plug, Search, Server, SquareTerminal, Sun, Users, Waypoints } from "lucide-react";
 import type { ReactNode } from "react";
 import { togglePluginDock, togglePluginLauncher } from "../plugins/workspace/events";
 import { appShortcutChord, formatShortcutChord } from "../shortcuts/resolveShortcut";
@@ -29,7 +29,10 @@ export function WorkbenchToolbar(props: WorkbenchProps) {
         onClick={props.onRevealSidebar} type="button"><PanelLeftOpen size={ICON.md} /></button> : null}
       <div className="workbench-toolbar__project"><ProjectSwitcher onOpen={props.onOpenProject}
         onRequestRemove={props.onRequestRemove} opening={props.opening} project={props.activeProject} recentProjects={props.recentProjects} />
-        <BranchCrumb rootPath={props.activeProject?.rootPath ?? null} /></div>
+        <BranchCrumb rootPath={props.activeProject?.rootPath ?? null} />
+        {props.onOpenA2A ? <button className="workbench-a2a" type="button" disabled={!props.activeProject}
+          aria-label={t("a2a.workspace.open")} title={t("a2a.workspace.open")} aria-haspopup="dialog" aria-expanded={!!props.a2aOpen}
+          onClick={props.onOpenA2A}><Waypoints size={ICON.sm} aria-hidden="true" /><span>A2A</span></button> : null}</div>
       <SessionTabs tabs={props.tabs} activeId={props.activeTabId} onActivate={props.onActivateTab} />
       <div className="workbench-toolbar__tools">
         <SplitSessionButton {...props} />

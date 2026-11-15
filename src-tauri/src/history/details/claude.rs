@@ -50,7 +50,9 @@ pub(super) fn parse(
 fn tool(block: &Value, source: &str) -> Option<HistoryTool> {
     match block["type"].as_str()? {
         "tool_use" => {
-            let name = block["name"].as_str().unwrap_or(belfry_i18n::text("未知工具"));
+            let name = block["name"]
+                .as_str()
+                .unwrap_or(belfry_i18n::text("未知工具"));
             Some(HistoryTool {
                 id: text::identity(block["id"].as_str(), source),
                 name: name.into(),
@@ -93,7 +95,8 @@ fn changes(name: &str, input: &Value) -> Vec<HistoryChange> {
             path: path.into(),
             kind: "write".into(),
             new_text: string_field(input, &["content", "CodeContent"]).map(str::to_owned),
-            note: belfry_i18n::text("日志中的写入内容；原内容未记录，无法判定是新建还是覆盖").into(),
+            note: belfry_i18n::text("日志中的写入内容；原内容未记录，无法判定是新建还是覆盖")
+                .into(),
             ..Default::default()
         }],
         _ => Vec::new(),

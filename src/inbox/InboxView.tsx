@@ -5,6 +5,7 @@ import { ICON } from "../theme/sizing";
 import type { MessageView, SessionView } from "./contracts";
 import { messageStatus, needsAttention, questionState, statusText, statusTone } from "./status";
 import type { InboxView as InboxData } from "./useInbox";
+import { TaskReport } from "../a2a/TaskReports";
 import "../collab/collab.css";
 import "./inbox.css";
 
@@ -244,6 +245,7 @@ function Message({ message, quoted }: { message: MessageView; quoted?: MessageVi
           </ol>
         ) : null}
         <p className={`inbox-status inbox-status--${tone} inbox-message__status`}><i aria-hidden="true" />{statusText(status)}</p>
+        <TaskReport reference={message.taskRef} />
       </div>
     </article>
   );

@@ -145,7 +145,9 @@ fn status_note(report: &AgentHookReport) -> &'static str {
         return belfry_i18n::text("CLI 未安装或版本尚未验证 Hook 接口，保持屏幕推断");
     }
     if report.disabled {
-        return belfry_i18n::text("CLI 全局设置已关闭 Hook；本页保留该设置，启用 CLI Hook 后再重开会话");
+        return belfry_i18n::text(
+            "CLI 全局设置已关闭 Hook；本页保留该设置，启用 CLI Hook 后再重开会话",
+        );
     }
     if report.installed == 0 {
         return belfry_i18n::text("尚未启用 Hook，当前使用屏幕推断");
@@ -156,12 +158,18 @@ fn status_note(report: &AgentHookReport) -> &'static str {
     if report.stale > 0 {
         if cfg!(windows) {
             return if report.kind == AgentKind::Codex {
-                belfry_i18n::text("Hook 路径失效或仍使用旧桌面入口；请重新预览并启用轻量 Hook，重开会话后在 Codex /hooks 中重新信任命令")
+                belfry_i18n::text(
+                    "Hook 路径失效或仍使用旧桌面入口；请重新预览并启用轻量 Hook，重开会话后在 Codex /hooks 中重新信任命令",
+                )
             } else {
-                belfry_i18n::text("Hook 路径失效或仍使用旧桌面入口；请重新预览并启用轻量 Hook，然后重开会话")
+                belfry_i18n::text(
+                    "Hook 路径失效或仍使用旧桌面入口；请重新预览并启用轻量 Hook，然后重开会话",
+                )
             };
         }
-        return belfry_i18n::text("Hook 指向的应用已不存在，可能移动过应用或清理过构建；请重新预览并启用");
+        return belfry_i18n::text(
+            "Hook 指向的应用已不存在，可能移动过应用或清理过构建；请重新预览并启用",
+        );
     }
     if report.kind == AgentKind::Codex {
         belfry_i18n::text("已安装；重开会话后，在 Codex /hooks 中审阅并信任这些命令")

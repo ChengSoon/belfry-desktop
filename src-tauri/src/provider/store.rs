@@ -19,7 +19,7 @@ use crate::terminal::AppError;
 #[path = "migration.rs"]
 mod migration;
 #[path = "secrets.rs"]
-mod secrets;
+pub(crate) mod secrets;
 use migration::{Metadata, MetadataAgent, MetadataProvider, Parsed};
 use secrets::{KeyStore, NativeKeyStore, unavailable};
 

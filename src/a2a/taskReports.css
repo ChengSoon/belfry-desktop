@@ -1,0 +1,18 @@
+.a2a-task-report { margin: 6px 0; padding: 8px 10px; border: 1px solid var(--border-soft); border-radius: 7px; font-size: 12px; }
+.a2a-task-report__status { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; margin: 0; }
+.a2a-task-report__source { color: var(--text-faint); }
+.a2a-task-report__state { font-size: inherit; font-weight: 500; }
+.a2a-task-report__state.is-active { color: var(--accent); }
+.a2a-task-report__state.is-waiting { color: var(--warning); }
+.a2a-task-report__state.is-done { color: var(--success); }
+.a2a-task-report__state.is-failed { color: var(--danger); }
+.a2a-task-report__state.is-neutral { color: var(--text-faint); }
+.a2a-task-report__content { margin-top: 6px; }
+.a2a-task-report__content summary { cursor: pointer; color: var(--text-faint); }
+.a2a-task-report__text p, .a2a-task-report__artifacts p { max-height: 180px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; margin: 6px 0; line-height: 1.6; }
+.a2a-task-report__content small { display: block; color: var(--text-faint); line-height: 1.5; }
+.a2a-task-report__artifacts { list-style: none; padding: 0; margin: 8px 0 0; }
+.a2a-task-report__artifacts li + li { border-top: 1px solid var(--border-soft); padding-top: 8px; margin-top: 8px; }
+.a2a-task-report__artifacts strong { font-size: inherit; overflow-wrap: anywhere; }
+.a2a-report-error { color: var(--danger); font-size: 12px; line-height: 1.5; margin: 8px 12px; }
+.room-task-row > .a2a-task-report { margin: 0 12px 8px; }

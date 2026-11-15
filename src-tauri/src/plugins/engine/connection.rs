@@ -28,7 +28,11 @@ pub struct Connection {
     stopping: AtomicBool,
     reaper: Mutex<Option<thread::JoinHandle<()>>>,
 }
-struct WriteRequest { bytes: Vec<u8>, deadline: Instant, done: mpsc::SyncSender<Result<(), String>> }
+struct WriteRequest {
+    bytes: Vec<u8>,
+    deadline: Instant,
+    done: mpsc::SyncSender<Result<(), String>>,
+}
 impl Connection {
     pub fn launch(
         paths: (&Path, &Path, &Path),
@@ -63,7 +67,11 @@ impl Connection {
         });
         Ok(connection)
     }
-    fn write_input(connection: &Arc<Self>, mut input: ChildStdin, writes: mpsc::Receiver<WriteRequest>) {
+    fn write_input(
+        connection: &Arc<Self>,
+        mut input: ChildStdin,
+        writes: mpsc::Receiver<WriteRequest>,
+    ) {
         let weak = Arc::downgrade(connection);
         thread::spawn(move || {
             while let Ok(request) = writes.recv() {
@@ -71,11 +79,15 @@ impl Connection {
                     let _ = request.done.send(Err("插件请求在写入前已超时".into()));
                     continue;
                 }
-                let result = input.write_all(&request.bytes).map_err(|error| error.to_string());
+                let result = input
+                    .write_all(&request.bytes)
+                    .map_err(|error| error.to_string());
                 let failed = result.is_err();
                 let _ = request.done.send(result);
                 if failed {
-                    if let Some(connection) = weak.upgrade() { connection.terminate("插件宿主输入不可用"); }
+                    if let Some(connection) = weak.upgrade() {
+                        connection.terminate("插件宿主输入不可用");
+                    }
                     break;
                 }
             }
@@ -156,16 +168,27 @@ impl Connection {
         }
         bytes.push(b'\n');
         let (done, written) = mpsc::sync_channel(1);
-        self.input.try_send(WriteRequest { bytes, deadline, done })
+        self.input
+            .try_send(WriteRequest {
+                bytes,
+                deadline,
+                done,
+            })
             .map_err(|_| "插件写入队列已满或宿主已退出".to_string())?;
-        written.recv_timeout(deadline.saturating_duration_since(Instant::now()))
-            .map_err(|_| { self.terminate("插件宿主写入超时"); "插件宿主写入超时".to_string() })?
+        written
+            .recv_timeout(deadline.saturating_duration_since(Instant::now()))
+            .map_err(|_| {
+                self.terminate("插件宿主写入超时");
+                "插件宿主写入超时".to_string()
+            })?
     }
     pub fn call(&self, method: &str, params: Value) -> Reply {
         self.call_timeout(method, params, Duration::from_secs(120))
     }
     pub fn call_timeout(&self, method: &str, params: Value, timeout: Duration) -> Reply {
-        let deadline = Instant::now().checked_add(timeout).ok_or("插件截止时间无效")?;
+        let deadline = Instant::now()
+            .checked_add(timeout)
+            .ok_or("插件截止时间无效")?;
         if !self.alive.load(Ordering::Acquire) {
             return Err("插件宿主未运行".into());
         }
@@ -179,11 +202,17 @@ impl Connection {
             pending.insert(id, sender);
         }
         let result = self
-            .send_until(&json!({"id":id, "method":method, "params":params}), deadline)
+            .send_until(
+                &json!({"id":id, "method":method, "params":params}),
+                deadline,
+            )
             .and_then(|_| {
                 receiver
                     .recv_timeout(deadline.saturating_duration_since(Instant::now()))
-                    .map_err(|_| { self.terminate("插件宿主响应超时"); format!("插件请求超时：{method}") })
+                    .map_err(|_| {
+                        self.terminate("插件宿主响应超时");
+                        format!("插件请求超时：{method}")
+                    })
             })
             .and_then(|value| value);
         if let Ok(mut pending) = self.pending.lock() {
@@ -206,8 +235,12 @@ impl Connection {
     }
     fn terminate(&self, reason: &str) {
         self.fail(reason);
-        let Ok(mut reaper) = self.reaper.lock() else { return; };
-        if self.stopping.swap(true, Ordering::AcqRel) { return; }
+        let Ok(mut reaper) = self.reaper.lock() else {
+            return;
+        };
+        if self.stopping.swap(true, Ordering::AcqRel) {
+            return;
+        }
         let process = self.process.clone();
         // 回收不占用调用方的 deadline；唯一 writer 会随管道关闭被唤醒。
         *reaper = Some(thread::spawn(move || {
@@ -221,7 +254,9 @@ impl Connection {
     }
     fn join_reaper(&self) {
         let worker = self.reaper.lock().ok().and_then(|mut reaper| reaper.take());
-        if let Some(worker) = worker { let _ = worker.join(); }
+        if let Some(worker) = worker {
+            let _ = worker.join();
+        }
     }
 }
 fn spawn((node, root, base): (&Path, &Path, &Path)) -> Result<Child, String> {
@@ -259,7 +294,8 @@ fn spawn((node, root, base): (&Path, &Path, &Path)) -> Result<Child, String> {
     if let Some(path) = crate::agent::user_command_path() {
         command.env("PATH", path);
     }
-    #[cfg(unix)] {
+    #[cfg(unix)]
+    {
         use std::os::unix::process::CommandExt;
         command.process_group(0);
     }
@@ -280,18 +316,32 @@ impl Drop for Connection {
 }
 
 fn signal_tree(process: &mut Child, force: bool) {
-    #[cfg(unix)] {
-        unsafe extern "C" { fn kill(pid: i32, signal: i32) -> i32; }
-        unsafe { kill(-(process.id() as i32), if force { 9 } else { 15 }); }
+    #[cfg(unix)]
+    {
+        unsafe extern "C" {
+            fn kill(pid: i32, signal: i32) -> i32;
+        }
+        unsafe {
+            kill(-(process.id() as i32), if force { 9 } else { 15 });
+        }
     }
-    #[cfg(windows)] {
+    #[cfg(windows)]
+    {
         use std::os::windows::process::CommandExt;
         let mut command = Command::new("taskkill.exe");
         command.args(["/PID", &process.id().to_string(), "/T"]);
-        if force { command.arg("/F"); }
-        let _ = command.creation_flags(0x08000000).stdout(Stdio::null()).stderr(Stdio::null()).status();
+        if force {
+            command.arg("/F");
+        }
+        let _ = command
+            .creation_flags(0x08000000)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
     }
-    if force { let _ = process.kill(); }
+    if force {
+        let _ = process.kill();
+    }
 }
 fn read_message(reader: &mut impl BufRead) -> Result<Option<Vec<u8>>, String> {
     let mut bytes = Vec::new();
@@ -311,11 +361,20 @@ mod tests {
 
     #[test]
     fn deadline_includes_a_full_stdin_pipe_and_queued_writers() {
-        let root = std::env::temp_dir().join(format!("belfry-pipe-deadline-{}", ulid::Ulid::generate()));
+        let root =
+            std::env::temp_dir().join(format!("belfry-pipe-deadline-{}", ulid::Ulid::generate()));
         std::fs::create_dir_all(&root).unwrap();
-        std::fs::write(root.join("host.mjs"), "process.stdin.pause(); process.on('SIGTERM', () => {}); setInterval(() => {}, 1000);").unwrap();
+        std::fs::write(
+            root.join("host.mjs"),
+            "process.stdin.pause(); process.on('SIGTERM', () => {}); setInterval(() => {}, 1000);",
+        )
+        .unwrap();
         let node = crate::agent::find_in_path("node").expect("Node.js required");
-        let connection = Connection::launch((&node, &root, &root), (Arc::new(|_| Ok(Value::Null)), Arc::new(|_| {}))).unwrap();
+        let connection = Connection::launch(
+            (&node, &root, &root),
+            (Arc::new(|_| Ok(Value::Null)), Arc::new(|_| {})),
+        )
+        .unwrap();
         let (sender, receiver) = mpsc::channel();
         let mut workers = Vec::new();
         for _ in 0..2 {
@@ -335,7 +394,9 @@ mod tests {
             let _ = process.kill();
             let _ = process.wait();
         }
-        for worker in workers { worker.join().unwrap(); }
+        for worker in workers {
+            worker.join().unwrap();
+        }
         drop(connection);
         let _ = std::fs::remove_dir_all(root);
         for result in [first, second] {

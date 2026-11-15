@@ -41,7 +41,10 @@ fn local(kind: AgentKind) -> LocalRelease {
             executable: None,
             current_version: None,
             package: package::default_package(kind).map(str::to_owned),
-            notice: Some(belfry_i18n::lformat!("未在用户命令环境中找到 {}", kind.command_name())),
+            notice: Some(belfry_i18n::lformat!(
+                "未在用户命令环境中找到 {}",
+                kind.command_name()
+            )),
         };
     };
     let path = executable.to_string_lossy().to_string();
@@ -63,7 +66,8 @@ fn local(kind: AgentKind) -> LocalRelease {
             executable: Some(path),
             current_version: fallback_version(&executable),
             package: None,
-            notice: (!native::supported(kind)).then(|| belfry_i18n::text("已安装，请通过原安装渠道更新").to_string()),
+            notice: (!native::supported(kind))
+                .then(|| belfry_i18n::text("已安装，请通过原安装渠道更新").to_string()),
         },
     }
 }
@@ -115,13 +119,17 @@ pub(crate) fn package_for(kind: AgentKind) -> Result<String, crate::terminal::Ap
     match find_agent(kind) {
         Some(executable) => match package::detect(&executable) {
             Some(resolved) => Ok(resolved.package),
-            None => Err(crate::terminal::AppError::unsupported(
-                belfry_i18n::text("该 CLI 不是 npm 全局包，无法一键升级，请在终端中手动更新"),
-            )),
+            None => Err(crate::terminal::AppError::unsupported(belfry_i18n::text(
+                "该 CLI 不是 npm 全局包，无法一键升级，请在终端中手动更新",
+            ))),
         },
         None => package::default_package(kind)
             .map(str::to_owned)
-            .ok_or_else(|| crate::terminal::AppError::unsupported(belfry_i18n::text("此 CLI 使用官方原生安装器"))),
+            .ok_or_else(|| {
+                crate::terminal::AppError::unsupported(belfry_i18n::text(
+                    "此 CLI 使用官方原生安装器",
+                ))
+            }),
     }
 }
 

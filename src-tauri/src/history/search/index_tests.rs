@@ -1,4 +1,4 @@
-use super::fixtures::{codex_log, query, Fixture};
+use super::fixtures::{Fixture, codex_log, query};
 use super::{HistoryIndex, SearchCancellation};
 use crate::agent::AgentKind;
 use serde_json::json;
@@ -23,11 +23,13 @@ fn finds_body_text_and_preserves_resume_identity_and_original_file() {
     assert_eq!(1, report.hits.len());
     assert_eq!("session-a", report.hits[0].session.session_ref.id);
     assert_eq!("开始开发", report.hits[0].session.title);
-    assert!(report.hits[0]
-        .snippet
-        .as_deref()
-        .unwrap()
-        .contains("src/接口.rs"));
+    assert!(
+        report.hits[0]
+            .snippet
+            .as_deref()
+            .unwrap()
+            .contains("src/接口.rs")
+    );
     assert_eq!(before, fs::read(path).unwrap());
 }
 
@@ -68,11 +70,13 @@ fn combines_agent_project_and_inclusive_start_exclusive_end_filters() {
     );
     request.until = Some(1_000);
     request.from = None;
-    assert!(index
-        .search(&request, &fixture.roots, &SearchCancellation::default())
-        .unwrap()
-        .hits
-        .is_empty());
+    assert!(
+        index
+            .search(&request, &fixture.roots, &SearchCancellation::default())
+            .unwrap()
+            .hits
+            .is_empty()
+    );
 }
 
 #[test]
@@ -101,14 +105,18 @@ fn merges_codex_resume_parts_without_merging_other_agents_with_the_same_id() {
         )
         .unwrap();
     assert_eq!(2, matching.hits.len());
-    assert!(matching
-        .hits
-        .iter()
-        .any(|hit| hit.session.agent == AgentKind::Claude));
-    assert!(matching
-        .hits
-        .iter()
-        .any(|hit| hit.session.agent == AgentKind::Codex));
+    assert!(
+        matching
+            .hits
+            .iter()
+            .any(|hit| hit.session.agent == AgentKind::Claude)
+    );
+    assert!(
+        matching
+            .hits
+            .iter()
+            .any(|hit| hit.session.agent == AgentKind::Codex)
+    );
 }
 
 #[test]
@@ -143,11 +151,13 @@ fn caches_unchanged_files_and_reindexes_after_append_or_removal() {
     assert_eq!(1, refreshed.indexed_files);
     assert_eq!(1, refreshed.hits.len());
     fs::remove_file(path).unwrap();
-    assert!(index
-        .search(&query("旧内容"), &fixture.roots, &cancel)
-        .unwrap()
-        .hits
-        .is_empty());
+    assert!(
+        index
+            .search(&query("旧内容"), &fixture.roots, &cancel)
+            .unwrap()
+            .hits
+            .is_empty()
+    );
 }
 
 #[test]

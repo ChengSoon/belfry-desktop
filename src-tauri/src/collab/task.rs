@@ -12,7 +12,15 @@ pub use persistence::TaskBoard;
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub enum DeliveryPhase { #[default] Accepted, Queued, Submitting, Submitted, Uncertain, Cancelled }
+pub enum DeliveryPhase {
+    #[default]
+    Accepted,
+    Queued,
+    Submitting,
+    Submitted,
+    Uncertain,
+    Cancelled,
+}
 
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -75,7 +83,7 @@ pub enum TaskState {
     Queued,
     /// 已注入目标终端，等它干活。
     Dispatched,
-    /// 目标敲了 `belfry done`——唯一可信的完成信号。
+    /// 受信任目标显式报告完成；终端 activity 不是完成证据。
     Done,
     Failed,
     /// 目标会话没了 / 用户中止 / 超时。
@@ -173,7 +181,9 @@ pub fn judge(
         return Verdict::Rejected(belfry_i18n::text("目标会话不在了").into());
     }
     if !target.can_receive {
-        return Verdict::Rejected(belfry_i18n::text("目标会话现在收不了指令（不是 Agent，或已退出）").into());
+        return Verdict::Rejected(
+            belfry_i18n::text("目标会话现在收不了指令（不是 Agent，或已退出）").into(),
+        );
     }
     if !target.same_project {
         // 跨项目一律拒，连 Off 模式也不放行：这不是「危险但用户认了」，
@@ -189,7 +199,9 @@ pub fn judge(
         && parent.path.iter().any(|node| node == request.to)
     {
         // A→B→A 这种环会让两条会话互相等待，谁也不会先动。
-        return Verdict::Rejected(belfry_i18n::text("这条调用链里已经有目标会话了，会绕成环").into());
+        return Verdict::Rejected(
+            belfry_i18n::text("这条调用链里已经有目标会话了，会绕成环").into(),
+        );
     }
     if messages_this_run >= MAX_MESSAGES_PER_RUN {
         return Verdict::Rejected(belfry_i18n::lformat!(
@@ -249,7 +261,12 @@ pub fn build_task(
 ///
 /// 同房间、同接收者、还在排队、窗口内的投递并成一段（要求回复只升级不降级），
 /// 成员读到一段对话摘录，而不是被反复打断。
-pub fn enqueue_room_post(board: &TaskBoard, from: &str, post: &super::RoomPost, now: i64) -> Result<(), String> {
+pub fn enqueue_room_post(
+    board: &TaskBoard,
+    from: &str,
+    post: &super::RoomPost,
+    now: i64,
+) -> Result<(), String> {
     board.edit_mode(|tasks, enabled| {
     if enabled { return Ok(()); }
     if tasks.values().any(|task| task.to == post.tab_id && matches!(&task.origin, Some(TaskOrigin::Room { id, .. }) if id == &post.room_id)
@@ -304,32 +321,42 @@ pub fn enqueue_room_post(board: &TaskBoard, from: &str, post: &super::RoomPost, 
 }
 
 pub fn display_state(task: &CollabTask) -> String {
-    if task.state != TaskState::Queued { return format!("{:?}", task.state).to_lowercase(); }
+    if task.state != TaskState::Queued {
+        return format!("{:?}", task.state).to_lowercase();
+    }
     format!("{:?}", task.delivery.phase).to_lowercase()
 }
 
 /// 注入目标终端的文本。
 ///
-/// 三行封顶。每个字都占目标 Agent 的上下文，还会污染它自己的对话——
-/// 「入职说明」「工具清单」那类一次性铺垫属于它的 system prompt，不是我们该塞的。
+/// 指令保持完整；引用当前可发现的报告工具，句柄由宿主按实际实例签发。
 pub fn injection_text(task: &CollabTask, from_label: &str) -> String {
-    // 房间消息：没有任务号、没有 done 行——房间的活记在任务板上，不在这里交差。
+    // 会话消息不是另一件任务；接收方读全文后按原任务上下文回复。
     if let Some(chat) = &task.chat {
+        if task.origin.is_none() {
+            return belfry_i18n::lformat!(
+                "[belfry] 来自「{from_label}」的协作消息：\n{}\n用 A2AInbox 读取消息全文；原派发方通过原 Sender taskHandle 的 A2ASendMessage 回复，接收方通过 A2ALocalTasks/A2ALocalTask 阅读续写后用 A2AReportTask 显式报告。",
+                task.instruction
+            );
+        }
         let footer = if chat.ask {
-            belfry_i18n::text("有消息要求你回复：belfry room say --reply <短id> <你的话>")
+            belfry_i18n::text(
+                "有消息要求你回复：用 A2AInbox 读取原文和 questionId，再用 A2ARoomSay 的 replyTo、topicId 和 answers 回答。回复不会完成任务。",
+            )
         } else {
-            belfry_i18n::text("要接话用 belfry room say <你的话>（回复某条加 --reply <短id>）；没有要补充的不必回复。")
+            belfry_i18n::text(
+                "用 A2ARoomContext 读取上下文、A2ARoomSay 接话；没有要补充的不必回复。",
+            )
         };
-        return belfry_i18n::lformat!("[belfry] 房间「{from_label}」：\n{}\n{footer}", task.instruction);
+        return belfry_i18n::lformat!(
+            "[belfry] 房间「{from_label}」：\n{}\n{footer}",
+            task.instruction
+        );
     }
-    // 这行命令必须和 CLI 的实参语法逐字对上：`done` 收的是位置参数。写成
-    // `--task <id>` 的话，Agent 照着敲会把 `--task` 当成任务号——真任务永远结不掉，
-    // 而它自己以为已经交差了。e2e 测试会把这行原样跑一遍来钉住。
     belfry_i18n::lformat!(
-        "[belfry] 来自「{from_label}」的任务 {}\n{}\n完成后执行：belfry done {}",
-        short_id(&task.id),
+        "[belfry] 来自「{from_label}」的任务 {}\n{}\n用 A2ALocalTasks 找到此任务并取得 reportHandle 和 generation，先用 A2ALocalTask 读取完整上下文，再用 A2AReportTask 显式报告 working、inputRequired、completed 或 failed，并提供实际结果。终端闲置不是完成信号。",
+        &task.id,
         task.instruction,
-        short_id(&task.id),
     )
 }
 
@@ -352,6 +379,13 @@ pub fn short_id(id: &str) -> &str {
     // 「这条任务不是派给你的」，或者更糟：悄悄把别人的任务结掉了。尾部是随机位。
     let start = id.char_indices().rev().nth(7).map_or(0, |(at, _)| at);
     &id[start..]
+}
+
+pub(super) fn now_millis() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as i64
 }
 
 #[cfg(test)]

@@ -1,12 +1,18 @@
 use super::*;
 use crate::terminal::SshTarget;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 fn target(path: Option<&str>) -> SshTarget {
-    SshTarget { host: "jump-alias".into(), user: Some("dev".into()), port: Some(2222),
-        password: None, remember_password: None, remote_path: path.map(str::to_string) }
+    SshTarget {
+        host: "jump-alias".into(),
+        user: Some("dev".into()),
+        port: Some(2222),
+        password: None,
+        remember_password: None,
+        remote_path: path.map(str::to_string),
+    }
 }
 
 #[test]
@@ -24,13 +30,21 @@ fn keeps_remote_directory_separate_and_quotes_shell_metacharacters() {
 
 #[test]
 fn empty_remote_path_preserves_original_ssh_arguments() {
-    assert_eq!(vec!["-p", "2222", "dev@jump-alias"], remote::launch_arguments(&target(None)));
+    assert_eq!(
+        vec!["-p", "2222", "dev@jump-alias"],
+        remote::launch_arguments(&target(None))
+    );
 }
 
 #[test]
 fn diagnostic_is_noninteractive_and_keeps_strict_host_verification() {
     let args = remote::probe_arguments(&target(None), false);
-    for flag in ["BatchMode=yes", "StrictHostKeyChecking=yes", "ConnectTimeout=8", "ControlPath=none"] {
+    for flag in [
+        "BatchMode=yes",
+        "StrictHostKeyChecking=yes",
+        "ConnectTimeout=8",
+        "ControlPath=none",
+    ] {
         assert!(args.iter().any(|value| value == flag));
     }
     assert!(!args.iter().any(|value| value.contains("password")));
@@ -38,11 +52,16 @@ fn diagnostic_is_noninteractive_and_keeps_strict_host_verification() {
 
 #[test]
 fn parses_framed_unicode_directory_output_and_reports_truncation() {
-    let result = remote::parse_output(b"BELFRY_SSH_1\0/home/dev\0d\0one space\0d\0other\0t\0").unwrap();
+    let result =
+        remote::parse_output(b"BELFRY_SSH_1\0/home/dev\0d\0one space\0d\0other\0t\0").unwrap();
     assert_eq!("/home/dev", result.path);
     assert_eq!(vec!["one space", "other"], result.directories);
     assert!(result.truncated);
-    for bad in [b"banner\n".as_slice(), b"BELFRY_SSH_1\0relative\0", b"BELFRY_SSH_1\0/work\0d\0../outside\0"] {
+    for bad in [
+        b"banner\n".as_slice(),
+        b"BELFRY_SSH_1\0relative\0",
+        b"BELFRY_SSH_1\0/work\0d\0../outside\0",
+    ] {
         assert!(remote::parse_output(bad).is_err());
     }
 }
@@ -57,7 +76,12 @@ fn directory_listing_does_not_execute_path_contents() {
     fs::create_dir_all(root.join("child 空格")).unwrap();
     fs::create_dir(root.join(".hidden")).unwrap();
     let script = remote::directory_script(root.to_str(), true);
-    let output = Command::new("/bin/sh").arg("-c").arg(script).current_dir(&base).output().unwrap();
+    let output = Command::new("/bin/sh")
+        .arg("-c")
+        .arg(script)
+        .current_dir(&base)
+        .output()
+        .unwrap();
     assert!(output.status.success());
     let report = remote::parse_output(&output.stdout).unwrap();
     assert_eq!(vec![".hidden", "child 空格"], report.directories);
@@ -73,20 +97,30 @@ fn cancellation_and_timeout_terminate_only_the_managed_process_group() {
         let signal = flag.clone();
         // 取消路径要在超时之前稳稳命中，两者间距必须容得下 CI 的调度抖动：
         // 原先 40ms 取消 / 150ms 超时只差 110ms，跑满负载时会先超时，误判成功能坏了。
-        let timeout = if cancelled { Duration::from_secs(10) } else { Duration::from_millis(150) };
+        let timeout = if cancelled {
+            Duration::from_secs(10)
+        } else {
+            Duration::from_millis(150)
+        };
         if cancelled {
-            std::thread::spawn(move || { std::thread::sleep(Duration::from_millis(40)); signal.store(true, Ordering::Release); });
+            std::thread::spawn(move || {
+                std::thread::sleep(Duration::from_millis(40));
+                signal.store(true, Ordering::Release);
+            });
         }
         let mut command = std::process::Command::new("/bin/sh");
         command.args(["-c", "sleep 30 & wait"]);
         let started = Instant::now();
         let result = process::run(command, &flag, timeout);
         assert!(started.elapsed() < Duration::from_secs(9));
-        assert_eq!(result.unwrap_err().code.0, if cancelled {
-            "SSH_THE_SSH_REQUEST_WAS_CANCELLED"
-        } else {
-            "SSH_THE_SSH_REQUEST_TIMED_OUT_CHECK_THE"
-        });
+        assert_eq!(
+            result.unwrap_err().code.0,
+            if cancelled {
+                "SSH_THE_SSH_REQUEST_WAS_CANCELLED"
+            } else {
+                "SSH_THE_SSH_REQUEST_TIMED_OUT_CHECK_THE"
+            }
+        );
     }
 }
 
@@ -102,5 +136,8 @@ fn cancellation_marks_exact_request_and_rejects_duplicate_ids() {
     requests.finish("first");
     assert!(requests.begin("first").is_ok());
     requests.cancel("early");
-    assert_eq!(requests.begin("early").unwrap_err().code.0, "SSH_THE_SSH_REQUEST_WAS_CANCELLED");
+    assert_eq!(
+        requests.begin("early").unwrap_err().code.0,
+        "SSH_THE_SSH_REQUEST_WAS_CANCELLED"
+    );
 }

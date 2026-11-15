@@ -57,12 +57,13 @@ function summary(id: string): RoomSummary {
     foreman: null, openTasks: 0, doneTasks: 0, lastMessageAt: null, paused: false, lastToUser: null };
 }
 let state: ReturnType<typeof useRooms>;
+const onDeleted = vi.fn<(tabIds: readonly string[]) => void>();
 function render() {
   let turns = 0;
   do {
     if (++turns > 20) throw new Error("hook render did not settle");
     hooks.cursor = 0; hooks.dirty = false;
-    state = useRooms();
+    state = useRooms(onDeleted);
     hooks.effects.splice(0).forEach((effect) => effect());
   } while (hooks.dirty);
 }
@@ -76,6 +77,7 @@ beforeEach(async () => {
   vi.stubGlobal("window", { setInterval, clearInterval, setTimeout, clearTimeout });
   vi.mocked(api.roomList).mockResolvedValue({ rooms: [summary("A"), summary("B")], loadError: null });
   vi.mocked(api.roomGet).mockImplementation(async (id) => makeRoom(id));
+  vi.mocked(api.roomDelete).mockResolvedValue([]);
   render(); await flush();
   expect(state.room?.id).toBe("A");
 });
@@ -147,6 +149,38 @@ describe("room request lifetime", () => {
     expect(state.selectedId).toBe("B");
     expect(state.room?.id).toBe("B");
     expect(state.rooms.map((room) => room.id)).toEqual(["B"]);
+  });
+
+  it("removes the exact native member sessions even when selection changes during deletion", async () => {
+    const deletion = deferred<string[]>();
+    vi.mocked(api.roomDelete).mockReturnValueOnce(deletion.promise);
+    const removing = state.remove("A");
+    state.select("B"); await flush();
+    deletion.resolve(["native-lead", "native-worker"]);
+    expect(await removing).toBe(true); await flush();
+    expect(onDeleted).toHaveBeenCalledOnce();
+    expect(onDeleted).toHaveBeenCalledWith(["native-lead", "native-worker"]);
+    expect(state.selectedId).toBe("B");
+  });
+
+  it("preserves sessions when native deletion is rejected", async () => {
+    vi.mocked(api.roomDelete).mockRejectedValueOnce(new Error("room disk conflict"));
+    expect(await state.remove("A")).toBe(false); await flush();
+    expect(onDeleted).not.toHaveBeenCalled();
+    expect(state.room?.id).toBe("A");
+    expect(state.error).toBe("room disk conflict");
+  });
+
+  it("cleans up committed deletion after the room panel unmounts without publishing panel state", async () => {
+    const deletion = deferred<string[]>();
+    vi.mocked(api.roomDelete).mockReturnValueOnce(deletion.promise);
+    const removing = state.remove("A");
+    unmount();
+    const writes = hooks.writes;
+    deletion.resolve(["native-lead", "native-worker"]);
+    expect(await removing).toBe(true);
+    expect(onDeleted).toHaveBeenCalledWith(["native-lead", "native-worker"]);
+    expect(hooks.writes).toBe(writes);
   });
 
   it("ignores failures from an old selection", async () => {

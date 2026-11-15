@@ -3,7 +3,7 @@ use std::fs;
 use std::time::{Duration, UNIX_EPOCH};
 
 use super::cancellation::SearchRegistry;
-use super::fixtures::{codex_log, query, Fixture};
+use super::fixtures::{Fixture, codex_log, query};
 use super::{HistoryIndex, SearchCancellation};
 use crate::history::line_reader::MAX_LINE_BYTES;
 
@@ -37,11 +37,13 @@ fn replacing_a_file_with_equal_length_text_invalidates_the_cached_result() {
         .unwrap();
     assert_eq!(1, current.indexed_files);
     assert_eq!(1, current.hits.len());
-    assert!(index
-        .search(&query("旧内容"), &fixture.roots, &cancel)
-        .unwrap()
-        .hits
-        .is_empty());
+    assert!(
+        index
+            .search(&query("旧内容"), &fixture.roots, &cancel)
+            .unwrap()
+            .hits
+            .is_empty()
+    );
 }
 
 #[test]
@@ -75,7 +77,9 @@ fn a_cancelled_search_never_returns_a_partial_report() {
     let registry = SearchRegistry::default();
     let cancel = registry.begin("request".into()).unwrap();
     registry.cancel("request");
-    assert!(HistoryIndex::default()
-        .search(&query("目标"), &fixture.roots, &cancel)
-        .is_err());
+    assert!(
+        HistoryIndex::default()
+            .search(&query("目标"), &fixture.roots, &cancel)
+            .is_err()
+    );
 }

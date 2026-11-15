@@ -4,12 +4,17 @@ mod codex;
 pub mod commands;
 mod contracts;
 mod diagnostics;
+mod migration;
 mod native;
 mod pi;
 pub(crate) mod process;
-mod skill;
 
-pub(crate) fn install_skill_on_startup() {
-    // Skill 是增强功能：用户目录不可写时不能阻止终端工作台启动。
-    let _ = skill::install_all();
+pub(crate) fn migrate_collaboration_on_startup() {
+    for result in migration::migrate_all() {
+        if result.state.is_err() {
+            log::warn!(
+                "A legacy collaboration skill was preserved because migration could not inspect or remove it"
+            );
+        }
+    }
 }

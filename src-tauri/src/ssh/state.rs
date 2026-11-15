@@ -1,6 +1,9 @@
-use std::collections::{HashMap, VecDeque};
-use std::sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}};
 use crate::terminal::AppError;
+use std::collections::{HashMap, VecDeque};
+use std::sync::{
+    Arc, Mutex,
+    atomic::{AtomicBool, Ordering},
+};
 
 const MAX_REQUESTS: usize = 8;
 const MAX_ID: usize = 100;
@@ -20,7 +23,10 @@ impl SshRequests {
         if id.is_empty() || id.len() > MAX_ID || id.chars().any(char::is_control) {
             return Err(AppError::invalid_argument("SSH 请求身份无效"));
         }
-        let mut requests = self.0.lock().map_err(|_| AppError::io("SSH 请求管理器不可用"))?;
+        let mut requests = self
+            .0
+            .lock()
+            .map_err(|_| AppError::io("SSH 请求管理器不可用"))?;
         if let Some(index) = requests.cancelled.iter().position(|value| value == id) {
             requests.cancelled.remove(index);
             return Err(AppError::io("SSH 请求已取消"));
@@ -34,15 +40,22 @@ impl SshRequests {
     }
 
     pub(super) fn finish(&self, id: &str) {
-        if let Ok(mut requests) = self.0.lock() { requests.active.remove(id); }
+        if let Ok(mut requests) = self.0.lock() {
+            requests.active.remove(id);
+        }
     }
 
     pub(super) fn cancel(&self, id: &str) {
-        if id.is_empty() || id.len() > MAX_ID { return; }
+        if id.is_empty() || id.len() > MAX_ID {
+            return;
+        }
         if let Ok(mut requests) = self.0.lock() {
-            if let Some(flag) = requests.active.get(id) { flag.store(true, Ordering::Release); }
-            else if !requests.cancelled.iter().any(|value| value == id) {
-                if requests.cancelled.len() >= MAX_EARLY_CANCELS { requests.cancelled.pop_front(); }
+            if let Some(flag) = requests.active.get(id) {
+                flag.store(true, Ordering::Release);
+            } else if !requests.cancelled.iter().any(|value| value == id) {
+                if requests.cancelled.len() >= MAX_EARLY_CANCELS {
+                    requests.cancelled.pop_front();
+                }
                 requests.cancelled.push_back(id.into());
             }
         }

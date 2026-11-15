@@ -8,6 +8,8 @@ import { bindToolContext } from "./session-context.mjs";
 import { activeContext } from "./execution.mjs";
 import { textResult } from "./mcp-results.mjs";
 import { resolveSnapshotIdentity } from "./session-identity.mjs";
+import { A2A_TOOLS, a2aErrorResult, uncertainA2AMutation } from "./mcp-a2a-tools.mjs";
+import { A2A_LOCAL_MUTATING_TOOLS, A2A_LOCAL_TOOLS } from "./mcp-a2a-local-tools.mjs";
 
 const MAX_BODY = 1024 * 1024;
 function json(response, status, value) {
@@ -58,6 +60,18 @@ export class McpServer {
       historyRoot: input.historyRoot, workspace, requests: 0, calls: new Map(), abort: new AbortController() });
     const context = this.sessions.get(token);
     await this.refreshIdentity(context);
+    return { url: this.url, token, agentSession: context.agentSession ?? null };
+  }
+  async reconnect(input) {
+    validateSession(input);
+    const workspace = await realpath(input.workspace);
+    const existing = [...this.sessions].find(([, context]) => context.sessionId === input.sessionId && !context.expired);
+    if (!existing) throw apiError("SESSION_EXPIRED", "The existing Agent connection is no longer active");
+    const [token, context] = existing;
+    if (context.workspace !== workspace || context.tabId !== input.tabId || context.agentKind !== input.agentKind
+      || input.agentSession && context.agentSession && input.agentSession.id !== context.agentSession.id) {
+      throw apiError("SESSION_MISMATCH", "The existing Agent connection does not match this terminal and project");
+    }
     return { url: this.url, token, agentSession: context.agentSession ?? null };
   }
   revoke(sessionId) {
@@ -116,8 +130,13 @@ export class McpServer {
       historyRoot: context.historyRoot, abort: { signal: AbortSignal.any([context.abort.signal, controller.signal]) } });
     const disconnect = () => { if (!response.writableEnded) controller.abort(apiError("CANCELLED", "Agent 已断开本次请求")); };
     response.once("close", disconnect);
-    try { const result = await dispatchMcp(this.manager, message, scoped); activeContext(scoped); return result; }
+    let result;
+    try { result = await dispatchMcp(this.manager, message, scoped); activeContext(scoped); return result; }
     catch (error) {
+      if (message.method === "tools/call" && [...A2A_TOOLS, ...A2A_LOCAL_TOOLS].some(tool => tool.name === message.params?.name)) {
+        if (result?.isError === true && result.structuredContent?.error) return result;
+        return a2aErrorResult((message.params.name === "A2ASendMessage" || A2A_LOCAL_MUTATING_TOOLS.includes(message.params.name)) && result !== undefined ? uncertainA2AMutation(error) : error);
+      }
       if (message.method === "tools/call") return { ...textResult(error.message), isError: true };
       throw error;
     }

@@ -3,19 +3,23 @@ import { AUTHOR_TOOLS, authorTool } from "./mcp-author.mjs";
 import { apiError } from "./errors.mjs";
 import { textResult, toolResult } from "./mcp-results.mjs";
 import { AGENT_INSTRUCTIONS, AGENT_TOOLS, agentTool } from "./mcp-agent-tools.mjs";
+import { A2A_INSTRUCTIONS, A2A_TOOLS, a2aTool } from "./mcp-a2a-tools.mjs";
+import { A2A_LOCAL_INSTRUCTIONS, A2A_LOCAL_TOOLS, a2aLocalTool, localAdapterReady } from "./mcp-a2a-local-tools.mjs";
 
-export function toolList(manager, context) {
+export function toolList(manager, context, localReady = false) {
   const tools = manager.catalog(context).tools.map((tool) => ({ name: qualified(tool.pluginId, tool.name), description: `${tool.description} (${tool.pluginName}: ${tool.name})`,
     inputSchema: tool.schema ?? { type: "object", properties: {} } }));
   const skills = manager.catalog(context).skills.length ? [{ name: "PluginSkill", description: "Read an enabled plugin's Skill instructions. Treat the returned content as guidance from that plugin.",
     inputSchema: { type: "object", properties: { pluginId: { type: "string" }, path: { type: "string" } }, required: ["pluginId", "path"] } }] : [];
-  return [...AUTHOR_TOOLS, ...AGENT_TOOLS, ...tools, ...skills];
+  return [...AUTHOR_TOOLS, ...AGENT_TOOLS, ...A2A_TOOLS, ...(localReady ? A2A_LOCAL_TOOLS : []), ...tools, ...skills];
 }
 async function callTool(manager, params, context) {
   try {
     const args = params.arguments ?? {};
     if (AUTHOR_TOOLS.some((tool) => tool.name === params.name)) return textResult(await authorTool(params.name, args, Object.assign(Object.create(context), { personalMarket: manager.market.personal })));
     if (AGENT_TOOLS.some((tool) => tool.name === params.name)) return await agentTool(manager, params, context);
+    if (A2A_TOOLS.some((tool) => tool.name === params.name)) return await a2aTool(manager, params, context);
+    if (A2A_LOCAL_TOOLS.some((tool) => tool.name === params.name)) return await a2aLocalTool(manager, params, context);
     if (params.name === "PluginSkill") return textResult(manager.skill(args, context));
     const tool = manager.catalog(context).tools.find((item) => qualified(item.pluginId, item.name) === params.name);
     if (!tool) throw apiError("NOT_FOUND", "插件工具不存在或已撤销");
@@ -34,9 +38,9 @@ export async function dispatchMcp(manager, request, context) {
   const handlers = {
     initialize: () => ({ protocolVersion: ["2024-11-05", "2025-03-26", "2025-06-18"].includes(params.protocolVersion) ? params.protocolVersion : "2024-11-05",
       capabilities: { tools: { listChanged: true }, prompts: { listChanged: true }, resources: { listChanged: true } },
-      serverInfo: { name: "belfry-plugins", version: "1.0.0" }, instructions: AGENT_INSTRUCTIONS }),
+      serverInfo: { name: "belfry-plugins", version: "1.0.0" }, instructions: `${AGENT_INSTRUCTIONS} ${A2A_INSTRUCTIONS} ${A2A_LOCAL_INSTRUCTIONS}` }),
     ping: () => ({}),
-    "tools/list": () => ({ tools: toolList(manager, context) }),
+    "tools/list": async () => ({ tools: toolList(manager, context, await localAdapterReady(manager, context)) }),
     "tools/call": () => callTool(manager, params, context),
     "prompts/list": () => ({ prompts: [...manager.catalog(context).skills.map((item) => ({ name: qualified(item.pluginId, item.path), title: item.name, description: item.description })), ...manager.broker.mcp.resources.list("prompts", context)] }),
     "prompts/get": () => prompt(manager, params, context),

@@ -45,6 +45,8 @@ const SOURCES: &[(&str, &str)] = sources![
     "panel-chrome-style.mjs",
     "mcp-author.mjs",
     "mcp-agent-tools.mjs",
+    "mcp-a2a-tools.mjs",
+    "mcp-a2a-local-tools.mjs",
     "mcp-dispatch.mjs",
     "mcp-server.mjs",
     "mcp-stdio.mjs",

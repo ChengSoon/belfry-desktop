@@ -18,8 +18,8 @@ mod formatting_tests {
             let duty = "custom responsibility";
             let objective = "custom objective";
             let role = "custom role";
-            let output = crate::lformat!("你加入了房间「{}」，角色「{}」，职责：{duty}。需求目标：{objective}。\n{role}\n全貌（需求、成员、任务板）：belfry room status", room, "Lead");
-            assert_eq!(output, format!("You joined room \"{room}\" as \"Lead\". Responsibilities: {duty}. Objective: {objective}.\n{role}\nView the brief, members, and task board: belfry room status"));
+            let output = crate::lformat!("房间「{}」·角色「{}」\n职责：{duty}\n目标：{objective}\n{role}\n任务须显式交差。", room, "Lead");
+            assert_eq!(output, format!("Room \"{room}\" · Role \"Lead\"\nResponsibilities: {duty}\nObjective: {objective}\n{role}\nReport task completion explicitly."));
         });
     }
 }

@@ -34,21 +34,38 @@ pub(crate) fn normalize_root(raw: &str) -> String {
     } else {
         Some(std::path::PathBuf::from(raw))
     };
-    path.map(|path| crate::resource::canonicalize(&path).unwrap_or(path).to_string_lossy().into_owned())
-        .unwrap_or_else(|| raw.to_string())
+    path.map(|path| {
+        crate::resource::canonicalize(&path)
+            .unwrap_or(path)
+            .to_string_lossy()
+            .into_owned()
+    })
+    .unwrap_or_else(|| raw.to_string())
 }
 pub(crate) fn session_key(root: &str, tab: &str) -> String {
     format!("s:{}", operation_hash(&(normalize_root(root), tab)))
 }
 fn entry_id(source: &Source, recipient: &Recipient) -> String {
-    format!("e:{}", operation_hash(&(&source.kind, &source.room_id, &source.message_id, &recipient.id)))
+    format!(
+        "e:{}",
+        operation_hash(&(
+            &source.kind,
+            &source.room_id,
+            &source.message_id,
+            &recipient.id
+        ))
+    )
 }
 fn actor(room: &Room, id: &str, semantics: Option<&MessageSemantics>) -> Actor {
     let member = room.members.iter().find(|member| member.id == id);
     Actor {
         id: id.into(),
-        name: semantics.and_then(|s| s.sender_name.clone()).unwrap_or_else(|| room.label(id)),
-        tab_id: semantics.and_then(|s| s.sender_tab.clone()).or_else(|| member.map(|m| m.tab_id.clone())),
+        name: semantics
+            .and_then(|s| s.sender_name.clone())
+            .unwrap_or_else(|| room.label(id)),
+        tab_id: semantics
+            .and_then(|s| s.sender_tab.clone())
+            .or_else(|| member.map(|m| m.tab_id.clone())),
         member_id: member.map(|m| m.id.clone()),
     }
 }
@@ -84,6 +101,7 @@ fn base(
             delivery_status: Status::new("collecting"),
             handling_status: Status::new("unknown_handling"),
             waiting_reason: None,
+            task_ref: None,
         },
         enqueue_seq: 0,
         received_at: created_at,
@@ -112,12 +130,19 @@ pub(super) fn snapshot(
     for room in rooms {
         out.member_ids.insert(
             room.id.clone(),
-            room.active_members().map(|member| (member.tab_id.clone(), member.id.clone())).collect(),
+            room.active_members()
+                .map(|member| (member.tab_id.clone(), member.id.clone()))
+                .collect(),
         );
         out.members.insert(
             room.id.clone(),
             room.active_members()
-                .map(|member| (member.tab_id.clone(), member.role == crate::rooms::model::MemberRole::Foreman))
+                .map(|member| {
+                    (
+                        member.tab_id.clone(),
+                        member.role == crate::rooms::model::MemberRole::Foreman,
+                    )
+                })
                 .collect(),
         );
         let root = normalize_root(&room.project_root);
@@ -150,7 +175,8 @@ pub(super) fn snapshot(
             );
             let semantics = message.inbox.as_ref().unwrap_or(&fallback);
             for member_id in message.to.iter().filter(|id| *id != "user") {
-                let Some(member) = room.members.iter().find(|member| &member.id == member_id) else {
+                let Some(member) = room.members.iter().find(|member| &member.id == member_id)
+                else {
                     continue;
                 };
                 let tab = semantics
@@ -160,7 +186,9 @@ pub(super) fn snapshot(
                     .or_else(|| {
                         room.delivery_outbox
                             .iter()
-                            .find(|entry| entry.message_id == message.id && entry.member_id == *member_id)
+                            .find(|entry| {
+                                entry.message_id == message.id && entry.member_id == *member_id
+                            })
                             .and_then(|entry| entry.tab_id.clone())
                     })
                     .unwrap_or_else(|| member.tab_id.clone());
@@ -194,7 +222,10 @@ pub(super) fn snapshot(
                     semantics.topic_id.clone(),
                     class,
                     if assignment {
-                        semantics.task_instruction.clone().unwrap_or_else(|| message.text.clone())
+                        semantics
+                            .task_instruction
+                            .clone()
+                            .unwrap_or_else(|| message.text.clone())
                     } else {
                         message.text.clone()
                     },
@@ -203,15 +234,26 @@ pub(super) fn snapshot(
                 entry.view.revision = semantics.revision.max(1);
                 entry.source_revision = semantics.revision.max(1);
                 entry.answers = semantics.answers.clone();
-                entry.task = if assignment { semantics.task_ref.clone() } else { None };
+                entry.task = if assignment {
+                    semantics.task_ref.clone()
+                } else {
+                    None
+                };
                 entry.view.reply_to = message.reply_to.clone();
-                entry.view.reply_preview =
-                    message.reply_to.as_ref().and_then(|id| room.message(id)).map(|original| ReplyView {
+                entry.view.reply_preview = message
+                    .reply_to
+                    .as_ref()
+                    .and_then(|id| room.message(id))
+                    .map(|original| ReplyView {
                         message_id: original.id.clone(),
                         by: actor(room, &original.by, original.inbox.as_ref()),
                         created_at: original.at,
                         text: crate::rooms::model::excerpt(&original.text, 240),
-                        answers: original.inbox.as_ref().map(|s| s.answers.clone()).unwrap_or_default(),
+                        answers: original
+                            .inbox
+                            .as_ref()
+                            .map(|s| s.answers.clone())
+                            .unwrap_or_default(),
                     });
                 entry.view.attachments = message
                     .attachments
@@ -255,7 +297,9 @@ pub(super) fn snapshot(
                     .filter(|reply| {
                         reply.reply_to.as_deref() == Some(&message.id)
                             || reply.inbox.as_ref().is_some_and(|s| {
-                                s.answers.iter().any(|answer| semantics.questions.iter().any(|q| &q.id == answer))
+                                s.answers.iter().any(|answer| {
+                                    semantics.questions.iter().any(|q| &q.id == answer)
+                                })
                             })
                     })
                     .map(|reply| ReplyView {
@@ -263,22 +307,35 @@ pub(super) fn snapshot(
                         by: actor(room, &reply.by, reply.inbox.as_ref()),
                         created_at: reply.at,
                         text: reply.text.clone(),
-                        answers: reply.inbox.as_ref().map(|s| s.answers.clone()).unwrap_or_default(),
+                        answers: reply
+                            .inbox
+                            .as_ref()
+                            .map(|s| s.answers.clone())
+                            .unwrap_or_default(),
                     })
                     .collect();
                 let mut cancelled = member.left_at.is_some() || member.tab_id != tab;
                 let mut completed = false;
-                let mut blocker = if room.paused { Some(Status::new("room_paused")) } else { None };
+                let mut blocker = if room.paused {
+                    Some(Status::new("room_paused"))
+                } else {
+                    None
+                };
                 if let Some(reference) = &entry.task {
                     match room.tasks.iter().find(|task| task.id == reference.id) {
                         Some(task)
-                            if task.generation == reference.generation && task.assignee.as_ref() == Some(member_id) =>
+                            if task.generation == reference.generation
+                                && task.assignee.as_ref() == Some(member_id) =>
                         {
                             completed = task.status == TaskStatus::Done;
-                            cancelled |= matches!(task.status, TaskStatus::Done | TaskStatus::Archived);
+                            cancelled |=
+                                matches!(task.status, TaskStatus::Done | TaskStatus::Archived);
                             let dependencies = crate::rooms::model::open_blockers(room, task);
                             if !dependencies.is_empty() {
-                                blocker = Some(Status::new("task_dependency").with("task", dependencies.join(", ")));
+                                blocker = Some(
+                                    Status::new("task_dependency")
+                                        .with("task", dependencies.join(", ")),
+                                );
                             }
                         }
                         _ => cancelled = true,
@@ -295,32 +352,53 @@ pub(super) fn snapshot(
                         .find(|e| e.member_id == *member_id && e.message_id == message.id)
                         .map(|e| e.phase)
                 });
-                let legacy = if matches!(old_phase, Some(OldPhase::Submitting | OldPhase::Uncertain)) {
-                    entry.view.delivery_phase = DeliveryPhase::Uncertain;
-                    let legacy_id = legacy_task
-                        .map(|task| task.id.clone())
-                        .unwrap_or_else(|| format!("{}:{member_id}", message.id));
-                    Some((
-                        legacy_id.clone(),
-                        legacy_task.and_then(|task| task.delivery.attempt_id.clone()).unwrap_or(legacy_id),
-                        legacy_task.map_or(0, |task| task.delivery.sequence),
-                    ))
-                } else {
-                    None
-                };
-                if message.delivered_to.contains(member_id) || matches!(old_phase, Some(OldPhase::Submitted)) {
+                let legacy =
+                    if matches!(old_phase, Some(OldPhase::Submitting | OldPhase::Uncertain)) {
+                        entry.view.delivery_phase = DeliveryPhase::Uncertain;
+                        let legacy_id = legacy_task
+                            .map(|task| task.id.clone())
+                            .unwrap_or_else(|| format!("{}:{member_id}", message.id));
+                        Some((
+                            legacy_id.clone(),
+                            legacy_task
+                                .and_then(|task| task.delivery.attempt_id.clone())
+                                .unwrap_or(legacy_id),
+                            legacy_task.map_or(0, |task| task.delivery.sequence),
+                        ))
+                    } else {
+                        None
+                    };
+                if message.delivered_to.contains(member_id)
+                    || matches!(old_phase, Some(OldPhase::Submitted))
+                {
                     entry.view.delivery_phase = DeliveryPhase::Submitted;
                 } else if matches!(old_phase, Some(OldPhase::Cancelled)) {
                     cancelled = true;
                 }
                 out.seeds.insert(
                     entry.view.id.clone(),
-                    Seed { source_seq: semantics.source_sequence, entry, blocker, cancelled, completed, legacy },
+                    Seed {
+                        source_seq: semantics.source_sequence,
+                        entry,
+                        blocker,
+                        cancelled,
+                        completed,
+                        legacy,
+                    },
                 );
             }
         }
     }
-    for task in tasks.values().filter(|task| task.chat.is_none()) {
+    for task in tasks
+        .values()
+        .filter(|task| task.chat.is_none() || task.origin.is_none())
+    {
+        if task.chat.is_some() {
+            if let Some(seed) = direct_turn(task, tasks, registry) {
+                out.seeds.insert(seed.entry.view.id.clone(), seed);
+            }
+            continue;
+        }
         let target = registry.find(&task.to);
         // Old direct tasks remain durable in their source while the fixed tab's
         // project is unknown; never manufacture a project-less delivery target.
@@ -340,15 +418,26 @@ pub(super) fn snapshot(
             tab_id: task.to.clone(),
             room_id: None,
             member_id: None,
-            name: target.as_ref().and_then(|s| s.name.clone()).unwrap_or_else(|| task.to.clone()),
+            name: target
+                .as_ref()
+                .and_then(|s| s.name.clone())
+                .unwrap_or_else(|| task.to.clone()),
             agent: target.as_ref().map(|s| s.agent.clone()).unwrap_or_default(),
         };
         let from = registry.find(&task.from);
-        let reference = TaskRef { kind: "direct_task".into(), room_id: None, id: task.id.clone(), generation: 1 };
+        let reference = TaskRef {
+            kind: "direct_task".into(),
+            room_id: None,
+            id: task.id.clone(),
+            generation: 1,
+        };
         let source = Source {
             kind: "direct_task".into(),
             room_id: None,
-            name: from.as_ref().and_then(|s| s.name.clone()).unwrap_or_else(|| task.from.clone()),
+            name: from
+                .as_ref()
+                .and_then(|s| s.name.clone())
+                .unwrap_or_else(|| task.from.clone()),
             message_id: task.id.clone(),
         };
         let by = Actor {
@@ -376,16 +465,25 @@ pub(super) fn snapshot(
                 entry.view.delivery_phase = DeliveryPhase::Uncertain;
                 Some((
                     task.id.clone(),
-                    task.delivery.attempt_id.clone().unwrap_or_else(|| task.id.clone()),
+                    task.delivery
+                        .attempt_id
+                        .clone()
+                        .unwrap_or_else(|| task.id.clone()),
                     task.delivery.sequence,
                 ))
             }
             _ => None,
         };
         if !crate::collab::task::is_settled(&task.state) {
-            out.active_tasks.insert(task_key(&reference), entry.view.recipient.session_key.clone());
+            out.active_tasks.insert(
+                task_key(&reference),
+                entry.view.recipient.session_key.clone(),
+            );
             if task.state == TaskState::Dispatched {
-                out.started.entry(entry.view.recipient.session_key.clone()).or_default().push(reference);
+                out.started
+                    .entry(entry.view.recipient.session_key.clone())
+                    .or_default()
+                    .push(reference);
             }
         }
         out.seeds.insert(
@@ -407,16 +505,141 @@ pub(super) fn snapshot(
     out
 }
 
+/// A2A follow-up/input turns share the original conversation. They are durable
+/// inbox messages and never occupy a second assignment slot or require a result.
+fn direct_turn(
+    turn: &CollabTask,
+    tasks: &HashMap<String, CollabTask>,
+    registry: &SessionRegistry,
+) -> Option<Seed> {
+    let chat = turn.chat.as_ref()?;
+    let parent = tasks
+        .get(chat.message_ids.first()?)
+        .filter(|task| task.chat.is_none() && task.origin.is_none())?;
+    if !((parent.from == turn.from && parent.to == turn.to)
+        || (parent.to == turn.from && parent.from == turn.to))
+    {
+        return None;
+    }
+    let root = normalize_root(parent.project_root.as_deref()?);
+    if turn.project_root.as_deref().map(normalize_root).as_deref() != Some(root.as_str()) {
+        return None;
+    }
+    let target = registry.find(&turn.to);
+    let from = registry.find(&turn.from);
+    let name = from
+        .and_then(|s| s.name)
+        .unwrap_or_else(|| turn.from.clone());
+    let source = Source {
+        kind: "direct_message".into(),
+        room_id: None,
+        name: name.clone(),
+        message_id: turn.id.clone(),
+    };
+    let recipient = Recipient {
+        id: format!("tab:{}", turn.to),
+        session_key: session_key(&root, &turn.to),
+        project_root: root,
+        tab_id: turn.to.clone(),
+        room_id: None,
+        member_id: None,
+        name: target
+            .as_ref()
+            .and_then(|s| s.name.clone())
+            .unwrap_or_else(|| turn.to.clone()),
+        agent: target.map(|s| s.agent).unwrap_or_default(),
+    };
+    let mut entry = base(
+        source,
+        recipient,
+        Actor {
+            id: turn.from.clone(),
+            name,
+            tab_id: Some(turn.from.clone()),
+            member_id: None,
+        },
+        format!("direct:{}", parent.id),
+        if chat.ask {
+            MessageClass::Discussion
+        } else {
+            MessageClass::Reply
+        },
+        turn.instruction.clone(),
+        turn.created_at,
+    );
+    entry.answers = chat.message_ids.iter().skip(1).cloned().collect();
+    if chat.ask {
+        let replies = tasks
+            .values()
+            .filter(|candidate| {
+                candidate.from == turn.to
+                    && candidate.to == turn.from
+                    && candidate.chat.as_ref().is_some_and(|chat| {
+                        chat.message_ids.iter().skip(1).any(|id| id == &turn.id)
+                    })
+            })
+            .map(|reply| reply.id.clone())
+            .collect::<Vec<_>>();
+        entry.view.questions.push(QuestionView {
+            id: turn.id.clone(),
+            text: turn.instruction.clone(),
+            state: if !replies.is_empty() {
+                "replied"
+            } else if crate::collab::task::is_settled(&parent.state) {
+                "cancelled"
+            } else {
+                "open"
+            }
+            .into(),
+            reply_message_ids: replies,
+            legacy: false,
+        });
+    }
+    let legacy = match turn.delivery.phase {
+        OldPhase::Submitted => {
+            entry.view.delivery_phase = DeliveryPhase::Submitted;
+            None
+        }
+        OldPhase::Submitting | OldPhase::Uncertain => {
+            entry.view.delivery_phase = DeliveryPhase::Uncertain;
+            Some((
+                turn.id.clone(),
+                turn.delivery
+                    .attempt_id
+                    .clone()
+                    .unwrap_or_else(|| turn.id.clone()),
+                turn.delivery.sequence,
+            ))
+        }
+        _ => None,
+    };
+    Some(Seed {
+        source_seq: turn.source_sequence,
+        entry,
+        blocker: None,
+        cancelled: crate::collab::task::is_settled(&parent.state)
+            || crate::collab::task::is_settled(&turn.state),
+        completed: crate::collab::task::is_settled(&parent.state),
+        legacy,
+    })
+}
+
 /// Preserve original ages/identities. Source synchronization cannot reopen terminal delivery phases.
 pub(super) fn merge(data: &mut Data, sources: &Snapshot) {
     let mut ordered: Vec<_> = sources.seeds.values().collect();
     ordered.sort_by(|a, b| {
-        (a.entry.view.created_at, &a.entry.view.source.room_id, a.source_seq, &a.entry.view.id).cmp(&(
-            b.entry.view.created_at,
-            &b.entry.view.source.room_id,
-            b.source_seq,
-            &b.entry.view.id,
-        ))
+        (
+            a.entry.view.created_at,
+            &a.entry.view.source.room_id,
+            a.source_seq,
+            &a.entry.view.id,
+        )
+            .cmp(&(
+                b.entry.view.created_at,
+                &b.entry.view.source.room_id,
+                b.source_seq,
+                &b.entry.view.id,
+            ))
     });
     let mut legacy_groups: BTreeMap<String, Vec<&Seed>> = BTreeMap::new();
     for seed in ordered {
@@ -430,7 +653,10 @@ pub(super) fn merge(data: &mut Data, sources: &Snapshot) {
             }
             data.entries.insert(id.clone(), entry);
             if let Some((legacy, _, _)) = &seed.legacy {
-                legacy_groups.entry(format!("legacy:{legacy}")).or_default().push(seed);
+                legacy_groups
+                    .entry(format!("legacy:{legacy}"))
+                    .or_default()
+                    .push(seed);
             }
         }
         let entry = data.entries.get_mut(id).unwrap();
@@ -450,7 +676,11 @@ pub(super) fn merge(data: &mut Data, sources: &Snapshot) {
             entry.view.questions = questions;
             entry.view.replies = seed.entry.view.replies.clone();
             entry.view.reply_preview = seed.entry.view.reply_preview.clone();
-            entry.view.revision += seed.entry.source_revision.saturating_sub(entry.source_revision).max(1);
+            entry.view.revision += seed
+                .entry
+                .source_revision
+                .saturating_sub(entry.source_revision)
+                .max(1);
             entry.source_revision = seed.entry.source_revision;
         }
         if seed.completed && entry.handling != Handling::Processed {
@@ -467,7 +697,10 @@ pub(super) fn merge(data: &mut Data, sources: &Snapshot) {
             && let Some(task) = &entry.task
             && sources.active_tasks.contains_key(&task_key(task))
         {
-            let slots = data.slots.entry(entry.view.recipient.session_key.clone()).or_default();
+            let slots = data
+                .slots
+                .entry(entry.view.recipient.session_key.clone())
+                .or_default();
             if !slots.contains(task) {
                 slots.push(task.clone());
             }
@@ -479,7 +712,11 @@ pub(super) fn merge(data: &mut Data, sources: &Snapshot) {
         }
         let first = &seeds[0].entry;
         let (_, attempt, sequence) = seeds[0].legacy.clone().unwrap();
-        let payload = seeds.iter().map(|seed| seed.entry.view.text.as_str()).collect::<Vec<_>>().join("\n");
+        let payload = seeds
+            .iter()
+            .map(|seed| seed.entry.view.text.as_str())
+            .collect::<Vec<_>>()
+            .join("\n");
         let view = BatchView {
             id: id.clone(),
             attempt_id: attempt,
@@ -489,8 +726,14 @@ pub(super) fn merge(data: &mut Data, sources: &Snapshot) {
             target_epoch: "legacy-unknown".into(),
             terminal_session_id: String::new(),
             topic_id: first.view.topic_id.clone(),
-            entry_ids: seeds.iter().map(|seed| seed.entry.view.id.clone()).collect(),
-            message_ids: seeds.iter().map(|seed| seed.entry.view.message_id.clone()).collect(),
+            entry_ids: seeds
+                .iter()
+                .map(|seed| seed.entry.view.id.clone())
+                .collect(),
+            message_ids: seeds
+                .iter()
+                .map(|seed| seed.entry.view.message_id.clone())
+                .collect(),
             payload_hash: hash(&payload),
             payload,
             content_mode: "legacy".into(),
@@ -519,7 +762,12 @@ pub(super) fn merge(data: &mut Data, sources: &Snapshot) {
         .entries
         .values()
         .filter(|entry| pending(&entry.view.delivery_phase))
-        .filter(|entry| sources.seeds.get(&entry.view.id).is_none_or(|seed| seed.cancelled))
+        .filter(|entry| {
+            sources
+                .seeds
+                .get(&entry.view.id)
+                .is_none_or(|seed| seed.cancelled)
+        })
         .map(|entry| entry.view.id.clone())
         .collect();
     let mut aborts = BTreeSet::new();
@@ -552,6 +800,9 @@ pub(super) fn merge(data: &mut Data, sources: &Snapshot) {
             }
         }
     }
-    data.waits
-        .retain(|_, wait| wait.task.as_ref().is_none_or(|task| sources.active_tasks.contains_key(&task_key(task))));
+    data.waits.retain(|_, wait| {
+        wait.task
+            .as_ref()
+            .is_none_or(|task| sources.active_tasks.contains_key(&task_key(task)))
+    });
 }

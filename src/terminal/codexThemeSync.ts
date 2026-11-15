@@ -51,6 +51,11 @@ export class CodexThemeSync {
     return this.rewriteCodexStyles;
   }
 
+  /** 透明背景会删掉 SGR 2（dim），屏幕判定不能再依赖暗色样式。 */
+  get usesTransparentBackground() {
+    return this.transparent;
+  }
+
   rewrite(bytes: Iterable<number>, flush = false) {
     if (!this.rewriteCodexStyles) {
       const chunk = Array.from(bytes);

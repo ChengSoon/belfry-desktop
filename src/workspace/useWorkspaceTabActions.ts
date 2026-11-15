@@ -12,6 +12,12 @@ export function useWorkspaceTabActions({ setTabs, setFailure }: WorkspaceState) 
     void closeTerminalTab(id).then(() => setTabs((current) => current.filter((tab) => tab.id !== id)))
       .catch((error) => setFailure(toAppFailure(error)));
   }, [setFailure, setTabs]);
+  /** Native room deletion already closed the terminals. Drop all matching tabs in one update. */
+  const forgetTabs = useCallback((ids: readonly string[]) => {
+    const removed = new Set(ids);
+    setTabs((current) => current.some((tab) => removed.has(tab.id))
+      ? current.filter((tab) => !removed.has(tab.id)) : current);
+  }, [setTabs]);
   // SSH 的显示名独立于 Agent 的协作寻址名，后续快照不能覆盖它。
   const renameTab = useCallback((id: string, customTitle: string | null) => {
     setTabs((current) => current.map((tab) => {
@@ -34,5 +40,5 @@ export function useWorkspaceTabActions({ setTabs, setFailure }: WorkspaceState) 
   const updateTab = useCallback((id: string, snapshot: TerminalSnapshot) => {
     setTabs((current) => current.map((tab) => tab.id === id ? applySnapshot(tab, snapshot) : tab));
   }, [setTabs]);
-  return { closeTab, renameTab, renameAgent, updateSsh, updateTab };
+  return { closeTab, forgetTabs, renameTab, renameAgent, updateSsh, updateTab };
 }

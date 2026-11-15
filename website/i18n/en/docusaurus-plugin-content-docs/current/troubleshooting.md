@@ -43,13 +43,14 @@ The usage panel is **derived from the local logs written by the Agents themselve
 
 ## Collaboration dispatch fails
 
-Collaboration depends on the Belfry skill, CLI login state, and collaboration channels. Run the **environment diagnostics** on the settings page to check:
+Run **collaboration environment diagnostics** in settings and inspect the target in [A2A connections](./a2a.md):
 
-- Whether the Belfry skill is present and up to date
-- Codex / Claude login and feature status
-- doctor results and collaboration channel connectivity
+- Whether the desktop host contains the A2A changes and Agent sessions were reopened to receive the tools
+- Whether the local recipient is running in the same project with an available adapter
+- Whether the external Card supports A2A 1.0 and its interface and authentication check succeeds
+- CLI login or Provider state, and queued or uncertain delivery
 
-Diagnostics **preserve partial successes** — one client failing doesn't hide another's success. Fix the reported items one at a time.
+Resolve the reported items individually. After a send timeout, inspect the original task before resending. Belfry collaboration uses protocol tools after migration; reinstalling a collaboration Skill is not a recovery step.
 
 ## Clearing a saved SSH password
 

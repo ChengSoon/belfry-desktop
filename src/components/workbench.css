@@ -18,7 +18,11 @@
 .workbench-toolbar .project-trigger__path { display: none; }
 .workbench-toolbar .stage-switcher .popover--project { left: 0; right: auto; transform: none; width: min(380px, calc(100cqw - 40px)); min-width: min(240px, calc(100cqw - 40px)); max-height: calc(100dvh - var(--titlebar-inset) - var(--toolbar-height) - 2 * var(--content-inset) - 16px); overflow-y: auto; }
 .project-location { margin: 0; padding: 14px 16px; border-bottom: 1px solid var(--border); color: var(--text-muted); font-family: var(--font-mono); font-size: var(--fs-xs); line-height: 1.6; overflow-wrap: anywhere; }
-.workbench-toolbar__tools { display: flex; flex: 0 0 auto; align-items: center; gap: 8px; }
+.workbench-toolbar__tools { display: flex; flex: 0 0 auto; align-items: center; gap: 8px; margin-left: auto; }
+.workbench-toolbar__project .workbench-a2a { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 6px; min-height: 28px; margin-left: 8px; padding: 4px 8px; border: 1px solid var(--border); border-radius: 7px; background: transparent; color: var(--text-muted); font-size: 11px; font-weight: 500; cursor: pointer; }
+.workbench-toolbar__project .workbench-a2a:hover:not(:disabled) { color: var(--accent); background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 30%, var(--border)); }
+.workbench-toolbar__project .workbench-a2a:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.workbench-toolbar__project .workbench-a2a:disabled { opacity: .45; cursor: default; }
 .workbench-toolbar [aria-expanded="true"] { color: var(--text); background: var(--surface-hover); }
 .workbench-more, .workbench-split-menu { position: relative; display: flex; }
 .workbench-more__badge { position: absolute; top: 6px; right: 5px; width: 5px; height: 5px; border-radius: 50%; background: var(--warning); pointer-events: none; }

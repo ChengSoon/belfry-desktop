@@ -59,6 +59,7 @@
     "target_changed": "接收成员已变化，消息仍保留",
     "awaiting_input": "等待成员完成当前选择",
     "composer_not_empty": "终端有未提交输入",
+    "input_state_unknown": "等待确认终端输入状态",
     "paste_not_ready": "等待终端启用安全粘贴",
     "source_sync_pending": "消息已保存，等待排队",
     "runtime_not_ready": "等待终端就绪",

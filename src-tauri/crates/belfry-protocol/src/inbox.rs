@@ -212,6 +212,8 @@ pub struct MessageView {
     pub delivery_status: Status,
     pub handling_status: Status,
     pub waiting_reason: Option<Status>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub task_ref: Option<TaskRef>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

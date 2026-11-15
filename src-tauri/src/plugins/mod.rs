@@ -5,6 +5,8 @@ mod author_commands;
 #[cfg(test)]
 mod compatibility_tests;
 mod engine;
+#[cfg(test)]
+pub(crate) use engine::a2a_test_host::A2aTestHost;
 mod files;
 mod host;
 mod install;

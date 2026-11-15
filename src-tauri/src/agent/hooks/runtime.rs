@@ -54,7 +54,10 @@ impl HookRuntime {
         if agent.terminal_status_app().is_some() {
             // Native terminal reports own state for Codex and Claude. Never inject
             // a parallel status Hook, including credentials inherited from another PTY.
-            request.launch_overlay.unset.extend([helper::ENV_PORT.into(), helper::ENV_TOKEN.into()]);
+            request
+                .launch_overlay
+                .unset
+                .extend([helper::ENV_PORT.into(), helper::ENV_TOKEN.into()]);
             request.launch_overlay.environment.remove(helper::ENV_PORT);
             request.launch_overlay.environment.remove(helper::ENV_TOKEN);
             request.launch_overlay.hook = None;

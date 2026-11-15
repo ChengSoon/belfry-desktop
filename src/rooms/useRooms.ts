@@ -57,7 +57,7 @@ export interface RoomsState {
   remove: (id: string) => Promise<boolean>;
 }
 
-export function useRooms(): RoomsState {
+export function useRooms(onDeleted?: (tabIds: readonly string[]) => void): RoomsState {
   useTranslation();
   const [rooms, setRooms] = useState<RoomSummary[]>([]);
   const [loadError, setLoadError] = useFeedback<string | null>(null);
@@ -70,6 +70,8 @@ export function useRooms(): RoomsState {
   const generation = useRef(0);
   const reads = useRef(0);
   const mutations = useRef(0);
+  const onDeletedRef = useRef(onDeleted);
+  onDeletedRef.current = onDeleted;
 
   const refresh = useCallback(async () => {
     if (!mounted.current) return;
@@ -160,7 +162,9 @@ export function useRooms(): RoomsState {
     generation.current++;
     setBusy(true);
     try {
-      await api.roomDelete(id);
+      const tabIds = await api.roomDelete(id);
+      // Native deletion has committed even if the room panel closed while it was running.
+      onDeletedRef.current?.(tabIds);
       forgetRoomDraft(id);
       if (!mounted.current) return true;
       generation.current++;

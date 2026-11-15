@@ -12,13 +12,14 @@
 use std::io::{BufRead, BufReader, Write};
 #[cfg(not(unix))]
 use std::net::{TcpListener, TcpStream};
-use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
+use std::sync::{
+    Arc,
+    atomic::{AtomicUsize, Ordering},
+};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use belfry_protocol::{
-    Command, InboxTask, PROTOCOL_VERSION, Request, Response, ResponseData,
-};
+use belfry_protocol::{Command, InboxTask, PROTOCOL_VERSION, Request, Response, ResponseData};
 
 use super::identity::SessionIdentities;
 use super::registry::SessionRegistry;
@@ -32,11 +33,19 @@ const IO_TIMEOUT: Duration = Duration::from_secs(5);
 struct ConnectionPermit(Arc<AtomicUsize>);
 impl ConnectionPermit {
     fn acquire(budget: &Arc<AtomicUsize>) -> Option<Self> {
-        budget.fetch_update(Ordering::AcqRel, Ordering::Acquire, |count| (count < MAX_CONNECTIONS).then_some(count + 1)).ok()?;
+        budget
+            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |count| {
+                (count < MAX_CONNECTIONS).then_some(count + 1)
+            })
+            .ok()?;
         Some(Self(budget.clone()))
     }
 }
-impl Drop for ConnectionPermit { fn drop(&mut self) { self.0.fetch_sub(1, Ordering::AcqRel); } }
+impl Drop for ConnectionPermit {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::AcqRel);
+    }
+}
 
 /// 一条要送进成员终端的房间消息。总线只负责排队、合并、送达；内容由房间层拼好。
 #[derive(Clone, Debug)]
@@ -58,12 +67,28 @@ pub struct RoomPost {
 /// 总线不认识房间的具体类型：`belfry room …` 的请求原样交给房间层，拿回给 CLI 的
 /// 回答和要投递的消息。依赖方向是 rooms → collab，总线不回头认识 rooms。
 pub trait RoomDirectory: Send + Sync {
-    fn inbox_capable(&self) -> bool { false }
-    fn handle(&self, tab_id: &str, command: &Command) -> Result<(ResponseData, Vec<RoomPost>), String>;
-    fn enqueue_posts(&self, board: &TaskBoard, registry: &SessionRegistry, posts: &[RoomPost]) -> Result<(), String> {
+    fn inbox_capable(&self) -> bool {
+        false
+    }
+    fn handle(
+        &self,
+        tab_id: &str,
+        command: &Command,
+    ) -> Result<(ResponseData, Vec<RoomPost>), String>;
+    fn enqueue_posts(
+        &self,
+        board: &TaskBoard,
+        registry: &SessionRegistry,
+        posts: &[RoomPost],
+    ) -> Result<(), String> {
         for post in posts {
             if registry.find(&post.tab_id).is_some() {
-                task::enqueue_room_post(board, &format!("room:{}", post.room_id), post, now_millis())?;
+                task::enqueue_room_post(
+                    board,
+                    &format!("room:{}", post.room_id),
+                    post,
+                    now_millis(),
+                )?;
             }
         }
         Ok(())
@@ -82,16 +107,29 @@ impl RoomAccess {
         let _ = self.0.set(directory);
     }
 
-    fn handle(&self, tab_id: &str, command: &Command) -> Result<(ResponseData, Vec<RoomPost>), String> {
+    fn handle(
+        &self,
+        tab_id: &str,
+        command: &Command,
+    ) -> Result<(ResponseData, Vec<RoomPost>), String> {
         match self.0.get() {
             Some(directory) => directory.handle(tab_id, command),
-            None if matches!(command, Command::Rooms) => Ok((ResponseData::Rooms { rooms: Vec::new() }, Vec::new())),
+            None if matches!(command, Command::Rooms) => {
+                Ok((ResponseData::Rooms { rooms: Vec::new() }, Vec::new()))
+            }
             None => Err(belfry_i18n::text("房间目录还没就绪，稍后再试").to_string()),
         }
     }
 
-    fn enqueue_posts(&self, board: &TaskBoard, registry: &SessionRegistry, posts: &[RoomPost]) -> Result<(), String> {
-        self.0.get().map_or(Ok(()), |directory| directory.enqueue_posts(board, registry, posts))
+    fn enqueue_posts(
+        &self,
+        board: &TaskBoard,
+        registry: &SessionRegistry,
+        posts: &[RoomPost],
+    ) -> Result<(), String> {
+        self.0.get().map_or(Ok(()), |directory| {
+            directory.enqueue_posts(board, registry, posts)
+        })
     }
 }
 
@@ -179,7 +217,9 @@ impl Listener {
             #[cfg(unix)]
             Self::Unix(listener, _) => {
                 for stream in listener.incoming().flatten() {
-                    let Some(permit) = ConnectionPermit::acquire(&budget) else { continue; };
+                    let Some(permit) = ConnectionPermit::acquire(&budget) else {
+                        continue;
+                    };
                     let (identities, registry, board, rooms) = (
                         identities.clone(),
                         registry.clone(),
@@ -197,7 +237,9 @@ impl Listener {
             #[cfg(not(unix))]
             Self::Tcp(listener) => {
                 for stream in listener.incoming().flatten() {
-                    let Some(permit) = ConnectionPermit::acquire(&budget) else { continue; };
+                    let Some(permit) = ConnectionPermit::acquire(&budget) else {
+                        continue;
+                    };
                     let (identities, registry, board, rooms) = (
                         identities.clone(),
                         registry.clone(),
@@ -234,20 +276,37 @@ impl Connection for std::os::unix::net::UnixStream {
     }
 }
 
-struct DeadlineConnection<S> { stream: S, deadline: Instant }
+struct DeadlineConnection<S> {
+    stream: S,
+    deadline: Instant,
+}
 impl<S: Connection> DeadlineConnection<S> {
     fn prepare(&self) -> std::io::Result<()> {
-        let duration = self.deadline.checked_duration_since(Instant::now()).filter(|value| !value.is_zero())
-            .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::TimedOut, "IPC deadline exceeded"))?;
+        let duration = self
+            .deadline
+            .checked_duration_since(Instant::now())
+            .filter(|value| !value.is_zero())
+            .ok_or_else(|| {
+                std::io::Error::new(std::io::ErrorKind::TimedOut, "IPC deadline exceeded")
+            })?;
         self.stream.timeout(duration)
     }
 }
 impl<S: Connection> std::io::Read for DeadlineConnection<S> {
-    fn read(&mut self, bytes: &mut [u8]) -> std::io::Result<usize> { self.prepare()?; self.stream.read(bytes) }
+    fn read(&mut self, bytes: &mut [u8]) -> std::io::Result<usize> {
+        self.prepare()?;
+        self.stream.read(bytes)
+    }
 }
 impl<S: Connection> Write for DeadlineConnection<S> {
-    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> { self.prepare()?; self.stream.write(bytes) }
-    fn flush(&mut self) -> std::io::Result<()> { self.prepare()?; self.stream.flush() }
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.prepare()?;
+        self.stream.write(bytes)
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.prepare()?;
+        self.stream.flush()
+    }
 }
 
 fn serve_connection<S: Connection>(
@@ -257,10 +316,16 @@ fn serve_connection<S: Connection>(
     board: &TaskBoard,
     rooms: &RoomAccess,
 ) {
-    let mut stream = DeadlineConnection { stream, deadline: Instant::now() + IO_TIMEOUT };
+    let mut stream = DeadlineConnection {
+        stream,
+        deadline: Instant::now() + IO_TIMEOUT,
+    };
     let mut line = String::new();
     let mut reader = BufReader::new(&mut stream).take(MAX_REQUEST_BYTES + 1);
-    if reader.read_line(&mut line).is_err() || line.len() as u64 > MAX_REQUEST_BYTES || !line.ends_with('\n') {
+    if reader.read_line(&mut line).is_err()
+        || line.len() as u64 > MAX_REQUEST_BYTES
+        || !line.ends_with('\n')
+    {
         return;
     }
 
@@ -268,7 +333,10 @@ fn serve_connection<S: Connection>(
     if let Ok(mut text) = serde_json::to_string(&response) {
         text.push('\n');
         if text.len() as u64 > MAX_REQUEST_BYTES {
-            text = serde_json::to_string(&Response::error(belfry_i18n::text("响应超过 1 MiB 上限，请减少查询范围"))).unwrap_or_default();
+            text = serde_json::to_string(&Response::error(belfry_i18n::text(
+                "响应超过 1 MiB 上限，请减少查询范围",
+            )))
+            .unwrap_or_default();
             text.push('\n');
         }
         let _ = stream.write_all(text.as_bytes());
@@ -291,19 +359,24 @@ fn handle_line(
         // 说清是版本问题，否则表现成「某个参数没生效」，最难查。
         return Response::error(belfry_i18n::lformat!(
             "belfry 命令行版本与应用不匹配（协议 {} vs {}），请更新后重试",
-            request.version, PROTOCOL_VERSION
+            request.version,
+            PROTOCOL_VERSION
         ));
     }
     if !identities.verify(&request.tab_id, &request.token) {
         // 不区分「会话不存在」和「token 不对」：区分本身就是一个可试探的信号。
-        return Response::error(belfry_i18n::text("身份校验失败：这条会话不能通过 belfry 说话"));
+        return Response::error(belfry_i18n::text(
+            "身份校验失败：这条会话不能通过 belfry 说话",
+        ));
     }
     if let Some(command) = belfry_protocol::room_compat::unwrap_command(&request.command) {
         return match command {
             Ok(command) => {
                 // 只更换命令，身份沿用已经鉴权的外层请求；正常房间权限和投递不变。
                 let request = Request { command, ..request };
-                belfry_protocol::room_compat::wrap_response(&dispatch(&request, registry, board, rooms))
+                belfry_protocol::room_compat::wrap_response(&dispatch(
+                    &request, registry, board, rooms,
+                ))
             }
             Err(message) => Response::error(message),
         };
@@ -320,7 +393,15 @@ fn dispatch(
     match &request.command {
         Command::Peers => Response::Ok {
             data: ResponseData::Peers {
-                capabilities: std::iter::once(belfry_protocol::CAPABILITY_ROOMS_V1.to_string()).chain(rooms.0.get().filter(|directory| directory.inbox_capable()).map(|_| belfry_protocol::inbox::CAPABILITY.to_string())).collect(),
+                capabilities: std::iter::once(belfry_protocol::CAPABILITY_ROOMS_V1.to_string())
+                    .chain(
+                        rooms
+                            .0
+                            .get()
+                            .filter(|directory| directory.inbox_capable())
+                            .map(|_| belfry_protocol::inbox::CAPABILITY.to_string()),
+                    )
+                    .collect(),
                 peers: registry.peers_for(&request.tab_id),
             },
         },
@@ -383,7 +464,9 @@ fn dispatch(
                         task: task::short_id(&entry.id).to_string(),
                         // 房间派发的任务对成员显示房间名；互派退回 tabId 兜底。
                         from: match &entry.origin {
-                            Some(task::TaskOrigin::Room { name, .. }) => belfry_i18n::lformat!("房间「{name}」"),
+                            Some(task::TaskOrigin::Room { name, .. }) => {
+                                belfry_i18n::lformat!("房间「{name}」")
+                            }
                             None => entry.from.clone(),
                         },
                         instruction: entry.instruction,
@@ -431,8 +514,11 @@ fn dispatch_send(
         can_receive: target.can_receive || board.inbox_enabled(),
         // 两边都没有项目时不算同项目：那说明谁都没打开目录，
         // 派过去也没有共同的工作现场。
-        same_project: mine.as_deref().is_some_and(|mine| target.project_root.as_deref().is_some_and(|root|
-            super::inbox::normalize_root(mine) == super::inbox::normalize_root(root))),
+        same_project: mine.as_deref().is_some_and(|mine| {
+            target.project_root.as_deref().is_some_and(|root| {
+                super::inbox::normalize_root(mine) == super::inbox::normalize_root(root)
+            })
+        }),
     };
     let outgoing = TaskRequest {
         from: &request.tab_id,
@@ -465,7 +551,9 @@ fn dispatch_send(
             let mut created = task::build_task(id, &outgoing, now_millis(), &verdict);
             created.project_root = target.project_root.clone();
             let short = task::short_id(&created.id).to_string();
-            if let Err(error) = board.insert(created) { return Response::error(error); }
+            if let Err(error) = board.insert(created) {
+                return Response::error(error);
+            }
             Response::Ok {
                 data: ResponseData::Sent {
                     task: short,
@@ -484,7 +572,11 @@ fn dispatch_send(
 /// 只让派活方查。别人派的活里写着什么不该被第三方看见，而「不存在」和「不是你的」
 /// 回同一句话——区分开本身就是一个可以拿来试探的信号。
 fn task_state(board: &TaskBoard, asker: &str, short: &str) -> Response {
-    let missing = || Response::error(belfry_i18n::lformat!("没有编号 {short} 的任务，用 belfry inbox 看看"));
+    let missing = || {
+        Response::error(belfry_i18n::lformat!(
+            "没有编号 {short} 的任务，用 belfry inbox 看看"
+        ))
+    };
     let Some(entry) = board
         .snapshot()
         .into_iter()
@@ -519,7 +611,9 @@ fn settle(
         .find(|entry| task::short_id(&entry.id) == short)
         .map(|entry| entry.id)
     else {
-        return Response::error(belfry_i18n::lformat!("没有编号 {short} 的任务，用 belfry inbox 看看"));
+        return Response::error(belfry_i18n::lformat!(
+            "没有编号 {short} 的任务，用 belfry inbox 看看"
+        ));
     };
     match board.settle(&full, claimant, state, result) {
         Ok(entry) => Response::Ok {

@@ -30,6 +30,16 @@ pub(crate) struct WriteEvidence {
     pub paste_complete: bool,
 }
 
+/// Input ownership retained by this host, independently of a mounted terminal view.
+#[derive(Clone, Copy, Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct InputSnapshot {
+    pub status: &'static str,
+    pub revision: u64,
+    pub output_sequence: Option<u64>,
+    pub submission_sequence: Option<u64>,
+}
+
 #[derive(Default)]
 pub(crate) struct InputGate {
     revision: AtomicU64,
@@ -49,6 +59,7 @@ struct Channel {
     protocol_agent: Option<crate::agent::AgentKind>,
     last_submission: u64,
     input_dirty: bool,
+    input_unknown: bool,
     submission_revision: Option<(u64, u64)>,
     blocked_input: Option<(u64, bool)>,
     interaction: Option<interaction::InteractionAttempt>,
@@ -79,6 +90,30 @@ fn conflict(message: &str) -> AppError {
 fn submit_key(bytes: &[u8]) -> bool {
     matches!(bytes, b"\r" | b"\n" | b"\r\n" | b"\x1b[13u" | b"\x1b[13;1u")
 }
+/// Caret movement, paging and Esc never edit the composer. They still interrupt
+/// an automatic paste, but must not create a draft or reset a pending submission.
+fn passive_key(bytes: &[u8]) -> bool {
+    matches!(
+        bytes,
+        [0x1b]
+            | [0x1b, b'[', b'A']
+            | [0x1b, b'[', b'B']
+            | [0x1b, b'[', b'C']
+            | [0x1b, b'[', b'D']
+            | [0x1b, b'O', b'A']
+            | [0x1b, b'O', b'B']
+            | [0x1b, b'O', b'C']
+            | [0x1b, b'O', b'D']
+            | [0x1b, b'[', b'H']
+            | [0x1b, b'[', b'F']
+            | [0x1b, b'O', b'H']
+            | [0x1b, b'O', b'F']
+            | [0x1b, b'[', b'1', b'~']
+            | [0x1b, b'[', b'4', b'~']
+            | [0x1b, b'[', b'5', b'~']
+            | [0x1b, b'[', b'6', b'~']
+    )
+}
 fn same_binding(channel: &Channel, binding: &Binding) -> bool {
     channel.live
         && channel.tab_id.as_deref() == Some(&binding.tab_id)
@@ -87,33 +122,59 @@ fn same_binding(channel: &Channel, binding: &Binding) -> bool {
         && channel.revision == binding.input_revision
 }
 fn editor_empty(channel: &Channel, mode: Option<&super::input_gate_vt::Modes>) -> bool {
-    let acknowledged = channel.submission_revision.is_some_and(|(revision, sequence)| {
-        revision == channel.revision && mode.is_some_and(|mode| mode.working_agent == channel.protocol_agent
-            && mode.working_sequence > sequence)
-    });
+    let acknowledged = channel
+        .submission_revision
+        .is_some_and(|(revision, sequence)| {
+            revision == channel.revision
+                && mode.is_some_and(|mode| {
+                    mode.working_agent == channel.protocol_agent && mode.working_sequence > sequence
+                })
+        });
     channel.protocol_agent.is_none() || !channel.input_dirty || acknowledged
 }
+/// The agent is at a position that may accept input, independently of the editor.
+fn protocol_position(channel: &Channel, mode: Option<&super::input_gate_vt::Modes>) -> bool {
+    protocol_idle(channel, mode)
+        && channel.protocol_agent.is_none_or(|_| {
+            mode.is_some_and(|mode| {
+                mode.protocol
+                    .as_ref()
+                    .is_some_and(|snapshot| mode.readiness.allows(snapshot.sequence))
+            })
+        })
+}
 fn protocol_ready(channel: &Channel, mode: Option<&super::input_gate_vt::Modes>) -> bool {
-    protocol_idle(channel, mode) && editor_empty(channel, mode)
-        && channel.protocol_agent.is_none_or(|_| mode.is_some_and(|mode| mode.protocol.as_ref()
-            .is_some_and(|snapshot| mode.readiness.allows(snapshot.sequence))))
+    protocol_position(channel, mode) && editor_empty(channel, mode)
 }
 fn protocol_idle(channel: &Channel, mode: Option<&super::input_gate_vt::Modes>) -> bool {
-    channel.protocol_agent.is_none_or(|agent| mode.and_then(|mode| mode.protocol.as_ref()).is_some_and(|snapshot| {
-        snapshot.terminal_status_for(agent).is_some_and(|report| report.state.allows_input())
-            && snapshot.sequence > channel.last_submission
-    }))
+    channel.protocol_agent.is_none_or(|agent| {
+        mode.and_then(|mode| mode.protocol.as_ref())
+            .is_some_and(|snapshot| {
+                snapshot
+                    .terminal_status_for(agent)
+                    .is_some_and(|report| report.state.allows_input())
+                    && snapshot.sequence > channel.last_submission
+            })
+    })
 }
 
 fn payload_frames(payload: &str) -> Result<Vec<Vec<u8>>, AppError> {
-    if payload.is_empty() || payload.len() > belfry_protocol::inbox::MAX_BATCH_BYTES
-        || payload.contains("\x1b[201~") || payload.contains('\0')
+    if payload.is_empty()
+        || payload.len() > belfry_protocol::inbox::MAX_BATCH_BYTES
+        || payload.contains("\x1b[201~")
+        || payload.contains('\0')
     {
         return Err(conflict("Frozen payload cannot be safely pasted"));
     }
     let normalized = payload.replace("\r\n", "\n").replace('\r', "\n");
-    let mut frames: Vec<_> = [normalized.clone(), normalized.replace('\n', "\r"), normalized.replace('\n', "\r\n")]
-        .iter().map(|text| format!("\x1b[200~{text}\x1b[201~").into_bytes()).collect();
+    let mut frames: Vec<_> = [
+        normalized.clone(),
+        normalized.replace('\n', "\r"),
+        normalized.replace('\n', "\r\n"),
+    ]
+    .iter()
+    .map(|text| format!("\x1b[200~{text}\x1b[201~").into_bytes())
+    .collect();
     frames.sort();
     frames.dedup();
     Ok(frames)
@@ -147,6 +208,7 @@ impl InputGate {
                     protocol_agent: None,
                     last_submission: 0,
                     input_dirty: false,
+                    input_unknown: false,
                     submission_revision: None,
                     blocked_input: None,
                     interaction: None,
@@ -155,11 +217,27 @@ impl InputGate {
         }
     }
 
+    pub(crate) fn sessions_for_tab(&self, tab: &str) -> Vec<String> {
+        self.inner
+            .lock()
+            .map(|channels| {
+                channels
+                    .iter()
+                    .filter(|(_, channel)| channel.tab_id.as_deref() == Some(tab))
+                    .map(|(id, _)| id.clone())
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
     pub fn require_protocol(&self, id: &str, agent: crate::agent::AgentKind, reconnected: bool) {
-        if let Ok(mut channels) = self.inner.lock() && let Some(channel) = channels.get_mut(id) {
+        if let Ok(mut channels) = self.inner.lock()
+            && let Some(channel) = channels.get_mut(id)
+        {
             if channel.protocol_agent.is_none() {
                 channel.protocol_agent = Some(agent);
                 channel.input_dirty |= reconnected;
+                channel.input_unknown = reconnected;
                 self.revision.fetch_add(1, Ordering::Release);
             }
         }
@@ -167,24 +245,68 @@ impl InputGate {
 
     /// Genuine editor intent includes IME and paste before either produces PTY bytes.
     pub fn claim_user_input(&self, id: &str) -> Result<(), AppError> {
-        let mut channels = self.inner.lock().map_err(|_| conflict("Input registry is unavailable"))?;
-        let modes = self.modes.lock().map_err(|_| conflict("Terminal mode registry is unavailable"))?;
-        let channel = channels.get_mut(id).filter(|channel| channel.live).ok_or_else(AppError::process_exited)?;
+        let mut channels = self
+            .inner
+            .lock()
+            .map_err(|_| conflict("Input registry is unavailable"))?;
+        let modes = self
+            .modes
+            .lock()
+            .map_err(|_| conflict("Terminal mode registry is unavailable"))?;
+        let channel = channels
+            .get_mut(id)
+            .filter(|channel| channel.live)
+            .ok_or_else(AppError::process_exited)?;
         let mode = modes.get(id);
-        if channel.protocol_agent.is_some_and(|agent| mode.and_then(|mode| mode.protocol.as_ref())
-            .and_then(|snapshot| snapshot.terminal_status_for(agent)).is_some_and(|report| report.state == crate::agent::ProgramState::Blocked))
-        {
+        if channel.protocol_agent.is_some_and(|agent| {
+            mode.and_then(|mode| mode.protocol.as_ref())
+                .and_then(|snapshot| snapshot.terminal_status_for(agent))
+                .is_some_and(|report| report.state == crate::agent::ProgramState::Blocked)
+        }) {
             let sequence = mode.unwrap().blocked_sequence;
             if channel.blocked_input.is_none_or(|(old, _)| old != sequence) {
                 channel.blocked_input = Some((sequence, editor_empty(channel, mode)));
             }
         }
-        channel.revision = channel.revision.checked_add(1).ok_or_else(|| conflict("Input revision overflow"))?;
+        channel.revision = channel
+            .revision
+            .checked_add(1)
+            .ok_or_else(|| conflict("Input revision overflow"))?;
         channel.input_dirty |= channel.protocol_agent.is_some();
+        channel.input_unknown = false;
         channel.submission_revision = None;
         channel.interaction = None;
         channel.offer = None;
-        if let Some(attempt) = &mut channel.attempt { attempt.revoked = true; }
+        if let Some(attempt) = &mut channel.attempt {
+            attempt.revoked = true;
+        }
+        self.revision.fetch_add(1, Ordering::Release);
+        Ok(())
+    }
+
+    /// The mounted view read a visibly empty composer. Only explicit empty
+    /// evidence clears ownership; a missing view keeps the previous state.
+    pub fn confirm_empty_input(&self, id: &str) -> Result<(), AppError> {
+        let mut channels = self
+            .inner
+            .lock()
+            .map_err(|_| conflict("Input registry is unavailable"))?;
+        let channel = channels
+            .get_mut(id)
+            .filter(|channel| channel.live)
+            .ok_or_else(AppError::process_exited)?;
+        // An authorized paste or scripted interaction owns the next position;
+        // its own outcome decides that state.
+        if channel.attempt.is_some() || channel.interaction.is_some() {
+            return Ok(());
+        }
+        if !channel.input_dirty && !channel.input_unknown && channel.submission_revision.is_none() {
+            return Ok(());
+        }
+        channel.input_dirty = false;
+        channel.input_unknown = false;
+        channel.submission_revision = None;
+        channel.blocked_input = None;
         self.revision.fetch_add(1, Ordering::Release);
         Ok(())
     }
@@ -192,56 +314,107 @@ impl InputGate {
     /// Foreground prompt queues share the same frozen-write fence as inbox delivery.
     pub fn prepare_prompt(&self, id: &str, payload: &str) -> Result<WriteGuard, AppError> {
         let frames = payload_frames(payload)?;
-        let mut channels = self.inner.lock().map_err(|_| conflict("Input registry is unavailable"))?;
-        let modes = self.modes.lock().map_err(|_| conflict("Terminal mode registry is unavailable"))?;
-        let channel = channels.get_mut(id).filter(|channel| channel.live).ok_or_else(AppError::process_exited)?;
-        if channel.protocol_agent.is_none() || !protocol_ready(channel, modes.get(id))
+        let mut channels = self
+            .inner
+            .lock()
+            .map_err(|_| conflict("Input registry is unavailable"))?;
+        let modes = self
+            .modes
+            .lock()
+            .map_err(|_| conflict("Terminal mode registry is unavailable"))?;
+        let channel = channels
+            .get_mut(id)
+            .filter(|channel| channel.live)
+            .ok_or_else(AppError::process_exited)?;
+        if channel.protocol_agent.is_none()
+            || !protocol_ready(channel, modes.get(id))
             || !modes.get(id).is_some_and(|mode| mode.bracketed_paste)
         {
-            return Err(conflict("Waiting for an available terminal status and input position (OSC 7501)"));
+            return Err(conflict(
+                "Waiting for an available terminal status and input position (OSC 7501)",
+            ));
         }
-        if channel.attempt.as_ref().is_some_and(|attempt| attempt.direct_prompt && (attempt.revoked || Instant::now() >= attempt.deadline)) {
+        if channel.attempt.as_ref().is_some_and(|attempt| {
+            attempt.direct_prompt && (attempt.revoked || Instant::now() >= attempt.deadline)
+        }) {
             channel.attempt = None;
         }
-        if channel.attempt.is_some() { return Err(conflict("Another automatic input is already authorized")); }
+        if channel.attempt.is_some() {
+            return Err(conflict("Another automatic input is already authorized"));
+        }
         let guard = WriteGuard {
-            batch_id: ulid::Ulid::generate().to_string(), attempt_id: ulid::Ulid::generate().to_string(),
-            token: ulid::Ulid::generate().to_string(), owner_id: channel.owner.get_or_insert_with(|| "prompt".into()).clone(),
-            target_epoch: channel.epoch.clone(), input_revision: channel.revision,
+            batch_id: ulid::Ulid::generate().to_string(),
+            attempt_id: ulid::Ulid::generate().to_string(),
+            token: ulid::Ulid::generate().to_string(),
+            owner_id: channel.owner.get_or_insert_with(|| "prompt".into()).clone(),
+            target_epoch: channel.epoch.clone(),
+            input_revision: channel.revision,
         };
         channel.offer = None;
         channel.attempt = Some(Attempt {
             direct_prompt: true,
-            protocol_sequence: modes.get(id).and_then(|mode| mode.protocol.as_ref()).map(|snapshot| snapshot.sequence),
-            deadline: Instant::now() + WRITE_LEASE, frames, pasted: Vec::new(), paste_complete: false,
-            offer_id: String::new(), guard: guard.clone(), revoked: false, writes: BTreeMap::new(), bytes: 0,
+            protocol_sequence: modes
+                .get(id)
+                .and_then(|mode| mode.protocol.as_ref())
+                .map(|snapshot| snapshot.sequence),
+            deadline: Instant::now() + WRITE_LEASE,
+            frames,
+            pasted: Vec::new(),
+            paste_complete: false,
+            offer_id: String::new(),
+            guard: guard.clone(),
+            revoked: false,
+            writes: BTreeMap::new(),
+            bytes: 0,
         });
         self.revision.fetch_add(1, Ordering::Release);
         Ok(guard)
     }
 
     pub fn finish_prompt(&self, id: &str, guard: &WriteGuard) -> Result<WriteEvidence, AppError> {
-        let mut channels = self.inner.lock().map_err(|_| conflict("Input registry is unavailable"))?;
+        let mut channels = self
+            .inner
+            .lock()
+            .map_err(|_| conflict("Input registry is unavailable"))?;
         let channel = channels.get_mut(id).ok_or_else(AppError::process_exited)?;
-        let attempt = channel.attempt.as_ref().filter(|attempt| attempt.direct_prompt && attempt.guard == *guard)
+        let attempt = channel
+            .attempt
+            .as_ref()
+            .filter(|attempt| attempt.direct_prompt && attempt.guard == *guard)
             .ok_or_else(|| conflict("The prompt input guard is no longer held"))?;
-        let evidence = WriteEvidence { touched: attempt.writes.values().any(|write| write.touched), paste_complete: attempt.paste_complete
-            && attempt.writes.values().all(|write| write.error.is_none() || write.submit_key) };
+        let evidence = WriteEvidence {
+            touched: attempt.writes.values().any(|write| write.touched),
+            paste_complete: attempt.paste_complete
+                && attempt
+                    .writes
+                    .values()
+                    .all(|write| write.error.is_none() || write.submit_key),
+        };
         channel.attempt = None;
         self.revision.fetch_add(1, Ordering::Release);
         Ok(evidence)
     }
 
     pub fn observe_agent_state(&self, id: &str, snapshot: &crate::agent::hooks::HookSnapshot) {
-        let Some(report) = snapshot.terminal_status_for(snapshot.agent) else { return; };
+        let Some(report) = snapshot.terminal_status_for(snapshot.agent) else {
+            return;
+        };
         // Do not lock input ownership here: the PTY reader must drain output while
         // a large guarded write holds the input lock. Working acknowledgements
         // are reconciled against that input revision when readiness is checked.
         if let Ok(mut modes) = self.modes.lock() {
             let mode = modes.entry(id.into()).or_default();
-            if mode.protocol.as_ref().is_none_or(|old| snapshot.sequence > old.sequence) {
-                if report.state == crate::agent::ProgramState::Blocked && mode.protocol.as_ref()
-                    .and_then(|old| old.terminal_status_for(snapshot.agent)).is_none_or(|old| old.state != crate::agent::ProgramState::Blocked)
+            if mode
+                .protocol
+                .as_ref()
+                .is_none_or(|old| snapshot.sequence > old.sequence)
+            {
+                if report.state == crate::agent::ProgramState::Blocked
+                    && mode
+                        .protocol
+                        .as_ref()
+                        .and_then(|old| old.terminal_status_for(snapshot.agent))
+                        .is_none_or(|old| old.state != crate::agent::ProgramState::Blocked)
                 {
                     mode.blocked_sequence = snapshot.sequence;
                 }
@@ -257,9 +430,15 @@ impl InputGate {
     }
 
     fn protocol_ready(&self, id: &str) -> bool {
-        let Ok(channels) = self.inner.lock() else { return false; };
-        let Ok(modes) = self.modes.lock() else { return false; };
-        channels.get(id).is_some_and(|channel| protocol_ready(channel, modes.get(id)))
+        let Ok(channels) = self.inner.lock() else {
+            return false;
+        };
+        let Ok(modes) = self.modes.lock() else {
+            return false;
+        };
+        channels
+            .get(id)
+            .is_some_and(|channel| protocol_ready(channel, modes.get(id)))
     }
 
     pub fn retire(&self, id: &str) {
@@ -297,18 +476,30 @@ impl InputGate {
         }
     }
 
-    pub fn bind(&self, request: &BindRequest, project_root: &std::path::Path) -> Result<Binding, AppError> {
-        let project_root = crate::resource::canonicalize(project_root).unwrap_or_else(|_| project_root.to_owned());
+    pub fn bind(
+        &self,
+        request: &BindRequest,
+        project_root: &std::path::Path,
+    ) -> Result<Binding, AppError> {
+        let project_root =
+            crate::resource::canonicalize(project_root).unwrap_or_else(|_| project_root.to_owned());
         if request.owner_id.is_empty() || request.owner_id.len() > 128 {
             return Err(AppError::invalid_argument("Invalid inbox owner ID"));
         }
-        let mut channels = self.inner.lock().map_err(|_| conflict("Input registry is unavailable"))?;
-        let channel = channels.get_mut(&request.terminal_session_id).ok_or_else(AppError::process_exited)?;
+        let mut channels = self
+            .inner
+            .lock()
+            .map_err(|_| conflict("Input registry is unavailable"))?;
+        let channel = channels
+            .get_mut(&request.terminal_session_id)
+            .ok_or_else(AppError::process_exited)?;
         if !channel.live
             || channel.tab_id.as_deref() != Some(&request.tab_id)
             || !channel.cwd.starts_with(&project_root)
         {
-            return Err(conflict("The terminal no longer belongs to this inbox target"));
+            return Err(conflict(
+                "The terminal no longer belongs to this inbox target",
+            ));
         }
         if channel.owner.as_deref() != Some(&request.owner_id) {
             channel.owner = Some(request.owner_id.clone());
@@ -332,7 +523,9 @@ impl InputGate {
         self.inner.lock().ok().is_some_and(|channels| {
             channels
                 .get(&binding.terminal_session_id)
-                .is_some_and(|channel| same_binding(channel, binding) && channel.cwd.starts_with(root))
+                .is_some_and(|channel| {
+                    same_binding(channel, binding) && channel.cwd.starts_with(root)
+                })
         })
     }
 
@@ -347,6 +540,45 @@ impl InputGate {
             }
         }
     }
+
+    pub(crate) fn input_snapshot(&self, session: &str) -> Option<InputSnapshot> {
+        let channels = self.inner.lock().ok()?;
+        let modes = self.modes.lock().ok()?;
+        let channel = channels.get(session).filter(|channel| channel.live)?;
+        let mode = modes.get(session);
+        let empty = editor_empty(channel, mode);
+        Some(InputSnapshot {
+            status: if empty {
+                "empty"
+            } else if channel.input_unknown {
+                "unknown"
+            } else {
+                "occupied"
+            },
+            revision: channel.revision,
+            output_sequence: mode.and_then(|mode| mode.output_sequence()),
+            submission_sequence: (!empty)
+                .then_some(channel.submission_revision)
+                .flatten()
+                .filter(|(revision, _)| *revision == channel.revision)
+                .map(|(_, sequence)| sequence),
+        })
+    }
+
+    pub fn replay_gap(&self, session: &str, next_sequence: u64) {
+        // A new view replays from zero. An evicted prefix already consumed by
+        // this host does not imply a new loss of input or protocol state.
+        let covered = self.modes.lock().ok().is_some_and(|modes| {
+            modes
+                .get(session)
+                .and_then(|mode| mode.output_sequence())
+                .is_some_and(|sequence| next_sequence <= sequence)
+        });
+        if !covered {
+            self.output_gap(session);
+        }
+    }
+
     pub fn output_gap(&self, session: &str) {
         self.revision.fetch_add(1, Ordering::Release);
         if let Ok(mut modes) = self.modes.lock() {
@@ -357,6 +589,7 @@ impl InputGate {
         {
             channel.revision = channel.revision.saturating_add(1);
             channel.input_dirty |= channel.protocol_agent.is_some();
+            channel.input_unknown = true;
             channel.submission_revision = None;
             channel.blocked_input = None;
             channel.interaction = None;
@@ -380,25 +613,49 @@ impl InputGate {
             return Some("runtime_not_ready");
         };
         let mut blocker = "runtime_not_ready";
-        for (id, channel) in channels.iter().filter(|(_, channel)| channel.live && channel.tab_id.as_deref() == Some(tab)) {
+        for (id, channel) in channels
+            .iter()
+            .filter(|(_, channel)| channel.live && channel.tab_id.as_deref() == Some(tab))
+        {
             let mode = modes.get(id);
-            if protocol_ready(channel, mode) && mode.is_some_and(|mode| mode.bracketed_paste) { return None; }
-            blocker = if !editor_empty(channel, mode) { "composer_not_empty" }
-                else if !mode.is_some_and(|mode| mode.bracketed_paste) { "paste_not_ready" }
-                else { "runtime_not_ready" };
+            if protocol_ready(channel, mode) && mode.is_some_and(|mode| mode.bracketed_paste) {
+                return None;
+            }
+            // A busy / stale / blocked agent is the reason first; composer reasons
+            // only describe a position the CLI itself has declared ready.
+            blocker = if !protocol_position(channel, mode) {
+                "runtime_not_ready"
+            } else if !editor_empty(channel, mode) {
+                if channel.input_unknown {
+                    "input_state_unknown"
+                } else {
+                    "composer_not_empty"
+                }
+            } else if !mode.is_some_and(|mode| mode.bracketed_paste) {
+                "paste_not_ready"
+            } else {
+                "runtime_not_ready"
+            };
         }
         Some(blocker)
     }
     pub fn safe_paste(&self, session: &str) -> bool {
-        self.modes.lock().ok().is_some_and(|modes| modes.get(session).is_some_and(|mode| mode.bracketed_paste))
+        self.modes
+            .lock()
+            .ok()
+            .is_some_and(|modes| modes.get(session).is_some_and(|mode| mode.bracketed_paste))
     }
 
     pub fn offer(&self, request: &OfferRequest, now: i64) -> Result<Offer, AppError> {
         if !self.protocol_ready(&request.binding.terminal_session_id) {
-            return Err(conflict("Waiting for an available terminal status and input position (OSC 7501)"));
+            return Err(conflict(
+                "Waiting for an available terminal status and input position (OSC 7501)",
+            ));
         }
         if !self.safe_paste(&request.binding.terminal_session_id) {
-            return Err(conflict("Bracketed paste mode is not enabled at this terminal input position"));
+            return Err(conflict(
+                "Bracketed paste mode is not enabled at this terminal input position",
+            ));
         }
         if !request.running
             || !request.idle
@@ -411,8 +668,13 @@ impl InputGate {
         if request.offer_id.is_empty() || request.offer_id.len() > 128 {
             return Err(AppError::invalid_argument("Invalid inbox offer ID"));
         }
-        let mut channels = self.inner.lock().map_err(|_| conflict("Input registry is unavailable"))?;
-        let channel = channels.get_mut(&request.binding.terminal_session_id).ok_or_else(AppError::process_exited)?;
+        let mut channels = self
+            .inner
+            .lock()
+            .map_err(|_| conflict("Input registry is unavailable"))?;
+        let channel = channels
+            .get_mut(&request.binding.terminal_session_id)
+            .ok_or_else(AppError::process_exited)?;
         if !same_binding(channel, &request.binding) || channel.attempt.is_some() {
             return Err(conflict("The inbox input generation has changed"));
         }
@@ -427,29 +689,36 @@ impl InputGate {
         if !channel.seen_offers.insert(request.offer_id.clone()) {
             return Err(conflict("A revoked offer ID cannot be reused"));
         }
-        let offer =
-            Offer { binding: request.binding.clone(), offer_id: request.offer_id.clone(), expires_at: now + OFFER_MS };
+        let offer = Offer {
+            binding: request.binding.clone(),
+            offer_id: request.offer_id.clone(),
+            expires_at: now + OFFER_MS,
+        };
         channel.offer = Some(offer.clone());
         Ok(offer)
     }
 
     pub fn check(&self, offer: &Offer, now: i64) -> bool {
-        if !self.protocol_ready(&offer.binding.terminal_session_id) { return false; }
+        if !self.protocol_ready(&offer.binding.terminal_session_id) {
+            return false;
+        }
         if !self.safe_paste(&offer.binding.terminal_session_id) {
             return false;
         }
         let Ok(channels) = self.inner.lock() else {
             return false;
         };
-        channels.get(&offer.binding.terminal_session_id).is_some_and(|channel| {
-            same_binding(channel, &offer.binding)
-                && channel.attempt.is_none()
-                && channel.offer.as_ref().is_some_and(|current| {
-                    current.offer_id == offer.offer_id
-                        && current.expires_at == offer.expires_at
-                        && current.expires_at > now
-                })
-        })
+        channels
+            .get(&offer.binding.terminal_session_id)
+            .is_some_and(|channel| {
+                same_binding(channel, &offer.binding)
+                    && channel.attempt.is_none()
+                    && channel.offer.as_ref().is_some_and(|current| {
+                        current.offer_id == offer.offer_id
+                            && current.expires_at == offer.expires_at
+                            && current.expires_at > now
+                    })
+            })
     }
 
     pub fn revoke(&self, offer: &Offer) {
@@ -458,7 +727,11 @@ impl InputGate {
             && channel.owner.as_deref() == Some(&offer.binding.owner_id)
             && channel.epoch == offer.binding.target_epoch
         {
-            if channel.offer.as_ref().is_some_and(|current| current.offer_id == offer.offer_id) {
+            if channel
+                .offer
+                .as_ref()
+                .is_some_and(|current| current.offer_id == offer.offer_id)
+            {
                 channel.offer = None;
             }
             if let Some(attempt) = &mut channel.attempt
@@ -478,23 +751,40 @@ impl InputGate {
         payload: &str,
         now: i64,
     ) -> Result<WriteGuard, AppError> {
-        let mut channels = self.inner.lock().map_err(|_| conflict("Input registry is unavailable"))?;
-        let modes = self.modes.lock().map_err(|_| conflict("Terminal mode registry is unavailable"))?;
-        if !modes.get(&offer.binding.terminal_session_id).is_some_and(|mode| mode.bracketed_paste) {
+        let mut channels = self
+            .inner
+            .lock()
+            .map_err(|_| conflict("Input registry is unavailable"))?;
+        let modes = self
+            .modes
+            .lock()
+            .map_err(|_| conflict("Terminal mode registry is unavailable"))?;
+        if !modes
+            .get(&offer.binding.terminal_session_id)
+            .is_some_and(|mode| mode.bracketed_paste)
+        {
             return Err(conflict("Safe multi-line paste is not enabled"));
         }
         let frames = payload_frames(payload)?;
-        let channel = channels.get_mut(&offer.binding.terminal_session_id).ok_or_else(AppError::process_exited)?;
+        let channel = channels
+            .get_mut(&offer.binding.terminal_session_id)
+            .ok_or_else(AppError::process_exited)?;
         if !protocol_ready(channel, modes.get(&offer.binding.terminal_session_id)) {
-            return Err(conflict("The agent is not idle according to its terminal protocol"));
+            return Err(conflict(
+                "The agent is not idle according to its terminal protocol",
+            ));
         }
         if !same_binding(channel, &offer.binding)
             || channel.attempt.is_some()
             || !channel.offer.as_ref().is_some_and(|current| {
-                current.offer_id == offer.offer_id && current.expires_at == offer.expires_at && current.expires_at > now
+                current.offer_id == offer.offer_id
+                    && current.expires_at == offer.expires_at
+                    && current.expires_at > now
             })
         {
-            return Err(conflict("The input offer changed after the delivery intent"));
+            return Err(conflict(
+                "The input offer changed after the delivery intent",
+            ));
         }
         let guard = WriteGuard {
             batch_id: batch.into(),
@@ -507,8 +797,12 @@ impl InputGate {
         channel.offer = None;
         channel.attempt = Some(Attempt {
             direct_prompt: false,
-            protocol_sequence: channel.protocol_agent.map(|_| modes.get(&offer.binding.terminal_session_id)
-                .and_then(|mode| mode.protocol.as_ref()).map_or(0, |snapshot| snapshot.sequence)),
+            protocol_sequence: channel.protocol_agent.map(|_| {
+                modes
+                    .get(&offer.binding.terminal_session_id)
+                    .and_then(|mode| mode.protocol.as_ref())
+                    .map_or(0, |snapshot| snapshot.sequence)
+            }),
             deadline: Instant::now() + WRITE_LEASE,
             frames,
             pasted: Vec::new(),
@@ -522,6 +816,34 @@ impl InputGate {
         Ok(guard)
     }
 
+    /// Parser-generated replies and buttonless pointer reports cannot own the editor.
+    /// Replies need a live query; pointer motion needs the child's current mouse mode.
+    pub fn response_write(
+        &self,
+        session: &str,
+        bytes: &[u8],
+        write: impl FnOnce() -> Result<(), AppError>,
+    ) -> Result<(), AppError> {
+        let channels = self
+            .inner
+            .lock()
+            .map_err(|_| conflict("Input registry is unavailable"))?;
+        if !channels.get(session).is_some_and(|channel| channel.live) {
+            return Err(AppError::process_exited());
+        }
+        let matched = self
+            .modes
+            .lock()
+            .map_err(|_| conflict("Terminal mode registry is unavailable"))?
+            .get_mut(session)
+            .is_some_and(|mode| {
+                mode.passive_mouse_motion(bytes)
+                    || mode.response(bytes, crate::rooms::model::now_millis())
+            });
+        drop(channels);
+        if matched { write() } else { Ok(()) }
+    }
+
     /// Ordinary input owns the next position. It never borrows an automatic write token.
     pub fn user_write(
         &self,
@@ -529,25 +851,53 @@ impl InputGate {
         bytes: &[u8],
         write: impl FnOnce() -> Result<(), AppError>,
     ) -> Result<(), AppError> {
-        let mut channels = self.inner.lock().map_err(|_| conflict("Input registry is unavailable"))?;
-        let mut modes = self.modes.lock().map_err(|_| conflict("Terminal mode registry is unavailable"))?;
+        let mut channels = self
+            .inner
+            .lock()
+            .map_err(|_| conflict("Input registry is unavailable"))?;
+        let mut modes = self
+            .modes
+            .lock()
+            .map_err(|_| conflict("Terminal mode registry is unavailable"))?;
         // Focus reports (DECSET 1004) are emitted by xterm on window/tab focus changes. They never edit the
         // input line, so they must not revoke an in-flight automatic paste.
         let protocol_response = matches!(bytes, b"\x1b[I" | b"\x1b[O")
-            || modes.get_mut(session).is_some_and(|mode| mode.response(bytes, crate::rooms::model::now_millis()));
-        let status_sequence = modes.get(session).and_then(|mode| mode.protocol.as_ref()).map_or(0, |snapshot| snapshot.sequence);
-        let status_agent = modes.get(session).and_then(|mode| mode.protocol.as_ref()).map(|snapshot| snapshot.agent);
-        let status_idle = modes.get(session).and_then(|mode| mode.protocol.as_ref())
-            .is_some_and(|snapshot| snapshot.terminal_status_for(snapshot.agent).is_some_and(|report| report.state.allows_input()));
+            || modes
+                .get_mut(session)
+                .is_some_and(|mode| mode.response(bytes, crate::rooms::model::now_millis()));
+        let passive = passive_key(bytes);
+        let status_sequence = modes
+            .get(session)
+            .and_then(|mode| mode.protocol.as_ref())
+            .map_or(0, |snapshot| snapshot.sequence);
+        let status_agent = modes
+            .get(session)
+            .and_then(|mode| mode.protocol.as_ref())
+            .map(|snapshot| snapshot.agent);
+        let status_idle = modes
+            .get(session)
+            .and_then(|mode| mode.protocol.as_ref())
+            .is_some_and(|snapshot| {
+                snapshot
+                    .terminal_status_for(snapshot.agent)
+                    .is_some_and(|report| report.state.allows_input())
+            });
         let dialog = channels.get(session).and_then(|channel| {
             let mode = modes.get(session)?;
-            let report = mode.protocol.as_ref()?.terminal_status_for(channel.protocol_agent?)?;
-            (report.state == crate::agent::ProgramState::Blocked).then_some((mode.blocked_sequence, editor_empty(channel, Some(mode))))
+            let report = mode
+                .protocol
+                .as_ref()?
+                .terminal_status_for(channel.protocol_agent?)?;
+            (report.state == crate::agent::ProgramState::Blocked)
+                .then_some((mode.blocked_sequence, editor_empty(channel, Some(mode))))
         });
-        let empty_submission = submit_key(bytes) && channels.get(session).is_some_and(|channel| {
-            channel.protocol_agent.is_some() && status_agent == channel.protocol_agent
-                && protocol_idle(channel, modes.get(session)) && editor_empty(channel, modes.get(session))
-        });
+        let empty_submission = submit_key(bytes)
+            && channels.get(session).is_some_and(|channel| {
+                channel.protocol_agent.is_some()
+                    && status_agent == channel.protocol_agent
+                    && protocol_idle(channel, modes.get(session))
+                    && editor_empty(channel, modes.get(session))
+            });
         // Keep input ownership through the write, but let the output reader drain
         // the PTY while its child is still reading a large input frame.
         drop(modes);
@@ -555,28 +905,52 @@ impl InputGate {
             && !protocol_response
             && let Some(channel) = channels.get_mut(session)
         {
-            channel.interaction = None;
-            if let Some((sequence, empty)) = dialog && channel.blocked_input.is_none_or(|(old, _)| old != sequence) {
-                // Dialog input may be released after an answer, but an earlier composer draft stays owned.
-                channel.blocked_input = Some((sequence, empty));
-            }
-            channel.revision = channel.revision.checked_add(1).ok_or_else(|| conflict("Input revision overflow"))?;
-            if channel.protocol_agent.is_some() {
-                channel.input_dirty = !empty_submission;
-                let dialog_empty = dialog.is_some_and(|(sequence, _)| channel.blocked_input == Some((sequence, true)));
-                channel.submission_revision = (!empty_submission && submit_key(bytes) && (status_idle || dialog_empty) && status_agent == channel.protocol_agent)
-                    .then_some((channel.revision, status_sequence));
-            }
-            self.revision.fetch_add(1, Ordering::Release);
-            channel.offer = None;
-            if let Some(attempt) = &mut channel.attempt {
-                attempt.revoked = true;
+            if passive {
+                // Esc / caret movement / paging cancel a scripted write but leave
+                // the composer revision and its pending submission untouched.
+                channel.interaction = None;
+                if let Some(attempt) = &mut channel.attempt {
+                    attempt.revoked = true;
+                }
+            } else {
+                channel.interaction = None;
+                if let Some((sequence, empty)) = dialog
+                    && channel.blocked_input.is_none_or(|(old, _)| old != sequence)
+                {
+                    // Dialog input may be released after an answer, but an earlier composer draft stays owned.
+                    channel.blocked_input = Some((sequence, empty));
+                }
+                channel.revision = channel
+                    .revision
+                    .checked_add(1)
+                    .ok_or_else(|| conflict("Input revision overflow"))?;
+                if channel.protocol_agent.is_some() {
+                    channel.input_dirty = !empty_submission;
+                    channel.input_unknown = false;
+                    let dialog_empty = dialog.is_some_and(|(sequence, _)| {
+                        channel.blocked_input == Some((sequence, true))
+                    });
+                    channel.submission_revision = (!empty_submission
+                        && submit_key(bytes)
+                        && (status_idle || dialog_empty)
+                        && status_agent == channel.protocol_agent)
+                        .then_some((channel.revision, status_sequence));
+                }
+                self.revision.fetch_add(1, Ordering::Release);
+                channel.offer = None;
+                if let Some(attempt) = &mut channel.attempt {
+                    attempt.revoked = true;
+                }
             }
         }
         let result = write();
-        if result.is_err() && let Some(channel) = channels.get_mut(session) {
+        if result.is_err()
+            && let Some(channel) = channels.get_mut(session)
+        {
             channel.submission_revision = None;
-            if let Some((sequence, _)) = channel.blocked_input { channel.blocked_input = Some((sequence, false)); }
+            if let Some((sequence, _)) = channel.blocked_input {
+                channel.blocked_input = Some((sequence, false));
+            }
         }
         result
     }
@@ -602,9 +976,17 @@ impl InputGate {
         bytes: &[u8],
         write: impl FnOnce(Option<u64>) -> Result<(), AppError>,
     ) -> Result<(), AppError> {
-        let mut channels = self.inner.lock().map_err(|_| conflict("Input registry is unavailable"))?;
-        let modes = self.modes.lock().map_err(|_| conflict("Terminal mode registry is unavailable"))?;
-        let channel = channels.get_mut(session).ok_or_else(AppError::process_exited)?;
+        let mut channels = self
+            .inner
+            .lock()
+            .map_err(|_| conflict("Input registry is unavailable"))?;
+        let modes = self
+            .modes
+            .lock()
+            .map_err(|_| conflict("Terminal mode registry is unavailable"))?;
+        let channel = channels
+            .get_mut(session)
+            .ok_or_else(AppError::process_exited)?;
         let ready = protocol_idle(channel, modes.get(session));
         if !channel.live
             || channel.epoch != guard.target_epoch
@@ -613,28 +995,49 @@ impl InputGate {
         {
             return Err(conflict("The automatic input guard is no longer valid"));
         }
-        let attempt = channel.attempt.as_mut().ok_or_else(|| conflict("No automatic input is authorized"))?;
+        let attempt = channel
+            .attempt
+            .as_mut()
+            .ok_or_else(|| conflict("No automatic input is authorized"))?;
         if attempt.guard != *guard {
             return Err(conflict("The automatic input was interrupted"));
         }
         let hash = Sha256::digest(bytes).to_vec();
         if let Some(previous) = attempt.writes.get(&sequence) {
             if previous.hash != hash {
-                return Err(conflict("A write sequence cannot be reused with different bytes"));
+                return Err(conflict(
+                    "A write sequence cannot be reused with different bytes",
+                ));
             }
-            return previous.error.as_ref().map_or(Ok(()), |error| Err(error.clone()));
+            return previous
+                .error
+                .as_ref()
+                .map_or(Ok(()), |error| Err(error.clone()));
         }
-        if !ready || attempt.protocol_sequence.is_some_and(|expected| {
-            modes.get(session).is_none_or(|mode| !mode.readiness.allows(expected))
-        }) {
-            return Err(conflict("Agent terminal status changed before automatic input"));
+        if !ready
+            || attempt.protocol_sequence.is_some_and(|expected| {
+                modes
+                    .get(session)
+                    .is_none_or(|mode| !mode.readiness.allows(expected))
+            })
+        {
+            return Err(conflict(
+                "Agent terminal status changed before automatic input",
+            ));
         }
         if Instant::now() >= attempt.deadline {
             attempt.revoked = true;
             return Err(conflict("The automatic write lease expired"));
         }
-        if attempt.revoked || attempt.writes.last_key_value().is_some_and(|(_, write)| write.submit_key) {
-            return Err(conflict("The automatic input was interrupted or already submitted"));
+        if attempt.revoked
+            || attempt
+                .writes
+                .last_key_value()
+                .is_some_and(|(_, write)| write.submit_key)
+        {
+            return Err(conflict(
+                "The automatic input was interrupted or already submitted",
+            ));
         }
         if sequence != attempt.writes.len() as u64 + 1
             || attempt.writes.len() >= MAX_WRITES
@@ -644,37 +1047,58 @@ impl InputGate {
             return Err(conflict("Invalid or oversized automatic write sequence"));
         }
         if !modes.get(session).is_some_and(|mode| mode.bracketed_paste) {
-            return Err(conflict("Bracketed paste mode changed before automatic input"));
+            return Err(conflict(
+                "Bracketed paste mode changed before automatic input",
+            ));
         }
         let submit_key = attempt.paste_complete && submit_key(bytes);
         let previous_paste_length = attempt.pasted.len();
         let previous_paste_complete = attempt.paste_complete;
         if attempt.paste_complete {
             if !submit_key {
-                return Err(conflict("The frozen payload is complete; only its submit key is allowed"));
+                return Err(conflict(
+                    "The frozen payload is complete; only its submit key is allowed",
+                ));
             }
         } else {
             let mut pasted = attempt.pasted.clone();
             pasted.extend_from_slice(bytes);
-            if !attempt.frames.iter().any(|frame| frame.starts_with(&pasted)) {
-                return Err(conflict("Automatic bytes do not match the frozen bracketed payload"));
+            if !attempt
+                .frames
+                .iter()
+                .any(|frame| frame.starts_with(&pasted))
+            {
+                return Err(conflict(
+                    "Automatic bytes do not match the frozen bracketed payload",
+                ));
             }
             attempt.paste_complete = attempt.frames.iter().any(|frame| *frame == pasted);
             attempt.pasted = pasted;
         }
         attempt.bytes += bytes.len();
-        attempt
-            .writes
-            .insert(sequence, Written { hash, error: Some(AppError::io("Automatic write result is uncertain")), touched: true, submit_key });
-        let status_sequence = modes.get(session).and_then(|mode| mode.protocol.as_ref()).map_or(0, |s| s.sequence);
+        attempt.writes.insert(
+            sequence,
+            Written {
+                hash,
+                error: Some(AppError::io("Automatic write result is uncertain")),
+                touched: true,
+                submit_key,
+            },
+        );
+        let status_sequence = modes
+            .get(session)
+            .and_then(|mode| mode.protocol.as_ref())
+            .map_or(0, |s| s.sequence);
         drop(modes);
         // The permission spans one uninterrupted idle position; older daemons still
         // require the freshest exact report sequence at their writer boundary.
         let result = write(attempt.protocol_sequence.map(|_| status_sequence));
         // These backend errors are explicit rejections before any PTY write. Network/IO
         // errors may be partial and must keep both the payload and editor reserved.
-        let rejected = result.as_ref().err().is_some_and(|error| error.code == super::contracts::AppErrorCode::Conflict
-            || error.code == super::contracts::AppErrorCode::ProcessExited);
+        let rejected = result.as_ref().err().is_some_and(|error| {
+            error.code == super::contracts::AppErrorCode::Conflict
+                || error.code == super::contracts::AppErrorCode::ProcessExited
+        });
         let written = attempt.writes.get_mut(&sequence).unwrap();
         written.error = result.as_ref().err().cloned();
         written.touched = !rejected;
@@ -683,10 +1107,14 @@ impl InputGate {
             attempt.paste_complete = previous_paste_complete;
             attempt.bytes -= bytes.len();
         } else {
-            if submit_key { channel.last_submission = status_sequence; }
+            if submit_key {
+                channel.last_submission = status_sequence;
+            }
             if channel.protocol_agent.is_some() {
                 channel.input_dirty = true;
-                channel.submission_revision = (submit_key && result.is_ok()).then_some((channel.revision, status_sequence));
+                channel.input_unknown = false;
+                channel.submission_revision =
+                    (submit_key && result.is_ok()).then_some((channel.revision, status_sequence));
             }
         }
         if result.is_err() {
@@ -704,7 +1132,9 @@ impl InputGate {
                     channel.live
                         && channel.epoch == epoch
                         && channel.attempt.as_ref().is_some_and(|attempt| {
-                            attempt.guard.batch_id == batch && !attempt.revoked && Instant::now() < attempt.deadline
+                            attempt.guard.batch_id == batch
+                                && !attempt.revoked
+                                && Instant::now() < attempt.deadline
                         })
                 })
             })
@@ -722,7 +1152,10 @@ impl InputGate {
                             && attempt.paste_complete
                             && attempt.writes.len() >= 2
                             && attempt.writes.values().all(|write| write.error.is_none())
-                            && attempt.writes.last_key_value().is_some_and(|(_, write)| write.submit_key)
+                            && attempt
+                                .writes
+                                .last_key_value()
+                                .is_some_and(|(_, write)| write.submit_key)
                     })
                 })
             })
@@ -731,17 +1164,27 @@ impl InputGate {
     /// What the native layer saw for this batch's current attempt. `None` means no attempt is held.
     pub fn written(&self, session: &str, batch: &str) -> Option<WriteEvidence> {
         let channels = self.inner.lock().ok()?;
-        let attempt = channels.get(session)?.attempt.as_ref().filter(|attempt| attempt.guard.batch_id == batch)?;
+        let attempt = channels
+            .get(session)?
+            .attempt
+            .as_ref()
+            .filter(|attempt| attempt.guard.batch_id == batch)?;
         Some(WriteEvidence {
             touched: attempt.writes.values().any(|write| write.touched),
             paste_complete: attempt.paste_complete
-                && attempt.writes.values().all(|write| write.error.is_none() || write.submit_key),
+                && attempt
+                    .writes
+                    .values()
+                    .all(|write| write.error.is_none() || write.submit_key),
         })
     }
     pub fn finish(&self, session: &str, batch: &str) {
         if let Ok(mut channels) = self.inner.lock()
             && let Some(channel) = channels.get_mut(session)
-            && channel.attempt.as_ref().is_some_and(|attempt| attempt.guard.batch_id == batch)
+            && channel
+                .attempt
+                .as_ref()
+                .is_some_and(|attempt| attempt.guard.batch_id == batch)
         {
             channel.attempt = None;
             channel.offer = None;
@@ -760,7 +1203,11 @@ mod tests {
         gate.observe_output("pty", 1, b"\x1b[?2004h");
         let binding = gate
             .bind(
-                &BindRequest { tab_id: "tab".into(), terminal_session_id: "pty".into(), owner_id: "owner".into() },
+                &BindRequest {
+                    tab_id: "tab".into(),
+                    terminal_session_id: "pty".into(),
+                    owner_id: "owner".into(),
+                },
                 &root,
             )
             .unwrap();
@@ -785,10 +1232,17 @@ mod tests {
         let (gate, offer) = ready();
         gate.user_write("pty", b"a", || Ok(())).unwrap();
         assert!(!gate.check(&offer, 1));
-        assert!(gate.authorize(&offer, "batch", "attempt", "payload", 1).is_err());
+        assert!(
+            gate.authorize(&offer, "batch", "attempt", "payload", 1)
+                .is_err()
+        );
         let (gate, offer) = ready();
         gate.bind(
-            &BindRequest { tab_id: "tab".into(), terminal_session_id: "pty".into(), owner_id: "new-owner".into() },
+            &BindRequest {
+                tab_id: "tab".into(),
+                terminal_session_id: "pty".into(),
+                owner_id: "new-owner".into(),
+            },
             &std::env::temp_dir(),
         )
         .unwrap();
@@ -817,42 +1271,88 @@ mod tests {
     #[test]
     fn writes_are_ordered_and_never_repeated() {
         let (gate, offer) = ready();
-        let guard = gate.authorize(&offer, "batch", "attempt", "payload", 1).unwrap();
+        let guard = gate
+            .authorize(&offer, "batch", "attempt", "payload", 1)
+            .unwrap();
         let calls = Cell::new(0);
         let write = || {
             calls.set(calls.get() + 1);
             Ok(())
         };
-        gate.guarded_write("pty", &guard, 1, b"\x1b[200~payload\x1b[201~", write).unwrap();
-        gate.guarded_write("pty", &guard, 1, b"\x1b[200~payload\x1b[201~", write).unwrap();
+        gate.guarded_write("pty", &guard, 1, b"\x1b[200~payload\x1b[201~", write)
+            .unwrap();
+        gate.guarded_write("pty", &guard, 1, b"\x1b[200~payload\x1b[201~", write)
+            .unwrap();
         assert_eq!(calls.get(), 1);
-        assert!(gate.guarded_write("pty", &guard, 1, b"different", write).is_err());
-        assert!(gate.guarded_write("pty", &guard, 3, b"enter", write).is_err());
+        assert!(
+            gate.guarded_write("pty", &guard, 1, b"different", write)
+                .is_err()
+        );
+        assert!(
+            gate.guarded_write("pty", &guard, 3, b"enter", write)
+                .is_err()
+        );
         gate.user_write("pty", b"user", || Ok(())).unwrap();
-        assert!(gate.guarded_write("pty", &guard, 2, b"enter", write).is_err());
+        assert!(
+            gate.guarded_write("pty", &guard, 2, b"enter", write)
+                .is_err()
+        );
         assert_eq!(calls.get(), 1);
     }
     #[test]
     fn failed_native_write_cannot_retry_or_continue() {
         let (gate, offer) = ready();
-        let guard = gate.authorize(&offer, "batch", "attempt", "payload", 1).unwrap();
+        let guard = gate
+            .authorize(&offer, "batch", "attempt", "payload", 1)
+            .unwrap();
         assert!(
-            gate.guarded_write("pty", &guard, 1, b"\x1b[200~payload\x1b[201~", || Err(AppError::io("lost reply")))
-                .is_err()
+            gate.guarded_write("pty", &guard, 1, b"\x1b[200~payload\x1b[201~", || Err(
+                AppError::io("lost reply")
+            ))
+            .is_err()
         );
-        assert!(gate.guarded_write("pty", &guard, 1, b"\x1b[200~payload\x1b[201~", || panic!("retried PTY")).is_err());
-        assert!(gate.guarded_write("pty", &guard, 2, b"enter", || panic!("continued uncertain write")).is_err());
+        assert!(
+            gate.guarded_write("pty", &guard, 1, b"\x1b[200~payload\x1b[201~", || panic!(
+                "retried PTY"
+            ))
+            .is_err()
+        );
+        assert!(
+            gate.guarded_write("pty", &guard, 2, b"enter", || panic!(
+                "continued uncertain write"
+            ))
+            .is_err()
+        );
         gate.retire("pty");
         assert!(!gate.valid_attempt("pty", "batch", &guard.target_epoch));
     }
 
-    fn protocol(gate: &InputGate, agent: crate::agent::AgentKind, state: crate::agent::ProgramState, sequence: u64) {
-        gate.observe_agent_state("pty", &crate::agent::hooks::HookSnapshot {
-            sequence, state: state.lifecycle(), agent, session: None,
-            source: crate::agent::AgentStateSource::TerminalProtocol, occurred_at: 0,
-            reason: String::new(), transcript_path: None,
-            program_status: Some(crate::agent::TerminalProgramStatus { state, kind: None, progress: None, title: None, message: None }),
-        });
+    fn protocol(
+        gate: &InputGate,
+        agent: crate::agent::AgentKind,
+        state: crate::agent::ProgramState,
+        sequence: u64,
+    ) {
+        gate.observe_agent_state(
+            "pty",
+            &crate::agent::hooks::HookSnapshot {
+                sequence,
+                state: state.lifecycle(),
+                agent,
+                session: None,
+                source: crate::agent::AgentStateSource::TerminalProtocol,
+                occurred_at: 0,
+                reason: String::new(),
+                transcript_path: None,
+                program_status: Some(crate::agent::TerminalProgramStatus {
+                    state,
+                    kind: None,
+                    progress: None,
+                    title: None,
+                    message: None,
+                }),
+            },
+        );
     }
 
     #[test]
@@ -869,7 +1369,301 @@ mod tests {
         protocol(&gate, AgentKind::Codex, State::Done, 3);
         assert_eq!(gate.tab_blocker("tab"), None);
         gate.observe_output("pty", 2, b"\x1b[?2004l");
+        // The paste reset interrupts readiness; a fresh idle report restores the
+        // position so the remaining blocker is the paste mode itself.
+        protocol(&gate, AgentKind::Codex, State::Idle, 4);
         assert_eq!(gate.tab_blocker("tab"), Some("paste_not_ready"));
+    }
+
+    #[test]
+    fn non_editing_keys_never_claim_the_composer_or_reset_a_pending_submission() {
+        use crate::agent::{AgentKind, ProgramState as State};
+        let (gate, _) = ready();
+        gate.require_protocol("pty", AgentKind::Codex, false);
+        protocol(&gate, AgentKind::Codex, State::Idle, 1);
+        for key in [
+            b"\x1b".as_slice(),
+            b"\x1b[A",
+            b"\x1b[B",
+            b"\x1b[C",
+            b"\x1b[D",
+            b"\x1bOA",
+            b"\x1b[H",
+            b"\x1b[F",
+            b"\x1b[1~",
+            b"\x1b[4~",
+            b"\x1b[5~",
+            b"\x1b[6~",
+        ] {
+            gate.user_write("pty", key, || Ok(())).unwrap();
+            assert_eq!(gate.input_snapshot("pty").unwrap().status, "empty");
+            assert_eq!(gate.tab_blocker("tab"), None);
+        }
+        // Esc after a real submission must not invalidate its working acknowledgement.
+        gate.user_write("pty", b"draft", || Ok(())).unwrap();
+        gate.user_write("pty", b"\r", || Ok(())).unwrap();
+        assert_eq!(gate.input_snapshot("pty").unwrap().status, "occupied");
+        gate.user_write("pty", b"\x1b", || Ok(())).unwrap();
+        assert_eq!(gate.input_snapshot("pty").unwrap().status, "occupied");
+        protocol(&gate, AgentKind::Codex, State::Working, 2);
+        protocol(&gate, AgentKind::Codex, State::Done, 3);
+        assert_eq!(gate.input_snapshot("pty").unwrap().status, "empty");
+        assert_eq!(gate.tab_blocker("tab"), None);
+    }
+
+    #[test]
+    fn esc_interrupts_an_automatic_prompt_without_creating_a_draft() {
+        use crate::agent::{AgentKind, ProgramState as State};
+        let (gate, _) = ready();
+        gate.require_protocol("pty", AgentKind::Codex, false);
+        protocol(&gate, AgentKind::Codex, State::Idle, 1);
+        let guard = gate.prepare_prompt("pty", "payload").unwrap();
+        gate.user_write("pty", b"\x1b", || Ok(())).unwrap();
+        assert!(
+            gate.guarded_write("pty", &guard, 1, b"\x1b[200~payload\x1b[201~", || panic!(
+                "esc did not interrupt"
+            ))
+            .is_err()
+        );
+        assert_eq!(gate.input_snapshot("pty").unwrap().status, "empty");
+    }
+
+    #[test]
+    fn a_busy_or_stale_agent_reports_its_own_blocker_before_the_composer() {
+        use crate::agent::{AgentKind, ProgramState as State};
+        let (gate, _) = ready();
+        gate.require_protocol("pty", AgentKind::Codex, false);
+        protocol(&gate, AgentKind::Codex, State::Working, 1);
+        gate.user_write("pty", b"draft", || Ok(())).unwrap();
+        assert_eq!(gate.tab_blocker("tab"), Some("runtime_not_ready"));
+        protocol(&gate, AgentKind::Codex, State::Idle, 2);
+        assert_eq!(gate.tab_blocker("tab"), Some("composer_not_empty"));
+    }
+
+    #[test]
+    fn an_observed_empty_composer_clears_dirty_and_unknown_ownership() {
+        use crate::agent::{AgentKind, ProgramState as State};
+        let (gate, _) = ready();
+        gate.require_protocol("pty", AgentKind::Codex, false);
+        protocol(&gate, AgentKind::Codex, State::Idle, 1);
+        gate.user_write("pty", b"typed then deleted", || Ok(()))
+            .unwrap();
+        assert_eq!(gate.tab_blocker("tab"), Some("composer_not_empty"));
+        gate.confirm_empty_input("pty").unwrap();
+        assert_eq!(gate.input_snapshot("pty").unwrap().status, "empty");
+        assert_eq!(gate.tab_blocker("tab"), None);
+        gate.output_gap("pty");
+        gate.observe_output("pty", 3, b"\x1b[?2004h");
+        protocol(&gate, AgentKind::Codex, State::Idle, 2);
+        assert_eq!(gate.tab_blocker("tab"), Some("input_state_unknown"));
+        gate.confirm_empty_input("pty").unwrap();
+        assert_eq!(gate.input_snapshot("pty").unwrap().status, "empty");
+        assert_eq!(gate.tab_blocker("tab"), None);
+        assert!(gate.confirm_empty_input("missing").is_err());
+    }
+
+    #[test]
+    fn an_empty_observation_never_releases_an_authorized_paste() {
+        use crate::agent::{AgentKind, ProgramState as State};
+        let (gate, _) = ready();
+        gate.require_protocol("pty", AgentKind::Codex, false);
+        protocol(&gate, AgentKind::Codex, State::Idle, 1);
+        let guard = gate.prepare_prompt("pty", "payload").unwrap();
+        gate.confirm_empty_input("pty").unwrap();
+        gate.guarded_write("pty", &guard, 1, b"\x1b[200~payload\x1b[201~", || Ok(()))
+            .unwrap();
+        gate.guarded_write("pty", &guard, 2, b"\r", || Ok(()))
+            .unwrap();
+    }
+
+    #[test]
+    fn replayed_device_responses_do_not_claim_an_empty_editor_or_reach_the_child_twice() {
+        use crate::agent::{AgentKind, ProgramState as State};
+        let (gate, _) = ready();
+        gate.require_protocol("pty", AgentKind::Codex, false);
+        protocol(&gate, AgentKind::Codex, State::Done, 1);
+        gate.observe_output("pty", 2, b"\x1b[6n");
+        let writes = Cell::new(0);
+        let write = || {
+            writes.set(writes.get() + 1);
+            Ok(())
+        };
+        gate.response_write("pty", b"\x1b[12;34R", write).unwrap();
+        assert_eq!(writes.get(), 1);
+        assert_eq!(gate.input_snapshot("pty").unwrap().status, "empty");
+        gate.replay_gap("pty", 2);
+        gate.observe_output("pty", 2, b"\x1b[6n");
+        gate.response_write("pty", b"\x1b[12;34R", write).unwrap();
+        assert_eq!(gate.input_snapshot("pty").unwrap().status, "empty");
+        assert_eq!(gate.tab_blocker("tab"), None);
+        assert_eq!(writes.get(), 1);
+    }
+
+    #[test]
+    fn passive_pointer_reports_preserve_the_editor_and_automatic_submission() {
+        use crate::agent::{AgentKind, ProgramState as State};
+        for agent in [AgentKind::Codex, AgentKind::Claude] {
+            let (gate, _) = ready();
+            gate.require_protocol("pty", agent, false);
+            protocol(&gate, agent, State::Done, 1);
+            gate.observe_output("pty", 2, b"\x1b[?1000h\x1b[?1002h\x1b[?1003h\x1b[?1006h");
+            let before = gate.input_snapshot("pty").unwrap();
+            let writes = Cell::new(0);
+            let write = || {
+                writes.set(writes.get() + 1);
+                Ok(())
+            };
+            gate.response_write("pty", b"\x1b[<35;12;34M", write)
+                .unwrap();
+            assert_eq!(writes.get(), 1, "the CLI still receives its mouse report");
+            assert_eq!(
+                gate.input_snapshot("pty").unwrap().revision,
+                before.revision
+            );
+            assert_eq!(gate.tab_blocker("tab"), None);
+
+            let guard = gate.prepare_prompt("pty", "next room message").unwrap();
+            gate.guarded_write(
+                "pty",
+                &guard,
+                1,
+                b"\x1b[200~next room message\x1b[201~",
+                || Ok(()),
+            )
+            .unwrap();
+            gate.response_write("pty", b"\x1b[<51;13;34M", write)
+                .unwrap();
+            gate.guarded_write("pty", &guard, 2, b"\r", || Ok(()))
+                .unwrap();
+            protocol(&gate, agent, State::Working, 2);
+            protocol(&gate, agent, State::Done, 3);
+            gate.finish_prompt("pty", &guard).unwrap();
+            gate.response_write("pty", b"\x1b[<35;14;34M", write)
+                .unwrap();
+            assert_eq!(gate.tab_blocker("tab"), None);
+            assert_eq!(gate.input_snapshot("pty").unwrap().status, "empty");
+
+            // A real paste/IME claim survives later passive reports and idle snapshots.
+            gate.claim_user_input("pty").unwrap();
+            gate.response_write("pty", b"\x1b[<35;15;34M", write)
+                .unwrap();
+            protocol(&gate, agent, State::Idle, 4);
+            assert_eq!(gate.tab_blocker("tab"), Some("composer_not_empty"));
+            assert_eq!(writes.get(), 4);
+        }
+    }
+
+    #[test]
+    fn passive_pointer_reports_require_live_modes_and_cannot_disguise_user_input() {
+        use crate::agent::{AgentKind, ProgramState as State};
+        let (gate, _) = ready();
+        gate.require_protocol("pty", AgentKind::Codex, false);
+        protocol(&gate, AgentKind::Codex, State::Done, 1);
+        let writes = Cell::new(0);
+        let write = || {
+            writes.set(writes.get() + 1);
+            Ok(())
+        };
+        let hover = b"\x1b[<35;12;34M";
+        gate.response_write("pty", hover, write).unwrap();
+        assert_eq!(writes.get(), 0);
+        gate.observe_output("pty", 2, b"\x1b[?1003;1006h");
+        for invalid in [
+            b"\x1b[<0;12;34M".as_slice(),
+            b"\x1b[<32;12;34M",
+            b"\x1b[<64;12;34M",
+            b"\x1b[<0;12;34m",
+            b"\x1b[<35;12;34Mtext",
+            b"\x1b[<35;12;34M\x1b[<35;12;34M",
+            b"\x1b[<35;12;34",
+            b"\x1b[<35;-1;34M",
+        ] {
+            gate.response_write("pty", invalid, write).unwrap();
+        }
+        assert_eq!(writes.get(), 0);
+        for code in [35, 39, 43, 47, 51, 55, 59, 63] {
+            gate.response_write("pty", format!("\x1b[<{code};12;34M").as_bytes(), write)
+                .unwrap();
+        }
+        assert_eq!(writes.get(), 8);
+        // Switching to click/drag reporting, resetting, and losing output retire the permission.
+        for (index, disable) in [
+            b"\x1b[?1000h".as_slice(),
+            b"\x1b[?1002h",
+            b"\x1b[?1003l",
+            b"\x1b[?1006l",
+            b"\x1bc",
+        ]
+        .iter()
+        .enumerate()
+        {
+            gate.observe_output("pty", 3 + index as u64 * 2, disable);
+            gate.response_write("pty", hover, write).unwrap();
+            assert_eq!(writes.get(), 8);
+            gate.observe_output("pty", 4 + index as u64 * 2, b"\x1b[?1003;1006h");
+        }
+        gate.observe_output("pty", 13, b"\x1b[?1016h");
+        gate.response_write("pty", b"\x1b[<35;0;0M", write).unwrap();
+        assert_eq!(writes.get(), 9);
+        gate.output_gap("pty");
+        gate.response_write("pty", hover, write).unwrap();
+        assert_eq!(writes.get(), 9);
+        gate.observe_output("pty", 14, b"\x1b[?1003;1006h");
+        gate.user_write("pty", hover, write).unwrap();
+        assert_eq!(writes.get(), 10);
+        assert_eq!(gate.input_snapshot("pty").unwrap().status, "occupied");
+    }
+
+    #[test]
+    fn reattaching_a_view_preserves_input_ownership_through_an_already_consumed_replay_gap() {
+        use crate::agent::{AgentKind, ProgramState as State};
+        for agent in [AgentKind::Codex, AgentKind::Claude] {
+            for draft in [false, true] {
+                let (gate, _) = ready();
+                gate.require_protocol("pty", agent, false);
+                protocol(&gate, agent, State::Done, 1);
+                gate.observe_output("pty", 20, b"redraw");
+                if draft {
+                    gate.user_write("pty", b"draft", || Ok(())).unwrap();
+                }
+                let before = gate.input_snapshot("pty").unwrap();
+                gate.register("pty", Some("tab".into()), std::env::temp_dir());
+                gate.require_protocol("pty", agent, true);
+                gate.replay_gap("pty", 4);
+                let after = gate.input_snapshot("pty").unwrap();
+                assert_eq!(after.status, if draft { "occupied" } else { "empty" });
+                assert_eq!(after.revision, before.revision);
+                assert_eq!(after.output_sequence, Some(20));
+                assert_eq!(
+                    gate.tab_blocker("tab"),
+                    draft.then_some("composer_not_empty")
+                );
+                gate.replay_gap("pty", 21);
+                protocol(&gate, agent, State::Idle, 2);
+                assert_eq!(gate.tab_blocker("tab"), Some("input_state_unknown"));
+                assert_eq!(gate.input_snapshot("pty").unwrap().status, "unknown");
+            }
+        }
+    }
+
+    #[test]
+    fn genuinely_unknown_reconnections_require_an_acknowledged_submission() {
+        use crate::agent::{AgentKind, ProgramState as State};
+        let (gate, _) = ready();
+        gate.require_protocol("pty", AgentKind::Codex, true);
+        protocol(&gate, AgentKind::Codex, State::Idle, 1);
+        assert_eq!(gate.tab_blocker("tab"), Some("input_state_unknown"));
+        gate.user_write("pty", b"instruction", || Ok(())).unwrap();
+        gate.user_write("pty", b"\r", || Ok(())).unwrap();
+        let pending = gate.input_snapshot("pty").unwrap();
+        assert_eq!(pending.status, "occupied");
+        assert_eq!(pending.submission_sequence, Some(1));
+        protocol(&gate, AgentKind::Codex, State::Working, 2);
+        protocol(&gate, AgentKind::Codex, State::Done, 3);
+        assert_eq!(gate.tab_blocker("tab"), None);
+        let done = gate.input_snapshot("pty").unwrap();
+        assert_eq!(done.status, "empty");
+        assert_eq!(done.submission_sequence, None);
     }
 
     #[test]
@@ -879,13 +1673,17 @@ mod tests {
             let (gate, offer) = ready();
             gate.require_protocol("pty", agent, false);
             protocol(&gate, agent, State::Done, 1);
-            let guard = gate.authorize(&offer, "batch", "attempt", "payload", 1).unwrap();
-            gate.guarded_write("pty", &guard, 1, b"\x1b[200~payload\x1b[201~", || Ok(())).unwrap();
+            let guard = gate
+                .authorize(&offer, "batch", "attempt", "payload", 1)
+                .unwrap();
+            gate.guarded_write("pty", &guard, 1, b"\x1b[200~payload\x1b[201~", || Ok(()))
+                .unwrap();
             protocol(&gate, agent, State::Idle, 2);
             gate.guarded_write_checked("pty", &guard, 2, b"\r", |expected| {
                 assert_eq!(expected, Some(2));
                 Ok(())
-            }).unwrap();
+            })
+            .unwrap();
             assert!(!gate.ready_tab("tab"));
             protocol(&gate, agent, State::Working, 3);
             protocol(&gate, agent, State::Done, 4);
@@ -899,12 +1697,19 @@ mod tests {
         let (gate, offer) = ready();
         gate.require_protocol("pty", AgentKind::Codex, false);
         protocol(&gate, AgentKind::Codex, State::Done, 1);
-        let guard = gate.authorize(&offer, "batch", "attempt", "payload", 1).unwrap();
+        let guard = gate
+            .authorize(&offer, "batch", "attempt", "payload", 1)
+            .unwrap();
         gate.observe_output("pty", 2, b"\x1b[?2004l\x1b[?2004h");
         assert!(!gate.ready_tab("tab"));
         protocol(&gate, AgentKind::Codex, State::Idle, 2);
         assert!(gate.ready_tab("tab"));
-        assert!(gate.guarded_write("pty", &guard, 1, b"\x1b[200~payload\x1b[201~", || panic!("stale paste reached PTY")).is_err());
+        assert!(
+            gate.guarded_write("pty", &guard, 1, b"\x1b[200~payload\x1b[201~", || panic!(
+                "stale paste reached PTY"
+            ))
+            .is_err()
+        );
     }
 
     #[test]
@@ -936,14 +1741,27 @@ mod tests {
             protocol(&gate, agent, State::Idle, 1);
             let guard = gate.prepare_prompt("pty", "payload").unwrap();
             assert!(gate.prepare_prompt("pty", "another").is_err());
-            assert!(gate.authorize(&offer, "inbox", "attempt", "payload", 1).is_err());
-            for (sequence, bytes) in [(1, b"\x1b[200~payload\x1b[201~".as_slice()), (2, b"\r".as_slice())] {
+            assert!(
+                gate.authorize(&offer, "inbox", "attempt", "payload", 1)
+                    .is_err()
+            );
+            for (sequence, bytes) in [
+                (1, b"\x1b[200~payload\x1b[201~".as_slice()),
+                (2, b"\r".as_slice()),
+            ] {
                 gate.guarded_write_checked("pty", &guard, sequence, bytes, |expected| {
                     assert_eq!(expected, Some(1));
                     Ok(())
-                }).unwrap();
+                })
+                .unwrap();
             }
-            assert_eq!(gate.finish_prompt("pty", &guard).unwrap(), WriteEvidence { touched: true, paste_complete: true });
+            assert_eq!(
+                gate.finish_prompt("pty", &guard).unwrap(),
+                WriteEvidence {
+                    touched: true,
+                    paste_complete: true
+                }
+            );
             assert!(gate.prepare_prompt("pty", "next").is_err());
             protocol(&gate, agent, State::Working, 2);
             protocol(&gate, agent, State::Done, 3);
@@ -960,7 +1778,12 @@ mod tests {
             protocol(&gate, agent, State::Idle, 1);
             let guard = gate.prepare_prompt("pty", "payload").unwrap();
             gate.claim_user_input("pty").unwrap();
-            assert!(gate.guarded_write("pty", &guard, 1, b"\x1b[200~payload\x1b[201~", || panic!("overwrote IME input")).is_err());
+            assert!(
+                gate.guarded_write("pty", &guard, 1, b"\x1b[200~payload\x1b[201~", || panic!(
+                    "overwrote IME input"
+                ))
+                .is_err()
+            );
             assert!(!gate.finish_prompt("pty", &guard).unwrap().touched);
             protocol(&gate, agent, State::Idle, 2);
             assert!(gate.prepare_prompt("pty", "next").is_err());
@@ -979,7 +1802,9 @@ mod tests {
                 let (gate, _) = ready();
                 gate.require_protocol("pty", agent, false);
                 protocol(&gate, agent, State::Working, 1);
-                if draft { gate.claim_user_input("pty").unwrap(); }
+                if draft {
+                    gate.claim_user_input("pty").unwrap();
+                }
                 protocol(&gate, agent, State::Blocked, 2);
                 gate.claim_user_input("pty").unwrap();
                 gate.user_write("pty", b"answer", || Ok(())).unwrap();
@@ -1001,13 +1826,28 @@ mod tests {
             protocol(&gate, agent, State::Idle, 1);
             let guard = gate.prepare_prompt("pty", "payload").unwrap();
             let bytes = b"\x1b[200~payload\x1b[201~";
-            let error = gate.guarded_write_checked("pty", &guard, 1, bytes, |expected| {
-                assert_eq!(expected, Some(1));
-                Err(conflict("PTY has a newer blocked report"))
-            }).unwrap_err();
+            let error = gate
+                .guarded_write_checked("pty", &guard, 1, bytes, |expected| {
+                    assert_eq!(expected, Some(1));
+                    Err(conflict("PTY has a newer blocked report"))
+                })
+                .unwrap_err();
             assert_eq!(error.code, super::super::contracts::AppErrorCode::Conflict);
-            assert_eq!(gate.guarded_write("pty", &guard, 1, bytes, || panic!("repeated rejected write")).unwrap_err().code, error.code);
-            assert_eq!(gate.finish_prompt("pty", &guard).unwrap(), WriteEvidence { touched: false, paste_complete: false });
+            assert_eq!(
+                gate.guarded_write("pty", &guard, 1, bytes, || panic!(
+                    "repeated rejected write"
+                ))
+                .unwrap_err()
+                .code,
+                error.code
+            );
+            assert_eq!(
+                gate.finish_prompt("pty", &guard).unwrap(),
+                WriteEvidence {
+                    touched: false,
+                    paste_complete: false
+                }
+            );
             protocol(&gate, agent, State::Idle, 3);
             assert!(gate.prepare_prompt("pty", "next").is_ok());
         }
@@ -1021,9 +1861,21 @@ mod tests {
             gate.require_protocol("pty", agent, false);
             protocol(&gate, agent, State::Idle, 1);
             let guard = gate.prepare_prompt("pty", "payload").unwrap();
-            gate.guarded_write_checked("pty", &guard, 1, b"\x1b[200~payload\x1b[201~", |_| Ok(())).unwrap();
-            assert!(gate.guarded_write_checked("pty", &guard, 2, b"\r", |_| Err(conflict("PTY has started working"))).is_err());
-            assert_eq!(gate.finish_prompt("pty", &guard).unwrap(), WriteEvidence { touched: true, paste_complete: true });
+            gate.guarded_write_checked("pty", &guard, 1, b"\x1b[200~payload\x1b[201~", |_| Ok(()))
+                .unwrap();
+            assert!(
+                gate.guarded_write_checked("pty", &guard, 2, b"\r", |_| Err(conflict(
+                    "PTY has started working"
+                )))
+                .is_err()
+            );
+            assert_eq!(
+                gate.finish_prompt("pty", &guard).unwrap(),
+                WriteEvidence {
+                    touched: true,
+                    paste_complete: true
+                }
+            );
             protocol(&gate, agent, State::Working, 2);
             protocol(&gate, agent, State::Idle, 3);
             assert!(gate.prepare_prompt("pty", "duplicate").is_err());
@@ -1038,8 +1890,23 @@ mod tests {
             gate.require_protocol("pty", agent, false);
             protocol(&gate, agent, State::Idle, 1);
             let guard = gate.prepare_prompt("pty", "payload").unwrap();
-            assert!(gate.guarded_write_checked("pty", &guard, 1, b"\x1b[200~payload\x1b[201~", |_| Err(AppError::io("reply lost"))).is_err());
-            assert_eq!(gate.finish_prompt("pty", &guard).unwrap(), WriteEvidence { touched: true, paste_complete: false });
+            assert!(
+                gate.guarded_write_checked(
+                    "pty",
+                    &guard,
+                    1,
+                    b"\x1b[200~payload\x1b[201~",
+                    |_| Err(AppError::io("reply lost"))
+                )
+                .is_err()
+            );
+            assert_eq!(
+                gate.finish_prompt("pty", &guard).unwrap(),
+                WriteEvidence {
+                    touched: true,
+                    paste_complete: false
+                }
+            );
             protocol(&gate, agent, State::Idle, 2);
             assert!(gate.prepare_prompt("pty", "duplicate").is_err());
         }
@@ -1049,31 +1916,37 @@ mod tests {
     fn codex_and_claude_require_native_reports_even_when_the_frontend_claims_idle() {
         use crate::agent::{AgentKind, ProgramState as State};
         for agent in [AgentKind::Codex, AgentKind::Claude] {
-        let (gate, offer) = ready();
-        gate.require_protocol("pty", agent, false);
-        assert!(!gate.ready_tab("tab"));
-        assert!(!gate.check(&offer, 1));
-        assert!(gate.authorize(&offer, "batch", "attempt", "payload", 1).is_err());
-        let mut sequence = 1;
-        for state in [State::Working, State::Blocked, State::Error, State::Clear] {
-            protocol(&gate, agent, state, sequence);
-            sequence += 1;
+            let (gate, offer) = ready();
+            gate.require_protocol("pty", agent, false);
+            assert!(!gate.ready_tab("tab"));
             assert!(!gate.check(&offer, 1));
-            assert!(gate.authorize(&offer, "batch", "attempt", "payload", 1).is_err());
-        }
-        protocol(&gate, agent, State::Idle, sequence);
-        assert!(gate.check(&offer, 1));
-        assert!(gate.ready_tab("tab"));
-        // A stale working report and a late Stop Hook cannot replace the protocol record.
-        protocol(&gate, agent, State::Working, 1);
-        let mut hook = gate.modes.lock().unwrap()["pty"].protocol.clone().unwrap();
-        hook.sequence = 999;
-        hook.source = crate::agent::AgentStateSource::Hook;
-        hook.state = crate::agent::AgentLifecycleState::AwaitingInput;
-        gate.observe_agent_state("pty", &hook);
-        assert!(gate.check(&offer, 1));
-        gate.output_gap("pty");
-        assert!(!gate.ready_tab("tab"));
+            assert!(
+                gate.authorize(&offer, "batch", "attempt", "payload", 1)
+                    .is_err()
+            );
+            let mut sequence = 1;
+            for state in [State::Working, State::Blocked, State::Error, State::Clear] {
+                protocol(&gate, agent, state, sequence);
+                sequence += 1;
+                assert!(!gate.check(&offer, 1));
+                assert!(
+                    gate.authorize(&offer, "batch", "attempt", "payload", 1)
+                        .is_err()
+                );
+            }
+            protocol(&gate, agent, State::Idle, sequence);
+            assert!(gate.check(&offer, 1));
+            assert!(gate.ready_tab("tab"));
+            // A stale working report and a late Stop Hook cannot replace the protocol record.
+            protocol(&gate, agent, State::Working, 1);
+            let mut hook = gate.modes.lock().unwrap()["pty"].protocol.clone().unwrap();
+            hook.sequence = 999;
+            hook.source = crate::agent::AgentStateSource::Hook;
+            hook.state = crate::agent::AgentLifecycleState::AwaitingInput;
+            gate.observe_agent_state("pty", &hook);
+            assert!(gate.check(&offer, 1));
+            gate.output_gap("pty");
+            assert!(!gate.ready_tab("tab"));
         }
     }
 
@@ -1081,17 +1954,33 @@ mod tests {
     fn protocol_changes_after_paste_block_enter_even_if_the_agent_becomes_idle_again() {
         use crate::agent::{AgentKind, ProgramState as State};
         for agent in [AgentKind::Codex, AgentKind::Claude] {
-        let (gate, offer) = ready();
-        gate.require_protocol("pty", agent, false);
-        protocol(&gate, agent, State::Idle, 1);
-        let guard = gate.authorize(&offer, "batch", "attempt", "payload", 1).unwrap();
-        gate.guarded_write("pty", &guard, 1, b"\x1b[200~payload\x1b[201~", || Ok(())).unwrap();
-        protocol(&gate, agent, State::Blocked, 2);
-        assert!(gate.guarded_write("pty", &guard, 2, b"\r", || panic!("submitted into a dialog")).is_err());
-        protocol(&gate, agent, State::Idle, 3);
-        assert!(gate.guarded_write("pty", &guard, 2, b"\r", || panic!("reused an old input position")).is_err());
-        // The known paste acknowledgement remains idempotent after state changes.
-        gate.guarded_write("pty", &guard, 1, b"\x1b[200~payload\x1b[201~", || panic!("pasted twice")).unwrap();
+            let (gate, offer) = ready();
+            gate.require_protocol("pty", agent, false);
+            protocol(&gate, agent, State::Idle, 1);
+            let guard = gate
+                .authorize(&offer, "batch", "attempt", "payload", 1)
+                .unwrap();
+            gate.guarded_write("pty", &guard, 1, b"\x1b[200~payload\x1b[201~", || Ok(()))
+                .unwrap();
+            protocol(&gate, agent, State::Blocked, 2);
+            assert!(
+                gate.guarded_write("pty", &guard, 2, b"\r", || panic!(
+                    "submitted into a dialog"
+                ))
+                .is_err()
+            );
+            protocol(&gate, agent, State::Idle, 3);
+            assert!(
+                gate.guarded_write("pty", &guard, 2, b"\r", || panic!(
+                    "reused an old input position"
+                ))
+                .is_err()
+            );
+            // The known paste acknowledgement remains idempotent after state changes.
+            gate.guarded_write("pty", &guard, 1, b"\x1b[200~payload\x1b[201~", || {
+                panic!("pasted twice")
+            })
+            .unwrap();
         }
     }
 
@@ -1099,19 +1988,24 @@ mod tests {
     fn one_idle_report_cannot_submit_two_batches() {
         use crate::agent::{AgentKind, ProgramState as State};
         for agent in [AgentKind::Codex, AgentKind::Claude] {
-        let (gate, offer) = ready();
-        gate.require_protocol("pty", agent, false);
-        protocol(&gate, agent, State::Idle, 1);
-        let guard = gate.authorize(&offer, "batch", "attempt", "payload", 1).unwrap();
-        gate.guarded_write("pty", &guard, 1, b"\x1b[200~payload\x1b[201~", || Ok(())).unwrap();
-        gate.guarded_write("pty", &guard, 2, b"\r", || Ok(())).unwrap();
-        gate.guarded_write("pty", &guard, 2, b"\r", || panic!("submitted twice")).unwrap();
-        gate.finish("pty", "batch");
-        assert!(!gate.ready_tab("tab"));
-        protocol(&gate, agent, State::Working, 2);
-        assert!(!gate.ready_tab("tab"));
-        protocol(&gate, agent, State::Done, 3);
-        assert!(gate.ready_tab("tab"));
+            let (gate, offer) = ready();
+            gate.require_protocol("pty", agent, false);
+            protocol(&gate, agent, State::Idle, 1);
+            let guard = gate
+                .authorize(&offer, "batch", "attempt", "payload", 1)
+                .unwrap();
+            gate.guarded_write("pty", &guard, 1, b"\x1b[200~payload\x1b[201~", || Ok(()))
+                .unwrap();
+            gate.guarded_write("pty", &guard, 2, b"\r", || Ok(()))
+                .unwrap();
+            gate.guarded_write("pty", &guard, 2, b"\r", || panic!("submitted twice"))
+                .unwrap();
+            gate.finish("pty", "batch");
+            assert!(!gate.ready_tab("tab"));
+            protocol(&gate, agent, State::Working, 2);
+            assert!(!gate.ready_tab("tab"));
+            protocol(&gate, agent, State::Done, 3);
+            assert!(gate.ready_tab("tab"));
         }
     }
 
@@ -1122,16 +2016,43 @@ mod tests {
             let (gate, _) = ready();
             gate.require_protocol("pty", agent, false);
             protocol(&gate, agent, State::Idle, 1);
-            gate.user_write("pty", b"draft from another window", || Ok(())).unwrap();
+            gate.user_write("pty", b"draft from another window", || Ok(()))
+                .unwrap();
             gate.register("pty", Some("tab".into()), std::env::temp_dir());
             gate.require_protocol("pty", agent, true);
             protocol(&gate, agent, State::Idle, 2);
             assert!(!gate.ready_tab("tab"));
-            let binding = gate.bind(&BindRequest { tab_id: "tab".into(), terminal_session_id: "pty".into(), owner_id: "new-window".into() }, &std::env::temp_dir()).unwrap();
-            assert!(gate.offer(&OfferRequest { binding, offer_id: "new-position".into(), running: true, idle: true,
-                composer_empty: true, awaiting_input: false, prompt_queue_empty: true }, 1).is_err());
+            let binding = gate
+                .bind(
+                    &BindRequest {
+                        tab_id: "tab".into(),
+                        terminal_session_id: "pty".into(),
+                        owner_id: "new-window".into(),
+                    },
+                    &std::env::temp_dir(),
+                )
+                .unwrap();
+            assert!(
+                gate.offer(
+                    &OfferRequest {
+                        binding,
+                        offer_id: "new-position".into(),
+                        running: true,
+                        idle: true,
+                        composer_empty: true,
+                        awaiting_input: false,
+                        prompt_queue_empty: true
+                    },
+                    1
+                )
+                .is_err()
+            );
             // The reader must be able to publish the acknowledgement while a write holds input ownership.
-            gate.user_write("pty", b"\r", || { protocol(&gate, agent, State::Working, 3); Ok(()) }).unwrap();
+            gate.user_write("pty", b"\r", || {
+                protocol(&gate, agent, State::Working, 3);
+                Ok(())
+            })
+            .unwrap();
             protocol(&gate, agent, State::Done, 4);
             assert!(gate.ready_tab("tab"));
             gate.user_write("pty", b"later edit", || Ok(())).unwrap();
@@ -1148,7 +2069,10 @@ mod tests {
                 let (gate, _) = ready();
                 gate.require_protocol("pty", agent, false);
                 protocol(&gate, agent, State::Working, 1);
-                if draft { gate.user_write("pty", b"next instruction", || Ok(())).unwrap(); }
+                if draft {
+                    gate.user_write("pty", b"next instruction", || Ok(()))
+                        .unwrap();
+                }
                 protocol(&gate, agent, State::Blocked, 2);
                 gate.user_write("pty", b"answer", || Ok(())).unwrap();
                 gate.user_write("pty", b"\r", || Ok(())).unwrap();
@@ -1171,7 +2095,13 @@ mod tests {
             protocol(&gate, agent, State::Working, 2);
             protocol(&gate, agent, State::Done, 3);
             assert!(!gate.ready_tab("tab"));
-            assert!(gate.user_write("pty", b"\r", || { protocol(&gate, agent, State::Working, 4); Err(AppError::io("uncertain input")) }).is_err());
+            assert!(
+                gate.user_write("pty", b"\r", || {
+                    protocol(&gate, agent, State::Working, 4);
+                    Err(AppError::io("uncertain input"))
+                })
+                .is_err()
+            );
             protocol(&gate, agent, State::Done, 5);
             assert!(!gate.ready_tab("tab"));
         }
@@ -1204,7 +2134,11 @@ mod payload_tests {
         gate.register("pty", Some("tab".into()), root.clone());
         let binding = gate
             .bind(
-                &BindRequest { tab_id: "tab".into(), terminal_session_id: "pty".into(), owner_id: "owner".into() },
+                &BindRequest {
+                    tab_id: "tab".into(),
+                    terminal_session_id: "pty".into(),
+                    owner_id: "owner".into(),
+                },
                 &root,
             )
             .unwrap();
@@ -1222,14 +2156,25 @@ mod payload_tests {
                 0,
             )
             .unwrap();
-        let guard = gate.authorize(&offer, "batch", "attempt", payload, 1).unwrap();
+        let guard = gate
+            .authorize(&offer, "batch", "attempt", payload, 1)
+            .unwrap();
         (gate, guard)
     }
     #[test]
     fn wrong_or_missing_body_is_rejected_before_native_write() {
         let (gate, guard) = ready("frozen\nbody");
-        for bytes in [b"\x1b[200~wrong\x1b[201~".as_slice(), b"\r", b"frozen\rbody"] {
-            assert!(gate.guarded_write("pty", &guard, 1, bytes, || panic!("unbound payload reached PTY")).is_err());
+        for bytes in [
+            b"\x1b[200~wrong\x1b[201~".as_slice(),
+            b"\r",
+            b"frozen\rbody",
+        ] {
+            assert!(
+                gate.guarded_write("pty", &guard, 1, bytes, || panic!(
+                    "unbound payload reached PTY"
+                ))
+                .is_err()
+            );
         }
         assert!(!gate.has_written("pty", "batch"));
     }
@@ -1243,50 +2188,84 @@ mod payload_tests {
                 writes.set(writes.get() + 1);
                 Ok(())
             };
-            gate.guarded_write("pty", &guard, index as u64 + 1, bytes, write).unwrap();
-            gate.guarded_write("pty", &guard, index as u64 + 1, bytes, || panic!("duplicate write")).unwrap();
+            gate.guarded_write("pty", &guard, index as u64 + 1, bytes, write)
+                .unwrap();
+            gate.guarded_write("pty", &guard, index as u64 + 1, bytes, || {
+                panic!("duplicate write")
+            })
+            .unwrap();
         }
         assert_eq!(writes.get(), 3);
         assert!(!gate.has_written("pty", "batch"));
-        gate.guarded_write("pty", &guard, 4, b"\r", || Ok(())).unwrap();
+        gate.guarded_write("pty", &guard, 4, b"\r", || Ok(()))
+            .unwrap();
         assert!(gate.has_written("pty", "batch"));
-        assert!(gate.guarded_write("pty", &guard, 5, b"\r", || panic!("second submission")).is_err());
+        assert!(
+            gate.guarded_write("pty", &guard, 5, b"\r", || panic!("second submission"))
+                .is_err()
+        );
     }
     #[test]
     fn missing_paste_suffix_cannot_submit() {
         let (gate, guard) = ready("frozen\nbody");
-        gate.guarded_write("pty", &guard, 1, b"\x1b[200~frozen\rbody", || Ok(())).unwrap();
-        assert!(gate.guarded_write("pty", &guard, 2, b"\r", || panic!("unterminated paste submitted")).is_err());
+        gate.guarded_write("pty", &guard, 1, b"\x1b[200~frozen\rbody", || Ok(()))
+            .unwrap();
+        assert!(
+            gate.guarded_write("pty", &guard, 2, b"\r", || panic!(
+                "unterminated paste submitted"
+            ))
+            .is_err()
+        );
         assert!(!gate.has_written("pty", "batch"));
     }
     #[test]
     fn dsr_response_during_paste_does_not_revoke_but_unsolicited_response_does() {
         let (gate, guard) = ready("frozen\nbody");
-        gate.guarded_write("pty", &guard, 1, b"\x1b[200~frozen\rbody\x1b[201~", || Ok(())).unwrap();
+        gate.guarded_write("pty", &guard, 1, b"\x1b[200~frozen\rbody\x1b[201~", || {
+            Ok(())
+        })
+        .unwrap();
         gate.observe_output("pty", 2, b"\x1b[");
         gate.observe_output("pty", 3, b"6n");
         gate.user_write("pty", b"\x1b[12;34R", || Ok(())).unwrap();
-        gate.guarded_write("pty", &guard, 2, b"\r", || Ok(())).unwrap();
+        gate.guarded_write("pty", &guard, 2, b"\r", || Ok(()))
+            .unwrap();
         assert!(gate.has_written("pty", "batch"));
         let (gate, guard) = ready("frozen\nbody");
         gate.user_write("pty", b"\x1b[12;34R", || Ok(())).unwrap();
         assert!(!gate.valid_attempt("pty", "batch", &guard.target_epoch));
     }
+
     #[test]
     fn focus_reports_during_paste_do_not_revoke() {
         let (gate, guard) = ready("payload");
-        gate.guarded_write("pty", &guard, 1, b"\x1b[200~payload\x1b[201~", || Ok(())).unwrap();
+        gate.guarded_write("pty", &guard, 1, b"\x1b[200~payload\x1b[201~", || Ok(()))
+            .unwrap();
         gate.user_write("pty", b"\x1b[O", || Ok(())).unwrap();
         gate.user_write("pty", b"\x1b[I", || Ok(())).unwrap();
-        gate.guarded_write("pty", &guard, 2, b"\r", || Ok(())).unwrap();
+        gate.guarded_write("pty", &guard, 2, b"\r", || Ok(()))
+            .unwrap();
         assert!(gate.has_written("pty", "batch"));
     }
     #[test]
     fn write_evidence_distinguishes_untouched_from_pasted() {
         let (gate, guard) = ready("payload");
-        assert_eq!(gate.written("pty", "batch"), Some(WriteEvidence { touched: false, paste_complete: false }));
-        gate.guarded_write("pty", &guard, 1, b"\x1b[200~payload\x1b[201~", || Ok(())).unwrap();
-        assert_eq!(gate.written("pty", "batch"), Some(WriteEvidence { touched: true, paste_complete: true }));
+        assert_eq!(
+            gate.written("pty", "batch"),
+            Some(WriteEvidence {
+                touched: false,
+                paste_complete: false
+            })
+        );
+        gate.guarded_write("pty", &guard, 1, b"\x1b[200~payload\x1b[201~", || Ok(()))
+            .unwrap();
+        assert_eq!(
+            gate.written("pty", "batch"),
+            Some(WriteEvidence {
+                touched: true,
+                paste_complete: true
+            })
+        );
         assert_eq!(gate.written("pty", "other"), None);
     }
     #[test]
@@ -1294,9 +2273,13 @@ mod payload_tests {
         let (gate, guard) = ready("frozen\nbody");
         gate.observe_output("pty", 2, b"\x1b[?2004l");
         assert!(
-            gate.guarded_write("pty", &guard, 1, b"\x1b[200~frozen\rbody\x1b[201~", || panic!(
-                "unsafe paste reached PTY"
-            ))
+            gate.guarded_write(
+                "pty",
+                &guard,
+                1,
+                b"\x1b[200~frozen\rbody\x1b[201~",
+                || panic!("unsafe paste reached PTY")
+            )
             .is_err()
         );
         assert!(!gate.has_written("pty", "batch"));
@@ -1304,12 +2287,28 @@ mod payload_tests {
     #[test]
     fn native_lease_expires_without_waiting_for_the_source_pump() {
         let (gate, guard) = ready("payload");
-        gate.guarded_write("pty", &guard, 1, b"\x1b[200~payload\x1b[201~", || Ok(())).unwrap();
-        gate.inner.lock().unwrap().get_mut("pty").unwrap().attempt.as_mut().unwrap().deadline = Instant::now();
-        gate.guarded_write("pty", &guard, 1, b"\x1b[200~payload\x1b[201~", || panic!("cached write was repeated"))
+        gate.guarded_write("pty", &guard, 1, b"\x1b[200~payload\x1b[201~", || Ok(()))
             .unwrap();
+        gate.inner
+            .lock()
+            .unwrap()
+            .get_mut("pty")
+            .unwrap()
+            .attempt
+            .as_mut()
+            .unwrap()
+            .deadline = Instant::now();
+        gate.guarded_write("pty", &guard, 1, b"\x1b[200~payload\x1b[201~", || {
+            panic!("cached write was repeated")
+        })
+        .unwrap();
         assert!(!gate.valid_attempt("pty", "batch", &guard.target_epoch));
-        assert!(gate.guarded_write("pty", &guard, 2, b"\r", || panic!("expired write reached PTY")).is_err());
+        assert!(
+            gate.guarded_write("pty", &guard, 2, b"\r", || panic!(
+                "expired write reached PTY"
+            ))
+            .is_err()
+        );
         assert!(!gate.has_written("pty", "batch"));
     }
 }

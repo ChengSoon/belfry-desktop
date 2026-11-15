@@ -52,8 +52,8 @@ export class TerminalLifecycle {
     this.output = new TerminalOutput({ terminal: ports.terminal, themeSync: ports.themeSync,
       onOutput: (text) => ports.callbacks.onOutput?.(text),
       onPasswordPrompt: () => this.input.mute(),
-      onGap: () => {
-        this.input.gap();
+      onGap: (nextSequence) => {
+        this.input.gap(nextSequence);
         this.activity.gap();
         ports.callbacks.onError(t("terminal.lifecycle.text_6f9801c626"));
       },
@@ -181,7 +181,7 @@ export class TerminalLifecycle {
       return;
     }
     this.current = session;
-    this.input.attach(!session.reconnected);
+    this.input.attach(!session.reconnected, session.inputState);
     this.ports.callbacks.onPhase("running");
     this.ports.onReady();
     if ((this.restoredMissingAttachment || this.ports.launch.recoverExited) && !session.reconnected) {

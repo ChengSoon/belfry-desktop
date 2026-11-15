@@ -44,6 +44,7 @@ async function dispatch(method, params) {
     },
     "surface.drop": () => dropFiles(params),
     "session.open": () => mcp.open(params),
+    "session.reconnect": () => mcp.reconnect(params),
     "session.revoke": () => { mcp.revoke(params.sessionId); return null; },
     context: async () => { await manager.setContext(params); return null; },
     "settings.get": () => manager.broker.call(manager.get(params.pluginId), { api: "plugin.getSettings", args: [] }),

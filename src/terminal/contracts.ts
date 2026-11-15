@@ -149,6 +149,15 @@ export interface TerminalSession {
   exitCode: number | null;
   reconnected?: boolean;
   connectionId?: string | null;
+  /** Host input ownership survives remounts; this is independent of job idleness. */
+  inputState?: TerminalInputState | null;
+}
+
+export interface TerminalInputState {
+  status: "empty" | "occupied" | "unknown";
+  revision: number;
+  outputSequence: number | null;
+  submissionSequence?: number | null;
 }
 
 export type PromptDeliveryResult = "submitted" | "cancelled" | "failed" | "detached" | "not-written";

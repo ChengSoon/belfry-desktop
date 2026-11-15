@@ -60,7 +60,14 @@ impl InboxService {
         registry: Arc<SessionRegistry>,
         gate: Arc<InputGate>,
     ) -> Self {
-        Self { store: store::Store::load(root), rooms, board, registry, gate, sync_error: Mutex::new(None) }
+        Self {
+            store: store::Store::load(root),
+            rooms,
+            board,
+            registry,
+            gate,
+            sync_error: Mutex::new(None),
+        }
     }
     pub(crate) fn start(service: &Arc<Self>) {
         let weak = Arc::downgrade(service);
@@ -73,7 +80,10 @@ impl InboxService {
             }
         });
     }
-    fn with_sources<T>(&self, action: impl FnOnce(&source::Snapshot) -> Result<T, AppError>) -> Result<T, AppError> {
+    fn with_sources<T>(
+        &self,
+        action: impl FnOnce(&source::Snapshot) -> Result<T, AppError>,
+    ) -> Result<T, AppError> {
         let roots = self
             .registry
             .all()
@@ -85,7 +95,9 @@ impl InboxService {
                     .map(|root| (session.tab_id, source::normalize_root(&root)))
             })
             .collect();
-        self.board.pin_inbox_projects(&roots).map_err(AppError::io)?;
+        self.board
+            .pin_inbox_projects(&roots)
+            .map_err(AppError::io)?;
         self.rooms.with_inbox_sources(|rooms, room_revision| {
             self.board.with_inbox_sources(|tasks, task_revision| {
                 let mut snapshot = source::snapshot(
@@ -101,7 +113,11 @@ impl InboxService {
                     .registry
                     .all()
                     .iter()
-                    .filter_map(|s| self.gate.tab_blocker(&s.tab_id).map(|reason| (s.tab_id.clone(), reason.into())))
+                    .filter_map(|s| {
+                        self.gate
+                            .tab_blocker(&s.tab_id)
+                            .map(|reason| (s.tab_id.clone(), reason.into()))
+                    })
                     .collect();
                 action(&snapshot)
             })
@@ -111,10 +127,15 @@ impl InboxService {
         Capabilities {
             schema_version: SCHEMA_VERSION,
             capabilities: vec![CAPABILITY.into()],
-            enabled: self.board.inbox_enabled() && self.store.snapshot().is_ok_and(|data| data.enabled),
+            enabled: self.board.inbox_enabled()
+                && self.store.snapshot().is_ok_and(|data| data.enabled),
         }
     }
-    pub(crate) fn activate(&self, operation_id: String, legacy_queue_drained: bool) -> Result<Capabilities, AppError> {
+    pub(crate) fn activate(
+        &self,
+        operation_id: String,
+        legacy_queue_drained: bool,
+    ) -> Result<Capabilities, AppError> {
         if !legacy_queue_drained || operation_id.is_empty() || operation_id.len() > 128 {
             return Err(AppError::invalid_argument(
                 "Stop the legacy dispatcher and drain its unwritten queue before activation",
@@ -140,7 +161,9 @@ impl InboxService {
                 let expired: Vec<_> = data
                     .batches
                     .values()
-                    .filter(|batch| batch.view.phase == "prepared" && batch.view.lease_expires_at <= at)
+                    .filter(|batch| {
+                        batch.view.phase == "prepared" && batch.view.lease_expires_at <= at
+                    })
                     .map(|batch| batch.view.id.clone())
                     .collect();
                 for id in expired {
@@ -159,11 +182,20 @@ impl InboxService {
                                         &batch.view.target_epoch,
                                     ))
                     })
-                    .map(|batch| (batch.view.id.clone(), batch.view.terminal_session_id.clone()))
+                    .map(|batch| {
+                        (
+                            batch.view.id.clone(),
+                            batch.view.terminal_session_id.clone(),
+                        )
+                    })
                     .collect();
                 for (id, session) in &lost {
                     // The native gate still holds this attempt and saw no complete paste: Enter was never sent.
-                    if self.gate.written(session, id).is_some_and(|written| !written.paste_complete) {
+                    if self
+                        .gate
+                        .written(session, id)
+                        .is_some_and(|written| !written.paste_complete)
+                    {
                         requeue(data, id);
                     } else {
                         set_phase(data, id, "uncertain");
@@ -181,23 +213,33 @@ impl InboxService {
     fn flush_mirrors(&self) -> Result<(), AppError> {
         let mirrors: Vec<_> = self.store.snapshot()?.mirrors.into_values().collect();
         for mirror in mirrors {
-            if let (Some(room), Some(member)) = (&mirror.source.room_id, &mirror.recipient.member_id) {
+            if let (Some(room), Some(member)) =
+                (&mirror.source.room_id, &mirror.recipient.member_id)
+            {
                 if let Some(actor) = &mirror.withdrawn_by {
-                    self.rooms.inbox_withdraw(room, &mirror.source.message_id, member, actor)?;
+                    self.rooms
+                        .inbox_withdraw(room, &mirror.source.message_id, member, actor)?;
                 } else {
-                    self.rooms.inbox_delivery(room, &mirror.source.message_id, member, mirror.submitted)?;
+                    self.rooms.inbox_delivery(
+                        room,
+                        &mirror.source.message_id,
+                        member,
+                        mirror.submitted,
+                    )?;
                 }
             } else {
                 self.board
-                    .inbox_delivery(&mirror.source.message_id, &mirror.batch_id, mirror.submitted)
+                    .inbox_delivery(
+                        &mirror.source.message_id,
+                        &mirror.batch_id,
+                        mirror.submitted,
+                    )
                     .map_err(AppError::io)?;
             }
             self.store.edit(|data| {
-                if data
-                    .mirrors
-                    .get(&mirror.entry_id)
-                    .is_some_and(|current| current.batch_id == mirror.batch_id && current.submitted == mirror.submitted)
-                {
+                if data.mirrors.get(&mirror.entry_id).is_some_and(|current| {
+                    current.batch_id == mirror.batch_id && current.submitted == mirror.submitted
+                }) {
                     data.mirrors.remove(&mirror.entry_id);
                 }
                 Ok(())
@@ -218,7 +260,10 @@ impl InboxService {
             error = Some(e.message);
             Data::default()
         });
-        let tasks = tasks.into_iter().map(|task| (task.id.clone(), task)).collect();
+        let tasks = tasks
+            .into_iter()
+            .map(|task| (task.id.clone(), task))
+            .collect();
         let mut snapshot = source::snapshot(
             &rooms,
             &tasks,
@@ -228,14 +273,32 @@ impl InboxService {
                 .saturating_add(self.registry.revision())
                 .saturating_add(self.gate.revision()),
         );
-        snapshot.native_unready =
-            self.registry.all().iter().filter_map(|s| self.gate.tab_blocker(&s.tab_id)
-                .map(|reason| (s.tab_id.clone(), reason.into()))).collect();
+        snapshot.native_unready = self
+            .registry
+            .all()
+            .iter()
+            .filter_map(|s| {
+                self.gate
+                    .tab_blocker(&s.tab_id)
+                    .map(|reason| (s.tab_id.clone(), reason.into()))
+            })
+            .collect();
         Ok((data, snapshot, error))
     }
-    pub(crate) fn sessions(&self, project_root: &str, room_id: Option<&str>) -> Result<SessionsView, AppError> {
+    pub(crate) fn sessions(
+        &self,
+        project_root: &str,
+        room_id: Option<&str>,
+    ) -> Result<SessionsView, AppError> {
         let (data, sources, error) = self.read_context()?;
-        Ok(read::sessions(project_root, room_id, &data, &sources, &self.registry, error))
+        Ok(read::sessions(
+            project_root,
+            room_id,
+            &data,
+            &sources,
+            &self.registry,
+            error,
+        ))
     }
     pub(crate) fn messages(
         &self,
@@ -246,7 +309,17 @@ impl InboxService {
         message: Option<&str>,
     ) -> Result<MessagesView, AppError> {
         let (data, sources, error) = self.read_context()?;
-        read::messages(key, room, cursor, limit, message, &data, &sources, &self.registry, error)
+        read::messages(
+            key,
+            room,
+            cursor,
+            limit,
+            message,
+            &data,
+            &sources,
+            &self.registry,
+            error,
+        )
     }
     pub(crate) fn pending(&self) -> Result<Pending, AppError> {
         let (mut data, sources, error) = self.read_context()?;
@@ -255,9 +328,12 @@ impl InboxService {
         }
         let revision = data.revision.saturating_add(sources.revision);
         source::merge(&mut data, &sources);
-        let mut recipients: std::collections::BTreeMap<String, PendingRecipient> = Default::default();
-        for entry in
-            data.entries.values().filter(|e| e.view.class != MessageClass::Fyi && pending(&e.view.delivery_phase))
+        let mut recipients: std::collections::BTreeMap<String, PendingRecipient> =
+            Default::default();
+        for entry in data
+            .entries
+            .values()
+            .filter(|e| e.view.class != MessageClass::Fyi && pending(&e.view.delivery_phase))
         {
             let r = &entry.view.recipient;
             recipients
@@ -270,7 +346,10 @@ impl InboxService {
                 })
                 .pending_count += 1;
         }
-        Ok(Pending { revision, recipients: recipients.into_values().collect() })
+        Ok(Pending {
+            revision,
+            recipients: recipients.into_values().collect(),
+        })
     }
     fn target_root(&self, tab: &str) -> Result<String, AppError> {
         self.registry
@@ -293,7 +372,9 @@ impl InboxService {
     pub(crate) fn prepare(&self, request: &PrepareRequest) -> Result<PrepareResult, AppError> {
         let root = self.target_root(&request.offer.binding.tab_id)?;
         if source::session_key(&root, &request.offer.binding.tab_id) != request.session_key
-            || !self.gate.owns_project(&request.offer.binding, std::path::Path::new(&root))
+            || !self
+                .gate
+                .owns_project(&request.offer.binding, std::path::Path::new(&root))
         {
             return Err(AppError::conflict("Input offer belongs to another project"));
         }
@@ -301,10 +382,16 @@ impl InboxService {
             self.store.edit(|data| {
                 source::merge(data, sources);
                 let operation = format!("prepare:{}:{}", request.session_key, request.operation_id);
-                if !data.batches.values().any(|batch| batch.operation_id == operation)
+                if !data
+                    .batches
+                    .values()
+                    .any(|batch| batch.operation_id == operation)
                     && !self.gate.check(&request.offer, now())
                 {
-                    return Ok(PrepareResult { batch: None, blocker: Some(Status::new("target_changed")) });
+                    return Ok(PrepareResult {
+                        batch: None,
+                        blocker: Some(Status::new("target_changed")),
+                    });
                 }
                 scheduler::prepare(data, sources, &self.registry, request, now())
             })
@@ -326,9 +413,17 @@ impl InboxService {
                 },
                 |result| {
                     let batch = result?;
-                    let guard =
-                        self.gate.authorize(&request.offer, &batch.id, &batch.attempt_id, &batch.payload, now())?;
-                    Ok(BeginResult { batch, write_guard: guard })
+                    let guard = self.gate.authorize(
+                        &request.offer,
+                        &batch.id,
+                        &batch.attempt_id,
+                        &batch.payload,
+                        now(),
+                    )?;
+                    Ok(BeginResult {
+                        batch,
+                        write_guard: guard,
+                    })
                 },
             )
         })
@@ -337,8 +432,13 @@ impl InboxService {
         let batch = self.store.edit_after(
             |data| {
                 let evidence = data.batches.get(&request.batch_id).is_some_and(|batch| {
-                    self.gate.valid_attempt(&batch.view.terminal_session_id, &batch.view.id, &batch.view.target_epoch)
-                        && self.gate.has_written(&batch.view.terminal_session_id, &batch.view.id)
+                    self.gate.valid_attempt(
+                        &batch.view.terminal_session_id,
+                        &batch.view.id,
+                        &batch.view.target_epoch,
+                    ) && self
+                        .gate
+                        .has_written(&batch.view.terminal_session_id, &batch.view.id)
                 });
                 // Only native proof counts: an attempt the gate no longer holds stays uncertain.
                 let never_pasted = data.batches.get(&request.batch_id).is_some_and(|batch| {
@@ -360,14 +460,18 @@ impl InboxService {
     }
     pub(crate) fn abort_prepared(&self, request: &BatchRequest) -> Result<BatchView, AppError> {
         self.store.edit(|data| {
-            let current =
-                data.batches.get(&request.batch_id).ok_or_else(|| AppError::not_found("Batch was not found"))?;
+            let current = data
+                .batches
+                .get(&request.batch_id)
+                .ok_or_else(|| AppError::not_found("Batch was not found"))?;
             if current.view.phase == "aborted" && current.view.attempt_id == request.attempt_id {
                 return Ok(current.view.clone());
             }
             scheduler::cas(&current.view, request)?;
             if current.view.phase != "prepared" {
-                return Err(AppError::conflict("Submission intent exists; report uncertainty instead of requeueing"));
+                return Err(AppError::conflict(
+                    "Submission intent exists; report uncertainty instead of requeueing",
+                ));
             }
             abort(data, &request.batch_id);
             Ok(data.batches[&request.batch_id].view.clone())

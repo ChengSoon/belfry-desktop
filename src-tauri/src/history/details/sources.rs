@@ -83,9 +83,13 @@ pub(super) fn discover(
 
 fn scan_note(count: usize, limited: bool) -> Option<String> {
     if limited {
-        Some(belfry_i18n::lformat!("日志扫描可能不完整：{count} 处无法读取，已达到扫描上限。"))
+        Some(belfry_i18n::lformat!(
+            "日志扫描可能不完整：{count} 处无法读取，已达到扫描上限。"
+        ))
     } else if count > 0 {
-        Some(belfry_i18n::lformat!("日志扫描可能不完整：{count} 处无法读取。"))
+        Some(belfry_i18n::lformat!(
+            "日志扫描可能不完整：{count} 处无法读取。"
+        ))
     } else {
         None
     }
@@ -100,11 +104,17 @@ mod notice_tests {
         for locale in [belfry_i18n::Locale::ZhCn, belfry_i18n::Locale::En] {
             belfry_i18n::with_locale(locale, || {
                 assert!(scan_note(0, false).is_none());
-                for (limited, code) in [(true, "HISTORY_SCAN_LIMIT_REACHED"), (false, "HISTORY_THE_LOG_SCAN_MAY_BE_INCOMPLETE_UNREADABLE")] {
+                for (limited, code) in [
+                    (true, "HISTORY_SCAN_LIMIT_REACHED"),
+                    (false, "HISTORY_THE_LOG_SCAN_MAY_BE_INCOMPLETE_UNREADABLE"),
+                ] {
                     let note = scan_note(2, limited).unwrap();
                     let text = belfry_i18n::error_text(&note).unwrap();
                     assert_eq!(text.code, code);
-                    assert_eq!(text.params, std::collections::BTreeMap::from([("count".into(), serde_json::json!(2))]));
+                    assert_eq!(
+                        text.params,
+                        std::collections::BTreeMap::from([("count".into(), serde_json::json!(2))])
+                    );
                 }
             });
         }

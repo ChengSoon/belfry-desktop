@@ -1,10 +1,11 @@
+mod actions;
 pub mod commands;
 mod contracts;
 mod repository;
+mod service;
 mod snapshot;
 mod store;
-mod service;
-mod actions;
 
 pub use service::WorktreeState;
-#[cfg(test)] mod tests;
+#[cfg(test)]
+mod tests;

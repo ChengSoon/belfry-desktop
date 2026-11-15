@@ -10,7 +10,8 @@ use std::time::{Duration, Instant};
 use serde_json::{Value, json};
 
 use super::{
-    RecordingSink, default_request, lock_native_test, output_bytes, wait_for_exit, wait_for_terminal,
+    RecordingSink, default_request, lock_native_test, output_bytes, wait_for_exit,
+    wait_for_terminal,
 };
 use crate::project::commands::project_open;
 use crate::resource::{canonicalize, path_to_file_uri};

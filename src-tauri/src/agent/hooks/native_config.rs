@@ -12,14 +12,16 @@ pub(super) fn merge(
 ) -> Result<String, AppError> {
     match kind {
         AgentKind::Kimi => {
-            let mut doc: DocumentMut = text
-                .parse()
-                .map_err(|_| AppError::invalid_argument(belfry_i18n::text("Kimi Hook 配置不是有效 TOML")))?;
+            let mut doc: DocumentMut = text.parse().map_err(|_| {
+                AppError::invalid_argument(belfry_i18n::text("Kimi Hook 配置不是有效 TOML"))
+            })?;
             if doc
                 .get("hooks")
                 .is_some_and(|item| !item.is_array_of_tables())
             {
-                return Err(AppError::invalid_argument(belfry_i18n::text("Kimi hooks 必须为表数组")));
+                return Err(AppError::invalid_argument(belfry_i18n::text(
+                    "Kimi hooks 必须为表数组",
+                )));
             }
             let mut hooks = doc
                 .get("hooks")
@@ -52,9 +54,9 @@ pub(super) fn merge(
                         .iter()
                         .any(|c| !is_command(Some(c), kind))
                 {
-                    return Err(AppError::invalid_argument(
-                        belfry_i18n::text("Antigravity 同名 Hook 已被其他配置占用，未覆盖"),
-                    ));
+                    return Err(AppError::invalid_argument(belfry_i18n::text(
+                        "Antigravity 同名 Hook 已被其他配置占用，未覆盖",
+                    )));
                 }
             }
             root.remove(AGY_OWNER);
@@ -79,9 +81,9 @@ pub(super) fn merge(
         }
         AgentKind::Opencode => {
             if !text.trim().is_empty() && !text.starts_with(JS_MARKER) {
-                return Err(AppError::invalid_argument(
-                    belfry_i18n::text("OpenCode 同名插件已被占用，未覆盖"),
-                ));
+                return Err(AppError::invalid_argument(belfry_i18n::text(
+                    "OpenCode 同名插件已被占用，未覆盖",
+                )));
             }
             Ok(format!(
                 "{JS_MARKER}{}\n{}",
@@ -93,7 +95,9 @@ pub(super) fn merge(
                 }
             ))
         }
-        _ => Err(AppError::invalid_argument(belfry_i18n::text("不支持的 Hook 类型"))),
+        _ => Err(AppError::invalid_argument(belfry_i18n::text(
+            "不支持的 Hook 类型",
+        ))),
     }
 }
 
@@ -133,11 +137,13 @@ fn commands(value: &Value) -> Vec<String> {
 pub(super) fn inspect(text: &str, kind: AgentKind) -> Result<Value, AppError> {
     let commands = match kind {
         AgentKind::Kimi => {
-            let doc: DocumentMut = text
-                .parse()
-                .map_err(|_| AppError::invalid_argument(belfry_i18n::text("Kimi Hook 配置不是有效 TOML")))?;
+            let doc: DocumentMut = text.parse().map_err(|_| {
+                AppError::invalid_argument(belfry_i18n::text("Kimi Hook 配置不是有效 TOML"))
+            })?;
             if doc.get("hooks").is_some_and(|v| !v.is_array_of_tables()) {
-                return Err(AppError::invalid_argument(belfry_i18n::text("Kimi hooks 必须为表数组")));
+                return Err(AppError::invalid_argument(belfry_i18n::text(
+                    "Kimi hooks 必须为表数组",
+                )));
             }
             doc.get("hooks")
                 .and_then(Item::as_array_of_tables)
@@ -157,10 +163,13 @@ pub(super) fn inspect(text: &str, kind: AgentKind) -> Result<Value, AppError> {
                     .next()
                     .and_then(|s| s.strip_prefix(JS_MARKER))
                     .ok_or_else(|| {
-                        AppError::invalid_argument(belfry_i18n::text("OpenCode Hook 插件不是 Belfry 管理的文件"))
+                        AppError::invalid_argument(belfry_i18n::text(
+                            "OpenCode Hook 插件不是 Belfry 管理的文件",
+                        ))
                     })?;
-                let command: Option<String> = serde_json::from_str(raw)
-                    .map_err(|_| AppError::invalid_argument(belfry_i18n::text("OpenCode Hook 插件标识无效")))?;
+                let command: Option<String> = serde_json::from_str(raw).map_err(|_| {
+                    AppError::invalid_argument(belfry_i18n::text("OpenCode Hook 插件标识无效"))
+                })?;
                 command
                     .into_iter()
                     .flat_map(|c| vec![c; super::config::events(kind).len()])

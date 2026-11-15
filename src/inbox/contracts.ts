@@ -6,6 +6,8 @@
 export const INBOX_CAPABILITY = "collaboration-inbox-v1";
 export const INBOX_SCHEMA_VERSION = 1;
 
+import type { TaskRef } from "../a2a/contracts";
+
 export type MessageClass = "task_assignment" | "discussion" | "reply" | "fyi";
 export type DeliveryPhase = "pending" | "prepared" | "submitting" | "submitted" | "uncertain" | "withdrawn" | "abandoned";
 export type RuntimeAvailability = "ready" | "busy" | "needs_input" | "offline" | "unavailable";
@@ -46,6 +48,8 @@ export interface MessageView {
   deliveryStatus: InboxStatus;
   handlingStatus: InboxStatus;
   waitingReason: InboxStatus | null;
+  /** Authoritative association, when the inbox entry belongs to a task. */
+  taskRef?: TaskRef | null;
 }
 
 export interface SessionView {

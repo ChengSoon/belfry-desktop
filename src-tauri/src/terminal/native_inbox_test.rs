@@ -65,8 +65,12 @@ printf '\033[?2004l'
     }
 
     fn launch(&self) -> String {
+        self.launch_tab("native-worker")
+    }
+
+    fn launch_tab(&self, tab: &str) -> String {
         let mut request: CreateTerminalRequest = serde_json::from_value(json!({
-            "platform": "macos", "profileId": "shell:zsh", "tabId": "native-worker",
+            "platform": "macos", "profileId": "shell:zsh", "tabId": tab,
             "cwd": path_to_file_uri(&self.root), "cols": 100, "rows": 30, "elevation": "normal"
         }))
         .unwrap();
@@ -131,6 +135,114 @@ fn wait_for(label: &str, mut ready: impl FnMut() -> bool) {
         assert!(Instant::now() < deadline, "timed out waiting for {label}");
         thread::sleep(Duration::from_millis(10));
     }
+}
+
+#[test]
+fn deleting_a_room_closes_actual_member_ptys_and_preserves_an_unrelated_terminal() {
+    use crate::collab::{SessionIdentities, SessionSnapshot};
+    let _native = super::native_tests::lock_native_test();
+    let fixture = Fixture::new();
+    let rooms = RoomStore::load(Some(fixture.root.join("rooms")));
+    let room = rooms
+        .create("Delete native", fixture.root.to_str().unwrap(), "")
+        .unwrap();
+    rooms
+        .mutate(&room.id, |room| {
+            crate::rooms::test_support::add(room, "native-lead", "Lead", "")?;
+            crate::rooms::test_support::add(room, "native-worker", "Worker", "")?;
+            Ok(())
+        })
+        .unwrap();
+    let registry = SessionRegistry::default();
+    let identities = SessionIdentities::default();
+    let tabs = ["native-lead", "native-worker", "ordinary"];
+    registry.replace(
+        tabs.iter()
+            .map(|tab| SessionSnapshot {
+                tab_id: (*tab).into(),
+                name: Some((*tab).into()),
+                title: (*tab).into(),
+                agent: "codex".into(),
+                activity: "idle".into(),
+                can_receive: true,
+                project_root: Some(fixture.root.to_string_lossy().into_owned()),
+            })
+            .collect(),
+    );
+    let tokens: Vec<_> = tabs
+        .iter()
+        .map(|tab| {
+            identities
+                .issue(tab, None)
+                .into_iter()
+                .find(|(key, _)| key == belfry_protocol::ENV_TOKEN)
+                .unwrap()
+                .1
+        })
+        .collect();
+    let lead = fixture.launch_tab(tabs[0]);
+    let worker = fixture.launch_tab(tabs[1]);
+    let ordinary = fixture.launch_tab(tabs[2]);
+    wait_for("all temporary PTYs ready", || {
+        let events = fixture.events.lock().unwrap();
+        [&lead, &worker, &ordinary].iter().all(|id| {
+            let output: Vec<_> = events
+                .iter()
+                .filter_map(|event| match event {
+                    TerminalEvent::Output {
+                        session_id, bytes, ..
+                    } if session_id == *id => Some(bytes.as_slice()),
+                    _ => None,
+                })
+                .flatten()
+                .copied()
+                .collect();
+            output
+                .windows(b"__INBOX_READY__".len())
+                .any(|window| window == b"__INBOX_READY__")
+        })
+    });
+    let released = Mutex::new(Vec::new());
+    let board = TaskBoard::default();
+    let deleted = crate::rooms::commands::delete_with_sessions(
+        &rooms,
+        &board,
+        &registry,
+        &identities,
+        &fixture.runtime,
+        &room.id,
+        |id| released.lock().unwrap().push(id.to_string()),
+    )
+    .unwrap();
+    assert_eq!(deleted, vec!["native-lead", "native-worker"]);
+    wait_for("deleted member PTYs exit", || {
+        let events = fixture.events.lock().unwrap();
+        [&lead, &worker].iter().all(|id| {
+            events.iter().any(|event|
+            matches!(event, TerminalEvent::Exit { session_id, .. } if session_id == *id))
+        })
+    });
+    assert!(!fixture.events.lock().unwrap().iter().any(
+        |event| matches!(event, TerminalEvent::Exit { session_id, .. } if session_id == &ordinary)
+    ));
+    fixture.runtime.write(&ordinary, b"still alive").unwrap();
+    assert!(fixture.runtime.write(&lead, b"late input").is_err());
+    assert!(fixture.runtime.write(&worker, b"late input").is_err());
+    assert!(registry.find("native-lead").is_none() && registry.find("native-worker").is_none());
+    assert!(registry.find("ordinary").is_some());
+    assert!(!identities.verify(tabs[0], &tokens[0]) && !identities.verify(tabs[1], &tokens[1]));
+    assert!(identities.verify(tabs[2], &tokens[2]));
+    assert_eq!(fixture.runtime.launch_epoch(tabs[0]), 1);
+    assert_eq!(fixture.runtime.launch_epoch(tabs[1]), 1);
+    assert_eq!(fixture.runtime.launch_epoch(tabs[2]), 0);
+    let mut expected = vec![lead, worker];
+    expected.sort();
+    let mut actual = released.into_inner().unwrap();
+    actual.sort();
+    assert_eq!(actual, expected);
+    let reloaded = RoomStore::load(Some(fixture.root.join("rooms")));
+    assert!(reloaded.ensure_tab_available(tabs[0]).is_err());
+    assert!(reloaded.ensure_tab_available(tabs[2]).is_ok());
 }
 
 #[test]
@@ -310,8 +422,15 @@ fn durable_inbox_submits_one_exact_payload_through_the_native_runtime() {
     wait_for("consumer cursor query", || {
         fixture.output_contains(b"\x1b[6n")
     });
-    // This ordinary terminal write is an actual queried protocol response, not user input.
-    fixture.runtime.write(&session, b"\x1b[1;1R").unwrap();
+    // A parser reply answers one live query. Replaying it cannot enter the child's input or revoke the guard.
+    fixture
+        .runtime
+        .write_response(&session, b"\x1b[1;1R")
+        .unwrap();
+    fixture
+        .runtime
+        .write_response(&session, b"\x1b[1;1R")
+        .unwrap();
     fixture
         .runtime
         .write_inbox(&session, b"\r", &begin.write_guard, 3)

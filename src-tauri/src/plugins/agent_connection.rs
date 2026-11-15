@@ -30,6 +30,24 @@ pub fn attach(app: &AppHandle, request: &mut CreateTerminalRequest) -> Option<St
         return None;
     }
     let workspace = crate::resource::file_uri_to_path(request.cwd.as_deref()?).ok()?;
+    if let Some(root) = crate::resource::canonicalize(&workspace)
+        .ok()
+        .and_then(|path| path.to_str().map(str::to_owned))
+    {
+        let existing = authorized_agents(app)
+            .ok()
+            .and_then(|owners| reattached_owner(request, &root, &owners).cloned());
+        if let Some(owner) = existing {
+            let input = agent_context::connection(request, &workspace, &owner.ticket);
+            if let Ok((env, native)) = open(app, &input, "session.reconnect") {
+                // Remounting a view does not replace its live PTY, MCP context,
+                // or A2A identity. A new host still issues its own fresh ticket.
+                request.env.extend(env);
+                restore_discovered_session(request, native);
+                return Some(owner.ticket);
+            }
+        }
+    }
     let session_id = ulid::Ulid::generate().to_string();
     let input = agent_context::connection(request, &workspace, &session_id);
     if let Ok(kind) = serde_json::from_value(input["agentKind"].clone()) {
@@ -37,7 +55,7 @@ pub fn attach(app: &AppHandle, request: &mut CreateTerminalRequest) -> Option<St
             identities.register(&session_id, kind);
         }
     }
-    match open(app, &input) {
+    match open(app, &input, "session.open") {
         Ok((mut env, native)) => {
             restore_discovered_session(request, native);
             if let Some(id) = input["launchSessionId"].as_str() {
@@ -72,6 +90,7 @@ fn restore_discovered_session(
 fn open(
     app: &AppHandle,
     input: &serde_json::Value,
+    method: &str,
 ) -> Result<(HashMap<String, String>, Option<AgentSessionRef>), AppError> {
     let state = app.state::<PluginRuntime>();
     let _operation = state
@@ -86,7 +105,7 @@ fn open(
     let (node, bridge) = engine::bridge_paths(app).map_err(AppError::io)?;
     let session = state
         .engine
-        .request(app, "session.open", input.clone())
+        .request(app, method, input.clone())
         .map_err(AppError::io)?;
     let field = |key: &str| {
         session[key]
@@ -115,7 +134,7 @@ pub fn bind(app: &AppHandle, terminal_id: &str, ticket: Option<String>) {
         .lock()
         .ok()
         .and_then(|mut sessions| sessions.insert(terminal_id.into(), ticket.clone()));
-    if let Some(previous) = previous {
+    if let Some(previous) = previous.filter(|previous| previous != &ticket) {
         revoke(app, &previous);
     }
     let identity = app
@@ -129,6 +148,15 @@ pub fn bind(app: &AppHandle, terminal_id: &str, ticket: Option<String>) {
     }
 }
 pub fn revoke(app: &AppHandle, ticket: &str) {
+    if let Some(gateway) = app.try_state::<crate::a2a::local::LocalGateway>() {
+        gateway.revoke(ticket);
+    }
+    if let Some(runtime) = app.try_state::<crate::a2a::A2aRuntime>() {
+        runtime.invalidate_session(ticket);
+    }
+    if let Ok(mut sessions) = app.state::<PluginRuntime>().sessions.lock() {
+        sessions.retain(|_, current| current != ticket);
+    }
     if let Ok(mut identities) = app.state::<PluginRuntime>().identities.lock() {
         identities.remove(ticket);
     }
@@ -137,6 +165,190 @@ pub fn revoke(app: &AppHandle, ticket: &str) {
         "session.revoke",
         json!({"sessionId":ticket}),
     );
+}
+
+/// Validate the application ticket against an active managed PTY and its real cwd.
+/// Neither a native history ID nor knowledge of a workspace path establishes ownership.
+pub(crate) fn authorized_workspace(
+    app: &AppHandle,
+    workspace: &str,
+    ticket: &str,
+) -> Result<String, AppError> {
+    let tickets = app
+        .state::<PluginRuntime>()
+        .sessions
+        .lock()
+        .map_err(|_| authorization_denied())?
+        .clone();
+    if ticket.is_empty() || ticket.len() > 128 || !tickets.values().any(|current| current == ticket)
+    {
+        return Err(authorization_denied());
+    }
+    let sessions = app
+        .state::<crate::terminal::TerminalRuntime>()
+        .background_sessions()
+        .map_err(|_| authorization_denied())?;
+    let (terminal, root) = authorized_snapshot(workspace, ticket, &tickets, &sessions)?;
+    // A replacement/revoke may have happened while the daemon query was running.
+    if app
+        .state::<PluginRuntime>()
+        .sessions
+        .lock()
+        .map_err(|_| authorization_denied())?
+        .get(&terminal)
+        .is_none_or(|current| current != ticket)
+    {
+        return Err(authorization_denied());
+    }
+    Ok(root)
+}
+
+/// An authenticated application instance. PTY and front-end tab IDs are distinct;
+/// room membership always uses tab_id. This type deliberately has no Debug/Serialize.
+#[derive(Clone, PartialEq, Eq)]
+pub(crate) struct AuthorizedAgent {
+    pub root: String,
+    pub ticket: String,
+    pub terminal_id: String,
+    pub tab_id: String,
+    pub agent: AgentKind,
+}
+
+fn reattached_owner<'a>(
+    request: &CreateTerminalRequest,
+    root: &str,
+    owners: &'a [AuthorizedAgent],
+) -> Option<&'a AuthorizedAgent> {
+    let terminal_id = request.launch_overlay.attachment.as_deref()?;
+    let tab_id = request.tab_id.as_deref()?;
+    let agent = AgentKind::from_profile_id(&request.profile_id)?;
+    owners.iter().find(|owner| {
+        owner.terminal_id == terminal_id
+            && owner.tab_id == tab_id
+            && owner.agent == agent
+            && owner.root == root
+    })
+}
+
+pub(crate) fn authorized_agent(
+    app: &AppHandle,
+    workspace: &str,
+    ticket: &str,
+) -> Result<AuthorizedAgent, AppError> {
+    if ticket.is_empty() || ticket.len() > 128 || !std::path::Path::new(workspace).is_absolute() {
+        return Err(authorization_denied());
+    }
+    let root = crate::resource::canonicalize(std::path::Path::new(workspace))
+        .map_err(|_| authorization_denied())?;
+    authorized_agents(app)?
+        .into_iter()
+        .find(|agent| {
+            agent.ticket == ticket
+                && crate::resource::canonicalize(std::path::Path::new(&agent.root))
+                    .ok()
+                    .as_ref()
+                    == Some(&root)
+        })
+        .ok_or_else(authorization_denied)
+}
+
+pub(crate) fn authorized_agents(app: &AppHandle) -> Result<Vec<AuthorizedAgent>, AppError> {
+    let tickets = app
+        .state::<PluginRuntime>()
+        .sessions
+        .lock()
+        .map_err(|_| authorization_denied())?
+        .clone();
+    let sessions = app
+        .state::<crate::terminal::TerminalRuntime>()
+        .background_sessions()
+        .map_err(|_| authorization_denied())?;
+    let plugin_runtime = app.state::<PluginRuntime>();
+    let current = plugin_runtime
+        .sessions
+        .lock()
+        .map_err(|_| authorization_denied())?;
+    let mut agents = vec![];
+    for session in &sessions {
+        let Some(ticket) = tickets
+            .get(&session.session.id)
+            .filter(|ticket| current.get(&session.session.id) == Some(ticket))
+        else {
+            continue;
+        };
+        let Some(tab) = session.tab_id.as_ref().filter(|tab| !tab.is_empty()) else {
+            continue;
+        };
+        let Some(agent) = AgentKind::from_profile_id(&session.profile_id) else {
+            continue;
+        };
+        let Ok(cwd) = crate::resource::file_uri_to_path(&session.session.cwd) else {
+            continue;
+        };
+        let Some(workspace) = cwd.to_str() else {
+            continue;
+        };
+        if let Ok((terminal_id, root)) = authorized_snapshot(workspace, ticket, &tickets, &sessions)
+        {
+            agents.push(AuthorizedAgent {
+                root,
+                ticket: ticket.clone(),
+                terminal_id,
+                tab_id: tab.clone(),
+                agent,
+            });
+        }
+    }
+    Ok(agents)
+}
+
+fn authorization_denied() -> AppError {
+    let mut error = AppError::invalid_argument(
+        "An active Belfry agent connection in this project is required.",
+    );
+    error.code.0 = "A2A_AGENT_SESSION_INVALID".into();
+    error
+}
+
+fn authorized_snapshot(
+    workspace: &str,
+    ticket: &str,
+    tickets: &HashMap<String, String>,
+    sessions: &[crate::terminal::daemon::SessionInfo],
+) -> Result<(String, String), AppError> {
+    if ticket.is_empty() || ticket.len() > 128 || !std::path::Path::new(workspace).is_absolute() {
+        return Err(authorization_denied());
+    }
+    let terminal = tickets
+        .iter()
+        .find(|(_, current)| current.as_str() == ticket)
+        .map(|(terminal, _)| terminal.clone())
+        .ok_or_else(authorization_denied)?;
+    let root = crate::resource::canonicalize(std::path::Path::new(workspace))
+        .map_err(|_| authorization_denied())?;
+    if !root.is_dir() {
+        return Err(authorization_denied());
+    }
+    let session = sessions
+        .iter()
+        .find(|session| session.session.id == terminal)
+        .ok_or_else(authorization_denied)?;
+    if session.session.status != crate::terminal::TerminalStatus::Running
+        || !session.profile_id.starts_with("agent:")
+    {
+        return Err(authorization_denied());
+    }
+    let cwd = crate::resource::file_uri_to_path(&session.session.cwd)
+        .map_err(|_| authorization_denied())?;
+    if crate::resource::canonicalize(&cwd).map_err(|_| authorization_denied())? != root {
+        return Err(authorization_denied());
+    }
+    Ok((
+        terminal,
+        root.to_str()
+            .map(str::to_owned)
+            .ok_or_else(authorization_denied)?,
+    ))
 }
 
 /// 只接收宿主核验的 MCP / 精确标签快照身份，不把插件正文或工具参数当作身份来源。
@@ -246,6 +458,84 @@ mod tests {
             (URL_ENV.into(), "http://127.0.0.1:1234/mcp".into()),
             (TOKEN_ENV.into(), "secret-session-token".into()),
         ])
+    }
+    #[test]
+    fn a2a_authorization_uses_the_live_ticket_pty_and_canonical_project() {
+        let root =
+            std::env::temp_dir().join(format!("belfry-a2a-owner-{}", ulid::Ulid::generate()));
+        let project = root.join("project");
+        let other = root.join("other");
+        std::fs::create_dir_all(&project).unwrap();
+        std::fs::create_dir_all(&other).unwrap();
+        let workspace = project.to_str().unwrap();
+        let tickets = HashMap::from([("pty".to_owned(), "current-ticket".to_owned())]);
+        let session: crate::terminal::daemon::SessionInfo = serde_json::from_value(json!({
+            "session":{"id":"pty", "platform":"macos", "shell":"codex", "cwd":crate::resource::path_to_file_uri(&project),
+                "cols":80, "rows":24, "status":"running", "exitCode":null},
+            "tabId":"tab", "profileId":"agent:codex", "nativeSession":{"agent":"codex", "id":"native-history-id"}
+        })).unwrap();
+        assert!(
+            authorized_snapshot(workspace, "current-ticket", &tickets, &[session.clone()]).is_ok()
+        );
+        for invalid in ["native-history-id", "retired-ticket", "pty", ""] {
+            assert!(authorized_snapshot(workspace, invalid, &tickets, &[session.clone()]).is_err());
+        }
+        assert!(
+            authorized_snapshot(
+                other.to_str().unwrap(),
+                "current-ticket",
+                &tickets,
+                &[session.clone()]
+            )
+            .is_err()
+        );
+        assert!(
+            authorized_snapshot(
+                workspace,
+                "current-ticket",
+                &HashMap::new(),
+                &[session.clone()]
+            )
+            .is_err()
+        );
+        assert!(authorized_snapshot(workspace, "current-ticket", &tickets, &[]).is_err());
+        let mut exited = session.clone();
+        exited.session.status = crate::terminal::TerminalStatus::Exited;
+        assert!(authorized_snapshot(workspace, "current-ticket", &tickets, &[exited]).is_err());
+        let mut shell = session;
+        shell.profile_id = "shell:zsh".into();
+        assert!(authorized_snapshot(workspace, "current-ticket", &tickets, &[shell]).is_err());
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn view_reattachment_reuses_only_the_verified_same_pty_tab_agent_and_project() {
+        let owner = AuthorizedAgent {
+            root: "/project".into(),
+            ticket: "live-ticket".into(),
+            terminal_id: "existing-pty".into(),
+            tab_id: "existing-tab".into(),
+            agent: AgentKind::Codex,
+        };
+        let owners = vec![owner.clone()];
+        let mut request: CreateTerminalRequest = serde_json::from_value(json!({
+            "platform":"macos", "profileId":"agent:codex", "cwd":"file:///project",
+            "tabId":"existing-tab", "cols":80, "rows":24, "elevation":"normal",
+        }))
+        .unwrap();
+        assert!(reattached_owner(&request, "/project", &owners).is_none());
+        request.launch_overlay.attachment = Some("existing-pty".into());
+        assert!(reattached_owner(&request, "/project", &owners) == Some(&owner));
+        assert!(reattached_owner(&request, "/other-project", &owners).is_none());
+        assert!(reattached_owner(&request, "/project", &[]).is_none());
+        let mut changed = request.clone();
+        changed.tab_id = Some("other-tab".into());
+        assert!(reattached_owner(&changed, "/project", &owners).is_none());
+        let mut changed = request.clone();
+        changed.profile_id = "agent:claude".into();
+        assert!(reattached_owner(&changed, "/project", &owners).is_none());
+        request.launch_overlay.attachment = Some("other-pty".into());
+        assert!(reattached_owner(&request, "/project", &owners).is_none());
     }
     #[test]
     fn snapshot_identity_resumes_codex_without_turning_a_new_claude_launch_into_resume() {

@@ -12,7 +12,7 @@ use std::{
     sync::atomic::{AtomicBool, Ordering},
     time::Duration,
 };
-use tauri::{window::Color, AppHandle, Manager, Runtime, WebviewWindow};
+use tauri::{AppHandle, Manager, Runtime, WebviewWindow, window::Color};
 
 use crate::terminal::AppError;
 
@@ -47,8 +47,12 @@ fn backdrop(mode: Mode) -> Color {
         Mode::Dark => Color(0x0c, 0x0d, 0x10, 0xff),
         Mode::Light => Color(0xec, 0xec, 0xef, 0xff),
     };
-    let key = match mode { Mode::Dark => "dark", Mode::Light => "light" };
-    serde_json::from_str::<serde_json::Value>(BACKDROP_JSON).ok()
+    let key = match mode {
+        Mode::Dark => "dark",
+        Mode::Light => "light",
+    };
+    serde_json::from_str::<serde_json::Value>(BACKDROP_JSON)
+        .ok()
         .and_then(|palette| palette.get(key)?.as_str().and_then(parse_hex))
         .unwrap_or(fallback)
 }
@@ -60,24 +64,37 @@ fn paint<R: Runtime>(window: &WebviewWindow<R>, mode: Mode) {
 }
 
 fn reveal<R: Runtime>(window: &WebviewWindow<R>) {
-    if REVEALED.swap(true, Ordering::AcqRel) { return; }
-    if let Err(error) = window.show() { log::warn!("Cannot show main window: {error}"); }
+    if REVEALED.swap(true, Ordering::AcqRel) {
+        return;
+    }
+    if let Err(error) = window.show() {
+        log::warn!("Cannot show main window: {error}");
+    }
     let _ = window.set_focus();
 }
 
 /// setup 阶段调用：按系统外观先涂一层，再挂上超时兜底。
 pub fn prepare<R: Runtime>(app: &AppHandle<R>) {
-    let Some(window) = app.get_webview_window(MAIN) else { return };
-    let mode = match window.theme() { Ok(tauri::Theme::Light) => Mode::Light, _ => Mode::Dark };
+    let Some(window) = app.get_webview_window(MAIN) else {
+        return;
+    };
+    let mode = match window.theme() {
+        Ok(tauri::Theme::Light) => Mode::Light,
+        _ => Mode::Dark,
+    };
     paint(&window, mode);
     let app = app.clone();
     std::thread::spawn(move || {
         std::thread::sleep(REVEAL_TIMEOUT);
-        if REVEALED.load(Ordering::Acquire) { return; }
+        if REVEALED.load(Ordering::Acquire) {
+            return;
+        }
         log::warn!("Main window revealed by timeout; the frontend never reported its first frame.");
         let target = app.clone();
         let _ = app.run_on_main_thread(move || {
-            if let Some(window) = target.get_webview_window(MAIN) { reveal(&window); }
+            if let Some(window) = target.get_webview_window(MAIN) {
+                reveal(&window);
+            }
         });
     });
 }
@@ -86,7 +103,9 @@ pub fn prepare<R: Runtime>(app: &AppHandle<R>) {
 #[tauri::command]
 pub fn app_window_backdrop(app: AppHandle, theme: String) -> Result<(), AppError> {
     let mode = parse_mode(&theme)?;
-    let window = app.get_webview_window(MAIN).ok_or_else(|| AppError::io("Main window is unavailable."))?;
+    let window = app
+        .get_webview_window(MAIN)
+        .ok_or_else(|| AppError::io("Main window is unavailable."))?;
     paint(&window, mode);
     reveal(&window);
     Ok(())
@@ -100,7 +119,8 @@ mod tests {
     fn backdrop_json_parses_for_both_modes() {
         let palette: serde_json::Value = serde_json::from_str(BACKDROP_JSON).unwrap();
         for (key, mode) in [("dark", Mode::Dark), ("light", Mode::Light)] {
-            let parsed = parse_hex(palette[key].as_str().unwrap()).expect("backdrop.json holds #rrggbb");
+            let parsed =
+                parse_hex(palette[key].as_str().unwrap()).expect("backdrop.json holds #rrggbb");
             let Color(r, g, b, a) = backdrop(mode);
             assert_eq!((r, g, b, a), (parsed.0, parsed.1, parsed.2, 0xff));
         }

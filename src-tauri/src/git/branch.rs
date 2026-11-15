@@ -17,9 +17,17 @@ pub(super) fn read(path: &str) -> Result<GitBranch, AppError> {
     if !path.is_dir() {
         return Err(AppError::invalid_argument("项目路径必须是目录"));
     }
-    let named = command::run(&path, &["symbolic-ref", "--short", "-q", "HEAD"], OUTPUT_LIMIT)?;
+    let named = command::run(
+        &path,
+        &["symbolic-ref", "--short", "-q", "HEAD"],
+        OUTPUT_LIMIT,
+    )?;
     if named.status.success() {
-        return Ok(GitBranch { repository: true, branch: line(&named.bytes), detached: None });
+        return Ok(GitBranch {
+            repository: true,
+            branch: line(&named.bytes),
+            detached: None,
+        });
     }
     // symbolic-ref -q：分离 HEAD 时静默退出 1；不是仓库时报 "not a git repository"。
     if not_repository(&named.error) {
@@ -27,14 +35,22 @@ pub(super) fn read(path: &str) -> Result<GitBranch, AppError> {
     }
     let commit = command::run(&path, &["rev-parse", "--short", "HEAD"], OUTPUT_LIMIT)?;
     if commit.status.success() {
-        return Ok(GitBranch { repository: true, branch: None, detached: line(&commit.bytes) });
+        return Ok(GitBranch {
+            repository: true,
+            branch: None,
+            detached: line(&commit.bytes),
+        });
     }
     if not_repository(&commit.error) {
         return Ok(GitBranch::default());
     }
     // 仓库存在但还没有任何提交（unborn HEAD）：symbolic-ref 在这种情况下其实会成功，
     // 走到这里说明是其它读取失败，按「仓库但读不到」返回，前端不显示。
-    Ok(GitBranch { repository: true, branch: None, detached: None })
+    Ok(GitBranch {
+        repository: true,
+        branch: None,
+        detached: None,
+    })
 }
 
 fn line(bytes: &[u8]) -> Option<String> {

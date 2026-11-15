@@ -21,7 +21,10 @@ fn closing_a_tab_invalidates_prepared_creates_before_they_spawn_or_bind_plugins(
         |_| Ok(()),
         |_| panic!("cancelled creates cannot bind plugins"),
     );
-    assert_eq!(result.unwrap_err().code.0, "TERMINAL_THE_SESSION_WAS_CLOSED_THE_DELAYED_CREATION");
+    assert_eq!(
+        result.unwrap_err().code.0,
+        "TERMINAL_THE_SESSION_WAS_CLOSED_THE_DELAYED_CREATION"
+    );
     assert_eq!(1, runtime.launch_epoch("closing-tab"));
 }
 
@@ -35,5 +38,8 @@ fn confirmed_exit_rejects_new_creates_without_launching_a_process() {
         |_| Ok(()),
         |_| panic!("exit must prevent launches"),
     );
-    assert_eq!(result.unwrap_err().code.0, "TERMINAL_THE_APP_IS_QUITTING_NEW_TASKS_CANNOT");
+    assert_eq!(
+        result.unwrap_err().code.0,
+        "TERMINAL_THE_APP_IS_QUITTING_NEW_TASKS_CANNOT"
+    );
 }

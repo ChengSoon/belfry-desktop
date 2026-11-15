@@ -4,7 +4,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { enter } from '../../../../scripts/plugin-tests/market-ui-support.mjs';
-import { uiFixture, click, clickText, press, waitFor, resize, intact, evidence, theme, menuAction } from './production-uiFixture.mjs';
+import { uiFixture, click, clickText, fill, press, waitFor, resize, intact, evidence, theme, menuAction } from './production-uiFixture.mjs';
 
 const OUT = process.env.BELFRY_TOOLS_OUT ?? join(process.env.BELFRY_PANEL_ARTIFACTS ?? tmpdir(), 'belfry-workbench-tools');
 const agents = `(() => {
@@ -24,6 +24,40 @@ async function capture(view,name){
   const {data}=await view.send('Page.captureScreenshot',{format:'png'});
   await writeFile(`${OUT}/${name}.png`,Buffer.from(data,'base64'));
 }
+
+test('project tools remain at the right edge with no active session', async t => {
+ const {view,baseline}=await uiFixture(t);
+ await mkdir(OUT,{recursive:true});
+ await click(view,'.named-workspaces__trigger');
+ await click(view,'.named-workspaces__create');
+ await waitFor(view,"!!document.querySelector('.named-workspaces__form input')");
+ await fill(view,'.named-workspaces__form input','Empty toolbar workspace');
+ await click(view,'.named-workspaces__form button[type="submit"]');
+ await waitFor(view,"!document.querySelector('.named-workspaces__popover') && !document.querySelector('.workbench-tabs') && document.querySelector('.named-workspaces__trigger').textContent.includes('Empty toolbar workspace')");
+ const measurements=[];
+ const aligned=async(mode,width,height,empty)=>{
+  await resize(view,width,height);
+  const shape=await view.cdp.evaluate(`(()=>{
+   const header=document.querySelector('.workbench-toolbar'),tools=header.querySelector('.workbench-toolbar__tools');
+   const h=header.getBoundingClientRect(),r=tools.getBoundingClientRect(),css=getComputedStyle(header);
+   return {width:${width},headerRight:h.right,toolsRight:r.right,paddingRight:parseFloat(css.paddingRight)+parseFloat(css.borderRightWidth),hasSessionTabs:!!header.querySelector('.workbench-tabs')};
+  })()`);
+  assert.equal(shape.hasSessionTabs,!empty);
+  assert.ok(Math.abs(shape.headerRight-shape.toolsRight-shape.paddingRight)<=1,`tools must end at the toolbar's right padding: ${JSON.stringify(shape)}`);
+  measurements.push({mode,height,empty,...shape});
+  await evidence(view,`tools-right-${empty?'empty':'active'}-${mode}-${width}`,['.workbench-split','.workbench-inspector','.workbench-more > button']);
+ };
+ for(const mode of ['dark','light']){
+  await theme(view,mode);
+  for(const [width,height] of [[1440,960],[1024,768],[720,480]]) await aligned(mode,width,height,true);
+ }
+ await click(view,'.named-workspaces__trigger');
+ await click(view,'.named-workspaces__item:first-child');
+ await waitFor(view,"!!document.querySelector('.workbench-tabs') && !document.querySelector('.named-workspaces__popover')");
+ await aligned('light',1440,960,false);
+ await intact(view,baseline);
+ await writeFile(join(OUT,'right-alignment-geometry.json'),JSON.stringify(measurements,null,2));
+});
 
 for(const platform of ['macos','windows']){
  test(`${platform} approved three tools, one status row, menus, split and terminal continuity`,{timeout:90_000},async t=>{

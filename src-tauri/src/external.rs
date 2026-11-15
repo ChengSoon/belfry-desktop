@@ -16,7 +16,9 @@ pub mod commands {
     pub fn open_external(url: String, app: tauri::AppHandle) -> Result<(), AppError> {
         // 仅允许网页协议；各平台直接传递 URL，不经命令解释器。
         if !url.starts_with("http://") && !url.starts_with("https://") {
-            return Err(AppError::invalid_argument(format!("仅支持 http/https 链接: {url}")));
+            return Err(AppError::invalid_argument(format!(
+                "仅支持 http/https 链接: {url}"
+            )));
         }
         open_url(&url, app)
     }
@@ -60,7 +62,10 @@ fn open_url(url: &str, app: tauri::AppHandle) -> Result<(), AppError> {
                     Some(bundle) => match bundle.bundleIdentifier() {
                         None => diag.push_str("bundle-id=nil"),
                         Some(bundle_id) => {
-                            let running = NSRunningApplication::runningApplicationsWithBundleIdentifier(&bundle_id);
+                            let running =
+                                NSRunningApplication::runningApplicationsWithBundleIdentifier(
+                                    &bundle_id,
+                                );
                             diag.push_str(&format!(
                                 "browser={bundle_id} instances={}",
                                 running.len()
@@ -80,7 +85,9 @@ fn open_url(url: &str, app: tauri::AppHandle) -> Result<(), AppError> {
         let _ = tx.send(result);
     })
     .map_err(|error| AppError::io(format!("主线程派发失败: {error}")))?;
-    let result = rx.recv().map_err(|error| AppError::io(format!("主线程结果回传失败: {error}")))?;
+    let result = rx
+        .recv()
+        .map_err(|error| AppError::io(format!("主线程结果回传失败: {error}")))?;
     match &result {
         Ok(diag) => log_call(&log_url, &format!("ok diag:{diag}")),
         Err(error) => log_call(&log_url, &format!("fail:{}", error.message)),
@@ -109,6 +116,9 @@ fn open_url(url: &str, _app: tauri::AppHandle) -> Result<(), AppError> {
     if out.status.success() {
         Ok(())
     } else {
-        Err(AppError::io(format!("xdg-open 退出码 {:?}", out.status.code())))
+        Err(AppError::io(format!(
+            "xdg-open 退出码 {:?}",
+            out.status.code()
+        )))
     }
 }

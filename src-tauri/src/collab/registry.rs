@@ -7,7 +7,10 @@
 //! 这份数据只读不判：`can_receive` 由前端按能力算好，这里不重新推导——
 //! 一旦两边各自判断，迟早出现「UI 说能派活、CLI 说不能」的分歧。
 
-use std::sync::{Mutex, atomic::{AtomicU64, Ordering}};
+use std::sync::{
+    Mutex,
+    atomic::{AtomicU64, Ordering},
+};
 
 use belfry_protocol::Peer;
 use serde::{Deserialize, Serialize};
@@ -45,14 +48,29 @@ pub struct SessionRegistry {
 }
 
 impl SessionRegistry {
-    pub(crate) fn revision(&self) -> u64 { self.revision.load(Ordering::Acquire) }
+    pub(crate) fn revision(&self) -> u64 {
+        self.revision.load(Ordering::Acquire)
+    }
     /// 整份替换。
     ///
     /// 不做增量合并：前端每次给的是完整列表，合并只会让已关闭的会话在名册里
     /// 阴魂不散，而「派活给一条已经不存在的会话」是最难查的那类问题。
     pub fn replace(&self, sessions: Vec<SessionSnapshot>) {
         if let Ok(mut current) = self.sessions.lock() {
-            if *current != sessions { *current = sessions; self.revision.fetch_add(1, Ordering::Release); }
+            if *current != sessions {
+                *current = sessions;
+                self.revision.fetch_add(1, Ordering::Release);
+            }
+        }
+    }
+
+    pub(crate) fn remove_tabs(&self, tabs: &std::collections::BTreeSet<String>) {
+        if let Ok(mut current) = self.sessions.lock() {
+            let previous = current.len();
+            current.retain(|session| !tabs.contains(&session.tab_id));
+            if current.len() != previous {
+                self.revision.fetch_add(1, Ordering::Release);
+            }
         }
     }
 

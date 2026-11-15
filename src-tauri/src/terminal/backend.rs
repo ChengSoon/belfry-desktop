@@ -33,7 +33,9 @@ pub trait PtyBackend: Send + Sync {
         expected_program_sequence: Option<u64>,
     ) -> Result<(), AppError> {
         if expected_program_sequence.is_some() {
-            return Err(AppError::conflict("The terminal backend cannot verify native program status"));
+            return Err(AppError::conflict(
+                "The terminal backend cannot verify native program status",
+            ));
         }
         self.write(session_id, bytes)
     }
@@ -158,9 +160,16 @@ mod tests {
         let session = backend.spawn(request(), sink.clone()).unwrap();
         assert_eq!(sink.0.lock().unwrap().len(), 1);
         backend.write(&session.id, b"echo ok\r").unwrap();
-        assert_eq!(backend.write_checked(&session.id, b"automatic", Some(1)).unwrap_err().code,
-            super::super::contracts::AppErrorCode::Conflict);
-        backend.write_checked(&session.id, b"ordinary", None).unwrap();
+        assert_eq!(
+            backend
+                .write_checked(&session.id, b"automatic", Some(1))
+                .unwrap_err()
+                .code,
+            super::super::contracts::AppErrorCode::Conflict
+        );
+        backend
+            .write_checked(&session.id, b"ordinary", None)
+            .unwrap();
         backend
             .resize(&session.id, TerminalSize { cols: 90, rows: 28 })
             .unwrap();

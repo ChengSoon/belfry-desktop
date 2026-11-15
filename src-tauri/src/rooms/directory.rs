@@ -10,7 +10,7 @@ use belfry_protocol::{
 use super::attachments;
 use super::model::*;
 use super::ops;
-use super::store::{deliveries, RoomStore};
+use super::store::{RoomStore, deliveries};
 use crate::collab::{RoomDirectory, RoomPost, SessionRegistry};
 
 pub struct MemberDirectory {
@@ -31,10 +31,14 @@ fn say_rate_guard(room_id: &str, member_id: &str, now: i64) -> Result<(), String
         .get_or_init(|| Mutex::new(HashMap::new()))
         .lock()
         .map_err(|_| belfry_i18n::text("发言记录锁不上，请重启应用后重试").to_string())?;
-    let stamps = guard.entry((room_id.to_string(), member_id.to_string())).or_default();
+    let stamps = guard
+        .entry((room_id.to_string(), member_id.to_string()))
+        .or_default();
     stamps.retain(|at| now - *at < 60_000);
     if stamps.len() >= SAY_PER_MINUTE {
-        return Err(belfry_i18n::lformat!("说太快了：一分钟最多 {SAY_PER_MINUTE} 条，先把手上的活推进一下"));
+        return Err(belfry_i18n::lformat!(
+            "说太快了：一分钟最多 {SAY_PER_MINUTE} 条，先把手上的活推进一下"
+        ));
     }
     stamps.push(now);
     Ok(())
@@ -69,14 +73,21 @@ fn line(room: &Room, message: &Message, viewer: &str) -> RoomLine {
         // 成员读 log 要看得到附件在哪：正文后面附上本地路径。
         text: attachments::instruction(&message.text, &message.attachments),
         at: message.at,
-        reply_preview: message.reply_to.as_ref().and_then(|id| room.message(id)).map(|original| {
-            belfry_i18n::lformat!(
-                "回复 [{}] {}：「{}」",
-                short_id(&original.id),
-                room.label(&original.by),
-                excerpt(&attachments::summary(&original.text, &original.attachments), 60)
-            )
-        }),
+        reply_preview: message
+            .reply_to
+            .as_ref()
+            .and_then(|id| room.message(id))
+            .map(|original| {
+                belfry_i18n::lformat!(
+                    "回复 [{}] {}：「{}」",
+                    short_id(&original.id),
+                    room.label(&original.by),
+                    excerpt(
+                        &attachments::summary(&original.text, &original.attachments),
+                        60
+                    )
+                )
+            }),
         needs_my_reply: message.awaiting().iter().any(|id| id == viewer),
     }
 }
@@ -129,12 +140,19 @@ impl MemberDirectory {
         }
     }
 
-    fn task(&self, tab_id: &str, hint: Option<&str>, op: &RoomTaskOp) -> Result<(ResponseData, Vec<RoomPost>), String> {
+    fn task(
+        &self,
+        tab_id: &str,
+        hint: Option<&str>,
+        op: &RoomTaskOp,
+    ) -> Result<(ResponseData, Vec<RoomPost>), String> {
         let now = now_millis();
-        let ((task_id, posted), room) = self
-            .store
-            .mutate_as_member(tab_id, hint, |room, me| super::commands::apply_task_op(room, &Actor::Member(me), op, now))?;
-        let index = room.task_index(&task_id).ok_or(belfry_i18n::text("任务刚改完就找不到了"))?;
+        let ((task_id, posted), room) = self.store.mutate_as_member(tab_id, hint, |room, me| {
+            super::commands::apply_task_op(room, &Actor::Member(me), op, now)
+        })?;
+        let index = room
+            .task_index(&task_id)
+            .ok_or(belfry_i18n::text("任务刚改完就找不到了"))?;
         let notified: Vec<String> = posted
             .iter()
             .flat_map(|item| item.to.iter())
@@ -148,18 +166,33 @@ impl MemberDirectory {
             belfry_i18n::lformat!("已通知：{}。", notified.join("、"))
         };
         Ok((
-            ResponseData::RoomTaskChanged { room: room.name.clone(), task: task_line(&room, &room.tasks[index]), note },
+            ResponseData::RoomTaskChanged {
+                room: room.name.clone(),
+                task: task_line(&room, &room.tasks[index]),
+                note,
+            },
             deliveries(&room, &posted),
         ))
     }
 }
 
 impl RoomDirectory for MemberDirectory {
-    fn enqueue_posts(&self, board: &crate::collab::TaskBoard, registry: &SessionRegistry, posts: &[RoomPost]) -> Result<(), String> {
-        self.store.enqueue_posts(board, registry, posts).map_err(|error| error.message)
+    fn enqueue_posts(
+        &self,
+        board: &crate::collab::TaskBoard,
+        registry: &SessionRegistry,
+        posts: &[RoomPost],
+    ) -> Result<(), String> {
+        self.store
+            .enqueue_posts(board, registry, posts)
+            .map_err(|error| error.message)
     }
 
-    fn handle(&self, tab_id: &str, command: &Command) -> Result<(ResponseData, Vec<RoomPost>), String> {
+    fn handle(
+        &self,
+        tab_id: &str,
+        command: &Command,
+    ) -> Result<(ResponseData, Vec<RoomPost>), String> {
         match command {
             Command::Rooms => {
                 let rooms = self
@@ -176,45 +209,103 @@ impl RoomDirectory for MemberDirectory {
                             foreman: room.foreman().map(|member| member.title.clone()),
                             objective: room.brief.objective.clone(),
                             open_tasks: open_count(room),
-                            awaiting_me: room.messages.iter().filter(|m| m.awaiting().contains(&me.id)).count(),
+                            awaiting_me: room
+                                .messages
+                                .iter()
+                                .filter(|m| m.awaiting().contains(&me.id))
+                                .count(),
                         })
                     })
                     .collect();
                 Ok((ResponseData::Rooms { rooms }, Vec::new()))
             }
             Command::RoomStatus { room } => {
-                let status = self.store.read_as_member(tab_id, room.as_deref(), |room, me| self.status(room, me))?;
+                let status = self
+                    .store
+                    .read_as_member(tab_id, room.as_deref(), |room, me| self.status(room, me))?;
                 Ok((ResponseData::RoomStatus { status }, Vec::new()))
             }
             Command::RoomLog { room, count } => {
                 let count = count.unwrap_or(20).clamp(1, 50) as usize;
-                self.store.read_as_member(tab_id, room.as_deref(), |room, me| {
-                    let start = room.messages.len().saturating_sub(count);
-                    let entries = room.messages[start..].iter().map(|message| line(room, message, &me.id)).collect();
-                    (ResponseData::RoomLog { room: room.name.clone(), entries }, Vec::new())
-                })
+                self.store
+                    .read_as_member(tab_id, room.as_deref(), |room, me| {
+                        let start = room.messages.len().saturating_sub(count);
+                        let entries = room.messages[start..]
+                            .iter()
+                            .map(|message| line(room, message, &me.id))
+                            .collect();
+                        (
+                            ResponseData::RoomLog {
+                                room: room.name.clone(),
+                                entries,
+                            },
+                            Vec::new(),
+                        )
+                    })
             }
-            Command::RoomSay { room, text, reply_to, to, ask, inbox } => {
+            Command::RoomSay {
+                room,
+                text,
+                reply_to,
+                to,
+                ask,
+                inbox,
+            } => {
                 let now = now_millis();
-                let (posted, room) = self.store.mutate_as_member(tab_id, room.as_deref(), |room, me| {
-                    say_rate_guard(&room.id, &me.id, now)?;
-                    if let Some(options) = inbox { super::semantics::say(room, &Actor::Member(me), to, text, reply_to.as_deref(), *ask, options, now) }
-                    else { ops::say(room, &Actor::Member(me), to, text, reply_to.as_deref(), *ask, now).map(|posted| vec![posted]) }
-                })?;
+                let (posted, room) =
+                    self.store
+                        .mutate_as_member(tab_id, room.as_deref(), |room, me| {
+                            say_rate_guard(&room.id, &me.id, now)?;
+                            if let Some(options) = inbox {
+                                super::semantics::say(
+                                    room,
+                                    &Actor::Member(me),
+                                    to,
+                                    text,
+                                    reply_to.as_deref(),
+                                    *ask,
+                                    options,
+                                    now,
+                                )
+                            } else {
+                                ops::say(
+                                    room,
+                                    &Actor::Member(me),
+                                    to,
+                                    text,
+                                    reply_to.as_deref(),
+                                    *ask,
+                                    now,
+                                )
+                                .map(|posted| vec![posted])
+                            }
+                        })?;
                 let posts = deliveries(&room, &posted);
                 let mut skipped: Vec<String> = posts
                     .iter()
                     .filter(|post| self.registry.find(&post.tab_id).is_none())
-                    .map(|post| belfry_i18n::lformat!("「{}」的会话已经不在了，消息只记在房间里", post.member_title))
+                    .map(|post| {
+                        belfry_i18n::lformat!(
+                            "「{}」的会话已经不在了，消息只记在房间里",
+                            post.member_title
+                        )
+                    })
                     .collect();
                 if room.paused {
-                    skipped.push(belfry_i18n::text("房间暂停中：消息只记在房间里，暂不送进成员终端").to_string());
+                    skipped.push(
+                        belfry_i18n::text("房间暂停中：消息只记在房间里，暂不送进成员终端")
+                            .to_string(),
+                    );
                 }
                 Ok((
                     ResponseData::RoomSaid {
                         room: room.name.clone(),
                         message: short_id(&posted[0].message_id),
-                        recipients: posted.iter().flat_map(|item| &item.to).map(|id| room.label(id)).collect(),
+                        recipients: posted
+                            .iter()
+                            .flat_map(|item| &item.to)
+                            .map(|id| room.label(id))
+                            .collect(),
                         skipped,
                         ask: *ask,
                     },
@@ -222,13 +313,30 @@ impl RoomDirectory for MemberDirectory {
                 ))
             }
             Command::RoomTask { room, op } => self.task(tab_id, room.as_deref(), op),
-            Command::RoomBrief { room, objective, focus, constraints } => {
+            Command::RoomBrief {
+                room,
+                objective,
+                focus,
+                constraints,
+            } => {
                 let now = now_millis();
-                let (posted, room) = self.store.mutate_as_member(tab_id, room.as_deref(), |room, me| {
-                    ops::update_brief(room, &Actor::Member(me), objective.as_deref(), focus.as_deref(), constraints.clone(), now)
-                })?;
+                let (posted, room) =
+                    self.store
+                        .mutate_as_member(tab_id, room.as_deref(), |room, me| {
+                            ops::update_brief(
+                                room,
+                                &Actor::Member(me),
+                                objective.as_deref(),
+                                focus.as_deref(),
+                                constraints.clone(),
+                                now,
+                            )
+                        })?;
                 Ok((
-                    ResponseData::RoomBriefUpdated { room: room.name.clone(), brief: brief_view(&room) },
+                    ResponseData::RoomBriefUpdated {
+                        room: room.name.clone(),
+                        brief: brief_view(&room),
+                    },
                     deliveries(&room, std::slice::from_ref(&posted)),
                 ))
             }

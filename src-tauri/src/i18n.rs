@@ -1,8 +1,8 @@
 //! Frontend sends its resolved language; the same file is read by every CLI invocation.
+use crate::{atomic::write_atomic, terminal::AppError};
 use belfry_i18n::Locale;
 use std::{path::Path, sync::Mutex};
 use tauri::{AppHandle, Manager};
-use crate::{atomic::write_atomic, terminal::AppError};
 
 static SAVE: Mutex<()> = Mutex::new(());
 
@@ -24,27 +24,40 @@ fn persist(path: &Path, locale: &str) -> Result<Locale, AppError> {
 
 #[tauri::command]
 pub fn app_set_locale(app: AppHandle, locale: String) -> Result<(), AppError> {
-    let _save = SAVE.lock().map_err(|_| AppError::io("Locale settings are unavailable."))?;
-    let path = app.path().app_data_dir().map_err(|error| AppError::io(error.to_string()))?.join("locale.json");
+    let _save = SAVE
+        .lock()
+        .map_err(|_| AppError::io("Locale settings are unavailable."))?;
+    let path = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| AppError::io(error.to_string()))?
+        .join("locale.json");
     let language = persist(&path, &locale)?;
-    let changed = belfry_i18n::current() != language;
     belfry_i18n::set_current(language);
-    if let Err(error) = refresh_menu(&app) { log::warn!("Cannot update native menu language: {error}"); }
-    if changed { crate::setup::install_skill_on_startup(); }
+    if let Err(error) = refresh_menu(&app) {
+        log::warn!("Cannot update native menu language: {error}");
+    }
     Ok(())
 }
 
 pub(crate) fn refresh_menu(app: &AppHandle) -> tauri::Result<()> {
-    if let Some(menu) = app.menu() { translate_items(menu.items()?)?; }
+    if let Some(menu) = app.menu() {
+        translate_items(menu.items()?)?;
+    }
     Ok(())
 }
 fn translate_items(items: Vec<tauri::menu::MenuItemKind<tauri::Wry>>) -> tauri::Result<()> {
     use tauri::menu::MenuItemKind;
     for item in items {
         match item {
-            MenuItemKind::Submenu(item) => { item.set_text(&belfry_i18n::localize(&item.text()?))?; translate_items(item.items()?)?; }
+            MenuItemKind::Submenu(item) => {
+                item.set_text(&belfry_i18n::localize(&item.text()?))?;
+                translate_items(item.items()?)?;
+            }
             MenuItemKind::MenuItem(item) => item.set_text(&belfry_i18n::localize(&item.text()?))?,
-            MenuItemKind::Predefined(item) => item.set_text(&belfry_i18n::localize(&item.text()?))?,
+            MenuItemKind::Predefined(item) => {
+                item.set_text(&belfry_i18n::localize(&item.text()?))?
+            }
             MenuItemKind::Check(item) => item.set_text(&belfry_i18n::localize(&item.text()?))?,
             MenuItemKind::Icon(item) => item.set_text(&belfry_i18n::localize(&item.text()?))?,
         }
@@ -64,7 +77,10 @@ mod tests {
         assert!(persist(&path, "unsupported").is_err());
         assert_eq!(std::fs::read(&path).unwrap(), before);
         assert_eq!(persist(&path, "zh-CN").unwrap(), Locale::ZhCn);
-        assert_eq!(serde_json::from_slice::<serde_json::Value>(&std::fs::read(&path).unwrap()).unwrap()["locale"], "zh-CN");
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&std::fs::read(&path).unwrap()).unwrap()["locale"],
+            "zh-CN"
+        );
         let _ = std::fs::remove_dir_all(root);
     }
 }

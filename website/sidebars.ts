@@ -15,7 +15,7 @@ const sidebars: SidebarsConfig = {
     {
       type: 'category',
       label: 'Agent 托管',
-      items: ['agent', 'provider', 'collab'],
+      items: ['agent', 'provider', 'a2a', 'collab'],
     },
     {
       type: 'category',

@@ -78,7 +78,10 @@ fn replaced_or_appended_logs_require_refresh_instead_of_mixing_versions() {
         .unwrap()
         .replace("旧内容", "新内容");
     std::fs::write(&path, changed).unwrap();
-    assert_eq!(reader.page(1).unwrap_err().code.0, "HISTORY_THE_SESSION_LOG_CHANGED_REFRESH_THE_DETAILS");
+    assert_eq!(
+        reader.page(1).unwrap_err().code.0,
+        "HISTORY_THE_SESSION_LOG_CHANGED_REFRESH_THE_DETAILS"
+    );
     let mut reader = fixture.reader(AgentKind::Claude);
     reader.page(0).unwrap();
     use std::io::Write;

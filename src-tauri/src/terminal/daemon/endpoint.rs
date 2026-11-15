@@ -128,9 +128,16 @@ mod tests {
 
     #[test]
     fn an_old_daemon_cannot_remove_its_successors_endpoint() {
-        let root = std::env::temp_dir().join(format!("belfry-daemon-owner-{}", ulid::Ulid::generate()));
+        let root =
+            std::env::temp_dir().join(format!("belfry-daemon-owner-{}", ulid::Ulid::generate()));
         private_directory(&root).unwrap();
-        let endpoint = Endpoint { version: VERSION, port: 12345, token: "a".repeat(52), instance: "new".into(), pid: 1 };
+        let endpoint = Endpoint {
+            version: VERSION,
+            port: 12345,
+            token: "a".repeat(52),
+            instance: "new".into(),
+            pid: 1,
+        };
         save(&root, &endpoint).unwrap();
         remove_if_owner(&root, "old");
         assert_eq!(read(&root).unwrap().instance, "new");

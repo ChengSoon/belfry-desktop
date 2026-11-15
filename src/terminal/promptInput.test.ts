@@ -23,6 +23,37 @@ function setup(encodePaste = (text: string) => `\x1b[200~${text}\x1b[201~`, nati
 
 afterEach(() => vi.useRealTimers());
 
+it("keeps parser replies in the write queue without borrowing a prompt guard or consuming its sequence", async () => {
+  vi.useFakeTimers();
+  const write = vi.fn(async (_id: string, _data: string, _guard?: { guard: WriteGuard; sequence: number }) => {});
+  const respond = vi.fn(async (_id: string, _data: string) => {});
+  const result = vi.fn();
+  const error = vi.fn();
+  const guard = { batchId: "batch", attemptId: "attempt", token: "token", ownerId: "owner", targetEpoch: "epoch", inputRevision: 0 };
+  const input = new PromptInput({ session: () => "pty", write, respond, error,
+    paste: text => input.onData(`\x1b[200~${text}\x1b[201~`), enter: () => input.onData("\r") });
+  input.sendText("task", { inboxGuard: guard, onResult: result });
+  await vi.advanceTimersByTimeAsync(0);
+  input.onData("\x1b[12;34R", true);
+  await vi.advanceTimersByTimeAsync(PASTE_SETTLE_MS);
+  expect(respond).toHaveBeenCalledExactlyOnceWith("pty", "\x1b[12;34R");
+  expect(write.mock.calls.map(call => [call[1], call[2]?.sequence])).toEqual([["\x1b[200~task\x1b[201~", 1], ["\r", 2]]);
+  expect(result).toHaveBeenCalledExactlyOnceWith("submitted");
+  expect(input.inputRevision).toBe(0);
+  expect(error).not.toHaveBeenCalled();
+  input.dispose();
+});
+
+it("does not turn a device reply into ordinary input when no response channel is available", async () => {
+  vi.useFakeTimers();
+  const { input, write, error } = setup();
+  input.onData("\x1b[12;34R", true);
+  await vi.advanceTimersByTimeAsync(0);
+  expect(write).not.toHaveBeenCalled();
+  expect(error).not.toHaveBeenCalled();
+  input.dispose();
+});
+
 describe("PromptInput native terminal answers", () => {
   const nativeGuard: InteractionWriteGuard = { requestId: "live-question", protocolSequence: 4 };
   function answerInput() {

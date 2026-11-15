@@ -8,6 +8,14 @@ use super::launch::detect_shell_profiles;
 use super::runtime::TerminalRuntime;
 use crate::collab::{CollabEndpoint, SessionIdentities};
 
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TerminalAttachment {
+    #[serde(flatten)]
+    session: TerminalSession,
+    input_state: Option<super::input_gate::InputSnapshot>,
+}
+
 #[tauri::command]
 pub async fn terminal_create(
     app: AppHandle,
@@ -18,7 +26,7 @@ pub async fn terminal_create(
     recover_exited: Option<bool>,
     flow_control: Option<bool>,
     on_event: Channel<TerminalEvent>,
-) -> Result<TerminalSession, AppError> {
+) -> Result<TerminalAttachment, AppError> {
     if request.profile_id == "agent:codex" {
         crate::agent::native_launch::freeze(&mut request.env);
     }
@@ -26,10 +34,16 @@ pub async fn terminal_create(
     request.launch_overlay.recover_exited = recover_exited.unwrap_or(false);
     if let Some(tab) = &request.tab_id {
         request.launch_overlay.launch_epoch = app.state::<TerminalRuntime>().launch_epoch(tab);
+        app.state::<std::sync::Arc<crate::rooms::RoomStore>>()
+            .ensure_tab_available(tab)?;
     }
     issue_collab_identity(&identities, endpoint.0.as_deref(), &mut request);
     tauri::async_runtime::spawn_blocking(move || {
         let runtime = app.state::<TerminalRuntime>();
+        if let Some(tab) = &request.tab_id {
+            app.state::<std::sync::Arc<crate::rooms::RoomStore>>()
+                .ensure_tab_available(tab)?;
+        }
         runtime.prepare_attachment(&mut request)?;
         if !runtime.uses_daemon() {
             prepare_project(&app, &mut request)?;
@@ -56,7 +70,10 @@ pub async fn terminal_create(
                 crate::plugins::agent_connection::revoke(&app, &ticket);
             }
         }
-        result
+        result.map(|session| TerminalAttachment {
+            input_state: runtime.input_gate.input_snapshot(&session.id),
+            session,
+        })
     })
     .await
     .map_err(|e| AppError::io(e.to_string()))?
@@ -136,32 +153,75 @@ pub fn terminal_write(
     match (inbox_guard, write_sequence) {
         (Some(guard), Some(sequence)) => runtime.write_inbox(&session_id, &bytes, &guard, sequence),
         (None, None) => runtime.write(&session_id, &bytes),
-        _ => Err(AppError::invalid_argument("Both inboxGuard and writeSequence are required for an inbox write")),
+        _ => Err(AppError::invalid_argument(
+            "Both inboxGuard and writeSequence are required for an inbox write",
+        )),
     }
 }
 
 #[tauri::command]
-pub fn terminal_claim_user_input(runtime: State<'_, TerminalRuntime>, session_id: String) -> Result<(), AppError> {
+pub fn terminal_claim_user_input(
+    runtime: State<'_, TerminalRuntime>,
+    session_id: String,
+) -> Result<(), AppError> {
     runtime.claim_user_input(&session_id)
 }
 
+/// The mounted view observed an empty composer, so byte history is no longer
+/// positive evidence of a draft.
 #[tauri::command]
-pub fn terminal_write_interaction(runtime: State<'_, TerminalRuntime>, session_id: String, bytes: Vec<u8>, guard: super::input_gate::InteractionGuard, write_sequence: u64) -> Result<(), AppError> {
+pub fn terminal_confirm_empty_input(
+    runtime: State<'_, TerminalRuntime>,
+    session_id: String,
+) -> Result<(), AppError> {
+    runtime.confirm_empty_input(&session_id)
+}
+
+#[tauri::command]
+pub fn terminal_write_response(
+    runtime: State<'_, TerminalRuntime>,
+    session_id: String,
+    bytes: Vec<u8>,
+) -> Result<(), AppError> {
+    runtime.write_response(&session_id, &bytes)
+}
+
+#[tauri::command]
+pub fn terminal_write_interaction(
+    runtime: State<'_, TerminalRuntime>,
+    session_id: String,
+    bytes: Vec<u8>,
+    guard: super::input_gate::InteractionGuard,
+    write_sequence: u64,
+) -> Result<(), AppError> {
     runtime.write_interaction(&session_id, &bytes, &guard, write_sequence)
 }
 
 #[tauri::command]
-pub fn terminal_finish_interaction(runtime: State<'_, TerminalRuntime>, session_id: String, guard: super::input_gate::InteractionGuard, ready_sequence: u64) -> Result<bool, AppError> {
+pub fn terminal_finish_interaction(
+    runtime: State<'_, TerminalRuntime>,
+    session_id: String,
+    guard: super::input_gate::InteractionGuard,
+    ready_sequence: u64,
+) -> Result<bool, AppError> {
     runtime.finish_interaction(&session_id, &guard, ready_sequence)
 }
 
 #[tauri::command]
-pub fn terminal_prepare_prompt(runtime: State<'_, TerminalRuntime>, session_id: String, payload: String) -> Result<belfry_protocol::inbox::WriteGuard, AppError> {
+pub fn terminal_prepare_prompt(
+    runtime: State<'_, TerminalRuntime>,
+    session_id: String,
+    payload: String,
+) -> Result<belfry_protocol::inbox::WriteGuard, AppError> {
     runtime.prepare_prompt(&session_id, &payload)
 }
 
 #[tauri::command]
-pub fn terminal_finish_prompt(runtime: State<'_, TerminalRuntime>, session_id: String, guard: belfry_protocol::inbox::WriteGuard) -> Result<super::input_gate::WriteEvidence, AppError> {
+pub fn terminal_finish_prompt(
+    runtime: State<'_, TerminalRuntime>,
+    session_id: String,
+    guard: belfry_protocol::inbox::WriteGuard,
+) -> Result<super::input_gate::WriteEvidence, AppError> {
     runtime.finish_prompt(&session_id, &guard)
 }
 
@@ -343,7 +403,13 @@ mod tests {
         );
         assert!(req.launch_overlay.hook.is_none());
         assert!(req.launch_overlay.environment.is_empty());
-        assert_eq!(req.launch_overlay.unset, vec![belfry_protocol::hooks::ENV_PORT, belfry_protocol::hooks::ENV_TOKEN]);
+        assert_eq!(
+            req.launch_overlay.unset,
+            vec![
+                belfry_protocol::hooks::ENV_PORT,
+                belfry_protocol::hooks::ENV_TOKEN
+            ]
+        );
         assert_eq!(req.env, original_env);
     }
 }

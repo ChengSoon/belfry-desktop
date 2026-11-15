@@ -31,9 +31,11 @@ fn leading_digits(value: &str) -> &str {
 }
 
 fn number(value: &str) -> Option<u32> {
-    (!value.is_empty() && value.len() <= MAX_PART_DIGITS && value.bytes().all(|b| b.is_ascii_digit()))
-        .then(|| value.parse().ok())
-        .flatten()
+    (!value.is_empty()
+        && value.len() <= MAX_PART_DIGITS
+        && value.bytes().all(|b| b.is_ascii_digit()))
+    .then(|| value.parse().ok())
+    .flatten()
 }
 
 /// `latest` 是否比 `current` 新。任一侧解析不出三元组就返回 `None`，

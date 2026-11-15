@@ -20,11 +20,20 @@ pub(super) fn prepare(
     }
     let operation = format!("prepare:{}:{}", request.session_key, request.operation_id);
     let signature = operation_hash(request);
-    if let Some(batch) = data.batches.values().find(|batch| batch.operation_id == operation) {
+    if let Some(batch) = data
+        .batches
+        .values()
+        .find(|batch| batch.operation_id == operation)
+    {
         if batch.operation_hash != signature {
-            return Err(conflict("Prepare operation ID was used with different input"));
+            return Err(conflict(
+                "Prepare operation ID was used with different input",
+            ));
         }
-        return Ok(PrepareResult { batch: Some(batch.view.clone()), blocker: None });
+        return Ok(PrepareResult {
+            batch: Some(batch.view.clone()),
+            blocker: None,
+        });
     }
     let expired: Vec<_> = data
         .batches
@@ -35,10 +44,18 @@ pub(super) fn prepare(
     for id in expired {
         abort(data, &id);
     }
-    let blocked = |code: Status| Ok(PrepareResult { batch: None, blocker: Some(code) });
+    let blocked = |code: Status| {
+        Ok(PrepareResult {
+            batch: None,
+            blocker: Some(code),
+        })
+    };
     if let Some(batch) = data.batches.values().find(|batch| {
         batch.view.recipient.session_key == request.session_key
-            && matches!(batch.view.phase.as_str(), "prepared" | "submitting" | "uncertain")
+            && matches!(
+                batch.view.phase.as_str(),
+                "prepared" | "submitting" | "uncertain"
+            )
     }) {
         return blocked(Status::new(&batch.view.phase).with("batchId", &batch.view.id));
     }
@@ -72,22 +89,39 @@ pub(super) fn prepare(
         );
     }
     let priority = |entry: &Entry| -> u8 {
-        if data
-            .waits
-            .get(&request.session_key)
-            .is_some_and(|wait| entry.answers.iter().any(|answer| wait.questions.contains(answer)))
-        {
+        if data.waits.get(&request.session_key).is_some_and(|wait| {
+            entry
+                .answers
+                .iter()
+                .any(|answer| wait.questions.contains(answer))
+        }) {
             0
-        } else if data.policies.get(&policy_key(entry)).is_some_and(|policy| policy.high) {
+        } else if data
+            .policies
+            .get(&policy_key(entry))
+            .is_some_and(|policy| policy.high)
+        {
             1
         } else {
             2
         }
     };
-    let force_normal = data.priority_streak.get(&request.session_key).copied().unwrap_or(0) >= 2
+    let force_normal = data
+        .priority_streak
+        .get(&request.session_key)
+        .copied()
+        .unwrap_or(0)
+        >= 2
         && candidates.iter().any(|entry| priority(entry) == 2);
     candidates.sort_by_key(|entry| {
-        (if force_normal { if priority(entry) == 2 { 0 } else { 1 } } else { priority(entry) }, entry.enqueue_seq)
+        (
+            if force_normal {
+                if priority(entry) == 2 { 0 } else { 1 }
+            } else {
+                priority(entry)
+            },
+            entry.enqueue_seq,
+        )
     });
     let anchor = candidates.remove(0);
     if anchor.view.recipient.tab_id != request.offer.binding.tab_id {
@@ -109,8 +143,16 @@ pub(super) fn prepare(
         })
         .collect();
     if anchor.view.class != MessageClass::TaskAssignment {
-        let oldest = related.iter().map(|entry| entry.received_at).min().unwrap_or(at);
-        let latest = related.iter().map(|entry| entry.received_at).max().unwrap_or(at);
+        let oldest = related
+            .iter()
+            .map(|entry| entry.received_at)
+            .min()
+            .unwrap_or(at);
+        let latest = related
+            .iter()
+            .map(|entry| entry.received_at)
+            .max()
+            .unwrap_or(at);
         if at < (oldest + 5_000).min(latest + 2_500) {
             return blocked(Status::new("collecting"));
         }
@@ -132,7 +174,8 @@ pub(super) fn prepare(
             .filter(|entry| {
                 entry.view.id != anchor.view.id
                     && entry.view.class != MessageClass::TaskAssignment
-                    && !(entry.view.class == MessageClass::Fyi && entry.handling == Handling::Processed)
+                    && !(entry.view.class == MessageClass::Fyi
+                        && entry.handling == Handling::Processed)
             })
             .cloned()
             .collect();
@@ -144,7 +187,12 @@ pub(super) fn prepare(
             let mut next = selected.clone();
             next.push(entry);
             next.sort_by_key(|entry| entry.enqueue_seq);
-            if next.iter().map(|entry| entry.view.questions.len()).sum::<usize>() > MAX_BATCH_QUESTIONS {
+            if next
+                .iter()
+                .map(|entry| entry.view.questions.len())
+                .sum::<usize>()
+                > MAX_BATCH_QUESTIONS
+            {
                 break;
             }
             let proposed = payload(&batch_id, &next, false);
@@ -165,7 +213,10 @@ pub(super) fn prepare(
         terminal_session_id: request.offer.binding.terminal_session_id.clone(),
         topic_id: anchor.view.topic_id.clone(),
         entry_ids: selected.iter().map(|entry| entry.view.id.clone()).collect(),
-        message_ids: selected.iter().map(|entry| entry.view.message_id.clone()).collect(),
+        message_ids: selected
+            .iter()
+            .map(|entry| entry.view.message_id.clone())
+            .collect(),
         payload_hash: hash(&body),
         payload: body,
         content_mode: mode.into(),
@@ -191,18 +242,23 @@ pub(super) fn prepare(
             receipt_hash: None,
         },
     );
-    Ok(PrepareResult { batch: Some(view), blocker: None })
+    Ok(PrepareResult {
+        batch: Some(view),
+        blocker: None,
+    })
 }
 
-fn quote(value: &str) -> String {
-    format!("'{}'", value.replace('\'', "'\\''"))
-}
 fn payload(batch_id: &str, entries: &[Entry], reference: bool) -> String {
     let first = &entries[0];
-    let mut text =
-        format!("[belfry inbox] {}\nBatch: {batch_id}\nTopic: {}\n", first.view.source.name, first.view.topic_id);
+    let mut text = format!(
+        "[belfry inbox] {}\nBatch: {batch_id}\nTopic: {}\n",
+        first.view.source.name, first.view.topic_id
+    );
     for entry in entries {
-        text.push_str(&format!("\n[{}] {}\n", entry.view.message_id, entry.view.by.name));
+        text.push_str(&format!(
+            "\n[{}] {}\n",
+            entry.view.message_id, entry.view.by.name
+        ));
         if let Some(reply) = &entry.view.reply_to {
             text.push_str(&format!("Reply to: {reply}\n"));
         }
@@ -211,15 +267,18 @@ fn payload(batch_id: &str, entries: &[Entry], reference: bool) -> String {
         }
         if reference {
             text.push_str(&format!(
-                "{}\nFull message (read before acting): belfry inbox read {}\n",
+                "{}\nRead the full message before acting with A2AInbox({{\"messageId\":{}}}); follow nextCursor for further pages.\n",
                 crate::rooms::model::excerpt(&entry.view.text, 300),
-                entry.view.message_id
+                serde_json::to_string(&entry.view.message_id).unwrap_or_default()
             ));
         } else {
             text.push_str(&entry.view.text);
             text.push('\n');
             for attachment in &entry.view.attachments {
-                text.push_str(&format!("Attachment {}: {}\n", attachment.name, attachment.path));
+                text.push_str(&format!(
+                    "Attachment {}: {}\n",
+                    attachment.name, attachment.path
+                ));
             }
         }
         for question in &entry.view.questions {
@@ -227,28 +286,22 @@ fn payload(batch_id: &str, entries: &[Entry], reference: bool) -> String {
                 text.push_str(&format!(
                     "Question {}: {}\n",
                     question.id,
-                    if reference { "see full message" } else { &question.text }
+                    if reference {
+                        "see full message"
+                    } else {
+                        &question.text
+                    }
                 ));
             }
         }
         if let Some(task) = &entry.task {
-            if task.kind == "direct_task" {
-                text.push_str(&format!(
-                    "Report completion: belfry done {} <result>\n",
-                    crate::collab::task::short_id(&task.id)
-                ));
-            } else {
-                text.push_str(&format!(
-                    "Report completion: belfry room task done {} --room {} --generation {} <result>\n",
-                    task.id,
-                    quote(&entry.view.source.name),
-                    task.generation
-                ));
-            }
+            text.push_str(&format!("Task reference: {}\nRead A2ALocalTasks and select this exact task reference and generation. Read A2ALocalTask with its issued reportHandle before acting. Report working, inputRequired, completed or failed with A2AReportTask using that reportHandle and generation; include your actual result. Terminal idleness never completes a task.\n",serde_json::to_string(task).unwrap_or_default()));
         }
     }
     if first.view.source.kind == "room" {
-        text.push_str(&format!("\nFor discussion: belfry room say --room {} --topic {} <text>. Add --answer <questionId> for each question answered. Replying to questions does not complete a task. No acknowledgement reply is required.\n", quote(&first.view.source.name), quote(&first.view.topic_id)));
+        text.push_str(&format!("\nA2ARoomContext: room={}. A2ARoomSay: same room, topicId={}; use replyTo and answers=[questionId,...]. Replies do not complete tasks; no acknowledgement needed. Report unavailable A2A tools.\n",serde_json::to_string(&first.view.source.room_id).unwrap_or_default(),serde_json::to_string(&first.view.topic_id).unwrap_or_default()));
+    } else if first.view.source.kind == "direct_message" {
+        text.push_str("\nRead A2AInbox for the full conversation. The original Sender answers input requests with A2ASendMessage using its original taskHandle; the Recipient reads follow-up input with A2ALocalTasks/A2ALocalTask and reports explicitly with A2AReportTask. This message does not create another assignment.\n");
     }
     // Control bytes remain readable in source storage, but cannot terminate the native paste frame.
     text.chars()
@@ -271,17 +324,28 @@ pub(super) fn begin(
     at: i64,
     input_valid: bool,
 ) -> Result<BatchView, AppError> {
-    let current = data.batches.get(&request.batch.batch_id).ok_or_else(|| conflict("Batch was not found"))?.clone();
+    let current = data
+        .batches
+        .get(&request.batch.batch_id)
+        .ok_or_else(|| conflict("Batch was not found"))?
+        .clone();
     cas(&current.view, &request.batch)?;
     if current.view.phase != "prepared" {
-        return Err(conflict("Batch already crossed the submission boundary; do not send its payload again"));
+        return Err(conflict(
+            "Batch already crossed the submission boundary; do not send its payload again",
+        ));
     }
-    if current.offer.as_ref().is_none_or(|offer| operation_hash(offer) != operation_hash(&request.offer))
+    if current
+        .offer
+        .as_ref()
+        .is_none_or(|offer| operation_hash(offer) != operation_hash(&request.offer))
         || current.view.lease_expires_at <= at
         || !input_valid
     {
         abort(data, &current.view.id);
-        return Err(conflict("Input reservation expired or changed; prepared batch was aborted"));
+        return Err(conflict(
+            "Input reservation expired or changed; prepared batch was aborted",
+        ));
     }
     for id in &current.view.entry_ids {
         let valid = data.entries.get(id).is_some_and(|entry| {
@@ -290,7 +354,9 @@ pub(super) fn begin(
         });
         if !valid {
             abort(data, &current.view.id);
-            return Err(conflict("Source, policy or target changed; prepared batch was aborted"));
+            return Err(conflict(
+                "Source, policy or target changed; prepared batch was aborted",
+            ));
         }
     }
     set_phase(data, &current.view.id, "submitting");
@@ -300,14 +366,24 @@ pub(super) fn begin(
         if let Some(entry) = data.entries.get(id)
             && let Some(task) = &entry.task
         {
-            let slots = data.slots.entry(entry.view.recipient.session_key.clone()).or_default();
+            let slots = data
+                .slots
+                .entry(entry.view.recipient.session_key.clone())
+                .or_default();
             if !slots.contains(task) {
                 slots.push(task.clone());
             }
         }
     }
-    let streak = data.priority_streak.entry(batch.view.recipient.session_key.clone()).or_default();
-    *streak = if batch.priority { streak.saturating_add(1) } else { 0 };
+    let streak = data
+        .priority_streak
+        .entry(batch.view.recipient.session_key.clone())
+        .or_default();
+    *streak = if batch.priority {
+        streak.saturating_add(1)
+    } else {
+        0
+    };
     Ok(batch.view.clone())
 }
 pub(super) fn cas(view: &BatchView, request: &BatchRequest) -> Result<(), AppError> {
@@ -315,7 +391,9 @@ pub(super) fn cas(view: &BatchView, request: &BatchRequest) -> Result<(), AppErr
         || view.attempt_id != request.attempt_id
         || view.revision != request.expected_revision
     {
-        Err(conflict("Batch changed; read the current batch before acting"))
+        Err(conflict(
+            "Batch changed; read the current batch before acting",
+        ))
     } else {
         Ok(())
     }
@@ -331,12 +409,20 @@ pub(super) fn receipt(
     {
         return Err(AppError::invalid_argument("Invalid delivery receipt"));
     }
-    let current = data.batches.get(&request.batch_id).ok_or_else(|| conflict("Batch was not found"))?.clone();
-    if current.view.attempt_id != request.attempt_id || current.view.payload_hash != request.payload_hash {
+    let current = data
+        .batches
+        .get(&request.batch_id)
+        .ok_or_else(|| conflict("Batch was not found"))?
+        .clone();
+    if current.view.attempt_id != request.attempt_id
+        || current.view.payload_hash != request.payload_hash
+    {
         return Err(conflict("Receipt does not match the frozen attempt"));
     }
     let signature = operation_hash(request);
-    if request.sequence == current.view.sequence && current.receipt_hash.as_deref() == Some(&signature) {
+    if request.sequence == current.view.sequence
+        && current.receipt_hash.as_deref() == Some(&signature)
+    {
         return Ok(current.view);
     }
     if request.sequence != current.view.sequence + 1
@@ -345,7 +431,9 @@ pub(super) fn receipt(
         return Err(conflict("Receipt sequence or phase is stale"));
     }
     if request.phase == "submitted" && !native_evidence {
-        return Err(conflict("Submitted requires successful guarded payload and submit-key writes from this attempt"));
+        return Err(conflict(
+            "Submitted requires successful guarded payload and submit-key writes from this attempt",
+        ));
     }
     if request.phase == "uncertain" && never_pasted && current.view.phase == "submitting" {
         requeue(data, &request.batch_id);
@@ -358,15 +446,25 @@ pub(super) fn receipt(
     Ok(batch.view.clone())
 }
 pub(super) fn resolve(data: &mut Data, request: &ResolveRequest) -> Result<BatchView, AppError> {
-    let current = data.batches.get(&request.batch.batch_id).ok_or_else(|| conflict("Batch was not found"))?.clone();
+    let current = data
+        .batches
+        .get(&request.batch.batch_id)
+        .ok_or_else(|| conflict("Batch was not found"))?
+        .clone();
     cas(&current.view, &request.batch)?;
     if current.view.phase != "uncertain" || request.sequence != current.view.sequence {
-        return Err(conflict("Only the current uncertain attempt can be resolved"));
+        return Err(conflict(
+            "Only the current uncertain attempt can be resolved",
+        ));
     }
     let phase = match request.decision.as_str() {
         "submitted" => "submitted",
         "abandon" => "abandoned",
-        _ => return Err(AppError::invalid_argument("Decision must be submitted or abandon")),
+        _ => {
+            return Err(AppError::invalid_argument(
+                "Decision must be submitted or abandon",
+            ));
+        }
     };
     set_phase(data, &current.view.id, phase);
     let batch = data.batches.get_mut(&current.view.id).unwrap();

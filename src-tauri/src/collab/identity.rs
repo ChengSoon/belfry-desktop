@@ -49,7 +49,10 @@ impl SessionIdentities {
             env.push((ENV_PROJECT.to_string(), root.to_string()));
         }
         if let Some(path) = belfry_i18n::preference_path() {
-            env.push(("BELFRY_LOCALE_FILE".into(), path.to_string_lossy().into_owned()));
+            env.push((
+                "BELFRY_LOCALE_FILE".into(),
+                path.to_string_lossy().into_owned(),
+            ));
         }
         env
     }

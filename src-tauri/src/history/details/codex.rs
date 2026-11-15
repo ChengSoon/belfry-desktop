@@ -58,7 +58,10 @@ fn event(payload: &Value, source: &str) -> Option<HistoryEntry> {
 }
 
 fn call(payload: &Value, source: &str) -> HistoryTool {
-    let name = payload["name"].as_str().unwrap_or(belfry_i18n::text("未知工具")).to_owned();
+    let name = payload["name"]
+        .as_str()
+        .unwrap_or(belfry_i18n::text("未知工具"))
+        .to_owned();
     let input = if payload["input"].is_null() {
         &payload["arguments"]
     } else {

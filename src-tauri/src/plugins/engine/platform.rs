@@ -6,6 +6,9 @@ use tauri_plugin_dialog::DialogExt;
 pub fn dispatch(app: &AppHandle, request: Value) -> Result<Value, String> {
     let api = request["api"].as_str().ok_or("缺少 API 名称")?;
     let args = &request["args"];
+    if api.starts_with("a2a.") {
+        return Ok(crate::a2a::platform::dispatch(app, &request, api));
+    }
     if api.starts_with("ui.") {
         return dispatch_ui(app, &request, api);
     }

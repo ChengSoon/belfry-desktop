@@ -11,8 +11,8 @@
 //! 只认能力。新接一个 CLI 进来时，这里不该有任何改动。
 
 pub mod commands;
-pub(crate) mod inbox;
 mod identity;
+pub(crate) mod inbox;
 mod registry;
 mod server;
 pub(crate) mod task;
@@ -23,6 +23,8 @@ mod e2e_test;
 
 pub use identity::SessionIdentities;
 pub use registry::SessionRegistry;
+#[cfg(test)]
+pub(crate) use registry::SessionSnapshot;
 pub use server::{CollabServer, RoomAccess, RoomDirectory, RoomPost};
 pub use task::TaskBoard;
 

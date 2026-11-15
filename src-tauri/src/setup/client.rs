@@ -35,7 +35,8 @@ fn version_check(agent: AgentKind, executable: &Path) -> EnvironmentCheck {
         Ok(output) if output.status.success() => EnvironmentCheck::new(
             CheckKind::Cli(agent),
             CheckState::Ok,
-            process::first_output_line(&output).unwrap_or_else(|| belfry_i18n::text("已安装").to_string()),
+            process::first_output_line(&output)
+                .unwrap_or_else(|| belfry_i18n::text("已安装").to_string()),
         ),
         Ok(_) => EnvironmentCheck::new(
             CheckKind::Cli(agent),

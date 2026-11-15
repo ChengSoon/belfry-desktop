@@ -26,7 +26,7 @@ const nativeSource = `(() => {
     recipient, topicId: 'fields', class: 'discussion', by: actor(by), createdAt: now - at * 60000, text, attachments: [], replyTo: null,
     questions: [], replies: [], deliveryPhase: 'pending', deliveryStatus: st('queue_turn'), handlingStatus: st('unknown_handling'), waitingReason: st('turn_busy'), ...extra });
   const inbox = window.__inboxQA = {
-    calls: [], aborts: 0, batches: [], receipts: [], guarded: [], userWrites: 0, inputRevision: 0, offers: new Set(),
+    calls: [], aborts: 0, batches: [], receipts: [], guarded: [], userWrites: 0, inputRevision: 0, confirmations: 0, offers: new Set(),
     messages: [
       msg('e1', 30, '项目经理', '调整接口返回值：分页结构统一为 items + total。', { class: 'task_assignment', deliveryPhase: 'submitted', deliveryStatus: st('submitted', { batchId: 'b0' }), handlingStatus: st('processing'), waitingReason: null }),
       msg('e2', 20, '前端', '两个问题想先确认。', { deliveryPhase: 'submitted', deliveryStatus: st('submitted', { batchId: 'b0' }), waitingReason: null,
@@ -115,6 +115,21 @@ const nativeSource = `(() => {
       case 'terminal_claim_user_input': {
         if (args.sessionId === 'agent-backend-pty') { inbox.inputRevision++; inbox.offers.clear(); }
         return null;
+      }
+      case 'terminal_confirm_empty_input': {
+        if (args.sessionId === 'agent-backend-pty') inbox.confirmations++;
+        return null;
+      }
+      case 'terminal_write_response': {
+        const text = new TextDecoder().decode(new Uint8Array(args.bytes));
+        if (args.sessionId === 'agent-backend-pty') {
+          inbox.deviceResponses = (inbox.deviceResponses ?? 0) + 1;
+          if (inbox.expectedDsr && /^\\x1b\\[\\d+;\\d+R$/.test(text)) {
+            inbox.expectedDsr = false; inbox.dsr = text;
+            inbox.acceptedResponses = (inbox.acceptedResponses ?? 0) + 1;
+          }
+        }
+        return invoke(command, args);
       }
       case 'terminal_write': {
         const text = new TextDecoder().decode(new Uint8Array(args.bytes));
@@ -236,5 +251,64 @@ test("真实 xterm：安全粘贴未开启时不 begin，开启后的 DSR 应答
   assert.equal(result.inputRevision, 0);
   assert.deepEqual(result.guarded.map((write) => write.sequence), [1, 2]);
   assert.equal(result.receipts[0].phase, "submitted");
+  assert.deepEqual(await view.cdp.evaluate("__productionQA.errors"), []);
+});
+
+test("真实 xterm：重复光标查询的自动回复不占用空输入区，下一批消息仍能送达", { timeout: 60_000 }, async (t) => {
+  const { view } = await productionFixture(t, { nativeSource, terminalCount: 2 });
+  await waitFor(view, "__inboxQA.activated === true");
+  await view.cdp.evaluate(`__inboxQA.expectedDsr = true;
+    window.__productionQA.output('agent-backend-pty', '\\x1b[');
+    window.__productionQA.output('agent-backend-pty', '6n');`);
+  await waitFor(view, "__inboxQA.deviceResponses === 1");
+  await view.cdp.evaluate(`window.__productionQA.output('agent-backend-pty', '\\x1b[6n');`);
+  await waitFor(view, "__inboxQA.deviceResponses === 2");
+  assert.deepEqual(await view.cdp.evaluate("({ accepted: __inboxQA.acceptedResponses, revision: __inboxQA.inputRevision, userWrites: __inboxQA.userWrites })"),
+    { accepted: 1, revision: 0, userWrites: 0 });
+  await view.cdp.evaluate(`(${emit.toString()})('\\x1b[?2004h\\x1b[2J\\x1b[H› \\r\\n', 'done')`);
+  await waitFor(view, "__inboxQA.receipts.length === 1", 20_000);
+  assert.deepEqual(await view.cdp.evaluate("__inboxQA.guarded.map(write => write.sequence)"), [1, 2]);
+  assert.equal(await view.cdp.evaluate("__inboxQA.receipts[0].phase"), "submitted");
+  assert.deepEqual(await view.cdp.evaluate("__productionQA.errors"), []);
+});
+
+test("真实 xterm：鼠标悬停上报不占用空输入区，下一批消息仍能送达", { timeout: 60_000 }, async (t) => {
+  const activeAgent = `${nativeSource}\n(() => {
+    const workspace = JSON.parse(localStorage.getItem('belfry.workspace.v1'));
+    workspace.activeTabId = 'agent-backend';
+    localStorage.setItem('belfry.workspace.v1', JSON.stringify(workspace));
+  })();`;
+  const { view } = await productionFixture(t, { nativeSource: activeAgent, terminalCount: 2 });
+  await waitFor(view, "__inboxQA.activated === true");
+  // Codex enables any-event SGR reporting. A pointer move then emits input bytes without a key or paste.
+  await view.cdp.evaluate(`__inboxQA.expectedDsr = true;
+    window.__productionQA.output('agent-backend-pty', '\\x1b[?2004h\\x1b[?1003h\\x1b[?1006h\\x1b[6n');`);
+  await waitFor(view, "__inboxQA.deviceResponses === 1");
+  const point = await view.cdp.evaluate(`(() => {
+    const rect = document.querySelectorAll('.xterm-screen')[1].getBoundingClientRect();
+    return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+  })()`);
+  await view.send("Input.dispatchMouseEvent", { type: "mouseMoved", ...point, button: "none", buttons: 0 });
+  await waitFor(view, "__productionQA.calls.some(call => /^terminal_write/.test(call.command) && new TextDecoder().decode(new Uint8Array(call.args.bytes)).startsWith('\\x1b[<35;'))");
+  assert.deepEqual(await view.cdp.evaluate("({ revision: __inboxQA.inputRevision, userWrites: __inboxQA.userWrites })"),
+    { revision: 0, userWrites: 0 }, "鼠标悬停不是未提交的用户草稿");
+  assert.ok(await view.cdp.evaluate("__productionQA.responses.some(call => new TextDecoder().decode(new Uint8Array(call.bytes)).startsWith('\\x1b[<35;'))"));
+  await view.cdp.evaluate(`(${emit.toString()})('\\x1b[2J\\x1b[H› \\r\\n', 'done')`);
+  await waitFor(view, "__inboxQA.receipts.length === 1");
+  assert.deepEqual(await view.cdp.evaluate("__inboxQA.guarded.map(write => write.sequence)"), [1, 2]);
+  assert.equal(await view.cdp.evaluate("__inboxQA.receipts[0].phase"), "submitted");
+  assert.deepEqual(await view.cdp.evaluate("__productionQA.errors"), []);
+});
+
+test("真实 xterm：只有 Codex 画的暗色空提示才清除草稿占用", { timeout: 60_000 }, async (t) => {
+  const { view } = await productionFixture(t, { nativeSource, terminalCount: 2 });
+  await waitFor(view, "__inboxQA.activated === true");
+  // 真实草稿不是暗色的，屏幕读取必须保留原生占用。
+  await view.cdp.evaluate(`(${emit.toString()})('\\x1b[?2004h\\x1b[?1049h\\x1b[2J\\x1b[999;1H› unsent draft\\r\\n  ? for shortcuts\\r\\n', 'idle')`);
+  await new Promise(done => setTimeout(done, 600));
+  assert.equal(await view.cdp.evaluate("__inboxQA.confirmations"), 0, "有草稿时不得确认空输入框");
+  // Codex 的空输入框提示由 dim 绘制；看到它才能推翻“按过键就是草稿”的字节历史。
+  await view.cdp.evaluate(`(${emit.toString()})('\\x1b[?2004h\\x1b[?1049h\\x1b[2J\\x1b[999;1H› \\x1b[2mAsk Codex to do anything\\x1b[22m\\r\\n  ? for shortcuts\\r\\n', 'idle')`);
+  await waitFor(view, "__inboxQA.confirmations >= 1", 10_000);
   assert.deepEqual(await view.cdp.evaluate("__productionQA.errors"), []);
 });

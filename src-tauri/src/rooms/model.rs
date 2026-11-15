@@ -188,11 +188,23 @@ pub struct Message {
 impl Message {
     /// 还欠一句回复的收件人。
     pub fn awaiting(&self) -> Vec<String> {
-        if self.reply_cancelled { return Vec::new(); }
+        if self.reply_cancelled {
+            return Vec::new();
+        }
         if let Some(semantics) = &self.inbox {
-            return self.to.iter().filter(|recipient| **recipient != "user" && semantics.questions.iter().any(|question|
-                question.recipients.contains(recipient) && !question.cancelled_for.contains(recipient)
-                    && !question.replies.contains_key(*recipient))).cloned().collect();
+            return self
+                .to
+                .iter()
+                .filter(|recipient| {
+                    **recipient != "user"
+                        && semantics.questions.iter().any(|question| {
+                            question.recipients.contains(recipient)
+                                && !question.cancelled_for.contains(recipient)
+                                && !question.replies.contains_key(*recipient)
+                        })
+                })
+                .cloned()
+                .collect();
         }
         if self.mode != MessageMode::RequestReply || self.reply_cancelled {
             return Vec::new();
@@ -293,22 +305,55 @@ impl Room {
     }
 
     pub fn message_mut(&mut self, id: &str) -> Option<&mut Message> {
-        self.retained_messages.iter_mut().chain(self.messages.iter_mut()).find(|message| message.id == id)
+        self.retained_messages
+            .iter_mut()
+            .chain(self.messages.iter_mut())
+            .find(|message| message.id == id)
     }
 
     pub fn trim_messages(&mut self) {
-        let mut references: std::collections::HashSet<String> = self.all_messages().filter_map(|message| message.reply_to.clone()).collect();
-        let answered: std::collections::HashSet<&String> = self.all_messages().flat_map(|message| message.inbox.iter().flat_map(|semantics| &semantics.answers)).collect();
-        references.extend(self.all_messages().filter(|message| message.inbox.as_ref().is_some_and(|semantics| semantics.questions.iter().any(|question| answered.contains(&question.id)))).map(|message| message.id.clone()));
-        let retain = |message: &Message| !message.awaiting().is_empty()
-            || message.to.iter().any(|id| id != "user" && !message.delivered_to.contains(id))
-            || references.contains(&message.id);
+        let mut references: std::collections::HashSet<String> = self
+            .all_messages()
+            .filter_map(|message| message.reply_to.clone())
+            .collect();
+        let answered: std::collections::HashSet<&String> = self
+            .all_messages()
+            .flat_map(|message| {
+                message
+                    .inbox
+                    .iter()
+                    .flat_map(|semantics| &semantics.answers)
+            })
+            .collect();
+        references.extend(
+            self.all_messages()
+                .filter(|message| {
+                    message.inbox.as_ref().is_some_and(|semantics| {
+                        semantics
+                            .questions
+                            .iter()
+                            .any(|question| answered.contains(&question.id))
+                    })
+                })
+                .map(|message| message.id.clone()),
+        );
+        let retain = |message: &Message| {
+            !message.awaiting().is_empty()
+                || message
+                    .to
+                    .iter()
+                    .any(|id| id != "user" && !message.delivered_to.contains(id))
+                || references.contains(&message.id)
+        };
         self.retained_messages.retain(&retain);
         let overflow = self.messages.len().saturating_sub(MAX_MESSAGES);
-        self.retained_messages.extend(self.messages.drain(..overflow).filter(retain));
+        self.retained_messages
+            .extend(self.messages.drain(..overflow).filter(retain));
     }
     pub fn active_members(&self) -> impl Iterator<Item = &Member> {
-        self.members.iter().filter(|member| member.left_at.is_none())
+        self.members
+            .iter()
+            .filter(|member| member.left_at.is_none())
     }
 
     pub fn active_member(&self, id: &str) -> Option<&Member> {
@@ -320,13 +365,15 @@ impl Room {
     }
 
     pub fn foreman(&self) -> Option<&Member> {
-        self.active_members().find(|member| member.role == MemberRole::Foreman)
+        self.active_members()
+            .find(|member| member.role == MemberRole::Foreman)
     }
 
     /// 按角色名找在场成员。大小写不敏感，前面的 `@` 可有可无。
     pub fn member_by_title(&self, raw: &str) -> Option<&Member> {
         let name = raw.trim().trim_start_matches('@').trim().to_lowercase();
-        self.active_members().find(|member| member.title.to_lowercase() == name)
+        self.active_members()
+            .find(|member| member.title.to_lowercase() == name)
     }
 
     /// 显示名：成员用角色名（离开的也认得出），用户与系统各有固定称呼。
@@ -389,8 +436,12 @@ fn expand_token(room: &Room, sender: &Actor, token: &str) -> Result<Vec<String>,
     let lowered = token.trim().to_lowercase();
     Ok(match lowered.as_str() {
         "@all" | "all" | "@全体" | "全体" => others(&|_| true),
-        "@members" | "members" | "@peers" | "peers" | "@成员" | "成员" => others(&|member| member.role == MemberRole::Peer),
-        "@coordinator" | "coordinator" | "@foreman" | "foreman" | "@统筹" | "统筹" => others(&|member| member.role == MemberRole::Foreman),
+        "@members" | "members" | "@peers" | "peers" | "@成员" | "成员" => {
+            others(&|member| member.role == MemberRole::Peer)
+        }
+        "@coordinator" | "coordinator" | "@foreman" | "foreman" | "@统筹" | "统筹" => {
+            others(&|member| member.role == MemberRole::Foreman)
+        }
         "@user" | "user" | "@用户" | "用户" => vec!["user".to_string()],
         _ => match room.member_by_title(token) {
             Some(member) => vec![member.id.clone()],
@@ -415,7 +466,21 @@ pub fn mentions_in(room: &Room, text: &str) -> Vec<String> {
     let mut needles: Vec<String> = room
         .active_members()
         .map(|member| format!("@{}", member.title))
-        .chain(["@全体", "@all", "@统筹", "@foreman", "@coordinator", "@成员", "@peers", "@members", "@用户", "@user"].map(String::from))
+        .chain(
+            [
+                "@全体",
+                "@all",
+                "@统筹",
+                "@foreman",
+                "@coordinator",
+                "@成员",
+                "@peers",
+                "@members",
+                "@用户",
+                "@user",
+            ]
+            .map(String::from),
+        )
         .collect();
     needles.sort_by_key(|needle| std::cmp::Reverse(needle.chars().count()));
     let mut taken: Vec<(usize, usize)> = Vec::new();
@@ -425,7 +490,10 @@ pub fn mentions_in(room: &Room, text: &str) -> Vec<String> {
         while let Some(offset) = text[from..].find(&needle) {
             let start = from + offset;
             let end = start + needle.len();
-            let bounded = text[end..].chars().next().is_none_or(|ch| !ch.is_alphanumeric());
+            let bounded = text[end..]
+                .chars()
+                .next()
+                .is_none_or(|ch| !ch.is_alphanumeric());
             let shadowed = taken.iter().any(|(a, b)| start < *b && *a < end);
             if bounded && !shadowed {
                 taken.push((start, end));
@@ -454,7 +522,11 @@ pub fn resolve_recipients(
         .map(|token| token.trim().to_string())
         .filter(|token| !token.is_empty())
         .collect();
-    let tokens = if explicit.is_empty() { mentions_in(room, text) } else { explicit };
+    let tokens = if explicit.is_empty() {
+        mentions_in(room, text)
+    } else {
+        explicit
+    };
     let mut out: Vec<String> = Vec::new();
     if tokens.is_empty() {
         out = default_recipients(room, sender);
@@ -475,7 +547,9 @@ pub fn resolve_recipients(
         return Err(belfry_i18n::text("发给用户和发给成员要分成两条消息").to_string());
     }
     if out.is_empty() {
-        return Err(belfry_i18n::text("这条消息没有可以收的人（房间里还没有别的成员？）").to_string());
+        return Err(
+            belfry_i18n::text("这条消息没有可以收的人（房间里还没有别的成员？）").to_string(),
+        );
     }
     Ok(out)
 }
@@ -489,7 +563,9 @@ pub fn may_assign(room: &Room, actor: &Actor, assignee: Option<&str>) -> Result<
         None => Ok(()),
         Some(id) if id == actor.id() => Ok(()),
         Some(id) if room.foreman().is_some_and(|foreman| foreman.id == id) => Ok(()),
-        Some(_) => Err(belfry_i18n::text("成员不能给别的成员派活；需要别人做的，跟统筹说").to_string()),
+        Some(_) => {
+            Err(belfry_i18n::text("成员不能给别的成员派活；需要别人做的，跟统筹说").to_string())
+        }
     }
 }
 
@@ -501,7 +577,10 @@ pub fn may_work_on(actor: &Actor, task: &Task) -> Result<(), String> {
     match &task.assignee {
         Some(id) if id == actor.id() => Ok(()),
         None => Ok(()),
-        Some(_) => Err(belfry_i18n::lformat!("{} 不是你负责的；要换人跟统筹说", task.id)),
+        Some(_) => Err(belfry_i18n::lformat!(
+            "{} 不是你负责的；要换人跟统筹说",
+            task.id
+        )),
     }
 }
 
@@ -510,7 +589,8 @@ pub fn workload(room: &Room, member_id: &str) -> usize {
     room.tasks
         .iter()
         .filter(|task| {
-            task.assignee.as_deref() == Some(member_id) && matches!(task.status, TaskStatus::Planned | TaskStatus::Active)
+            task.assignee.as_deref() == Some(member_id)
+                && matches!(task.status, TaskStatus::Planned | TaskStatus::Active)
         })
         .count()
 }
@@ -523,7 +603,9 @@ pub fn open_blockers(room: &Room, task: &Task) -> Vec<String> {
             room.tasks
                 .iter()
                 .find(|candidate| &candidate.id == *id)
-                .is_some_and(|candidate| !matches!(candidate.status, TaskStatus::Done | TaskStatus::Archived))
+                .is_some_and(|candidate| {
+                    !matches!(candidate.status, TaskStatus::Done | TaskStatus::Archived)
+                })
         })
         .cloned()
         .collect()
@@ -535,7 +617,9 @@ pub fn check_move(actor: &Actor, from: TaskStatus, to: TaskStatus) -> Result<(),
     match (from, to) {
         (a, b) if a == b => Err(belfry_i18n::lformat!("已经是「{}」了", a.label())),
         (Planned, Active) | (Planned, Done) | (Active, Done) | (Active, Planned) => Ok(()),
-        (_, Archived) | (Done, Active) | (Done, Planned) | (Archived, _) if actor.coordinates() => Ok(()),
+        (_, Archived) | (Done, Active) | (Done, Planned) | (Archived, _) if actor.coordinates() => {
+            Ok(())
+        }
         (_, Archived) => Err(belfry_i18n::text("只有统筹或用户能归档任务").to_string()),
         (Done, _) => Err(belfry_i18n::text("已完成的任务只有统筹或用户能重开").to_string()),
         (Archived, _) => Err(belfry_i18n::text("已归档的任务只有统筹或用户能恢复").to_string()),

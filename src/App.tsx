@@ -24,7 +24,7 @@ import type { ShellProfileId, SshLaunch } from "./terminal/contracts";
 import { useTerminalTargets } from "./terminal/useTerminalTargets";
 import { needsCloseConfirm } from "./workspace/closeConfirm";
 import { Sidebar } from "./workspace/components/Sidebar";
-import type { RecentProject } from "./workspace/contracts";
+import type { ProjectWorkspace, RecentProject } from "./workspace/contracts";
 import { pathKey } from "./workspace/path";
 import { groupTabsByProject } from "./workspace/tabs";
 import { useFoldedProjects } from "./workspace/useFoldedProjects";
@@ -67,6 +67,7 @@ export default function App() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState<string | undefined>(undefined);
+  const [a2aProject, setA2AProject] = useState<ProjectWorkspace | null>(null);
   const [collabOpen, setCollabOpen] = useState(false);
   const [roomsOpen, setRoomsOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -109,8 +110,8 @@ export default function App() {
   }, [unfold, workspace.launchHistorySession, workspace.activeProject]);
 
   // 房间成员会话只在房间里露面：侧栏、Quick Open 与 ⌘1-9 都按过滤后的列表走；
-  // 投递、协作名册与持久化仍拿全量 tabs——隔离只做在展示层。
-  const roomBound = useRoomBoundTabs();
+  // 投递、协作名册与持久化仍拿全量 tabs；已删除房间的成员同步从存档移除。
+  const roomBound = useRoomBoundTabs(workspace.forgetTabs);
   // 房间成员的会话标题是自动生成的那串「[belfry] 房间…」，通知里换成「房间 · 角色」才认得出是谁在等你。
   const notifyTabs = useMemo(
     () => workspace.tabs.map((tab) => {
@@ -173,6 +174,15 @@ export default function App() {
   }, [workspace.tabs, roomBound.boundIds, promptQueue.paused, roomUnread]);
 
   const collab = useCollabTasks(id => { promptQueue.resolvePersisted(id); resolveTaskDelivery(id); });
+  const openA2A = useCallback(() => {
+    if (!workspace.activeProject) return;
+    quickOpen.close();
+    setSettingsOpen(false); setPluginDockOpen(false); setUsageOpen(false); setHistoryOpen(false);
+    setPreviewOpen(false); setPreviewRequest(null); setCollabOpen(false); setRoomsOpen(false);
+    // Keep the selected project fixed while a connection editor is open.
+    setA2AProject({ ...workspace.activeProject });
+  }, [quickOpen.close, workspace.activeProject]);
+  const closeA2A = useCallback(() => setA2AProject(null), []);
   // 历史会话与用量面板互斥：两者都占右侧一列，栅格只留了一条轨道。
   const toggleUsage = useCallback(() => {
     setPluginDockOpen(false);
@@ -313,7 +323,7 @@ export default function App() {
   // 查不到就自然不渲染，也不会拿着一份过期的 phase 去写文案。
   const pendingClose = workspace.tabs.find((tab) => tab.id === pendingCloseId) ?? null;
   const shortcuts = useAppShortcuts({
-    blocked: Boolean(pendingClose || pendingRemove || updater.open),
+    blocked: Boolean(pendingClose || pendingRemove || updater.open || a2aProject),
     quickOpenOpen: quickOpen.open,
     onActivateSession: (index) => {
       const tab = groupTabsByProject(listedTabs).flatMap((group) => group.tabs)[index];
@@ -353,7 +363,7 @@ export default function App() {
       <WindowTitlebar />
       <PluginRuntimeBridge workspacePath={workspace.activeProject?.rootPath} sessionId={workspace.activeTabId} />
 
-      <div className={`sidebar-shell${collapsed ? " is-collapsed" : ""}`} inert={collapsed} aria-hidden={collapsed}>
+      <div className={`sidebar-shell${collapsed ? " is-collapsed" : ""}`} inert={collapsed || !!a2aProject} aria-hidden={collapsed || !!a2aProject}>
         <Sidebar
           workspaceControls={<NamedWorkspaceControls model={workspace.named}
             activeTab={workspace.tabs.find((tab) => tab.id === workspace.activeTabId) ?? null}
@@ -398,6 +408,7 @@ export default function App() {
 
       <Workbench
         activeProject={workspace.activeProject}
+        a2aOpen={!!a2aProject}
         activeTabId={workspace.activeTabId}
         collapsed={collapsed}
         collabOpen={collabOpen}
@@ -409,6 +420,7 @@ export default function App() {
         onFocus={workspace.setActiveTabId}
         onLaunchShell={() => launch("shell")}
         onOpenProject={workspace.selectProject}
+        onOpenA2A={openA2A}
         onOpenShortcutGuide={shortcuts.openGuide}
         onRegisterTarget={terminalTargets.register}
         onOpenFile={openTerminalFile}
@@ -435,7 +447,7 @@ export default function App() {
         tabs={workspace.tabs}
       />
 
-      <Presence open={collabOpen} drawer><CollabPanel collab={collab} deliveryHalted={inboxDelivery.mode === "halted"} deliveryError={inboxDelivery.error} onClose={() => setCollabOpen(false)}
+      <Presence open={collabOpen} drawer><CollabPanel collab={collab} projectRoot={workspace.activeProject?.rootPath} deliveryHalted={inboxDelivery.mode === "halted"} deliveryError={inboxDelivery.error} onClose={() => setCollabOpen(false)}
         availableTabIds={workspace.tabs.map(tab => tab.id)} onOpenTerminal={tabId => { setCollabOpen(false); openRoomSession(tabId); }} /></Presence>
       <PluginDock visible={pluginDockOpen && !settingsOpen} onClose={() => setPluginDockOpen(false)} />
 
@@ -456,6 +468,7 @@ export default function App() {
       </GitReviewProvider>
 
       <AppOverlays
+        a2aProject={a2aProject}
         agents={workspace.agents}
         failure={workspace.failure}
         historyOpen={historyOpen}
@@ -463,6 +476,7 @@ export default function App() {
         onCancelRemove={() => setPendingRemove(null)}
         onCheckUpdate={updater.checkNow}
         onCloseHistory={() => setHistoryOpen(false)}
+        onCloseA2A={closeA2A}
         onCloseQuickOpen={quickOpen.close}
         onCloseRooms={() => { setRoomsOpen(false); void roomBound.refresh(); }}
         onCloseSettings={() => setSettingsOpen(false)}
@@ -478,6 +492,7 @@ export default function App() {
         onDismissFailure={workspace.dismissFailure}
         onInstallUpdate={updater.install}
         onOpenRoomSession={openRoomSession}
+        onDeleteRoomSessions={workspace.forgetTabs}
         roomInboxEnabled={inboxDelivery.mode === "inbox"}
         onOpenRoomFile={openRoomFile}
         onClearRoomMemberContext={clearRoomMemberContext}

@@ -24,10 +24,16 @@ const ENTRY_BYTES: usize = 64 * 1024;
 static LOGGER: OnceLock<AppLogger> = OnceLock::new();
 
 /// Shared by structured error parameters and their English fallback.
-pub(crate) fn sanitize_error(value: &str) -> String { redact(bounded(value, 8192)) }
+pub(crate) fn sanitize_error(value: &str) -> String {
+    redact(bounded(value, 8192))
+}
 
 pub(crate) fn sanitize_error_parameter(name: &str, value: &str) -> String {
-    if secret_key(name) { "[REDACTED]".into() } else { sanitize_error(value) }
+    if secret_key(name) {
+        "[REDACTED]".into()
+    } else {
+        sanitize_error(value)
+    }
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]

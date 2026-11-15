@@ -24,7 +24,9 @@ pub async fn agent_hooks_preview(
 ) -> Result<InstallPreview, AppError> {
     tauri::async_runtime::spawn_blocking(move || {
         if enabled && kind.terminal_status_app().is_some() {
-            return Err(AppError::unsupported(belfry_i18n::text("Codex 和 Claude 使用原生终端状态报告，无需安装状态 Hook")));
+            return Err(AppError::unsupported(belfry_i18n::text(
+                "Codex 和 Claude 使用原生终端状态报告，无需安装状态 Hook",
+            )));
         }
         if enabled && !settings::report(kind).supported {
             return Err(AppError::unsupported(

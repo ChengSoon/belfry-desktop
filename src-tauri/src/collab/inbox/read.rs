@@ -10,7 +10,11 @@ pub(super) fn availability(registry: &SessionRegistry, recipient: &Recipient) ->
     let Some(session) = registry.find(&recipient.tab_id) else {
         return "offline";
     };
-    if session.project_root.as_ref().is_none_or(|root| source::normalize_root(root) != recipient.project_root) {
+    if session
+        .project_root
+        .as_ref()
+        .is_none_or(|root| source::normalize_root(root) != recipient.project_root)
+    {
         return "unavailable";
     }
     if matches!(session.activity.as_str(), "exited" | "offline") {
@@ -19,7 +23,8 @@ pub(super) fn availability(registry: &SessionRegistry, recipient: &Recipient) ->
     match session.activity.as_str() {
         "idle" | "done" if session.can_receive => "ready",
         "idle" | "done" | "error" | "clear" | "unknown" => "unavailable",
-        "blocked" | "needs_input" | "needs-input" | "awaiting-choice" | "awaiting_input" | "waiting" => "needs_input",
+        "blocked" | "needs_input" | "needs-input" | "awaiting-choice" | "awaiting_input"
+        | "waiting" => "needs_input",
         _ => "busy",
     }
 }
@@ -43,7 +48,8 @@ pub(super) fn blocker(
         return Some(Status::new("target_changed"));
     }
     if let Some(batch) = data.batches.values().find(|batch| {
-        batch.view.recipient.session_key == entry.view.recipient.session_key && batch.view.phase == "uncertain"
+        batch.view.recipient.session_key == entry.view.recipient.session_key
+            && batch.view.phase == "uncertain"
     }) {
         return Some(Status::new("uncertain").with("batchId", &batch.view.id));
     }
@@ -86,6 +92,7 @@ pub(super) fn message(
     imported: bool,
 ) -> MessageView {
     let mut view = entry.view.clone();
+    view.task_ref = entry.task.clone();
     let code = match view.delivery_phase {
         DeliveryPhase::Pending if view.class == MessageClass::Fyi => "fyi",
         DeliveryPhase::Pending => "collecting",
@@ -114,7 +121,8 @@ pub(super) fn message(
             if !imported {
                 Some(Status::new("source_sync_pending"))
             } else {
-                blocker(entry, data, sources, registry, now, true).or(Some(Status::new("queue_turn")))
+                blocker(entry, data, sources, registry, now, true)
+                    .or(Some(Status::new("queue_turn")))
             }
         }
         DeliveryPhase::Uncertain => Some(view.delivery_status.clone()),
@@ -147,60 +155,84 @@ pub(super) fn sessions(
         entry.view.recipient.project_root == root
             && room_id.is_none_or(|room| entry.view.source.room_id.as_deref() == Some(room))
     }) {
-        groups.entry(entry.view.recipient.session_key.clone()).or_default().push(message(
-            entry,
-            &projected,
-            sources,
-            registry,
-            now,
-            imported.contains(&entry.view.id),
-        ));
+        groups
+            .entry(entry.view.recipient.session_key.clone())
+            .or_default()
+            .push(message(
+                entry,
+                &projected,
+                sources,
+                registry,
+                now,
+                imported.contains(&entry.view.id),
+            ));
     }
     // Existing sessions without messages are still stable rows, scoped to the requested project/room.
     if room_id.is_none() {
-        for session in registry
-            .all()
-            .iter()
-            .filter(|session| session.project_root.as_ref().is_some_and(|value| source::normalize_root(value) == root))
-        {
-            groups.entry(source::session_key(&root, &session.tab_id)).or_default();
+        for session in registry.all().iter().filter(|session| {
+            session
+                .project_root
+                .as_ref()
+                .is_some_and(|value| source::normalize_root(value) == root)
+        }) {
+            groups
+                .entry(source::session_key(&root, &session.tab_id))
+                .or_default();
         }
     }
     let mut sessions = Vec::new();
     for (key, mut messages) in groups {
         messages.sort_by(|a, b| (a.created_at, &a.id).cmp(&(b.created_at, &b.id)));
         let recipient = messages.last().map(|m| m.recipient.clone()).or_else(|| {
-            registry.all().into_iter().find(|s| source::session_key(&root, &s.tab_id) == key).map(|s| Recipient {
-                id: s.tab_id.clone(),
-                session_key: key.clone(),
-                project_root: root.clone(),
-                tab_id: s.tab_id.clone(),
-                room_id: None,
-                member_id: None,
-                name: s.name.unwrap_or(s.tab_id),
-                agent: s.agent,
-            })
+            registry
+                .all()
+                .into_iter()
+                .find(|s| source::session_key(&root, &s.tab_id) == key)
+                .map(|s| Recipient {
+                    id: s.tab_id.clone(),
+                    session_key: key.clone(),
+                    project_root: root.clone(),
+                    tab_id: s.tab_id.clone(),
+                    room_id: None,
+                    member_id: None,
+                    name: s.name.unwrap_or(s.tab_id),
+                    agent: s.agent,
+                })
         });
         let Some(recipient) = recipient else {
             continue;
         };
-        let pending_messages: Vec<_> =
-            messages.iter().filter(|m| m.class != MessageClass::Fyi && pending(&m.delivery_phase)).collect();
+        let pending_messages: Vec<_> = messages
+            .iter()
+            .filter(|m| m.class != MessageClass::Fyi && pending(&m.delivery_phase))
+            .collect();
         let awaiting_reply_count = messages
             .iter()
             .filter(|m| m.delivery_phase == DeliveryPhase::Submitted)
             .flat_map(|m| &m.questions)
             .filter(|q| q.state == "open")
             .count();
-        let summary = if let Some(message) = messages.iter().find(|m| m.delivery_phase == DeliveryPhase::Uncertain) {
+        let summary = if let Some(message) = messages
+            .iter()
+            .find(|m| m.delivery_phase == DeliveryPhase::Uncertain)
+        {
             message.delivery_status.clone()
         } else if !pending_messages.is_empty() {
-            let reasons: Vec<_> =
-                pending_messages.iter().map(|m| m.waiting_reason.as_ref().unwrap_or(&m.delivery_status)).collect();
-            if reasons.iter().all(|r| *r == reasons[0]) { reasons[0].clone() } else { Status::new("mixed_waiting") }
+            let reasons: Vec<_> = pending_messages
+                .iter()
+                .map(|m| m.waiting_reason.as_ref().unwrap_or(&m.delivery_status))
+                .collect();
+            if reasons.iter().all(|r| *r == reasons[0]) {
+                reasons[0].clone()
+            } else {
+                Status::new("mixed_waiting")
+            }
         } else if awaiting_reply_count > 0 {
             Status::new("waiting_reply")
-        } else if messages.iter().any(|m| m.handling_status.code == "processing") {
+        } else if messages
+            .iter()
+            .any(|m| m.handling_status.code == "processing")
+        {
             Status::new("processing")
         } else if messages.is_empty() {
             Status::new("empty")
@@ -211,8 +243,13 @@ pub(super) fn sessions(
         sessions.push(SessionView {
             session_key: key,
             tab_id: recipient.tab_id.clone(),
-            name: active.as_ref().and_then(|s| s.name.clone()).unwrap_or_else(|| recipient.name.clone()),
-            agent: active.map(|s| s.agent).unwrap_or_else(|| recipient.agent.clone()),
+            name: active
+                .as_ref()
+                .and_then(|s| s.name.clone())
+                .unwrap_or_else(|| recipient.name.clone()),
+            agent: active
+                .map(|s| s.agent)
+                .unwrap_or_else(|| recipient.agent.clone()),
             project_root: root.clone(),
             runtime_availability: if availability(registry, &recipient) == "ready"
                 && sources.native_unready.contains_key(&recipient.tab_id)
@@ -225,13 +262,25 @@ pub(super) fn sessions(
             summary_status: summary,
             pending_count: pending_messages.len(),
             awaiting_reply_count,
-            last_message_preview: messages.last().map(|m| crate::rooms::model::excerpt(&m.text, 120)),
+            last_message_preview: messages
+                .last()
+                .map(|m| crate::rooms::model::excerpt(&m.text, 120)),
             last_message_at: messages.last().map(|m| m.created_at),
             oldest_pending_at: pending_messages.iter().map(|m| m.created_at).min(),
         });
     }
-    sessions.sort_by(|a, b| b.last_message_at.cmp(&a.last_message_at).then_with(|| a.session_key.cmp(&b.session_key)));
-    SessionsView { schema_version: SCHEMA_VERSION, revision, generated_at: now, sessions, load_error: error }
+    sessions.sort_by(|a, b| {
+        b.last_message_at
+            .cmp(&a.last_message_at)
+            .then_with(|| a.session_key.cmp(&b.session_key))
+    });
+    SessionsView {
+        schema_version: SCHEMA_VERSION,
+        revision,
+        generated_at: now,
+        sessions,
+        load_error: error,
+    }
 }
 
 pub(super) fn messages(
@@ -250,14 +299,25 @@ pub(super) fn messages(
     let imported: BTreeSet<_> = data.entries.keys().cloned().collect();
     let mut projected = data.clone();
     source::merge(&mut projected, sources);
-    let own: Vec<_> = projected.entries.values().filter(|entry| entry.view.recipient.session_key == key).collect();
-    let roots: BTreeSet<_> = own.iter().map(|entry| entry.view.recipient.project_root.as_str()).collect();
+    let own: Vec<_> = projected
+        .entries
+        .values()
+        .filter(|entry| entry.view.recipient.session_key == key)
+        .collect();
+    let roots: BTreeSet<_> = own
+        .iter()
+        .map(|entry| entry.view.recipient.project_root.as_str())
+        .collect();
     let referenced = |entry: &Entry| {
         own.iter().any(|reader| {
             reader.view.source.room_id == entry.view.source.room_id
                 && reader.view.recipient.project_root == entry.view.recipient.project_root
                 && (reader.view.reply_to.as_deref() == Some(&entry.view.message_id)
-                    || entry.view.questions.iter().any(|question| reader.answers.contains(&question.id)))
+                    || entry
+                        .view
+                        .questions
+                        .iter()
+                        .any(|question| reader.answers.contains(&question.id)))
         })
     };
     let entries: Vec<_> = projected
@@ -283,7 +343,16 @@ pub(super) fn messages(
         revision,
         messages: entries
             .iter()
-            .map(|entry| message(entry, &projected, sources, registry, at, imported.contains(&entry.view.id)))
+            .map(|entry| {
+                message(
+                    entry,
+                    &projected,
+                    sources,
+                    registry,
+                    at,
+                    imported.contains(&entry.view.id),
+                )
+            })
             .collect(),
         next_cursor,
         load_error: error,
@@ -299,10 +368,13 @@ pub(super) fn page<'a>(
     if let Some(cursor) = cursor {
         let parts: Vec<_> = cursor.split('.').collect();
         if cursor.len() > 240 || parts.len() != 4 || parts[0] != "v1" || parts[3] != scope {
-            return Err(AppError::invalid_argument("Inbox cursor belongs to another query or format"));
+            return Err(AppError::invalid_argument(
+                "Inbox cursor belongs to another query or format",
+            ));
         }
-        let before =
-            parts[1].parse::<i64>().map_err(|_| AppError::invalid_argument("Invalid inbox cursor boundary"))?;
+        let before = parts[1]
+            .parse::<i64>()
+            .map_err(|_| AppError::invalid_argument("Invalid inbox cursor boundary"))?;
         let id = parts[2];
         if !id.starts_with("e:") || id.len() != 66 {
             return Err(AppError::invalid_argument("Invalid inbox cursor entry ID"));
@@ -312,7 +384,10 @@ pub(super) fn page<'a>(
     entries.sort_by(|a, b| (a.view.created_at, &a.view.id).cmp(&(b.view.created_at, &b.view.id)));
     let start = entries.len().saturating_sub(limit);
     let cursor = if start > 0 {
-        Some(format!("v1.{}.{}.{}", entries[start].view.created_at, entries[start].view.id, scope))
+        Some(format!(
+            "v1.{}.{}.{}",
+            entries[start].view.created_at, entries[start].view.id, scope
+        ))
     } else {
         None
     };

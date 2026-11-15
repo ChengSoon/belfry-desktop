@@ -107,7 +107,10 @@ impl AgentDescriptor {
             kind,
             display_name: kind.display_name().to_string(),
             command: kind.command_name().to_string(),
-            capabilities: AgentCapabilities { structured_state: kind.terminal_status_app().is_some(), ..AgentCapabilities::cli_foundation() },
+            capabilities: AgentCapabilities {
+                structured_state: kind.terminal_status_app().is_some(),
+                ..AgentCapabilities::cli_foundation()
+            },
         }
     }
 }
@@ -164,7 +167,14 @@ pub enum AgentStateSource {
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "lowercase")]
-pub enum ProgramState { Idle, Working, Blocked, Done, Error, Clear }
+pub enum ProgramState {
+    Idle,
+    Working,
+    Blocked,
+    Done,
+    Error,
+    Clear,
+}
 
 impl ProgramState {
     pub fn allows_input(self) -> bool {
@@ -184,7 +194,11 @@ impl ProgramState {
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "lowercase")]
-pub enum ProgramBlockKind { Permission, Question, Auth }
+pub enum ProgramBlockKind {
+    Permission,
+    Question,
+    Auth,
+}
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]

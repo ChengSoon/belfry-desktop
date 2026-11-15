@@ -385,8 +385,7 @@
 .collab-empty__howto > p { color: var(--text-muted); font-size: var(--fs-xs); }
 .collab-empty__command { display: grid; gap: 2px; }
 
-/* 命令默认极轻——它只是语法参考，不该是整页最重的东西；hover / 键盘聚焦时才浮起来。
-   负 margin 让静态时的文字左缘和上下段落对齐，浮起的底色则往外扩出 padding。 */
+/* 可复制的自然语言提示，聚焦时显示背景。 */
 .collab-empty__copy {
   display: flex;
   width: 100%;
@@ -402,11 +401,10 @@
   cursor: pointer;
   transition: background var(--duration) var(--ease), color var(--duration) var(--ease);
 }
-.collab-empty__copy code {
+.collab-empty__prompt {
   min-width: 0;
   flex: 1 1 auto;
   color: var(--text);
-  font-family: var(--font-mono);
   font-size: var(--fs-xs);
   overflow-wrap: anywhere;
 }

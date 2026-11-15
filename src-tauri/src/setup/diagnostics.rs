@@ -1,95 +1,133 @@
-use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::time::Duration;
 
-use belfry_protocol::ENV_ENDPOINT;
+use serde_json::Value;
 
-use crate::agent::AgentKind;
-use crate::collab::SessionIdentities;
-
-use super::client;
 use super::contracts::{CheckKind, CheckState, EnvironmentCheck, EnvironmentReport};
-use super::skill::{self, SkillState};
+use super::{
+    client,
+    migration::{self, CopyState},
+};
+use crate::agent::AgentKind;
 
-pub fn run(endpoint: Option<&str>, identities: &SessionIdentities) -> EnvironmentReport {
+pub fn run(gateway: &Value) -> EnvironmentReport {
     let mut checks = Vec::new();
     for agent in AgentKind::ALL {
-        checks.push(skill_check(agent));
+        checks.push(adapter_check(agent, gateway));
         checks.extend(client::checks(agent));
     }
-    checks.push(collaboration_check(endpoint, identities));
+    checks.push(collaboration_check(gateway));
+    checks.push(migration_check());
     EnvironmentReport::new(checks)
 }
 
-fn skill_check(agent: AgentKind) -> EnvironmentCheck {
-    match skill::inspect(agent) {
-        Ok(inspection) => from_skill_inspection(inspection),
-        Err(error) => {
-            EnvironmentCheck::new(CheckKind::Skill(agent), CheckState::Error, error.message)
-        }
-    }
-}
-
-fn from_skill_inspection(inspection: skill::SkillInspection) -> EnvironmentCheck {
-    let path = inspection.path.to_string_lossy();
-    let kind = CheckKind::Skill(inspection.agent);
-    match inspection.state {
-        SkillState::Current => {
-            EnvironmentCheck::new(kind, CheckState::Ok, belfry_i18n::lformat!("已同步到 {path}"))
-        }
-        // pi 会扫 `~/.agents/skills/`，那份已是当前版本时不必再装一遍。
-        SkillState::Shared => {
-            EnvironmentCheck::new(kind, CheckState::Ok, belfry_i18n::lformat!("已由共享目录提供：{path}"))
-        }
-        SkillState::Missing => {
-            EnvironmentCheck::new(kind, CheckState::Warning, belfry_i18n::lformat!("尚未安装到 {path}"))
-        }
-        SkillState::Outdated => {
-            EnvironmentCheck::new(kind, CheckState::Warning, belfry_i18n::lformat!("需要更新：{path}"))
-        }
-    }
-}
-
-fn collaboration_check(endpoint: Option<&str>, identities: &SessionIdentities) -> EnvironmentCheck {
-    let Some(endpoint) = endpoint else {
-        return collab_error(belfry_i18n::text("Belfry 协作服务未启动"));
+fn adapter_check(agent: AgentKind, gateway: &Value) -> EnvironmentCheck {
+    let count = gateway["adapters"]
+        .as_array()
+        .and_then(|adapters| {
+            adapters
+                .iter()
+                .find(|adapter| adapter["agent"] == agent.id())
+        })
+        .and_then(|adapter| adapter["readyInstances"].as_u64())
+        .unwrap_or(0);
+    let (state, summary) = if count > 0 {
+        (
+            CheckState::Ok,
+            belfry_i18n::lformat!("已验证 {count} 个运行中实例的 A2A 工具就绪"),
+        )
+    } else if matches!(agent, AgentKind::Codex | AgentKind::Claude) {
+        (
+            CheckState::Warning,
+            belfry_i18n::text("尚无就绪实例；启动托管 Agent 并读取工具目录后可自动发现")
+                .to_string(),
+        )
+    } else {
+        (
+            CheckState::Warning,
+            belfry_i18n::text("此 CLI 尚无经验证的自动 A2A 执行与报告适配器").to_string(),
+        )
     };
-    let Some(cli) = belfry_cli_path() else {
-        return collab_error(belfry_i18n::text("安装包中缺少 belfry 控制 CLI"));
-    };
-    run_peers_check(&cli, endpoint, identities)
+    EnvironmentCheck::new(CheckKind::Adapter(agent), state, summary)
 }
 
-fn run_peers_check(cli: &Path, endpoint: &str, identities: &SessionIdentities) -> EnvironmentCheck {
-    let tab_id = format!("belfry-diagnostic-{}", ulid::Ulid::generate());
-    let mut command = Command::new(cli);
-    command.arg("peers").env(ENV_ENDPOINT, endpoint);
-    for (key, value) in identities.issue(&tab_id, None) {
-        command.env(key, value);
+fn migration_check() -> EnvironmentCheck {
+    let inspections = migration::inspect_all();
+    let retained = inspections
+        .iter()
+        .filter(|inspection| {
+            !matches!(
+                inspection.state,
+                Ok(CopyState::Missing | CopyState::Removed)
+            )
+        })
+        .collect::<Vec<_>>();
+    if retained.is_empty() {
+        EnvironmentCheck::new(
+            CheckKind::Migration,
+            CheckState::Ok,
+            belfry_i18n::text("协作已改用 A2A 工具，不再安装 Belfry 协作 Skill"),
+        )
+    } else {
+        let paths = retained
+            .iter()
+            .map(|inspection| format!("{}: {}", inspection.label, inspection.path.display()))
+            .collect::<Vec<_>>()
+            .join("; ");
+        EnvironmentCheck::new(
+            CheckKind::Migration,
+            CheckState::Warning,
+            belfry_i18n::lformat!("保留了无法确认或修改过的旧 Skill 副本，请人工检查：{paths}"),
+        )
     }
-    let output = command.output();
-    identities.revoke(&tab_id);
-    match output {
-        Ok(output) if output.status.success() => EnvironmentCheck::new(
+}
+
+fn collaboration_check(gateway: &Value) -> EnvironmentCheck {
+    let Some(origin) = gateway["origin"]
+        .as_str()
+        .filter(|_| gateway["available"] == true)
+    else {
+        return collab_error(belfry_i18n::text("本地 A2A 网关未启动"));
+    };
+    let url = format!("{origin}/health");
+    let result = tauri::async_runtime::block_on(async {
+        if rustls::crypto::CryptoProvider::get_default().is_none() {
+            let _ = rustls::crypto::ring::default_provider().install_default();
+        }
+        let client = reqwest::Client::builder()
+            .no_proxy()
+            .redirect(reqwest::redirect::Policy::none())
+            .timeout(Duration::from_secs(2))
+            .build()
+            .map_err(|_| ())?;
+        let mut response = client.get(url).send().await.map_err(|_| ())?;
+        if !response.status().is_success() {
+            return Err(());
+        }
+        let mut bytes = Vec::new();
+        while let Some(chunk) = response.chunk().await.map_err(|_| ())? {
+            if bytes.len() + chunk.len() > 1024 {
+                return Err(());
+            }
+            bytes.extend_from_slice(&chunk);
+        }
+        let body: Value = serde_json::from_slice(&bytes).map_err(|_| ())?;
+        if body["ready"] != true
+            || body["protocolVersion"] != "1.0"
+            || body["protocolBinding"] != "JSONRPC"
+        {
+            return Err(());
+        }
+        Ok(())
+    });
+    match result {
+        Ok(()) => EnvironmentCheck::new(
             CheckKind::Collaboration,
             CheckState::Ok,
-            belfry_i18n::text("控制 CLI、协议与协作服务已连通"),
+            belfry_i18n::text("本地 A2A 1.0 JSON-RPC 网关 HTTP 自检通过"),
         ),
-        Ok(_) => collab_error(belfry_i18n::text("belfry peers 自检失败")),
-        Err(error) => collab_error(belfry_i18n::lformat!("控制 CLI 无法启动：{error}")),
+        Err(()) => collab_error(belfry_i18n::text("本地 A2A 网关 HTTP 自检失败")),
     }
 }
-
 fn collab_error(message: impl Into<String>) -> EnvironmentCheck {
     EnvironmentCheck::new(CheckKind::Collaboration, CheckState::Error, message)
-}
-
-fn belfry_cli_path() -> Option<PathBuf> {
-    let directory = std::env::current_exe().ok()?.parent()?.to_path_buf();
-    let name = if cfg!(windows) {
-        "belfry.exe"
-    } else {
-        "belfry"
-    };
-    let path = directory.join(name);
-    path.is_file().then_some(path)
 }

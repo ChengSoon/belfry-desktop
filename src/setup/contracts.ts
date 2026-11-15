@@ -1,6 +1,3 @@
-import { t } from "../i18n";
-import { AGENT_METADATA, agentRecord, type AgentKind } from "../agent/contracts";
-export type { AgentKind } from "../agent/contracts";
 export type CheckState = "ok" | "warning" | "error";
 
 export interface EnvironmentCheck {
@@ -16,24 +13,6 @@ export interface EnvironmentReport {
   checks: EnvironmentCheck[];
 }
 
-export type SkillInstallAction = "installed" | "updated" | "unchanged" | "failed";
-
-export interface SkillInstallTargetOutcome {
-  agent: AgentKind;
-  action: SkillInstallAction;
-  path: string | null;
-  summary: string;
-}
-
-export interface SkillInstallOutcome {
-  results: SkillInstallTargetOutcome[];
-}
-
-export interface SkillInstallFeedback {
-  notice: string | null;
-  failure: string | null;
-}
-
 export interface CheckCounts {
   ok: number;
   warning: number;
@@ -45,20 +24,4 @@ export function countChecks(report: EnvironmentReport): CheckCounts {
     counts[check.state] += 1;
     return counts;
   }, { ok: 0, warning: 0, error: 0 });
-}
-
-const AGENT_LABEL = agentRecord((kind) => AGENT_METADATA[kind].name);
-
-export function summarizeSkillInstall(outcome: SkillInstallOutcome): SkillInstallFeedback {
-  const failed = outcome.results.filter((result) => result.action === "failed");
-  const succeeded = outcome.results.filter((result) => result.action !== "failed");
-  const changed = succeeded.filter((result) => result.action !== "unchanged").length;
-  const unchanged = succeeded.length - changed;
-  const notice = succeeded.length === 0
-    ? null
-    : t("setup.contracts.text_69dc809232", { count: succeeded.length, changed: changed, unchanged: unchanged });
-  const failure = failed.length === 0
-    ? null
-    : failed.map((result) => `${AGENT_LABEL[result.agent]}: ${result.summary}`).join("; ");
-  return { failure, notice };
 }

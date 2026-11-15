@@ -208,23 +208,37 @@ fn collaboration_forwards_commands_the_daemon_does_not_know() {
     let relay = Relay::start().unwrap();
     let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
     let mut launch = request();
-    launch.env.insert(belfry_protocol::ENV_ENDPOINT.into(), format!("tcp:{}", listener.local_addr().unwrap()));
-    launch.env.insert(belfry_protocol::ENV_TOKEN.into(), "ui-secret".into());
+    launch.env.insert(
+        belfry_protocol::ENV_ENDPOINT.into(),
+        format!("tcp:{}", listener.local_addr().unwrap()),
+    );
+    launch
+        .env
+        .insert(belfry_protocol::ENV_TOKEN.into(), "ui-secret".into());
     relay.bind("pty", &mut launch).unwrap();
-    let port: u16 = launch.env[belfry_protocol::ENV_ENDPOINT].strip_prefix("tcp:127.0.0.1:").unwrap().parse().unwrap();
+    let port: u16 = launch.env[belfry_protocol::ENV_ENDPOINT]
+        .strip_prefix("tcp:127.0.0.1:")
+        .unwrap()
+        .parse()
+        .unwrap();
     let worker = thread::spawn(move || {
         let (mut stream, _) = listener.accept().unwrap();
         let mut line = String::new();
-        BufReader::new(stream.try_clone().unwrap()).read_line(&mut line).unwrap();
+        BufReader::new(stream.try_clone().unwrap())
+            .read_line(&mut line)
+            .unwrap();
         let forwarded: serde_json::Value = serde_json::from_str(&line).unwrap();
         assert_eq!(forwarded["token"], "ui-secret", "换成应用的票");
         assert_eq!(forwarded["command"]["kind"], "someFutureCommand");
         assert_eq!(forwarded["command"]["payload"], 42, "命令原样转发");
-        stream.write_all(b"{\"status\":\"error\",\"message\":\"app-handled\"}\n").unwrap();
+        stream
+            .write_all(b"{\"status\":\"error\",\"message\":\"app-handled\"}\n")
+            .unwrap();
     });
     let line = format!(
         "{{\"version\":{},\"tabId\":\"qa-tab\",\"token\":\"{}\",\"command\":{{\"kind\":\"someFutureCommand\",\"payload\":42}}}}\n",
-        belfry_protocol::PROTOCOL_VERSION, launch.env[belfry_protocol::ENV_TOKEN]
+        belfry_protocol::PROTOCOL_VERSION,
+        launch.env[belfry_protocol::ENV_TOKEN]
     );
     let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
     stream.write_all(line.as_bytes()).unwrap();
@@ -243,7 +257,10 @@ fn collaboration_forwards_commands_the_daemon_does_not_know() {
         stream.write_all(bad.as_bytes()).unwrap();
         let mut response = String::new();
         BufReader::new(stream).read_line(&mut response).unwrap();
-        assert!(response.contains("\"status\":\"error\""), "{bad} -> {response}");
+        assert!(
+            response.contains("\"status\":\"error\""),
+            "{bad} -> {response}"
+        );
     }
 }
 
@@ -252,10 +269,19 @@ fn collaboration_preserves_future_response_types_and_fields() {
     let relay = Relay::start().unwrap();
     let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
     let mut launch = request();
-    launch.env.insert(belfry_protocol::ENV_ENDPOINT.into(), format!("tcp:{}", listener.local_addr().unwrap()));
-    launch.env.insert(belfry_protocol::ENV_TOKEN.into(), "ui-secret".into());
+    launch.env.insert(
+        belfry_protocol::ENV_ENDPOINT.into(),
+        format!("tcp:{}", listener.local_addr().unwrap()),
+    );
+    launch
+        .env
+        .insert(belfry_protocol::ENV_TOKEN.into(), "ui-secret".into());
     relay.bind("pty", &mut launch).unwrap();
-    let port: u16 = launch.env[belfry_protocol::ENV_ENDPOINT].strip_prefix("tcp:127.0.0.1:").unwrap().parse().unwrap();
+    let port: u16 = launch.env[belfry_protocol::ENV_ENDPOINT]
+        .strip_prefix("tcp:127.0.0.1:")
+        .unwrap()
+        .parse()
+        .unwrap();
     let responses = [
         "{\"status\":\"ok\",\"data\":{\"kind\":\"futureRoomPlan\",\"tasks\":[{\"id\":\"T1\",\"title\":\"前端任务\"}]},\"revision\":2}\n",
         "{\"status\":\"ok\",\"data\":{\"kind\":\"rooms\",\"rooms\":[],\"capabilities\":[\"roomTask\"]}}\n",
@@ -265,19 +291,26 @@ fn collaboration_preserves_future_response_types_and_fields() {
         for response in responses {
             let (mut stream, _) = listener.accept().unwrap();
             let mut line = String::new();
-            BufReader::new(stream.try_clone().unwrap()).read_line(&mut line).unwrap();
+            BufReader::new(stream.try_clone().unwrap())
+                .read_line(&mut line)
+                .unwrap();
             stream.write_all(response.as_bytes()).unwrap();
         }
     });
     let request = belfry_protocol::Request::new(
-        "qa-tab".into(), launch.env[belfry_protocol::ENV_TOKEN].clone(), belfry_protocol::Command::Rooms,
+        "qa-tab".into(),
+        launch.env[belfry_protocol::ENV_TOKEN].clone(),
+        belfry_protocol::Command::Rooms,
     );
     for expected in responses {
         let mut stream = transport::connect(port).unwrap();
         writeln!(stream, "{}", serde_json::to_string(&request).unwrap()).unwrap();
         let mut actual = String::new();
         BufReader::new(stream).read_line(&mut actual).unwrap();
-        assert_eq!(actual, expected, "响应也必须原样转发，不能按后台自己的协议丢字段或拒绝新类型");
+        assert_eq!(
+            actual, expected,
+            "响应也必须原样转发，不能按后台自己的协议丢字段或拒绝新类型"
+        );
     }
     worker.join().unwrap();
 }

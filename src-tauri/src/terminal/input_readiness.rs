@@ -10,13 +10,23 @@ pub(super) struct InputReadiness {
 
 impl InputReadiness {
     pub fn observe(&mut self, snapshot: &HookSnapshot) {
-        let Some(report) = snapshot.terminal_status_for(snapshot.agent) else { return; };
-        if self.sequence.is_some_and(|old| snapshot.sequence <= old) { return; }
+        let Some(report) = snapshot.terminal_status_for(snapshot.agent) else {
+            return;
+        };
+        if self.sequence.is_some_and(|old| snapshot.sequence <= old) {
+            return;
+        }
         let continuous = self.agent == Some(snapshot.agent)
             && self.sequence.and_then(|old| old.checked_add(1)) == Some(snapshot.sequence);
         self.since = if report.state.allows_input() {
-            Some(if continuous { self.since.unwrap_or(snapshot.sequence) } else { snapshot.sequence })
-        } else { None };
+            Some(if continuous {
+                self.since.unwrap_or(snapshot.sequence)
+            } else {
+                snapshot.sequence
+            })
+        } else {
+            None
+        };
         self.sequence = Some(snapshot.sequence);
         self.agent = Some(snapshot.agent);
     }
@@ -26,5 +36,7 @@ impl InputReadiness {
             && self.sequence.is_some_and(|current| expected <= current)
     }
 
-    pub fn interrupt(&mut self) { self.since = None; }
+    pub fn interrupt(&mut self) {
+        self.since = None;
+    }
 }

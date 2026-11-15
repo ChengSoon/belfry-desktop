@@ -41,14 +41,18 @@ pub(super) fn valid_id(id: &str) -> bool {
 /// 一间房的附件目录。`root` 是房间存储根（`<应用数据>/rooms`）。
 pub(super) fn room_directory(root: &Path, room_id: &str) -> Result<PathBuf, AppError> {
     if !valid_id(room_id) {
-        return Err(AppError::invalid_argument(belfry_i18n::text("附件的房间编号无效")));
+        return Err(AppError::invalid_argument(belfry_i18n::text(
+            "附件的房间编号无效",
+        )));
     }
     Ok(root.join("attachments").join(room_id))
 }
 
 fn attachment_directory(root: &Path, id: &str) -> Result<PathBuf, AppError> {
     if !valid_id(id) {
-        return Err(AppError::invalid_argument(belfry_i18n::text("附件编号无效")));
+        return Err(AppError::invalid_argument(belfry_i18n::text(
+            "附件编号无效",
+        )));
     }
     Ok(root.join(id))
 }
@@ -115,17 +119,20 @@ pub fn import_path(
     source: &str,
 ) -> Result<RoomAttachment, AppError> {
     let path = Path::new(source);
-    let metadata =
-        fs::metadata(path).map_err(|err| AppError::io(belfry_i18n::lformat!("读不了附件信息：{err}")))?;
+    let metadata = fs::metadata(path)
+        .map_err(|err| AppError::io(belfry_i18n::lformat!("读不了附件信息：{err}")))?;
     if !metadata.is_file() {
-        return Err(AppError::invalid_argument(
-            belfry_i18n::text("暂不支持文件夹，请选择图片或文档文件"),
-        ));
+        return Err(AppError::invalid_argument(belfry_i18n::text(
+            "暂不支持文件夹，请选择图片或文档文件",
+        )));
     }
     if metadata.len() > MAX_ATTACHMENT_BYTES {
-        return Err(AppError::invalid_argument(belfry_i18n::text("单个附件不能超过 20 MB")));
+        return Err(AppError::invalid_argument(belfry_i18n::text(
+            "单个附件不能超过 20 MB",
+        )));
     }
-    let file = File::open(path).map_err(|err| AppError::io(belfry_i18n::lformat!("读不了附件：{err}")))?;
+    let file =
+        File::open(path).map_err(|err| AppError::io(belfry_i18n::lformat!("读不了附件：{err}")))?;
     let mut bytes = Vec::new();
     file.take(MAX_ATTACHMENT_BYTES + 1)
         .read_to_end(&mut bytes)
@@ -145,18 +152,23 @@ pub fn import_bytes(
     bytes: &[u8],
 ) -> Result<RoomAttachment, AppError> {
     if bytes.len() as u64 > MAX_ATTACHMENT_BYTES {
-        return Err(AppError::invalid_argument(belfry_i18n::text("单个附件不能超过 20 MB")));
+        return Err(AppError::invalid_argument(belfry_i18n::text(
+            "单个附件不能超过 20 MB",
+        )));
     }
     let root = store.attachment_directory(room_id)?;
-    fs::create_dir_all(&root).map_err(|err| AppError::io(belfry_i18n::lformat!("建不了附件目录：{err}")))?;
+    fs::create_dir_all(&root)
+        .map_err(|err| AppError::io(belfry_i18n::lformat!("建不了附件目录：{err}")))?;
     let id = new_id();
     let dir = attachment_directory(&root, &id)?;
-    fs::create_dir(&dir).map_err(|err| AppError::io(belfry_i18n::lformat!("建不了附件目录：{err}")))?;
+    fs::create_dir(&dir)
+        .map_err(|err| AppError::io(belfry_i18n::lformat!("建不了附件目录：{err}")))?;
     let result = (|| {
         let name = safe_name(name);
         // 加一层 files，避免用户文件名与我们的 metadata.json 撞名。
         let files = dir.join("files");
-        fs::create_dir(&files).map_err(|err| AppError::io(belfry_i18n::lformat!("建不了附件目录：{err}")))?;
+        fs::create_dir(&files)
+            .map_err(|err| AppError::io(belfry_i18n::lformat!("建不了附件目录：{err}")))?;
         let path = files.join(&name);
         let mut file = OpenOptions::new()
             .write(true)
@@ -190,7 +202,9 @@ pub fn resolve(
     ids: &[String],
 ) -> Result<Vec<RoomAttachment>, AppError> {
     if ids.len() > MAX_ATTACHMENTS {
-        return Err(AppError::invalid_argument(belfry_i18n::text("每条消息最多添加 10 个附件")));
+        return Err(AppError::invalid_argument(belfry_i18n::text(
+            "每条消息最多添加 10 个附件",
+        )));
     }
     let mut unique = HashSet::new();
     // 无附件时不要碰磁盘，也不改变旧消息命令的行为。
@@ -201,13 +215,17 @@ pub fn resolve(
     ids.iter()
         .map(|id| {
             if !unique.insert(id) {
-                return Err(AppError::invalid_argument(belfry_i18n::text("同一个附件被添加了两次")));
+                return Err(AppError::invalid_argument(belfry_i18n::text(
+                    "同一个附件被添加了两次",
+                )));
             }
             let dir = attachment_directory(&root, id)?;
             let file = File::open(dir.join("metadata.json"))
                 .map_err(|_| AppError::not_found(belfry_i18n::text("附件已不存在，请重新添加")))?;
             let attachment: RoomAttachment = serde_json::from_reader(file.take(16 * 1024))
-                .map_err(|_| AppError::invalid_argument(belfry_i18n::text("附件信息损坏，请重新添加")))?;
+                .map_err(|_| {
+                    AppError::invalid_argument(belfry_i18n::text("附件信息损坏，请重新添加"))
+                })?;
             let expected = dir.join("files").join(safe_name(&attachment.name));
             let canonical = canonicalize(&expected)?;
             let canonical_root = canonicalize(&root)?;
@@ -216,7 +234,9 @@ pub fn resolve(
                 || canonical.to_string_lossy() != attachment.path
                 || !canonical.starts_with(canonical_root)
             {
-                return Err(AppError::invalid_argument(belfry_i18n::text("附件路径无效，请重新添加")));
+                return Err(AppError::invalid_argument(belfry_i18n::text(
+                    "附件路径无效，请重新添加",
+                )));
             }
             validate_existing(std::slice::from_ref(&attachment))?;
             Ok(attachment)
@@ -228,7 +248,10 @@ pub fn resolve(
 pub(super) fn validate_existing(attachments: &[RoomAttachment]) -> Result<(), AppError> {
     for attachment in attachments {
         let meta = fs::metadata(&attachment.path).map_err(|_| {
-            AppError::not_found(belfry_i18n::lformat!("附件「{}」已不存在，请重新添加", attachment.name))
+            AppError::not_found(belfry_i18n::lformat!(
+                "附件「{}」已不存在，请重新添加",
+                attachment.name
+            ))
         })?;
         if !meta.is_file() || meta.len() != attachment.size || meta.len() > MAX_ATTACHMENT_BYTES {
             return Err(AppError::invalid_argument(belfry_i18n::lformat!(
@@ -271,7 +294,10 @@ pub fn summary(text: &str, attachments: &[RoomAttachment]) -> String {
     if !text.trim().is_empty() || attachments.is_empty() {
         return text.to_string();
     }
-    let names: Vec<&str> = attachments.iter().map(|attachment| attachment.name.as_str()).collect();
+    let names: Vec<&str> = attachments
+        .iter()
+        .map(|attachment| attachment.name.as_str())
+        .collect();
     belfry_i18n::lformat!("[附件] {}", names.join("、"))
 }
 

@@ -19,4 +19,4 @@ mod pi;
 pub(crate) mod plugin_gateway;
 pub(crate) mod project;
 mod service;
-mod store;
+pub(crate) mod store;

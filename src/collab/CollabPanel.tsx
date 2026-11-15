@@ -9,6 +9,7 @@ import { activeTasks, awaitingApproval, deliveryLabel, taskTone } from "./taskTo
 import type { CollabTasksView } from "./useCollabTasks";
 import { DeliveryActions, type DeliveryDecision } from "./DeliveryActions";
 import { t, useTranslation } from "../i18n";
+import { TaskReport, TaskReportsFailure, TaskReportsProvider } from "../a2a/TaskReports";
 import "./collab.css";
 
 /** 节点里的图标要比常规图标小一档才压得进 10px 的节点位，比 ICON.xs(16) 还小。 */
@@ -16,6 +17,7 @@ const NODE_ICON = 12;
 
 interface CollabPanelProps {
   collab: CollabTasksView;
+  projectRoot?: string | null;
   onClose: () => void;
   onOpenTerminal?: (tabId: string) => void;
   availableTabIds?: readonly string[];
@@ -25,7 +27,7 @@ interface CollabPanelProps {
   deliveryError?: string | null;
 }
 
-export function CollabPanel({ collab, onClose, onOpenTerminal, availableTabIds, deliveryHalted, deliveryError }: CollabPanelProps) {
+export function CollabPanel({ collab, projectRoot = null, onClose, onOpenTerminal, availableTabIds, deliveryHalted, deliveryError }: CollabPanelProps) {
   useTranslation();
   // Other panel triggers switch on click. Closing on mousedown creates an empty
   // rail between press/release and resizes every terminal twice unnecessarily.
@@ -49,6 +51,7 @@ export function CollabPanel({ collab, onClose, onOpenTerminal, availableTabIds, 
   const now = Date.now();
 
   return (
+    <TaskReportsProvider rootPath={projectRoot}>
     <aside aria-labelledby="collab-panel-title" className="collab-panel" ref={ref}>
       <header className="collab-panel__head">
         <Users aria-hidden="true" size={ICON.md} />
@@ -82,6 +85,7 @@ export function CollabPanel({ collab, onClose, onOpenTerminal, availableTabIds, 
           <div><span>{collab.queryError}</span><small>{t("collab.CollabPanel.text_c9bcc7ce48")}</small></div>
         </div>
       ) : null}
+      <TaskReportsFailure />
       {collab.actionErrors.map(({ action, message }) => (
         <div className="collab-panel__error" role="alert" key={action.kind === "stopAll" ? action.kind : action.id}>
           <AlertTriangle aria-hidden="true" size={ICON.sm} />
@@ -128,6 +132,7 @@ export function CollabPanel({ collab, onClose, onOpenTerminal, availableTabIds, 
         ) : null}
       </footer>
     </aside>
+    </TaskReportsProvider>
   );
 }
 
@@ -135,8 +140,7 @@ export function CollabPanel({ collab, onClose, onOpenTerminal, availableTabIds, 
  * 空态要把用法说全。
  *
  * 这个面板只是「看和拦」，派活本身发生在 Agent 会话里——用户第一次打开时最需要知道的
- * 就是那两条命令，否则会在这里找一个不存在的「新建任务」按钮。「在任一 Agent 会话的
- * 终端里敲」那句就是承担这件事的，改文案别把这层意思弄丢。
+ * 就是可以直接向 Agent 提出协作需求，然后在这里查看投递与显式结果。
  *
  * 轨道预演是虚线版的时间轴：空态和有内容时用同一套语言，从这里切到有任务时
  * 节点位置也不跳（左列栅格与 .collab-event 一致）。
@@ -153,12 +157,13 @@ function EmptyHint() {
       </div>
 
       <div className="collab-empty__howto">
-        <p>{t("collab.CollabPanel.text_cd9e7aec5b")}</p>
-        <CopyableCommand hint={t("collab.CollabPanel.text_2bebdeab7c")} command="belfry peers" />
-        <CopyableCommand hint={t("collab.CollabPanel.text_d3f94a74a0")} command={t("collab.CollabPanel.text_ca0e9340c8")} />
+        <p>{t("a2a.collaboration.howTo")}</p>
+        <CopyablePrompt hint={t("a2a.collaboration.discoverHint")} prompt={t("a2a.collaboration.discoverPrompt")} />
+        <CopyablePrompt hint={t("a2a.collaboration.sendHint")} prompt={t("a2a.collaboration.sendPrompt")} />
       </div>
 
-      <p className="collab-empty__note">{t("collab.CollabPanel.text_ddb63e3a24")}</p>
+      <p className="collab-empty__note">{t("a2a.collaboration.connectionHint")}</p>
+      <p className="collab-empty__note">{t("a2a.collaboration.explicitReport")}</p>
     </div>
   );
 }
@@ -182,12 +187,12 @@ function PreviewRow({ children }: { children: ReactNode }) {
 }
 
 /**
- * 一条可点击复制的命令。
+ * 一条可点击复制的协作提示。
  *
  * 每条各自持有自己的 `copied`，两条互不干扰——用一个 index 存在 EmptyHint 里的话，
  * 点第二条会把第一条的勾撤掉。
  */
-function CopyableCommand({ command, hint }: { command: string; hint: string }) {
+function CopyablePrompt({ prompt, hint }: { prompt: string; hint: string }) {
   useTranslation();
   const [copied, setCopied] = useState(false);
   const timerRef = useRef<number | undefined>(undefined);
@@ -197,7 +202,7 @@ function CopyableCommand({ command, hint }: { command: string; hint: string }) {
 
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(command);
+      await navigator.clipboard.writeText(prompt);
     } catch {
       // 非安全上下文或权限被拒。静默保持原状——显示一个假的成功勾比没有反馈更糟。
       return;
@@ -210,12 +215,12 @@ function CopyableCommand({ command, hint }: { command: string; hint: string }) {
   return (
     <div className="collab-empty__command">
       <button
-        aria-label={copied ? t("collab.CollabPanel.text_8f6f8d979c") : t("collab.CollabPanel.text_8f19384b76", { command: command })}
+        aria-label={copied ? t("collab.CollabPanel.text_8f6f8d979c") : t("a2a.collaboration.copyPrompt", { prompt })}
         className="collab-empty__copy"
         onClick={() => void copy()}
         type="button"
       >
-        <code>{command}</code>
+        <span className="collab-empty__prompt">{prompt}</span>
         {copied ? (
           <Check aria-hidden="true" className="collab-empty__copied" size={ICON.xs} />
         ) : (
@@ -315,6 +320,7 @@ function TaskEvent({
         <p className="collab-event__instruction" title={task.instruction}>{task.instruction}</p>
         {task.delivery?.message ? <p className="collab-event__delivery-message">{task.delivery.message}</p> : null}
         <DeliveryActions task={task} pending={pending} onResolve={onResolve} onLocate={onLocate} />
+        <TaskReport reference={{ kind: "direct_task", roomId: null, id: task.id, generation: 1 }} />
 
         {task.result ? (
           <details className="collab-event__result-detail"><summary>{t("collab.CollabPanel.text_bb89790139")}</summary>

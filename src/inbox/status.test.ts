@@ -18,10 +18,12 @@ describe("收件箱状态文案", () => {
     expect(statusText(s("previous_task", { task: "T60" }))).toBe("等待上一任务完成 · T60");
     expect(statusText(s("turn_busy"))).toBe("等待成员结束当前轮次");
     expect(statusText(s("composer_not_empty"))).toBe("终端有未提交输入");
+    expect(statusText(s("input_state_unknown"))).toBe("等待确认终端输入状态");
     expect(statusText(s("paste_not_ready"))).toBe("等待终端启用安全粘贴");
     expect(statusText(s("something_new"))).toBe("状态已更新");
     setLocale("en");
     expect(statusText(s("previous_task", { task: "T60" }))).toBe("Waiting for the previous task to finish · T60");
+    expect(statusText(s("input_state_unknown"))).toBe("Waiting to confirm the terminal input state");
     setLocale("zh-CN");
   });
 

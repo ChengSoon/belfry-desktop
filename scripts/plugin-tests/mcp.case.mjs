@@ -74,7 +74,9 @@ test("revoking a session denies subsequent host APIs in an already running tool"
   await writeFile(join(root, "note.txt"), "session data");
   let release, signal;
   const started = new Promise((resolveStarted) => { signal = resolveStarted; });
-  const runtime = await host(t, root, { platform: () => new Promise((resolveUi) => { release = resolveUi; signal(); }) });
+  // Directory readiness must not signal that delayed_read has started.
+  const runtime = await host(t, root, { platform: (message) => message.api === "ui.showToast"
+    ? new Promise((resolveUi) => { release = resolveUi; signal(); }) : null });
   t.after(() => release?.(null));
   const entry = await plugin(root, "local.revoked", { code: `module.exports.onLoad = () => pi.agent.registerTool({
     name: "delayed_read", description: "delayed_read", execute: async () => {

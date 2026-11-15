@@ -37,8 +37,13 @@ pub(crate) fn write_atomic(path: &Path, contents: &str, private: bool) -> Result
     let temp = temp_path(path);
     let mut options = fs::OpenOptions::new();
     options.create_new(true).write(true);
-    #[cfg(unix)] { use std::os::unix::fs::OpenOptionsExt; options.mode(if private { 0o600 } else { 0o644 }); }
-    let mut file = options.open(&temp)
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(if private { 0o600 } else { 0o644 });
+    }
+    let mut file = options
+        .open(&temp)
         .map_err(|err| AppError::io(format!("写不了临时文件 {}：{err}", temp.display())))?;
     if let Err(error) = file.write_all(contents.as_bytes()) {
         drop(file);
@@ -73,16 +78,31 @@ pub(crate) fn write_atomic(path: &Path, contents: &str, private: bool) -> Result
 }
 
 /// 短事务的跨进程写锁；由内核回收，不留下崩溃后永远打不开的 PID 锁。
-pub(crate) struct FileLock { _file: fs::File }
+pub(crate) struct FileLock {
+    _file: fs::File,
+}
 impl FileLock {
     pub fn acquire(path: &Path) -> Result<Self, AppError> {
-        if let Some(parent) = path.parent() { fs::create_dir_all(parent).map_err(|error| AppError::io(error.to_string()))?; }
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).map_err(|error| AppError::io(error.to_string()))?;
+        }
         let mut options = fs::OpenOptions::new();
         options.create(true).read(true).write(true).truncate(false);
-        #[cfg(unix)] { use std::os::unix::fs::OpenOptionsExt; options.mode(0o600); }
-        #[cfg(windows)] { use std::os::windows::fs::OpenOptionsExt; options.share_mode(0); }
-        let file = options.open(path).map_err(|error| AppError::io(format!("存储正在被使用或不可写：{error}")))?;
-        #[cfg(unix)] {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        #[cfg(windows)]
+        {
+            use std::os::windows::fs::OpenOptionsExt;
+            options.share_mode(0);
+        }
+        let file = options
+            .open(path)
+            .map_err(|error| AppError::io(format!("存储正在被使用或不可写：{error}")))?;
+        #[cfg(unix)]
+        {
             flock_retry(&file, 2 | 4).map_err(|error| {
                 if error.kind() == std::io::ErrorKind::WouldBlock {
                     AppError::io("另一实例正在保存，请稍后重试")
@@ -109,11 +129,17 @@ impl Drop for FileLock {
 #[cfg(unix)]
 fn flock_retry(file: &fs::File, operation: i32) -> std::io::Result<()> {
     use std::os::fd::AsRawFd;
-    unsafe extern "C" { fn flock(fd: i32, operation: i32) -> i32; }
+    unsafe extern "C" {
+        fn flock(fd: i32, operation: i32) -> i32;
+    }
     loop {
-        if unsafe { flock(file.as_raw_fd(), operation) } == 0 { return Ok(()); }
+        if unsafe { flock(file.as_raw_fd(), operation) } == 0 {
+            return Ok(());
+        }
         let error = std::io::Error::last_os_error();
-        if error.kind() != std::io::ErrorKind::Interrupted { return Err(error); }
+        if error.kind() != std::io::ErrorKind::Interrupted {
+            return Err(error);
+        }
     }
 }
 
@@ -180,12 +206,19 @@ mod tests {
         // dup/try_clone shares the open file description just as fork does. A child
         // awaiting exec must not prolong a transaction after the parent drops it.
         let inherited = lock._file.try_clone().unwrap();
-        assert!(FileLock::acquire(&path).is_err(), "a live guard must exclude other writers");
+        assert!(
+            FileLock::acquire(&path).is_err(),
+            "a live guard must exclude other writers"
+        );
         drop(lock);
         let next = FileLock::acquire(&path);
         drop(inherited);
         let _ = fs::remove_dir_all(dir);
-        assert!(next.is_ok(), "the completed transaction still holds its lock: {:?}", next.err());
+        assert!(
+            next.is_ok(),
+            "the completed transaction still holds its lock: {:?}",
+            next.err()
+        );
     }
 
     #[test]

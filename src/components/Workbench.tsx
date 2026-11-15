@@ -12,6 +12,7 @@ import { WorkbenchToolbar } from "./WorkbenchToolbar";
 
 export interface WorkbenchProps {
   activeProject: ProjectWorkspace | null;
+  a2aOpen?: boolean;
   activeTabId: string | null;
   collapsed: boolean;
   collabOpen: boolean;
@@ -36,6 +37,7 @@ export interface WorkbenchProps {
   onLaunchShell: () => void;
   onOpenFile: (tabId: string, path: string, line: number | null) => void;
   onOpenProject: (path: string | null) => Promise<void>;
+  onOpenA2A?: () => void;
   onOpenShortcutGuide: () => void;
   onRegisterTarget: (id: string, target: TerminalCommandTarget | null) => void;
   onRequestRemove: (project: RecentProject) => void;
@@ -55,7 +57,7 @@ export interface WorkbenchProps {
 export function Workbench(props: WorkbenchProps) {
   useTranslation();
   return (
-    <section className="workbench" aria-label={t("components.Workbench.text_f9e02d3c13")}>
+    <section className="workbench" aria-label={t("components.Workbench.text_f9e02d3c13")} inert={props.a2aOpen || undefined} aria-hidden={props.a2aOpen || undefined}>
       <WorkbenchToolbar {...props} />
       <TerminalStage
         activeTabId={props.activeTabId}

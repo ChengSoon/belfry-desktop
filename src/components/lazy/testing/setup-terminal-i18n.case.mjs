@@ -1,17 +1,24 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { uiFixture, click, clickText, intact, resize, waitFor } from "./production-uiFixture.mjs";
+import { uiFixture, click, clickText, evidence, intact, resize, waitFor } from "./production-uiFixture.mjs";
 import { englishPanel, switchLanguage } from "./i18n-browser-support.mjs";
 
 const nativeExtension = `(() => {
   localStorage.setItem('belfry.locale.v1','en');
   const invoke = __TAURI_INTERNALS__.invoke;
   __TAURI_INTERNALS__.invoke = async (command,args) => {
-    if (['agent_hooks_preview','agent_hooks_apply','setup_install_skill','terminal_background_sessions'].includes(command)) {
+    if (command === 'setup_diagnose') {
+      __productionQA.calls.push({command,args});
+      return {overall:'ok',checkedAt:1,checks:[
+        {id:'codex-a2a-adapter',label:'Codex A2A',state:'ok',summary:'A2A tool readiness was verified for 1 running instance.'},
+        {id:'collaboration',label:'Collaboration channel',state:'ok',summary:'The local A2A 1.0 JSON-RPC gateway passed its HTTP check.'},
+        {id:'a2a-skill-migration',label:'Collaboration protocol migration',state:'ok',summary:'Collaboration uses A2A tools. Belfry collaboration Skills are no longer installed.'}
+      ]};
+    }
+    if (['agent_hooks_preview','agent_hooks_apply','terminal_background_sessions'].includes(command)) {
       __productionQA.calls.push({command,args});
       if (command === 'agent_hooks_preview') return {id:'preview',kind:args.kind,configPath:'/qa/config',enabling:args.enabled,command:'belfry hook',events:['SessionStart'],managedBefore:1};
       if (command === 'agent_hooks_apply') return null;
-      if (command === 'setup_install_skill') return {results:[{agent:'codex',action:'installed',path:'/qa/skill',summary:'Installed'}]};
       return [{tabId:'background-task',profileId:'system-default',session:{id:'background-pty',status:'running',shell:'Shell',cwd:'/qa/background',cols:80,rows:24,exitCode:null}}];
     }
     return invoke(command,args);
@@ -25,14 +32,19 @@ test('English environment, hooks and background sessions remain usable at 720x48
   await clickText(view,'Collaboration setup','.settings-nav');
   await waitFor(view,"!!document.querySelector('.environment-summary')");
   await englishPanel(view,'.environment-section');
-  await clickText(view,'Sync all skills','.environment-section');
-  await waitFor(view,"document.querySelector('.environment-notice')?.textContent.includes('Synced 1 client')");
+  assert.match(await view.cdp.evaluate("document.querySelector('.environment-section').textContent"),/Collaboration protocol migration/);
+  assert.match(await view.cdp.evaluate("document.querySelector('.environment-section').textContent"),/A2A tools/);
+  await evidence(view,'a2a-skill-migration-diagnostics',['.environment-section button']);
+  const checks = await view.cdp.evaluate("__productionQA.calls.filter(call => call.command === 'setup_diagnose').length");
+  assert.ok(checks >= 1);
+  assert.doesNotMatch(await view.cdp.evaluate("document.querySelector('.environment-section').textContent"),/Sync all skills/);
+  await clickText(view,'Check again','.environment-section');
+  await waitFor(view,`__productionQA.calls.filter(call => call.command === 'setup_diagnose').length > ${checks} && document.querySelector('.environment-summary')?.dataset.state === 'ok'`);
   await switchLanguage(view,'zh-CN');
-  assert.match(await view.cdp.evaluate("document.querySelector('.environment-notice').textContent"),/已同步 1 个客户端/);
+  assert.match(await view.cdp.evaluate("document.querySelector('.environment-section').textContent"),/环境就绪/);
   await switchLanguage(view,'en');
   await englishPanel(view,'.environment-section');
-  assert.doesNotMatch(await view.cdp.evaluate("document.querySelector('.environment-notice').textContent"),/1 clients/);
-  assert.equal(await view.cdp.evaluate("__productionQA.calls.filter(call => call.command === 'setup_install_skill').length"),1);
+  assert.equal(await view.cdp.evaluate("__productionQA.calls.filter(call => call.command === 'setup_install_skill').length"),0);
   await clickText(view,'Session status','.settings-nav');
   await waitFor(view,"!!document.querySelector('.hook-agent-card')");
   await englishPanel(view,'.hook-settings');

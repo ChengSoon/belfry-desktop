@@ -12,7 +12,7 @@ const terminalGrid = vi.hoisted(() => ({ cols: 80, rows: 24 }));
 vi.mock("@tauri-apps/api/core", () => ({ Channel: class { onmessage = (_: unknown) => {}; } }));
 vi.mock("@tauri-apps/api/webview", () => ({ getCurrentWebview: () => ({ onDragDropEvent: async () => () => {} }) }));
 vi.mock("./api", () => ({ acknowledgeTerminalOutput: vi.fn(), createTerminal: vi.fn(), detachTerminal: vi.fn(), writeTerminal: vi.fn(),
-  writeTerminalInteraction: vi.fn(), finishTerminalInteraction: vi.fn(), claimTerminalUserInput: vi.fn(),
+  writeTerminalInteraction: vi.fn(), writeTerminalResponse: vi.fn(), finishTerminalInteraction: vi.fn(), claimTerminalUserInput: vi.fn(), confirmTerminalEmptyInput: vi.fn(),
   prepareTerminalPrompt: vi.fn(), finishTerminalPrompt: vi.fn(), resizeTerminal: vi.fn(), setTerminalPalette: vi.fn() }));
 vi.mock("@xterm/addon-fit", () => ({ FitAddon: class { fit() {} } }));
 vi.mock("@xterm/addon-webgl", () => ({ WebglAddon: class { onContextLoss() {} dispose() {} } }));
@@ -65,7 +65,7 @@ function fixture(launchPatch: Partial<TerminalLaunch> = {}, initialFailure?: unk
     projectLaunch: { env: {}, startup: { command: "printf qa-startup" } }, ...launchPatch };
   const session: TerminalSession = { id: "qa-pty", platform: "macos", shell: "bash", cwd: "file:///tmp",
     cols: 80, rows: 24, status: "running", exitCode: null, reconnected: false, connectionId: "qa-connection" };
-  const handle = mountTerminal(host as unknown as HTMLDivElement, launch, { foreground: "#ffffff", background: "#000000" }, false,
+  const handle = mountTerminal(Object.assign(new EventTarget(), host) as unknown as HTMLDivElement, launch, { foreground: "#ffffff", background: "#000000" }, false,
     { fontFamily: "", fontSize: 14 }, callbacks);
   handles.push(handle);
   return { callbacks, handle, session, emit: (event: TerminalEvent) => channel.onmessage(event),

@@ -35,11 +35,13 @@ pub(super) fn select(
             .iter()
             .find(|group| group.kind == selection.kind)
             .and_then(|group| group.providers.iter().find(|provider| provider.id == *id))
-            .ok_or_else(|| AppError::not_found(belfry_i18n::text("Provider 已不存在，请刷新列表后重新选择")))?;
+            .ok_or_else(|| {
+                AppError::not_found(belfry_i18n::text("Provider 已不存在，请刷新列表后重新选择"))
+            })?;
         if !provider.has_api_key {
-            return Err(AppError::invalid_argument(
-                belfry_i18n::text("请先为此 Provider 配置独立 API Key"),
-            ));
+            return Err(AppError::invalid_argument(belfry_i18n::text(
+                "请先为此 Provider 配置独立 API Key",
+            )));
         }
     }
     let path = base(app)?.join(FILE);
@@ -64,7 +66,8 @@ pub(crate) fn prepare(
     };
     let root = project_path(&path)?;
     let model = match request.tab_id.as_deref() {
-        Some(tab_id) => app.state::<std::sync::Arc<crate::rooms::RoomStore>>()
+        Some(tab_id) => app
+            .state::<std::sync::Arc<crate::rooms::RoomStore>>()
             .model_override_for(tab_id, &root, kind)?,
         None => None,
     };
@@ -92,12 +95,13 @@ pub(crate) fn prepare(
         return Ok(());
     };
     if store.agent(kind).find(id).is_none() {
-        return Err(AppError::not_found(
-            belfry_i18n::text("当前项目的 Provider 已被删除。请在项目 Provider 设置中重新选择或改为跟随全局"),
-        ));
+        return Err(AppError::not_found(belfry_i18n::text(
+            "当前项目的 Provider 已被删除。请在项目 Provider 设置中重新选择或改为跟随全局",
+        )));
     }
     let provider = store.resolve_provider(app, kind, id)?;
-    let mut overlay = if project_selected.is_none() && provider.api_key.trim().is_empty()
+    let mut overlay = if project_selected.is_none()
+        && provider.api_key.trim().is_empty()
         && kind != AgentKind::Antigravity
     {
         // 旧的全局配置可能借用 CLI 登录。角色模型不能要求用户另填一份凭据。
@@ -179,10 +183,12 @@ fn base(app: &AppHandle) -> Result<PathBuf, AppError> {
 }
 
 fn project_path(path: &Path) -> Result<String, AppError> {
-    let root =
-        canonicalize(path).map_err(|error| AppError::io(belfry_i18n::lformat!("项目目录无法读取：{error}")))?;
+    let root = canonicalize(path)
+        .map_err(|error| AppError::io(belfry_i18n::lformat!("项目目录无法读取：{error}")))?;
     if !root.is_dir() {
-        return Err(AppError::invalid_argument(belfry_i18n::text("项目路径必须是本地目录")));
+        return Err(AppError::invalid_argument(belfry_i18n::text(
+            "项目路径必须是本地目录",
+        )));
     }
     Ok(root.to_string_lossy().into_owned())
 }

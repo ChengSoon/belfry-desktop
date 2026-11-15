@@ -5,6 +5,7 @@ import { ThemeProvider } from "../../../theme/ThemeProvider";
 import { THEME_MODE_KEY } from "../../../theme/storage";
 import "../../../styles.css";
 import type { Room, RoomsView } from "../../../rooms/contracts";
+import type { ProtocolTaskPreview } from "../../../a2a/contracts";
 import type { RoomHistoryPage, RoomHistoryRecord } from "../../../rooms/history-api";
 import { setLocalePreference } from "../../../i18n";
 import type { TerminalChoice } from "../../../terminal/choice";
@@ -30,7 +31,7 @@ const msg = (id: string, at: number, by: string, text: string, to: string[], ext
     deliveredTo: to.filter((t) => t !== "user"), repliedBy: [], replyCancelled: false, ...extra });
 const task = (id: string, title: string, status: Room["tasks"][number]["status"], assignee: string | null, extra: Partial<Room["tasks"][number]> = {}) =>
   ({ id, title, outcome: "", status, assignee, blockedBy: [], notes: "", result: null, createdBy: "foreman", createdAt: now - 60 * min,
-    updatedAt: now - 10 * min, rev: 2, ...extra });
+    updatedAt: now - 10 * min, rev: 2, generation: 1, ...extra });
 
 const room: Room = {
   id: "01m6v2yfg2ps6jak5pk7tx625h", name: "登录页改版", projectRoot: "/Users/cheng/work/Project/tool/belfry-win", createdAt: now - 2 * 60 * min,
@@ -113,10 +114,13 @@ const other = { ...summary(room), id: "01m6v2yfg2ps6jak5pk7tx6zzz", name: englis
 const view: RoomsView = { rooms: [summary(room), other], loadError: null };
 const secondRoom: Room = { ...structuredClone(room), id: other.id, name: other.name, messages: [] };
 const roomData = new Map([[room.id, room], [secondRoom.id, secondRoom]]);
+let protocolReports: ProtocolTaskPreview[] = [];
 const holds = new Map<string, Array<{ promise: Promise<void>; resolve: () => void; reject: (cause: Error) => void }>>();
 const pending = new Map<string, Array<{ resolve: () => void; reject: (cause: Error) => void }>>();
 Object.assign(window, {
   qaRoomIds: [room.id, secondRoom.id],
+  qaSetReports: (reports: ProtocolTaskPreview[]) => { protocolReports = structuredClone(reports); },
+  qaSetTaskGeneration: (id: string, generation: number) => { const task = room.tasks.find(task => task.id === id)!; task.generation = generation; },
   qaSetBrief: (brief: Room["brief"]) => { room.brief = structuredClone(brief); },
   qaSetMemberTab: (id: string, tabId: string) => { room.members = room.members.map(member => member.id === id ? { ...member, tabId } : member); },
   qaSetMemberModel: (id: string, modelOverride: string | null) => { room.members = room.members.map(member => member.id === id ? { ...member, modelOverride } : member); },
@@ -181,6 +185,7 @@ Object.assign(window, {
       // 真实 IPC 每次都是一份新对象：返回拷贝，界面的结构共享才测得到。
       if (command === "room_list") return structuredClone(view);
       if (command === "room_get") return structuredClone(current);
+      if (command === "a2a_local_task_snapshot") return { tasks: structuredClone(protocolReports) };
       if (command === "project_provider_report") return {
         rootPath: room.projectRoot, envConflicts: [], agents: [{ kind: "codex", providerId: null, source: "global", effectiveName: "Example", missing: false,
           choices: [{ id: "example", name: "Example", baseUrl: "https://example.invalid", model: "configured-model", configured: true }] }],
@@ -235,6 +240,7 @@ Object.assign(window, {
         const status = (code: string) => ({ code, params: {} });
         return { schemaVersion: 1, revision: 1, nextCursor: null, loadError: null, messages: [
           { id: "inbox-1", messageId: "msg-1", revision: 1, source: { kind: "room", roomId: room.id, name: room.name, messageId: "msg-1" },
+            ...(params.get("a2a") === "1" ? { taskRef: { kind: "room_task", roomId: room.id, id: "T2", generation: room.tasks.find(task => task.id === "T2")!.generation } } : {}),
             recipient: { id: "rcpt", sessionKey: "sk-t1", projectRoot: room.projectRoot, tabId: "t1", roomId: room.id, memberId: null, name: "后端", agent: "codex" },
             topicId: "topic-1", class: "discussion", by: { id: "lead", name: "统筹", tabId: null, memberId: null }, createdAt: now - 5 * min,
             text: "登录接口的错误码表已更新，回归时以新表为准。", attachments: [], replyTo: "msg-other",

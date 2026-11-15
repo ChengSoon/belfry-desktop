@@ -73,6 +73,7 @@ import { RoleModelDialog } from "./RoleModelDialog";
 import { InboxView } from "../../inbox/InboxView";
 import { useInbox } from "../../inbox/useInbox";
 import { needsAttention } from "../../inbox/status";
+import { TaskReport, TaskReportsFailure, TaskReportsProvider } from "../../a2a/TaskReports";
 import "../tailwind.css";
 import "./room.css";
 
@@ -81,6 +82,8 @@ export interface RoomViewProps {
   project: ProjectWorkspace | null;
   tabs: WorkspaceTab[];
   onClose: () => void;
+  /** Remove member sessions after the native room deletion has committed. */
+  onDeleteSessions?: (tabIds: readonly string[]) => void;
   /** 以协作模式拉起一条 Agent 会话，返回 tabId；失败返回 null。 */
   onLaunchMember?: (kind: AgentKind, projectRoot: string) => Promise<string | null>;
   /** 给会话起协作名；返回错误理由或 null。 */
@@ -119,7 +122,7 @@ const AUTO_RECIPIENT = "__auto";
 
 export function RoomView(props: RoomViewProps) {
   useTranslation();
-  const rooms = useRooms();
+  const rooms = useRooms(props.onDeleteSessions);
   const [dialog, setDialog] = useState<DialogState | null>(null);
   const [compactPanel, setCompactPanel] = useState<"members" | "tasks" | null>(null);
   const room = rooms.room;
@@ -160,6 +163,7 @@ export function RoomView(props: RoomViewProps) {
   const canCreate = rooms.loadError === null;
 
   return (
+    <TaskReportsProvider rootPath={room?.projectRoot ?? null}>
     <RoomActions.Provider value={actions}>
     <TooltipProvider delayDuration={300}>
       <section aria-label={t("rooms.RoomView.text_63235691ff")} data-room-panel={compactPanel ?? ""}
@@ -311,6 +315,7 @@ export function RoomView(props: RoomViewProps) {
       </section>
     </TooltipProvider>
     </RoomActions.Provider>
+    </TaskReportsProvider>
   );
 }
 
@@ -1435,6 +1440,7 @@ function TaskBoard({ room, rooms, tabs, onOpenSession }: { room: Room; rooms: Ro
           <Plus aria-hidden="true" />{t("rooms.RoomView.text_6bee237280")}</button>
       </header>
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-3">
+        <TaskReportsFailure />
         {adding ? <TaskForm onDone={() => setAdding(false)} room={room} rooms={rooms} /> : null}
         {room.tasks.length === 0 && !adding ? (
           <Empty className="flex-none border border-dashed border-border py-8">
@@ -1492,6 +1498,7 @@ function TaskCard({ room, rooms, task }: { room: Room; rooms: RoomsState; task: 
           {blockers.length ? <Badge className="ml-auto h-auto min-h-5 max-w-full border-warning/50 px-1.5 text-xs whitespace-normal text-warning [overflow-wrap:anywhere]" variant="outline">{t("rooms.RoomView.text_c61526db52", { names: formatList(blockers) })}</Badge> : null}
         </span>
       </button>
+      <TaskReport reference={{ kind: "room_task", roomId: room.id, id: task.id, generation: task.generation }} />
       {open ? (
         <div className="flex flex-col gap-2.5 border-t border-(--border-soft) bg-background/40 px-3 py-2.5 text-xs">
           {task.outcome ? <Detail label={t("rooms.RoomView.text_fa4aa984fe")}>{task.outcome}</Detail> : null}

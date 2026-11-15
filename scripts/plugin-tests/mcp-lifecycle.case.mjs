@@ -5,6 +5,28 @@ import test from "node:test";
 import { host, plugin, temporary } from "./support.mjs";
 import { mcpRequest } from "./mcp-support.mjs";
 
+test("reattaching the same terminal preserves its authenticated MCP context and rejects other projects or identities", async t => {
+  const root = await temporary(t), other = join(root, "other"); await mkdir(other);
+  const runtime = await host(t, root);
+  const input = { workspace: root, sessionId: "existing-ticket", tabId: "existing-tab", agentKind: "codex",
+    agentSession: { agent: "codex", id: "existing-native-session" } };
+  const original = await runtime.call("session.open", input);
+  const reattached = await runtime.call("session.reconnect", input);
+  assert.deepEqual(reattached, original);
+  assert.equal((await mcpRequest(original, { method: "ping" })).status, 200);
+  for (const patch of [{ workspace: other }, { tabId: "other-tab" },
+    { agentKind: "claude", agentSession: { agent: "claude", id: "existing-native-session" } },
+    { agentSession: { agent: "codex", id: "other-native-session" } }]) {
+    await assert.rejects(runtime.call("session.reconnect", { ...input, ...patch }), /does not match/);
+    assert.equal((await mcpRequest(original, { method: "ping" })).status, 200);
+  }
+  await runtime.call("session.revoke", { sessionId: input.sessionId });
+  await assert.rejects(runtime.call("session.reconnect", input), /no longer active/);
+  assert.equal((await mcpRequest(original, { method: "ping" })).status, 401);
+  const replacement = await runtime.call("session.open", input);
+  assert.notEqual(replacement.token, original.token);
+});
+
 test("PI tool images reach the Agent as MCP images without repeating base64 in text", async (t) => {
   const root = await temporary(t), runtime = await host(t, root);
   const data = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/Zq8AAAAASUVORK5CYII=";
@@ -25,7 +47,7 @@ test("MCP cancellation reaches the worker AbortSignal and preserves the Agent co
   const root = await temporary(t); let ready, noticed;
   const started = new Promise((resolve) => { ready = resolve; });
   const aborted = new Promise((resolve) => { noticed = resolve; });
-  const runtime = await host(t, root, { platform: () => { ready(); return null; },
+  const runtime = await host(t, root, { platform: (message) => { if (message.api === "ui.showToast") ready(); return null; },
     event: (event) => { if (event.name === "log" && event.message === "noticed abort") noticed(); } });
   const entry = await plugin(root, "mine.cancel", { code: `module.exports.onLoad = () => pi.agent.registerTool({
     name: "wait", description: "wait for cancellation", execute: async (_, ctx) => {
@@ -52,7 +74,9 @@ test("MCP cancellation reaches the worker AbortSignal and preserves the Agent co
 test("revoking a session suppresses even successful values returned by a running worker", async (t) => {
   const root = await temporary(t); let release, ready;
   const started = new Promise((resolve) => { ready = resolve; });
-  const runtime = await host(t, root, { platform: () => new Promise((resolve) => { release = resolve; ready(); }) });
+  // Directory readiness also calls the platform; pause only the running worker.
+  const runtime = await host(t, root, { platform: (message) => message.api === "ui.showToast"
+    ? new Promise((resolve) => { release = resolve; ready(); }) : null });
   t.after(() => release?.(null));
   const entry = await plugin(root, "mine.late", { code: `module.exports.onLoad = () => pi.agent.registerTool({
     name: "late", description: "late value", execute: async () => { await pi.ui.showToast("ready"); return "private late value"; }

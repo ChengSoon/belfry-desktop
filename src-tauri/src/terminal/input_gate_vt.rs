@@ -9,6 +9,8 @@ pub(super) struct Modes {
     pub working_agent: Option<crate::agent::AgentKind>,
     pub blocked_sequence: u64,
     pub readiness: super::input_readiness::InputReadiness,
+    mouse_motion: bool,
+    sgr_mouse: bool,
     parser: Parser,
     sequence: Option<u64>,
     queries: Vec<(Query, i64)>,
@@ -30,6 +32,10 @@ enum Query {
     Window,
 }
 impl Modes {
+    pub(super) fn output_sequence(&self) -> Option<u64> {
+        self.sequence
+    }
+
     pub fn observe(&mut self, sequence: u64, bytes: &[u8], now: i64) {
         if self.sequence.is_some_and(|previous| sequence <= previous) {
             return;
@@ -40,9 +46,13 @@ impl Modes {
             self.parser = match state {
                 Parser::Ground if byte == 0x1b => Parser::Escape,
                 Parser::Escape if byte == b'[' => Parser::Csi(String::new()),
-                Parser::Escape if matches!(byte, b']' | b'P' | b'_' | b'^') => Parser::String(false),
+                Parser::Escape if matches!(byte, b']' | b'P' | b'_' | b'^') => {
+                    Parser::String(false)
+                }
                 Parser::Escape if byte == b'c' => {
                     self.disable_paste();
+                    self.mouse_motion = false;
+                    self.sgr_mouse = false;
                     self.queries.clear();
                     Parser::Ground
                 }
@@ -54,7 +64,11 @@ impl Modes {
                     params.push(byte as char);
                     Parser::Csi(params)
                 }
-                Parser::String(escape) if matches!(byte, 0x18 | 0x1a) || byte == 7 || escape && byte == b'\\' => Parser::Ground,
+                Parser::String(escape)
+                    if matches!(byte, 0x18 | 0x1a) || byte == 7 || escape && byte == b'\\' =>
+                {
+                    Parser::Ground
+                }
                 Parser::String(_) => Parser::String(byte == 0x1b),
                 _ => Parser::Ground,
             };
@@ -67,6 +81,8 @@ impl Modes {
         self.working_agent = None;
         self.blocked_sequence = 0;
         self.readiness = Default::default();
+        self.mouse_motion = false;
+        self.sgr_mouse = false;
         self.parser = Parser::Ground;
         self.queries.clear();
     }
@@ -77,10 +93,28 @@ impl Modes {
     }
     fn csi(&mut self, params: &str, final_byte: u8, now: i64) {
         if matches!(final_byte, b'h' | b'l')
-            && params.strip_prefix('?').is_some_and(|values| values.split(';').any(|value| value == "2004"))
+            && let Some(params) = params.strip_prefix('?')
         {
-            if final_byte == b'h' { self.bracketed_paste = true; }
-            else { self.disable_paste(); }
+            for mode in params.split(';') {
+                match mode {
+                    "9" | "1000" | "1002" | "1003" => {
+                        self.mouse_motion = final_byte == b'h' && mode == "1003"
+                    }
+                    "1006" | "1016" => self.sgr_mouse = final_byte == b'h',
+                    _ => {}
+                }
+            }
+        }
+        if matches!(final_byte, b'h' | b'l')
+            && params
+                .strip_prefix('?')
+                .is_some_and(|values| values.split(';').any(|value| value == "2004"))
+        {
+            if final_byte == b'h' {
+                self.bracketed_paste = true;
+            } else {
+                self.disable_paste();
+            }
         }
         let query = match (params, final_byte) {
             ("6", b'n') => Some(Query::Cursor(false)),
@@ -121,7 +155,10 @@ impl Modes {
                 return false;
             };
             let final_byte = tail[end];
-            let Some(index) = available.iter().position(|(query, _)| query.matches(params, final_byte)) else {
+            let Some(index) = available
+                .iter()
+                .position(|(query, _)| query.matches(params, final_byte))
+            else {
                 return false;
             };
             available.remove(index);
@@ -130,13 +167,38 @@ impl Modes {
         self.queries = available;
         true
     }
+
+    /// SGR motion with no buttons held cannot change the CLI composer. Accept it
+    /// only on the response channel and while the child has enabled that reporting.
+    pub fn passive_mouse_motion(&self, bytes: &[u8]) -> bool {
+        if !self.mouse_motion || !self.sgr_mouse || bytes.len() > 32 {
+            return false;
+        }
+        let Ok(text) = std::str::from_utf8(bytes) else {
+            return false;
+        };
+        let Some(params) = text
+            .strip_prefix("\x1b[<")
+            .and_then(|text| text.strip_suffix('M'))
+        else {
+            return false;
+        };
+        if !numbers(params, Some(3)) {
+            return false;
+        }
+        params
+            .split(';')
+            .next()
+            .and_then(|code| code.parse::<u8>().ok())
+            .is_some_and(|code| code & !28 == 35)
+    }
 }
 fn numbers(value: &str, count: Option<usize>) -> bool {
     let parts: Vec<_> = value.split(';').collect();
     count.is_none_or(|count| parts.len() == count)
-        && parts
-            .iter()
-            .all(|part| !part.is_empty() && part.len() <= 6 && part.bytes().all(|byte| byte.is_ascii_digit()))
+        && parts.iter().all(|part| {
+            !part.is_empty() && part.len() <= 6 && part.bytes().all(|byte| byte.is_ascii_digit())
+        })
 }
 impl Query {
     fn matches(&self, params: &str, final_byte: u8) -> bool {
@@ -144,15 +206,21 @@ impl Query {
             Self::Cursor(private) => {
                 final_byte == b'R'
                     && if *private {
-                        params.strip_prefix('?').is_some_and(|p| numbers(p, Some(2)))
+                        params
+                            .strip_prefix('?')
+                            .is_some_and(|p| numbers(p, Some(2)))
                     } else {
                         numbers(params, Some(2))
                     }
             }
-            Self::Status(private) => final_byte == b'n' && params == if *private { "?0" } else { "0" },
+            Self::Status(private) => {
+                final_byte == b'n' && params == if *private { "?0" } else { "0" }
+            }
             Self::Attributes(secondary) => {
                 final_byte == b'c'
-                    && params.strip_prefix(if *secondary { '>' } else { '?' }).is_some_and(|p| numbers(p, None))
+                    && params
+                        .strip_prefix(if *secondary { '>' } else { '?' })
+                        .is_some_and(|p| numbers(p, None))
             }
             Self::Mode(mode) => {
                 final_byte == b'y'

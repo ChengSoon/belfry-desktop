@@ -29,9 +29,11 @@ fn supports_subdirectories_and_separate_worktrees() {
     let report = status::read(tree.to_str().unwrap()).unwrap();
     assert_eq!(Some("task-a"), report.branch.as_deref());
     assert_eq!("nested/a.txt", report.entries[0].path);
-    assert!(String::from_utf8(repo.git(&["show", "HEAD:nested/a.txt"]))
-        .unwrap()
-        .contains("initial"));
+    assert!(
+        String::from_utf8(repo.git(&["show", "HEAD:nested/a.txt"]))
+            .unwrap()
+            .contains("initial")
+    );
 }
 
 #[test]
@@ -93,10 +95,12 @@ fn repository_diff_and_fsmonitor_helpers_are_never_executed() {
     repo.git(&["config", "diff.unsafe.textconv", helper.to_str().unwrap()]);
     repo.git(&["config", "core.fsmonitor", helper.to_str().unwrap()]);
     repo.write("a.txt", "safe read\n");
-    assert!(diff::read(request(&repo, "a.txt"))
-        .unwrap()
-        .text
-        .contains("+safe read"));
+    assert!(
+        diff::read(request(&repo, "a.txt"))
+            .unwrap()
+            .text
+            .contains("+safe read")
+    );
     assert!(!marker.exists());
 }
 

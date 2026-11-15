@@ -23,7 +23,7 @@ export function roomRename(id: string, name: string) {
 }
 
 export function roomDelete(id: string) {
-  return invoke<void>("room_delete", { id });
+  return invoke<string[]>("room_delete", { id });
 }
 
 export function roomAddMember(id: string, tabId: string, agent: string, title: string, duty: string, foreman: boolean) {

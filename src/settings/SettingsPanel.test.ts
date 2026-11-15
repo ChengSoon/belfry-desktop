@@ -8,6 +8,7 @@ describe("SettingsPanel navigation", () => {
     expect(settingsSectionKeys).toContain("plugins");
     expect(settingsSectionKeys).toContain("shortcuts");
     expect(settingsSectionKeys).not.toContain("harness");
+    expect(settingsSectionKeys).not.toContain("a2a");
   });
 
   it("safely falls back unknown legacy routes", () => {
@@ -15,6 +16,7 @@ describe("SettingsPanel navigation", () => {
     expect(normalizeSettingsSection("shortcuts")).toBe("shortcuts");
     expect(normalizeSettingsSection("removed-plugin-route")).toBe("appearance");
     expect(normalizeSettingsSection("harness")).toBe("appearance");
+    expect(normalizeSettingsSection("a2a")).toBe("appearance");
     // 「项目 Provider」并入模型服务，旧深链落到配线台。
     expect(normalizeSettingsSection("project-provider")).toBe("provider");
   });
@@ -39,6 +41,7 @@ describe("Graphite settings directory", () => {
     expect(keys("后台会话")).toEqual(["agent-hooks"]);
     expect(keys("provider API")).toEqual(["provider"]);
     expect(keys("项目覆盖")).toEqual(["provider"]);
+    expect(keys("a2a connection")).toEqual([]);
     expect(keys("系统")).toEqual(["backup", "environment", "about"]);
     expect(keys("no-such-section")).toEqual([]);
   });

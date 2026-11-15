@@ -1,6 +1,6 @@
+use super::contracts::GitBranch;
 use super::contracts::{DiffRequest, DiffStage};
 use super::fixtures::Repository;
-use super::contracts::GitBranch;
 use super::{branch, diff, status};
 
 #[test]
@@ -49,14 +49,18 @@ fn reports_staged_unstaged_deleted_and_untracked_unicode_paths() {
         .unwrap();
     assert_eq!("M", edited.index_status);
     assert_eq!("M", edited.worktree_status);
-    assert!(report
-        .entries
-        .iter()
-        .any(|entry| entry.path == "删除.txt" && entry.worktree_status == "D"));
-    assert!(report
-        .entries
-        .iter()
-        .any(|entry| entry.path == "新的文件.txt" && entry.untracked));
+    assert!(
+        report
+            .entries
+            .iter()
+            .any(|entry| entry.path == "删除.txt" && entry.worktree_status == "D")
+    );
+    assert!(
+        report
+            .entries
+            .iter()
+            .any(|entry| entry.path == "新的文件.txt" && entry.untracked)
+    );
 }
 
 #[test]
@@ -141,18 +145,38 @@ fn reads_new_text_and_binary_files_and_rejects_path_escape() {
 fn branch_reads_named_detached_and_non_repository_without_scanning() {
     let repo = Repository::new();
     // 尚无提交（unborn HEAD）时 symbolic-ref 仍能给出分支名。
-    assert_eq!(branch::read(repo.path()).unwrap(), GitBranch { repository: true, branch: Some("main".into()), detached: None });
+    assert_eq!(
+        branch::read(repo.path()).unwrap(),
+        GitBranch {
+            repository: true,
+            branch: Some("main".into()),
+            detached: None
+        }
+    );
     repo.write("a.txt", "a\n");
     repo.commit();
     repo.git(&["checkout", "-b", "feature/面包屑"]);
-    assert_eq!(branch::read(repo.path()).unwrap().branch.as_deref(), Some("feature/面包屑"));
+    assert_eq!(
+        branch::read(repo.path()).unwrap().branch.as_deref(),
+        Some("feature/面包屑")
+    );
     let head = String::from_utf8(repo.git(&["rev-parse", "--short", "HEAD"])).unwrap();
     repo.git(&["checkout", "--detach"]);
     let detached = branch::read(repo.path()).unwrap();
-    assert_eq!(detached, GitBranch { repository: true, branch: None, detached: Some(head.trim().into()) });
+    assert_eq!(
+        detached,
+        GitBranch {
+            repository: true,
+            branch: None,
+            detached: Some(head.trim().into())
+        }
+    );
 
     let plain = std::env::temp_dir().join(format!("belfry-not-git-{}", ulid::Ulid::generate()));
     std::fs::create_dir_all(&plain).unwrap();
-    assert_eq!(branch::read(plain.to_str().unwrap()).unwrap(), GitBranch::default());
+    assert_eq!(
+        branch::read(plain.to_str().unwrap()).unwrap(),
+        GitBranch::default()
+    );
     let _ = std::fs::remove_dir_all(&plain);
 }

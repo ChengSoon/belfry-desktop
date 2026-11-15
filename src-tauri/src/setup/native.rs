@@ -75,7 +75,9 @@ pub(super) fn checks(kind: AgentKind, version: &str) -> Vec<EnvironmentCheck> {
         _ => false,
     };
     let help = match kind {
-        AgentKind::Opencode => belfry_i18n::text("在会话中执行 /connect，或在 Provider 设置中配置接口"),
+        AgentKind::Opencode => {
+            belfry_i18n::text("在会话中执行 /connect，或在 Provider 设置中配置接口")
+        }
         AgentKind::Kimi => belfry_i18n::text("执行 kimi login，或在 Provider 设置中配置接口"),
         _ => belfry_i18n::text("启动 agy 完成 Google 登录，或在 Provider 设置中配置 Gemini API"),
     };

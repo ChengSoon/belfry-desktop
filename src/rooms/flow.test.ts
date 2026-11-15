@@ -11,7 +11,7 @@ function member(id: string, title: string, role: RoomMember["role"] = "peer"): R
 
 function task(id: string, status: RoomTask["status"], assignee: string | null): RoomTask {
   return { id, title: `${id} 标题`, outcome: "", status, assignee, blockedBy: [], notes: "", result: null,
-    createdBy: "boss", createdAt: 0, updatedAt: 0, rev: 1 };
+    createdBy: "boss", createdAt: 0, updatedAt: 0, rev: 1, generation: 1 };
 }
 
 function message(by: string, to: string[], at: number, extra: Partial<RoomMessage> = {}): RoomMessage {

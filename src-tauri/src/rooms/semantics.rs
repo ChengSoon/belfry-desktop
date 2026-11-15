@@ -8,7 +8,10 @@ use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
 pub(super) fn operation_key(actor: &str, tab: Option<&str>, operation: &str) -> String {
-    format!("{:x}", Sha256::digest(serde_json::to_vec(&(actor, tab, operation)).expect("operation identity")))
+    format!(
+        "{:x}",
+        Sha256::digest(serde_json::to_vec(&(actor, tab, operation)).expect("operation identity"))
+    )
 }
 
 pub(super) fn remember_operation(
@@ -25,10 +28,23 @@ pub(super) fn remember_operation(
         return;
     };
     let key = operation_key(by, semantics.sender_tab.as_deref(), operation);
-    let receipt =
-        room.message_operations.entry(key).or_insert_with(|| MessageOperation { hash: hash.clone(), posted: vec![] });
-    if receipt.hash == *hash && !receipt.posted.iter().any(|post| post.message_id == message_id) {
-        receipt.posted.push(Posted { message_id: message_id.into(), to: to.to_vec() });
+    let receipt = room
+        .message_operations
+        .entry(key)
+        .or_insert_with(|| MessageOperation {
+            hash: hash.clone(),
+            posted: vec![],
+        });
+    if receipt.hash == *hash
+        && !receipt
+            .posted
+            .iter()
+            .any(|post| post.message_id == message_id)
+    {
+        receipt.posted.push(Posted {
+            message_id: message_id.into(),
+            to: to.to_vec(),
+        });
     }
 }
 
@@ -47,7 +63,11 @@ pub fn legacy(
             .and_then(|message| message.inbox.as_ref())
             .map(|semantics| semantics.topic_id.clone())
             .unwrap_or_else(|| format!("room:{}:{id}", room.id)),
-        class: if reply.is_some() { MessageClass::Reply } else { MessageClass::Discussion },
+        class: if reply.is_some() {
+            MessageClass::Reply
+        } else {
+            MessageClass::Discussion
+        },
         questions: if mode == MessageMode::RequestReply {
             vec![Question {
                 id: format!("{id}:q1"),
@@ -61,11 +81,21 @@ pub fn legacy(
         },
         answers: original
             .and_then(|message| message.inbox.as_ref())
-            .map(|semantics| semantics.questions.iter().filter(|q| q.legacy).map(|q| q.id.clone()).collect())
+            .map(|semantics| {
+                semantics
+                    .questions
+                    .iter()
+                    .filter(|q| q.legacy)
+                    .map(|q| q.id.clone())
+                    .collect()
+            })
             .unwrap_or_default(),
         recipient_tabs: to
             .iter()
-            .filter_map(|id| room.active_member(id).map(|member| (id.clone(), member.tab_id.clone())))
+            .filter_map(|id| {
+                room.active_member(id)
+                    .map(|member| (id.clone(), member.tab_id.clone()))
+            })
             .collect(),
         ..Default::default()
     }
@@ -73,19 +103,34 @@ pub fn legacy(
 
 /// One-time upgrade; never infer an assignment from a localized notice.
 pub fn migrate(room: &mut Room) {
-    let snapshots: Vec<_> = room.all_messages().filter(|message| message.inbox.is_none()).cloned().collect();
+    let snapshots: Vec<_> = room
+        .all_messages()
+        .filter(|message| message.inbox.is_none())
+        .cloned()
+        .collect();
     for (index, message) in snapshots.into_iter().enumerate() {
-        let mut semantics =
-            legacy(room, &message.id, &message.text, &message.to, message.mode, message.reply_to.as_deref());
+        let mut semantics = legacy(
+            room,
+            &message.id,
+            &message.text,
+            &message.to,
+            message.mode,
+            message.reply_to.as_deref(),
+        );
         semantics.source_sequence = index as u64 + 1;
-        semantics.sender_tab =
-            room.members.iter().find(|member| member.id == message.by).map(|member| member.tab_id.clone());
+        semantics.sender_tab = room
+            .members
+            .iter()
+            .find(|member| member.id == message.by)
+            .map(|member| member.tab_id.clone());
         semantics.sender_name = Some(room.label(&message.by));
         for question in &mut semantics.questions {
             for recipient in &message.replied_by {
                 let replies = room
                     .all_messages()
-                    .filter(|reply| reply.reply_to.as_deref() == Some(&message.id) && reply.by == *recipient)
+                    .filter(|reply| {
+                        reply.reply_to.as_deref() == Some(&message.id) && reply.by == *recipient
+                    })
                     .map(|reply| reply.id.clone())
                     .collect();
                 question.replies.insert(recipient.clone(), replies);
@@ -98,8 +143,11 @@ pub fn migrate(room: &mut Room) {
             current.inbox = Some(semantics);
         }
     }
-    let bindings: BTreeMap<_, _> =
-        room.members.iter().map(|member| (member.id.clone(), member.tab_id.clone())).collect();
+    let bindings: BTreeMap<_, _> = room
+        .members
+        .iter()
+        .map(|member| (member.id.clone(), member.tab_id.clone()))
+        .collect();
     for entry in &mut room.delivery_outbox {
         if entry.tab_id.is_none() {
             entry.tab_id = bindings.get(&entry.member_id).cloned();
@@ -107,7 +155,13 @@ pub fn migrate(room: &mut Room) {
     }
     let snapshots: Vec<_> = room.all_messages().cloned().collect();
     for message in snapshots {
-        remember_operation(room, &message.by, &message.id, &message.to, message.inbox.as_ref());
+        remember_operation(
+            room,
+            &message.by,
+            &message.id,
+            &message.to,
+            message.inbox.as_ref(),
+        );
     }
 }
 
@@ -139,7 +193,11 @@ pub fn tag_task(room: &mut Room, posted: &Posted, id: &str) {
     }
     if let Some(message) = room.message(&posted.message_id) {
         let event = super::ledger::message_event(&room_id, message);
-        if let Some(pending) = room.pending.iter_mut().find(|event| event.id == posted.message_id) {
+        if let Some(pending) = room
+            .pending
+            .iter_mut()
+            .find(|event| event.id == posted.message_id)
+        {
             *pending = event;
         }
     }
@@ -177,7 +235,10 @@ pub fn say(
     }
     if options.questions.len() > 32
         || options.answers.len() > 32
-        || options.questions.iter().any(|question| question.trim().is_empty() || question.chars().count() > 4000)
+        || options
+            .questions
+            .iter()
+            .any(|question| question.trim().is_empty() || question.chars().count() > 4000)
     {
         return Err("Questions exceed the supported limits".into());
     }
@@ -187,7 +248,8 @@ pub fn say(
     let hash = format!(
         "{:x}",
         Sha256::digest(
-            serde_json::to_vec(&(actor.id(), tokens, text, reply, ask, options)).map_err(|error| error.to_string())?
+            serde_json::to_vec(&(actor.id(), tokens, text, reply, ask, options))
+                .map_err(|error| error.to_string())?
         )
     );
     if let Some(operation) = &options.operation_id {
@@ -198,7 +260,10 @@ pub fn say(
             Actor::Member(member) => Some(member.tab_id.as_str()),
             Actor::User => None,
         };
-        if let Some(receipt) = room.message_operations.get(&operation_key(actor.id(), tab, operation)) {
+        if let Some(receipt) =
+            room.message_operations
+                .get(&operation_key(actor.id(), tab, operation))
+        {
             if receipt.hash != hash {
                 return Err("Operation ID was already used with different content".into());
             }
@@ -209,26 +274,41 @@ pub fn say(
             .filter(|message| {
                 message.by == actor.id()
                     && message.inbox.as_ref().is_some_and(|semantics| {
-                        semantics.operation_id.as_ref() == Some(operation) && semantics.sender_tab.as_deref() == tab
+                        semantics.operation_id.as_ref() == Some(operation)
+                            && semantics.sender_tab.as_deref() == tab
                     })
             })
             .collect();
         if !previous.is_empty() {
-            if previous.iter().any(|message| message.inbox.as_ref().unwrap().operation_hash.as_ref() != Some(&hash)) {
+            if previous.iter().any(|message| {
+                message.inbox.as_ref().unwrap().operation_hash.as_ref() != Some(&hash)
+            }) {
                 return Err("Operation ID was already used with different content".into());
             }
             return Ok(previous
                 .iter()
-                .map(|message| Posted { message_id: message.id.clone(), to: message.to.clone() })
+                .map(|message| Posted {
+                    message_id: message.id.clone(),
+                    to: message.to.clone(),
+                })
                 .collect());
         }
     }
-    let original =
-        reply.map(|hint| room.message(hint).cloned().ok_or("Referenced message was not found")).transpose()?;
+    let original = reply
+        .map(|hint| {
+            room.message(hint)
+                .cloned()
+                .ok_or("Referenced message was not found")
+        })
+        .transpose()?;
     let correction = options
         .correction_of
         .as_ref()
-        .map(|hint| room.message(hint).cloned().ok_or("Corrected message was not found"))
+        .map(|hint| {
+            room.message(hint)
+                .cloned()
+                .ok_or("Corrected message was not found")
+        })
         .transpose()?;
     let mut answers = Vec::new();
     let mut askers: BTreeMap<String, Vec<String>> = BTreeMap::new();
@@ -268,7 +348,10 @@ pub fn say(
         }
         answers.push(hint.clone());
         inherited_topics.push(semantics.topic_id.clone());
-        askers.entry(message.by.clone()).or_default().push(hint.clone());
+        askers
+            .entry(message.by.clone())
+            .or_default()
+            .push(hint.clone());
     }
     for message in [&original, &correction].into_iter().flatten() {
         if let Some(semantics) = &message.inbox {
@@ -283,14 +366,21 @@ pub fn say(
         .transpose()?
         .or_else(|| inherited_topics.first().cloned())
         .unwrap_or_else(|| format!("room:{}:{id}", room.id));
-    if inherited_topics.iter().any(|inherited| inherited != &topic_id) {
+    if inherited_topics
+        .iter()
+        .any(|inherited| inherited != &topic_id)
+    {
         return Err("Reply, correction and answers must share one topic".into());
     }
-    let is_reply = original.is_some() || !answers.is_empty() || matches!(options.class, Some(MessageClass::Reply));
+    let is_reply = original.is_some()
+        || !answers.is_empty()
+        || matches!(options.class, Some(MessageClass::Reply));
     if is_reply && (ask || !options.questions.is_empty()) {
         return Err("Post follow-up questions as a separate discussion in the same topic".into());
     }
-    if matches!(options.class, Some(MessageClass::Fyi)) && (ask || is_reply || !options.questions.is_empty()) {
+    if matches!(options.class, Some(MessageClass::Fyi))
+        && (ask || is_reply || !options.questions.is_empty())
+    {
         return Err("FYI cannot require an answer or answer questions".into());
     }
     let implicit = tokens.is_empty() && mentions_in(room, text).is_empty();
@@ -298,7 +388,9 @@ pub fn say(
         let recipients: Vec<_> = askers.keys().cloned().collect();
         if !tokens.is_empty() {
             let explicit = resolve_recipients(room, actor, tokens, text)?;
-            if explicit.len() != recipients.len() || explicit.iter().any(|id| !recipients.contains(id)) {
+            if explicit.len() != recipients.len()
+                || explicit.iter().any(|id| !recipients.contains(id))
+            {
                 return Err("Answers must return to their question authors".into());
             }
         }
@@ -321,8 +413,11 @@ pub fn say(
     if (ask || !options.questions.is_empty()) && to.iter().any(|id| id == "user") {
         return Err("Question obligations require an Agent recipient".into());
     }
-    let question_texts =
-        if options.questions.is_empty() && ask { vec![text.to_string()] } else { options.questions.clone() };
+    let question_texts = if options.questions.is_empty() && ask {
+        vec![text.to_string()]
+    } else {
+        options.questions.clone()
+    };
     let questions: Vec<_> = question_texts
         .iter()
         .enumerate()
@@ -347,7 +442,10 @@ pub fn say(
         );
     }
     let groups = if askers.len() > 1 {
-        askers.into_iter().map(|(author, answers)| (vec![author], answers)).collect()
+        askers
+            .into_iter()
+            .map(|(author, answers)| (vec![author], answers))
+            .collect()
     } else {
         vec![(to, answers)]
     };
@@ -365,7 +463,10 @@ pub fn say(
             correction_of: correction.as_ref().map(|m| m.id.clone()),
             recipient_tabs: to
                 .iter()
-                .filter_map(|id| room.active_member(id).map(|m| (id.clone(), m.tab_id.clone())))
+                .filter_map(|id| {
+                    room.active_member(id)
+                        .map(|m| (id.clone(), m.tab_id.clone()))
+                })
                 .collect(),
             operation_id: options.operation_id.clone(),
             operation_hash: Some(hash.clone()),
@@ -375,7 +476,10 @@ pub fn say(
             room.all_messages()
                 .find(|message| {
                     message.inbox.as_ref().is_some_and(|original| {
-                        original.questions.iter().any(|question| semantics.answers.contains(&question.id))
+                        original
+                            .questions
+                            .iter()
+                            .any(|question| semantics.answers.contains(&question.id))
                     })
                 })
                 .map(|m| m.id.clone())
@@ -386,7 +490,11 @@ pub fn say(
             actor.id(),
             text.trim().into(),
             to,
-            if questions.is_empty() { MessageMode::Send } else { MessageMode::RequestReply },
+            if questions.is_empty() {
+                MessageMode::Send
+            } else {
+                MessageMode::RequestReply
+            },
             reply_to,
             vec![],
             now,

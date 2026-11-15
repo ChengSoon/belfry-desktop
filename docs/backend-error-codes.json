@@ -1159,14 +1159,14 @@
     {
       "code": "ROOM_YOU_ARE_THE_COORDINATOR_FOCUS_ON_COORDINATING",
       "params": [],
-      "en": "You are the coordinator. Focus on coordinating the team. Start with belfry room status, break the request into tasks, and assign each to the appropriate member (belfry room task add <title> --to <role> --outcome <criteria>). Do work yourself only when it is very small or no suitable member is available. Assign room work through the task board, never belfry send. If a room command fails, report the original error to the user and inspect the task board before proceeding; do not bypass it or create duplicate tasks. You will receive notifications when members finish or have no remaining work; assign the next task accordingly. When everything is complete, report with belfry room say --to @user.",
-      "zhCN": "你是统筹：你的主要工作是协调，不是自己动手。收到需求先看 belfry room status，把需求拆成任务、按职责派给成员（belfry room task add <标题> --to <角色> --outcome <完成标准>）；只有很小的活、或者没有合适的成员时才自己做。派活只用任务板，不要用 belfry send。房间命令报错时向用户报告原始错误，先核对任务板；不要绕过任务板派活或重复创建。成员完成任务或手上没活时你会收到通知，据此派下一件；全部完成后用 belfry room say --to @用户 汇报。"
+      "en": "Coordinator: Read the board with A2ARoomContext; assign by role with completion criteria via A2ARoomTask. Do work yourself only if very small or no suitable member is available. Continue after reports; check the board after errors or unknown outcomes. Update A2ARoomBrief; report to @user via A2ARoomSay when all work is complete.",
+      "zhCN": "统筹：先用 A2ARoomContext 看任务板，A2ARoomTask 按职责分派、明确完成标准。只有很小的活或没有合适成员时才自己做。交差后继续派活，失败或结果未知先核对任务板；A2ARoomBrief 更新简报，全部完成后 A2ARoomSay 向 @用户 汇报。"
     },
     {
       "code": "ROOM_YOU_ARE_A_MEMBER_COMPLETE_TASKS_WITHIN",
       "params": [],
-      "en": "You are a member. Complete tasks within your role. Start with belfry room task start <task-id> and finish with belfry room task done <task-id> <result>. Report issues or requests for assistance to the coordinator (belfry room say <text>).",
-      "zhCN": "你是成员：做好自己职责内的任务，开工 belfry room task start <任务号>，完成 belfry room task done <任务号> <结果>；发现问题或需要别人配合，跟统筹说（belfry room say <内容>）。"
+      "en": "Member: Read A2ARoomContext; work on your assigned role tasks. Get the full task, reportHandle and generation via A2ALocalTasks/A2ALocalTask; report status and actual results via A2AReportTask. Ask the coordinator via A2ARoomSay when needed.",
+      "zhCN": "成员：A2ARoomContext 看全貌；只做分派给自己的职责内任务。A2ALocalTasks/A2ALocalTask 取完整任务及 reportHandle、generation，A2AReportTask 报状态和实际结果；需配合用 A2ARoomSay 联系统筹。"
     },
     {
       "code": "ROOM_YOU_JOINED_ROOM_AS_RESPONSIBILITIES_OBJECTIVE_VIEW",
@@ -1177,8 +1177,8 @@
         "room",
         "title"
       ],
-      "en": "You joined room \"{{room}}\" as \"{{title}}\". Responsibilities: {{duty}}. Objective: {{objective}}.\n{{role}}\nView the brief, members, and task board: belfry room status",
-      "zhCN": "你加入了房间「{{room}}」，角色「{{title}}」，职责：{{duty}}。需求目标：{{objective}}。\n{{role}}\n全貌（需求、成员、任务板）：belfry room status"
+      "en": "Room \"{{room}}\" · Role \"{{title}}\"\nResponsibilities: {{duty}}\nObjective: {{objective}}\n{{role}}\nReport task completion explicitly.",
+      "zhCN": "房间「{{room}}」·角色「{{title}}」\n职责：{{duty}}\n目标：{{objective}}\n{{role}}\n任务须显式交差。"
     },
     {
       "code": "ROOM_A_ROLE_NAME_IS_REQUIRED",
@@ -1349,8 +1349,8 @@
       "params": [
         "hint"
       ],
-      "en": "Message {{hint}} was not found. Run belfry room log to check message IDs.",
-      "zhCN": "没有编号 {{hint}} 的消息，用 belfry room log 看看"
+      "en": "Message {{hint}} was not found. Check A2ARoomContext or A2AInbox.",
+      "zhCN": "没有编号 {{hint}} 的消息，用 A2ARoomContext 或 A2AInbox 查看"
     },
     {
       "code": "ROOM_A_REPLY_CANNOT_REQUEST_ANOTHER_REPLY_SEND",
@@ -1421,16 +1421,16 @@
         "minutes",
         "prefix"
       ],
-      "en": "{{prefix}}\"{{members}}\" have no assigned tasks, and the room has been quiet for {{minutes}} minutes. Assign any remaining work with belfry room task add <title> --to <role>; otherwise no reply is needed.",
-      "zhCN": "{{prefix}}「{{members}}」手上没有任务，房间已经安静 {{minutes}} 分钟。还有要做的就拆成任务派给他们（belfry room task add <标题> --to <角色>）；没有就不用回复。"
+      "en": "{{prefix}}\"{{members}}\" have no assigned tasks, and the room has been quiet for {{minutes}} minutes. Inspect the task board with A2ARoomContext and assign any remaining work through A2ARoomTask. No reply is needed if there is no remaining work.",
+      "zhCN": "{{prefix}}「{{members}}」手上没有任务，房间已经安静 {{minutes}} 分钟。还有要做的就用 A2ARoomContext 核对任务板，再用 A2ARoomTask 分派；没有就不用回复。"
     },
     {
       "code": "ROOM_TASK_WAS_NOT_FOUND_RUN_BELFRY_ROOM",
       "params": [
         "task"
       ],
-      "en": "Task {{task}} was not found. Run belfry room status to view the task board.",
-      "zhCN": "没有任务 {{task}}，用 belfry room status 看任务板"
+      "en": "Task {{task}} was not found. Read the task board with A2ARoomContext.",
+      "zhCN": "没有任务 {{task}}，用 A2ARoomContext 看任务板"
     },
     {
       "code": "ROOM_IS_NOT_IN_THIS_ROOM",
@@ -1610,8 +1610,8 @@
         "id",
         "title"
       ],
-      "en": "All prerequisites for {{id}} \"{{title}}\" are complete. Start with: belfry room task start {{id}}",
-      "zhCN": "{{id}}「{{title}}」的前置都完成了，可以开工：belfry room task start {{id}}"
+      "en": "All prerequisites for {{id}} \"{{title}}\" are complete. Obtain the current reportHandle and generation through A2ALocalTasks, then report working with A2AReportTask to start.",
+      "zhCN": "{{id}}「{{title}}」的前置都完成了；用 A2ALocalTasks 获取当前 reportHandle 和 generation，再用 A2AReportTask 报告 working 开工"
     },
     {
       "code": "ROOM_REOPENED",
@@ -1734,8 +1734,8 @@
       "params": [
         "members"
       ],
-      "en": "Available members: {{members}}. Break the work into tasks and assign them: belfry room task add <title> --to <role>",
-      "zhCN": "可以派活的成员：{{members}}。先拆成任务派出去：belfry room task add <标题> --to <角色>"
+      "en": "Available members: {{members}}. Read the task board with A2ARoomContext, then break down and assign work with A2ARoomTask.",
+      "zhCN": "可以派活的成员：{{members}}。先用 A2ARoomContext 核对任务板，再用 A2ARoomTask 拆解并分派任务"
     },
     {
       "code": "ROOM_THE_APP_DATA_DIRECTORY_WAS_NOT_FOUND",
@@ -1861,8 +1861,8 @@
     {
       "code": "ROOM_YOU_ARE_NOT_IN_ANY_COLLABORATION_ROOMS",
       "params": [],
-      "en": "You are not in any collaboration rooms. The user must add you to a room before you can use belfry room.",
-      "zhCN": "你不在任何协作房间里——被用户拉进房间之后才能用 belfry room"
+      "en": "You are not in any collaboration rooms. The user must add you to a room before you can use A2A room tools.",
+      "zhCN": "你不在任何协作房间里；被用户加入房间后才能使用 A2A 房间工具"
     },
     {
       "code": "ROOM_YOU_BELONG_TO_ROOMS_SELECT_ONE_WITH",
@@ -1870,16 +1870,16 @@
         "count",
         "names"
       ],
-      "en": "You belong to {{count}} rooms. Select one with --room: {{names}}",
-      "zhCN": "你在 {{count}} 间房里，用 --room 写明哪一间：{{names}}"
+      "en": "You belong to {{count}} rooms. Specify one with the room parameter: {{names}}",
+      "zhCN": "你在 {{count}} 间房里，用 room 参数写明哪一间：{{names}}"
     },
     {
       "code": "ROOM_YOU_DO_NOT_BELONG_TO_A_ROOM",
       "params": [
         "hint"
       ],
-      "en": "You do not belong to a room named \"{{hint}}\". Run belfry rooms to list your rooms.",
-      "zhCN": "你的房间里没有「{{hint}}」；用 belfry rooms 看看你在哪几间"
+      "en": "You do not belong to a room named \"{{hint}}\". Read your rooms with A2ARooms.",
+      "zhCN": "你的房间里没有「{{hint}}」；用 A2ARooms 查看所属房间"
     },
     {
       "code": "ROOM_MULTIPLE_ROOMS_MATCH_USE_A_MORE_COMPLETE",
@@ -1944,14 +1944,14 @@
     {
       "code": "COLLAB_A_MESSAGE_REQUIRES_YOUR_REPLY_BELFRY_ROOM",
       "params": [],
-      "en": "A message requires your reply: belfry room say --reply <short-id> <text>",
-      "zhCN": "有消息要求你回复：belfry room say --reply <短id> <你的话>"
+      "en": "A message requires your reply. Read its complete text and questionId with A2AInbox, then answer through A2ARoomSay using replyTo, topicId and answers. Replying does not complete the task.",
+      "zhCN": "有消息要求你回复：用 A2AInbox 读取原文和 questionId，再用 A2ARoomSay 的 replyTo、topicId 和 answers 回答。回复不会完成任务。"
     },
     {
       "code": "COLLAB_TO_RESPOND_RUN_BELFRY_ROOM_SAY_TEXT",
       "params": [],
-      "en": "To respond, run belfry room say <text> (add --reply <short-id> to reply to a message). No reply is needed if you have nothing to add.",
-      "zhCN": "要接话用 belfry room say <你的话>（回复某条加 --reply <短id>）；没有要补充的不必回复。"
+      "en": "Read the context with A2ARoomContext and respond through A2ARoomSay. No reply is needed if you have nothing to add.",
+      "zhCN": "用 A2ARoomContext 读取上下文、A2ARoomSay 接话；没有要补充的不必回复。"
     },
     {
       "code": "COLLAB_BELFRY_ROOM",
@@ -1970,8 +1970,8 @@
         "id",
         "instruction"
       ],
-      "en": "[belfry] Task {{id}} from \"{{from_label}}\"\n{{instruction}}\nWhen finished, run: belfry done {{id}}",
-      "zhCN": "[belfry] 来自「{{from_label}}」的任务 {{id}}\n{{instruction}}\n完成后执行：belfry done {{id}}"
+      "en": "[belfry] Task {{id}} from \"{{from_label}}\"\n{{instruction}}\nFind this task through A2ALocalTasks to obtain reportHandle and generation. Read its complete context with A2ALocalTask, then explicitly report working, inputRequired, completed or failed through A2AReportTask with actual results. An idle terminal does not complete a task.",
+      "zhCN": "[belfry] 来自「{{from_label}}」的任务 {{id}}\n{{instruction}}\n用 A2ALocalTasks 找到此任务并取得 reportHandle 和 generation，先用 A2ALocalTask 读取完整上下文，再用 A2AReportTask 显式报告 working、inputRequired、completed 或 failed，并提供实际结果。终端闲置不是完成信号。"
     },
     {
       "code": "COLLAB_THE_ROOM_DIRECTORY_IS_NOT_READY_TRY",
@@ -3416,8 +3416,8 @@
     {
       "code": "SETUP_THE_BELFRY_COLLABORATION_SERVICE_IS_NOT_RUNNING",
       "params": [],
-      "en": "The Belfry collaboration service is not running.",
-      "zhCN": "Belfry 协作服务未启动"
+      "en": "The local A2A gateway is not running.",
+      "zhCN": "本地 A2A 网关未启动"
     },
     {
       "code": "SETUP_THE_INSTALLATION_IS_MISSING_THE_BELFRY_CONTROL",
@@ -3428,14 +3428,14 @@
     {
       "code": "SETUP_THE_CONTROL_CLI_PROTOCOL_AND_COLLABORATION_SERVICE",
       "params": [],
-      "en": "The control CLI, protocol, and collaboration service are connected.",
-      "zhCN": "控制 CLI、协议与协作服务已连通"
+      "en": "The local A2A 1.0 JSON-RPC gateway passed its HTTP check.",
+      "zhCN": "本地 A2A 1.0 JSON-RPC 网关 HTTP 自检通过"
     },
     {
       "code": "SETUP_THE_BELFRY_PEERS_SELF_CHECK_FAILED",
       "params": [],
-      "en": "The belfry peers self-check failed.",
-      "zhCN": "belfry peers 自检失败"
+      "en": "The local A2A gateway HTTP check failed.",
+      "zhCN": "本地 A2A 网关 HTTP 自检失败"
     },
     {
       "code": "SETUP_THE_CONTROL_CLI_COULD_NOT_START",
@@ -7376,6 +7376,55 @@
       "params": [],
       "en": "The role and session have different Agent types. Rebind the role or clear its model override",
       "zhCN": "角色的 Agent 类型与当前会话不一致，请重新绑定角色或清除模型覆盖"
+    },
+    {
+      "code": "SETUP_A2A_MIGRATION_LABEL",
+      "params": [],
+      "en": "Collaboration protocol migration",
+      "zhCN": "协作协议迁移"
+    },
+    {
+      "code": "SETUP_A2A_ADAPTER_READY",
+      "params": [
+        "count"
+      ],
+      "en": "A2A tool readiness was verified for {{count}} running instances.",
+      "zhCN": "已验证 {{count}} 个运行中实例的 A2A 工具就绪"
+    },
+    {
+      "code": "SETUP_A2A_ADAPTER_NOT_READY",
+      "params": [],
+      "en": "No ready instances yet. Launch a managed Agent and read its tool directory to enable automatic discovery.",
+      "zhCN": "尚无就绪实例；启动托管 Agent 并读取工具目录后可自动发现"
+    },
+    {
+      "code": "SETUP_A2A_ADAPTER_UNSUPPORTED",
+      "params": [],
+      "en": "This CLI has no verified automatic A2A execution and reporting adapter.",
+      "zhCN": "此 CLI 尚无经验证的自动 A2A 执行与报告适配器"
+    },
+    {
+      "code": "SETUP_A2A_SKILL_MIGRATED",
+      "params": [],
+      "en": "Collaboration uses A2A tools. Belfry collaboration Skills are no longer installed.",
+      "zhCN": "协作已改用 A2A 工具，不再安装 Belfry 协作 Skill"
+    },
+    {
+      "code": "SETUP_A2A_SKILL_MIGRATION_RETAINED",
+      "params": [
+        "paths"
+      ],
+      "en": "Unrecognized or modified old Skill copies were preserved. Review them manually: {{paths}}",
+      "zhCN": "保留了无法确认或修改过的旧 Skill 副本，请人工检查：{{paths}}"
+    },
+    {
+      "code": "COLLAB_A2A_FOLLOWUP_REPORT",
+      "params": [
+        "from_label",
+        "instruction"
+      ],
+      "en": "[belfry] Collaboration message from \"{{from_label}}\":\n{{instruction}}\nRead its complete text with A2AInbox. The original sender replies with A2ASendMessage and the original Sender taskHandle. The recipient reads the follow-up through A2ALocalTasks/A2ALocalTask and explicitly reports with A2AReportTask.",
+      "zhCN": "[belfry] 来自「{{from_label}}」的协作消息：\n{{instruction}}\n用 A2AInbox 读取消息全文；原派发方通过原 Sender taskHandle 的 A2ASendMessage 回复，接收方通过 A2ALocalTasks/A2ALocalTask 阅读续写后用 A2AReportTask 显式报告。"
     },
     {
       "code": "CONFLICT",

@@ -25,6 +25,8 @@ import { Presence } from "./motion/Presence";
 
 const SettingsPanel = createOptionalPanel({ get title() { return t("components.AppOverlays.text_df3d58c7d8"); }, layout: "settings", exportName: "SettingsPanel",
   load: () => import("../settings/SettingsPanel").then((module) => ({ default: module.SettingsPanel })) });
+const A2APanel = createOptionalPanel({ get title() { return t("a2a.title"); }, layout: "modal", exportName: "A2APanel",
+  load: () => import("../a2a/A2APanel").then((module) => ({ default: module.A2APanel })) });
 const RoomPanel = createOptionalPanel({ get title() { return t("components.AppOverlays.text_63235691ff"); }, layout: "room", exportName: "RoomView",
   load: () => import("../rooms/view/RoomView").then((module) => ({ default: module.RoomView })) });
 const HistoryPanel = createOptionalPanel({ get title() { return t("components.AppOverlays.text_0eccd0db7b"); }, layout: "history", width: HISTORY_WIDTH, exportName: "HistoryPanel",
@@ -39,6 +41,7 @@ const UpdateDialog = createOptionalPanel({ get title() { return t("components.Ap
   load: () => import("../updater/UpdateDialog").then((module) => ({ default: module.UpdateDialog })) });
 
 interface AppOverlaysProps {
+  a2aProject: ProjectWorkspace | null;
   agents: AgentAvailability[];
   failure: AppFailure | null;
   historyOpen: boolean;
@@ -62,6 +65,7 @@ interface AppOverlaysProps {
   onCancelRemove: () => void;
   onCheckUpdate: () => void;
   onCloseHistory: () => void;
+  onCloseA2A: () => void;
   onCloseQuickOpen: () => void;
   onCloseRooms: () => void;
   onCloseSettings: () => void;
@@ -74,6 +78,7 @@ interface AppOverlaysProps {
   onDismissFailure: () => void;
   onInstallUpdate: () => void;
   onOpenRoomSession: (tabId: string) => void;
+  onDeleteRoomSessions: (tabIds: readonly string[]) => void;
   roomInboxEnabled?: boolean;
   onOpenRoomFile: (projectRoot: string, path: string, line: number | null) => void;
   onClearRoomMemberContext: (tabId: string) => boolean;
@@ -100,6 +105,7 @@ function PrimaryPanels(props: AppOverlaysProps) {
   useTranslation();
   return (
     <>
+      {props.a2aProject ? <A2APanel project={props.a2aProject} onClose={props.onCloseA2A} /> : null}
       {props.settingsOpen ? (
         <SettingsPanel
           initialSection={props.settingsSection}
@@ -117,6 +123,7 @@ function PrimaryPanels(props: AppOverlaysProps) {
           onClose={props.onCloseRooms}
           onLaunchMember={props.onLaunchRoomMember}
           onOpenSession={props.onOpenRoomSession}
+          onDeleteSessions={props.onDeleteRoomSessions}
           inboxEnabled={props.roomInboxEnabled}
           onOpenFile={props.onOpenRoomFile}
           onClearContext={props.onClearRoomMemberContext}

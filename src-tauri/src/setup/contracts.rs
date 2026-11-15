@@ -13,7 +13,8 @@ pub enum CheckState {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum CheckKind {
     Diagnostics,
-    Skill(AgentKind),
+    Adapter(AgentKind),
+    Migration,
     Cli(AgentKind),
     Auth(AgentKind),
     MultiAgent(AgentKind),
@@ -25,7 +26,8 @@ impl CheckKind {
     fn id(self) -> String {
         match self {
             Self::Diagnostics => "diagnostics".to_string(),
-            Self::Skill(agent) => format!("{}-skill", agent.id()),
+            Self::Adapter(agent) => format!("{}-a2a-adapter", agent.id()),
+            Self::Migration => "a2a-skill-migration".into(),
             Self::Cli(agent) => format!("{}-cli", agent.id()),
             Self::Auth(agent) => format!("{}-auth", agent.id()),
             Self::MultiAgent(agent) => format!("{}-multi-agent", agent.id()),
@@ -37,7 +39,8 @@ impl CheckKind {
     fn label(self) -> String {
         match self {
             Self::Diagnostics => belfry_i18n::text("环境检查").to_string(),
-            Self::Skill(agent) => format!("{} Belfry skill", agent.display_name()),
+            Self::Adapter(agent) => format!("{} A2A", agent.display_name()),
+            Self::Migration => belfry_i18n::text("协作协议迁移").to_string(),
             Self::Cli(agent) => format!("{} CLI", agent.display_name()),
             Self::Auth(agent) => belfry_i18n::lformat!("{} 登录状态", agent.display_name()),
             Self::MultiAgent(agent) => belfry_i18n::lformat!("{} 多 Agent", agent.display_name()),
@@ -103,30 +106,6 @@ impl EnvironmentReport {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub enum SkillInstallAction {
-    Installed,
-    Updated,
-    Unchanged,
-    Failed,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SkillInstallTargetOutcome {
-    pub agent: AgentKind,
-    pub action: SkillInstallAction,
-    pub path: Option<String>,
-    pub summary: String,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SkillInstallOutcome {
-    pub results: Vec<SkillInstallTargetOutcome>,
-}
-
 fn unix_seconds() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -144,7 +123,7 @@ mod tests {
     fn agent_check_ids_are_unique() {
         let kinds = AgentKind::ALL.into_iter().flat_map(|agent| {
             [
-                CheckKind::Skill(agent),
+                CheckKind::Adapter(agent),
                 CheckKind::Cli(agent),
                 CheckKind::Auth(agent),
                 CheckKind::MultiAgent(agent),

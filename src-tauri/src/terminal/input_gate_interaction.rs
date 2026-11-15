@@ -113,6 +113,7 @@ impl InputGate {
             .checked_add(1)
             .ok_or_else(|| conflict("Input revision overflow"))?;
         channel.input_dirty = true;
+        channel.input_unknown = false;
         channel.submission_revision = None;
         channel.offer = None;
         if let Some(attempt) = &mut channel.attempt {

@@ -21,14 +21,37 @@ impl Rig {
         let root = std::env::temp_dir().join(format!("belfry-inbox-test-{}", new_id()));
         fs::create_dir_all(&root).unwrap();
         let rooms = Arc::new(RoomStore::load(Some(root.join("rooms"))));
-        let room = rooms.create("Inbox test", root.to_str().unwrap(), "Test durable inbox").unwrap();
+        let room = rooms
+            .create("Inbox test", root.to_str().unwrap(), "Test durable inbox")
+            .unwrap();
         let (_, room) = rooms
             .mutate(&room.id, |room| {
-                ops::add_member(room, "a", "codex", "lead", "coordinate", false, now() - 20_000)?;
-                ops::add_member(room, "b", "codex", "worker", "implement", false, now() - 20_000)?;
+                ops::add_member(
+                    room,
+                    "a",
+                    "codex",
+                    "lead",
+                    "coordinate",
+                    false,
+                    now() - 20_000,
+                )?;
+                ops::add_member(
+                    room,
+                    "b",
+                    "codex",
+                    "worker",
+                    "implement",
+                    false,
+                    now() - 20_000,
+                )?;
                 let delivered: Vec<_> = room
                     .all_messages()
-                    .flat_map(|message| message.to.iter().map(move |member| (message.id.clone(), member.clone())))
+                    .flat_map(|message| {
+                        message
+                            .to
+                            .iter()
+                            .map(move |member| (message.id.clone(), member.clone()))
+                    })
                     .collect();
                 for (message, member) in delivered {
                     ops::record_delivery(room, &message, &member, now() - 20_000);
@@ -60,17 +83,45 @@ impl Rig {
         gate.register("pty-a", Some("a".into()), root.clone());
         gate.observe_output("pty-a", 1, b"\x1b[?2004h");
         gate.observe_output("pty-b", 1, b"\x1b[?2004h");
-        let service = Arc::new(InboxService::load(Some(root.join("inbox")), rooms, board, registry, gate));
+        let service = Arc::new(InboxService::load(
+            Some(root.join("inbox")),
+            rooms,
+            board,
+            registry,
+            gate,
+        ));
         if active {
             service.activate("activate".into(), true).unwrap();
         }
-        Self { root, service, room_id: room.id, sender, worker }
+        Self {
+            root,
+            service,
+            room_id: room.id,
+            sender,
+            worker,
+        }
     }
     fn post(&self, text: &str, topic: &str) -> String {
-        self.say("a", "worker", text, MessageOptions { topic_id: Some(topic.into()), ..Default::default() }, None)[0]
-            .clone()
+        self.say(
+            "a",
+            "worker",
+            text,
+            MessageOptions {
+                topic_id: Some(topic.into()),
+                ..Default::default()
+            },
+            None,
+        )[0]
+        .clone()
     }
-    fn say(&self, tab: &str, to: &str, text: &str, options: MessageOptions, reply: Option<&str>) -> Vec<String> {
+    fn say(
+        &self,
+        tab: &str,
+        to: &str,
+        text: &str,
+        options: MessageOptions,
+        reply: Option<&str>,
+    ) -> Vec<String> {
         let (posts, _) = self
             .service
             .rooms
@@ -96,7 +147,11 @@ impl Rig {
     fn offer(&self, tab: &str) -> Offer {
         let binding = self
             .service
-            .bind(&BindRequest { tab_id: tab.into(), terminal_session_id: format!("pty-{tab}"), owner_id: "ui".into() })
+            .bind(&BindRequest {
+                tab_id: tab.into(),
+                terminal_session_id: format!("pty-{tab}"),
+                owner_id: "ui".into(),
+            })
             .unwrap();
         self.service
             .offer(&OfferRequest {
@@ -114,7 +169,11 @@ impl Rig {
         let offer = self.offer(tab);
         let result = self
             .service
-            .prepare(&PrepareRequest { session_key: self.key(tab), offer: offer.clone(), operation_id: new_id() })
+            .prepare(&PrepareRequest {
+                session_key: self.key(tab),
+                offer: offer.clone(),
+                operation_id: new_id(),
+            })
             .unwrap();
         assert!(result.batch.is_some(), "blocked: {:?}", result.blocker);
         (offer, result.batch.unwrap())
@@ -160,7 +219,10 @@ impl Rig {
                 || Ok(()),
             )
             .unwrap();
-        self.service.gate.guarded_write(session, &begin.write_guard, 2, b"\r", || Ok(())).unwrap();
+        self.service
+            .gate
+            .guarded_write(session, &begin.write_guard, 2, b"\r", || Ok(()))
+            .unwrap();
         self.service
             .receipt(&ReceiptRequest {
                 batch_id: begin.batch.id.clone(),
@@ -173,14 +235,25 @@ impl Rig {
             .unwrap()
     }
     fn messages(&self, tab: &str) -> Vec<MessageView> {
-        self.service.messages(&self.key(tab), Some(&self.room_id), None, Some(50), None).unwrap().messages
+        self.service
+            .messages(&self.key(tab), Some(&self.room_id), None, Some(50), None)
+            .unwrap()
+            .messages
     }
     fn task(&self, title: &str) -> String {
         self.service
             .rooms
             .mutate(&self.room_id, |room| {
                 let member = room.member_by_tab("a").unwrap().clone();
-                ops::task_add(room, &RoomActor::Member(&member), title, None, Some("worker"), &[], now() - 10_000)
+                ops::task_add(
+                    room,
+                    &RoomActor::Member(&member),
+                    title,
+                    None,
+                    Some("worker"),
+                    &[],
+                    now() - 10_000,
+                )
             })
             .unwrap()
             .0
@@ -199,7 +272,11 @@ fn pending_messages_report_the_native_input_blocker_instead_of_generic_startup()
     let id = rig.post("hello", "input-diagnostic");
     rig.service.sync().unwrap();
     let (data, mut sources, _) = rig.service.read_context().unwrap();
-    let entry = data.entries.values().find(|e| e.view.message_id == id && e.view.recipient.tab_id == "b").unwrap();
+    let entry = data
+        .entries
+        .values()
+        .find(|e| e.view.message_id == id && e.view.recipient.tab_id == "b")
+        .unwrap();
     for reason in ["composer_not_empty", "paste_not_ready", "runtime_not_ready"] {
         sources.native_unready.insert("b".into(), reason.into());
         let message = read::message(entry, &data, &sources, &rig.service.registry, now(), true);
@@ -210,19 +287,40 @@ fn pending_messages_report_the_native_input_blocker_instead_of_generic_startup()
 #[test]
 fn inbox_availability_preserves_native_done_blocked_and_missing_status_meanings() {
     let rig = Rig::new();
-    let recipient = Recipient { id: "b".into(), session_key: rig.key("b"), project_root: source::normalize_root(rig.root.to_str().unwrap()),
-        tab_id: "b".into(), room_id: None, member_id: None, name: "worker".into(), agent: "codex".into() };
+    let recipient = Recipient {
+        id: "b".into(),
+        session_key: rig.key("b"),
+        project_root: source::normalize_root(rig.root.to_str().unwrap()),
+        tab_id: "b".into(),
+        room_id: None,
+        member_id: None,
+        name: "worker".into(),
+        agent: "codex".into(),
+    };
     for (state, can_receive, expected) in [
-        ("idle", true, "ready"), ("done", true, "ready"), ("done", false, "unavailable"),
-        ("working", false, "busy"), ("blocked", false, "needs_input"), ("error", false, "unavailable"),
-        ("clear", false, "unavailable"), ("unknown", false, "unavailable"), ("offline", false, "offline"),
+        ("idle", true, "ready"),
+        ("done", true, "ready"),
+        ("done", false, "unavailable"),
+        ("working", false, "busy"),
+        ("blocked", false, "needs_input"),
+        ("error", false, "unavailable"),
+        ("clear", false, "unavailable"),
+        ("unknown", false, "unavailable"),
+        ("offline", false, "offline"),
     ] {
         let mut sessions = rig.service.registry.all();
-        let worker = sessions.iter_mut().find(|session| session.tab_id == "b").unwrap();
+        let worker = sessions
+            .iter_mut()
+            .find(|session| session.tab_id == "b")
+            .unwrap();
         worker.activity = state.into();
         worker.can_receive = can_receive;
         rig.service.registry.replace(sessions);
-        assert_eq!(read::availability(&rig.service.registry, &recipient), expected, "{state}");
+        assert_eq!(
+            read::availability(&rig.service.registry, &recipient),
+            expected,
+            "{state}"
+        );
     }
 }
 
@@ -234,26 +332,46 @@ fn busy_arrivals_are_durable_and_only_freeze_at_an_input_opportunity() {
     worker.activity = "working".into();
     worker.can_receive = false;
     rig.service.registry.replace(sessions);
-    let ids: Vec<_> = ["one", "two", "three"].iter().map(|text| rig.post(text, "api")).collect();
+    let ids: Vec<_> = ["one", "two", "three"]
+        .iter()
+        .map(|text| rig.post(text, "api"))
+        .collect();
     rig.service.sync().unwrap();
     assert!(rig.service.store.snapshot().unwrap().batches.is_empty());
     let waiting = rig.messages("b");
-    assert_eq!(waiting.iter().filter(|m| ids.contains(&m.message_id)).count(), 3);
+    assert_eq!(
+        waiting
+            .iter()
+            .filter(|m| ids.contains(&m.message_id))
+            .count(),
+        3
+    );
     assert!(
         waiting
             .iter()
             .filter(|m| ids.contains(&m.message_id))
             .all(|m| m.waiting_reason.as_ref().unwrap().code == "turn_busy")
     );
-    let paths =
-        [rig.root.join("rooms/rooms.json"), rig.root.join("collab/tasks.json"), rig.root.join("inbox/inbox.json")];
+    let paths = [
+        rig.root.join("rooms/rooms.json"),
+        rig.root.join("collab/tasks.json"),
+        rig.root.join("inbox/inbox.json"),
+    ];
     let before: Vec<_> = paths.iter().map(|p| fs::read(p).unwrap()).collect();
     for _ in 0..3 {
         rig.messages("b");
-        rig.service.sessions(rig.root.to_str().unwrap(), None).unwrap();
+        rig.service
+            .sessions(rig.root.to_str().unwrap(), None)
+            .unwrap();
         rig.service.pending().unwrap();
     }
-    assert_eq!(before, paths.iter().map(|p| fs::read(p).unwrap()).collect::<Vec<_>>());
+    assert_eq!(
+        before,
+        paths
+            .iter()
+            .map(|p| fs::read(p).unwrap())
+            .collect::<Vec<_>>()
+    );
     let mut sessions = rig.service.registry.all();
     let worker = sessions.iter_mut().find(|s| s.tab_id == "b").unwrap();
     worker.activity = "idle".into();
@@ -277,11 +395,22 @@ fn source_lag_is_visible_and_reads_do_not_import_or_claim() {
     let rig = Rig::new();
     let id = rig.post("saved in source", "api");
     let before = fs::read(rig.root.join("inbox/inbox.json")).unwrap();
-    let entry = rig.messages("b").into_iter().find(|m| m.message_id == id).unwrap();
+    let entry = rig
+        .messages("b")
+        .into_iter()
+        .find(|m| m.message_id == id)
+        .unwrap();
     assert_eq!(entry.waiting_reason.unwrap().code, "source_sync_pending");
     assert_eq!(before, fs::read(rig.root.join("inbox/inbox.json")).unwrap());
     rig.service.sync().unwrap();
-    assert_eq!(rig.messages("b").into_iter().find(|m| m.message_id == id).unwrap().id, entry.id);
+    assert_eq!(
+        rig.messages("b")
+            .into_iter()
+            .find(|m| m.message_id == id)
+            .unwrap()
+            .id,
+        entry.id
+    );
 }
 
 #[test]
@@ -312,11 +441,27 @@ fn only_explicit_answers_close_questions_and_submitted_does_not_mean_processed()
         0
     );
     rig.submit("b");
-    let entry = rig.messages("b").into_iter().find(|m| m.message_id == id).unwrap();
+    let entry = rig
+        .messages("b")
+        .into_iter()
+        .find(|m| m.message_id == id)
+        .unwrap();
     assert_eq!(entry.handling_status.code, "unknown_handling");
-    rig.say("b", "lead", "reference only", MessageOptions::default(), Some(&id));
+    rig.say(
+        "b",
+        "lead",
+        "reference only",
+        MessageOptions::default(),
+        Some(&id),
+    );
     assert!(
-        rig.messages("b").into_iter().find(|m| m.message_id == id).unwrap().questions.iter().all(|q| q.state == "open")
+        rig.messages("b")
+            .into_iter()
+            .find(|m| m.message_id == id)
+            .unwrap()
+            .questions
+            .iter()
+            .all(|q| q.state == "open")
     );
     rig.say(
         "b",
@@ -329,11 +474,36 @@ fn only_explicit_answers_close_questions_and_submitted_does_not_mean_processed()
         },
         Some(&id),
     );
-    let partial = rig.messages("b").into_iter().find(|m| m.message_id == id).unwrap();
-    assert_eq!(partial.questions.iter().map(|q| q.state.as_str()).collect::<Vec<_>>(), vec!["replied", "open"]);
-    let reloaded = RoomStore::load(Some(rig.root.join("rooms"))).get(&rig.room_id).unwrap();
-    assert!(reloaded.message(&id).unwrap().awaiting().contains(&rig.worker));
-    assert!(!reloaded.message(&id).unwrap().replied_by.contains(&rig.worker));
+    let partial = rig
+        .messages("b")
+        .into_iter()
+        .find(|m| m.message_id == id)
+        .unwrap();
+    assert_eq!(
+        partial
+            .questions
+            .iter()
+            .map(|q| q.state.as_str())
+            .collect::<Vec<_>>(),
+        vec!["replied", "open"]
+    );
+    let reloaded = RoomStore::load(Some(rig.root.join("rooms")))
+        .get(&rig.room_id)
+        .unwrap();
+    assert!(
+        reloaded
+            .message(&id)
+            .unwrap()
+            .awaiting()
+            .contains(&rig.worker)
+    );
+    assert!(
+        !reloaded
+            .message(&id)
+            .unwrap()
+            .replied_by
+            .contains(&rig.worker)
+    );
     assert_eq!(
         rig.service
             .sessions(rig.root.to_str().unwrap(), Some(&rig.room_id))
@@ -355,8 +525,14 @@ fn task_delivery_slot_requires_formal_completion_but_discussion_passes() {
     let batch = rig.submit("b");
     assert_eq!(batch.entry_ids.len(), 1);
     let offer = rig.offer("b");
-    let blocked =
-        rig.service.prepare(&PrepareRequest { session_key: rig.key("b"), offer, operation_id: new_id() }).unwrap();
+    let blocked = rig
+        .service
+        .prepare(&PrepareRequest {
+            session_key: rig.key("b"),
+            offer,
+            operation_id: new_id(),
+        })
+        .unwrap();
     assert_eq!(blocked.blocker.unwrap().code, "previous_task");
     let discussion = rig.post("need an API decision", "work-discussion");
     assert_eq!(rig.submit("b").message_ids, vec![discussion]);
@@ -368,14 +544,28 @@ fn task_delivery_slot_requires_formal_completion_but_discussion_passes() {
         })
         .unwrap();
     assert_eq!(
-        rig.service.rooms.get(&rig.room_id).unwrap().tasks.iter().find(|task| task.id == first).unwrap().generation,
+        rig.service
+            .rooms
+            .get(&rig.room_id)
+            .unwrap()
+            .tasks
+            .iter()
+            .find(|task| task.id == first)
+            .unwrap()
+            .generation,
         1
     );
     rig.service
         .rooms
         .mutate(&rig.room_id, |room| {
             let member = room.member_by_tab("b").unwrap().clone();
-            ops::task_done(room, &RoomActor::Member(&member), &first, Some("done"), now())
+            ops::task_done(
+                room,
+                &RoomActor::Member(&member),
+                &first,
+                Some("done"),
+                now(),
+            )
         })
         .unwrap();
     let next = rig.submit("b");
@@ -388,7 +578,10 @@ fn input_race_aborts_without_resetting_age_and_no_intent_cannot_report_submitted
     rig.post("message", "api");
     let (offer, prepared) = rig.prepare("b");
     let before = rig.service.store.snapshot().unwrap().entries[&prepared.entry_ids[0]].received_at;
-    rig.service.gate.user_write("pty-b", b"human", || Ok(())).unwrap();
+    rig.service
+        .gate
+        .user_write("pty-b", b"human", || Ok(()))
+        .unwrap();
     assert!(
         rig.service
             .begin(&BeginRequest {
@@ -402,7 +595,10 @@ fn input_race_aborts_without_resetting_age_and_no_intent_cannot_report_submitted
             .is_err()
     );
     assert_eq!(rig.service.batch(&prepared.id).unwrap().phase, "aborted");
-    assert_eq!(rig.service.store.snapshot().unwrap().entries[&prepared.entry_ids[0]].received_at, before);
+    assert_eq!(
+        rig.service.store.snapshot().unwrap().entries[&prepared.entry_ids[0]].received_at,
+        before
+    );
     assert!(
         rig.service
             .receipt(&ReceiptRequest {
@@ -458,7 +654,10 @@ fn failed_persistence_never_grants_a_write_guard_and_receipts_are_idempotent() {
         payload_hash: final_batch.payload_hash.clone(),
         message: None,
     };
-    assert_eq!(rig.service.receipt(&receipt).unwrap().revision, final_batch.revision);
+    assert_eq!(
+        rig.service.receipt(&receipt).unwrap().revision,
+        final_batch.revision
+    );
     let mut mismatch = receipt;
     mismatch.phase = "uncertain".into();
     assert!(rig.service.receipt(&mismatch).is_err());
@@ -500,7 +699,11 @@ fn restart_keeps_uncertain_batch_and_blocks_later_delivery_across_rooms() {
             &mut candidate,
             &sources,
             &restored.registry,
-            &PrepareRequest { session_key: rig.key("b"), offer: offered, operation_id: new_id() },
+            &PrepareRequest {
+                session_key: rig.key("b"),
+                offer: offered,
+                operation_id: new_id()
+            },
             now()
         )
         .unwrap()
@@ -521,9 +724,16 @@ fn restart_keeps_uncertain_batch_and_blocks_later_delivery_across_rooms() {
     restored.resolve(&request).unwrap();
     assert!(restored.resolve(&request).is_err());
     assert_eq!(restored.batch(&prepared.id).unwrap().phase, "abandoned");
-    assert!(!restored.store.snapshot().unwrap().entries.values().any(
-        |entry| prepared.entry_ids.contains(&entry.view.id) && entry.view.delivery_phase == DeliveryPhase::Pending
-    ));
+    assert!(
+        !restored
+            .store
+            .snapshot()
+            .unwrap()
+            .entries
+            .values()
+            .any(|entry| prepared.entry_ids.contains(&entry.view.id)
+                && entry.view.delivery_phase == DeliveryPhase::Pending)
+    );
 }
 
 #[test]
@@ -531,7 +741,12 @@ fn activation_retires_legacy_claims_and_keeps_offline_work() {
     let rig = Rig::new();
     let task = crate::collab::task::build_task(
         new_id(),
-        &crate::collab::task::TaskRequest { from: "a", to: "b", instruction: "direct", parent: None },
+        &crate::collab::task::TaskRequest {
+            from: "a",
+            to: "b",
+            instruction: "direct",
+            parent: None,
+        },
         now(),
         &crate::collab::task::Verdict::Allowed,
     );
@@ -542,35 +757,62 @@ fn activation_retires_legacy_claims_and_keeps_offline_work() {
     assert!(
         !rig.service
             .board
-            .delivery_update(&id, "old-owner", 1, crate::collab::task::DeliveryPhase::Submitting, None)
+            .delivery_update(
+                &id,
+                "old-owner",
+                1,
+                crate::collab::task::DeliveryPhase::Submitting,
+                None
+            )
             .unwrap()
     );
     rig.service.board.abandon_for("b").unwrap();
-    assert_eq!(rig.service.board.get(&id).unwrap().state, crate::collab::task::TaskState::Queued);
+    assert_eq!(
+        rig.service.board.get(&id).unwrap().state,
+        crate::collab::task::TaskState::Queued
+    );
 }
 
 #[test]
 fn pause_collects_and_fyi_does_not_wake_or_inflate_pending_count() {
     let rig = Rig::new();
-    rig.service.rooms.mutate(&rig.room_id, |room| ops::set_paused(room, true, now())).unwrap();
+    rig.service
+        .rooms
+        .mutate(&rig.room_id, |room| ops::set_paused(room, true, now()))
+        .unwrap();
     let id = rig.post("saved while paused", "paused");
     rig.service.sync().unwrap();
-    let view = rig.messages("b").into_iter().find(|m| m.message_id == id).unwrap();
+    let view = rig
+        .messages("b")
+        .into_iter()
+        .find(|m| m.message_id == id)
+        .unwrap();
     assert_eq!(view.waiting_reason.unwrap().code, "room_paused");
-    rig.service.rooms.mutate(&rig.room_id, |room| ops::set_paused(room, false, now())).unwrap();
+    rig.service
+        .rooms
+        .mutate(&rig.room_id, |room| ops::set_paused(room, false, now()))
+        .unwrap();
     assert_eq!(rig.submit("b").message_ids, vec![id]);
     rig.say(
         "a",
         "worker",
         "FYI only",
-        MessageOptions { topic_id: Some("fyi".into()), class: Some(MessageClass::Fyi), ..Default::default() },
+        MessageOptions {
+            topic_id: Some("fyi".into()),
+            class: Some(MessageClass::Fyi),
+            ..Default::default()
+        },
         None,
     );
     rig.service.sync().unwrap();
     let offer = rig.offer("b");
     assert_eq!(
         rig.service
-            .prepare(&PrepareRequest { session_key: rig.key("b"), offer, operation_id: new_id() })
+            .prepare(&PrepareRequest {
+                session_key: rig.key("b"),
+                offer,
+                operation_id: new_id()
+            })
             .unwrap()
             .blocker
             .unwrap()
@@ -596,11 +838,17 @@ fn role_extensions_survive_storage_upgrade_and_same_agent_tabs_stay_distinct() {
     rig.service
         .rooms
         .mutate(&rig.room_id, |room| {
-            room.members.iter_mut().find(|m| m.id == rig.worker).unwrap().extensions =
-                BTreeMap::from([
-                    ("modelOverride".into(), serde_json::json!("role-model")),
-                    ("futureRoleSetting".into(), serde_json::json!({ "enabled": true })),
-                ]);
+            room.members
+                .iter_mut()
+                .find(|m| m.id == rig.worker)
+                .unwrap()
+                .extensions = BTreeMap::from([
+                ("modelOverride".into(), serde_json::json!("role-model")),
+                (
+                    "futureRoleSetting".into(),
+                    serde_json::json!({ "enabled": true }),
+                ),
+            ]);
             Ok(())
         })
         .unwrap();
@@ -609,10 +857,27 @@ fn role_extensions_survive_storage_upgrade_and_same_agent_tabs_stay_distinct() {
     let member = room.members.iter().find(|m| m.id == rig.worker).unwrap();
     assert_eq!(member.model_override.as_deref(), Some("role-model"));
     assert!(!member.extensions.contains_key("modelOverride"));
-    assert_eq!(member.extensions["futureRoleSetting"], serde_json::json!({ "enabled": true }));
-    assert!(room.members.iter().any(|m| m.role == MemberRole::Foreman && m.id == rig.sender));
-    let sessions = rig.service.sessions(rig.root.to_str().unwrap(), None).unwrap();
-    assert_eq!(sessions.sessions.iter().filter(|s| s.agent == "codex").count(), 2);
+    assert_eq!(
+        member.extensions["futureRoleSetting"],
+        serde_json::json!({ "enabled": true })
+    );
+    assert!(
+        room.members
+            .iter()
+            .any(|m| m.role == MemberRole::Foreman && m.id == rig.sender)
+    );
+    let sessions = rig
+        .service
+        .sessions(rig.root.to_str().unwrap(), None)
+        .unwrap();
+    assert_eq!(
+        sessions
+            .sessions
+            .iter()
+            .filter(|s| s.agent == "codex")
+            .count(),
+        2
+    );
     assert_ne!(rig.key("a"), rig.key("b"));
 }
 
@@ -634,7 +899,10 @@ fn latest_page_and_stable_older_cursor_survive_new_arrivals() {
                         &format!("message {index}"),
                         None,
                         false,
-                        &MessageOptions { topic_id: Some("paging".into()), ..Default::default() },
+                        &MessageOptions {
+                            topic_id: Some("paging".into()),
+                            ..Default::default()
+                        },
                         base + index,
                     )
                     .map(|posts| posts[0].message_id.clone())
@@ -642,8 +910,18 @@ fn latest_page_and_stable_older_cursor_survive_new_arrivals() {
                 .collect::<Result<Vec<_>, _>>()
         })
         .unwrap();
-    let latest = rig.service.messages(&rig.key("b"), Some(&rig.room_id), None, Some(10), None).unwrap();
-    assert_eq!(latest.messages.iter().map(|m| m.message_id.clone()).collect::<Vec<_>>(), ids[50..60]);
+    let latest = rig
+        .service
+        .messages(&rig.key("b"), Some(&rig.room_id), None, Some(10), None)
+        .unwrap();
+    assert_eq!(
+        latest
+            .messages
+            .iter()
+            .map(|m| m.message_id.clone())
+            .collect::<Vec<_>>(),
+        ids[50..60]
+    );
     let cursor = latest.next_cursor.unwrap();
     rig.service
         .rooms
@@ -656,25 +934,60 @@ fn latest_page_and_stable_older_cursor_survive_new_arrivals() {
                 "new arrival",
                 None,
                 false,
-                &MessageOptions { topic_id: Some("paging".into()), ..Default::default() },
+                &MessageOptions {
+                    topic_id: Some("paging".into()),
+                    ..Default::default()
+                },
                 base + 100,
             )
         })
         .unwrap();
     rig.service.sync().unwrap();
-    let older = rig.service.messages(&rig.key("b"), Some(&rig.room_id), Some(&cursor), Some(10), None).unwrap();
-    assert_eq!(older.messages.iter().map(|m| m.message_id.clone()).collect::<Vec<_>>(), ids[40..50]);
-    assert!(rig.service.messages(&rig.key("a"), Some(&rig.room_id), Some(&cursor), Some(10), None).is_err());
+    let older = rig
+        .service
+        .messages(
+            &rig.key("b"),
+            Some(&rig.room_id),
+            Some(&cursor),
+            Some(10),
+            None,
+        )
+        .unwrap();
+    assert_eq!(
+        older
+            .messages
+            .iter()
+            .map(|m| m.message_id.clone())
+            .collect::<Vec<_>>(),
+        ids[40..50]
+    );
+    assert!(
+        rig.service
+            .messages(
+                &rig.key("a"),
+                Some(&rig.room_id),
+                Some(&cursor),
+                Some(10),
+                None
+            )
+            .is_err()
+    );
 }
 
 #[test]
 fn two_priority_batches_are_followed_by_the_oldest_normal_item() {
     let rig = Rig::new();
     let normal = rig.post("normal", "normal");
-    let highs: Vec<_> = (0..3).map(|index| rig.post(&format!("high {index}"), &format!("high-{index}"))).collect();
+    let highs: Vec<_> = (0..3)
+        .map(|index| rig.post(&format!("high {index}"), &format!("high-{index}")))
+        .collect();
     rig.service.sync().unwrap();
     for (index, id) in highs.iter().enumerate() {
-        let entry = rig.messages("b").into_iter().find(|m| m.message_id == *id).unwrap();
+        let entry = rig
+            .messages("b")
+            .into_iter()
+            .find(|m| m.message_id == *id)
+            .unwrap();
         rig.service
             .agent(
                 "b",
@@ -713,8 +1026,26 @@ fn uncertain_batches_can_only_be_resolved_by_recipient_or_current_coordinator() 
             message: None,
         })
         .unwrap();
-    assert!(rig.service.agent("outsider", &AgentCommand::BatchGet { batch_id: uncertain.id.clone() }).is_err());
-    assert!(rig.service.agent("a", &AgentCommand::BatchGet { batch_id: uncertain.id.clone() }).is_ok());
+    assert!(
+        rig.service
+            .agent(
+                "outsider",
+                &AgentCommand::BatchGet {
+                    batch_id: uncertain.id.clone()
+                }
+            )
+            .is_err()
+    );
+    assert!(
+        rig.service
+            .agent(
+                "a",
+                &AgentCommand::BatchGet {
+                    batch_id: uncertain.id.clone()
+                }
+            )
+            .is_ok()
+    );
     let command = AgentCommand::Resolve {
         request: ResolveRequest {
             batch: BatchRequest {
@@ -738,16 +1069,27 @@ fn ack_and_withdraw_are_authorized_cas_and_do_not_forge_delivery() {
     let rig = Rig::new();
     let id = rig.post("unread", "api");
     rig.service.sync().unwrap();
-    let entry = rig.messages("b").into_iter().find(|m| m.message_id == id).unwrap();
+    let entry = rig
+        .messages("b")
+        .into_iter()
+        .find(|m| m.message_id == id)
+        .unwrap();
     let ack = AgentCommand::Ack {
-        entries: vec![EntryVersion { id: entry.id.clone(), revision: entry.revision }],
+        entries: vec![EntryVersion {
+            id: entry.id.clone(),
+            revision: entry.revision,
+        }],
         state: Handling::Processed,
         operation_id: "ack".into(),
     };
     assert!(rig.service.agent("a", &ack).is_err());
     rig.service.agent("b", &ack).unwrap();
     rig.service.agent("b", &ack).unwrap();
-    let handled = rig.messages("b").into_iter().find(|m| m.message_id == id).unwrap();
+    let handled = rig
+        .messages("b")
+        .into_iter()
+        .find(|m| m.message_id == id)
+        .unwrap();
     assert_eq!(handled.delivery_phase, DeliveryPhase::Pending);
     assert_eq!(handled.handling_status.code, "processed");
     assert!(
@@ -755,7 +1097,10 @@ fn ack_and_withdraw_are_authorized_cas_and_do_not_forge_delivery() {
             .agent(
                 "a",
                 &AgentCommand::Withdraw {
-                    entries: vec![EntryVersion { id: entry.id.clone(), revision: entry.revision }],
+                    entries: vec![EntryVersion {
+                        id: entry.id.clone(),
+                        revision: entry.revision
+                    }],
                     operation_id: "stale".into()
                 }
             )
@@ -765,13 +1110,20 @@ fn ack_and_withdraw_are_authorized_cas_and_do_not_forge_delivery() {
         .agent(
             "a",
             &AgentCommand::Withdraw {
-                entries: vec![EntryVersion { id: entry.id, revision: handled.revision }],
+                entries: vec![EntryVersion {
+                    id: entry.id,
+                    revision: handled.revision,
+                }],
                 operation_id: "withdraw".into(),
             },
         )
         .unwrap();
     assert_eq!(
-        rig.messages("b").into_iter().find(|m| m.message_id == id).unwrap().delivery_phase,
+        rig.messages("b")
+            .into_iter()
+            .find(|m| m.message_id == id)
+            .unwrap()
+            .delivery_phase,
         DeliveryPhase::Withdrawn
     );
 }
@@ -781,7 +1133,12 @@ fn activation_imports_legacy_submission_intent_as_a_resolvable_uncertain_batch()
     let rig = Rig::setup(false);
     let mut task = crate::collab::task::build_task(
         new_id(),
-        &crate::collab::task::TaskRequest { from: "a", to: "b", instruction: "old task", parent: None },
+        &crate::collab::task::TaskRequest {
+            from: "a",
+            to: "b",
+            instruction: "old task",
+            parent: None,
+        },
         now(),
         &crate::collab::task::Verdict::Allowed,
     );
@@ -789,12 +1146,31 @@ fn activation_imports_legacy_submission_intent_as_a_resolvable_uncertain_batch()
     let id = task.id.clone();
     rig.service.board.insert(task).unwrap();
     assert!(rig.service.board.claim_delivery(&id, "legacy").unwrap());
-    rig.service.board.delivery_update(&id, "legacy", 1, crate::collab::task::DeliveryPhase::Submitting, None).unwrap();
+    rig.service
+        .board
+        .delivery_update(
+            &id,
+            "legacy",
+            1,
+            crate::collab::task::DeliveryPhase::Submitting,
+            None,
+        )
+        .unwrap();
     rig.service.activate("switch".into(), true).unwrap();
     let batch = rig.service.batch(&format!("legacy:{id}")).unwrap();
     assert_eq!(batch.phase, "uncertain");
     assert_eq!(batch.attempt_id, "legacy");
-    assert_eq!(rig.service.pending().unwrap().recipients.iter().find(|r| r.tab_id == "b").unwrap().pending_count, 1);
+    assert_eq!(
+        rig.service
+            .pending()
+            .unwrap()
+            .recipients
+            .iter()
+            .find(|r| r.tab_id == "b")
+            .unwrap()
+            .pending_count,
+        1
+    );
 }
 
 #[test]
@@ -806,11 +1182,18 @@ fn reopened_task_rejects_completion_from_the_previous_assignment_generation() {
         .rooms
         .mutate(&rig.room_id, |room| {
             let member = room.member_by_tab("a").unwrap().clone();
-            ops::task_done(room, &RoomActor::Member(&member), &task, Some("first lifecycle done"), now())?;
+            ops::task_done(
+                room,
+                &RoomActor::Member(&member),
+                &task,
+                Some("first lifecycle done"),
+                now(),
+            )?;
             ops::task_reopen(room, &RoomActor::Member(&member), &task, now() - 10_000)
         })
         .unwrap();
-    let directory = crate::rooms::member_directory(rig.service.rooms.clone(), rig.service.registry.clone());
+    let directory =
+        crate::rooms::member_directory(rig.service.rooms.clone(), rig.service.registry.clone());
     assert!(
         directory
             .handle(
@@ -826,7 +1209,18 @@ fn reopened_task_rejects_completion_from_the_previous_assignment_generation() {
             )
             .is_err()
     );
-    assert!(rig.submit("b").payload.contains("--generation 2"));
+    let payload = rig.submit("b").payload;
+    let reference: TaskRef = serde_json::from_str(
+        payload
+            .lines()
+            .find_map(|line| line.strip_prefix("Task reference: "))
+            .expect("current task reference"),
+    )
+    .unwrap();
+    assert_eq!(reference.generation, 2);
+    assert_eq!(reference.id, task);
+    assert_eq!(reference.room_id.as_deref(), Some(rig.room_id.as_str()));
+    assert!(payload.contains("A2AReportTask"), "{payload}");
 }
 
 #[test]
@@ -853,10 +1247,24 @@ fn oversized_task_delivers_a_stable_full_text_reference_and_keeps_its_full_outco
     assert!(prepared.payload.len() <= MAX_BATCH_BYTES);
     let message = rig
         .service
-        .agent("b", &AgentCommand::Read { message_id: prepared.message_ids[0].clone(), cursor: None, limit: None })
+        .agent(
+            "b",
+            &AgentCommand::Read {
+                message_id: prepared.message_ids[0].clone(),
+                cursor: None,
+                limit: None,
+            },
+        )
         .unwrap();
-    let belfry_protocol::ResponseData::CollaborationInbox { result } = message else { panic!() };
-    assert!(result["messages"][0]["text"].as_str().unwrap().contains(&outcome));
+    let belfry_protocol::ResponseData::CollaborationInbox { result } = message else {
+        panic!()
+    };
+    assert!(
+        result["messages"][0]["text"]
+            .as_str()
+            .unwrap()
+            .contains(&outcome)
+    );
 }
 
 #[test]
@@ -875,7 +1283,14 @@ fn references_cross_recipient_sessions_and_older_question_details_refresh() {
     )[0]
     .clone();
     rig.submit("b");
-    let question = rig.messages("b").into_iter().find(|m| m.message_id == original).unwrap().questions[0].id.clone();
+    let question = rig
+        .messages("b")
+        .into_iter()
+        .find(|m| m.message_id == original)
+        .unwrap()
+        .questions[0]
+        .id
+        .clone();
     rig.service
         .rooms
         .mutate(&rig.room_id, |room| {
@@ -900,16 +1315,52 @@ fn references_cross_recipient_sessions_and_older_question_details_refresh() {
         "b",
         "lead",
         "the decision is yes",
-        MessageOptions { answers: vec![question], operation_id: Some("history-answer".into()), ..Default::default() },
+        MessageOptions {
+            answers: vec![question],
+            operation_id: Some("history-answer".into()),
+            ..Default::default()
+        },
         None,
     )[0]
     .clone();
-    let received = rig.messages("a").into_iter().find(|m| m.message_id == reply).unwrap();
-    assert_eq!(received.reply_preview.as_ref().unwrap().message_id, original);
-    assert!(received.reply_preview.as_ref().unwrap().text.contains("question before history"));
-    let refreshed = rig.service.messages(&rig.key("b"), Some(&rig.room_id), None, None, Some(&original)).unwrap();
+    let received = rig
+        .messages("a")
+        .into_iter()
+        .find(|m| m.message_id == reply)
+        .unwrap();
+    assert_eq!(
+        received.reply_preview.as_ref().unwrap().message_id,
+        original
+    );
+    assert!(
+        received
+            .reply_preview
+            .as_ref()
+            .unwrap()
+            .text
+            .contains("question before history")
+    );
+    let refreshed = rig
+        .service
+        .messages(
+            &rig.key("b"),
+            Some(&rig.room_id),
+            None,
+            None,
+            Some(&original),
+        )
+        .unwrap();
     assert_eq!(refreshed.messages[0].questions[0].state, "replied");
-    let cross_session = rig.service.messages(&rig.key("a"), Some(&rig.room_id), None, None, Some(&original)).unwrap();
+    let cross_session = rig
+        .service
+        .messages(
+            &rig.key("a"),
+            Some(&rig.room_id),
+            None,
+            None,
+            Some(&original),
+        )
+        .unwrap();
     assert_eq!(cross_session.messages[0].recipient.tab_id, "b");
     assert_eq!(cross_session.messages[0].questions[0].state, "replied");
 }
@@ -933,16 +1384,41 @@ fn deleted_room_keeps_only_the_original_recipient_recovery_right_and_never_repos
                 message: None,
             })
             .unwrap();
-        let other = rig.service.rooms.create("Other room", rig.root.to_str().unwrap(), "keep working").unwrap();
+        let other = rig
+            .service
+            .rooms
+            .create("Other room", rig.root.to_str().unwrap(), "keep working")
+            .unwrap();
         let (next, _) = rig
             .service
             .rooms
             .mutate(&other.id, |room| {
-                ops::add_member(room, "a", "codex", "lead", "coordinate", false, now() - 20_000)?;
-                ops::add_member(room, "b", "codex", "worker", "implement", false, now() - 20_000)?;
+                ops::add_member(
+                    room,
+                    "a",
+                    "codex",
+                    "lead",
+                    "coordinate",
+                    false,
+                    now() - 20_000,
+                )?;
+                ops::add_member(
+                    room,
+                    "b",
+                    "codex",
+                    "worker",
+                    "implement",
+                    false,
+                    now() - 20_000,
+                )?;
                 let delivered: Vec<_> = room
                     .all_messages()
-                    .flat_map(|message| message.to.iter().map(move |member| (message.id.clone(), member.clone())))
+                    .flat_map(|message| {
+                        message
+                            .to
+                            .iter()
+                            .map(move |member| (message.id.clone(), member.clone()))
+                    })
                     .collect();
                 for (message, member) in delivered {
                     ops::record_delivery(room, &message, &member, now() - 20_000);
@@ -966,11 +1442,20 @@ fn deleted_room_keeps_only_the_original_recipient_recovery_right_and_never_repos
         let offered = rig.offer("b");
         let blocked = rig
             .service
-            .prepare(&PrepareRequest { session_key: rig.key("b"), offer: offered, operation_id: new_id() })
+            .prepare(&PrepareRequest {
+                session_key: rig.key("b"),
+                offer: offered,
+                operation_id: new_id(),
+            })
             .unwrap();
         assert_eq!(blocked.blocker.unwrap().code, "uncertain");
-        let read = AgentCommand::BatchGet { batch_id: batch.id.clone() };
-        assert!(rig.service.agent("a", &read).is_err(), "another room's coordinator gains no recovery rights");
+        let read = AgentCommand::BatchGet {
+            batch_id: batch.id.clone(),
+        };
+        assert!(
+            rig.service.agent("a", &read).is_err(),
+            "another room's coordinator gains no recovery rights"
+        );
         assert!(rig.service.agent("outsider", &read).is_err());
         rig.service.agent("b", &read).unwrap();
         let resolve = AgentCommand::Resolve {
@@ -1017,7 +1502,10 @@ fn deleted_room_keeps_only_the_original_recipient_recovery_right_and_never_repos
 #[test]
 fn message_operation_receipts_survive_projection_trimming_and_restart() {
     let rig = Rig::new();
-    let options = MessageOptions { operation_id: Some("durable-message-operation".into()), ..Default::default() };
+    let options = MessageOptions {
+        operation_id: Some("durable-message-operation".into()),
+        ..Default::default()
+    };
     let original = rig.say("a", "worker", "exact original", options.clone(), None)[0].clone();
     rig.service
         .rooms
@@ -1037,7 +1525,10 @@ fn message_operation_receipts_survive_projection_trimming_and_restart() {
                     now(),
                 )?;
             }
-            assert!(room.message(&original).is_none(), "the acceptance receipt must outlive the message window");
+            assert!(
+                room.message(&original).is_none(),
+                "the acceptance receipt must outlive the message window"
+            );
             Ok(())
         })
         .unwrap();
@@ -1060,7 +1551,11 @@ fn message_operation_receipts_survive_projection_trimming_and_restart() {
         .unwrap();
     assert_eq!(retried[0].message_id, original);
     assert_eq!(room.ledger_bytes, ledger_before);
-    assert!(room.delivery_outbox.iter().all(|entry| entry.message_id != original));
+    assert!(
+        room.delivery_outbox
+            .iter()
+            .all(|entry| entry.message_id != original)
+    );
     assert!(
         reopened
             .mutate(&rig.room_id, |room| {
@@ -1085,13 +1580,19 @@ fn one_answer_operation_splits_by_asking_author_and_rejects_unrelated_questions(
     let rig = Rig::new();
     rig.service
         .rooms
-        .mutate(&rig.room_id, |room| ops::add_member(room, "c", "codex", "peer", "ask", false, now() - 20_000))
+        .mutate(&rig.room_id, |room| {
+            ops::add_member(room, "c", "codex", "peer", "ask", false, now() - 20_000)
+        })
         .unwrap();
     let first = rig.say(
         "a",
         "worker",
         "first author",
-        MessageOptions { topic_id: Some("joint".into()), questions: vec!["a?".into()], ..Default::default() },
+        MessageOptions {
+            topic_id: Some("joint".into()),
+            questions: vec!["a?".into()],
+            ..Default::default()
+        },
         None,
     )[0]
     .clone();
@@ -1099,7 +1600,11 @@ fn one_answer_operation_splits_by_asking_author_and_rejects_unrelated_questions(
         "c",
         "worker",
         "second author",
-        MessageOptions { topic_id: Some("joint".into()), questions: vec!["c?".into()], ..Default::default() },
+        MessageOptions {
+            topic_id: Some("joint".into()),
+            questions: vec!["c?".into()],
+            ..Default::default()
+        },
         None,
     )[0]
     .clone();
@@ -1107,12 +1612,23 @@ fn one_answer_operation_splits_by_asking_author_and_rejects_unrelated_questions(
         "a",
         "worker",
         "other topic",
-        MessageOptions { topic_id: Some("other".into()), questions: vec!["other?".into()], ..Default::default() },
+        MessageOptions {
+            topic_id: Some("other".into()),
+            questions: vec!["other?".into()],
+            ..Default::default()
+        },
         None,
     )[0]
     .clone();
-    let question =
-        |id: &str| rig.messages("b").into_iter().find(|entry| entry.message_id == id).unwrap().questions[0].id.clone();
+    let question = |id: &str| {
+        rig.messages("b")
+            .into_iter()
+            .find(|entry| entry.message_id == id)
+            .unwrap()
+            .questions[0]
+            .id
+            .clone()
+    };
     let first_q = question(&first);
     let second_q = question(&second);
     let other_q = question(&unrelated);
@@ -1126,7 +1642,11 @@ fn one_answer_operation_splits_by_asking_author_and_rejects_unrelated_questions(
                 "shared answer",
                 None,
                 false,
-                &MessageOptions { answers: questions, operation_id: Some(operation.into()), ..Default::default() },
+                &MessageOptions {
+                    answers: questions,
+                    operation_id: Some(operation.into()),
+                    ..Default::default()
+                },
                 now(),
             )
         })
@@ -1134,16 +1654,30 @@ fn one_answer_operation_splits_by_asking_author_and_rejects_unrelated_questions(
     let original_bytes = fs::read(rig.root.join("rooms/rooms.json")).unwrap();
     assert!(answer("a", vec![first_q.clone()], "unauthorized").is_err());
     assert!(answer("b", vec![first_q.clone(), other_q], "wrong-topic").is_err());
-    assert_eq!(fs::read(rig.root.join("rooms/rooms.json")).unwrap(), original_bytes);
-    let (replies, _) = answer("b", vec![first_q.clone(), second_q.clone()], "joint-answer").unwrap();
+    assert_eq!(
+        fs::read(rig.root.join("rooms/rooms.json")).unwrap(),
+        original_bytes
+    );
+    let (replies, _) =
+        answer("b", vec![first_q.clone(), second_q.clone()], "joint-answer").unwrap();
     assert_eq!(replies.len(), 2);
     assert!(replies.iter().all(|reply| reply.to.len() == 1));
-    assert_eq!(answer("b", vec![first_q.clone(), second_q.clone()], "joint-answer").unwrap().0, replies);
-    let room = RoomStore::load(Some(rig.root.join("rooms"))).get(&rig.room_id).unwrap();
+    assert_eq!(
+        answer("b", vec![first_q.clone(), second_q.clone()], "joint-answer")
+            .unwrap()
+            .0,
+        replies
+    );
+    let room = RoomStore::load(Some(rig.root.join("rooms")))
+        .get(&rig.room_id)
+        .unwrap();
     for (original, q) in [(first, first_q), (second, second_q)] {
         let message = room.message(&original).unwrap();
         assert!(message.awaiting().is_empty());
-        let reply = replies.iter().find(|reply| reply.to[0] == message.by).unwrap();
+        let reply = replies
+            .iter()
+            .find(|reply| reply.to[0] == message.by)
+            .unwrap();
         let received = room.message(&reply.message_id).unwrap();
         assert_eq!(received.inbox.as_ref().unwrap().answers, vec![q]);
         assert_eq!(received.reply_to.as_ref(), Some(&original));
@@ -1157,35 +1691,59 @@ fn source_answer_revisions_advance_even_before_background_import() {
         "a",
         "worker",
         "two obligations",
-        MessageOptions { questions: vec!["first?".into(), "second?".into()], ..Default::default() },
+        MessageOptions {
+            questions: vec!["first?".into(), "second?".into()],
+            ..Default::default()
+        },
         None,
     )[0]
     .clone();
     rig.service.sync().unwrap();
-    let original_entry = rig.messages("b").into_iter().find(|message| message.message_id == original).unwrap();
+    let original_entry = rig
+        .messages("b")
+        .into_iter()
+        .find(|message| message.message_id == original)
+        .unwrap();
     rig.say(
         "b",
         "lead",
         "answer one",
-        MessageOptions { answers: vec![original_entry.questions[0].id.clone()], ..Default::default() },
+        MessageOptions {
+            answers: vec![original_entry.questions[0].id.clone()],
+            ..Default::default()
+        },
         None,
     );
-    let partial = rig.messages("b").into_iter().find(|message| message.message_id == original).unwrap();
+    let partial = rig
+        .messages("b")
+        .into_iter()
+        .find(|message| message.message_id == original)
+        .unwrap();
     rig.say(
         "b",
         "lead",
         "answer two",
-        MessageOptions { answers: vec![original_entry.questions[1].id.clone()], ..Default::default() },
+        MessageOptions {
+            answers: vec![original_entry.questions[1].id.clone()],
+            ..Default::default()
+        },
         None,
     );
-    let complete = rig.messages("b").into_iter().find(|message| message.message_id == original).unwrap();
+    let complete = rig
+        .messages("b")
+        .into_iter()
+        .find(|message| message.message_id == original)
+        .unwrap();
     assert!(complete.revision > partial.revision && partial.revision > original_entry.revision);
     assert!(
         rig.service
             .agent(
                 "b",
                 &AgentCommand::Ack {
-                    entries: vec![EntryVersion { id: partial.id, revision: partial.revision }],
+                    entries: vec![EntryVersion {
+                        id: partial.id,
+                        revision: partial.revision
+                    }],
                     state: Handling::Processed,
                     operation_id: "stale-partial".into()
                 }
@@ -1198,8 +1756,11 @@ fn source_answer_revisions_advance_even_before_background_import() {
 fn prepare_operation_retry_after_begin_returns_the_same_batch_without_a_second_guard() {
     let rig = Rig::new();
     rig.post("frozen once", "api");
-    let request =
-        PrepareRequest { session_key: rig.key("b"), offer: rig.offer("b"), operation_id: "prepare-once".into() };
+    let request = PrepareRequest {
+        session_key: rig.key("b"),
+        offer: rig.offer("b"),
+        operation_id: "prepare-once".into(),
+    };
     let prepared = rig.service.prepare(&request).unwrap().batch.unwrap();
     let begin = rig.begin(request.offer.clone(), &prepared);
     let replay = rig.service.prepare(&request).unwrap().batch.unwrap();
@@ -1227,7 +1788,12 @@ fn legacy_direct_work_waits_for_its_fixed_target_project_then_pins_it() {
     let rig = Rig::new();
     let task = crate::collab::task::build_task(
         new_id(),
-        &crate::collab::task::TaskRequest { from: "a", to: "b", instruction: "legacy pending", parent: None },
+        &crate::collab::task::TaskRequest {
+            from: "a",
+            to: "b",
+            instruction: "legacy pending",
+            parent: None,
+        },
         now(),
         &crate::collab::task::Verdict::Allowed,
     );
@@ -1237,19 +1803,41 @@ fn legacy_direct_work_waits_for_its_fixed_target_project_then_pins_it() {
     rig.service.registry.replace(vec![]);
     rig.service.sync().unwrap();
     assert!(rig.service.board.get(&id).is_some());
-    assert!(!rig.service.store.snapshot().unwrap().entries.values().any(|entry| entry.view.message_id == id));
+    assert!(
+        !rig.service
+            .store
+            .snapshot()
+            .unwrap()
+            .entries
+            .values()
+            .any(|entry| entry.view.message_id == id)
+    );
     rig.service.registry.replace(roster.clone());
     rig.service.sync().unwrap();
     let expected_root = source::normalize_root(rig.root.to_str().unwrap());
-    assert_eq!(rig.service.board.get(&id).unwrap().project_root.as_deref(), Some(expected_root.as_str()));
+    assert_eq!(
+        rig.service.board.get(&id).unwrap().project_root.as_deref(),
+        Some(expected_root.as_str())
+    );
     let mut moved = roster;
-    moved.iter_mut().find(|session| session.tab_id == "b").unwrap().project_root =
-        Some(rig.root.join("another").to_string_lossy().into_owned());
+    moved
+        .iter_mut()
+        .find(|session| session.tab_id == "b")
+        .unwrap()
+        .project_root = Some(rig.root.join("another").to_string_lossy().into_owned());
     rig.service.registry.replace(moved);
     rig.service.sync().unwrap();
-    let entry = rig.messages("b").into_iter().find(|entry| entry.message_id == id);
+    let entry = rig
+        .messages("b")
+        .into_iter()
+        .find(|entry| entry.message_id == id);
     assert!(entry.is_none(), "room-filtered reads exclude direct work");
-    let direct = rig.service.messages(&rig.key("b"), None, None, None, Some(&id)).unwrap().messages.remove(0);
+    let direct = rig
+        .service
+        .messages(&rig.key("b"), None, None, None, Some(&id))
+        .unwrap()
+        .messages
+        .remove(0);
     assert_eq!(direct.recipient.project_root, expected_root);
     assert_eq!(direct.waiting_reason.unwrap().code, "runtime_not_ready");
 }
@@ -1261,13 +1849,22 @@ fn declared_wait_prioritizes_its_answer_and_returns_without_blocking_the_turn() 
         "a",
         "worker",
         "decision needed",
-        MessageOptions { questions: vec!["which schema?".into()], ..Default::default() },
+        MessageOptions {
+            questions: vec!["which schema?".into()],
+            ..Default::default()
+        },
         None,
     )[0]
     .clone();
     rig.submit("b");
-    let question =
-        rig.messages("b").into_iter().find(|entry| entry.message_id == original).unwrap().questions[0].id.clone();
+    let question = rig
+        .messages("b")
+        .into_iter()
+        .find(|entry| entry.message_id == original)
+        .unwrap()
+        .questions[0]
+        .id
+        .clone();
     rig.service
         .agent(
             "a",
@@ -1279,20 +1876,46 @@ fn declared_wait_prioritizes_its_answer_and_returns_without_blocking_the_turn() 
             },
         )
         .unwrap();
-    let ordinary = rig.say("b", "lead", "ordinary later work", MessageOptions::default(), None)[0].clone();
-    let reply =
-        rig.say("b", "lead", "schema answer", MessageOptions { answers: vec![question], ..Default::default() }, None)
-            [0]
-        .clone();
+    let ordinary = rig.say(
+        "b",
+        "lead",
+        "ordinary later work",
+        MessageOptions::default(),
+        None,
+    )[0]
+    .clone();
+    let reply = rig.say(
+        "b",
+        "lead",
+        "schema answer",
+        MessageOptions {
+            answers: vec![question],
+            ..Default::default()
+        },
+        None,
+    )[0]
+    .clone();
     assert_eq!(rig.submit("a").message_ids, vec![reply]);
     assert_eq!(rig.submit("a").message_ids, vec![ordinary]);
     rig.service
         .agent(
             "a",
-            &AgentCommand::Wait { question_ids: vec![], task: None, clear: true, operation_id: "clear-wait".into() },
+            &AgentCommand::Wait {
+                question_ids: vec![],
+                task: None,
+                clear: true,
+                operation_id: "clear-wait".into(),
+            },
         )
         .unwrap();
-    assert!(!rig.service.store.snapshot().unwrap().waits.contains_key(&rig.key("a")));
+    assert!(
+        !rig.service
+            .store
+            .snapshot()
+            .unwrap()
+            .waits
+            .contains_key(&rig.key("a"))
+    );
 }
 
 #[test]
@@ -1313,7 +1936,10 @@ fn continuous_arrivals_have_a_bounded_debounce_and_batches_obey_capacity() {
                         &format!("arrival {index}"),
                         None,
                         false,
-                        &MessageOptions { topic_id: Some("continuous".into()), ..Default::default() },
+                        &MessageOptions {
+                            topic_id: Some("continuous".into()),
+                            ..Default::default()
+                        },
                         if index == 0 { at - 6_000 } else { at },
                     )
                     .map(|posts| posts[0].message_id.clone())
@@ -1333,7 +1959,8 @@ fn continuous_arrivals_have_a_bounded_debounce_and_batches_obey_capacity() {
         .entries
         .values()
         .filter(|entry| {
-            messages.contains(&entry.view.message_id) && entry.view.delivery_phase == DeliveryPhase::Pending
+            messages.contains(&entry.view.message_id)
+                && entry.view.delivery_phase == DeliveryPhase::Pending
         })
         .count();
     assert_eq!(pending, 1);
@@ -1364,7 +1991,13 @@ fn unknown_inbox_schema_is_readonly_and_preserves_the_original_file() {
             })
             .is_err()
     );
-    assert!(restored.sessions(rig.root.to_str().unwrap(), None).unwrap().load_error.is_some());
+    assert!(
+        restored
+            .sessions(rig.root.to_str().unwrap(), None)
+            .unwrap()
+            .load_error
+            .is_some()
+    );
     assert_eq!(fs::read(&path).unwrap(), original);
 }
 
@@ -1373,7 +2006,9 @@ fn withdrawing_one_recipient_cancels_only_their_unanswered_obligations() {
     let rig = Rig::new();
     rig.service
         .rooms
-        .mutate(&rig.room_id, |room| ops::add_member(room, "c", "codex", "peer", "answer", false, now()))
+        .mutate(&rig.room_id, |room| {
+            ops::add_member(room, "c", "codex", "peer", "answer", false, now())
+        })
         .unwrap();
     let (posts, _) = rig
         .service
@@ -1387,18 +2022,43 @@ fn withdrawing_one_recipient_cancels_only_their_unanswered_obligations() {
                 "questions for both",
                 None,
                 false,
-                &MessageOptions { questions: vec!["first?".into(), "second?".into()], ..Default::default() },
+                &MessageOptions {
+                    questions: vec!["first?".into(), "second?".into()],
+                    ..Default::default()
+                },
                 now(),
             )
         })
         .unwrap();
     let id = &posts[0].message_id;
-    let question =
-        rig.messages("b").into_iter().find(|message| &message.message_id == id).unwrap().questions[0].id.clone();
-    rig.say("b", "lead", "first answer", MessageOptions { answers: vec![question], ..Default::default() }, None);
-    let entry = rig.messages("b").into_iter().find(|message| &message.message_id == id).unwrap();
+    let question = rig
+        .messages("b")
+        .into_iter()
+        .find(|message| &message.message_id == id)
+        .unwrap()
+        .questions[0]
+        .id
+        .clone();
+    rig.say(
+        "b",
+        "lead",
+        "first answer",
+        MessageOptions {
+            answers: vec![question],
+            ..Default::default()
+        },
+        None,
+    );
+    let entry = rig
+        .messages("b")
+        .into_iter()
+        .find(|message| &message.message_id == id)
+        .unwrap();
     let withdraw = AgentCommand::Withdraw {
-        entries: vec![EntryVersion { id: entry.id.clone(), revision: entry.revision }],
+        entries: vec![EntryVersion {
+            id: entry.id.clone(),
+            revision: entry.revision,
+        }],
         operation_id: "withdraw-only-b".into(),
     };
     let before = fs::read(rig.root.join("rooms/rooms.json")).unwrap();
@@ -1406,19 +2066,38 @@ fn withdrawing_one_recipient_cancels_only_their_unanswered_obligations() {
     assert!(rig.service.agent("a", &withdraw).is_err());
     assert_eq!(fs::read(rig.root.join("rooms/rooms.json")).unwrap(), before);
     rig.service.agent("a", &withdraw).unwrap();
-    let withdrawn = rig.messages("b").into_iter().find(|message| &message.message_id == id).unwrap();
+    let withdrawn = rig
+        .messages("b")
+        .into_iter()
+        .find(|message| &message.message_id == id)
+        .unwrap();
     assert_eq!(withdrawn.delivery_phase, DeliveryPhase::Withdrawn);
     assert_eq!(
-        withdrawn.questions.iter().map(|question| question.state.as_str()).collect::<Vec<_>>(),
+        withdrawn
+            .questions
+            .iter()
+            .map(|question| question.state.as_str())
+            .collect::<Vec<_>>(),
         ["replied", "cancelled"]
     );
-    let room = RoomStore::load(Some(rig.root.join("rooms"))).get(&rig.room_id).unwrap();
+    let room = RoomStore::load(Some(rig.root.join("rooms")))
+        .get(&rig.room_id)
+        .unwrap();
     let peer = room.member_by_tab("c").unwrap();
     assert_eq!(room.message(id).unwrap().awaiting(), vec![peer.id.clone()]);
     assert!(!room.message(id).unwrap().replied_by.contains(&rig.worker));
-    let to_peer =
-        rig.service.messages(&rig.key("c"), Some(&rig.room_id), None, None, Some(id)).unwrap().messages.remove(0);
-    assert!(to_peer.questions.iter().all(|question| question.state == "open"));
+    let to_peer = rig
+        .service
+        .messages(&rig.key("c"), Some(&rig.room_id), None, None, Some(id))
+        .unwrap()
+        .messages
+        .remove(0);
+    assert!(
+        to_peer
+            .questions
+            .iter()
+            .all(|question| question.state == "open")
+    );
     assert!(
         rig.service
             .rooms
@@ -1431,7 +2110,10 @@ fn withdrawing_one_recipient_cancels_only_their_unanswered_obligations() {
                     "late answer",
                     None,
                     false,
-                    &MessageOptions { answers: vec![entry.questions[1].id.clone()], ..Default::default() },
+                    &MessageOptions {
+                        answers: vec![entry.questions[1].id.clone()],
+                        ..Default::default()
+                    },
                     now(),
                 )
             })
@@ -1460,7 +2142,13 @@ fn interrupted_before_any_paste_returns_to_pending_and_is_delivered_next() {
     assert_eq!(receipt.phase, "aborted");
     rig.post("second", "api");
     let delivered = rig.submit("b");
-    assert!(delivered.entry_ids.iter().any(|id| prepared.entry_ids.contains(id)), "original entry is redelivered");
+    assert!(
+        delivered
+            .entry_ids
+            .iter()
+            .any(|id| prepared.entry_ids.contains(id)),
+        "original entry is redelivered"
+    );
 }
 
 #[test]
