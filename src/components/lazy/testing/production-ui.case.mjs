@@ -63,9 +63,9 @@ for (const platform of ["macos", "windows"]) {
             font: getComputedStyle(document.body).fontFamily, image: getComputedStyle(document.querySelector('.app-background'), '::before').backgroundImage };
         })()`);
         assert.equal(surfaces.platform, platform);
-        assert.deepEqual([surfaces.right, surfaces.bottom, surfaces.top], [8, 8, platform === "macos" ? 8 : 48]);
+        assert.deepEqual([surfaces.right, surfaces.bottom, surfaces.top], [0, 0, platform === "macos" ? 0 : 40]);
         assert.equal(surfaces.canvas, "rgba(0, 0, 0, 0)", "the new content surface must let the wallpaper through");
-        assert.notEqual(surfaces.shadow, "none");
+        assert.equal(surfaces.shadow, "none", "wallpaper content meets the window edges without a floating card frame");
         assert.ok(Math.abs(surfaces.sidebar[3] - Math.round(255 * (mode === "dark" ? .9 : .94))) <= 1);
         assert.ok(Math.abs(surfaces.body[3] - Math.round(255 * SAVED_WALLPAPER.veil[mode])) <= 1, "terminal retains the user's per-theme veil");
         assert.equal(surfaces.active[3], 255, "current session remains opaque on contrasting wallpapers");
@@ -79,7 +79,7 @@ for (const platform of ["macos", "windows"]) {
         assert.ok(await view.cdp.evaluate(`(() => {
           const a = document.querySelector('.popover--project').getBoundingClientRect(), b = document.querySelector('.workbench').getBoundingClientRect();
           return a.left >= b.left && a.right <= b.right && a.bottom <= b.bottom;
-        })()`), "project popup fits inside the rounded content surface");
+        })()`), "project popup fits inside the content surface");
         await clickText(view, '项目设置', '.popover--project');
         await waitFor(view, "!!document.querySelector('.project-library')");
         await press(view, "Escape");
@@ -91,7 +91,7 @@ for (const platform of ["macos", "windows"]) {
         await click(view, '.sidebar-context__collapse');
         await waitFor(view, "document.querySelector('.app-shell').classList.contains('is-collapsed')");
         await evidence(view, `${platform}-collapsed-${mode}-${width}x${height}`, ['.workbench-toolbar > button:first-child']);
-        assert.equal(await view.cdp.evaluate("document.querySelector('.workbench').getBoundingClientRect().left"), 8);
+        assert.equal(await view.cdp.evaluate("document.querySelector('.workbench').getBoundingClientRect().left"), 0);
         await click(view, '.workbench-toolbar > button:first-child');
         await waitFor(view, "!document.querySelector('.app-shell').classList.contains('is-collapsed')");
         await intact(view, baseline);
